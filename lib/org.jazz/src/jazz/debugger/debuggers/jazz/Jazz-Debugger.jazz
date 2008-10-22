@@ -77,32 +77,6 @@
     (when validate-liveness?
       (validate-processes))
     processes)
-
-
-  (method (attach-process process-proxy)
-    (unless (member? process-proxy processes test: process=?)
-      (set! processes (append! processes (list process-proxy)))
-      (when (not (get-focused-process))
-        (focus-process (new Debugged-Process self process-proxy process-proxy)))
-      (update~ (get-processes-view))))
-  
-  
-  (method (update-process process-proxy)
-    (when (remote-proxy? process-proxy)
-      (let ((actual (find-in processes process-proxy test: process=?)))
-        (when (and actual (remote-proxy? actual))
-          (set-values~ actual (get-values~ process-proxy))
-          (update~ (get-processes-view))))))
-
-
-  (method (detach-process process-proxy)
-    (when (member? process-proxy processes test: process=?)
-      (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
-      (set! processes (remove! process-proxy processes test: process=?))
-      (let ((focused-process (get-focused-process)))
-        (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
-          (focus-process (and (not-null? processes) (new Debugged-Process self (car processes) (car processes))))))
-      (update~ (get-processes-view))))
   
   
   (method (detach-processes)
@@ -112,11 +86,6 @@
                   (when (not (proxy=? process-proxy local-process))
                     (detach-process~ process-proxy)))
                 processes)))
-  
-  
-  ;;;
-  ;;;; Validate
-  ;;;
   
   
   (method (validate-processes)
@@ -309,6 +278,42 @@
   
   
   ;;;
+  ;;;; Callbacks
+  ;;;
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+
+
+  (method (attach-process process-proxy)
+    (unless (member? process-proxy processes test: process=?)
+      (set! processes (append! processes (list process-proxy)))
+      (when (not (get-focused-process))
+        (focus-process (new Debugged-Process self process-proxy process-proxy)))
+      (update~ (get-processes-view))))
+  
+  
+  (method (update-process process-proxy)
+    (when (remote-proxy? process-proxy)
+      (let ((actual (find-in processes process-proxy test: process=?)))
+        (when (and actual (remote-proxy? actual))
+          (set-values~ actual (get-values~ process-proxy))
+          (update~ (get-processes-view))))))
+
+
+  (method (detach-process process-proxy)
+    (when (member? process-proxy processes test: process=?)
+      (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
+      (set! processes (remove! process-proxy processes test: process=?))
+      (let ((focused-process (get-focused-process)))
+        (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
+          (focus-process (and (not-null? processes) (new Debugged-Process self (car processes) (car processes))))))
+      (update~ (get-processes-view))))
+  
+  
+  ;;;
   ;;;; Console
   ;;;
   
@@ -337,6 +342,15 @@
   
   
   ;;;
+  ;;;; Status
+  ;;;
+  
+  
+  (method public (status-message message)
+    (user-message message))
+  
+  
+  ;;;
   ;;;; Window
   ;;;
   
@@ -346,16 +360,7 @@
   
   
   ;;;
-  ;;;; Debugging
-  ;;;
-  
-  
-  (method public (status-message message)
-    (user-message message))
-  
-  
-  ;;;
-  ;;;; Debuggee
+  ;;;; Stop
   ;;;
   
   

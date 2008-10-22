@@ -97,11 +97,25 @@
 (define rdi-version1 '());(gambit-debuggee-version 0))
 (define rdi-version2 '());(gambit-debugger-version 0))
 
+(define (allow-sharing! port)
+  (output-port-readtable-set!
+   port
+   (readtable-sharing-allowed?-set
+    (output-port-readtable port)
+    'serialize))
+  (input-port-readtable-set!
+   port
+   (readtable-sharing-allowed?-set
+    (input-port-readtable port)
+    'serialize)))
+
 (define (rdi-open-client rdi)
   (let ((connection
          (open-tcp-client
           (list server-address: (rdi-address rdi)
                 port-number: (rdi-port-num rdi)))))
+
+    (allow-sharing! connection)
 
     (write rdi-version1 connection)
     (force-output connection)
@@ -122,6 +136,7 @@
     (let ((connection
            (read listen-port)))
       (close-port listen-port)
+      (allow-sharing! connection)
       (let ((request (read connection)))
         (if (not (equal? request rdi-version1))
             (error "unexpected debuggee version")
@@ -139,7 +154,7 @@
   (make-thread
    (lambda ()
      (let loop ()
-       (let ((msg (read connection)))
+       (let ((msg (rdi-recv rdi connection)))
          (if (not (eof-object? msg))
              (begin
                (thread-send (rdi-writer-thread rdi) msg)
@@ -165,14 +180,12 @@
       (case (car msg)
 
         ((reader-thread-terminated)
-         #;
          (pretty-print
           '(rdi reader-thread is terminating)
           ##stdout-port)
          #t)
 
         ((terminate)
-         #;
          (pretty-print
           '(rdi writer-thread is terminating)
           ##stdout-port)
@@ -225,6 +238,9 @@
     (write msg connection)
     (force-output connection)))
 
+(define (rdi-recv rdi connection)
+  (read connection))
+
 (define (rdi-remote-call rdi fn . args)
   (rdi-force-connection rdi)
   (let ((result-mutex (make-mutex 'remote-call)))
@@ -234,6 +250,96 @@
      (list 'remote-call result-mutex (cons fn args)))
     (mutex-lock! result-mutex) ;; wait until result is ready
     (mutex-specific result-mutex)))
+
+;;;-----------------------------------------------------------------------------
+
+(define-type $object
+  id: cc36b50e-dde5-4716-a65f-c63607346345
+  extender: define-type-of-object
+)
+
+(define (object->$object obj)
+  (cond ((thread? obj)
+         (thread->$thread obj))
+        ((pair? obj)
+         (cons (object->$object (car obj))
+               (object->$object (cdr obj))))
+        ((vector? obj)
+         (list->vector
+          (map object->$object
+               (vector->list obj))))
+        ((or (number? obj)
+             (string? obj)
+             (symbol? obj)
+             (boolean? obj)
+             (null? obj))
+         obj)
+        (else
+         (error "object->$object can't handle" obj))))
+        
+(define ($object->object $obj)
+  (cond (($thread? $obj)
+         ($thread->thread $obj))
+        ((pair? $obj)
+         (cons ($object->object (car $obj))
+               ($object->object (cdr $obj))))
+        ((vector? $obj)
+         (list->vector
+          (map $object->object
+               (vector->list $obj))))
+        ((or (number? $obj)
+             (string? $obj)
+             (symbol? $obj)
+             (boolean? $obj)
+             (null? $obj))
+         $obj)
+        (else
+         (error "$object->object can't handle" $obj))))
+        
+;;;-----------------------------------------------------------------------------
+
+(define-type-of-object $thread
+  id: ad057bf6-e636-4ebb-84e7-d3360cf9f618
+  sn
+)
+
+(define (thread->$thread t)
+  (make-$thread (object->serial-number t)))
+
+(define ($thread->thread t)
+  (serial-number->object ($thread-sn t)))
+
+;;;-----------------------------------------------------------------------------
+
+;; Placeholders for future serialized types.
+
+(define-type-of-object $thread2
+  id: 4fa1bdce-6659-4f3f-b97d-e214c8dd7669
+)
+
+(define-type-of-object $thread3
+  id: 3be155d5-40a5-45c6-b0d9-3bec23511149
+)
+
+(define-type-of-object $thread4
+  id: 9f3df8b2-3a08-40e1-bcf3-fcaa498ed5ef
+)
+
+(define-type-of-object $thread5
+  id: c78bf9e7-7b1a-42e6-80e7-f910a20c2bec
+)
+
+(define-type-of-object $thread6
+  id: 1509fbab-8c72-428e-a399-49f603efe376
+)
+
+(define-type-of-object $thread7
+  id: 5ad85a01-4674-4d50-9c52-14fdc708b3d9
+)
+
+(define-type-of-object $thread8
+  id: 71b7d71d-b5dc-454f-9c2a-76109e9c0413
+)
 
 (define rdi-function #f)
 

@@ -44,95 +44,6 @@
         (jazz.utilities))
 
 
-;;;
-;;;; Console
-;;;
-
-
-(definition console-no
-  1)
-
-
-(definition (open-console-window)
-  (let ((manager (get-console-manager))
-        (title (format "Gambit {s}" console-no)))
-    (increase! console-no)
-    (let ((text (register-console~ manager title)))
-      (values text (setup-debugger-console-ports text)))))
-
-
-(definition (setup-debugger-console-ports text)
-  (receive (head tail) (open-string-pipe (list permanent-close: #f))
-    (set-console-port~ text head)
-    tail))
-
-
-;;;
-;;;; Debugger
-;;;
-
-
-(definition rdi
-  #f)
-
-
-(definition (rdi-function fn)
-  (case fn
-    ((register-console)
-     rdi-register-console)
-    ((console-output)
-     rdi-console-output)
-    (else
-     (error "unknown function"))))
-
-
-(definition rdi-console-table
-  (make-table))
-
-
-(definition (rdi-register-console console-id)
-  (receive (console-text console-port) (open-console-window)
-    (table-set! rdi-console-table console-id console-text)
-    (rdi-console-input-pump-start! console-id console-port)
-    #f))
-
-
-(definition (rdi-console-output console-id output)
-  (let ((console-text
-          (table-ref rdi-console-table console-id #f)))
-    (if console-text
-        (debugger-console-output console-text output)))
-  #t)
-
-
-(definition (rdi-console-input-pump-start! console-id console-port)
-  (thread-start!
-    (make-thread
-      (lambda ()
-        (start-pump (new Permanent-Port console-port)
-          (lambda (str)
-            (rdi-remote-call rdi
-                             'console-input
-                             console-id
-                             str))))
-      "Gambit Console Pump")))
-
-
-(definition (gambit-start-debugger)
-  (rdi-init rdi-function)
-  (thread-start!
-    (make-thread
-      (lambda ()
-        (set! rdi (rdi-create-server #f))
-        (rdi-force-connection rdi))
-      "Gambit Debugger Server")))
-
-
-;;;
-;;;; Jazz
-;;;
-
-
 (class Gambit-Debugger extends Debugger
   
   
@@ -143,7 +54,12 @@
   
   (method (start-debugger)
     (user-message "Starting gambit debugger...")
-    (gambit-start-debugger))
+    (rdi-init rdi-function)
+    (thread-start!
+      (make-thread
+        (lambda ()
+          (rdi-debugger-init))
+        "Gambit Debugger Server")))
   
   
   (method (stop-debugger)
@@ -276,4 +192,136 @@
   
   
   (method (frame-variable-value frame variable)
-    )))
+    ))
+
+
+;;;
+;;;; Callbacks
+;;;
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition console-no
+  1)
+
+
+(definition (open-console-window)
+  (let ((manager (get-console-manager))
+        (title (format "Gambit {s}" console-no)))
+    (increase! console-no)
+    (let ((text (register-console~ manager title)))
+      (values text (setup-debugger-console-ports text)))))
+
+
+@comment
+(method public (register-console process-proxy thread-proxy)
+  (call-event
+    (function ()
+      (let ((process (new Debugged-Process self process-proxy process-proxy))
+            (text (register-debugger-console process-proxy thread-proxy)))
+        (let ((console (new Debugger-Resource
+                         process
+                         text
+                         (function ()
+                           (unregister-debugger-console text)))))
+          (register-debugger-resource process console)
+          (object->serial console))))))
+
+
+(definition (setup-debugger-console-ports text)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f))
+    (set-console-port~ text head)
+    tail))
+
+
+@comment
+(definition (setup-debugger-console-ports text process-proxy thread-proxy)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f))
+    (set-console-port~ text head)
+    (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+(definition rdi
+  #f)
+
+
+(definition (rdi-debugger-init)
+  (set! rdi (rdi-create-server #f))
+  (rdi-force-connection rdi))
+
+
+(definition (rdi-function fn)
+  (case fn
+    ((register-console)
+     rdi-register-console)
+    ((console-output)
+     rdi-console-output)
+    (else
+     (error "unknown function"))))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition rdi-console-table
+  (make-table))
+
+
+(definition (rdi-register-console console-id)
+  (receive (console-text console-port) (open-console-window)
+    (table-set! rdi-console-table console-id console-text)
+    (rdi-console-input-pump-start! console-id console-port)
+    #f))
+
+
+;; need to implement ctrl-c by calling rdi-user-interrupt
+(definition (rdi-console-input-pump-start! console-id console-port)
+  (thread-start!
+    (make-thread
+      (lambda ()
+        (start-pump (new Permanent-Port console-port)
+          (lambda (str)
+            (if (not str)
+                (rdi-console-input-eof rdi console-id)
+              (rdi-console-input rdi console-id str)))))
+      "Gambit Console Pump")))
+
+
+(definition (rdi-console-output console-id output)
+  (let ((console-text
+          (table-ref rdi-console-table console-id #f)))
+    (if console-text
+        (debugger-console-output console-text output)))
+  #t)
+
+
+;;;
+;;;; Methods
+;;;
+
+
+(definition (rdi-console-input rdi console-id text)
+  (rdi-remote-call rdi 'console-input console-id text))
+
+(definition (rdi-console-input-eof rdi console-id)
+  (rdi-remote-call rdi 'console-input console-id ""))
+
+(definition (rdi-user-interrupt rdi console-id)
+  (rdi-remote-call rdi 'user-interrupt console-id))
+
+(definition (rdi-get-threads rdi)
+  (rdi-remote-call rdi 'get-threads))
+
+(definition (rdi-get-external-representation rdi $obj max-length)
+  (rdi-remote-call rdi 'get-external-representation $obj max-length)))

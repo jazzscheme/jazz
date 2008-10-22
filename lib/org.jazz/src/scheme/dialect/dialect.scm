@@ -331,8 +331,8 @@
 
 
 (define (jazz.walk-lambda walker resume declaration environment form-src)
-  (let ((parameters (%%desourcify (%%cadr form-src))))
-    (jazz.parse-specifier (%%cddr form-src)
+  (let ((parameters (%%desourcify (%%cadr (%%source-code form-src)))))
+    (jazz.parse-specifier (%%cddr (%%source-code form-src))
       (lambda (specifier body)
         (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
           (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))

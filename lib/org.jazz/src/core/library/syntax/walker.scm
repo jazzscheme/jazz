@@ -1654,14 +1654,15 @@
 (jazz.define-class-runtime jazz.Walk-Location)
 
 
-(define (jazz.new-walk-location module-locator declaration-locator)
-  (jazz.allocate-walk-location jazz.Walk-Location module-locator declaration-locator))
+(define (jazz.new-walk-location module-locator declaration-locator locat)
+  (jazz.allocate-walk-location jazz.Walk-Location module-locator declaration-locator locat))
 
 
-(define (jazz.walk-location walker declaration)
+(define (jazz.walk-location walker declaration locat)
   (jazz.new-walk-location
     (jazz.get-walk-locator)
-    (%%get-declaration-locator declaration)))
+    (%%get-declaration-locator declaration)
+    locat))
 
 
 (jazz.encapsulate-class jazz.Walk-Location)
@@ -1693,7 +1694,7 @@
 (jazz.define-method (jazz.get-detail (jazz.Walk-Problems problems))
   (define (add-details problems queue)
     (for-each (lambda (problem)
-                (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception problem) #f '())))
+                (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception problem) (%%get-walk-problem-location problem) '())))
               problems))
   
   (jazz.new-exception-detail "ErrorStop" "Walk problems encountered:" #f
@@ -2283,9 +2284,7 @@
   (%%get-code-form code)
   (let ((form (%%get-code-form code))
         (src (%%get-code-source code)))
-    (if (or (%%not src) (%%not (%%source? src)))
-        form
-      (%%sourcify form src))))
+    (jazz.sourcify-if form src)))
 
 
 ;;;
@@ -2463,20 +2462,21 @@
 
 
 (define (jazz.walk-warning walker declaration fmt-string . rest)
-  (let ((location (jazz.walk-location walker declaration))
+  (let ((location (jazz.walk-location walker declaration #f))
         (message (apply jazz.format fmt-string rest)))
     (jazz.walker-warning walker (jazz.new-walk-warning location message))))
 
 
 (define (jazz.walk-error walker resume declaration fmt-string . rest)
-  (let ((location (jazz.walk-location walker declaration))
+  (let ((location (jazz.walk-location walker declaration #f))
         (message (apply jazz.format fmt-string rest)))
     (jazz.walker-error walker resume (jazz.new-walk-error location message))))
 
 
-(define (jazz.walk-unresolved walker resume declaration symbol)
-  (let ((location (jazz.walk-location walker declaration)))
-    (jazz.walker-error walker resume (jazz.new-unresolved-error location symbol))))
+(define (jazz.walk-unresolved walker resume declaration symbol-src)
+  (jazz.debug symbol-src)
+  (let ((location (jazz.walk-location walker declaration (if (%%source? symbol-src) (%%source-locat symbol-src) #f))))
+    (jazz.walker-error walker resume (jazz.new-unresolved-error location (%%source-code symbol-src)))))
 
 
 (define (jazz.walker-warning walker warning)
@@ -4901,14 +4901,14 @@
           (if (%%class-is? binding jazz.Variable)
               (jazz.walk-binding-referenced binding))
           (jazz.new-reference binding))
-      (jazz.walk-free-reference walker resume declaration (%%source-code symbol-src)))))
+      (jazz.walk-free-reference walker resume declaration symbol-src))))
 
 
-(jazz.define-virtual-runtime (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual-runtime (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol-src))
 
 
-(jazz.define-method (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol)
-  (jazz.walk-unresolved walker resume declaration symbol))
+(jazz.define-method (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol-src)
+  (jazz.walk-unresolved walker resume declaration symbol-src))
 
 
 ;;;

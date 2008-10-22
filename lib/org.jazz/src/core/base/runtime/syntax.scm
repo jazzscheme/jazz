@@ -44,15 +44,51 @@
 (define (jazz.source-code expr)
   (%%source-code expr))
 
+(define (jazz.source-locat expr)
+  (%%source-locat expr))
+
 (define (jazz.desourcify expr)
   (%%desourcify expr))
+
+(define (jazz.desourcify-list lst)
+  (map jazz.desourcify lst))
 
 (define (jazz.sourcify expr src)
   (%%sourcify expr src))
 
+(define (jazz.sourcify-if expr src)
+  (if (jazz.source? src)
+      (jazz.sourcify expr src)
+    expr))
 
-(define (jazz.desourcify-list lst)
-  (map jazz.desourcify lst))
+(define (jazz.locat-container locat)
+  (%%locat-container locat))
+
+(define (jazz.locat-position locat)
+  (%%locat-position locat))
+
+(define (jazz.container->file container)
+  (%%container->file container))
+
+(define (jazz.position->filepos position)
+  (%%position->filepos position))
+
+(define (jazz.filepos-line filepos)
+  (%%filepos-line filepos))
+
+(define (jazz.filepos-col filepos)
+  (%%filepos-col filepos))
+
+(define (jazz.locat->file/line/col locat)
+  (if locat
+      (let ((file (%%container->file (%%locat-container locat))))
+        (if file
+            (let ((filepos (%%position->filepos (%%locat-position locat))))
+              (let ((line (%%filepos-line filepos))
+                    (col (%%filepos-col filepos)))
+                (list file line col)))
+          #f))
+    #f))
 
 
 ;;;

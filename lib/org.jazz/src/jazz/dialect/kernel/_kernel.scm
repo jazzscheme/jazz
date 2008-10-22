@@ -625,9 +625,20 @@
 ;;;
 
 
+(native jazz.source?)
 (native jazz.source-code)
+(native jazz.source-locat)
 (native jazz.desourcify)
+(native jazz.desourcify-list)
 (native jazz.sourcify)
+(native jazz.sourcify-if)
+(native jazz.locat-container)
+(native jazz.locat-position)
+(native jazz.container->file)
+(native jazz.position->filepos)
+(native jazz.filepos-line)
+(native jazz.filepos-col)
+(native jazz.locat->file/line/col)
 
 
 ;;;

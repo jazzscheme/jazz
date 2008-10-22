@@ -463,7 +463,8 @@
 
 (jazz.define-class jazz.Walk-Location jazz.Object () jazz.Object-Class jazz.allocate-walk-location
   ((module-locator      %%get-walk-location-module-locator      ())
-   (declaration-locator %%get-walk-location-declaration-locator ())))
+   (declaration-locator %%get-walk-location-declaration-locator ())
+   (locat               %%get-walk-location-locat               ())))
 
 
 ;;;

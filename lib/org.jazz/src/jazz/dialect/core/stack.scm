@@ -151,16 +151,7 @@
     
     
     (define (jazz.get-continuation-location cont)
-      (let ((locat (##continuation-locat cont)))
-        (if locat
-            (let ((file (##container->file (##locat-container locat))))
-              (if file
-                  (let* ((filepos (##position->filepos (##locat-position locat)))
-                         (line (##filepos-line filepos))
-                         (col (##filepos-col filepos)))
-                    (list file line col))
-                #f))
-          #f)))
+      (jazz.locat->file/line/col (##continuation-locat cont)))
     
     
     (define (jazz.current-repl-context)

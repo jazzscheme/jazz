@@ -99,8 +99,10 @@
 (jazz.define-method (jazz.emit-declaration (jazz.Definition-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
-    `(define ,locator
-       ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))))
+    (jazz.sourcify-if
+      `(define ,locator
+         ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+      (%%get-declaration-source declaration))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) source-declaration environment)
@@ -755,7 +757,7 @@
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
           (let ((augmented-environment (cons frame environment)))
-            (%%sourcify
+            (jazz.sourcify-if
               (case method-call
                 ((jazz.add-method-node)
                  (let ((node (jazz.generate-symbol "node")))
@@ -1005,7 +1007,7 @@
           (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
             (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
               (jazz.new-reference slot-declaration)))
-        (nextmethod walker resume declaration environment symbol)))))
+        (nextmethod walker resume declaration environment symbol-src)))))
 
 
 (define (jazz.self-access symbol)
@@ -1396,6 +1398,7 @@
       (%%when (%%not (%%eq? expansion 'inline))
         (%%set-definition-declaration-value new-declaration
           (jazz.walk walker resume new-declaration new-environment value)))
+      (%%set-declaration-source new-declaration form-src)
       new-declaration)))
 
 

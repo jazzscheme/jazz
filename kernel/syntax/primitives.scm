@@ -597,13 +597,43 @@
           (##source-code expr)
         expr))
     
+    (define (%%source-locat src)
+      (if (##source? src)
+          (##source-locat src)
+        (error "SOURCE expected" src)))
+    
     (define (%%desourcify expr)
       (##desourcify expr))
     
     (define (%%sourcify expr src)
       (if (##source? src)
           (##sourcify expr src)
-        (error "SOURCE expected" src)))))
+        (error "SOURCE expected" src)))
+    
+    (define (%%locat? expr)
+      (##locat? expr))
+    
+    (define (%%locat-container locat)
+      (if (##locat? locat)
+          (##locat-container locat)
+        (error "LOCAT expected" locat)))
+    
+    (define (%%locat-position locat)
+      (if (##locat? locat)
+          (##locat-position locat)
+        (error "LOCAT expected" locat)))
+    
+    (define (%%container->file container)
+      (##container->file container))
+    
+    (define (%%position->filepos position)
+      (##position->filepos position))
+    
+    (define (%%filepos-line filepos)
+      (##filepos-line filepos))
+    
+    (define (%%filepos-col filepos)
+      (##filepos-col filepos))))
 
 
 ;;;

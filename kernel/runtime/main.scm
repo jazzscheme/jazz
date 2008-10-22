@@ -80,17 +80,21 @@
 (define jazz.initialization-file
   "~/.jazz/.jazzini")
 
+(define jazz.warnings
+  #f)
+
 
 (define (jazz.process-main)
   (define (warn-missing-argument-for-option opt)
-    (jazz.repl-main
-      (lambda (output-port)
-        (##write-string
-          "*** WARNING -- Missing argument for option \""
-          output-port)
-        (##write-string opt output-port)
-        (##write-string "\"\n" output-port)
-        #t)))
+    (set! jazz.warnings
+          (lambda (output-port)
+            (##write-string
+              "*** WARNING -- Missing argument for option \""
+              output-port)
+            (##write-string opt output-port)
+            (##write-string "\"\n" output-port)
+            #t))
+    (jazz.repl-main))
   
   (define (option? arg)
     (and (##fixnum.< 0 (##string-length arg))
@@ -170,17 +174,17 @@
                  (lambda ()
                    (jazz.compile (%%string->symbol compile)))))
               (else
-               (jazz.repl-main #f)))))))
+               (jazz.repl-main)))))))
 
 
-(define (jazz.repl-main warnings)
+(define (jazz.repl-main)
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
-  (##repl-debug
+  (##repl
     (lambda (first output-port)
-      (if warnings
-          (warnings output-port))
+      (if jazz.warnings
+          (jazz.warnings output-port))
       (display "Jazz " output-port)
       (display jazz.kernel-version output-port)
       (newline output-port)

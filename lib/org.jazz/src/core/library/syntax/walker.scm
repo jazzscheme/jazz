@@ -2474,7 +2474,6 @@
 
 
 (define (jazz.walk-unresolved walker resume declaration symbol-src)
-  (jazz.debug symbol-src)
   (let ((location (jazz.walk-location walker declaration (if (%%source? symbol-src) (%%source-locat symbol-src) #f))))
     (jazz.walker-error walker resume (jazz.new-unresolved-error location (%%source-code symbol-src)))))
 

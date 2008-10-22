@@ -157,18 +157,16 @@
   
   (method (draw-style surface <Surface> context string <Subseq$string$> h <fx> v <fx> line-height <fx> tabs left <fx> enabled? <bool>) <fx>
     (set-font~ surface font)
-    (if (getf context print-black/white?:)
-        (set-text-color~ surface (registered-color 'Black))
-      (set-text-color~ surface (either color (registered-color 'Black))))
     (let* ((font-height (get-height~ (get-metrics~ font)))
-           (v (+ v (justify-element font-height line-height))))
+           (v (+ v (justify-element font-height line-height)))
+           (color (if (getf context print-black/white?:)
+                      (registered-color 'Black)
+                    (either color (registered-color 'Black)))))
       (if (not enabled?)
           (begin
             (draw-text~ surface h v (coerce string String) #f)
             0)
-        (let ((width (with-highlight-color~ surface highlight
-                       (function ()
-                         (draw-tabbed-text~ surface h v string tabs left)))))
+        (let ((width (draw-tabbed-text~ surface h v string tabs left color highlight)))
           (when frame
             (let ((rect (new Rect h v (+ h width) (+ v line-height))))
               (frame-rect~ surface rect frame)))

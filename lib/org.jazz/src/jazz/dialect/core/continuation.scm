@@ -40,16 +40,16 @@
 
 (cond-expand
   (gambit
-    (define jazz.continuation?
-      ##continuation?)
+    (define (jazz.continuation? obj)
+      (%%continuation? obj))
     
     
-    (define jazz.continuation-capture
-      ##continuation-capture)
+    (define (jazz.continuation-capture proc)
+      (%%continuation-capture proc))
     
     
-    (define jazz.continuation-graft
-      ##continuation-graft)
+    (define (jazz.continuation-graft cont proc)
+      (%%continuation-graft cont proc))
     
     
     (define jazz.continuation-return

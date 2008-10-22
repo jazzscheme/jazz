@@ -398,7 +398,6 @@
 
 
 (native make-parameter)
-(native parameterize)
 
 
 ;;;

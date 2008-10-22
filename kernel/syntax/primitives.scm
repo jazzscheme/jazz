@@ -601,7 +601,9 @@
       (##desourcify expr))
     
     (define (%%sourcify expr src)
-      (##sourcify expr src))))
+      (if (##source? src)
+          (##sourcify expr src)
+        (error "SOURCE expected" src)))))
 
 
 ;;;

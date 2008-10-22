@@ -86,7 +86,7 @@
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value source-declaration environment)
   (let ((locator (%%get-declaration-locator declaration)))
     (jazz.new-code
-      `(set! ,locator ,(%%get-code-form (jazz.emit-expression value source-declaration environment)))
+      `(set! ,locator ,(jazz.sourcified-form (jazz.emit-expression value source-declaration environment)))
       jazz.Any
       #f)))
 
@@ -131,7 +131,7 @@
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
+             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)

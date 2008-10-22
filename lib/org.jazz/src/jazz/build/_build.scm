@@ -51,6 +51,15 @@
   (expand-to-port library-name (current-output-port)))
 
 
+(define (expand-source library-name)
+  (let* ((src (jazz.find-module-src library-name #f))
+         (source (jazz.resource-pathname src))
+         (syntax (jazz.read-toplevel-form source parse-read?: #f read-source?: #t)))
+    (pretty-print
+      (jazz.present-source
+        syntax))))
+
+
 (define (expand-syntax library-name)
   (let* ((src (jazz.find-module-src library-name #f))
          (source (jazz.resource-pathname src))

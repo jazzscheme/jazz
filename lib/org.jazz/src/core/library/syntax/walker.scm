@@ -99,7 +99,7 @@
 
 
 (jazz.define-method (jazz.emit-type (jazz.Walk-Binding type) source-declaration environment)
-  (%%get-code-form (jazz.emit-binding-reference type source-declaration environment)))
+  (jazz.sourcified-form (jazz.emit-binding-reference type source-declaration environment)))
 
 
 (jazz.define-virtual-runtime (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
@@ -136,7 +136,7 @@
 (jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment)
   (let ((type (%%get-lexical-binding-type binding)))
     (jazz.new-code
-      `(,(%%get-code-form (jazz.emit-binding-reference binding source-declaration environment))
+      `(,(jazz.sourcified-form (jazz.emit-binding-reference binding source-declaration environment))
         ,@(jazz.codes-forms arguments))
       (jazz.call-return-type type)
       #f)))
@@ -1074,29 +1074,29 @@
   (release
     (define (jazz.emit-type-cast code type source-declaration environment)
       (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
-         (%%get-code-form code)
+         (jazz.sourcified-form code)
        (let ((value (jazz.generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
-             `(let ((,value ,(%%get-code-form code)))
+             `(let ((,value ,(jazz.sourcified-form code)))
                 (if (%%fixnum? ,value)
                     (%%fixnum->flonum ,value)
                   ,value))
-           (%%get-code-form code))))))
+           (jazz.sourcified-form code))))))
   (else
    (define (jazz.emit-type-cast code type source-declaration environment)
      (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
-         (%%get-code-form code)
+         (jazz.sourcified-form code)
        (let ((value (jazz.generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
-             `(let ((,value ,(%%get-code-form code)))
+             `(let ((,value ,(jazz.sourcified-form code)))
                 (if (%%fixnum? ,value)
                     (%%fixnum->flonum ,value)
                   (begin
                     ,(jazz.emit-check type value source-declaration environment)
                     ,value)))
-           `(let ((,value ,(%%get-code-form code)))
+           `(let ((,value ,(jazz.sourcified-form code)))
               ,(jazz.emit-check type value source-declaration environment)
               ,value)))))))
 
@@ -1106,7 +1106,7 @@
     (define (jazz.emit-parameter-cast code type source-declaration environment)
       (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
          #f
-       (let ((parameter (%%get-code-form code)))
+       (let ((parameter (jazz.sourcified-form code)))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
              `(if (%%fixnum? ,parameter)
@@ -1116,7 +1116,7 @@
    (define (jazz.emit-parameter-cast code type source-declaration environment)
      (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
          #f
-       (let ((parameter (%%get-code-form code)))
+       (let ((parameter (jazz.sourcified-form code)))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
              `(if (%%fixnum? ,parameter)
@@ -1429,7 +1429,7 @@
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
+             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.define-method (jazz.fold-declaration (jazz.Macro-Declaration declaration) f k s)
@@ -1478,7 +1478,7 @@
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
+             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.define-method (jazz.fold-declaration (jazz.Syntax-Declaration declaration) f k s)
@@ -1584,7 +1584,7 @@
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           `(c-define ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment)) ,parameter-types ,result-type ,c-name ,scope
-             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
+             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.C-Definition-Declaration declaration) source-declaration environment)
@@ -1867,7 +1867,7 @@
       (%%when (%%class-is? annotated-variable jazz.Annotated-Variable)
         (jazz.extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code))))
     (jazz.new-code
-      `(set! ,(%%get-lexical-binding-name binding) ,(%%get-code-form value-code))
+      `(set! ,(%%get-lexical-binding-name binding) ,(jazz.sourcified-form value-code))
       jazz.Any
       #f)))
 
@@ -1893,7 +1893,7 @@
         (self (jazz.*self*)))
     (jazz.new-code
       (if self
-          `(lambda rest (apply ,name ,(%%get-code-form self) rest))
+          `(lambda rest (apply ,name ,(jazz.sourcified-form self) rest))
         name)
       jazz.Any
       #f)))
@@ -1906,7 +1906,7 @@
     (if self
         (jazz.new-code
           `(,(%%get-lexical-binding-name binding)
-            ,(%%get-code-form self)
+            ,(jazz.sourcified-form self)
             ,@(jazz.codes-forms arguments))
           (jazz.call-return-type type)
           #f)
@@ -1957,7 +1957,7 @@
 
 (jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) declaration environment)
   (let ((class (%%get-dynamic-parameter-class parameter)))
-    (%%list (%%get-code-form (jazz.emit-expression class declaration environment)) (%%get-lexical-binding-name parameter))))
+    (%%list (jazz.sourcified-form (jazz.emit-expression class declaration environment)) (%%get-lexical-binding-name parameter))))
 
 
 (jazz.encapsulate-class jazz.Dynamic-Parameter)
@@ -1977,7 +1977,7 @@
 
 (jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) declaration environment)
   (let ((default (%%get-optional-parameter-default parameter)))
-    (%%list (%%get-lexical-binding-name parameter) (%%get-code-form (jazz.emit-expression default declaration environment)))))
+    (%%list (%%get-lexical-binding-name parameter) (jazz.sourcified-form (jazz.emit-expression default declaration environment)))))
 
 
 (jazz.encapsulate-class jazz.Optional-Parameter)
@@ -1997,7 +1997,7 @@
 
 (jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) declaration environment)
   (let ((default (%%get-named-parameter-default parameter)))
-    (%%list (%%get-lexical-binding-name parameter) (%%get-code-form (jazz.emit-expression default declaration environment)))))
+    (%%list (%%get-lexical-binding-name parameter) (jazz.sourcified-form (jazz.emit-expression default declaration environment)))))
 
 
 (jazz.encapsulate-class jazz.Named-Parameter)
@@ -2256,7 +2256,7 @@
 
 (define (jazz.codes-forms codes)
   (map (lambda (code)
-         (%%get-code-form code))
+         (jazz.sourcified-form code))
        codes))
 
 
@@ -2837,7 +2837,7 @@
   (map (lambda (info)
          (let ((name (%%cadr info))
                (value (%%cddr info)))
-           `(define ,name ,(%%get-code-form (jazz.emit-expression value library-declaration '())))))
+           `(define ,name ,(jazz.sourcified-form (jazz.emit-expression value library-declaration '())))))
        (%%get-library-declaration-literals library-declaration)))
 
 
@@ -2860,7 +2860,7 @@
                         (begin
                           (jazz.load-module ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
                           (set! loaded? #t)))
-                    ,(%%get-code-form (jazz.emit-binding-reference referenced-declaration library-declaration environment))))))))
+                    ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration library-declaration environment))))))))
        (%%get-library-declaration-autoloads library-declaration)))
 
 
@@ -3009,7 +3009,7 @@
 
 (jazz.define-method (jazz.emit-call (jazz.Expression expression) arguments declaration environment)
   (jazz.new-code
-    `(,(%%get-code-form (jazz.emit-expression expression declaration environment)) ,@(jazz.codes-forms arguments))
+    `(,(jazz.sourcified-form (jazz.emit-expression expression declaration environment)) ,@(jazz.codes-forms arguments))
     jazz.Any
     #f))
 
@@ -3101,7 +3101,7 @@
 (jazz.define-method (jazz.emit-expression (jazz.Delay expression) declaration environment)
   (let ((expression (%%get-delay-expression expression)))
     (jazz.new-code
-      `(delay ,(%%get-code-form (jazz.emit-expression expression declaration environment)))
+      `(delay ,(jazz.sourcified-form (jazz.emit-expression expression declaration environment)))
       jazz.Any
       #f)))
 
@@ -3127,7 +3127,7 @@
               (if (%%pair? form)
                   (if (or (%%eq? (%%car form) 'unquote)
                           (%%eq? (%%car form) 'unquote-splicing))
-                      (%%list (%%car form) (%%get-code-form (jazz.emit-expression (%%cadr form) declaration environment)))
+                      (%%list (%%car form) (jazz.sourcified-form (jazz.emit-expression (%%cadr form) declaration environment)))
                     (%%cons (emit (%%car form)) (emit (%%cdr form))))
                 form))))
     (jazz.new-code
@@ -3212,7 +3212,7 @@
                 `(lambda ,signature-output
                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                    (let ()
-                     ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code) #f) type declaration environment))))
+                     ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(jazz.sourcified-form body-code)) (%%get-code-type body-code) #f) type declaration environment))))
                 (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))
                 #f))))))))
 
@@ -3258,7 +3258,7 @@
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(let ,bindings-output
-                   ,@(%%get-code-form body-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
                 #f))))))))
 
@@ -3304,7 +3304,7 @@
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(let ,(%%get-lexical-binding-name variable) ,bindings-output
-                   ,@(%%get-code-form body-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
                 #f))))))))
 
@@ -3349,7 +3349,7 @@
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(let* ,bindings-output
-                   ,@(%%get-code-form body-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
                 #f))))))))
 
@@ -3394,7 +3394,7 @@
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(letrec ,bindings-output
-                   ,@(%%get-code-form body-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
                 #f))))))))
 
@@ -3427,14 +3427,14 @@
     (jazz.with-annotated-frame (jazz.annotate-receive variables)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          (let ((expression-output (%%get-code-form (jazz.emit-expression expression declaration environment))))
+          (let ((expression-output (jazz.sourcified-form (jazz.emit-expression expression declaration environment))))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(receive ,(map (lambda (variable)
                                   (%%get-lexical-binding-name variable))
                                 variables)
                    ,expression-output
-                   ,@(%%get-code-form body-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
                 #f))))))))
 
@@ -3499,7 +3499,7 @@
         (value (%%get-internal-define-value expression)))
     (jazz.new-code
       `(define ,(%%get-lexical-binding-name variable)
-         ,(%%get-code-form (jazz.emit-expression value declaration environment)))
+         ,(jazz.sourcified-form (jazz.emit-expression value declaration environment)))
       jazz.Any
       #f)))
 
@@ -3529,7 +3529,7 @@
   (let ((expressions (%%get-begin-expressions expression)))
     (let ((code (jazz.emit-statements-code expressions declaration environment)))
       (jazz.new-code
-        `(begin ,@(%%get-code-form code))
+        `(begin ,@(jazz.sourcified-form code))
         (%%get-code-type code)
         #f))))
 
@@ -3568,8 +3568,8 @@
                          (let ((variable (%%car binding))
                                (init (%%cadr binding))
                                (step (%%cddr binding)))
-                           (let ((init-code (%%get-code-form (jazz.emit-expression init declaration augmented-environment)))
-                                 (step-code-list (if step (list (%%get-code-form (jazz.emit-expression step declaration augmented-environment))) '())))
+                           (let ((init-code (jazz.sourcified-form (jazz.emit-expression init declaration augmented-environment)))
+                                 (step-code-list (if step (list (jazz.sourcified-form (jazz.emit-expression step declaration augmented-environment))) '())))
                              `(,(%%get-lexical-binding-name variable)
                                ,init-code
                                ,@step-code-list))))
@@ -3580,8 +3580,8 @@
                   (body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(do ,bindings-output
-                     (,(%%get-code-form test-code) ,@(%%get-code-form result-code))
-                   ,@(%%get-code-form body-code))
+                     (,(jazz.sourcified-form test-code) ,@(jazz.sourcified-form result-code))
+                   ,@(jazz.sourcified-form body-code))
                 (%%get-code-type result-code)
                 #f))))))))
 
@@ -4094,9 +4094,9 @@
             (yes (jazz.emit-expression (%%get-if-yes expression) declaration yes-environment))
             (no (jazz.emit-expression (%%get-if-no expression) declaration no-environment)))
         (jazz.new-code
-          `(if ,(%%get-code-form test)
-               ,(%%get-code-form yes)
-             ,(jazz.simplify-begin (%%get-code-form no)))
+          `(if ,(jazz.sourcified-form test)
+               ,(jazz.sourcified-form yes)
+             ,(jazz.simplify-begin (jazz.sourcified-form no)))
           (jazz.extend-type (%%get-code-type yes) (%%get-code-type no))
           #f)))))
 
@@ -4136,8 +4136,8 @@
                             (let ((output
                                     `(,(if (%%not test)
                                            'else
-                                         (%%get-code-form (jazz.emit-expression test declaration environment)))
-                                      ,(%%get-code-form (jazz.emit-expression body declaration yes-environment)))))
+                                         (jazz.sourcified-form (jazz.emit-expression test declaration environment)))
+                                      ,(jazz.sourcified-form (jazz.emit-expression body declaration yes-environment)))))
                               (cons output (recurse (cdr clauses) no-environment)))))))))
       (jazz.extend-types (map (lambda (clause)
                                 (%%get-code-type
@@ -4174,10 +4174,10 @@
                                    (jazz.emit-expression body declaration environment)))
                                clauses)))
       (jazz.new-code
-        `(case ,(%%get-code-form (jazz.emit-expression target declaration environment))
+        `(case ,(jazz.sourcified-form (jazz.emit-expression target declaration environment))
            ,@(map (lambda (clause emited-clause)
                     (let ((tries (%%car clause)))
-                      `(,tries ,(%%get-code-form emited-clause))))
+                      `(,tries ,(jazz.sourcified-form emited-clause))))
                   clauses
                   emited-clauses))
         (jazz.extend-types (map (lambda (emited-clause)
@@ -4382,6 +4382,49 @@
 
 
 ;;;
+;;;; Parameterize
+;;;
+
+
+(jazz.define-class-runtime jazz.Parameterize)
+
+
+(define (jazz.new-parameterize bindings body)
+  (jazz.allocate-parameterize jazz.Parameterize #f #f bindings body))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Parameterize expression) declaration environment)
+  (let ((bindings (%%get-parameterize-bindings expression))
+        (body (%%get-parameterize-body expression)))
+    (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
+      (lambda (frame)
+        (let ((variables (%%get-annotated-frame-variables frame))
+              (augmented-environment (cons frame environment)))
+          (let ((bindings-output
+                  (map (lambda (binding annotated-variable)
+                         (let ((variable (%%car binding))
+                               (value (%%cdr binding)))
+                           (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
+                             (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
+                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
+                       bindings
+                       variables)))
+            (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
+              (jazz.new-code
+                `(parameterize ,bindings-output
+                   ,@(jazz.sourcified-form body-code))
+                (%%get-code-type body-code)
+                #f))))))))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Parameterize expression) f k s)
+  #f)
+
+
+(jazz.encapsulate-class jazz.Parameterize)
+
+
+;;;
 ;;;; Time Special
 ;;;
 
@@ -4397,7 +4440,7 @@
   (let ((expression (%%get-time-special-expression expression)))
     (jazz.new-code
       `(time
-         ,(%%get-code-form (jazz.emit-expression expression declaration environment)))
+         ,(jazz.sourcified-form (jazz.emit-expression expression declaration environment)))
       jazz.Any
       #f)))
 
@@ -4434,7 +4477,7 @@
                        (jazz.emit-declaration statement environment)
                      (let ((code (jazz.emit-expression statement declaration environment)))
                        (set! last-type (%%get-code-type code))
-                       (%%get-code-form code))))
+                       (jazz.sourcified-form code))))
                  statements)))
       (jazz.new-code emited last-type #f))))
 
@@ -4602,33 +4645,33 @@
 
 
 (define (jazz.walk-constant walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (%%source-code form-src)))
     (cond ((%%boolean? form)
-           (jazz.new-constant form jazz.Boolean))
+           (jazz.new-constant form-src jazz.Boolean))
           ((%%char? form)
-           (jazz.new-constant form jazz.Char))
+           (jazz.new-constant form-src jazz.Char))
           ((%%string? form)
-           (jazz.new-constant form jazz.String))
+           (jazz.new-constant form-src jazz.String))
           ((%%keyword? form)
-           (jazz.new-constant form jazz.Keyword))
+           (jazz.new-constant form-src jazz.Keyword))
           ((%%fixnum? form)
-           (jazz.new-constant form jazz.Fixnum))
+           (jazz.new-constant form-src jazz.Fixnum))
           ((%%flonum? form)
-           (jazz.new-constant form jazz.Flonum))
+           (jazz.new-constant form-src jazz.Flonum))
           ((%%number? form)
-           (jazz.new-constant form jazz.Number))
+           (jazz.new-constant form-src jazz.Number))
           ((%%symbol? form)
-           (jazz.new-constant `(quote ,form) jazz.Symbol))
+           (jazz.new-constant `(quote ,form-src) jazz.Symbol))
           ((%%vector? form)
-           (jazz.new-constant `(quote ,form) jazz.Vector))
+           (jazz.new-constant `(quote ,form-src) jazz.Vector))
           ((%%u8vector? form)
-           (jazz.new-constant `(quote ,form) jazz.U8Vector))
+           (jazz.new-constant `(quote ,form-src) jazz.U8Vector))
           ((%%values? form)
-           (jazz.new-constant `(quote ,form) jazz.Values))
+           (jazz.new-constant `(quote ,form-src) jazz.Values))
           ((%%null? form)
-           (jazz.new-constant `(quote ,form) jazz.Null))
+           (jazz.new-constant `(quote ,form-src) jazz.Null))
           ((jazz.scheme-pair-literal? form)
-           (jazz.new-constant `(quote ,form) jazz.Pair))
+           (jazz.new-constant `(quote ,form-src) jazz.Pair))
           (else
            (jazz.register-literal walker resume declaration environment form)))))
 
@@ -4829,8 +4872,8 @@
         #f))))
 
 
-(define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)
-  (let ((referenced-declaration (jazz.lookup-symbol walker environment symbol)))
+(define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)
+  (let ((referenced-declaration (jazz.lookup-symbol walker environment (%%source-code symbol-src))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
         (begin
           (jazz.validate-access walker resume declaration referenced-declaration)
@@ -4860,14 +4903,13 @@
 
 
 (define (jazz.walk-symbol-reference walker resume declaration environment symbol-src)
-  (let ((symbol (%%source-code symbol-src)))
-    (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
-      (if binding
-          (begin
-            (if (%%class-is? binding jazz.Variable)
-                (jazz.walk-binding-referenced binding))
-            (jazz.new-reference binding))
-        (jazz.walk-free-reference walker resume declaration (%%source-code symbol))))))
+  (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)))
+    (if binding
+        (begin
+          (if (%%class-is? binding jazz.Variable)
+              (jazz.walk-binding-referenced binding))
+          (jazz.new-reference binding))
+      (jazz.walk-free-reference walker resume declaration (%%source-code symbol-src)))))
 
 
 (jazz.define-virtual-runtime (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol))
@@ -4953,14 +4995,13 @@
 
 
 (define (jazz.walk-call walker resume declaration environment procedure-binding form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((operator (%%car form))
-          (arguments (%%cdr form)))
-      (if procedure-binding
-          (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator arguments))
-      (jazz.new-call form-src
-                     (jazz.walk walker resume declaration environment operator)
-                     (jazz.walk-list walker resume declaration environment arguments)))))
+  (let ((operator (%%desourcify (%%car (%%source-code form-src))))
+        (arguments (%%cdr (%%source-code form-src))))
+    (if procedure-binding
+        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-list arguments)))
+    (jazz.new-call form-src
+                   (jazz.walk walker resume declaration environment operator)
+                   (jazz.walk-list walker resume declaration environment arguments))))
 
 
 (jazz.define-virtual-runtime (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))

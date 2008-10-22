@@ -38,14 +38,21 @@
 (module core.base.runtime.syntax
 
 
-(define jazz.source? %%source?)
-(define jazz.source-code %%source-code)
-(define jazz.desourcify %%desourcify)
-(define jazz.sourcify %%sourcify)
+(define (jazz.source? expr)
+  (%%source? expr))
+
+(define (jazz.source-code expr)
+  (%%source-code expr))
+
+(define (jazz.desourcify expr)
+  (%%desourcify expr))
+
+(define (jazz.sourcify expr src)
+  (%%sourcify expr src))
 
 
 (define (jazz.desourcify-list lst)
-  (map %%desourcify lst))
+  (map jazz.desourcify lst))
 
 
 ;;;

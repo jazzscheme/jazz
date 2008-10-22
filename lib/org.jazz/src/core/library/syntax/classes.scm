@@ -991,6 +991,16 @@
 
 
 ;;;
+;;;; Parameterize
+;;;
+
+
+(jazz.define-class jazz.Parameterize jazz.Expression (type source) jazz.Object-Class jazz.allocate-parameterize
+  ((bindings %%get-parameterize-bindings ())
+   (body     %%get-parameterize-body     ())))
+
+
+;;;
 ;;;; Time Special
 ;;;
 

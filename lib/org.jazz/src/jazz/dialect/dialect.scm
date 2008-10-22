@@ -47,7 +47,7 @@
 
 
 (define (jazz.new-definition-declaration name type access compatibility attributes parent expansion signature)
-  (let ((new-declaration (jazz.allocate-definition-declaration jazz.Definition-Declaration name type access compatibility attributes #f parent #f expansion signature #f)))
+  (let ((new-declaration (jazz.allocate-definition-declaration jazz.Definition-Declaration name type access compatibility attributes #f parent #f #f expansion signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -169,7 +169,7 @@
 
 
 (define (jazz.new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
-  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type access compatibility attributes #f parent #f dispatch-types signature #f)))
+  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type access compatibility attributes #f parent #f #f dispatch-types signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -208,7 +208,7 @@
 
 
 (define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature)
-  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type access compatibility attributes #f parent #f generic signature #f)))
+  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type access compatibility attributes #f parent #f #f generic signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -263,7 +263,7 @@
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -435,7 +435,7 @@
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -517,7 +517,7 @@
 
 
 (define (jazz.new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz.allocate-slot-declaration jazz.Slot-Declaration name type access compatibility attributes #f parent #f initialize getter-name setter-name)))
+  (let ((new-declaration (jazz.allocate-slot-declaration jazz.Slot-Declaration name type access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -582,7 +582,7 @@
 
 
 (define (jazz.new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz.allocate-property-declaration jazz.Property-Declaration name type access compatibility attributes #f parent #f initialize getter-name setter-name #f #f)))
+  (let ((new-declaration (jazz.allocate-property-declaration jazz.Property-Declaration name type access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -621,7 +621,7 @@
 
 
 (define (jazz.new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
-  (let ((new-declaration (jazz.allocate-method-declaration jazz.Method-Declaration name type access compatibility attributes #f parent #f root propagation abstraction expansion remote synchronized signature #f)))
+  (let ((new-declaration (jazz.allocate-method-declaration jazz.Method-Declaration name type access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2984,15 +2984,13 @@
     (let ((bindings (%%cadr form))
           (body (%%cddr form)))
       (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-        (let ((augmented-environment environment)
-              (expanded-bindings (jazz.new-queue)))
-          (for-each (lambda (binding-form)
-                      (receive (variable value) (jazz.parse-binding walker resume declaration environment binding-form)
-                        (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
-                        (set! augmented-environment (%%cons variable augmented-environment))))
-                    bindings)
-          (jazz.new-parameterize (jazz.queue-list expanded-bindings)
-                                 (jazz.walk-body walker resume declaration augmented-environment effective-body)))))))
+        (jazz.new-parameterize (map (lambda (binding-form)
+                                      (let ((variable (%%car binding-form))
+                                            (value (%%cadr binding-form)))
+                                        (%%cons (jazz.walk walker resume declaration environment variable)
+                                                (jazz.walk walker resume declaration environment value))))
+                                    bindings)
+                               (jazz.walk-body walker resume declaration environment effective-body))))))
 
 
 ;;;

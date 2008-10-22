@@ -372,7 +372,7 @@
 
 
 (define (jazz.new-module-declaration name parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent #f requires)))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent #f #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -404,7 +404,7 @@
 
 
 (define (jazz.new-library-declaration name parent dialect-name dialect-invoice requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice requires exports imports #f '() (jazz.new-queue) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice requires exports imports #f '() (jazz.new-queue) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -644,7 +644,7 @@
 
 
 (define (jazz.new-export-declaration name type access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent #f symbol)))
+  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent #f #f symbol)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -676,7 +676,7 @@
 
 
 (define (jazz.new-autoload-declaration name type parent library-declaration exported-library)
-  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent #f library-declaration exported-library #f)))
+  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent #f #f library-declaration exported-library #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1401,7 +1401,7 @@
 
 
 (define (jazz.new-macro-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent #f signature #f)))
+  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1451,7 +1451,7 @@
 
 
 (define (jazz.new-syntax-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent #f signature #f)))
+  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1500,7 +1500,7 @@
 
 
 (define (jazz.new-named-c-declare-declaration name type access compatibility attributes parent code)
-  (let ((new-declaration (jazz.allocate-named-c-declare-declaration jazz.Named-C-Declare-Declaration name type access compatibility attributes #f parent #f code)))
+  (let ((new-declaration (jazz.allocate-named-c-declare-declaration jazz.Named-C-Declare-Declaration name type access compatibility attributes #f parent #f #f code)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1526,7 +1526,7 @@
 
 
 (define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion base-type references c-to-scheme scheme-to-c declare)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f kind expansion base-type '() references c-to-scheme scheme-to-c declare)))
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f #f kind expansion base-type '() references c-to-scheme scheme-to-c declare)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1561,7 +1561,7 @@
 
 
 (define (jazz.new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
-  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent #f signature parameter-types result-type c-name scope #f)))
+  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent #f #f signature parameter-types result-type c-name scope #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -4396,25 +4396,17 @@
 (jazz.define-method (jazz.emit-expression (jazz.Parameterize expression) declaration environment)
   (let ((bindings (%%get-parameterize-bindings expression))
         (body (%%get-parameterize-body expression)))
-    (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
-      (lambda (frame)
-        (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
-          (let ((bindings-output
-                  (map (lambda (binding annotated-variable)
-                         (let ((variable (%%car binding))
-                               (value (%%cdr binding)))
-                           (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
-                             (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
-                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
-                       bindings
-                       variables)))
-            (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
-              (jazz.new-code
-                `(parameterize ,bindings-output
-                   ,@(jazz.sourcified-form body-code))
-                (%%get-code-type body-code)
-                #f))))))))
+    (let ((body-code (jazz.emit-expression body declaration environment)))
+      (jazz.new-code
+        `(parameterize ,(map (lambda (binding)
+                               (let ((variable (%%car binding))
+                                     (value (%%cdr binding)))
+                                 `(,(jazz.sourcified-form (jazz.emit-expression variable declaration environment))
+                                   ,(jazz.sourcified-form (jazz.emit-expression value declaration environment)))))
+                             bindings)
+           ,@(jazz.sourcified-form body-code))
+        (%%get-code-type body-code)
+        #f))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Parameterize expression) f k s)

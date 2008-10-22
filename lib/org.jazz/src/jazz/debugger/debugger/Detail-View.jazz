@@ -62,6 +62,9 @@
   
   (property thread initialize {})
   
+  
+  (slot stop initialize {})
+  
 
   (form
     (<install>                                layout-type: border
@@ -71,7 +74,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Detail-Tree> name: detail     multiple-selection?: #f selection-mode: row double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Detail-Tree> name: detail     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-edit-detail #t})))))))
 
   
   (method meta (external-name . rest)
@@ -115,8 +118,100 @@
   
   
   (method public (set-thread value)
+    (define (thread-stop thread)
+      (when thread
+        (let ((object (get-active-stop~ thread)))
+          (if (not object)
+              {}
+            (let ((debugger (get-debugger~ thread))
+                  (process (get-process~ thread)))
+              (new Debugged-Stop debugger process object))))))
+    
     (set! thread value)
+    (set! stop (thread-stop thread))
     (update))
+
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+
+  (definition *detail*
+    {})
+
+  (definition *detail-indicators*
+    {})
+
+
+  (method (edit-detail)
+    (let ((detail (selected-detail)))
+      (if (not detail)
+          (uninstall-active-detail-indicators)
+        (let ((locations (collect-locations detail)))
+          (if (null? locations)
+              (begin
+                (uninstall-active-detail-indicators)
+                (bell))
+            (install-detail-indicators locations))))))
+  
+  
+  (method (install-detail-indicators locations)
+    (uninstall-active-detail-indicators)
+    (for-each (function (location)
+                (receive (frame text range) (find-location location)
+                  (apply-style~ text 'Walk-Fatal (get-start~ range) (get-end~ range))
+                  (ensure-cell-displayed~ text (get-start~ range))
+                  (reset-tooltip~ text)
+                  (bring-to-front~ frame)
+                  (set-visible?~ frame #t)))
+              locations)
+    (set! *detail-indicators* locations))
+  
+  
+  (method (uninstall-detail-indicators locations)
+    (for-each (function (location)
+                (receive (frame text range) (find-location location)
+                  (apply-style~ text (get-default-style~ text) (get-start~ range) (get-end~ range))
+                  (reset-tooltip~ text)))
+              locations))
+
+
+  (method protected (uninstall-active-detail-indicators)
+    (when *detail-indicators*
+      (uninstall-detail-indicators *detail-indicators*)
+      (set! *detail-indicators* {})))
+  
+  
+  (method (find-location location)
+    (bind (filename line col) location
+      (let ((file (new File (list filename)))
+            (start (new Cell line col))
+            (end (new Cell line (+ col 1))))
+        (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
+              (range (new Range$Cell$ start end)))
+          (values frame (get-guest~ frame) range)))))
+  
+  
+  (method (collect-locations detail)
+    (collect (function (detail)
+               (let ((location (get-location~ detail)))
+                 (when location
+                   (locat->file/line/col (get-locat~ location)))))
+             (collect-details detail)))
+  
+  
+  ;; when all this works, I think stop details
+  ;; should really be just a linear list...
+  (method (collect-details detail)
+    (let ((queue (new-queue)))
+      (define (recurse detail)
+        (when detail
+          (enqueue queue detail)
+          (for-each recurse (get-children~ detail))))
+      
+      (recurse detail)
+      (queue-list queue)))
 
   
   ;;;
@@ -141,9 +236,8 @@
               (track-popup-menu menu acquired)))))))
   
   
-  (method (on-double-click evt)
-    @wait
-    (edit-frame activate-focus?: #t))
+  (method (on-edit-detail evt)
+    (edit-detail))
   
   
   (method (on-update evt)
@@ -156,17 +250,6 @@
 
 
   (method protected (update)
-    (define (debugged-stops debugger process stops)
-      (map (function (object)
-             (new Debugged-Stop debugger process object))
-           stops))
-    
-    (define (debugged-active-stop debugger process)
-      (let ((object (get-active-stop~ thread)))
-        (if (not object)
-            {}
-          (new Debugged-Stop debugger process object))))
-    
     (define (stop-title stop)
       (let ((reason (get-reason~ stop)))
         (if (not reason)
@@ -198,23 +281,19 @@
           (function ()
             (let ((tree (locate 'detail)))
               (remove-every-row~ tree)
-              (when thread
-                (let ((debugger (get-debugger~ thread))
-                      (process (get-process~ thread)))
-                  (let ((stop (debugged-active-stop debugger process)))
-                    (when stop
-                      (let ((title (stop-title stop))
-                            (image (stop-image stop))
-                            (detail (get-detail~ stop)))
-                        (if detail
-                            (insert-detail tree {} detail)
-                          (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
-                            (for-each (function (line)
-                                        (when (not (empty-string? line))
-                                          (let ((title line)
-                                                (image {Bitmap-Resource "Green"}))
-                                            (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
-                                      (cdr (stop-reason-lines stop))))))))))))))))
+              (when stop
+                (let ((title (stop-title stop))
+                      (image (stop-image stop))
+                      (detail (get-detail~ stop)))
+                  (if detail
+                      (insert-detail tree {} detail)
+                    (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                      (for-each (function (line)
+                                  (when (not (empty-string? line))
+                                    (let ((title line)
+                                          (image {Bitmap-Resource "Green"}))
+                                      (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
+                                (cdr (stop-reason-lines stop)))))))))))))
   
   
   ;;;
@@ -229,7 +308,7 @@
   
   
   (method (selected-row)
-    (let* ((tree (locate 'frames))
+    (let* ((tree (locate 'detail))
            (n (get-single-selection~ tree)))
       (when n
         (get-row~ tree n))))

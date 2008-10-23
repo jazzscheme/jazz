@@ -415,7 +415,6 @@
           (thread-yield!)
         (XNextEvent default-x11-display msg)
         (process-message msg)
-        @a
         (process-inval-rects)
         (when (= 0 (XPending default-x11-display))
           (process-expose)))
@@ -837,6 +836,7 @@
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
+    @a
     (let ((window (get-window handle)))
         (when window
           (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
@@ -851,7 +851,7 @@
                   (h (- b t)))
               (unless (or (< w 0) (< h 0))
                 (XInvalidateRect default-x11-display handle l t w h))))))
-    @a
+    
     (unless (nu=? rect {Rect 0 0 0 0})
       (let ((old-rect (table-ref inval-rects handle #f)))
         (table-set! inval-rects handle (if old-rect (rect-union old-rect rect) rect))))))
@@ -898,13 +898,10 @@
 
 
 (definition (platform-update-window handle)
-  @a
-  (paint~ (get-window handle) #f)
-  @old
-  (when handle
-    (let* ((size (platform-get-size handle))
-           (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
-      (platform-invalidate-rect handle rct #t))))
+  (let ((rect (table-ref inval-rects handle #f)))
+    (when rect
+      (table-set! inval-rects handle)
+      (paint~ (get-window handle) rect))))
   
   
 (definition (platform-show-noactivate handle)

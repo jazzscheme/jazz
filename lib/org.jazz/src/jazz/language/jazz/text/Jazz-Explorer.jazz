@@ -359,6 +359,7 @@
                 ((properties)      (walk-properties    context declaration keyword expression doc line walk-expressions?))
                 ((native)          (walk-native        context declaration keyword expression doc line walk-expressions?))
                 ((attributes)      (walk-attributes    context declaration keyword expression doc line walk-expressions?))
+                ((define)          (walk-define        context declaration keyword expression doc line walk-expressions?))
                 ((definition)      (walk-definition    context declaration keyword expression doc line walk-expressions?))
                 ((specialize)      (walk-specialize    context declaration keyword expression doc line walk-expressions?))
                 ((%macro)          (walk-macro         context declaration keyword expression doc line walk-expressions?))
@@ -465,6 +466,24 @@
     (keyword context start end)
     (when walk-expressions?
       (walk-expressions context expression)))
+  
+  
+  (method (walk-define context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
+          (set! entry (declaration context start end (get-marked) #f)))
+        (when list?
+          (walk-parameters entry declaration keyword expression doc line))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
 
   
   (method (walk-definition context declaration keyword expression doc line walk-expressions?)

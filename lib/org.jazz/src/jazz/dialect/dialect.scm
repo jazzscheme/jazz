@@ -858,9 +858,9 @@
     (jazz.new-special-form 'declare         jazz.walk-declare)
     (jazz.new-special-form 'c-include       jazz.walk-c-include)
     (jazz.new-special-form 'c-declare       jazz.walk-c-declare)
+    (jazz.new-special-form 'c-named-declare jazz.walk-c-named-declare)
     (jazz.new-special-form 'c-initialize    jazz.walk-c-initialize)
     (jazz.new-special-form 'c-function      jazz.walk-c-function)
-    (jazz.new-special-form 'named-c-declare jazz.walk-named-c-declare)
     (jazz.new-special-form 'c-type          jazz.walk-c-type)
     (jazz.new-special-form 'c-definition    jazz.walk-c-definition)
     (jazz.new-special-form 'function        jazz.walk-function)
@@ -913,7 +913,7 @@
           ((%slot %property) (jazz.walk-%slot-declaration           walker resume declaration environment form))
           ((method)          (jazz.walk-method-declaration          walker resume declaration environment form))
           ((c-include)       #f)
-          ((named-c-declare) (jazz.walk-named-c-declare-declaration walker resume declaration environment form))
+          ((c-named-declare) (jazz.walk-c-named-declare-declaration walker resume declaration environment form))
           ((c-type)          (jazz.walk-c-type-declaration          walker resume declaration environment form))
           ((c-definition)    (jazz.walk-c-definition-declaration    walker resume declaration environment form))
           (else              (nextmethod walker resume declaration environment form))))
@@ -2513,40 +2513,41 @@
 
 
 ;;;
-;;;; named-C-Declare
+;;;; C-Named-Declare
 ;;;
 
 
-(define jazz.named-c-declare-modifiers
+(define jazz.c-named-declare-modifiers
   '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
-(define (jazz.parse-named-c-declare walker resume declaration rest)
-  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.named-c-declare-modifiers rest)
+(define (jazz.parse-c-named-declare walker resume declaration rest)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-named-declare-modifiers rest)
     (jazz.bind (name code) rest
       (let ((type jazz.Any))
         (values name type access compatibility code)))))
 
 
-(define (jazz.walk-named-c-declare-declaration walker resume declaration environment form)
-  (receive (name type access compatibility code) (jazz.parse-named-c-declare walker resume declaration (%%cdr form))
-    (let ((new-declaration (jazz.new-named-c-declare-declaration name type access compatibility '() declaration code)))
+(define (jazz.walk-c-named-declare-declaration walker resume declaration environment form)
+  (receive (name type access compatibility code) (jazz.parse-c-named-declare walker resume declaration (%%cdr form))
+    (let ((new-declaration (jazz.new-c-named-declare-declaration name type access compatibility '() declaration code)))
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration))))
 
 
-(define (jazz.resolve-named-c-declare-reference walker resume declaration environment symbol)
-  (let ((named-c-declare-declaration (jazz.lookup-reference walker resume declaration environment symbol)))
-    (if (%%class-is? named-c-declare-declaration jazz.Named-C-Declare-Declaration)
-        named-c-declare-declaration
-      (jazz.walk-error walker resume declaration "{s} did not resolve to a named-c-declare: {s}" symbol (%%get-declaration-locator named-c-declare-declaration)))))
+(define (jazz.resolve-c-named-declare-reference walker resume declaration environment symbol)
+  (let ((c-named-declare-declaration (jazz.lookup-reference walker resume declaration environment symbol)))
+    (if (%%class-is? c-named-declare-declaration jazz.C-Named-Declare-Declaration)
+        c-named-declare-declaration
+      (jazz.walk-error walker resume declaration "{s} did not resolve to a c-named-declare: {s}" symbol (%%get-declaration-locator c-named-declare-declaration)))))
 
 
-(define (jazz.walk-named-c-declare walker resume declaration environment form)
-  (receive (name type access compatibility code) (jazz.parse-named-c-declare walker resume declaration (%%cdr form))
-    (let ((new-declaration (jazz.find-form-declaration declaration name)))
-      new-declaration)))
+(define (jazz.walk-c-named-declare walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name type access compatibility code) (jazz.parse-c-named-declare walker resume declaration (%%cdr form))
+      (let ((new-declaration (jazz.find-form-declaration declaration name)))
+        new-declaration))))
 
 
 
@@ -2587,7 +2588,7 @@
         (receive (kind expansion base-type-declaration references) (jazz.resolve-c-type walker resume declaration environment c-type)
           (let ((references (if declare
                                 (if (%%string? expansion)
-                                    (%%cons (jazz.resolve-named-c-declare-reference walker resume declaration environment declare) references)
+                                    (%%cons (jazz.resolve-c-named-declare-reference walker resume declaration environment declare) references)
                                   (jazz.walk-error walker resume declaration "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               references)))
             (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion base-type-declaration references c-to-scheme scheme-to-c declare)))
@@ -2598,9 +2599,10 @@
       (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name))))
 
 
-(define (jazz.walk-c-type walker resume declaration environment form)
-  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
-    (jazz.find-form-declaration declaration name)))
+(define (jazz.walk-c-type walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
+      (jazz.find-form-declaration declaration name))))
 
 
 (define (jazz.resolve-c-type walker resume declaration environment type)
@@ -2704,14 +2706,15 @@
           effective-declaration)))))
 
 
-(define (jazz.walk-c-definition walker resume declaration environment form)
-  (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (jazz.parse-c-definition walker resume declaration (%%cdr form))
-    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
-        (%%set-c-definition-declaration-signature new-declaration signature)
-        (%%set-c-definition-declaration-body new-declaration
-          (jazz.walk-body walker resume new-declaration augmented-environment body))
-        new-declaration))))
+(define (jazz.walk-c-definition walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (jazz.parse-c-definition walker resume declaration (%%cdr form))
+      (let* ((new-declaration (jazz.find-form-declaration declaration name)))
+        (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
+          (%%set-c-definition-declaration-signature new-declaration signature)
+          (%%set-c-definition-declaration-body new-declaration
+            (jazz.walk-body walker resume new-declaration augmented-environment body))
+          new-declaration)))))
 
 
 ;;;

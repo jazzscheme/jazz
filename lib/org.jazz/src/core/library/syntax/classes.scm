@@ -386,15 +386,6 @@
 
 
 ;;;
-;;;; Named C Declare
-;;;
-
-
-(jazz.define-class jazz.Named-C-Declare-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-named-c-declare-declaration
-  ((code       %%get-named-c-declare-declaration-code       ())))
-
-
-;;;
 ;;;; C Type
 ;;;
 
@@ -972,6 +963,15 @@
 
 (jazz.define-class jazz.C-Declare jazz.Expression (type source) jazz.Object-Class jazz.allocate-c-declare
   ((code %%get-c-declare-code ())))
+
+
+;;;
+;;;; C Named Declare
+;;;
+
+
+(jazz.define-class jazz.C-Named-Declare-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-named-declare-declaration
+  ((code %%get-c-named-declare-declaration-code ())))
 
 
 ;;;

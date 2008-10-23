@@ -1492,32 +1492,6 @@
 
 
 ;;;
-;;;; Named C Declare
-;;;
-
-
-(jazz.define-class-runtime jazz.Named-C-Declare-Declaration)
-
-
-(define (jazz.new-named-c-declare-declaration name type access compatibility attributes parent code)
-  (let ((new-declaration (jazz.allocate-named-c-declare-declaration jazz.Named-C-Declare-Declaration name type access compatibility attributes #f parent #f #f code)))
-    (jazz.setup-declaration new-declaration)
-    new-declaration))
-
-
-(jazz.define-method (jazz.emit-declaration (jazz.Named-C-Declare-Declaration declaration) environment)
-  `(begin))
-
-
-(jazz.define-method (jazz.expand-referenced-declaration (jazz.Named-C-Declare-Declaration declaration))
-  (let ((code (%%get-named-c-declare-declaration-code declaration)))
-    `(c-declare ,code)))
-
-
-(jazz.encapsulate-class jazz.Named-C-Declare-Declaration)
-
-
-;;;
 ;;;; C Type
 ;;;
 
@@ -4325,6 +4299,32 @@
 
 
 (jazz.encapsulate-class jazz.C-Declare)
+
+
+;;;
+;;;; C Named Declare
+;;;
+
+
+(jazz.define-class-runtime jazz.C-Named-Declare-Declaration)
+
+
+(define (jazz.new-c-named-declare-declaration name type access compatibility attributes parent code)
+  (let ((new-declaration (jazz.allocate-c-named-declare-declaration jazz.C-Named-Declare-Declaration name type access compatibility attributes #f parent #f #f code)))
+    (jazz.setup-declaration new-declaration)
+    new-declaration))
+
+
+(jazz.define-method (jazz.emit-declaration (jazz.C-Named-Declare-Declaration declaration) environment)
+  `(begin))
+
+
+(jazz.define-method (jazz.expand-referenced-declaration (jazz.C-Named-Declare-Declaration declaration))
+  (let ((code (%%get-c-named-declare-declaration-code declaration)))
+    `(c-declare ,code)))
+
+
+(jazz.encapsulate-class jazz.C-Named-Declare-Declaration)
 
 
 ;;;

@@ -62,8 +62,10 @@
 (jazz.define-method (jazz.emit-declaration (jazz.Define-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
-    `(define ,locator
-       ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))))
+    (jazz.sourcify-if
+      `(define ,locator
+         ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+      (%%get-declaration-source declaration))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) source-declaration environment)
@@ -250,6 +252,7 @@
                (new-environment (%%cons new-declaration environment)))
           (%%set-define-declaration-value new-declaration
             (jazz.walk walker resume new-declaration new-environment value))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 

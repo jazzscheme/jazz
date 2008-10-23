@@ -42,12 +42,13 @@
         (jazz.dialect.syntax.macros))
 
 
-;; @macro (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))
+;; @syntax (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))
 
-(macro (essay . expressions)
-  (if (null? expressions)
-      (error "Not enough arguments for essay")
-    (let ((tests (butlast expressions))
-          (expr (last expressions)))
-      `(when (and ,@tests)
-         ,expr)))))
+(syntax (essay form-src)
+  (let ((expressions (cdr (source-code form-src))))
+    (if (null? expressions)
+        (error "Not enough arguments for essay")
+      (let ((tests (butlast expressions))
+            (expr (last expressions)))
+        `(when (and ,@tests)
+           ,expr))))))

@@ -1054,7 +1054,7 @@
   (let ((form (%%source-code form-src)))
     (let ((procedure-expr (%%desourcify (%%car form))))
       (if (jazz.dispatch? procedure-expr)
-          (jazz.walk-dispatch walker resume declaration environment (%%desourcify form-src))
+          (jazz.walk-dispatch walker resume declaration environment form-src)
         (nextmethod walker resume declaration environment form-src)))))
 
 
@@ -1352,10 +1352,10 @@
 (jazz.encapsulate-class jazz.Dispatch)
 
 
-(define (jazz.walk-dispatch walker resume declaration environment form)
-  (let ((name (jazz.dispatch->symbol (%%car form)))
-        (arguments (%%cdr form)))
-    (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" form)
+(define (jazz.walk-dispatch walker resume declaration environment form-src)
+  (let ((name (jazz.dispatch->symbol (%%source-code (%%car (%%source-code form-src)))))
+        (arguments (%%cdr (%%source-code form-src))))
+    (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
       (jazz.new-dispatch name
         (jazz.walk-list walker resume declaration environment arguments)))))
 
@@ -2984,20 +2984,19 @@
 ;;;
 
 
-(define (jazz.parse-function walker resume declaration form)
-  (let* ((rest (%%cdr form))
-         (parameters (%%car rest))
+(define (jazz.parse-function walker resume declaration form-src)
+  (let* ((rest (%%cdr (%%source-code form-src)))
+         (parameters (%%desourcify (%%car rest)))
          (body (%%cdr rest))
          (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
     (values parameters effective-body)))
 
 
 (define (jazz.walk-function walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (receive (parameters body) (jazz.parse-function walker resume declaration form)
-      (jazz.walk-lambda walker resume declaration environment
-        `(lambda ,parameters
-           ,@body)))))
+  (receive (parameters body) (jazz.parse-function walker resume declaration form-src)
+    (jazz.walk-lambda walker resume declaration environment
+      `(lambda ,parameters
+         ,@body))))
 
 
 
@@ -3007,17 +3006,25 @@
 
 
 (define (jazz.walk-parameterize walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((bindings (%%cadr form))
-          (body (%%cddr form)))
-      (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-        (jazz.new-parameterize (map (lambda (binding-form)
-                                      (let ((variable (%%car binding-form))
-                                            (value (%%cadr binding-form)))
-                                        (%%cons (jazz.walk walker resume declaration environment variable)
-                                                (jazz.walk walker resume declaration environment value))))
-                                    bindings)
-                               (jazz.walk-body walker resume declaration environment effective-body))))))
+  (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
+        (body (%%cddr (%%source-code form-src))))
+    (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
+          (expanded-bindings (jazz.new-queue)))
+      (for-each (lambda (binding-form)
+                  (continuation-capture
+                    (lambda (resume)
+                      (let ((variable (%%car (%%source-code binding-form)))
+                            (value (%%car (%%source-code (%%cdr (%%source-code binding-form))))))
+                        (jazz.enqueue expanded-bindings
+                                      (%%cons (continuation-capture
+                                                (lambda (resume)
+                                                  (jazz.walk walker resume declaration environment variable)))
+                                              (continuation-capture
+                                                (lambda (resume)
+                                                  (jazz.walk walker resume declaration environment value)))))))))
+                bindings)
+      (jazz.new-parameterize (jazz.queue-list expanded-bindings)
+                             (jazz.walk-body walker resume declaration environment effective-body)))))
 
 
 ;;;

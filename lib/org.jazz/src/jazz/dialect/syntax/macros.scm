@@ -50,55 +50,67 @@
     `(begin ,@definitions)))
 
 
-(macro (when test . body)
-  `(if ,test
-       (begin
-         ,@(if (null? body)
-               (list (list 'unspecified))
-             body))
-     #f))
+(syntax (when form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src))))
+    `(if ,test
+         (begin
+           ,@(if (null? body)
+                 (list (list 'unspecified))
+               body))
+       #f)))
 
 
-(macro (unless test . body)
-  `(if (not ,test)
-       (begin ,@body)
-     #f))
+(syntax (unless form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src))))
+    `(if (not ,test)
+         (begin ,@body)
+       #f)))
 
 
-(macro (prog1 returned . body)
-  (let ((value (generate-symbol)))
+(syntax (prog1 form-src)
+  (let ((returned (cadr (source-code form-src)))
+        (body (cddr (source-code form-src)))
+        (value (generate-symbol)))
     `(let ((,value ,returned))
        (begin ,@body)
        ,value)))
 
 
-(macro (unwind-protect body . protection)
-  `(dynamic-wind (function () #f)
-                 (function () ,body)
-                 (function () ,@protection)))
+(syntax (unwind-protect form-src)
+  (let ((body (cadr (source-code form-src)))
+        (protection (cddr (source-code form-src))))
+    `(dynamic-wind (function () #f)
+                   (function () ,body)
+                   (function () ,@protection))))
 
 
-;; @macro (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
-;; @macro (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
+;; @syntax (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
+;; @syntax (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
-(macro (catch type . body)
-  (cond ((symbol? type)
-         `(call-with-catch ,type (lambda (exc) exc)
-            (lambda ()
-              ,@body)))
-        ((pair? type)
-         `(call-with-catch ,(car type) (lambda (,(cadr type)) ,@(cddr type))
-            (lambda ()
-              ,@body)))
-        (else
-         (error "Ill-formed type in catch: {t}" type))))
+(syntax (catch form-src)
+  (let ((type (cadr (source-code form-src)))
+        (body (cddr (source-code form-src))))
+    (cond ((symbol? (source-code type))
+           `(call-with-catch ,type (lambda (exc) exc)
+              (lambda ()
+                ,@body)))
+          ((pair? (source-code type))
+           `(call-with-catch ,(car (source-code type)) (lambda (,(source-code (cadr (source-code type)))) ,@(cddr (source-code type)))
+              (lambda ()
+                ,@body)))
+          (else
+           (error "Ill-formed type in catch: {t}" (desourcify type))))))
 
 
-(macro (~ name object)
-  (with-expression-value object
-    (lambda (obj)
-      `(lambda rest
-         (apply (dispatch ,obj ',name) ,obj rest)))))
+(syntax (~ form-src)
+  (let ((name (source-code (cadr (source-code form-src))))
+        (object (car (cddr (source-code form-src)))))
+    (with-expression-value object
+      (lambda (obj)
+        `(lambda rest
+           (apply (dispatch ,obj ',name) ,obj rest))))))
 
 
 (macro (form>> form)

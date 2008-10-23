@@ -187,8 +187,10 @@
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
+          (jazz.sourcify-if
+            `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
+                                  ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
+            (%%get-declaration-source declaration)))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Generic-Declaration declaration) source-declaration environment)
@@ -224,8 +226,10 @@
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
+          (jazz.sourcify-if
+            `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
+                                   ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
+            (%%get-declaration-source declaration)))))))
 
 
 (jazz.encapsulate-class jazz.Specific-Declaration)
@@ -336,28 +340,30 @@
         (interface-declarations (%%get-class-declaration-interfaces declaration))
         (body (%%get-namespace-declaration-body declaration)))
     (let ((level-locator (jazz.compose-helper locator 'level)))
-      `(begin
-         ,@(if (jazz.core-class? name)
-               (let ((core-class (jazz.get-core-class name)))
-                 (jazz.validate-core-class/class core-class declaration)
-                 (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.sourcified-form (jazz.emit-binding-reference ascendant-declaration declaration environment)))))
-                   `((define ,locator ,(%%get-category-name core-class))
-                     (define ,level-locator (%%get-class-level ,locator))
-                     (begin
-                       ,@(if ascendant-access (%%list ascendant-access) '())
-                       (jazz.remove-slots ,locator)))))
-             (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
-               (let ((ascendant-access (jazz.emit-ascendant-access declaration environment)))
-                 (let ((metaclass-access (if (%%not metaclass-declaration) (if (%%not ascendant-access) 'jazz.Object-Class `(%%get-object-class ,ascendant-access)) (jazz.sourcified-form (jazz.emit-binding-reference metaclass-declaration declaration environment))))
-                       (interface-accesses (map (lambda (declaration) (jazz.sourcified-form (jazz.emit-binding-reference declaration declaration environment))) interface-declarations)))
-                   `((define ,locator
-                       ;; this is a quicky that needs to be well tought out
-                       (if (jazz.global-variable? ',locator)
-                           (jazz.global-value ',locator)
-                         (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
-                     (define ,level-locator (%%get-class-level ,locator)))))))
-         ,@(jazz.emit-namespace-statements body declaration environment)
-         (jazz.update-class ,locator)))))
+      (jazz.sourcify-if
+        `(begin
+           ,@(if (jazz.core-class? name)
+                 (let ((core-class (jazz.get-core-class name)))
+                   (jazz.validate-core-class/class core-class declaration)
+                   (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.sourcified-form (jazz.emit-binding-reference ascendant-declaration declaration environment)))))
+                     `((define ,locator ,(%%get-category-name core-class))
+                       (define ,level-locator (%%get-class-level ,locator))
+                       (begin
+                         ,@(if ascendant-access (%%list ascendant-access) '())
+                         (jazz.remove-slots ,locator)))))
+               (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
+                 (let ((ascendant-access (jazz.emit-ascendant-access declaration environment)))
+                   (let ((metaclass-access (if (%%not metaclass-declaration) (if (%%not ascendant-access) 'jazz.Object-Class `(%%get-object-class ,ascendant-access)) (jazz.sourcified-form (jazz.emit-binding-reference metaclass-declaration declaration environment))))
+                         (interface-accesses (map (lambda (declaration) (jazz.sourcified-form (jazz.emit-binding-reference declaration declaration environment))) interface-declarations)))
+                     `((define ,locator
+                         ;; this is a quicky that needs to be well tought out
+                         (if (jazz.global-variable? ',locator)
+                             (jazz.global-value ',locator)
+                           (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
+                       (define ,level-locator (%%get-class-level ,locator)))))))
+           ,@(jazz.emit-namespace-statements body declaration environment)
+           (jazz.update-class ,locator))
+        (%%get-declaration-source declaration)))))
 
 
 (define (jazz.emit-ascendant-access declaration environment)
@@ -487,13 +493,15 @@
          (metaclass-access (if (%%not metaclass-declaration) 'jazz.Interface (jazz.sourcified-form (jazz.emit-binding-reference metaclass-declaration declaration environment))))
          (ascendant-accesses (map (lambda (declaration) (jazz.sourcified-form (jazz.emit-binding-reference declaration declaration environment))) ascendant-declarations))
          (body (%%get-namespace-declaration-body declaration)))
-    `(begin
-       (define ,locator
-         (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
-       (define ,rank-locator
-         (%%get-interface-rank ,locator))
-       ,@(jazz.emit-namespace-statements body declaration environment)
-       (jazz.update-interface ,locator))))
+    (jazz.sourcify-if
+      `(begin
+         (define ,locator
+           (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
+         (define ,rank-locator
+           (%%get-interface-rank ,locator))
+         ,@(jazz.emit-namespace-statements body declaration environment)
+         (jazz.update-interface ,locator))
+      (%%get-declaration-source declaration))))
 
 
 (jazz.encapsulate-class jazz.Interface-Declaration)
@@ -537,13 +545,15 @@
          (initialize-locator (jazz.compose-helper locator 'initialize))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset)))
-    `(begin
-       (define (,initialize-locator self)
-         ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
-       (define ,slot-locator
-         (jazz.add-slot ,class-locator ',name ,initialize-locator))
-       (define ,offset-locator
-         (%%get-slot-offset ,slot-locator)))))
+    (jazz.sourcify-if
+      `(begin
+         (define (,initialize-locator self)
+           ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
+         (define ,slot-locator
+           (jazz.add-slot ,class-locator ',name ,initialize-locator))
+         (define ,offset-locator
+           (%%get-slot-offset ,slot-locator)))
+      (%%get-declaration-source declaration))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Slot-Declaration declaration) source-declaration environment)
@@ -600,15 +610,17 @@
          (offset-locator (jazz.compose-helper locator 'offset))
          (getter (%%get-property-declaration-getter declaration))
          (setter (%%get-property-declaration-setter declaration)))
-    `(begin
-       (define (,initialize-locator self)
-         ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
-       (define ,slot-locator
-         (jazz.add-property ,class-locator ',name ,initialize-locator
-           ,(jazz.sourcified-form (jazz.emit-expression getter declaration environment))
-           ,(jazz.sourcified-form (jazz.emit-expression setter declaration environment))))
-       (define ,offset-locator
-         (%%get-slot-offset ,slot-locator)))))
+    (jazz.sourcify-if
+      `(begin
+         (define (,initialize-locator self)
+           ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
+         (define ,slot-locator
+           (jazz.add-property ,class-locator ',name ,initialize-locator
+             ,(jazz.sourcified-form (jazz.emit-expression getter declaration environment))
+             ,(jazz.sourcified-form (jazz.emit-expression setter declaration environment))))
+         (define ,offset-locator
+           (%%get-slot-offset ,slot-locator)))
+      (%%get-declaration-source declaration))))
 
 
 (jazz.encapsulate-class jazz.Property-Declaration)
@@ -1517,7 +1529,8 @@
         (let ((new-declaration (jazz.find-form-declaration declaration name)))
           (%%set-generic-declaration-signature new-declaration signature)
           (%%set-generic-declaration-body new-declaration
-            (jazz.walk-body walker resume declaration augmented-environment body)) 
+            (jazz.walk-body walker resume declaration augmented-environment body))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 
@@ -1550,6 +1563,7 @@
                   (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
                     (%%set-specific-declaration-body new-declaration
                       (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
+                    (%%set-declaration-source new-declaration form-src)
                     new-declaration))
               (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" name)))
         (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name)))))
@@ -1635,6 +1649,7 @@
         (begin
           (%%set-namespace-declaration-body new-declaration
             (jazz.walk-namespace walker resume new-declaration new-environment body))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 
@@ -1720,6 +1735,7 @@
              (new-environment (%%cons new-declaration environment)))
         (%%set-namespace-declaration-body new-declaration
           (jazz.walk-namespace walker resume new-declaration new-environment body))
+        (%%set-declaration-source new-declaration form-src)
         new-declaration))))
 
 
@@ -1866,6 +1882,7 @@
                        ,(if setter-name
                             `(,setter-name ,value)
                           `(set! ,name ,value))))))))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 
@@ -2714,6 +2731,7 @@
           (%%set-c-definition-declaration-signature new-declaration signature)
           (%%set-c-definition-declaration-body new-declaration
             (jazz.walk-body walker resume new-declaration augmented-environment body))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 

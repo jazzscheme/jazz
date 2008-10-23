@@ -132,8 +132,10 @@
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
-             ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))))))
+          (jazz.sourcify-if
+            `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
+               ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
+            (%%get-declaration-source declaration)))))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)
@@ -286,6 +288,7 @@
           (%%set-define-macro-signature new-declaration signature)
           (%%set-define-macro-body new-declaration
             (jazz.walk-body walker resume new-declaration augmented-environment body))
+          (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
 

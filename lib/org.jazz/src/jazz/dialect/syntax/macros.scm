@@ -97,7 +97,7 @@
         (body (cddr (source-code form-src)))
         (iter (generate-symbol "iter")))
     (sourcify-if
-      `(let ,iter ()
+      `(let (,iter)
          (if ,test
              (begin
                ,@body

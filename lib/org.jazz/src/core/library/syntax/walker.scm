@@ -3170,8 +3170,8 @@
 (jazz.define-class-runtime jazz.Lambda)
 
 
-(define (jazz.new-lambda type signature body)
-  (jazz.allocate-lambda jazz.Lambda type #f signature body))
+(define (jazz.new-lambda type source signature body)
+  (jazz.allocate-lambda jazz.Lambda type source signature body))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Lambda expression) declaration environment)
@@ -3194,7 +3194,7 @@
                        (let ()
                          ,cast-body)))
                   (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))
-                  #f)))))))))
+                  (%%get-expression-source expression))))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Lambda expression) f k s)
@@ -3306,8 +3306,8 @@
 (jazz.define-class-runtime jazz.Letstar)
 
 
-(define (jazz.new-letstar bindings body)
-  (jazz.allocate-letstar jazz.Letstar #f #f bindings body))
+(define (jazz.new-letstar source bindings body)
+  (jazz.allocate-letstar jazz.Letstar #f source bindings body))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Letstar expression) declaration environment)
@@ -3331,7 +3331,7 @@
                 `(let* ,bindings-output
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
-                #f))))))))
+                (%%get-expression-source expression)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Letstar expression) f k s)
@@ -3501,8 +3501,8 @@
 (jazz.define-class-runtime jazz.Begin)
 
 
-(define (jazz.new-begin expressions)
-  (jazz.allocate-begin jazz.Begin #f #f expressions))
+(define (jazz.new-begin source expressions)
+  (jazz.allocate-begin jazz.Begin #f source expressions))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Begin expression) declaration environment)
@@ -3511,7 +3511,7 @@
       (jazz.new-code
         `(begin ,@(jazz.sourcified-form code))
         (%%get-code-type code)
-        #f))))
+        (%%get-expression-source expression)))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Begin expression) f k s)

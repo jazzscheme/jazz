@@ -340,7 +340,7 @@
       (lambda (specifier body)
         (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
           (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-            (jazz.new-lambda type signature
+            (jazz.new-lambda type form-src signature
               (jazz.walk-body walker resume declaration augmented-environment body))))))))
 
 
@@ -365,7 +365,7 @@
     (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
           (body (%%cddr (%%source-code form-src))))
       (if (and (%%pair? bindings) (%%symbol? (%%source-code (%%car bindings))))
-          (jazz.signature-named-let walker resume declaration environment bindings body)
+          (jazz.signature-named-let walker resume declaration environment form-src bindings body)
         (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
           (let ((augmented-environment environment)
                 (expanded-bindings (jazz.new-queue)))
@@ -393,7 +393,8 @@
                         (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration augmented-environment value)))
                         (set! augmented-environment (%%cons variable augmented-environment))))))
                 bindings)
-      (jazz.new-letstar (jazz.queue-list expanded-bindings)
+      (jazz.new-letstar form-src
+                        (jazz.queue-list expanded-bindings)
                         (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
@@ -476,7 +477,7 @@
                               (continuation-capture
                                 (lambda (resume)
                                   (jazz.walk walker resume declaration environment test))))
-                            (jazz.walk-implicit-begin walker resume declaration environment body)))))
+                            (jazz.walk-implicit-begin walker resume declaration environment clause body)))))
                 clauses)
       (jazz.new-cond form-src (jazz.queue-list expanded-clauses)))))
 
@@ -495,7 +496,7 @@
                                      (body (%%cdr (%%source-code clause)))
                                      (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                                 (if (or (%%eq? tries 'else) (%%pair? tries))
-                                    (cons tries (jazz.walk-implicit-begin walker resume declaration environment effective-body))
+                                    (cons tries (jazz.walk-implicit-begin walker resume declaration environment clause effective-body))
                                   (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries))))))
                         clauses))))
 
@@ -515,13 +516,13 @@
 
 (define (jazz.walk-begin walker resume declaration environment form-src)
   (let ((body (%%cdr (%%source-code form-src))))
-    (jazz.new-begin (jazz.walk-list walker resume declaration environment body))))
+    (jazz.new-begin form-src (jazz.walk-list walker resume declaration environment body))))
 
 
-(define (jazz.walk-implicit-begin walker resume declaration environment form-list)
+(define (jazz.walk-implicit-begin walker resume declaration environment form-src form-list)
   (if (%%null? form-list)
       (jazz.walk walker resume declaration environment '(unspecified))
-    (jazz.new-begin (jazz.walk-list walker resume declaration environment form-list))))
+    (jazz.new-begin form-src (jazz.walk-list walker resume declaration environment form-list))))
 
 
 ;;;
@@ -575,12 +576,14 @@
           (jazz.walk-body walker resume declaration augmented-environment body))))))
 
 
-(define (jazz.signature-named-let walker resume declaration environment bindings body)
+(define (jazz.signature-named-let walker resume declaration environment form-src bindings body)
   (let ((name (%%source-code (%%car bindings)))
         (bindings (%%cdr bindings)))
     (jazz.walk-named-let walker resume declaration environment
-      `(let ,name ,bindings
-         ,@body))))
+      (jazz.sourcify-if
+        `(let ,name ,bindings
+           ,@body)
+        form-src))))
 
 
 ;;;

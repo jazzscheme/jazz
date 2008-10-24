@@ -42,26 +42,30 @@
 (import (jazz.dialect.kernel.boot))
 
 
-; @macro (typecase target (a 1) ((b c) 2) (else 3))
+; @syntax (typecase target (a 1) ((b c) 2) (else 3))
 ; @expansion (let ((sym8 target))
 ;              (cond ((eqv? sym8 a) 1)
 ;                    ((or (eqv? sym8 b) (eqv? sym8 c)) 2)
 ;                    (else 3)))
 
 
-(define-macro (typecase target . clauses)
-  (with-expression-value target
-    (lambda (variable)
-      `(cond ,@(map (lambda (clause)
-                      (let ((value (car clause))
-                            (body (cdr clause)))
-                        (cond ((eq? value 'else)
-                               `(else ,@body))
-                              ((pair? value)
-                               `((or ,@(map (lambda (value)
-                                              `(is? ,variable ,value))
-                                            value))
-                                 ,@body))
-                              (else
-                               `((is? ,variable ,value) ,@body)))))
-                    clauses))))))
+(syntax (typecase form-src)
+  (let ((target (cadr (source-code form-src)))
+        (clauses (cddr (source-code form-src))))
+    (sourcify-if
+      (with-expression-value target
+        (lambda (variable)
+          `(cond ,@(map (lambda (clause)
+                          (let ((value (desourcify (car (source-code clause))))
+                                (body (cdr (source-code clause))))
+                            (cond ((eq? value 'else)
+                                   `(else ,@body))
+                                  ((pair? value)
+                                   `((or ,@(map (lambda (value)
+                                                  `(is? ,variable ,value))
+                                                value))
+                                     ,@body))
+                                  (else
+                                   `((is? ,variable ,value) ,@body)))))
+                        clauses))))
+      form-src))))

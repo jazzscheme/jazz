@@ -41,28 +41,32 @@
 (import (jazz.dialect.kernel.boot))
 
 
-;; @macro (ecase target ((a) 1) ((b c) 2) (else 3))
+;; @syntax (ecase target ((a) 1) ((b c) 2) (else 3))
 ;; @expansion (let ((sym8 target))
 ;;             (cond ((eqv? sym8 a) 1)
 ;;               ((or (eqv? sym8 b) (eqv? sym8 c)) 2)
 ;;               (else 3)))
 
 
-(macro (ecase target . clauses)
-  (with-expression-value target
-    (lambda (symbol)
-      `(cond ,@(map (lambda (clause)
-                      (let ((value (car clause))
-                            (body (cdr clause)))
-                        (cond ((eq? value 'else)
-                               (cons 'else body))
-                          ((pair? value)
-                           (cons (cons 'or (map (lambda (value)
-                                                  (list 'eqv? symbol value))
-                                                value))
-                                 body))
-                          ((integer? value)
-                           (cons (list '= symbol value) body))
-                          (else
-                           (cons (list 'eqv? symbol value) body)))))
-                    clauses))))))
+(syntax (ecase form-src)
+  (let ((target (cadr (source-code form-src)))
+        (clauses (cddr (source-code form-src))))
+    (sourcify-if
+      (with-expression-value target
+        (lambda (symbol)
+          `(cond ,@(map (lambda (clause)
+                          (let ((value (desourcify (car (source-code clause))))
+                                (body (cdr (source-code clause))))
+                            (cond ((eq? value 'else)
+                                   (cons 'else body))
+                                  ((pair? value)
+                                   (cons (cons 'or (map (lambda (value)
+                                                          (list 'eqv? symbol value))
+                                                        value))
+                                         body))
+                                  ((integer? value)
+                                   (cons (list '= symbol value) body))
+                                  (else
+                                   (cons (list 'eqv? symbol value) body)))))
+                        clauses))))
+      form-src))))

@@ -39,7 +39,7 @@
 
 
 (define (jazz.with-expression-value expr proc)
-  (if (symbol? expr)
+  (if (symbol? (%%source-code expr))
       (proc expr)
     (let ((value (jazz.generate-symbol "val")))
       `(let ((,value ,expr))

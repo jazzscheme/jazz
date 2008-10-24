@@ -50,25 +50,27 @@
   (let ((expressions (cdr (source-code form-src))))
     (if (null? expressions)
         (error "Not enough arguments for either")
-      (let ((scan expressions)
-            (complex? #f))
-        (while (not (null? (cdr scan)))
-          (when (not (symbol? (source-code (car scan))))
-                (set! complex? #t))
-          (set! scan (cdr scan)))
-        (if (not complex?)
+      (sourcify-if
+        (let ((scan expressions)
+              (complex? #f))
+          (while (not (null? (cdr scan)))
+            (when (not (symbol? (source-code (car scan))))
+                  (set! complex? #t))
+            (set! scan (cdr scan)))
+          (if (not complex?)
+              (letrec ((proc
+                         (lambda (pair)
+                           (bind (expr . rest) pair
+                             (if (null? rest)
+                                 expr
+                               (list 'if expr expr (proc rest)))))))
+                (proc expressions))
             (letrec ((proc
                        (lambda (pair)
                          (bind (expr . rest) pair
                            (if (null? rest)
                                expr
-                             (list 'if expr expr (proc rest)))))))
-              (proc expressions))
-          (letrec ((proc
-                     (lambda (pair)
-                       (bind (expr . rest) pair
-                         (if (null? rest)
-                             expr
-                           (let ((symbol (generate-symbol)))
-                             (list 'let (list (list symbol expr)) (list 'if symbol symbol (proc rest)))))))))
-            (proc expressions))))))))
+                             (let ((symbol (generate-symbol)))
+                               (list 'let (list (list symbol expr)) (list 'if symbol symbol (proc rest)))))))))
+              (proc expressions))))
+        form-src)))))

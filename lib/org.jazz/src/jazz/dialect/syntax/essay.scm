@@ -48,7 +48,9 @@
   (let ((expressions (cdr (source-code form-src))))
     (if (null? expressions)
         (error "Not enough arguments for essay")
-      (let ((tests (butlast expressions))
-            (expr (last expressions)))
-        `(when (and ,@tests)
-           ,expr))))))
+      (sourcify-if
+        (let ((tests (butlast expressions))
+              (expr (last expressions)))
+          `(when (and ,@tests)
+             ,expr))
+        form-src)))))

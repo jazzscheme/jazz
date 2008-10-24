@@ -3877,8 +3877,8 @@
 (jazz.define-class-runtime jazz.If)
 
 
-(define (jazz.new-if test yes no)
-  (jazz.allocate-if jazz.If #f #f test yes no))
+(define (jazz.new-if source test yes no)
+  (jazz.allocate-if jazz.If #f source test yes no))
 
 
 (define jazz.type-tests
@@ -4078,7 +4078,7 @@
                ,(jazz.sourcified-form yes)
              ,(jazz.simplify-begin (jazz.sourcified-form no)))
           (jazz.extend-type (%%get-code-type yes) (%%get-code-type no))
-          #f)))))
+          (%%get-expression-source expression))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.If expression) f k s)
@@ -4099,8 +4099,8 @@
 (jazz.define-class-runtime jazz.Cond)
 
 
-(define (jazz.new-cond clauses)
-  (jazz.allocate-cond jazz.Cond #f #f clauses))
+(define (jazz.new-cond source clauses)
+  (jazz.allocate-cond jazz.Cond #f source clauses))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Cond expression) declaration environment)
@@ -4124,7 +4124,7 @@
                                   (let ((body (%%cdr clause)))
                                     (jazz.emit-expression body declaration environment))))
                               clauses))
-      #f)))
+      (%%get-expression-source expression))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Cond expression) f k s)
@@ -4142,8 +4142,8 @@
 (jazz.define-class-runtime jazz.Case)
 
 
-(define (jazz.new-case target clauses)
-  (jazz.allocate-case jazz.Case #f #f target clauses))
+(define (jazz.new-case source target clauses)
+  (jazz.allocate-case jazz.Case #f source target clauses))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Case expression) declaration environment)
@@ -4163,7 +4163,7 @@
         (jazz.extend-types (map (lambda (emited-clause)
                                   (%%get-code-type emited-clause))
                                 emited-clauses))
-        #f))))
+        (%%get-expression-source expression)))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Case expression) f k s)
@@ -4181,15 +4181,15 @@
 (jazz.define-class-runtime jazz.And)
 
 
-(define (jazz.new-and expressions)
-  (jazz.allocate-and jazz.And #f #f expressions))
+(define (jazz.new-and source expressions)
+  (jazz.allocate-and jazz.And #f source expressions))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.And expression) declaration environment)
   (jazz.new-code
     `(and ,@(jazz.codes-forms (jazz.emit-expressions (%%get-and-expressions expression) declaration environment)))
     jazz.Any
-    #f))
+    (%%get-expression-source expression)))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.And expression) f k s)
@@ -4208,15 +4208,15 @@
 (jazz.define-class-runtime jazz.Or)
 
 
-(define (jazz.new-or expressions)
-  (jazz.allocate-or jazz.Or #f #f expressions))
+(define (jazz.new-or source expressions)
+  (jazz.allocate-or jazz.Or #f source expressions))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Or expression) declaration environment)
   (jazz.new-code
     `(or ,@(jazz.codes-forms (jazz.emit-expressions (%%get-or-expressions expression) declaration environment)))
     jazz.Any
-    #f))
+    (%%get-expression-source expression)))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Or expression) f k s)

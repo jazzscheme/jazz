@@ -450,7 +450,8 @@
     (let ((test (%%cadr (%%source-code form-src)))
           (yes (%%car (%%cddr (%%source-code form-src))))
           (no (%%cdr (%%cddr (%%source-code form-src)))))
-      (jazz.new-if (continuation-capture
+      (jazz.new-if form-src
+                   (continuation-capture
                      (lambda (resume)
                        (jazz.walk walker resume declaration environment test)))
                    (continuation-capture
@@ -477,13 +478,14 @@
                                   (jazz.walk walker resume declaration environment test))))
                             (jazz.walk-implicit-begin walker resume declaration environment body)))))
                 clauses)
-      (jazz.new-cond (jazz.queue-list expanded-clauses)))))
+      (jazz.new-cond form-src (jazz.queue-list expanded-clauses)))))
 
 
 (define (jazz.walk-case walker resume declaration environment form-src)
   (let ((target (%%cadr (%%source-code form-src)))
         (clauses (%%cddr (%%source-code form-src))))
-    (jazz.new-case (continuation-capture
+    (jazz.new-case form-src
+                   (continuation-capture
                      (lambda (resume)
                        (jazz.walk walker resume declaration environment target)))
                    (map (lambda (clause)
@@ -499,11 +501,11 @@
 
 
 (define (jazz.walk-and walker resume declaration environment form-src)
-  (jazz.new-and (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
+  (jazz.new-and form-src (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
 
 
 (define (jazz.walk-or walker resume declaration environment form-src)
-  (jazz.new-or (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
+  (jazz.new-or form-src (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
 
 
 ;;;

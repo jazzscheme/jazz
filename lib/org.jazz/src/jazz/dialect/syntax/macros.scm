@@ -44,42 +44,52 @@
 (syntax (constant form-src)
   (let ((name (cadr (source-code form-src)))
         (value (caddr (source-code form-src))))
-    `(definition ,name ,value)))
+    (sourcify-if
+      `(definition ,name ,value)
+      form-src)))
 
 
 (syntax (enumeration form-src)
   (let ((name (cadr (source-code form-src)))
         (declarations (cddr (source-code form-src))))
-    (let ((definitions (map (lambda (declaration) `(definition ,@(source-code declaration))) declarations)))
-      `(begin ,@definitions))))
+    (sourcify-if
+      (let ((definitions (map (lambda (declaration) `(definition ,@(source-code declaration))) declarations)))
+        `(begin ,@definitions))
+      form-src)))
 
 
 (syntax (when form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
-    `(if ,test
-         (begin
-           ,@(if (null? body)
-                 (list (list 'unspecified))
-               body))
-       #f)))
+    (sourcify-if
+      `(if ,test
+           (begin
+             ,@(if (null? body)
+                   (list (list 'unspecified))
+                 body))
+         #f)
+      form-src)))
 
 
 (syntax (unless form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
-    `(if (not ,test)
-         (begin ,@body)
-       #f)))
+    (sourcify-if
+      `(if (not ,test)
+           (begin ,@body)
+         #f)
+      form-src)))
 
 
 (syntax (prog1 form-src)
   (let ((returned (cadr (source-code form-src)))
         (body (cddr (source-code form-src)))
         (value (generate-symbol)))
-    `(let ((,value ,returned))
-       (begin ,@body)
-       ,value)))
+    (sourcify-if
+      `(let ((,value ,returned))
+         (begin ,@body)
+         ,value)
+      form-src)))
 
 
 (syntax (while form-src)
@@ -128,10 +138,12 @@
 (syntax (~ form-src)
   (let ((name (source-code (cadr (source-code form-src))))
         (object (car (cddr (source-code form-src)))))
-    (with-expression-value object
-      (lambda (obj)
-        `(lambda rest
-           (apply (dispatch ,obj ',name) ,obj rest))))))
+    (sourcify-if
+      (with-expression-value object
+        (lambda (obj)
+          `(lambda rest
+             (apply (dispatch ,obj ',name) ,obj rest))))
+      form-src)))
 
 
 (macro (form>> form)

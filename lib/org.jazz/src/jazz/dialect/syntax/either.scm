@@ -40,7 +40,6 @@
 
 (import (jazz.dialect.kernel.boot)
         (jazz.dialect.syntax.bind)
-        (jazz.dialect.syntax.while)
         (jazz.dialect.syntax.macros))
 
 
@@ -54,9 +53,9 @@
       (let ((scan expressions)
             (complex? #f))
         (while (not (null? (cdr scan)))
-               (when (not (symbol? (source-code (car scan))))
-                     (set! complex? #t))
-               (set! scan (cdr scan)))
+          (when (not (symbol? (source-code (car scan))))
+                (set! complex? #t))
+          (set! scan (cdr scan)))
         (if (not complex?)
             (letrec ((proc
                        (lambda (pair)

@@ -376,7 +376,8 @@
                               (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
                               (set! augmented-environment (%%cons variable augmented-environment))))))
                       bindings)
-            (jazz.new-let (jazz.queue-list expanded-bindings)
+            (jazz.new-let form-src
+                          (jazz.queue-list expanded-bindings)
                           (jazz.walk-body walker resume declaration augmented-environment effective-body))))))))
 
 
@@ -409,7 +410,8 @@
                         (jazz.enqueue expanded-bindings (cons variable (jazz.walk walker resume declaration augmented-environment value)))))))
                 new-variables
                 bindings)
-      (jazz.new-letrec (jazz.queue-list expanded-bindings)
+      (jazz.new-letrec form-src
+                       (jazz.queue-list expanded-bindings)
                        (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
@@ -431,9 +433,9 @@
          (body (%%cdr (%%cddr (%%source-code form-src))))
          (variables (walk-parameters parameters))
          (new-environment (%%append variables environment)))
-    (jazz.new-receive variables (continuation-capture
-                                  (lambda (resume)
-                                    (jazz.walk walker resume declaration environment expression)))
+    (jazz.new-receive form-src variables (continuation-capture
+                                           (lambda (resume)
+                                             (jazz.walk walker resume declaration environment expression)))
       (jazz.walk-body walker resume declaration new-environment body))))
 
 
@@ -566,7 +568,7 @@
                 bindings)
       (let ((variable (jazz.new-variable name #f)))
         (set! augmented-environment (%%cons variable augmented-environment))
-        (jazz.new-named-let variable
+        (jazz.new-named-let form-src variable
           (jazz.queue-list expanded-bindings)
           (jazz.walk-body walker resume declaration augmented-environment body))))))
 

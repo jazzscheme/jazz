@@ -632,6 +632,7 @@
 (native jazz.desourcify-list)
 (native jazz.sourcify)
 (native jazz.sourcify-if)
+(native jazz.present-source)
 (native jazz.locat-container)
 (native jazz.locat-position)
 (native jazz.container->file)

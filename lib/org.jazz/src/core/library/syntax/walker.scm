@@ -3183,13 +3183,18 @@
         (let ((augmented-environment (cons frame environment)))
           (let ((signature-output (jazz.emit-signature signature declaration augmented-environment)))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
-              (jazz.new-code
-                `(lambda ,signature-output
-                   ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                   (let ()
-                     ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(jazz.sourcified-form body-code)) (%%get-code-type body-code) #f) type declaration environment))))
-                (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))
-                #f))))))))
+              (let ((signature-casts (jazz.emit-signature-casts signature declaration augmented-environment))
+                    (cast-body (jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(jazz.sourcified-form body-code)) (%%get-code-type body-code) #f) type declaration environment))))
+                (jazz.new-code
+                  (if (%%not signature-casts)
+                      `(lambda ,signature-output
+                         ,cast-body)
+                    `(lambda ,signature-output
+                       ,@signature-casts
+                       (let ()
+                         ,cast-body)))
+                  (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))
+                  #f)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Lambda expression) f k s)
@@ -3210,8 +3215,8 @@
 (jazz.define-class-runtime jazz.Let)
 
 
-(define (jazz.new-let bindings body)
-  (jazz.allocate-let jazz.Let #f #f bindings body))
+(define (jazz.new-let source bindings body)
+  (jazz.allocate-let jazz.Let #f source bindings body))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Let expression) declaration environment)
@@ -3235,7 +3240,7 @@
                 `(let ,bindings-output
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
-                #f))))))))
+                (%%get-expression-source expression)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Let expression) f k s)
@@ -3255,8 +3260,8 @@
 (jazz.define-class-runtime jazz.Named-Let)
 
 
-(define (jazz.new-named-let variable bindings body)
-  (jazz.allocate-named-let jazz.Named-Let #f #f bindings body variable))
+(define (jazz.new-named-let source variable bindings body)
+  (jazz.allocate-named-let jazz.Named-Let #f source bindings body variable))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Named-Let expression) declaration environment)
@@ -3281,7 +3286,7 @@
                 `(let ,(%%get-lexical-binding-name variable) ,bindings-output
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
-                #f))))))))
+                (%%get-expression-source expression)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Named-Let expression) f k s)
@@ -3346,8 +3351,8 @@
 (jazz.define-class-runtime jazz.Letrec)
 
 
-(define (jazz.new-letrec bindings body)
-  (jazz.allocate-letrec jazz.Letrec #f #f bindings body))
+(define (jazz.new-letrec source bindings body)
+  (jazz.allocate-letrec jazz.Letrec #f source bindings body))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Letrec expression) declaration environment)
@@ -3371,7 +3376,7 @@
                 `(letrec ,bindings-output
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
-                #f))))))))
+                (%%get-expression-source expression)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Letrec expression) f k s)
@@ -3391,27 +3396,27 @@
 (jazz.define-class-runtime jazz.Receive)
 
 
-(define (jazz.new-receive variables expression body)
-  (jazz.allocate-receive jazz.Receive #f #f variables expression body))
+(define (jazz.new-receive source variables expression body)
+  (jazz.allocate-receive jazz.Receive #f source variables expression body))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Receive expression) declaration environment)
   (let ((variables (%%get-receive-variables expression))
-        (expression (%%get-receive-expression expression))
+        (expr (%%get-receive-expression expression))
         (body (%%get-receive-body expression)))
     (jazz.with-annotated-frame (jazz.annotate-receive variables)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          (let ((expression-output (jazz.sourcified-form (jazz.emit-expression expression declaration environment))))
+          (let ((expression-output (jazz.sourcified-form (jazz.emit-expression expr declaration environment))))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
                 `(receive ,(map (lambda (variable)
                                   (%%get-lexical-binding-name variable))
                                 variables)
-                   ,expression-output
+                     ,expression-output
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type body-code)
-                #f))))))))
+                (%%get-expression-source expression)))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Receive expression) f k s)

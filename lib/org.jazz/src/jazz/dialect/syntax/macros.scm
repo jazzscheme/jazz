@@ -82,12 +82,27 @@
        ,value)))
 
 
+(syntax (while form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src)))
+        (iter (generate-symbol "iter")))
+    (sourcify-if
+      `(let ,iter ()
+         (if ,test
+             (begin
+               ,@body
+               (,iter))))
+      form-src)))
+
+
 (syntax (unwind-protect form-src)
   (let ((body (cadr (source-code form-src)))
         (protection (cddr (source-code form-src))))
-    `(dynamic-wind (function () #f)
-                   (function () ,body)
-                   (function () ,@protection))))
+    (sourcify-if
+      `(dynamic-wind (function () #f)
+                     (function () ,body)
+                     (function () ,@protection))
+      form-src)))
 
 
 ;; @syntax (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
@@ -96,16 +111,18 @@
 (syntax (catch form-src)
   (let ((type (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
-    (cond ((symbol? (source-code type))
-           `(call-with-catch ,type (lambda (exc) exc)
-              (lambda ()
-                ,@body)))
-          ((pair? (source-code type))
-           `(call-with-catch ,(car (source-code type)) (lambda (,(source-code (cadr (source-code type)))) ,@(cddr (source-code type)))
-              (lambda ()
-                ,@body)))
-          (else
-           (error "Ill-formed type in catch: {t}" (desourcify type))))))
+    (sourcify-if
+      (cond ((symbol? (source-code type))
+             `(call-with-catch ,type (lambda (exc) exc)
+                (lambda ()
+                  ,@body)))
+            ((pair? (source-code type))
+             `(call-with-catch ,(car (source-code type)) (lambda (,(source-code (cadr (source-code type)))) ,@(cddr (source-code type)))
+                (lambda ()
+                  ,@body)))
+            (else
+             (error "Ill-formed type in catch: {t}" (desourcify type))))
+      form-src)))
 
 
 (syntax (~ form-src)

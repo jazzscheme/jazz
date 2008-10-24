@@ -48,7 +48,6 @@
         (jazz.dialect.syntax.increase)
         (jazz.dialect.syntax.loop)
         (jazz.dialect.syntax.typecase)
-        (jazz.dialect.syntax.while)
         (jazz.dialect.syntax.with)
         (jazz.dialect.syntax.macros)
         (jazz.dialect.syntax.templates)

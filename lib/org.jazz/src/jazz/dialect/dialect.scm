@@ -1262,17 +1262,15 @@
             (rest-codes (jazz.emit-expressions rest-arguments declaration environment)))
         (let ((method-declaration (lookup-method/warn object-code)))
           (if method-declaration
-              (or (jazz.emit-inlined-final-dispatch method-declaration object-code rest-codes declaration environment)
+              (or (jazz.emit-inlined-final-dispatch expression method-declaration object-code rest-codes declaration environment)
                   (jazz.with-code-value object-code
                     (lambda (code)
                       (let ((dispatch-code (jazz.emit-method-dispatch code method-declaration)))
-                        (jazz.sourcify-code
-                          (jazz.new-code
-                            `(,(jazz.sourcified-form dispatch-code)
-                              ,(jazz.sourcified-form code)
-                              ,@(jazz.codes-forms rest-codes))
-                            (%%get-code-type dispatch-code)
-                            #f)
+                        (jazz.new-code
+                          `(,(jazz.sourcified-form dispatch-code)
+                            ,(jazz.sourcified-form code)
+                            ,@(jazz.codes-forms rest-codes))
+                          (%%get-code-type dispatch-code)
                           (%%get-expression-source expression))))))
             (let ((dv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!d") (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
                   (pv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!p") `',name))
@@ -1291,13 +1289,11 @@
                                   (set! ,p p)
                                   (set! ,q q)
                                   (set! ,t t)))
-                (jazz.sourcify-code
-                  (jazz.new-code
-                    (jazz.with-expression-value (jazz.sourcified-form object-code)
-                      (lambda (object)
-                        `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
-                    jazz.Any
-                    #f)
+                (jazz.new-code
+                  (jazz.with-expression-value (jazz.sourcified-form object-code)
+                    (lambda (object)
+                      `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
+                  jazz.Any
                   (%%get-expression-source expression))))))))))
 
 
@@ -1311,10 +1307,10 @@
             `(let ((,value ,form))
                ,(%%get-code-form code))
             (%%get-code-type code)
-            #f))))))
+            (%%get-code-source code)))))))
 
 
-(define (jazz.emit-inlined-final-dispatch declaration object arguments source-declaration environment)
+(define (jazz.emit-inlined-final-dispatch expression declaration object arguments source-declaration environment)
   ;; mostly copy/pasted and adapted from method declaration. need to unify the code
   (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
       (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)

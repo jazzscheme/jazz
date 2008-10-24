@@ -256,10 +256,9 @@
 
 
 (jazz.define-syntax module
-  (lambda (src)
-    (let ((form (%%source-code src)))
-      (let ((name (%%source-code (%%cadr form)))
-            (rest (%%cddr form)))
-        (if (%%neq? name (jazz.requested-module-name))
-            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-          (jazz.expand-module name rest))))))
+  (lambda (form-src)
+    (let ((name (%%source-code (%%cadr (%%source-code form-src))))
+          (rest (%%cddr (%%source-code form-src))))
+      (if (%%neq? name (jazz.requested-module-name))
+          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+        (jazz.expand-module name rest)))))

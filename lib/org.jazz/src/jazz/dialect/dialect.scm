@@ -1482,8 +1482,7 @@
 
 ;; we should not even have to do this
 (define (jazz.walk-specialize walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (jazz.new-specialize)))
+  (jazz.new-specialize))
 
 
 ;;;

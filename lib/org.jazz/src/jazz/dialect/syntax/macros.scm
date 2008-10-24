@@ -41,13 +41,17 @@
 (import (jazz.dialect.kernel.boot))
 
 
-(macro (constant name value)
-  `(definition ,name ,value))
+(syntax (constant form-src)
+  (let ((name (cadr (source-code form-src)))
+        (value (caddr (source-code form-src))))
+    `(definition ,name ,value)))
 
 
-(macro (enumeration name . declarations)
-  (let ((definitions (map (lambda (declaration) `(definition ,@declaration)) declarations)))
-    `(begin ,@definitions)))
+(syntax (enumeration form-src)
+  (let ((name (cadr (source-code form-src)))
+        (declarations (cddr (source-code form-src))))
+    (let ((definitions (map (lambda (declaration) `(definition ,@(source-code declaration))) declarations)))
+      `(begin ,@definitions))))
 
 
 (syntax (when form-src)

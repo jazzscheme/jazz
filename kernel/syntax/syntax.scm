@@ -39,19 +39,6 @@
 
 
 ;;;
-;;;; Debug
-;;;
-
-
-(jazz.define-macro (jazz.block-tail-call form)
-  (if jazz.debug-user?
-      `(begin
-         ,form
-         #f)
-    form))
-
-
-;;;
 ;;;; Compile
 ;;;
 

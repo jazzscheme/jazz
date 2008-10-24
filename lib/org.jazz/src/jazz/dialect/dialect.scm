@@ -866,7 +866,6 @@
     (jazz.new-special-form '%property       jazz.walk-%slot)
     (jazz.new-special-form 'method          jazz.walk-method)
 
-    (jazz.new-macro-form   'atomic          jazz.expand-atomic)
     (jazz.new-special-form 'declare         jazz.walk-declare)
     (jazz.new-special-form 'c-include       jazz.walk-c-include)
     (jazz.new-special-form 'c-declare       jazz.walk-c-declare)
@@ -2476,17 +2475,6 @@
               `(begin
                  ,@body))))
     (jazz.simplify-begin `(begin ,@body))))
-
-
-;;;
-;;;; Atomic
-;;;
-
-
-(define (jazz.expand-atomic walker resume declaration environment . body)
-  `(let ()
-     (declare (not interrupts-enabled))
-     ,@body))
 
 
 ;;;

@@ -38,12 +38,16 @@
 (module core.base.syntax.macros
 
 
-(jazz.define-macro (%%boolean expr)
-  `(if ,expr #t #f))
+(jazz.define-syntax %%boolean
+  (lambda (src)
+    (let ((expr (%%cadr (%%source-code src))))
+      `(if ,expr #t #f))))
 
 
-(jazz.define-macro (%%not-null? expr)
-  `(%%not (%%null? ,expr)))
+(jazz.define-syntax %%not-null?
+  (lambda (src)
+    (let ((expr (%%cadr (%%source-code src))))
+      `(%%not (%%null? ,expr)))))
 
 
 ;;;
@@ -51,11 +55,14 @@
 ;;;
 
 
-(jazz.define-macro (%%when test . body)
-  `(if ,test
-       (begin
-         ,@body)
-     #f))
+(jazz.define-syntax %%when
+  (lambda (src)
+    (let ((test (%%cadr (%%source-code src)))
+          (body (%%cddr (%%source-code src))))
+      `(if ,test
+           (begin
+             ,@body)
+         #f))))
 
 
 ;;;
@@ -63,13 +70,16 @@
 ;;;
 
 
-(jazz.define-macro (%%while test . body)
-  (let ((iter (jazz.generate-symbol "iter")))
-    `(let ,iter ()
-       (if ,test
-           (begin
-             ,@body
-             (,iter))))))
+(jazz.define-syntax %%while
+  (lambda (src)
+    (let ((test (%%cadr (%%source-code src)))
+          (body (%%cddr (%%source-code src)))
+          (iter (jazz.generate-symbol "iter")))
+      `(let ,iter ()
+         (if ,test
+             (begin
+               ,@body
+               (,iter)))))))
 
 
 ;;;

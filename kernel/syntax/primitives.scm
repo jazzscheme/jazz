@@ -92,32 +92,52 @@
 
 
 ;;;
+;;;; Continuation
+;;;
+
+
+(cond-expand
+  (gambit
+   (jazz.define-syntax %%continuation?
+     (lambda (src)
+       (let ((obj (##cadr (##source-code src))))
+         (if jazz.debug-core?
+             `(continuation? ,obj)
+           `(##continuation? ,obj)))))
+   
+   (jazz.define-syntax %%continuation-capture
+     (lambda (src)
+       (let ((proc (##cadr (##source-code src))))
+         (if jazz.debug-core?
+             `(continuation-capture ,proc)
+           `(##continuation-capture ,proc)))))
+   
+   (jazz.define-syntax %%continuation-graft
+     (lambda (src)
+       (let ((cont (##cadr (##source-code src)))
+             (proc (##car (##cddr (##source-code src)))))
+         (if jazz.debug-core?
+             `(continuation-graft ,cont ,proc)
+           `(##continuation-graft ,cont ,proc)))))
+   
+   (jazz.define-syntax %%continuation-return
+     (lambda (src)
+       (let ((cont (##cadr (##source-code src)))
+             (values (##cddr (##source-code src))))
+         (if jazz.debug-core?
+             `(continuation-return ,cont ,@values)
+           `(##continuation-return ,cont ,@values))))))
+  
+  (else))
+
+
+;;;
 ;;;; Control
 ;;;
 
 
 (cond-expand
   (gambit
-   (jazz.define-macro (%%continuation? obj)
-     (if jazz.debug-core?
-         `(continuation? ,obj)
-       `(##continuation? ,obj)))
-   
-   (jazz.define-macro (%%continuation-capture proc)
-     (if jazz.debug-core?
-         `(continuation-capture ,proc)
-       `(##continuation-capture ,proc)))
-   
-   (jazz.define-macro (%%continuation-graft cont proc)
-     (if jazz.debug-core?
-         `(continuation-graft ,cont ,proc)
-       `(##continuation-graft ,cont ,proc)))
-   
-   (jazz.define-macro (%%continuation-return cont . values)
-     (if jazz.debug-core?
-         `(continuation-return ,cont ,@values)
-       `(##continuation-return ,cont ,@values)))
-   
    (jazz.define-macro (%%procedure? obj)
      (if jazz.debug-core?
          `(procedure? ,obj)

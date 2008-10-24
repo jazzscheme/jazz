@@ -87,40 +87,55 @@
 ;;;
 
 
-(jazz.define-macro (%%core-assert . rest)
-  (apply jazz.expand-%%assert jazz.debug-core? rest))
+(jazz.define-syntax %%core-assert
+  (lambda (src)
+    (jazz.expand-%%assert jazz.debug-core? src)))
 
 
-(jazz.define-macro (%%core-assertion . rest)
-  (apply jazz.expand-%%assertion jazz.debug-core? rest))
+(jazz.define-syntax %%core-assertion
+  (lambda (src)
+    (jazz.expand-%%assertion jazz.debug-core? src)))
 
 
-(jazz.define-macro (%%debug-assert . rest)
-  (apply jazz.expand-%%assert jazz.debug-user? rest))
+(jazz.define-syntax %%debug-assert
+  (lambda (src)
+    (jazz.expand-%%assert jazz.debug-user? src)))
 
 
-(jazz.define-macro (%%debug-assertion . rest)
-  (apply jazz.expand-%%assertion jazz.debug-user? rest))
+(jazz.define-syntax %%debug-assertion
+  (lambda (src)
+    (jazz.expand-%%assertion jazz.debug-user? src)))
 
 
-(jazz.define-macro (%%assert . rest)
-  (apply jazz.expand-%%assert #t rest))
+(jazz.define-syntax %%assert
+  (lambda (src)
+    (jazz.expand-%%assert #t src)))
 
 
-(jazz.define-macro (%%assertion . rest)
-  (apply jazz.expand-%%assertion #t rest))
+(jazz.define-syntax %%assertion
+  (lambda (src)
+    (jazz.expand-%%assertion #t src)))
 
 
-(define (jazz.expand-%%assert test? assertion . body)
-  (let ((message (let ((port (open-output-string)))
-                   (display "Assertion " port)
-                   (write assertion port)
-                   (display " failed" port)
-                   (get-output-string port))))
-    (apply jazz.expand-%%assertion test? assertion (list 'error message) body)))
+(define (jazz.expand-%%assert test? src)
+  (let ((assertion (%%cadr (%%source-code src)))
+        (body (%%cddr (%%source-code src))))
+    (let ((message (let ((port (open-output-string)))
+                     (display "Assertion " port)
+                     (write (%%desourcify assertion) port)
+                     (display " failed" port)
+                     (get-output-string port))))
+      (jazz.expand-assertion test? assertion (list 'error message) body))))
 
 
-(define (jazz.expand-%%assertion test? assertion action . body)
+(define (jazz.expand-%%assertion test? src)
+  (let ((assertion (%%cadr (%%source-code src)))
+        (action (%%car (%%cddr (%%source-code src))))
+        (body (%%cdr (%%cddr (%%source-code src)))))
+    (jazz.expand-assertion test? assertion action body)))
+
+
+(define (jazz.expand-assertion test? assertion action body)
   (if test?
       `(if (%%not ,assertion)
            ,action

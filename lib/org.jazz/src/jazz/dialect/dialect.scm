@@ -1051,11 +1051,10 @@
 
 
 (jazz.define-method (jazz.walk-form (jazz.Jazz-Walker walker) resume declaration environment form-src)
-  (let ((form (%%source-code form-src)))
-    (let ((procedure-expr (%%desourcify (%%car form))))
-      (if (jazz.dispatch? procedure-expr)
-          (jazz.walk-dispatch walker resume declaration environment form-src)
-        (nextmethod walker resume declaration environment form-src)))))
+  (let ((procedure-expr (%%source-code (%%car (%%source-code form-src)))))
+    (if (jazz.dispatch? procedure-expr)
+        (jazz.walk-dispatch walker resume declaration environment form-src)
+      (nextmethod walker resume declaration environment form-src))))
 
 
 ;;;
@@ -1223,8 +1222,8 @@
 (jazz.define-class-runtime jazz.Dispatch)
 
 
-(define (jazz.new-dispatch name arguments)
-  (jazz.allocate-dispatch jazz.Dispatch #f #f name arguments))
+(define (jazz.new-dispatch source name arguments)
+  (jazz.allocate-dispatch jazz.Dispatch #f source name arguments))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Dispatch expression) declaration environment)
@@ -1268,12 +1267,14 @@
                   (jazz.with-code-value object-code
                     (lambda (code)
                       (let ((dispatch-code (jazz.emit-method-dispatch code method-declaration)))
-                        (jazz.new-code
-                          `(,(jazz.sourcified-form dispatch-code)
-                            ,(jazz.sourcified-form code)
-                            ,@(jazz.codes-forms rest-codes))
-                          (%%get-code-type dispatch-code)
-                          #f)))))
+                        (jazz.sourcify-code
+                          (jazz.new-code
+                            `(,(jazz.sourcified-form dispatch-code)
+                              ,(jazz.sourcified-form code)
+                              ,@(jazz.codes-forms rest-codes))
+                            (%%get-code-type dispatch-code)
+                            #f)
+                          (%%get-expression-source expression))))))
             (let ((dv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!d") (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
                   (pv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!p") `',name))
                   (qv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!q") #f))
@@ -1291,12 +1292,14 @@
                                   (set! ,p p)
                                   (set! ,q q)
                                   (set! ,t t)))
-                (jazz.new-code
-                  (jazz.with-expression-value (jazz.sourcified-form object-code)
-                    (lambda (object)
-                      `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
-                  jazz.Any
-                  #f)))))))))
+                (jazz.sourcify-code
+                  (jazz.new-code
+                    (jazz.with-expression-value (jazz.sourcified-form object-code)
+                      (lambda (object)
+                        `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
+                    jazz.Any
+                    #f)
+                  (%%get-expression-source expression))))))))))
 
 
 (define (jazz.with-code-value code proc)
@@ -1356,7 +1359,7 @@
   (let ((name (jazz.dispatch->symbol (%%source-code (%%car (%%source-code form-src)))))
         (arguments (%%cdr (%%source-code form-src))))
     (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
-      (jazz.new-dispatch name
+      (jazz.new-dispatch form-src name
         (jazz.walk-list walker resume declaration environment arguments)))))
 
 

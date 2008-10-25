@@ -4836,12 +4836,11 @@
 
 
 (define (jazz.walk-setbang walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((form (%%cadr form))
-          (value (%%car (%%cddr form))))
-      (if (%%symbol? form)
-          (jazz.walk-symbol-assignment walker resume declaration environment form value)
-        (jazz.error "Illegal set! of {s}" form)))))
+  (let ((form (%%source-code (%%cadr (%%source-code form-src))))
+        (value (%%car (%%cddr (%%source-code form-src)))))
+    (if (%%symbol? form)
+        (jazz.walk-symbol-assignment walker resume declaration environment form value)
+      (jazz.error "Illegal set! of {s}" form))))
 
 
 (define (jazz.lookup-symbol walker environment symbol)

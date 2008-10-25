@@ -50,7 +50,7 @@
 ;;;
 
 
-#; ;; @macro
+#; ;; @syntax
 (loop (repeat n)
       (do (bell)))
 
@@ -61,7 +61,7 @@
     (decrease! rpt0)))
 
 
-#; ;; @macro
+#; ;; @syntax
 (loop (for x from 0 below (upper-bound))
       (for y in (get-list))
       (sum (* x y))
@@ -84,7 +84,7 @@
   res2)
 
 
-#; ;; @macro
+#; ;; @syntax
 (loop (for x in list)
       (some (test? x)))
 
@@ -100,7 +100,7 @@
   res1)
 
 
-#; ;; @macro
+#; ;; @syntax
 (loop (for n in lst)
       (when (even? n)
         (return n))
@@ -120,7 +120,7 @@
   n)
 
 
-#; ;; @macro
+#; ;; @syntax
 (loop (for n in (naturals 0 10))
       (when (even? n)
         (collect (* n n) in even))
@@ -129,8 +129,11 @@
       (finally (list even odd)))
 
 
-(macro (loop . clauses)
-  (expand-loop clauses))
+(syntax (loop form-src)
+  (let ((clauses (cdr (source-code form-src))))
+    (sourcify-if
+      (expand-loop clauses)
+      form-src)))
 
 
 (define noobject
@@ -152,25 +155,6 @@
     
   
   ;;;
-  ;;;; FOR TESTS
-  ;;;
-    
-    
-    ;; for now
-    (define append!
-      append)
-    
-    (define (atom? expr)
-      (not (pair? expr)))
-    
-    (define (specifier? expr)
-      #f)
-    
-    (define (unwrap-syntax expr)
-      expr)
-    
-  
-  ;;;
   ;;;; Expand
   ;;;
 
@@ -189,10 +173,10 @@
     (let ((actions (new-queue)))
       (while (not-null? clauses)
         (let ((clause (car clauses)))
-          (if (atom? clause)
+          (if (not (pair? (source-code clause)))
               (add-action clause actions)
-            (bind (key . rest) clause
-              (case (unwrap-syntax key)
+            (bind (key . rest) (source-code clause)
+              (case (source-code key)
                 ((with)    (process-with    actions rest))
                 ((for)     (process-for     actions rest))
                 ((repeat)  (process-repeat  actions rest))
@@ -239,12 +223,12 @@
   (define (add-binding variable type . rest)
     (let ((value (if (null? rest) Unbound (car rest))))
       (let ((binding (cons variable (cons type (if (eq? value Unbound) (list #f) (list value))))))
-        (set! bindings (append! bindings (list binding))))
+        (set! bindings (append bindings (list binding))))
       variable))
   
   
   (define (add-with with)
-    (set! withs (append! withs (list with))))
+    (set! withs (append withs (list with))))
   
   
   (define (get-return/exit)
@@ -267,7 +251,7 @@
   
   
   (define (add-test test)
-    (set! tests (append! tests (list test))))
+    (set! tests (append tests (list test))))
   
   
   (define (add-initial-test test)
@@ -275,7 +259,7 @@
   
   
   (define (add-before before)
-    (set! befores (append! befores (exit-safe (list before)))))
+    (set! befores (append befores (exit-safe (list before)))))
   
   
   (define (add-action action actions)
@@ -287,11 +271,11 @@
   
   
   (define (add-after after)
-    (set! afters (append! afters (exit-safe (list after)))))
+    (set! afters (append afters (exit-safe (list after)))))
   
   
   (define (add-epilogue expr)
-    (set! epilogue (append! epilogue (list expr))))
+    (set! epilogue (append epilogue (list expr))))
   
   
   (define (set-finally lst)
@@ -314,7 +298,7 @@
 
   (define (process-for actions rest)
     (receive (variable type key rest) (parse-for rest)
-      (case (unwrap-syntax key)
+      (case (source-code key)
         ((in)
          (bind (lst . rest) rest
            (let ((for (unique "for")))
@@ -325,7 +309,7 @@
              (add-before (list 'set! for (list 'cdr for)))
              (when (not-null? rest)
                (bind (keyword value) rest
-                 (case (unwrap-syntax keyword)
+                 (case (source-code keyword)
                    ((remainder)
                     (add-binding value '<Object+>)
                     (add-before (list 'set! value for)))
@@ -352,7 +336,7 @@
              (add-before (list 'set! variable (list 'element vec for)))
              (add-before (list 'set! for (list '+ for 1))))))
         ((in-properties)
-         (bind (keyword value) variable
+         (bind (keyword value) (source-code variable)
            (bind (lst) rest
              (let ((for (unique "for")))
                (add-binding for '<Object> lst)
@@ -371,7 +355,7 @@
                  (by 1)
                  (scan rest))
              (while (not-null? scan)
-               (let ((key (unwrap-syntax (car scan))))
+               (let ((key (source-code (car scan))))
                  (case key
                    ((to) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
                    ((below) (set! to (cadr scan)) (set! test '<) (set! scan (cddr scan)))
@@ -392,12 +376,12 @@
              (bind (then-key then) rest
                (add-after (list 'set! variable then))))))
         (else
-         (error "Unknown for keyword: {t}" (unwrap-syntax key))))))
+         (error "Unknown for keyword: {t}" (source-code key))))))
   
   
   (define (parse-for rest)
     (bind (variable . rest) rest
-      (if (specifier? (unwrap-syntax (car rest)))
+      (if (specifier? (source-code (car rest)))
           (bind (type key . rest) rest
             (values variable type key rest))
         (bind (key . rest) rest

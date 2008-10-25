@@ -42,7 +42,7 @@
 (import (jazz.dialect.kernel.boot))
 
 
-; @macro (bind ((a . r) b . c) tree (list a b c r))
+; @syntax (bind ((a . r) b . c) tree (list a b c r))
 ; @expansion
 ; (let ((val tree))
 ;   (let ((car1 (car tree0))
@@ -54,11 +54,16 @@
 ;         (list a b c r)))))
 
 
-(define-macro (bind bindings tree . body)
-  (with-expression-value tree
-    (lambda (tree-value)
-      `(begin
-         ,@(expand-bind-car bindings tree-value body)))))
+(syntax (bind form-src)
+  (let ((bindings (desourcify (cadr (source-code form-src))))
+        (tree (car (cddr (source-code form-src))))
+        (body (cdr (cddr (source-code form-src)))))
+    (sourcify-if
+      (with-expression-value tree
+        (lambda (tree-value)
+          `(begin
+             ,@(expand-bind-car bindings tree-value body))))
+      form-src)))
 
 
 (define (expand-bind-car bindings tree body)

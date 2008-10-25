@@ -42,10 +42,10 @@
 (import (jazz.dialect.kernel.boot))
 
 
-; @macro (bind-optionals ((a 2)) rest a)
+; @syntax (bind-optionals ((a 2)) rest a)
 ; @expansion (let ((a (if (not-null? rest) (car rest) 2))) a)
 
-; @macro (bind-optionals ((a 2) (b 3)) rest (list a b))
+; @syntax (bind-optionals ((a 2) (b 3)) rest (list a b))
 ; @expansion
 ; (let ((a 2) (b 3) (__scan rest))
 ;   (if (not-null? __scan)
@@ -59,21 +59,26 @@
 ;   (list a b))
 
 
-(define-macro (bind-optionals bindings rest . body)
-  (let ((scan (generate-symbol "scan"))
+(syntax (bind-optionals form-src)
+  (let ((bindings (source-code (cadr (source-code form-src))))
+        (rest (car (cddr (source-code form-src))))
+        (body (cdr (cddr (source-code form-src))))
+        (scan (generate-symbol "scan"))
         (prog (generate-symbol "prog")))
-    `(let ((,scan ,rest))
-       (let* ,(map (lambda (binding)
-                     (let* ((variable (car binding))
-                            (specifier (binding-specifier binding))
-                            (default (if specifier (caddr binding) (cadr binding)))
-                            (value `(if (null? ,scan) ,default (let ((,prog (car ,scan)))
-                                                                 (set! ,scan (cdr ,scan))
-                                                                 ,prog))))
-                       (if specifier
-                           `(,variable ,specifier ,value)
-                         `(,variable ,value))))
-                   (proper-list bindings))
-         (if (not-null? ,scan)
-             (error "Too many arguments for bind-optionals"))
-         ,@body)))))
+    (sourcify-if
+      `(let ((,scan ,rest))
+         (let* ,(map (lambda (binding)
+                       (let* ((variable (source-code (car (source-code binding))))
+                              (specifier (binding-specifier binding))
+                              (default (if specifier (caddr (source-code binding)) (cadr (source-code binding))))
+                              (value `(if (null? ,scan) ,default (let ((,prog (car ,scan)))
+                                                                   (set! ,scan (cdr ,scan))
+                                                                   ,prog))))
+                         (if specifier
+                             `(,variable ,specifier ,value)
+                           `(,variable ,value))))
+                     (proper-list bindings))
+           (if (not-null? ,scan)
+               (error "Too many arguments for bind-optionals"))
+           ,@body))
+      form-src))))

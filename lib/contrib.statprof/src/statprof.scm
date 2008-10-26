@@ -1,21 +1,28 @@
-;; statprof.scm -- A statistical profiler for Gambit-C 4.0
+;;; statprof.scm -- A statistical profiler for Gambit-C
+;;;
+;;; See the README file for license and usage information
+;;;
+;;; The Initial Developers are Guillaume Germain and Marc Feeley
+;;;
+;;; Contributor(s):
+;;;   Guillaume Cartier
 
-;; See the README file for license and usage information.
-
-;; $Id: statprof.scm,v 1.9 2005/03/14 07:35:49 guillaume Exp $
-
-
-;; ----------------------------------------------------------------------------
-;; Profiling & interruption handling
 
 (module statprof
 
+
 (declare (proper-tail-calls))
 
-;; Buckets should probably be tables for better performance
+
 (define *buckets* '())
 (define *total* 0)
 (define *unknown* 0)
+
+
+;;;
+;;;; Interruption
+;;;
+
 
 (define (profile-start!)
   (##interrupt-vector-set! 1 profile-heartbeat!))
@@ -28,27 +35,11 @@
   (set! *total* 0)
   (set! *unknown* 0))
 
-;; As an improvement, we could use ##continuation-parent and ##object->global-var->identifier
-;; to identify more precisely where the code was in the ##continuation-next ... continuation
-(define (identify-continuation cont)
-  
-  (define (continuation-location cont)
-    (let ((locat (##continuation-locat cont)))
-      (if locat
-          (let ((file (##container->file (##locat-container locat))))
-            (if file
-                (let* ((filepos (##position->filepos (##locat-position locat)))
-                       (line (##filepos-line filepos))
-                       (col (##filepos-col filepos)))
-                  (list file line col))
-              #f))
-        #f)))
-  
-  (or (continuation-location cont)
-      (let ((next (##continuation-next cont)))
-        (if (##not next)
-            #f
-          (identify-continuation next)))))
+
+;;;
+;;;; Heartbeat
+;;;
+
 
 (define (profile-heartbeat!)
   (##continuation-capture
@@ -75,8 +66,41 @@
                                             (##cadr id))
                                 1))))))))
 
-;; ----------------------------------------------------------------------------
-;; Function to generate an sexp report
+
+;;;
+;;;; Location
+;;;
+
+
+;; As an improvement, we could use ##continuation-parent and ##object->global-var->identifier
+;; to identify more precisely where the code was in the ##continuation-next ... continuation
+(define (identify-continuation cont)
+  
+  (define (continuation-location cont)
+    (let ((locat (##continuation-locat cont)))
+      (if locat
+          (let ((file (##container->file (##locat-container locat))))
+            (if file
+                (let* ((filepos (##position->filepos (##locat-position locat)))
+                       (line (##filepos-line filepos))
+                       (col (##filepos-col filepos)))
+                  (list file line col))
+              #f))
+        #f)))
+  
+  (continuation-location cont)
+  #;
+  (or (continuation-location cont)
+      (let ((next (##continuation-next cont)))
+        (if (##not next)
+            #f
+          (identify-continuation next)))))
+
+
+;;;
+;;;; Report
+;;;
+
 
 (define (write-profile-report profile-name)
   (call-with-output-file profile-name

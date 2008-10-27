@@ -314,22 +314,22 @@
   ;;;
   
   
-  (method (draw-children surface context update lh lv sh sv sc sc?)
-    (let ((update-rect (get-update-rect surface update lh lv)))
+  (method (draw-children surface context lh lv sh sv sc sc?)
+    (let ((clipper (get-logical-clipper~ surface)))
       (let ((background (get-drawing-background context)))
         (when background
-          (fill-rect~ surface update-rect background)))
-      (draw-outline surface context update update-rect lh lv sh sv sc sc?)))
+          (fill-rect~ surface clipper background)))
+      (draw-outline surface context clipper lh lv sh sv sc sc?)))
   
   
-  (method protected virtual (draw-outline surface context update update-rect lh lv sh sv sc sc?)
+  (method protected virtual (draw-outline surface context clipper lh lv sh sv sc sc?)
     (let* ((pos (get-scrolled-position))
-           (top (+ (get-top~ update-rect) (get-v~ pos)))
-           (bottom (+ (get-bottom~ update-rect) (get-v~ pos))))
-      (draw-rows surface context update lh lv top bottom sh sv sc sc?)))
+           (top (+ (get-top~ clipper) (get-v~ pos)))
+           (bottom (+ (get-bottom~ clipper) (get-v~ pos))))
+      (draw-rows surface context lh lv top bottom sh sv sc sc?)))
   
   
-  (method (draw-rows surface context update lh <fx> lv <fx> top bottom sh <fx> sv <fx> sc <fl> sc? <bool>)
+  (method (draw-rows surface context lh <fx> lv <fx> top bottom sh <fx> sv <fx> sc <fl> sc? <bool>)
     (let ((row (get-first-displayed~ outline))
           (rank <fx> (get-first-displayed-rank~ outline))
           (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
@@ -338,7 +338,7 @@
         (let* ((height <fx> (get-height~ row))
                (rb <fx> (+ rt height)))
           (when (>= rb top)
-            (draw-row surface context update lh lv row rank sh sv sc sc?))
+            (draw-row surface context lh lv row rank sh sv sc sc?))
           (increase! rank)
           (set! rt rb)
           (set! row (get-next~ row))
@@ -350,7 +350,7 @@
     )
   
   
-  (method (draw-row surface context update lh <fx> lv <fx> row rank sh sv sc sc?)
+  (method (draw-row surface context lh <fx> lv <fx> row rank sh sv sc sc?)
     (let* ((width (get-width))
            (height (get-height~ row))
            (total-height (+ height row-spacing))
@@ -358,7 +358,7 @@
            (pos <Point> (get-position~ row)))
       (set-font~ surface font)
       (let ((new-context (optimize-context selected? rank context)))
-        (paint-displayed~ row surface new-context update (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+        (paint-drawing~ row surface new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
   
   
   ;; this memory optimisation should work because as drawing always

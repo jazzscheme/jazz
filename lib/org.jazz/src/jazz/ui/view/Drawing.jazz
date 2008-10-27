@@ -418,38 +418,23 @@
   ;;;
   
   
-  ;; I think that keeping the update region makes the code complex for not much (and it doesn't work
-  ;; with scaling). Why not always get the bounding box and pass it around. Drawing methods would then
-  ;; always have an update rect available for consultation...
-  
-  
-  (method public (paint surface <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
+  (method public (paint surface <Surface> context <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (when (get-visible?)
-      ;; code for testing
-      (if (or (get-scaled?) sc?)
-          (paint-displayed surface context update lh lv sh sv sc sc?)
-        (when (cond ((not update) #t)
-                    ((is? update Rect) (let ((lie (new Point lh lv))) (rects-intersect? update lie size)))
-                    (else (rect-intersects-region? lh lv size update)))
-          (paint-displayed surface context update lh lv sh sv sc sc?)))))
-
-
-  (method public (paint-displayed surface <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
-    (if (not (get-offscreen?))
-        (paint-drawing surface context update lh lv sh sv sc sc?)
-      (let ((offscreen (get-offscreen surface (get-width~ size) (get-height~ size))))
-        (setup-clipper~ offscreen (get-clipper~ surface))
-        (paint-drawing offscreen context update lh lv sh sv sc sc?)
-        (bit-blit~ offscreen surface size: size)
-        @convert-to-cairo
-        (let ((effect (get-effect)))
-          (if (not effect)
-              (let ((lie (new Point lh lv)))
-                (animate~ effect offscreen surface lie size))
-            (set-effect {}))))))
-
+      (if (not (get-offscreen?))
+          (paint-drawing surface context lh lv sh sv sc sc?)
+        (let ((offscreen (get-offscreen surface (get-width~ size) (get-height~ size))))
+          (setup-clipper~ offscreen (get-clipper~ surface))
+          (paint-drawing offscreen context lh lv sh sv sc sc?)
+          (bit-blit~ offscreen surface size: size)
+          @convert-to-cairo
+          (let ((effect (get-effect)))
+            (if (not effect)
+                (let ((lie (new Point lh lv)))
+                  (animate~ effect offscreen surface lie size))
+              (set-effect {})))))))
   
-  (method public (paint-drawing surface <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
+  
+  (method public (paint-drawing surface <Surface> context <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (let* ((scaled? (get-scaled?))
            (scaling (get-scaling))
            (new-sh (if (not scaled?) sh lh))
@@ -458,26 +443,27 @@
            (new-sc? (if (not scaled?) sc? #t)))
       (with-transform~ surface self lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
         (function ()
-          (render surface context update lh lv new-sh new-sv new-sc new-sc?)))))
+          (when (let ((lie (new Point lh lv))) (rects-intersect? (get-clipper~ surface) lie size))
+            (render surface context lh lv new-sh new-sv new-sc new-sc?))))))
 
   
-  (method public virtual (render surface <Surface> context update lh lv sh sv sc sc?)
+  (method public virtual (render surface <Surface> context lh lv sh sv sc sc?)
     (if *debug-paint*
         (draw-placeholder surface)
       (draw-background surface context))
-    (draw-content surface context update lh lv sh sv sc sc?)
-    (draw-children surface context update lh lv sh sv sc sc?))
+    (draw-content surface context lh lv sh sv sc sc?)
+    (draw-children surface context lh lv sh sv sc sc?))
 
   
   (method public virtual (draw-background surface <Surface> context)
     )
   
   
-  (method public virtual (draw-content surface <Surface> context update lh lv sh sv sc sc?)
-    (draw surface context update lh lv))
+  (method public virtual (draw-content surface <Surface> context lh lv sh sv sc sc?)
+    (draw surface context lh lv))
     
   
-  (method public virtual (draw surface <Surface> context update lh lv)
+  (method public virtual (draw surface <Surface> context lh lv)
     )
   
 
@@ -487,23 +473,13 @@
     (fill-rect~ surface (get-bounds) (cycle-debug-color!)))
   
   
-  (method public virtual (draw-children surface <Surface> context update lh <fx> lv <fx> sh sv sc sc?)
+  (method public virtual (draw-children surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
     (for-each (function (drawing)
                 (when (and (is? drawing View)
                            (get-visible?~ drawing))
                   (let ((pos (get-position~ drawing)))
-                    (paint~ drawing surface context update (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+                    (paint~ drawing surface context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
               children))
-  
-  
-  (method protected (get-update-rect surface <Surface> update lh lv)
-    (cond ((not update) (get-bounds))
-          ((is? update Rect) (device->logical~ surface update))
-          (else
-           (let* ((box (get-box~ update))
-                  (logical (device->logical~ surface box))
-                  (bounds (get-bounds)))
-             (rect-intersection logical bounds)))))
 
 
   ;;;

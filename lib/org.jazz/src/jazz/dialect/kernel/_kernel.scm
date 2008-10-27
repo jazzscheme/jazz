@@ -597,10 +597,13 @@
 ;;;
 
 
-(native jazz.start-statprof)
-(native jazz.stop-statprof)
-(native jazz.reset-statprof)
-(native jazz.report-statprof)
+(native jazz.active-profile)
+(native jazz.profile-total)
+(native jazz.profile-unknown)
+(native jazz.profile-calls)
+(native jazz.start-profile)
+(native jazz.stop-profile)
+(native jazz.reset-profile)
 
 
 ;;;

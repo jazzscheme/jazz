@@ -38,10 +38,13 @@
 (module jazz.dialect.core.profile
 
 
+(jazz.define-variable active-profile)
+(jazz.define-variable profile-total)
+(jazz.define-variable profile-unknown)
+(jazz.define-variable profile-calls)
 (jazz.define-variable profile-start!)
 (jazz.define-variable profile-stop!)
 (jazz.define-variable profile-reset!)
-(jazz.define-variable write-profile-report)
 
 
 ;;;
@@ -56,32 +59,36 @@
         (set! jazz.statprof-loaded? #t))))
 
 
-(define (jazz.start-statprof)
+(define (jazz.active-profile)
+  (jazz.load-statprof)
+  (active-profile))
+
+
+(define (jazz.profile-total profile)
+  (jazz.load-statprof)
+  (profile-total profile))
+
+
+(define (jazz.profile-unknown profile)
+  (jazz.load-statprof)
+  (profile-unknown profile))
+
+
+(define (jazz.profile-calls profile)
+  (jazz.load-statprof)
+  (profile-calls profile))
+
+
+(define (jazz.start-profile)
   (jazz.load-statprof)
   (profile-start!))
 
 
-(define (jazz.stop-statprof)
+(define (jazz.stop-profile)
   (jazz.load-statprof)
   (profile-stop!))
 
 
-(define (jazz.reset-statprof)
+(define (jazz.reset-profile)
   (jazz.load-statprof)
-  (profile-reset!))
-
-
-(define jazz.report-statprof
-  (let ((n 0))
-    (lambda (#!optional (name #f))
-      (jazz.load-statprof)
-      (let ((port (open-output-string)))
-        (display (or name "report") port)
-        (display "_" port)
-        (display n port)
-        (display ".spr" port)
-        (set! n (+ n 1))
-        (let ((pathname (get-output-string port)))
-          (write-profile-report pathname)
-          (profile-reset!)
-          pathname))))))
+  (profile-reset!)))

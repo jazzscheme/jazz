@@ -51,17 +51,13 @@
 (class Statprof-Viewer extends Layout-View
   
   
-  (property report initialize #f accessors generate)
-  
-  
   (slot hierarchical? initialize #f)
 
 
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
       (<Layout-View>          name: toolbar         size: {Dimension 292 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view})
-        (<Push-Button>        name: open-report     location: tail title: "Open Report" size: {Dimension 100 22} action-handler: {Event-Handler :form on-open-report} default?: #t))
+        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view}))
       (<Border-View>          name: bindings-border location: center border-type: edge style: entry
         (<Scroller-View>                            style: document hscroll?: #t vscroll?: #t
           (<content!>                               layout-type: fill
@@ -72,8 +68,7 @@
 
   (method (conclude initargs)
     (nextmethod initargs)
-    (when report
-      (view-report)))
+    (view-profile))
 
   
   ;;;
@@ -111,14 +106,10 @@
   ;;;
   
   
-  (method (on-open-report evt)
-    (open-report))
-  
-  
   (method (on-toggle-view evt)
     (set! hierarchical? (not hierarchical?))
     (set-toplevel-controls?~ (locate '(calls location)) hierarchical?)
-    (view-report))
+    (view-profile))
   
   
   (method (on-double-click evt)
@@ -130,31 +121,17 @@
   
   
   ;;;
-  ;;;; Open
-  ;;;
-  
-  
-  (method (open-report)
-    (set! report (read-statprof-report (choose-file)))
-    (view-report))
-  
-  
-  (method (read-statprof-report file)
-    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-      read))
-  
-  
-  ;;;
   ;;;; Source
   ;;;
   
   
   (method (edit-source)
-    (receive (filename no) (selected-call)
-      (when filename
-        (let ((appl (get-application))
-              (file (new File (tokenise-filename filename))))
-          (edit-document~ appl file selection: (if no (new Range$Cell$ (new Cell no 0) (new Cell (+ no 1) 0)) {}))))))
+    (let ((location (selected-location)))
+      (when location
+        (bind (filename line col) location
+          (let ((appl (get-application))
+                (file (new File (tokenise-filename filename))))
+            (edit-document~ appl file selection: (new Range$Cell$ (new Cell line col) (new Cell line (+ col 1)))))))))
   
   
   ;;;
@@ -162,16 +139,12 @@
   ;;;
   
   
-  (method (selected-call)
-    (let* ((tree (get-tree))
-           (rank (get-single-selection~ tree)))
-      (if (not rank)
-          (values #f #f)
-        (let* ((row (get-row~ tree rank))
-               (data (get-user-data~ row)))
-          (if (string? data)
-              (values data #f)
-            (values (car data) (cdr data)))))))
+  (method (selected-location)
+    (let ((tree (get-tree)))
+      (let ((rank (get-single-selection~ tree)))
+        (if (not rank)
+            #f
+          (get-user-data~ (get-row~ tree rank))))))
   
   
   ;;;
@@ -179,8 +152,8 @@
   ;;;
   
   
-  (method (view-report)
-    (view-report~ (get-tree) report hierarchical?)))
+  (method (view-profile)
+    (view-profile~ (get-tree) (active-profile) hierarchical?)))
 
 
 ;;;
@@ -202,16 +175,16 @@
   ;;;
   
   
-  (method (view-report report hierarchical?)
+  (method (view-profile profile hierarchical?)
     (with-update-locked
       (function ()
         (remove-every-row)
         (if hierarchical?
-            (view-hierarchical report)
-          (view-flat report)))))
+            (view-hierarchical profile)
+          (view-flat profile)))))
   
   
-  (method (view-hierarchical report)
+  (method (view-hierarchical profile)
     (for-each (function (bucket-info)
                 (bind (filename infos bucket-percentage) bucket-info
                   (let ((row (add-row state: 'collapsed children: (list (new Tree-Node title: (present-filename filename) image: {Bitmap-Resource "Document"}) (new Tree-Label title: (number->string bucket-percentage))) user-data: filename)))
@@ -221,11 +194,11 @@
                                         (percentage (number->string percentage)))
                                     (add-row father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: (cons filename no)))))
                               infos))))
-                (collect-hierarchical report)))
+                (collect-hierarchical profile)))
   
   
-  (method (collect-hierarchical report)
-    (bind (total unknown . buckets) report
+  (method (collect-hierarchical profile)
+    (bind (total unknown . buckets) profile
       (sort > (map (function (bucket)
                      (bind (filename . lines) bucket
                        (let ((infos (collect-bucket lines total)))
@@ -244,25 +217,22 @@
       (sort > flat key: second)))
   
   
-  (method (view-flat report)
+  (method (view-flat profile)
     (for-each (function (info)
-                (bind (filename no percentage) info
-                  (let ((title (string-append (present-filename filename) ":" (->string no)))
-                        (percentage (number->string percentage)))
-                    (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: (cons filename no)))))
-            (collect-flat report)))
+                (bind (location count percentage) info
+                  (bind (filename line col) location
+                    (let ((title (format "{a}:{a},{a}" (present-filename filename) line col))
+                          (percentage (number->string percentage)))
+                      (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: location)))))
+            (collect-flat profile)))
   
   
-  (method (collect-flat report)
-    (let ((flat '()))
-      (bind (total unknown . buckets) report
-        (for-each (function (bucket)
-                    (bind (filename . lines) bucket
-                      (for-each (function (line)
-                                  (bind (no count) line
-                                    (set! flat (cons (list filename no (calculate-percentage count total)) flat))))
-                                lines)))
-                  buckets))
+  (method (collect-flat profile)
+    (let ((total (profile-total profile))
+          (flat '()))
+      (iterate-table (profile-calls profile)
+        (function (location count)
+          (set! flat (cons (list location count (calculate-percentage count total)) flat))))
       (sort > flat key: third)))
   
   

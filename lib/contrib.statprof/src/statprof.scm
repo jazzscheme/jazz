@@ -19,18 +19,41 @@
 ;;;
 
 
-(jazz.define-macro (%%make-profile)
-  `(%%vector 'profile 0 (make-table test: equal?)))
+(define (make-profile)
+  (##vector 'profile 0 0 (make-table test: equal?)))
 
 
-(jazz.define-macro (%%profile-unknown profile)
-  `(%%vector-ref ,profile 1))
+(define (profile-total profile)
+  (##vector-ref profile 1))
 
-(jazz.define-macro (%%profile-unknown-set! profile unknown)
-  `(%%vector-set! ,profile 1 ,unknown))
+(define (profile-total-set! profile total)
+  (##vector-set! profile 1 total))
 
-(jazz.define-macro (%%profile-calls profile)
-  `(%%vector-ref ,profile 2))
+(define (profile-unknown profile)
+  (##vector-ref profile 2))
+
+(define (profile-unknown-set! profile unknown)
+  (##vector-set! profile 2 unknown))
+
+(define (profile-calls profile)
+  (##vector-ref profile 3))
+
+
+;;;
+;;;; Active
+;;;
+
+
+(define *profile*
+  (make-profile))
+
+
+(define (active-profile)
+  *profile*)
+
+
+(define (profile-reset!)
+  (set! *profile* (make-profile)))
 
 
 ;;;
@@ -38,18 +61,11 @@
 ;;;
 
 
-(define *profile*
-  (%%make-profile))
-
-
-(define (profile-start! profile)
+(define (profile-start!)
   (##interrupt-vector-set! 1 profile-heartbeat!))
 
 (define (profile-stop!)
   (##interrupt-vector-set! 1 ##thread-heartbeat!))
-
-(define (profile-reset!)
-  (set! *profile* (%%make-profile)))
 
 
 ;;;
@@ -65,15 +81,17 @@
 
 
 (define (register-continuation cont)
-  (let ((call (identify-continuation cont)))
-    (if (not call)
-        (%%profile-unknown-set! *profile* (%%profile-unknown *profile*))
-      (let ((actual (table-ref (%%profile-calls *profile*) call 0)))
-        (table-set! (%%profile-calls *profile*) call (##fx+ actual 1))))))
+  (let ((location (identify-continuation cont)))
+    (if (not location)
+        (profile-unknown-set! *profile* (+ (profile-unknown *profile*) 1))
+      (begin
+        (profile-total-set! *profile* (+ (profile-total *profile*) 1))
+        (let ((actual (table-ref (profile-calls *profile*) location 0)))
+          (table-set! (profile-calls *profile*) location (##fx+ actual 1)))))))
 
 
 ;;;
-;;;; Call
+;;;; Location
 ;;;
 
 
@@ -93,18 +111,8 @@
               #f))
         #f)))
   
-  (continuation-location cont)
-  #;
   (or (continuation-location cont)
       (let ((next (##continuation-next cont)))
         (if (##not next)
             #f
-          (identify-continuation next)))))
-
-
-;;;
-;;;; Location
-;;;
-
-
-)
+          (identify-continuation next))))))

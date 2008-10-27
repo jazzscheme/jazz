@@ -14,9 +14,23 @@
 (declare (proper-tail-calls))
 
 
-(define *buckets* '())
-(define *total* 0)
-(define *unknown* 0)
+;;;
+;;;; Profile
+;;;
+
+
+(jazz.define-macro (%%make-profile)
+  `(%%vector 'profile 0 (make-table test: equal?)))
+
+
+(jazz.define-macro (%%profile-unknown profile)
+  `(%%vector-ref ,profile 1))
+
+(jazz.define-macro (%%profile-unknown-set! profile unknown)
+  `(%%vector-set! ,profile 1 ,unknown))
+
+(jazz.define-macro (%%profile-calls profile)
+  `(%%vector-ref ,profile 2))
 
 
 ;;;
@@ -24,16 +38,18 @@
 ;;;
 
 
-(define (profile-start!)
+(define *profile*
+  (%%make-profile))
+
+
+(define (profile-start! profile)
   (##interrupt-vector-set! 1 profile-heartbeat!))
 
 (define (profile-stop!)
   (##interrupt-vector-set! 1 ##thread-heartbeat!))
 
 (define (profile-reset!)
-  (set! *buckets* '())
-  (set! *total* 0)
-  (set! *unknown* 0))
+  (set! *profile* (%%make-profile)))
 
 
 ;;;
@@ -45,30 +61,19 @@
   (##continuation-capture
     (lambda (cont)
       (##thread-heartbeat!)
-      (let ((id (identify-continuation cont)))
-        (if (##not id)
-            (set! *unknown* (##fx+ *unknown* 1))
-          (let ((bucket (assoc (##car id) *buckets*)))
-            (set! *total* (##fx+ *total* 1))
-            (if (##not bucket)
-                (begin
-                  (set! *buckets* (##cons
-                                    (##cons (##car id)
-                                          ;; fixme: arbitrary hard limit
-                                          ;; on the length of source
-                                          ;; files
-                                          (##make-vector 50000 0))
-                                    *buckets*))
-                  (set! bucket (##car *buckets*))))
-            (vector-set! (##cdr bucket)
-                         (##cadr id)
-                         (##fx+ (vector-ref (##cdr bucket)
-                                            (##cadr id))
-                                1))))))))
+      (register-continuation cont))))
+
+
+(define (register-continuation cont)
+  (let ((call (identify-continuation cont)))
+    (if (not call)
+        (%%profile-unknown-set! *profile* (%%profile-unknown *profile*))
+      (let ((actual (table-ref (%%profile-calls *profile*) call 0)))
+        (table-set! (%%profile-calls *profile*) call (##fx+ actual 1))))))
 
 
 ;;;
-;;;; Location
+;;;; Call
 ;;;
 
 
@@ -98,27 +103,8 @@
 
 
 ;;;
-;;;; Report
+;;;; Location
 ;;;
 
 
-(define (write-profile-report profile-name)
-  (call-with-output-file profile-name
-    (lambda (port)
-      (pp
-        (cons *total*
-              (cons *unknown*
-                    (map (lambda (bucket)
-                           (let ((file (car bucket))
-                                 (data (cdr bucket)))
-                             (cons file
-                                   (let iter ((n (- (vector-length data) 1))
-                                              (lines '()))
-                                     (if (>= n 0)
-                                         (let ((count (vector-ref data n)))
-                                           (if (= count 0)
-                                               (iter (- n 1) lines)
-                                             (iter (- n 1) (cons (list n count) lines))))
-                                       lines)))))
-                         *buckets*)))
-        port)))))
+)

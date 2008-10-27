@@ -60,12 +60,21 @@
 ;;;; Interruption
 ;;;
 
+(define *profile-running?*
+  #f)
+
 
 (define (profile-start!)
-  (##interrupt-vector-set! 1 profile-heartbeat!))
+  (##interrupt-vector-set! 1 profile-heartbeat!)
+  (set! *profile-running?* #t))
 
 (define (profile-stop!)
-  (##interrupt-vector-set! 1 ##thread-heartbeat!))
+  (##interrupt-vector-set! 1 ##thread-heartbeat!)
+  (set! *profile-running?* #f))
+
+
+(define (profile-running?)
+  *profile-running?*)
 
 
 ;;;

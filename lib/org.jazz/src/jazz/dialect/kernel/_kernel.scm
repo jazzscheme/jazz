@@ -601,9 +601,10 @@
 (native jazz.profile-total)
 (native jazz.profile-unknown)
 (native jazz.profile-calls)
+(native jazz.reset-profile)
 (native jazz.start-profile)
 (native jazz.stop-profile)
-(native jazz.reset-profile)
+(native jazz.profile-running?)
 
 
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Statprof Viewer
+;;;; Profile Results
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.language.jazz.statprof.Statprof-Viewer jazz
+(library jazz.language.jazz.profiler.Profile-Results jazz
 
 
 (import (jazz.io)
@@ -48,7 +48,7 @@
         (jazz.utilities))
 
 
-(class Statprof-Viewer extends Layout-View
+(class Profile-Results extends Layout-View
   
   
   (slot hierarchical? initialize #f)
@@ -56,19 +56,20 @@
 
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
-      (<Layout-View>          name: toolbar         size: {Dimension 292 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view}))
-      (<Border-View>          name: bindings-border location: center border-type: edge style: entry
-        (<Scroller-View>                            style: document hscroll?: #t vscroll?: #t
-          (<content!>                               layout-type: fill
-            (<Tree-Header>                          style: document
-              (<content!>
-                (<Calls-Tree> name: calls           double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
-  
-
-  (method (conclude initargs)
-    (nextmethod initargs)
-    (view-profile))
+      (<Layout-View>          name: tools
+        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view})
+        (<Separator>)
+        (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-start-profile})
+        (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-stop-profile})
+        (<Separator>)
+        (<Push-Tool>          name: reset           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Reset" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-reset-profile})
+        (<Separator>)
+        (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-refresh}))
+      (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
+        (<content!>                                 layout-type: fill
+          (<Tree-Header>                            style: document
+            (<content!>
+              (<Calls-Tree>   name: calls           selection-handler: {Selection-Handler :form on-select-location #t} return-press-handler: {Event-Handler :form on-return-press})))))))
 
   
   ;;;
@@ -77,11 +78,11 @@
     
   
   (method meta (host-icon)
-    {Bitmap-Resource "EditLink"})
+    {Bitmap-Resource "Constructor"})
   
   
   (method meta (host-title)
-    "Statprof Viewer")
+    "Profile Results")
   
   
   (method meta (host-position)
@@ -90,6 +91,19 @@
   
   (method meta (host-size)
     {Dimension 408 608})
+
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (acquire-focus~ (get-tree)))
   
   
   ;;;
@@ -112,11 +126,28 @@
     (view-profile))
   
   
-  (method (on-double-click evt)
-    (edit-source))
+  (method (on-start-profile evt)
+    (start-profile)
+    (user-message "Profile started"))
   
   
-  (method (on-return-press evt)
+  (method (on-stop-profile evt)
+    (stop-profile)
+    (view-profile)
+    (user-message "Profile stopped"))
+  
+  
+  (method (on-reset-profile evt)
+    (reset-profile)
+    (view-profile)
+    (user-message "Profile reset"))
+  
+  
+  (method (on-refresh evt)
+    (view-profile))
+  
+  
+  (method (on-select-location evt)
     (edit-source))
   
   
@@ -131,7 +162,7 @@
         (bind (filename line col) location
           (let ((appl (get-application))
                 (file (new File (tokenise-filename filename))))
-            (edit-document~ appl file selection: (new Range$Cell$ (new Cell line col) (new Cell line (+ col 1)))))))))
+            (edit-document~ appl file selection: (new Range$Cell$ (new Cell line col) (new Cell line (+ col 1))) activate-focus?: #f))))))
   
   
   ;;;
@@ -167,7 +198,8 @@
   (form
     (<install>                              portfolio: :icons filled-column: location
       (<Tree-Node-Column>  name: location   title: "Location" width: 235 toplevel-controls?: #f)
-      (<Tree-Label-Column> name: percentage title: "Percentage" width: 100)))
+      (<Tree-Label-Column> name: count      title: "Count" width: 75)
+      (<Tree-Label-Column> name: percentage title: "Percentage" width: 75)))
   
   
   ;;;
@@ -223,7 +255,7 @@
                   (bind (filename line col) location
                     (let ((title (format "{a}:{a},{a}" (present-filename filename) line col))
                           (percentage (number->string percentage)))
-                      (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: location)))))
+                      (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: location)))))
             (collect-flat profile)))
   
   

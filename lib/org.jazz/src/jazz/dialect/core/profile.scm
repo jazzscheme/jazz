@@ -42,9 +42,10 @@
 (jazz.define-variable profile-total)
 (jazz.define-variable profile-unknown)
 (jazz.define-variable profile-calls)
+(jazz.define-variable profile-reset!)
 (jazz.define-variable profile-start!)
 (jazz.define-variable profile-stop!)
-(jazz.define-variable profile-reset!)
+(jazz.define-variable profile-running?)
 
 
 ;;;
@@ -79,6 +80,11 @@
   (profile-calls profile))
 
 
+(define (jazz.reset-profile)
+  (jazz.load-statprof)
+  (profile-reset!))
+
+
 (define (jazz.start-profile)
   (jazz.load-statprof)
   (profile-start!))
@@ -89,6 +95,6 @@
   (profile-stop!))
 
 
-(define (jazz.reset-profile)
+(define (jazz.profile-running?)
   (jazz.load-statprof)
-  (profile-reset!)))
+  (profile-running?)))

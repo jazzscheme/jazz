@@ -38,7 +38,8 @@
 (library jazz.language.jazz.profiler.Profile-Results jazz
 
 
-(import (jazz.io)
+(import (jazz.debugger)
+        (jazz.io)
         (jazz.jml)
         (jazz.language.jazz)
         (jazz.library)
@@ -49,20 +50,14 @@
 
 
 (class Profile-Results extends Layout-View
-  
-  
-  (slot hierarchical? initialize #f)
 
 
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
       (<Layout-View>          name: tools
-        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view})
-        (<Separator>)
         (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-start-profile})
         (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-stop-profile})
-        (<Separator>)
-        (<Push-Tool>          name: reset           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Reset" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-reset-profile})
+        (<Push-Tool>          name: restart         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart-profile})
         (<Separator>)
         (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-refresh}))
       (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
@@ -120,12 +115,6 @@
   ;;;
   
   
-  (method (on-toggle-view evt)
-    (set! hierarchical? (not hierarchical?))
-    (set-toplevel-controls?~ (locate '(calls location)) hierarchical?)
-    (view-profile))
-  
-  
   (method (on-start-profile evt)
     (start-profile)
     (user-message "Profile started"))
@@ -137,9 +126,11 @@
     (user-message "Profile stopped"))
   
   
-  (method (on-reset-profile evt)
+  (method (on-restart-profile evt)
+    (stop-profile)
     (reset-profile)
     (view-profile)
+    (start-profile)
     (user-message "Profile reset"))
   
   
@@ -152,17 +143,16 @@
   
   
   ;;;
-  ;;;; Source
+  ;;;; Edition
   ;;;
   
   
+  (definition *frame-indicator*
+    (new Frame-Indicator color: {Color name: Orange}))
+  
+  
   (method (edit-source)
-    (let ((location (selected-location)))
-      (when location
-        (bind (filename line col) location
-          (let ((appl (get-application))
-                (file (new File (tokenise-filename filename))))
-            (edit-document~ appl file selection: (new Range$Cell$ (new Cell line col) (new Cell line (+ col 1))) activate-focus?: #f))))))
+    (edit~ *frame-indicator* (selected-location)))
   
   
   ;;;
@@ -184,7 +174,7 @@
   
   
   (method (view-profile)
-    (view-profile~ (get-tree) (active-profile) hierarchical?)))
+    (view-profile~ (get-tree) (active-profile))))
 
 
 ;;;
@@ -207,65 +197,31 @@
   ;;;
   
   
-  (method (view-profile profile hierarchical?)
+  (method (view-profile profile)
     (with-update-locked
       (function ()
         (remove-every-row)
-        (if hierarchical?
-            (view-hierarchical profile)
-          (view-flat profile)))))
+        (view-calls profile))))
   
   
-  (method (view-hierarchical profile)
-    (for-each (function (bucket-info)
-                (bind (filename infos bucket-percentage) bucket-info
-                  (let ((row (add-row state: 'collapsed children: (list (new Tree-Node title: (present-filename filename) image: {Bitmap-Resource "Document"}) (new Tree-Label title: (number->string bucket-percentage))) user-data: filename)))
-                    (for-each (function (info)
-                                (bind (no percentage) info
-                                  (let ((title (->string no))
-                                        (percentage (number->string percentage)))
-                                    (add-row father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: (cons filename no)))))
-                              infos))))
-                (collect-hierarchical profile)))
-  
-  
-  (method (collect-hierarchical profile)
-    (bind (total unknown . buckets) profile
-      (sort > (map (function (bucket)
-                     (bind (filename . lines) bucket
-                       (let ((infos (collect-bucket lines total)))
-                         (let ((bucket-percentage (calculate-percentage (apply + (map second lines)) total)))
-                           (list filename infos bucket-percentage)))))
-                   buckets)
-              key: third)))
-  
-  
-  (method (collect-bucket lines total)
-    (let ((flat '()))
-      (for-each (function (line)
-                  (bind (no count) line
-                    (set! flat (cons (list no (calculate-percentage count total)) flat))))
-                lines)
-      (sort > flat key: second)))
-  
-  
-  (method (view-flat profile)
+  (method (view-calls profile)
     (for-each (function (info)
                 (bind (location count percentage) info
                   (bind (filename line col) location
                     (let ((title (format "{a}:{a},{a}" (present-filename filename) line col))
                           (percentage (number->string percentage)))
                       (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: location)))))
-            (collect-flat profile)))
+            (collect-calls profile)))
   
   
-  (method (collect-flat profile)
+  (method (collect-calls profile)
     (let ((total (profile-total profile))
-          (flat '()))
+          (calls '()))
       (iterate-table (profile-calls profile)
         (function (location count)
-          (set! flat (cons (list location count (calculate-percentage count total)) flat))))
-      (sort > flat key: third)))
+          (let ((call (list location count (calculate-percentage count total))))
+            (set! calls (cons call calls)))))
+      (sort > calls key: third)))
   
   
   (definition (present-filename filename)

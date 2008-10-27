@@ -104,8 +104,7 @@
 ;;;
 
 
-;; As an improvement, we could use ##continuation-parent and ##object->global-var->identifier
-;; to identify more precisely where the code was in the ##continuation-next ... continuation
+;; As an improvement, use ##continuation-creator and ##procedure-friendly-name
 (define (identify-continuation cont)
   
   (define (continuation-location cont)

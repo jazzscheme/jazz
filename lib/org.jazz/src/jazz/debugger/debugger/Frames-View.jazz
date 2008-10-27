@@ -214,57 +214,14 @@
   ;;;
   
   
-  (definition Frame-Indication-Color
-    {Color name: Light-Green})
-  
-  
   (definition *frame-indicator*
-    {})
+    (new Frame-Indicator color: {Color name: Light-Green}))
 
 
   (method (edit-frame (activate-focus?: activate-focus? #f))
     (let ((frame (selected-frame)))
-      (if (not frame)
-          (uninstall-active-frame-indicator)
-        (let ((location (get-location~ frame)))
-          (if (not location)
-              (begin
-                (uninstall-active-frame-indicator)
-                (bell))
-            (install-frame-indicator location))))))
-  
-  
-  (method (install-frame-indicator location)
-    (uninstall-active-frame-indicator)
-    (receive (frame text range) (find-location location)
-      (fill~ text Frame-Indication-Color (get-start~ range))
-      (ensure-cell-displayed~ text (get-start~ range))
-      (reset-tooltip~ text)
-      (bring-to-front~ frame)
-      (set-visible?~ frame #t))
-    (set! *frame-indicator* location))
-  
-  
-  (method (uninstall-frame-indicator location)
-    (receive (frame text range) (find-location location)
-      (unfill~ text (get-start~ range))
-      (reset-tooltip~ text)))
-
-
-  (method protected (uninstall-active-frame-indicator)
-    (when *frame-indicator*
-      (uninstall-frame-indicator *frame-indicator*)
-      (set! *frame-indicator* {})))
-  
-  
-  (method (find-location location)
-    (bind (filename line col) location
-      (let ((file (new File (list filename)))
-            (start (new Cell line col))
-            (end (new Cell line (+ col 1))))
-        (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
-              (range (new Range$Cell$ start end)))
-          (values frame (get-guest~ frame) range)))))
+      (let ((location (if frame (get-location~ frame) #f)))
+        (edit~ *frame-indicator* location activate-focus?: activate-focus?))))
     
   
   (method (frame-change)

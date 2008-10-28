@@ -939,65 +939,69 @@
 
 (definition public Current-Cursor
   {})
-  
-  
-  (definition (load-cursor cursor)
-    (unimplemented 'load-cursor))
-  
-  
-  (definition (get-named-cursor name)
-    (let ((info (assq name Cursors)))
-      (essay info (cadr info))))
-  
-  
-  (definition public (get-cursor)
-    Current-Cursor)
-  
-  
-  (definition public (set-cursor cursor)
-    (when (symbol? cursor)
-      (let ((cursor (get-named-cursor cursor)))
-        (when cursor
-          (set! Current-Cursor cursor)
-          (XDefineCursor default-x11-display (get-handle~ (get-toplevel)) cursor))))) 
-  
-  
-  (definition public (hide-cursor)
-    #f)
-  
-  
-  (definition public (show-cursor)
-    #f)
-  
-  
-  ;;;
-  ;;;; Desktop
-  ;;;
-  
-  
-  (definition (platform-get-desktop)
-    (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
-  
-  
-  (definition public (get-work-area) <Rect>
-    (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
-      (new Rect 0 0 (get-width~ size) (- (get-height~ size) (get-dock-height)))))
-  
-  
-  ;; until we find an api to get either the dock size or the effective screen size
-  (cond-expand
-    (mac
-      (definition (get-dock-height)
-        128))
-    (else
-     (definition (get-dock-height)
-       0)))
-  
-  
-  ;;;
-  ;;;; Drag and Drop
-  ;;;
-  
-  
-  (definition (platform-drop-files temp)
-    (unimplemented 'platform-drop-files)))
+
+
+(definition (load-cursor cursor)
+  (unimplemented 'load-cursor))
+
+
+(definition (get-named-cursor name)
+  (let ((info (assq name Cursors)))
+    (essay info (cadr info))))
+
+
+(definition public (get-cursor)
+  Current-Cursor)
+
+
+(definition public (set-cursor cursor)
+  (when (symbol? cursor)
+    (let ((cursor (get-named-cursor cursor)))
+      (when cursor
+        (let ((toplevel (get-toplevel)))
+          ;; need to change the cursor api so it
+          ;; knows which window it is being set for
+          (when toplevel
+            (set! Current-Cursor cursor)
+            (XDefineCursor default-x11-display (get-handle~ toplevel) cursor)))))))
+
+
+(definition public (hide-cursor)
+  #f)
+
+
+(definition public (show-cursor)
+  #f)
+
+
+;;;
+;;;; Desktop
+;;;
+
+
+(definition (platform-get-desktop)
+  (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
+
+
+(definition public (get-work-area) <Rect>
+  (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
+    (new Rect 0 0 (get-width~ size) (- (get-height~ size) (get-dock-height)))))
+
+
+;; until we find an api to get either the dock size or the effective screen size
+(cond-expand
+  (mac
+    (definition (get-dock-height)
+      128))
+  (else
+   (definition (get-dock-height)
+     0)))
+
+
+;;;
+;;;; Drag and Drop
+;;;
+
+
+(definition (platform-drop-files temp)
+  (unimplemented 'platform-drop-files)))

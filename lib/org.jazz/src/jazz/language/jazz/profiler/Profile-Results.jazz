@@ -57,8 +57,9 @@
       (<Layout-View>          name: tools
         (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-start-profile})
         (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-stop-profile})
-        (<Push-Tool>          name: restart         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Restart Profile" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart-profile})
         (<Separator>)
+        (<Push-Tool>          name: reset           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Reset" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-reset-profile})
+        (<Separator>                                size: {Dimension 6 0})
         (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-refresh}))
       (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
         (<content!>                                 layout-type: fill
@@ -126,11 +127,10 @@
     (user-message "Profile stopped"))
   
   
-  (method (on-restart-profile evt)
+  (method (on-reset-profile evt)
     (stop-profile)
     (reset-profile)
     (view-profile)
-    (start-profile)
     (user-message "Profile reset"))
   
   
@@ -212,14 +212,26 @@
   
   
   (method (view-calls profile)
+    (define (present-procedure frame)
+      (either (if frame
+                  (let ((creator (first frame)))
+                    (if creator
+                        (let ((name (get-procedure-name creator)))
+                          (if name
+                              (present-identifier name)
+                            {}))
+                      {}))
+                {})
+              "(interaction)"))
+    
     (for-each (function (call)
                 (bind (stack count percentage) call
                   (let ((frame (if (not-null? stack) (last stack) {})))
-                    (let ((procedure (if frame (present-identifier (get-procedure-name (first frame))) "(interaction)"))
+                    (let ((procedure (present-procedure frame))
                           (percentage (number->string percentage)))
                       (let ((row (add-row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: frame)))
                         (for-each (function (frame)
-                                    (let ((procedure (present-identifier (get-procedure-name (first frame)))))
+                                    (let ((procedure (present-procedure frame)))
                                       (add-row father: row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: "") (new Tree-Label title: "")) user-data: frame)))
                                   (reverse (butlast stack))))))))
             (collect-calls profile)))

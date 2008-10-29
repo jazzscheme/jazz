@@ -129,13 +129,13 @@
             #f))
       #f))
   
-  (define (identify cont stack identified)
-    (if (or (##not cont) (and depth (##fixnum.>= identified depth)))
+  (define (identify cont stack count)
+    (if (or (##not cont) (and depth (##fixnum.>= count depth)))
         stack
       (let ((creator (##continuation-creator cont))
             (location (identify-location (##continuation-locat cont))))
         (identify (##continuation-next cont)
                   (cons (list creator location) stack)
-                  (if location (##fixnum.+ identified 1) identified)))))
+                  (##fixnum.+ count 1)))))
   
   (identify cont '() 0)))

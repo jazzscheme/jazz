@@ -225,7 +225,7 @@
                                       (%%iterate-table (%%get-category-fields category)
                                                        (lambda (field-name field)
                                                          (%%when (%%is? field jazz.Method)
-                                                           (%%vector-set! category-vtable 
+                                                           (%%vector-set! category-vtable
                                                                           (%%get-method-implementation-rank field)
                                                                           (lambda rest (jazz.call-into-abstract class-name field-name))))))
                                       (%%vector-set! vtable rank category-vtable))))))
@@ -1638,11 +1638,11 @@
 ;;{
 ;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
 ;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
-;;  
+;;
 ;;  while (--ptr >= ptr_start)
 ;;      if (*ptr == type)
 ;;          return true;
-;;  
+;;
 ;;  return false;
 ;;}
 (jazz.define-method (jazz.of-type? (jazz.Interface interface) object)
@@ -1809,7 +1809,7 @@
   (let iter ((slots (%%get-class-slots category)))
      (cond ((%%null? slots) '())
            ((jazz.property? (%%car slots)) (%%cons (%%car slots) (iter (%%cdr slots))))
-           (else (iter (%%cdr slots)))))) 
+           (else (iter (%%cdr slots))))))
 
 
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)

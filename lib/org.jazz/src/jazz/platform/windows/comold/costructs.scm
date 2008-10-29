@@ -160,7 +160,7 @@
 
 (s-pass-define (VT_VARIANT-get variant)
   (let ((VT_EMPTY 0)
-        (VT_NULL 1) 
+        (VT_NULL 1)
         (VT_I2 2)
         (VT_I4 3)
         (VT_R4 4)

@@ -1,27 +1,27 @@
 ;; SRFI-19: Time Data Types and Procedures.
-;; 
-;; Copyright (C) I/NET, Inc. (2000, 2002, 2003). All Rights Reserved. 
-;; 
-;; This document and translations of it may be copied and furnished to others, 
-;; and derivative works that comment on or otherwise explain it or assist in its 
-;; implementation may be prepared, copied, published and distributed, in whole or 
-;; in part, without restriction of any kind, provided that the above copyright 
-;; notice and this paragraph are included on all such copies and derivative works. 
-;; However, this document itself may not be modified in any way, such as by 
-;; removing the copyright notice or references to the Scheme Request For 
-;; Implementation process or editors, except as needed for the purpose of 
-;; developing SRFIs in which case the procedures for copyrights defined in the SRFI 
-;; process must be followed, or as required to translate it into languages other 
-;; than English. 
-;; 
-;; The limited permissions granted above are perpetual and will not be revoked 
-;; by the authors or their successors or assigns. 
-;; 
-;; This document and the information contained herein is provided on an "AS IS" 
-;; basis and THE AUTHOR AND THE SRFI EDITORS DISCLAIM ALL WARRANTIES, EXPRESS OR 
-;; IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE 
-;; INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF 
-;; MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE. 
+;;
+;; Copyright (C) I/NET, Inc. (2000, 2002, 2003). All Rights Reserved.
+;;
+;; This document and translations of it may be copied and furnished to others,
+;; and derivative works that comment on or otherwise explain it or assist in its
+;; implementation may be prepared, copied, published and distributed, in whole or
+;; in part, without restriction of any kind, provided that the above copyright
+;; notice and this paragraph are included on all such copies and derivative works.
+;; However, this document itself may not be modified in any way, such as by
+;; removing the copyright notice or references to the Scheme Request For
+;; Implementation process or editors, except as needed for the purpose of
+;; developing SRFIs in which case the procedures for copyrights defined in the SRFI
+;; process must be followed, or as required to translate it into languages other
+;; than English.
+;;
+;; The limited permissions granted above are perpetual and will not be revoked
+;; by the authors or their successors or assigns.
+;;
+;; This document and the information contained herein is provided on an "AS IS"
+;; basis and THE AUTHOR AND THE SRFI EDITORS DISCLAIM ALL WARRANTIES, EXPRESS OR
+;; IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE
+;; INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+;; MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 
 
 ;; -- Bug fixes.
@@ -42,9 +42,9 @@
 ;;
 ;; (CURRENT-TIME 'TIME-THREAD) added.
 ;;
-;; TIME-RESOLUTION for TIME-PROCESS added. 
+;; TIME-RESOLUTION for TIME-PROCESS added.
 ;;
-;; TIME comparison procedures (time=?, etc. fixed. 
+;; TIME comparison procedures (time=?, etc. fixed.
 ;;
 ;; Corrected errors in converting between TAI and UTC time.
 ;;
@@ -66,7 +66,7 @@
 ;; fixed julian-day->time-utc and variants.
 ;;
 ;; changes 2003-02-26, based on comments by Martin Gasbichler.
-;; 
+;;
 ;; moronic, overly complicated COPY-TIME procedure changed
 ;; to simple version suggested by Martin Gasbichler.
 ;;
@@ -74,7 +74,7 @@
 ;; and #\tab to #\Tab to (integer->char 9)
 ;;
 ;; changed arity-3 calls to / and - to arity 2 calls (again,
-;; for more general portability). 
+;; for more general portability).
 ;;
 ;; split-real fixed again -- by removing it, and using
 ;; 'fractional part'. Will Fitzgerald 5/16/2003.
@@ -92,7 +92,7 @@
                           (lambda formals body ...)))))))
 
 ;;; -- we want receive later on for a couple of small things
-;; 
+;;
 
 ;; :OPTIONAL is nice, too
 
@@ -123,21 +123,21 @@
 (define tm:locale-number-separator ".")
 
 (define tm:locale-abbr-weekday-vector (vector "Sun" "Mon" "Tue" "Wed"
-                                              "Thu" "Fri" "Sat")) 
+                                              "Thu" "Fri" "Sat"))
 (define tm:locale-long-weekday-vector (vector "Sunday" "Monday"
                                               "Tuesday" "Wednesday"
                                               "Thursday" "Friday"
                                               "Saturday"))
-;; note empty string in 0th place. 
+;; note empty string in 0th place.
 (define tm:locale-abbr-month-vector   (vector "" "Jan" "Feb" "Mar"
                                               "Apr" "May" "Jun" "Jul"
                                               "Aug" "Sep" "Oct" "Nov"
-                                              "Dec")) 
+                                              "Dec"))
 (define tm:locale-long-month-vector   (vector "" "January" "February"
                                               "March" "April" "May"
                                               "June" "July" "August"
                                               "September" "October"
-                                              "November" "December")) 
+                                              "November" "December"))
 
 (define tm:locale-pm "PM")
 (define tm:locale-am "AM")
@@ -158,7 +158,7 @@
 
 
 ;;; A Very simple Error system for the time procedures
-;;; 
+;;;
 (define tm:time-error-types
   '(invalid-clock-type
     unsupported-clock-type
@@ -183,7 +183,7 @@
 ;; and update as necessary.
 ;; this procedures reads the file in the abover
 ;; format and creates the leap second table
-;; it also calls the almost standard, but not R5 procedures read-line 
+;; it also calls the almost standard, but not R5 procedures read-line
 ;; & open-input-string
 ;; ie (set! tm:leap-second-table (tm:read-tai-utc-date "tai-utc.dat"))
 
@@ -197,7 +197,7 @@
     (let loop ((line (read-line port)))
       (if (not (eof-object? line))
 	  (begin
-	    (let* ( (data (read (open-input-string (string-append "(" line ")")))) 
+	    (let* ( (data (read (open-input-string (string-append "(" line ")"))))
 		    (year (car data))
 		    (jd   (cadddr (cdr data)))
 		    (secs (cadddr (cdddr data))) )
@@ -240,7 +240,7 @@
 
 
 (define (tm:leap-second-delta utc-seconds)
-  (letrec ( (lsd (lambda (table) 
+  (letrec ( (lsd (lambda (table)
 		   (cond
 		    ((>= utc-seconds (caar table))
 		     (cdar table))
@@ -248,7 +248,7 @@
     (if (< utc-seconds  (* (- 1972 1970) 365 tm:sid)) 0
 	(lsd  tm:leap-second-table))))
 
-;; going from tai seconds to utc seconds ... 
+;; going from tai seconds to utc seconds ...
 (define (tm:leap-second-neg-delta tai-seconds)
   (letrec ( (lsd (lambda (table)
 		   (cond ((null? table) 0)
@@ -294,10 +294,10 @@
 ;;; these should be rewritten to be os specific.
 ;;
 ;; -- using gnu gettimeofday() would be useful here -- gets
-;;    second + millisecond 
+;;    second + millisecond
 ;;    let's pretend we do, using mzscheme's current-seconds & current-milliseconds
 ;;    this is supposed to return utc.
-;; 
+;;
 
 (cond-expand
   (gambit
@@ -334,7 +334,7 @@
 
 (define (tm:current-time-ms-time time-type proc)
   (let ((current-ms (proc)))
-    (make-time time-type 
+    (make-time time-type
 	       (* (remainder current-ms 1000) 1000000)
 	       (quotient current-ms 1000000)
 	       )))
@@ -452,7 +452,7 @@
       (begin
 	(tm:set-time-second! time3 0)
 	(tm:set-time-nanosecond! time3 0))
-      (receive 
+      (receive
        (nanos secs)
        (tm:nanoseconds->values (- (tm:time->nanoseconds time1)
                                   (tm:time->nanoseconds time2)))
@@ -524,7 +524,7 @@
   (tm:set-time-type! time-out time-utc)
   (tm:set-time-nanosecond! time-out (time-nanosecond time-in))
   (tm:set-time-second!     time-out (- (time-second time-in)
-				    (tm:leap-second-neg-delta 
+				    (tm:leap-second-neg-delta
 				     (time-second time-in))))
   time-out)
 
@@ -542,7 +542,7 @@
   (tm:set-time-type! time-out time-tai)
   (tm:set-time-nanosecond! time-out (time-nanosecond time-in))
   (tm:set-time-second!     time-out (+ (time-second time-in)
-				    (tm:leap-second-delta 
+				    (tm:leap-second-delta
 				     (time-second time-in))))
   time-out)
 
@@ -690,7 +690,7 @@
 	  (substring str  (+ ppos 1) (string-length str))))))
 
 
-;; gives the seconds/date/month/year 
+;; gives the seconds/date/month/year
 (define (tm:decode-julian-day-number jdn)
   (let* ((days (truncate jdn))
 	 (a (+ days 32044))
@@ -785,7 +785,7 @@
 	 (offset (date-zone-offset date)) )
     (let ( (jdays (- (tm:encode-julian-day-number day month year)
 		     tm:tai-epoch-in-jd)) )
-      (make-time 
+      (make-time
        time-utc
        nanosecond
        (+ (* (- jdays 1/2) 24 60 60)
@@ -812,7 +812,7 @@
   (tm:leap-year? (date-year date)))
 
 ;; tm:year-day fixed: adding wrong number of days.
-(define  tm:month-assoc '((0 . 0) (1 . 31)  (2 . 59)   (3 . 90)   (4 . 120) 
+(define  tm:month-assoc '((0 . 0) (1 . 31)  (2 . 59)   (3 . 90)   (4 . 120)
 			  (5 . 151) (6 . 181)  (7 . 212)  (8 . 243)
 			  (9 . 273) (10 . 304) (11 . 334)))
 
@@ -827,7 +827,7 @@
 (define (date-year-day date)
   (tm:year-day (date-day date) (date-month date) (date-year date)))
 
-;; from calendar faq 
+;; from calendar faq
 (define (tm:week-day day month year)
   (let* ((a (quotient (- 14 month) 12))
 	 (y (- year a))
@@ -854,7 +854,7 @@
 	       (tm:days-before-first-week  date day-of-week-starting-week))
 	    7))
 
-(define (current-date . tz-offset) 
+(define (current-date . tz-offset)
   (time-utc->date (tm:current-time time-utc)
 		  (:optional tz-offset (tm:local-tz-offset))))
 
@@ -904,7 +904,7 @@
 (define (time-tai->julian-day time)
   (if (not (eq? (time-type time) time-tai))
       (tm:time-error 'time-tai->julian-day 'incompatible-time-types  time))
-  (+ (/ (+ (- (time-second time) 
+  (+ (/ (+ (- (time-second time)
 	      (tm:leap-second-delta (time-second time)))
 	   (/ (time-nanosecond time) tm:nano))
 	tm:sid)
@@ -918,7 +918,7 @@
 (define (time-monotonic->julian-day time)
   (if (not (eq? (time-type time) time-monotonic))
       (tm:time-error 'time-monotonic->julian-day 'incompatible-time-types  time))
-  (+ (/ (+ (- (time-second time) 
+  (+ (/ (+ (- (time-second time)
 	      (tm:leap-second-delta (time-second time)))
 	   (/ (time-nanosecond time) tm:nano))
 	tm:sid)
@@ -966,7 +966,7 @@
   (time-utc->modified-julian-day (tm:current-time time-utc)))
 
 ;; returns a string rep. of number N, of minimum LENGTH,
-;; padded with character PAD-WITH. If PAD-WITH if #f, 
+;; padded with character PAD-WITH. If PAD-WITH if #f,
 ;; no padding is done, and it's as if number->string was used.
 ;; if string is longer than LENGTH, it's as if number->string was used.
 
@@ -981,14 +981,14 @@
 				   str-len)) )
 	  (do ((i 0 (+ i 1)))
             ((>= i (string-length str)))
-            (string-set! new-str (+ new-str-offset i) 
+            (string-set! new-str (+ new-str-offset i)
                          (string-ref str i)))
 	  new-str))))
 
 (define (tm:last-n-digits i n)
   (abs (remainder i (expt 10 n))))
 
-(define (tm:locale-abbr-weekday n) 
+(define (tm:locale-abbr-weekday n)
   (vector-ref tm:locale-abbr-weekday-vector n))
 
 (define (tm:locale-long-weekday n)
@@ -1023,9 +1023,9 @@
 
 
 
-;; do nothing. 
+;; do nothing.
 ;; Your implementation might want to do something...
-;; 
+;;
 (define (tm:locale-print-time-zone date port)
   (values))
 
@@ -1049,7 +1049,7 @@
 ;; the second is a procedure that takes the date, a padding character
 ;; (which might be #f), and the output port.
 ;;
-(define tm:directives 
+(define tm:directives
   (list
    (cons #\~ (lambda (date pad-with port) (display #\~ port)))
    
@@ -1086,7 +1086,7 @@
 		   (display (tm:padding (date-second date)
 					pad-with 2)
 			    port))
-	       (let* ((ns (tm:fractional-part (/ 
+	       (let* ((ns (tm:fractional-part (/
 					       (date-nanosecond date)
 					       tm:nano 1.0)))
 		      (le (string-length ns)))
@@ -1177,7 +1177,7 @@
 		   (display (tm:padding (date-week-number date 1)
 					#\0 2) port))))
    (cons #\y (lambda (date pad-with port)
-	       (display (tm:padding (tm:last-n-digits 
+	       (display (tm:padding (tm:last-n-digits
 				     (date-year date) 2)
 				    pad-with
 				    2)
@@ -1215,19 +1215,19 @@
 	      (tm:date-printer date (+ index 1) format-string str-len port))
 
 	    (if (= (+ index 1) str-len) ; bad format string.
-		(tm:time-error 'tm:date-printer 'bad-date-format-string 
+		(tm:time-error 'tm:date-printer 'bad-date-format-string
 			       format-string)
                 (let ( (pad-char? (string-ref format-string (+ index 1))) )
                   (cond
                     ((char=? pad-char? #\-)
                      (if (= (+ index 2) str-len) ; bad format string.
-                         (tm:time-error 'tm:date-printer 'bad-date-format-string 
+                         (tm:time-error 'tm:date-printer 'bad-date-format-string
                                         format-string)
-                         (let ( (formatter (tm:get-formatter 
+                         (let ( (formatter (tm:get-formatter
                                             (string-ref format-string
                                                         (+ index 2)))) )
                            (if (not formatter)
-                               (tm:time-error 'tm:date-printer 'bad-date-format-string 
+                               (tm:time-error 'tm:date-printer 'bad-date-format-string
                                               format-string)
                                (begin
                                  (formatter date #f port)
@@ -1236,24 +1236,24 @@
                     
                     ((char=? pad-char? #\_)
                      (if (= (+ index 2) str-len) ; bad format string.
-                         (tm:time-error 'tm:date-printer 'bad-date-format-string 
+                         (tm:time-error 'tm:date-printer 'bad-date-format-string
                                         format-string)
-                         (let ( (formatter (tm:get-formatter 
+                         (let ( (formatter (tm:get-formatter
                                             (string-ref format-string
                                                         (+ index 2)))) )
                            (if (not formatter)
-                               (tm:time-error 'tm:date-printer 'bad-date-format-string 
+                               (tm:time-error 'tm:date-printer 'bad-date-format-string
                                               format-string)
                                (begin
                                  (formatter date #\space port)
                                  (tm:date-printer date (+ index 3)
                                                   format-string str-len port))))))
                     (else
-                     (let ( (formatter (tm:get-formatter 
+                     (let ( (formatter (tm:get-formatter
                                         (string-ref format-string
                                                     (+ index 1)))) )
                        (if (not formatter)
-                           (tm:time-error 'tm:date-printer 'bad-date-format-string 
+                           (tm:time-error 'tm:date-printer 'bad-date-format-string
                                           format-string)
                            (begin
                              (formatter date #\0 port)
@@ -1306,8 +1306,8 @@
       (let ((ch (peek-char port)))
 	(cond
           ((>= nchars n) accum)
-          ((eof-object? ch) 
-           (tm:time-error 'string->date 'bad-date-template-string 
+          ((eof-object? ch)
+           (tm:time-error 'string->date 'bad-date-template-string
                           "Premature ending to integer read."))
           ((char-numeric? ch)
            (set! padding-ok #f)
@@ -1318,7 +1318,7 @@
            (read-char port) ; consume padding
            (accum-int port accum (+ nchars 1)))
           (else ; padding where it shouldn't be
-           (tm:time-error 'string->date 'bad-date-template-string 
+           (tm:time-error 'string->date 'bad-date-template-string
 			  "Non-numeric characters in integer read.")))))
     (accum-int port 0 0)))
 
@@ -1327,8 +1327,8 @@
   (lambda (port)
     (tm:integer-reader-exact n port)))
 
-(define (tm:zone-reader port) 
-  (let ( (offset 0) 
+(define (tm:zone-reader port)
+  (let ( (offset 0)
 	 (positive? #f) )
     (let ( (ch (read-char port)) )
       (if (eof-object? ch)
@@ -1375,10 +1375,10 @@
     (define (read-char-string)
       (let ((ch (peek-char port)))
 	(if (char-alphabetic? ch)
-	    (begin (write-char (read-char port) string-port) 
+	    (begin (write-char (read-char port) string-port)
 		   (read-char-string))
 	    (get-output-string string-port))))
-    (let* ( (str (read-char-string)) 
+    (let* ( (str (read-char-string))
 	    (index (indexer str)) )
       (if index index (tm:time-error 'string->date
 				     'bad-date-template-string
@@ -1398,7 +1398,7 @@
 
 ;; A List of formatted read directives.
 ;; Each entry is a list.
-;; 1. the character directive; 
+;; 1. the character directive;
 ;; a procedure, which takes a character as input & returns
 ;; 2. #t as soon as a character on the input port is acceptable
 ;; for input,
@@ -1408,7 +1408,7 @@
 ;; object (here, always the date) and (probably) side-effects it.
 ;; In some cases (e.g., ~A) the action is to do nothing
 
-(define tm:read-directives 
+(define tm:read-directives
   (let ( (ireader4 (tm:make-integer-reader 4))
 	 (ireader2 (tm:make-integer-reader 2))
 	 (ireaderf (tm:make-integer-reader #f))
@@ -1455,7 +1455,7 @@
                                          object val)))
      (list #\S char-numeric? ireader2 (lambda (val object)
                                         (tm:set-date-second! object val)))
-     (list #\y char-fail eireader2 
+     (list #\y char-fail eireader2
            (lambda (val object)
              (tm:set-date-year! object (tm:natural-year val))))
      (list #\Y char-numeric? ireader4 (lambda (val object)
@@ -1477,7 +1477,7 @@
 	  (if (not (skipper ch))
 	      (begin (read-char port) (skip-until port skipper))))))
   (if (>= index str-len)
-      (begin 
+      (begin
 	(values))
       (let ( (current-char (string-ref format-string index)) )
 	(if (not (char=? current-char #\~))

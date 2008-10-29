@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Inventory Updater 
+;;;; Inventory Updater
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -101,10 +101,10 @@
   
   (method (process-children entity parent-proxy reporter)
     (for-each (function (object)
-                (if (is? parent-proxy SQLServer-Inventory) 
+                (if (is? parent-proxy SQLServer-Inventory)
                     (create-sql object parent-proxy reporter)
                   (process-entity object parent-proxy reporter)))
-              (sort < (get-children~ entity) key: (function (x) 
+              (sort < (get-children~ entity) key: (function (x)
                                                      (let ((name (get-name~ x)))
                                                        (case (get-kind~ x)
                                                          ((table) (list 0 name))
@@ -219,7 +219,7 @@
   (method (regenerate-full-table? table)
     (let ((action (get-property~ table difference:)))
       (if (null? action)
-          (modify-column? table)   
+          (modify-column? table)
         (case action
           ((modify) (modify-column? table))
           ((right) #t)      ;; create table
@@ -264,7 +264,7 @@
       (execute-sql-commit-preserve (generate-sql-create-table table table-current-name))
       (let ((temp-table-created table-current-name))
         (unwind-protect
-            (begin 
+            (begin
               (process-description-table table table-current-name #t)
               (process-description-columns table table-current-name #t)
               (process-default-values table table-current-name #t)
@@ -330,7 +330,7 @@
       
   
   (method (generate-sql-create-table object table-name)
-    (let* ((fields-list (join (create-fields-list (sort < (get-columns~ object) 
+    (let* ((fields-list (join (create-fields-list (sort < (get-columns~ object)
                                                         key: (function (column)
                                                                (either (third (get-property~ column ordinal-position:)) -1)))) ", "))
            (def-table (tie "CREATE TABLE [{table-name}]~{%}~{&}("
@@ -346,7 +346,7 @@
                          (new-default-value-action (first (get-property~ column default-value:)))
                          (new-nullable? (third (get-property~ column nullable?:)))
                          (new-datatype (third (get-property~ column datatype:))))
-                    (and (null? (second ordinal-position)) 
+                    (and (null? (second ordinal-position))
                          (third ordinal-position)
                          (not new-nullable?)
                          (or (null? new-default-value)
@@ -409,7 +409,7 @@
   
   (method (process-description-table table table-name recreate-table?)
     (bind (action old-value new-value) (get-property~ table description:)
-      (set! action (find-action-on-process-property action old-value new-value recreate-table?))      
+      (set! action (find-action-on-process-property action old-value new-value recreate-table?))
       (when action
         (execute-sql-commit-preserve
          (case action
@@ -547,7 +547,7 @@
     (for-each (function (column)
                 (bind (action old-value new-value) (get-property~ column description:)
                   (set! action (find-action-on-process-property action old-value new-value recreate-table?))
-                  (let ((column-name (get-name~ column))) 
+                  (let ((column-name (get-name~ column)))
                     (when action
                       (execute-sql-commit-preserve
                        (case action
@@ -675,7 +675,7 @@
            (ignore-dup-key (if (third (get-property~ index ignore-duplicates?:)) "IGNORE_DUP_KEY" {}))
            (statistics-norecompute (if (third (get-property~ index recompute-statistics?:)) {} "STATISTICS_NORECOMPUTE"))
            (options-list (remove-nils (list pad-index fill-factor-text ignore-dup-key statistics-norecompute)))
-           (options (if options-list 
+           (options (if options-list
                         (tie "WITH {options-list l detail: :human separator: \", \"}")
                       ""))
            (script (tie "CREATE {unique} {clustered} INDEX {index-name} ON [{table-name}]~{%}"
@@ -723,11 +723,11 @@
            (constraint-name (get-name~ constraint))
            (text (third (get-property~ constraint text:)))
            (check? #t) ;not implement now always #t
-           (check-text (if check? "" "WITH NOCHECK"))  
+           (check-text (if check? "" "WITH NOCHECK"))
            (replication-text (if (third (get-property~ constraint exclude-replication?:)) "NOT FOR REPLICATION" ""))
            (checked-text (if (not (third (get-property~ constraint checked?:)))
                              (tie  "ALTER TABLE [{table-name}]~{%}"
-                                   "~{&}NOCHECK CONSTRAINT [{constraint-name}]~{%}") 
+                                   "~{&}NOCHECK CONSTRAINT [{constraint-name}]~{%}")
                            ""))
            (script (tie "ALTER TABLE [{table-name}] {check-text} ADD CONSTRAINT~{%}"
                         "~{&}[{constraint-name}] CHECK {replication-text} ({text})~{%}"
@@ -746,7 +746,7 @@
   (method (generate-sql-drop-constraint table-name constraint-name)
     (let ((script (tie "ALTER TABLE [{table-name}]~{%}"
                        "~{&}DROP CONSTRAINT [{constraint-name}]~{%}")))
-      script)) 
+      script))
 
 
   ;;;
@@ -769,10 +769,10 @@
            (on-delete-cascade (if (third (get-property~ relation delete-cascade?:)) "ON DELETE CASCADE" ""))
            (replication-text (if (third (get-property~ relation exclude-replication?:)) "NOT FOR REPLICATION" ""))
            (check? #t) ;not implement now always #t
-           (check-text (if check? "" "WITH NOCHECK"))  
+           (check-text (if check? "" "WITH NOCHECK"))
            (checked-text (if (not (third (get-property~ relation checked?:)))
                              (tie  "ALTER TABLE [{foreign-table}]~{%}"
-                                   "~{&}NOCHECK CONSTRAINT [{relation-name}]~{%}") 
+                                   "~{&}NOCHECK CONSTRAINT [{relation-name}]~{%}")
                            ""))
            (script (tie "ALTER TABLE [{foreign-table}] {check-text} ADD CONSTRAINT~{%}"
                         "~{&}{relation-name} FOREIGN KEY~{%}"
@@ -950,7 +950,7 @@
           (process-children object proxy reporter))
         (when new?
           (if entity?
-              (unless (is? proxy SQLServer-Inventory-Relation) 
+              (unless (is? proxy SQLServer-Inventory-Relation)
                 (complete-append kind parent-proxy proxy))
             (if (memq? kind '(trigger index))
                 (add-pending-trigger/index (list kind parent-proxy proxy))
@@ -965,7 +965,7 @@
   (method (new-proxy parent kind name object)
     (case kind
       ((table)       (create-table~ parent name))
-      ((primary-key) (let ((fields/orders (third (get-property~ object fields/orders:)))) 
+      ((primary-key) (let ((fields/orders (third (get-property~ object fields/orders:))))
                      (create-primary-key~ parent name fields/orders)))
       ((column)      (create-column~ parent name))
       ((index)       (create-index~ parent name))
@@ -1022,7 +1022,7 @@
   (method (modify-proxy-property object physical kind property value force?)
     (with-execution-node
       (function ()
-        (case kind 
+        (case kind
           ((table)       (modify-table-property physical property value))
           ((primary-key) (modify-primary-key-property physical property value))
           ((column)      (modify-column-property object physical property value force?))
@@ -1047,7 +1047,7 @@
 
 
   (method (modify-primary-key-property physical property value)
-    (case property 
+    (case property
       ((fields/orders clustered? fill-factor))
       (else (error "Unknown primary key property: {t}" property))))
   
@@ -1105,7 +1105,7 @@
 
 
   (method (modify-index-property physical property value)
-    (case property 
+    (case property
       ((fields/orders) (set-fields/orders~ physical value))
       ((unique?) (unless (is? physical SQLServer-Inventory-Index) (set-unique?~ physical value)))
       ((ignore-duplicates? clustered? pad-index? recompute-statistics? fill-factor checked? exclude-replication?))
@@ -1113,19 +1113,19 @@
 
 
   (method (modify-trigger-property physical property value)
-    (case property 
+    (case property
       ((text) (set-text~ physical value))
       (else (error "Unknown trigger property: {t}" property))))
 
 
   (method (modify-constraint-property physical property value)
-    (case property 
+    (case property
       ((text exclude-replication? checked?))
       (else (error "Unknown constraint property: {t}" property))))
   
   
   (method (modify-procedure-property physical property value)
-    (case property 
+    (case property
       ((text) (set-text~ physical value))
       (else (error "Unknown procedure property: {t}" property))))
 
@@ -1231,7 +1231,7 @@
                   (with-continue
                     (function ()
                       (delete-proxy kind physical name object)))))
-              (sort < pending-deletes key: (function (lst) 
+              (sort < pending-deletes key: (function (lst)
                                              (find Entities-Delete (first lst))))))
   
   

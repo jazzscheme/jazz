@@ -2180,7 +2180,7 @@
 
 
 ;;;
-;;;; CoExternal 
+;;;; CoExternal
 ;;;
 
 
@@ -2227,7 +2227,7 @@
 
 
 ;;;
-;;;; CoExternal 
+;;;; CoExternal
 ;;;
 
 
@@ -2771,7 +2771,7 @@
                                        (c-function (struct*) ,type ,(%%string-append getter-string id-string ";")))
                           ))
               ))
-          (let ((getter-string 
+          (let ((getter-string
                   (if size
                       (if (or (%%eq? expansion 'char)
                               (%%eq? expansion 'wchar_t))
@@ -2809,7 +2809,7 @@
                    (type* (jazz.build-pointer-symbol type))
                    (type (cond ((and size (%%eq? expansion 'char)) '(native char-string))
                                ((and size (%%eq? expansion 'wchar_t)) '(native wchar_t-string))
-                               (size type*) 
+                               (size type*)
                                ((%%memq kind '(type struct union)) type*)
                                (else type))))
               (let ((getter `(definition ,(jazz.build-method-symbol struct id '-ref)
@@ -2955,7 +2955,7 @@
          (new-params (map (lambda (param) (jazz.generate-symbol (%%symbol->string param))) params))
          (string-param (list-ref new-params arg))
          (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
-    `(begin 
+    `(begin
        (c-external ,type ,(%%cons ext-s-name params) ,c-name)
        (definition (,s-name ,@new-params)
          (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))

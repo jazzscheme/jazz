@@ -447,7 +447,7 @@
 
 (define (jazz.walk-if walker resume declaration environment form-src)
   (if (< (length (%%source-code form-src)) 3)
-      (jazz.walk-error walker resume declaration "Ill-formed if: {s}" (%%desourcify form-src)) 
+      (jazz.walk-error walker resume declaration "Ill-formed if: {s}" (%%desourcify form-src))
     (let ((test (%%cadr (%%source-code form-src)))
           (yes (%%car (%%cddr (%%source-code form-src))))
           (no (%%cdr (%%cddr (%%source-code form-src)))))

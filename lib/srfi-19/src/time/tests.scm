@@ -129,7 +129,7 @@
 	 (time=? utc-basic+1 tai->utc-basic+1)
 	 (time=? tai-basic+1 utc->tai-basic+1)
 	 (time=? utc-basic+2 tai->utc-basic+2)
-	 (time=? tai-basic+2 utc->tai-basic+2) 
+	 (time=? tai-basic+2 utc->tai-basic+2)
 	 )))
 
 (define-s19-test! "TAI-UTC Conversions"

@@ -78,6 +78,7 @@
       (let ((results (get-search-results~ (get-application)))
             (queue (new-queue))
             (from (subtract-duration (current-time) (either elapse (make-time time-duration 0 3600))))
+            (ignored-directories '("Crashes" "Debug" "Release" "Work" "bin" ".git"))
             (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "mnf"))
             (directory-feedback (make-directory-feedback)))
         (iterate-directory~ directory
@@ -85,7 +86,8 @@
             (directory-feedback file)
             (when (and (not (member? (get-extension~ file) ignored-extensions test: ci=?))
                        (time>? (get-modification-time~ file) from))
-              (enqueue queue (list file #f #f)))))
+              (enqueue queue (list file #f #f))))
+          ignored-directories: ignored-directories)
         (let ((files (queue-list queue)))
           (let ((count (length files)))
             (user-message "Found {a} file{a}" count (format-plural count))
@@ -121,25 +123,28 @@
     (bind-keywords ((directory {Directory Jazz})) rest
       (let ((results (get-search-results~ (get-application)))
             (queue (new-queue))
-            (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "mnf"))
+            (ignored-directories '("Crashes" "Debug" "Release" "Work" "bin" ".git"))
+            (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "cxx" "swg" "mnf" "jpg" "png" "ppt" "ttf" "wav"))
             (directory-feedback (make-directory-feedback)))
         (iterate-directory~ directory
           (function (file)
             (directory-feedback file)
-            (let ((lines (load-lines~ file)))
-              (for-each (function (line rank)
-                          (continuation-capture
-                            (function (done)
-                              (let ((trailing-whitespace #f))
-                                (loop (for n from (- (cardinality line) 1) downto 0)
-                                      (do (let ((c (element line n)))
-                                            (if (whitespace? c)
-                                                (set! trailing-whitespace #t)
-                                              (when trailing-whitespace
-                                                (enqueue queue (list file rank #f))
-                                                (continuation-return done {}))))))))))
-                        lines
-                        (naturals 0 (length lines))))))
+            (when (not (member? (get-extension~ file) ignored-extensions test: ci=?))
+              (let ((lines (load-lines~ file char-encoding-errors: #f)))
+                (for-each (function (line rank)
+                            (continuation-capture
+                              (function (done)
+                                (let ((trailing-whitespace #f))
+                                  (loop (for n from (- (cardinality line) 1) downto 0)
+                                        (do (let ((c (element line n)))
+                                              (if (whitespace? c)
+                                                  (set! trailing-whitespace #t)
+                                                (when trailing-whitespace
+                                                  (enqueue queue (list file rank (+ n 1))))
+                                                (continuation-return done {})))))))))
+                          lines
+                          (naturals 0 (length lines))))))
+          ignored-directories: ignored-directories)
         (let ((files (queue-list queue)))
           (let ((count (length files)))
             (user-message "Found {a} file{a}" count (format-plural count))
@@ -1435,7 +1440,7 @@
      (expand-xsl-ruleset
        '(x y)
        (list
-        '((a) 
+        '((a)
           (f
            (xml>>
             (for-each
@@ -1458,12 +1463,12 @@
       (end-element~ f "body")))
   
 
-  @test  
+  @test
   (method (test1)
     (let ((processor (new XML-Formatter :pretty #f))
           (converter process-sxml))
        (converter
-        '(body 
+        '(body
           (h1 ((align "center"))
               "allo"
               (b "le monde")

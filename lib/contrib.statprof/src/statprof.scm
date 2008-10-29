@@ -15,28 +15,40 @@
 
 
 ;;;
+;;;; Settings
+;;;
+
+
+(jazz.define-setting profiler-depth
+  5)
+
+
+;;;
 ;;;; Profile
 ;;;
 
 
-(define (make-profile)
-  (##vector 'profile 0 0 (make-table test: equal?)))
+(define (make-profile depth)
+  (##vector 'profile depth 0 0 (make-table test: equal?)))
 
 
-(define (profile-total profile)
+(define (profile-depth profile)
   (##vector-ref profile 1))
 
-(define (profile-total-set! profile total)
-  (##vector-set! profile 1 total))
-
-(define (profile-unknown profile)
+(define (profile-total profile)
   (##vector-ref profile 2))
 
+(define (profile-total-set! profile total)
+  (##vector-set! profile 2 total))
+
+(define (profile-unknown profile)
+  (##vector-ref profile 3))
+
 (define (profile-unknown-set! profile unknown)
-  (##vector-set! profile 2 unknown))
+  (##vector-set! profile 3 unknown))
 
 (define (profile-calls profile)
-  (##vector-ref profile 3))
+  (##vector-ref profile 4))
 
 
 ;;;
@@ -45,7 +57,7 @@
 
 
 (define *profile*
-  (make-profile))
+  (make-profile (profiler-depth)))
 
 
 (define (active-profile)
@@ -53,7 +65,7 @@
 
 
 (define (profile-reset!)
-  (set! *profile* (make-profile)))
+  (set! *profile* (make-profile (profile-depth *profile*))))
 
 
 ;;;
@@ -90,37 +102,40 @@
 
 
 (define (register-continuation cont)
-  (let ((location (identify-continuation cont)))
-    (if (not location)
+  (let ((stack (identify-stack cont (profile-depth *profile*))))
+    (if (not stack)
         (profile-unknown-set! *profile* (+ (profile-unknown *profile*) 1))
       (begin
         (profile-total-set! *profile* (+ (profile-total *profile*) 1))
-        (let ((actual (table-ref (profile-calls *profile*) location 0)))
-          (table-set! (profile-calls *profile*) location (##fx+ actual 1)))))))
+        (let ((actual (table-ref (profile-calls *profile*) stack 0)))
+          (table-set! (profile-calls *profile*) stack (##fixnum.+ actual 1)))))))
 
 
 ;;;
-;;;; Location
+;;;; Stack
 ;;;
 
 
-;; As an improvement, use ##continuation-creator and ##procedure-friendly-name
-(define (identify-continuation cont)
+(define (identify-stack cont depth)
   
-  (define (continuation-location cont)
-    (let ((locat (##continuation-locat cont)))
-      (if locat
-          (let ((file (##container->file (##locat-container locat))))
-            (if file
-                (let* ((filepos (##position->filepos (##locat-position locat)))
-                       (line (##filepos-line filepos))
-                       (col (##filepos-col filepos)))
-                  (list file line col))
-              #f))
-        #f)))
+  (define (identify-location locat)
+    (if locat
+        (let ((file (##container->file (##locat-container locat))))
+          (if file
+              (let ((filepos (##position->filepos (##locat-position locat))))
+                (let ((line (##filepos-line filepos))
+                      (col (##filepos-col filepos)))
+                  (list file line col)))
+            #f))
+      #f))
   
-  (or (continuation-location cont)
-      (let ((next (##continuation-next cont)))
-        (if (##not next)
-            #f
-          (identify-continuation next))))))
+  (define (identify cont stack identified)
+    (if (or (##not cont) (and depth (##fixnum.>= identified depth)))
+        stack
+      (let ((creator (##continuation-creator cont))
+            (location (identify-location (##continuation-locat cont))))
+        (identify (##continuation-next cont)
+                  (cons (list creator location) stack)
+                  (if location (##fixnum.+ identified 1) identified)))))
+  
+  (identify cont '() 0)))

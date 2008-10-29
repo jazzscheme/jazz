@@ -55,9 +55,9 @@
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
       (<Layout-View>          name: tools
-        (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-start-profile})
-        (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-stop-profile})
-        (<Push-Tool>          name: restart         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart-profile})
+        (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-start-profile})
+        (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-stop-profile})
+        (<Push-Tool>          name: restart         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Restart Profile" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart-profile})
         (<Separator>)
         (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-refresh}))
       (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
@@ -148,7 +148,7 @@
   
   
   (definition *frame-indicator*
-    (new Frame-Indicator color: {Color name: Orange}))
+    (new Frame-Indicator color: {Color red: 255 green: 146 blue: 94}))
   
   
   (method (edit-source)
@@ -160,12 +160,19 @@
   ;;;
   
   
-  (method (selected-location)
+  (method (selected-frame)
     (let ((tree (get-tree)))
       (let ((rank (get-single-selection~ tree)))
         (if (not rank)
             #f
           (get-user-data~ (get-row~ tree rank))))))
+  
+  
+  (method (selected-location)
+    (let ((frame (selected-frame)))
+      (if (not frame)
+          #f
+        (second frame))))
   
   
   ;;;
@@ -186,8 +193,8 @@
   
   
   (form
-    (<install>                              portfolio: :icons filled-column: location
-      (<Tree-Node-Column>  name: location   title: "Location" width: 235 toplevel-controls?: #f)
+    (<install>                              portfolio: :icons filled-column: procedure
+      (<Tree-Node-Column>  name: procedure  title: "Procedure" width: 250)
       (<Tree-Label-Column> name: count      title: "Count" width: 75)
       (<Tree-Label-Column> name: percentage title: "Percentage" width: 75)))
   
@@ -205,12 +212,16 @@
   
   
   (method (view-calls profile)
-    (for-each (function (info)
-                (bind (location count percentage) info
-                  (bind (filename line col) location
-                    (let ((title (format "{a}:{a},{a}" (present-filename filename) line col))
+    (for-each (function (call)
+                (bind (stack count percentage) call
+                  (let ((frame (if (not-null? stack) (last stack) {})))
+                    (let ((procedure (if frame (present-identifier (get-procedure-name (first frame))) "(interaction)"))
                           (percentage (number->string percentage)))
-                      (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: location)))))
+                      (let ((row (add-row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: frame)))
+                        (for-each (function (frame)
+                                    (let ((procedure (present-identifier (get-procedure-name (first frame)))))
+                                      (add-row father: row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: "") (new Tree-Label title: "")) user-data: frame)))
+                                  (reverse (butlast stack))))))))
             (collect-calls profile)))
   
   
@@ -218,8 +229,8 @@
     (let ((total (profile-total profile))
           (calls '()))
       (iterate-table (profile-calls profile)
-        (function (location count)
-          (let ((call (list location count (calculate-percentage count total))))
+        (function (stack count)
+          (let ((call (list stack count (calculate-percentage count total))))
             (set! calls (cons call calls)))))
       (sort > calls key: third)))
   

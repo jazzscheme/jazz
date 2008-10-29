@@ -48,6 +48,12 @@
     (include "~~/lib/_gambit#.scm")
     
     
+    (define (jazz.get-procedure-name procedure)
+      (if procedure
+          (##procedure-name procedure)
+        "(interaction)"))
+    
+    
     (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)
@@ -62,10 +68,7 @@
     
     
     (define (jazz.get-continuation-name cont)
-      (let ((creator (##continuation-creator cont)))
-        (if creator
-            (##procedure-name creator)
-          "(interaction)")))
+      (jazz.get-procedure-name (##continuation-creator cont)))
     
     
     (define (jazz.collect-var-val var val cte queue)

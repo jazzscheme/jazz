@@ -585,6 +585,7 @@
 ;;;
 
 
+(native jazz.get-procedure-name)
 (native jazz.get-continuation-stack)
 (native jazz.get-continuation-name)
 (native jazz.get-continuation-dynamic-environment)

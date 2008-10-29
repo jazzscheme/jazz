@@ -117,6 +117,37 @@
           (select-results~ results)))))
   
   
+  (method (search-trailing-whitespace . rest)
+    (bind-keywords ((directory {Directory Jazz})) rest
+      (let ((results (get-search-results~ (get-application)))
+            (queue (new-queue))
+            (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "mnf"))
+            (directory-feedback (make-directory-feedback)))
+        (iterate-directory~ directory
+          (function (file)
+            (directory-feedback file)
+            (let ((lines (load-lines~ file)))
+              (for-each (function (line rank)
+                          (continuation-capture
+                            (function (done)
+                              (let ((trailing-whitespace #f))
+                                (loop (for n from (- (cardinality line) 1) downto 0)
+                                      (do (let ((c (element line n)))
+                                            (if (whitespace? c)
+                                                (set! trailing-whitespace #t)
+                                              (when trailing-whitespace
+                                                (enqueue queue (list file rank #f))
+                                                (continuation-return done {}))))))))))
+                        lines
+                        (naturals 0 (length lines))))))
+        (let ((files (queue-list queue)))
+          (let ((count (length files)))
+            (user-message "Found {a} file{a}" count (format-plural count))
+            (set-mode~ results 'text)
+            (add-results~ results (queue-list queue) #f)
+            (select-results~ results))))))
+  
+  
   (method (inspect-binary file)
     (call-with-input-file (parse~ file)
       (function (port)

@@ -2545,7 +2545,7 @@
 (define (jazz.parse-module-declaration partial-form)
   (let ((name (%%car partial-form))
         (rest (%%cdr partial-form)))
-    (if (%%neq? name (jazz.requested-module-name))
+    (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
       (jazz.parse-module rest
         (lambda (requires body)
@@ -2632,7 +2632,7 @@
 
 (define (jazz.parse-library-declaration partial-form)
   (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
-    (if (%%neq? name (jazz.requested-module-name))
+    (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
@@ -2720,7 +2720,7 @@
 
 (define (jazz.walk-library partial-form)
   (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
-    (if (%%neq? name (jazz.requested-module-name))
+    (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))

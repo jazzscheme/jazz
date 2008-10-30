@@ -301,65 +301,89 @@
           (function ()
             (let ((restarts (find-restarts 'resume-loop)))
               (when (> (length restarts) 1)
+                (newline port)
                 ;; skip the current resume-loop restart
                 (let ((restart (second restarts)))
                   (invoke-restart restart))))))
       (let ((result
               (thread-call thread 'evaluate
                 (function ()
-                  (parameterize ((jazz.walk-for 'eval))
-                    (evaluate expr))))))
+                  (evaluate expr)))))
         (when (and (thread-call-result? result)
                    (specified? result))
-          ;;(set-history~ console result)
-          (format port "{a}" result)
+          (repl-result-history-add result)
+          (format port "{s}" result)
           (format port "{%}"))
         (display-prompt port level)
         (force-output port)))))
 
 
 (definition (evaluate expr)
-  (if #f @convert (current-repl-frame)
-      (evaluate-in-frame expr)
-    (evaluate-in-context expr)))
-
-
-(definition (evaluate-in-frame expr)
-  (let ((box (current-repl-frame)))
-    (if (not box)
-        (eval expr)
-      (let ((frame (unbox box)))
-        (if (not frame)
-            (eval expr)
-          (let ((cont (serial->object (get-continuation~ frame))))
-            (eval-within-no-winding expr cont)))))))
-
-
-(definition (evaluate-in-context expr)
+  (define (context-alias context)
+    (either (essay (enumerator? context) (get-process) (process-alias~ (get-process) context))
+            (evaluate context)))
+  
   (let ((console (current-console)))
-    (let ((context 'profile.Zen @w (get-context~ console)))
-      (cond ((not context)
-             (eval expr))
-            ((symbol? context)
-             (let ((module-name context))
-               (load-module module-name)
-               (parameterize ((jazz.requested-module-name module-name))
-                 (eval
-                   `(library ,module-name jazz
-                      ,expr)))))
+    (let ((context (get-context~ console))
+          (frame-box (current-repl-frame)))
+      (cond ((unquote-command? 'ctx expr)
+             (let ((arguments (unquote-arguments expr)))
+               (if (null? arguments)
+                   context
+                 (let ((new-context (context-alias (car arguments))))
+                   (when (symbol? new-context)
+                     (load-module new-context))
+                   (set-context~ console new-context)
+                   new-context))))
+            (#f @convert frame-box
+             (evaluate-in-frame (unbox frame-box) expr))
             (else
-             @todo
-             (let ((identifier (type-name (class-of context))))
-               (let ((module-name (identifier-module identifier))
-                     (class-name (identifier-name identifier)))
-                 (load-module module-name)
-                 (parameterize ((jazz.requested-module-name module-name))
-                   (eval
-                     `(library ,module-name jazz
-                        (class ,name extends Profile
-                          (method (evaluate)
-                            ,expr))
-                        (evaluate~ (get-profile~ (get-application)))))))))))))
+             (evaluate-in-context context expr))))))
+
+
+(definition (evaluate-in-frame frame expr)
+  (let ((frame (unbox box)))
+    (if (not frame)
+        (eval expr)
+      (let ((cont (serial->object (get-continuation~ frame))))
+        (eval-within-no-winding expr cont)))))
+
+
+(definition (evaluate-in-context context expr)
+  (parameterize ((jazz.walk-for 'eval))
+    (cond ((not context)
+           (eval expr))
+          ((symbol? context)
+           (let ((module-name context))
+             (load-module module-name)
+             (locate-library-declaration module-name)
+             (eval
+               `(library ,module-name jazz
+                ,expr))))
+          (else
+           (let ((class-identifier (type-name (class-of context))))
+             (let ((module-name (identifier-module class-identifier))
+                   (class-name (identifier-name class-identifier)))
+               (load-module module-name)
+               (locate-library-declaration module-name)
+               (eval
+                 `(library ,module-name jazz
+                  (class ,class-name
+                    (method (evaluate)
+                      ,expr)))))
+             ((dispatch context 'evaluate) context))))))
+
+
+(definition (unquote-command? cmd expr)
+  (and (pair? expr)
+       (eq? (car expr) 'unquote)
+       (pair? (cdr expr))
+       (pair? (cadr expr))
+       (eq? (car (cadr expr)) cmd)))
+
+
+(definition (unquote-arguments expr)
+  (cdr (cadr expr)))
 
 
 ;;;

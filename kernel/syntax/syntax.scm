@@ -259,6 +259,6 @@
   (lambda (form-src)
     (let ((name (%%source-code (%%cadr (%%source-code form-src))))
           (rest (%%cddr (%%source-code form-src))))
-      (if (%%neq? name (jazz.requested-module-name))
+      (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
           (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
         (jazz.expand-module name rest)))))

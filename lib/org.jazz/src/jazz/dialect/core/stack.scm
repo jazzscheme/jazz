@@ -247,6 +247,11 @@
                   (##continuation-return-no-winding return (car results)))))))))
     
     
+    (define (jazz.repl-result-history-add result)
+      (let ((channel (##thread-repl-channel-get! (##current-thread))))
+        (##repl-channel-result-history-add channel result)))
+    
+    
     ;;;
     ;;;; Debugging
     ;;;

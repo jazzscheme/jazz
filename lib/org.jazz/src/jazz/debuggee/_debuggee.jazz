@@ -156,6 +156,26 @@
 ;;;
 
 
+(class Console extends Object
+  
+  
+  (slot remote  getter generate)
+  (slot pump    getter generate)
+  (slot tail    getter generate)
+  (slot head    getter generate)
+  (slot context accessors generate)
+  (slot history accessors generate)
+  
+  
+  (method (initialize remote pump tail head)
+    (set! remote~self remote)
+    (set! pump~self pump)
+    (set! tail~self tail)
+    (set! head~self head)
+    (set! context~self {})
+    (set! history~self {})))
+
+
 (definition *consoles*
   (make-table test: eq?))
 
@@ -176,11 +196,12 @@
                 (table-set! *consoles* thread console)
                 console)))))
 
+
 (definition (thread-console-pump-port thread)
-  (third (thread-console thread)))
+  (get-tail~ (thread-console thread)))
 
 (definition (thread-console-port thread)
-  (fourth (thread-console thread)))
+  (get-head~ (thread-console thread)))
 
 
 (definition (current-console)
@@ -191,11 +212,11 @@
   (receive (head tail) (open-string-pipe (list permanent-close: #f))
     (let ((console (register-console~ controller-debugger local-process thread-proxy)))
       (let ((pump (start-debuggee-console-pump console tail)))
-        (list console pump tail head)))))
+        (new Console console pump tail head)))))
 
 
 (definition (console-port-getter)
-  (fourth (current-console)))
+  (get-head~ (current-console)))
 
 
 ;;;
@@ -287,25 +308,23 @@
               (thread-call thread 'evaluate
                 (function ()
                   (parameterize ((jazz.walk-for 'eval))
-                    (evaluate expr level))))))
+                    (evaluate expr))))))
         (when (and (thread-call-result? result)
                    (specified? result))
-          (format port "{a}" result))
-        (format port "{%}")
+          ;;(set-history~ console result)
+          (format port "{a}" result)
+          (format port "{%}"))
         (display-prompt port level)
         (force-output port)))))
 
 
-(definition (evaluate expr level)
-  (let ((process (get-process)))
-    (if (not process)
-        (eval expr)
-      (if #f @convert (and (> level 0) (current-repl-frame))
-          (eval-in-frame expr)
-        (car (eval-expressions~ process (list expr)))))))
+(definition (evaluate expr)
+  (if #f @convert (current-repl-frame)
+      (evaluate-in-frame expr)
+    (evaluate-in-context expr)))
 
 
-(definition (eval-in-frame expr)
+(definition (evaluate-in-frame expr)
   (let ((box (current-repl-frame)))
     (if (not box)
         (eval expr)
@@ -314,6 +333,33 @@
             (eval expr)
           (let ((cont (serial->object (get-continuation~ frame))))
             (eval-within-no-winding expr cont)))))))
+
+
+(definition (evaluate-in-context expr)
+  (let ((console (current-console)))
+    (let ((context 'profile.Zen @w (get-context~ console)))
+      (cond ((not context)
+             (eval expr))
+            ((symbol? context)
+             (let ((module-name context))
+               (load-module module-name)
+               (parameterize ((jazz.requested-module-name module-name))
+                 (eval
+                   `(library ,module-name jazz
+                      ,expr)))))
+            (else
+             @todo
+             (let ((identifier (type-name (class-of context))))
+               (let ((module-name (identifier-module identifier))
+                     (class-name (identifier-name identifier)))
+                 (load-module module-name)
+                 (parameterize ((jazz.requested-module-name module-name))
+                   (eval
+                     `(library ,module-name jazz
+                        (class ,name extends Profile
+                          (method (evaluate)
+                            ,expr))
+                        (evaluate~ (get-profile~ (get-application)))))))))))))
 
 
 ;;;

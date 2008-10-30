@@ -147,23 +147,25 @@
   
   
   ;;;
-  ;;;; Eval
+  ;;;; Evaluate
   ;;;
   
   
-  (method (eval-expressions expressions)
-    (eval-expressions~ (get-process) expressions))
+  (method (module/library-form? expr)
+    (and (pair? expr)
+         (memq? (car expr) '(module library))))
   
   
-  (method (evaluate-expressions module-name expressions)
-    ;; quicky specific to jazz
-    (load-module module-name)
+  (method (evaluate-expressions expressions)
     (let ((expressions (map read-string-element expressions)))
       (map (function (expr)
-             (let ((module-name (cadr expr)))
-               (locate-library-declaration module-name)
-               (parameterize ((requested-module-name module-name))
-                 (->string (eval expr) :reader))))
+             (if (module/library-form? expr)
+                 (let ((module-name (cadr expr)))
+                   (load-module module-name)
+                   (locate-library-declaration module-name)
+                   (parameterize ((requested-module-name module-name))
+                     (->string (eval expr) :reader)))
+               (->string (eval expr) :reader)))
            expressions)))
   
   

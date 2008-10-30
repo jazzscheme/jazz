@@ -53,8 +53,7 @@
                     (lambda (module-name feature-requirement phase)
                       `(jazz.load-module ',module-name))))
                 requires)
-         ,@body
-         (jazz.module-loaded ',name)))))
+         ,@body))))
 
 
 (define (jazz.parse-module rest proc)

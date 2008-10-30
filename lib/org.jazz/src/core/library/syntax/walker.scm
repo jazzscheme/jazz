@@ -520,8 +520,7 @@
         (references-expansion (jazz.expand-library-references declaration))
         (literals-expansion (jazz.expand-library-literals declaration))
         (variables-expansion (jazz.expand-library-variables declaration))
-        (autoloads-expansion (jazz.expand-library-autoloads declaration environment))
-        (locator (%%get-declaration-locator declaration)))
+        (autoloads-expansion (jazz.expand-library-autoloads declaration environment)))
     `(begin
        ,@(case (jazz.walk-for)
            ((eval) '())
@@ -583,8 +582,7 @@
        ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
-       ,@body-expansion
-       (jazz.module-loaded ',locator))))
+       ,@body-expansion)))
 
 
 (jazz.define-method (jazz.fold-declaration (jazz.Library-Declaration declaration) f k s)

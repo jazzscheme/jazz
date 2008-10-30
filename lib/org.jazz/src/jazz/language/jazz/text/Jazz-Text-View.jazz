@@ -315,7 +315,7 @@
   ;;;
   
   
-  (method protected virtual (on-evaluate evt)
+  (method (on-evaluate evt)
     (with-safe-explore
       (function ()
         (let ((range (current-definition-range)))
@@ -323,48 +323,37 @@
             (with-cursor :wait
               (function ()
                 (sleep .1)
-                (receive (module-name header footer) (jazz-declarations range)
-                  (jazz-evaluate-forms module-name (read-text-forms range) header footer)))))))))
+                (receive (header footer) (collect-declarations range)
+                  (evaluate-forms (read-text-forms range) header footer)))))))))
   
   
-  (method (jazz-evaluate-forms module-name forms header footer)
-    (let ((expl <Text-Explorer> (new (explorer-class) self)))
-      (let ((names (map (function (form) (->string (form-name~ expl form))) forms)))
-        (let ((debugged (get-focused-process))
-              (expressions (map (function (form)
-                                  (format "{a}{s}{a}" header form footer))
-                                forms)))
-          (if debugged
-              (evaluate-expressions~ debugged module-name expressions)
-            (load-module module-name)
-            (locate-library-declaration module-name)
-            (let ((results (map (function (expr)
-                                  (parameterize ((requested-module-name module-name))
-                                    (->string (eval expr) :reader)))
-                                expressions)))
-              ;; do nothing with results for now. only side effect
-              #f)))
-        (user-message "Evaluated: {l detail: :human}"
-                      (map (function (name)
-                             (either name '<expr>))
-                           names)))))
+  (method (evaluate-forms forms header footer)
+    (let ((debugged (get-focused-process)))
+      (if (not debugged)
+          (bell)
+        (let ((expl <Text-Explorer> (new (explorer-class) self)))
+          (let ((names (map (function (form) (->string (form-name~ expl form))) forms))
+                (expressions (map (function (form)
+                                    (format "{a}{s}{a}" header form footer))
+                                  forms)))
+            (evaluate-expressions~ debugged expressions)
+            (user-message "Evaluated: {l detail: :human}"
+                          (map (function (name)
+                                 (either name '<expr>))
+                               names)))))))
   
   
-  (method (jazz-declarations range)
-    (let ((module-name {})
-          (header "")
+  (method (collect-declarations range)
+    (let ((header "")
           (footer "")
           (expl (new Jazz-Explorer self range: range)))
       (while (outer-expr~ expl)
         (when (jazz-declaration?~ expl)
           (let* ((declaration (jazz-declaration~ expl))
                  (declaration-header (join declaration " ")))
-            ;; all this needs some cleanup
-            (when (member (car declaration) '("module" "library"))
-              (set! module-name (string->symbol (cadr declaration))))
             (set! header (format "({a}{%}{a}" declaration-header header))
             (set! footer (format "{a})" footer)))))
-      (values module-name header footer)))
+      (values header footer)))
 
 
   ;;;

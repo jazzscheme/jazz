@@ -1168,15 +1168,12 @@
                          (jazz.set-environment-module module-name jazz.Loading-State)
                          (jazz.push-load-stack ':load module-name))
                        (lambda ()
-                         (jazz.load-module-src/bin module-name))
+                         (jazz.load-module-src/bin module-name)
+                         (jazz.set-environment-module module-name jazz.Loaded-State))
                        (lambda ()
                          (jazz.pop-load-stack)
                          (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                              (jazz.set-environment-module module-name jazz.Unloaded-State))))))))))))
-
-
-(define (jazz.module-loaded module-name)
-  (jazz.set-environment-module module-name jazz.Loaded-State))
 
 
 (define (jazz.unload-module module-name)

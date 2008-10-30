@@ -39,6 +39,7 @@
 
 
 (import (jazz.console)
+        (jazz.debugger)
         (jazz.jml)
         (jazz.language.lisp)
         (jazz.language.scheme)
@@ -191,7 +192,7 @@
   
   
   ;;;
-  ;;;; Eval
+  ;;;; Evaluate
   ;;;
   
   
@@ -209,17 +210,17 @@
   
   
   (method (evaluate-forms range forms)
-    (let ((console-text (get-console-text))
-          (expl <Text-Explorer> (new (explorer-class) self)))
-      (let ((names (map (function (form) (form-name~ expl form)) forms))
-            (commands (map (function (form) (->string form :reader)) forms)))
-        @temp-commented-for-console-work
-        (evaluation-break~ console-text)
-        (eval-commands~ console-text range names commands #f)
-        (user-message "Evaluated: {l detail: :human}"
-                      (map (function (name)
-                             (either name '<expr>))
-                           names)))))
+    (let ((debugged (get-focused-process)))
+      (if (not debugged)
+          (bell)
+        (let ((expl <Text-Explorer> (new (explorer-class) self)))
+          (let ((names (map (function (form) (form-name~ expl form)) forms))
+                (expressions (map (function (form) (->string form :reader)) forms)))
+            (evaluate-expressions~ debugged expressions)
+            (user-message "Evaluated: {l detail: :human}"
+                          (map (function (name)
+                                 (either name '<expr>))
+                               names)))))))
   
   
   ;;;

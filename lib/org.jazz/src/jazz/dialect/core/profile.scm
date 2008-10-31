@@ -53,6 +53,10 @@
 ;;;
 
 
+(define jazz.statprof-loaded?
+  #f)
+
+
 (define (jazz.load-statprof)
   (if (not jazz.statprof-loaded?)
       (begin

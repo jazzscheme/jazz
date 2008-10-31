@@ -412,19 +412,48 @@
 
 
 ;;;
+;;;; XChangeProperty modes
+;;;
+
+
+(definition PropModeReplace 0)
+
+
+(definition (generate-x11-atoms)
+  (set! WM_DELETE_WINDOW                  (XInternAtom default-x11-display "WM_DELETE_WINDOW" #f))
+  (set! _NET_WM_WINDOW_TYPE               (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE" #f))
+  (set! _NET_WM_WINDOW_TYPE_DIALOG        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_DIALOG" #f))
+  (set! _NET_WM_WINDOW_TYPE_DROPDOWN_MENU (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU" #f))
+  (set! _NET_WM_WINDOW_TYPE_TOOLTIP       (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_TOOLTIP" #f))
+  (set! _NET_WM_WINDOW_TYPE_NORMAL        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_NORMAL" #f)))
+
+;;;
+;;;; Base Atoms
+;;;
+
+
+(definition XA_ATOM 4)
+
+
+;;;
+;;;; _NET_WM_WINDOW_TYPE
+;;;
+
+
+(definition _NET_WM_WINDOW_TYPE {})
+(definition _NET_WM_WINDOW_TYPE_DIALOG {})
+(definition _NET_WM_WINDOW_TYPE_DROPDOWN_MENU {})
+(definition _NET_WM_WINDOW_TYPE_TOOLTIP {})
+(definition _NET_WM_WINDOW_TYPE_NORMAL {})
+
+
+;;;
 ;;;; WM_DELETE_WINDOW atom
 ;;;
 
 
-(definition wm-delete-window-atom {})
+(definition WM_DELETE_WINDOW {})
 
-
-(definition (set-wm-delete-window-atom atom)
-  (set! wm-delete-window-atom atom))
-
-
-(definition (get-wm-delete-window-atom)
-  wm-delete-window-atom)
 
 ;;;
 ;;;; Attributes structure
@@ -705,6 +734,19 @@
 ;;;; Custom functions
 ;;;
 
+
+(definition (XChangeProperty display window property type mode data)
+  (let* ((format    (cond ((u32vector? data) 32)
+                          (else (error "Format not supported"))))
+         (nelements (case format
+                      ((32) (u32vector-length data))))
+        
+         (data      (case format
+                      ((32) (let ((pointer (u32vector->uint32* data)))
+                              (uint32*->uint8* pointer))))))
+    ((c-function (Display* Window Atom Atom int int uint8* int) void "XChangeProperty")
+     display window property type format mode data nelements)
+    (uint8*-free data)))
 
 
 (definition rgb-pixel

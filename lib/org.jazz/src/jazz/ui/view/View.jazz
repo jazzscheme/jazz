@@ -1188,6 +1188,11 @@
       (scroll-to (+ (get-scrolled-position) delta))))
   
   
+  (method public (scroll2 delta <Point>)
+    (unless (= delta {Point 0 0})
+      (scroll-to2 (+ (get-scrolled-position) delta))))
+  
+  
   (method public (scroll-to dest <Point>)
     (let ((pos (get-scrolled-position)))
       ;; dest and pos are in this view coordinates
@@ -1221,6 +1226,37 @@
                   (scroll-view~ display dh dv rect clip-rect: clip-rect)))))))))
   
   
+  (method public (scroll-to2 dest <Point>)
+    (let ((pos (get-scrolled-position)))
+      ;; dest and pos are in this view coordinates
+      (when (/= dest pos)
+        (let* ((size (get-size))
+               (display (get-display))
+               (display-size (get-size~ display))
+               (sc (if scaled? scaling 1.0))
+               (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
+               (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
+               (max-h 0)
+               (max-v 0)
+               (h (fxround (min (max (get-h~ dest) min-h) max-h)))
+               (v (fxround (min (max (get-v~ dest) min-v) max-v)))
+               (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
+          (when (/= new-pos position)
+            (set! position (new Point (fxround (* h sc)) (fxround (* v sc))))
+            (let ((scrolled (get-scrolled-position)))
+              (set-scroll-pos 'horz (- h) #t)
+              (set-scroll-pos 'vert (- v) #t))
+            (update-scrollbars)
+            (let ((dh (- h (get-h~ pos)))
+                  (dv (- v (get-v~ pos))))
+              (scroll-invalidate dh dv)
+              ;; temp for testing...
+              (if scaled?
+                  ;; convert to-fix scroll-view bugs when used from thumb-track
+                  (invalidate-view~ scroller)
+                (scroll-view2~ display dh dv (get-bounds~ display)))))))))
+  
+  
   (method protected virtual (redraw-scrollbars)
     )
   
@@ -1234,11 +1270,32 @@
           (root (get-root))
           (display (get-display)))
       (when (and player (view-visible?))
-        (let* ((acquired (acquire~ root self rect))
-               (display-rect (get-display-rect))
-               (clip-rect (acquire~ root display (either clip-rect display-rect))))
+        (let ((acquired (acquire~ root self rect))
+              (clip-rect (acquire~ root display (either clip-rect (get-display-rect)))))
           (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
             (scroll-window~ player (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect: clip-rect))))))
+  
+  
+  (method public (scroll-view2 dh dv rect)
+    (let ((player (get-player))
+          (root (get-root))
+          (display (get-display)))
+      (when (and player (view-visible?))
+        (let ((acquired (acquire~ root self rect))
+              (clip-rect (acquire~ root display (get-clipper))))
+          (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
+            (scroll-offscreen~ root (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
+  
+  
+  (method (scroll-offscreen dh dv rect clip-rect)
+    (with-closed ((surface (get-surface)))
+      (let ((dest-rect (offset-rect rect dh dv)))
+        (let ((offscreen (get-offscreen {})))
+          (select-clipper~ surface dest-rect)
+          (set-source-surface~ surface offscreen dh dv)
+          (paint~ surface)
+          (set-source-surface~ offscreen offscreen dh dv)
+          (paint~ offscreen)))))
  
   
   (method public (get-scrolled-position) <Point>

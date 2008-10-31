@@ -172,7 +172,7 @@
     (set! pump~self pump)
     (set! tail~self tail)
     (set! head~self head)
-    (set! context~self {})
+    (set! context~self (unspecified))
     (set! history~self {})))
 
 
@@ -319,26 +319,47 @@
 
 
 (definition (evaluate expr)
+  (define (context-init context)
+    (if (unspecified? context)
+        (let ((process (get-process)))
+          (if process
+              (context-alias (initial-console-context~ process))
+            {}))
+      context))
+  
   (define (context-alias context)
     (either (essay (enumerator? context) (get-process) (process-alias~ (get-process) context))
             (evaluate context)))
   
+  (define (parse-unquote-command expr)
+    (if (and (pair? expr)
+             (eq? (car expr) 'unquote)
+             (pair? (cdr expr)))
+        (let ((unquoted (cadr expr)))
+          (cond ((symbol? unquoted)
+                 (values unquoted '()))
+                ((pair? unquoted)
+                 (values (car unquoted) (cdr unquoted)))
+                (else
+                 (values {} {}))))
+      (values {} {})))
+  
   (let ((console (current-console)))
-    (let ((context (get-context~ console))
+    (let ((context (context-init (get-context~ console)))
           (frame-box (current-repl-frame)))
-      (cond ((unquote-command? 'ctx expr)
-             (let ((arguments (unquote-arguments expr)))
+      (receive (command arguments) (parse-unquote-command expr)
+        (cond ((eq? command 'ctx)
                (if (null? arguments)
                    context
                  (let ((new-context (context-alias (car arguments))))
                    (when (symbol? new-context)
                      (load-module new-context))
                    (set-context~ console new-context)
-                   new-context))))
-            (#f @convert frame-box
-             (evaluate-in-frame (unbox frame-box) expr))
-            (else
-             (evaluate-in-context context expr))))))
+                   new-context)))
+              (#f @convert frame-box
+               (evaluate-in-frame (unbox frame-box) expr))
+              (else
+               (evaluate-in-context context expr)))))))
 
 
 (definition (evaluate-in-frame frame expr)
@@ -372,18 +393,6 @@
                     (method (evaluate)
                       ,expr)))))
              ((dispatch context 'evaluate) context))))))
-
-
-(definition (unquote-command? cmd expr)
-  (and (pair? expr)
-       (eq? (car expr) 'unquote)
-       (pair? (cdr expr))
-       (pair? (cadr expr))
-       (eq? (car (cadr expr)) cmd)))
-
-
-(definition (unquote-arguments expr)
-  (cdr (cadr expr)))
 
 
 ;;;

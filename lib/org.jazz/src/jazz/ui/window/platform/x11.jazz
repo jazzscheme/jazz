@@ -814,31 +814,52 @@
 
 (definition inval-rects (make-table))
 
+
+(definition (validate-inval-rect rect <Rect> window)
+  (if (= rect {Rect 0 0 0 0})
+      {}
+    (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
+          (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
+          (r (if (> (get-right~ rect) (get-width~ window))
+                 (get-width~ window)
+               (get-right~ rect)))
+          (b (if (> (get-bottom~ rect) (get-height~ window))
+                 (get-height~ window)
+               (get-bottom~ rect))))
+      (let ((w (- r l))
+            (h (- b t)))
+        (if (or (< w 0) (< h 0))
+            {}
+          (new Rect l t r b))))))
+
+
 (definition (process-inval-rects)
   (iterate-table inval-rects
     (function (handle rect)
       (let ((window (get-window handle)))
         (when window
-          (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
-                (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
-                (r (if (> (get-right~ rect) (get-width~ window))
-                       (get-width~ window)
-                     (get-right~ rect)))
-                (b (if (> (get-bottom~ rect) (get-height~ window))
-                       (get-height~ window)
-                     (get-bottom~ rect))))
+          (let ((l (get-left~ rect))
+                (t (get-top~ rect))
+                (r (get-right~ rect))
+                (b (get-bottom~ rect)))
             (let ((w (- r l))
                   (h (- b t)))
-              (unless (or (< w 0) (< h 0))
-                (XInvalidateRect default-x11-display handle l t w h))))))))
+              (XInvalidateRect default-x11-display handle l t w h)))))))
   (set! inval-rects (make-table)))
+
 
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
-    (unless (nu=? rect {Rect 0 0 0 0})
-      (let ((old-rect (table-ref inval-rects handle #f)))
-        (table-set! inval-rects handle (if old-rect (rect-union old-rect rect) rect))))))
+      (let ((old-rect (table-ref inval-rects handle #f))
+            (new-rect (validate-inval-rect rect (get-window handle))))
+        (when (or old-rect new-rect)
+          (table-set! inval-rects handle (cond ((and old-rect new-rect)
+                                                (rect-union old-rect new-rect))
+                                               (old-rect
+                                                 old-rect)
+                                               (new-rect
+                                                 new-rect)))))))
 
 
 (definition (platform-invalidate-region handle region erase?)

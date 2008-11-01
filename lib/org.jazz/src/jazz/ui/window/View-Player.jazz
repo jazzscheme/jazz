@@ -52,8 +52,8 @@
   (property close-root? initialize #t getter get-close-root? setter set-close-root?)
 
   
-  (slot root  initialize {})
-  (slot focus initialize {})
+  (slot root                    initialize {})
+  (slot previously-focused-view initialize {} accessors generate)
 
   
   ;;;
@@ -137,14 +137,6 @@
       (set-offscreen?~ root #t)
       (set-player~ root self)
       (layout-window)))
-  
-  
-  (method public (get-focus)
-    focus)
-  
-  
-  (method public (set-focus value)
-    (set! focus value))
   
   
   ;;;
@@ -325,6 +317,25 @@
                     (when (and (or all? (not (memq? popup owners))) (or (not exclude) (not (memq? popup exclude))))
                       (close-popup popup)))
                   (get-popups)))))
+  
+
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-gain)
+    (when previously-focused-view
+      (acquire-focus~ previously-focused-view))
+    processed)
+  
+  
+  (method (focus-lose receiving)
+    (let ((focus (get-focus)))
+      (when (and focus (eq? (get-player~ focus) self))
+        (set! previously-focused-view focus)
+        (set-focus {})))
+    processed)
   
   
   ;;;

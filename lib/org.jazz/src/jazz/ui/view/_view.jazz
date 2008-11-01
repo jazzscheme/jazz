@@ -649,27 +649,31 @@
 ;;;
 
 
+(definition *focus*
+  {})
+
+
 (definition public (get-focus)
-  (let ((window (get-window-focus)))
-    (when (and window (is? window View-Player))
-      (get-focus~ window))))
+  *focus*)
 
 
 (definition public (set-focus view)
-  (let ((player (get-player~ view)))
-    (if (not player)
-        (error "Unable to focus a playerless view: {s}" view)
-      (let ((old (get-focus~ player)))
-        (when (neq? view old)
-          (when old
+  (when (neq? view *focus*)
+    (let ((player (essay view (get-player~ view))))
+      (if (and player (neq? player (get-window-focus)))
+          (set-previously-focused-view~ player view)
+        (let ((old *focus*))
+          (when *focus*
             (let ((old-host (essay old (get-host~ old))))
               (when old-host
                 (deactivate-focus~ old-host)))
-            (call-focus-lose~ old view))
-          (set-focus~ player {})
+            (let ((focus *focus*))
+              (set! *focus* {})
+              (call-focus-lose~ focus view)))
+          (set! *focus* {})
           (when view
             (call-focus-gain~ view old))
-          (set-focus~ player view)
+          (set! *focus* view)
           (let ((host (essay view (get-host~ view))))
             (when host
               (activate-focus~ host)))

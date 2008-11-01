@@ -1287,15 +1287,16 @@
             (scroll-offscreen~ root (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
   
   
-  (method (scroll-offscreen dh dv rect clip-rect)
+  (method (scroll-offscreen dh dv src-rect clip-rect)
     (with-closed ((surface (get-surface)))
-      (let ((dest-rect (offset-rect rect dh dv)))
-        (let ((offscreen (get-offscreen {})))
-          (select-clipper~ surface dest-rect)
-          (set-source-surface~ surface offscreen dh dv)
-          (paint~ surface)
-          (set-source-surface~ offscreen offscreen dh dv)
-          (paint~ offscreen)))))
+      (let ((dst-rect (offset-rect src-rect dh dv)))
+        (let ((modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect)))
+          (let ((offscreen (get-offscreen {})))
+            ;(select-clipper~ surface (rect-intersection modified-rect dst-rect))
+            (set-source-surface~ surface offscreen dh dv)
+            (paint~ surface)
+            (set-source-surface~ offscreen offscreen dh dv)
+            (paint~ offscreen))))))
  
   
   (method public (get-scrolled-position) <Point>

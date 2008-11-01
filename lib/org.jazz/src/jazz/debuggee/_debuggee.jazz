@@ -319,17 +319,21 @@
 
 
 (definition (evaluate expr)
-  (define (context-init context)
-    (if (unspecified? context)
-        (let ((process (get-process)))
-          (if process
-              (context-alias (initial-console-context~ process))
-            {}))
-      context))
+  (define (context-init console)
+    (let ((context (get-context~ console)))
+      (if (unspecified? context)
+          (let ((new-context
+                  (let ((process (get-process)))
+                    (if process
+                        (context-alias (initial-console-context~ process))
+                      {}))))
+            (set-context~ console new-context)
+            new-context)
+        context)))
   
   (define (context-alias context)
-    (either (essay (enumerator? context) (get-process) (process-alias~ (get-process) context))
-            (evaluate context)))
+    (when (and (enumerator? context) (get-process))
+      (process-alias~ (get-process) context)))
   
   (define (parse-unquote-command expr)
     (if (and (pair? expr)
@@ -345,17 +349,18 @@
       (values {} {})))
   
   (let ((console (current-console)))
-    (let ((context (context-init (get-context~ console)))
+    (let ((context (context-init console))
           (frame-box (current-repl-frame)))
       (receive (command arguments) (parse-unquote-command expr)
         (cond ((eq? command 'ctx)
                (if (null? arguments)
                    context
-                 (let ((new-context (context-alias (car arguments))))
-                   (when (symbol? new-context)
-                     (load-module new-context))
-                   (set-context~ console new-context)
-                   new-context)))
+                 (let ((ctx (car arguments)))
+                   (let ((new-context (either (context-alias ctx) (evaluate ctx))))
+                     (when (symbol? new-context)
+                       (load-module new-context))
+                     (set-context~ console new-context)
+                     new-context))))
               (#f @convert frame-box
                (evaluate-in-frame (unbox frame-box) expr))
               (else

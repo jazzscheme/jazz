@@ -606,12 +606,12 @@
 
 
 (definition (platform-scroll-window handle dh dv rect clip-rect)
-  (platform-invalidate-rect handle (platform-get-client-rect handle) #t)
+  (platform-invalidate-rect handle clip-rect)
   @w(platform-update-window handle))
 
 
 ;; Correct this to really invalidate the Rect
-(definition (platform-invalidate-rect handle rect erase?)
+(definition (platform-invalidate-rect handle rect)
   (if rect
   (let ((left (exact->inexact (get-left~ rect)))
 	(top (exact->inexact (get-top~ rect)))
@@ -622,23 +622,20 @@
 
 
 ;; Correct this to really invalidate the Region
-(definition (platform-invalidate-region handle region erase?)
+(definition (platform-invalidate-region handle region)
   (for-each (function (rect)
-               (platform-invalidate-rect handle rect erase?))
+               (platform-invalidate-rect handle rect))
 	    (get-rectangles~ region)))
 
 
-(definition (platform-invalidate-window handle erase?)
-  (platform-invalidate-rect handle #f #f)
-  @windows
-  (when handle
-    (InvalidateRect handle NULL erase?)))
+(definition (platform-invalidate-window handle)
+  (platform-invalidate-rect handle #f))
 
 
 (definition (platform-redraw-window handle rect region)
   (if rect
-      (platform-invalidate-rect handle rect #t)
-      (platform-invalidate-region handle region #t))
+      (platform-invalidate-rect handle rect)
+    (platform-invalidate-region handle region))
   (HIViewRender handle)
   (HIWindowFlush (HIViewGetWindow handle))
   @lala
@@ -664,7 +661,7 @@
 (definition (platform-redraw-view-only view handle)
   (let* ((size (platform-get-size handle))
          (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
-    (platform-invalidate-rect handle rct #t)))
+    (platform-invalidate-rect handle rct)))
 
 
 (definition (platform-update-window handle)
@@ -675,7 +672,7 @@
   (when handle
     (let* ((size (platform-get-size handle))
            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
-      (platform-invalidate-rect handle rct #t))))
+      (platform-invalidate-rect handle rct))))
   
   
 (definition (platform-show-noactivate handle)

@@ -1254,7 +1254,7 @@
               (if scaled?
                   ;; convert to-fix scroll-view bugs when used from thumb-track
                   (invalidate-view~ scroller)
-                (scroll-view2~ display dh dv (get-bounds~ display)))))))))
+                (scroll-view2 dh dv (get-bounds)))))))))
   
   
   (method protected virtual (redraw-scrollbars)
@@ -1278,25 +1278,38 @@
   
   (method public (scroll-view2 dh dv rect)
     (let ((player (get-player))
-          (root (get-root))
-          (display (get-display)))
-      (when (and player (view-visible?))
+          (root (get-root)))
+      (when player
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root display (get-clipper))))
-          (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
-            (scroll-offscreen~ root (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
+              (clip-rect (acquire~ root self (get-clipper))))
+          (scroll-offscreen~ root dh dv acquired clip-rect)))))
   
   
   (method (scroll-offscreen dh dv src-rect clip-rect)
     (with-closed ((surface (get-surface)))
-      (let ((dst-rect (offset-rect src-rect dh dv)))
-        (let ((modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect)))
-          (let ((offscreen (get-offscreen {})))
-            ;(select-clipper~ surface (rect-intersection modified-rect dst-rect))
-            (set-source-surface~ surface offscreen dh dv)
-            (paint~ surface)
-            (set-source-surface~ offscreen offscreen dh dv)
-            (paint~ offscreen))))))
+      (let* ((src-rect (rect-intersection src-rect clip-rect))
+             (dst-rect (offset-rect src-rect dh dv))
+             (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
+             (new-clipper (rect-intersection modified-rect dst-rect))
+             (offscreen (get-offscreen {})))
+        (set-source-surface~ surface offscreen dh dv)
+        (draw-rectangle~ surface new-clipper)
+        (fill~ surface)
+        (set-source-surface~ offscreen offscreen dh dv)
+        (draw-rectangle~ offscreen new-clipper)
+        (fill~ offscreen)
+        (let ((ml (get-left~ modified-rect))
+              (mt (get-top~ modified-rect))
+              (mr (get-right~ modified-rect))
+              (mb (get-bottom~ modified-rect)))
+          (when (< dh 0)
+            (invalidate-rect (new Rect (+ mr dh) mt mr mb)))
+          (when (< dv 0)
+            (invalidate-rect (new Rect ml (+ mb dv) mr mb)))
+          (when (> dh 0)
+            (invalidate-rect (new Rect ml mt (+ ml dh) mb)))
+          (when (> dv 0)
+            (invalidate-rect (new Rect ml mt mr (+ mt dv))))))))
  
   
   (method public (get-scrolled-position) <Point>

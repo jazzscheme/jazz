@@ -1,0 +1,221 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Product Selector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.builder.workbench.Product-Selector jazz
+
+
+(import (jazz.builder)
+        (jazz.builder.workbench)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Product-Selector extends Layout-View
+  
+  
+  (form
+    (<install>                                               size: {Dimension 500 300} layout-type: border
+      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                 name: hierarchycal    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchycal" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-hierarchycal}))
+      (<Border-View>                   name: content-border  location: center border-type: edge style: entry
+        (<Scroller-View>                                     style: document hscroll?: #t vscroll?: #t
+          (<content!>                                        layout-type: fill
+            (<Tree-View>               name: content         portfolio: :icons filled-column: name selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>      name: name            title: "Name" width: 235 toplevel-controls?: #f)))))
+      (<Layout-View>                   name: buttonbar       size: {Dimension 300 36} location: south layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Button>                 name: ok              title: "OK" location: tail size: {Dimension 80 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
+        (<Separator>                                         size: {Dimension 3 0} location: tail)
+        (<Push-Button>                 name: cancel          title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+        (<Separator>                                         size: {Dimension 5 0} location: tail))))
+  
+  
+  (slot hierarchycal? initialize #f)
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (update))
+  
+  
+  (method meta (host-title)
+    "Select Product")
+  
+  
+  (method (install-in-host host)
+    (select-active)
+    (acquire-focus~ (get-tree)))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'content))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-toggle-hierarchycal evt)
+    (set! hierarchycal? (not hierarchycal?))
+    (set-toplevel-controls?~ (get-node-column~ (get-tree)) hierarchycal?)
+    (with-preserved-selection~ (get-tree)
+      update
+      use: 'data)
+    (update-buttons))
+  
+  
+  (method (on-selection-change evt)
+    (update-buttons))
+  
+  
+  (method (default-action)
+    (when (ok-enabled?)
+      (end-modal~ (get-host) (get-modal-result))))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update)
+    (update-content)
+    (update-buttons))
+  
+  
+  (method (update-content)
+    (let ((tree (get-tree)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (if hierarchycal?
+              (update-hierarchycal tree)
+            (update-flat tree))))))
+  
+  
+  (method (update-hierarchycal tree)
+    (let ((rows (make-table test: eq?)))
+      (define (add file father)
+        (either (table-ref rows file {})
+                (let ((title (get-presentation~ file))
+                      (image (get-component-image~ file)))
+                  (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
+                    (table-set! rows file row)
+                    row))))
+      
+      (define (insert product)
+        (let ((parent (get-parent~ product)))
+          (if (not parent)
+              (add product {})
+            (add product (insert parent)))))
+      
+      (for-each insert (collect-products))))
+  
+  
+  (method (update-flat tree)
+    (for-each (function (product)
+                  (let ((title (get-presentation~ product))
+                        (image (get-component-image~ product)))
+                    (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: product)))
+                (collect-products)))
+  
+  
+  (method (collect-products)
+    (let ((products (new-queue)))
+      (for-each-descendant~ (get-workbench)
+        (function (file level)
+          (when (is? file Product)
+            (enqueue products file))))
+      (queue-list products)))
+  
+  
+  (method (update-buttons)
+    (let ((product (selected-product)))
+      (set-enabled?~ (locate 'ok) product)))
+  
+  
+  (method (select-active)
+    (select-user-data-row~ (get-tree) active-product))
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (selected-product))
+  
+  
+  (method (ok-enabled?)
+    (get-enabled?~ (locate 'ok)))
+  
+  
+  (method (on-double-click evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Utility
+  ;;;
+  
+  
+  (method (selected-product)
+    (let ((file (get-single-selected-data~ (get-tree))))
+      (when (is? file Product)
+        file)))))

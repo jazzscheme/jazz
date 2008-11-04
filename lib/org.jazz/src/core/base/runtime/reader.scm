@@ -41,7 +41,25 @@
 (include "~~/lib/_gambit#.scm")
 
 
-(define (jazz.read-source port)
+(define (jazz.read-source-as-begin port container line col)
+  ;; Hack... set the names of the port
+  (if container
+      (##vector-set! port 4 (lambda (port) container)))
+  
+  (##input-port-line-set! port line)
+  (##input-port-column-set! port col)
+  
+  (##source-code
+    (##read-all-as-a-begin-expr-from-port
+      port
+      (##current-readtable)
+      ##wrap-datum
+      ##unwrap-datum
+      (macro-readtable-start-syntax (##current-readtable))
+      #t)))
+
+
+(define (jazz.read-source-first-expr port)
   (let ((begin-src
           (##read-all-as-a-begin-expr-from-port
             port

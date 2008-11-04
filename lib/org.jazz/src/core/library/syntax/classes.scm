@@ -172,7 +172,7 @@
    (requires        %%get-library-declaration-requires        ())
    (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
    (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
-   (declares        %%get-library-declaration-declares        %%set-library-declaration-declares)
+   (proclaims       %%get-library-declaration-proclaims       %%set-library-declaration-proclaims)
    (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
    (variables       %%get-library-declaration-variables       %%set-library-declaration-variables)
    (references      %%get-library-declaration-references      %%set-library-declaration-references)
@@ -730,7 +730,7 @@
 
 
 (jazz.define-class jazz.Proclaim jazz.Expression (type source) jazz.Object-Class jazz.allocate-proclaim
-  ((optimize? %%get-proclaim-optimize? ())))
+  ((clauses %%get-proclaim-clauses ())))
 
 
 ;;;

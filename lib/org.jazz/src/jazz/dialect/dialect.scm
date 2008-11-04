@@ -1251,7 +1251,7 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (if (and (jazz.warnings?) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
+              (if (and (jazz.warnings?) (jazz.get-library-warn? (%%get-declaration-toplevel declaration) 'optimizations))
                   (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
               #f)
         method-declaration)))

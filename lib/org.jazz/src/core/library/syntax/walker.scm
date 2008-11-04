@@ -404,7 +404,7 @@
 
 
 (define (jazz.new-library-declaration name parent dialect-name dialect-invoice requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice requires exports imports #f '() (jazz.new-queue) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice requires exports imports (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -587,6 +587,55 @@
 
 (jazz.define-method (jazz.fold-declaration (jazz.Library-Declaration declaration) f k s)
   (f declaration (jazz.fold-statements (%%get-namespace-declaration-body declaration) f k s s)))
+
+
+(define (jazz.get-library-proclaim library-declaration proclaim-name default)
+  (%%table-ref (%%get-library-declaration-proclaims library-declaration) proclaim-name default))
+
+
+(define (jazz.set-library-proclaim library-declaration proclaim-name value)
+  (%%table-set! (%%get-library-declaration-proclaims library-declaration) proclaim-name value))
+
+
+(define jazz.all-warnings
+  '(optimizations))
+
+
+(define (jazz.proclaim library-declaration clause)
+  (define (parse-not not? clause)
+    (%%assert (%%pair? clause)
+      (let ((kind (%%car clause))
+            (parameters (%%cdr clause)))
+        (values not? kind parameters))))
+  
+  (define (parse-clause clause)
+    (%%assert (%%pair? clause)
+      (if (%%eq? (%%car clause) 'not)
+          (parse-not #t (%%cdr clause))
+        (parse-not #f clause))))
+  
+  (receive (not? kind parameters) (parse-clause clause)
+    (case kind
+      ((warn)
+       (let ((warnings (if (%%null? parameters) jazz.all-warnings parameters)))
+         (for-each (lambda (warning)
+                     (cond ((%%not (%%memq warning jazz.all-warnings))
+                            (jazz.error "Unknown warning: {s}" warning))
+                           ((%%not not?)
+                            (let ((library-warnings (jazz.get-library-proclaim library-declaration 'warn '())))
+                              (if (%%not (%%memq warning library-warnings))
+                                  (jazz.set-library-proclaim library-declaration 'warn (%%cons warning library-warnings)))))
+                           (else
+                            (let ((library-warnings (jazz.get-library-proclaim library-declaration 'warn '())))
+                              (if (%%memq warning library-warnings)
+                                  (jazz.set-library-proclaim library-declaration 'warn (jazz.remove! warning library-warnings)))))))
+                   warnings)))
+       (else
+        (jazz.error "Ill-formed proclaim: {s}" clause)))))
+
+
+(define (jazz.get-library-warn? library-declaration warning-name)
+  (%%memq warning-name (jazz.get-library-proclaim library-declaration 'warn '())))
 
 
 (jazz.encapsulate-class jazz.Library-Declaration)
@@ -3018,13 +3067,16 @@
 (jazz.define-class-runtime jazz.Proclaim)
 
 
-(define (jazz.new-proclaim optimize?)
-  (jazz.allocate-proclaim jazz.Proclaim #f #f optimize?))
+(define (jazz.new-proclaim clauses)
+  (jazz.allocate-proclaim jazz.Proclaim #f #f clauses))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Proclaim expression) declaration environment)
-  (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (%%set-library-declaration-declares library-declaration (%%get-proclaim-optimize? expression)))
+  (let ((clauses (%%get-proclaim-clauses expression))
+        (library-declaration (%%get-declaration-toplevel declaration)))
+    (for-each (lambda (clause)
+                (jazz.proclaim library-declaration clause))
+              clauses))
   #f)
 
 
@@ -3643,7 +3695,7 @@
                   (let iter ((scan specializers))
                     (if (%%null? scan)
                         (begin
-                          (%%when (and (jazz.warnings?) (%%not (%%null? specializers)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                          (%%when (and (jazz.warnings?) (%%not (%%null? specializers)) (jazz.get-library-warn? (%%get-declaration-toplevel declaration) 'optimizations)
                                        ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
                                        (%%not (%%memq locator '(scheme.dialect.kernel.=
                                                                 scheme.dialect.kernel.<
@@ -3791,7 +3843,7 @@
         (let iter ((scan patterns))
           (if (%%null? scan)
               (begin
-                (%%when (and (jazz.warnings?) (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                (%%when (and (jazz.warnings?) (%%not (%%null? patterns)) (jazz.get-library-warn? (%%get-declaration-toplevel declaration) 'optimizations)
                              ;; a bit extreme for now
                              (%%not (%%memq locator '(scheme.dialect.kernel.car
                                                       scheme.dialect.kernel.cdr))))
@@ -5017,22 +5069,12 @@
 ;;;
 
 
-;; quick first draft
-(define (jazz.parse-proclaim walker resume declaration rest)
-  (%%assert (and (%%pair? rest) (%%null? (%%cdr rest)))
-    (let ((declare (%%car rest)))
-      (cond ((%%equal? declare '(optimize))
-             (values #t))
-            ((%%equal? declare '(not optimize))
-             (values #f))
-            (else
-             (jazz.walk-error "Ill-formed proclaim: {s}" rest))))))
-
-
 (define (jazz.walk-proclaim walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (receive (optimize) (jazz.parse-proclaim walker resume declaration (%%cdr form))
-      (jazz.new-proclaim optimize))))
+  (if (%%class-is? declaration jazz.Library-Declaration)
+      (let ((form (%%desourcify form-src)))
+        (let ((clauses (%%cdr form)))
+          (jazz.new-proclaim clauses)))
+    (jazz.walk-error walker resume declaration "For now, proclaim can only be used at the library level")))
 
 
 ;;;
@@ -5250,7 +5292,7 @@
   (let ((queue #f))
     (define (process parameter)
       (let ((type (%%get-lexical-binding-type parameter)))
-        ;; simple optimisation
+        ;; simple optimization
         (if (and type (%%neq? type jazz.Any))
             (let ((cast (jazz.emit-parameter-cast (jazz.emit-binding-reference parameter source-declaration environment) type source-declaration environment)))
               (if cast

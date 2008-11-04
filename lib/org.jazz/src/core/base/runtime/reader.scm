@@ -42,7 +42,7 @@
 
 
 (define (jazz.read-source-as-begin port container line col)
-  ;; Hack... set the names of the port
+  ;; hack to set the names of the port until there is an accessor
   (if container
       (##vector-set! port 4 (lambda (port) container)))
   

@@ -433,6 +433,7 @@
 (jazz.define-virtual (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol))
 (jazz.define-virtual (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol))
 (jazz.define-virtual (jazz.walk-form (jazz.Walker walker) resume declaration environment form))
+(jazz.define-virtual (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src))
 (jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
 
 

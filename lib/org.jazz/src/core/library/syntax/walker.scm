@@ -5069,12 +5069,19 @@
 ;;;
 
 
+(jazz.define-virtual-runtime (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src))
+
+
+(jazz.define-method (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src)
+  (if (%%not (%%class-is? declaration jazz.Library-Declaration))
+      (jazz.walk-error walker resume declaration "For now, proclaim can only be used at the library level")))
+
+
 (define (jazz.walk-proclaim walker resume declaration environment form-src)
-  (if (%%class-is? declaration jazz.Library-Declaration)
-      (let ((form (%%desourcify form-src)))
-        (let ((clauses (%%cdr form)))
-          (jazz.new-proclaim clauses)))
-    (jazz.walk-error walker resume declaration "For now, proclaim can only be used at the library level")))
+  (jazz.validate-proclaim walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((clauses (%%cdr form)))
+      (jazz.new-proclaim clauses))))
 
 
 ;;;

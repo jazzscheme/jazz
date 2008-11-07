@@ -107,41 +107,40 @@
               (<code> "(quote (1 2))"))
             (<p> "Note that the quote is necessary to distinguish from invoking as a function call"))
           (<definition> name: user_constants title: "User" title: "User defined"
-            (<p> "Jazz supports a powerfull concept where any class can define it's own literal constants using the following syntax: {class-name ...}. "
-              "This integrates classes fully with the reader and printer.")
+            (<p> "Jazz supports a very powerfull concept where any class can define it's own literal constants using the following syntax: {class-name ...}. "
+              "This integrates classes fully with the Jazz reader and printer.")
             (<p> "Examples:")
             (<node>
               (<code> "{Point 2 3}")
               (<code> "{Dimension 100 100}")
               (<code> "{Color name: Red}")
               (<code> "{Font name: Code}"))))))
-    (<Concept-Doc> name: toplevel_syntax title: "Toplevel Syntax"
-      (<Form-Doc> name: module parameters: "module-name ..."
-        )
-      (<Form-Doc> name: library parameters: "library-name ..."
-        ))
-    (<Concept-Doc> name: functional_syntax title: "Functional Syntax"
-      (<Form-Doc> name: definition parameters: "name value"
+    (<Concept-Doc> name: toplevel_forms title: "Toplevel Forms"
+      (<Form-Doc> name: in parameters: "package"
         (<description>
-          (<p> "A definition associates name to value inside the defining unit. A definition is as field and as such is stored in the class and doesn't take any space in instances. At class instantiation, value is evaluated in an empty lexical environment and in an empty object environment."))))
-    (<Concept-Doc> name: object_oriented_syntax title: "Object-Oriented Syntax"
+          (<p> "The following toplevel unit will become part of " (<parameter> "package") ". "
+            "Note that the package concept is only partialy implemented in Jazz. Fusion will support full fledged hierarchical namespaces.")))
+      (<Form-Doc> name: using parameters: "package ..."
+        (<description>
+          (<p> "Using " (<parameter> "package") " enables the defined unit to use a lighter syntax when referencing fields defined in " (<parameter> "package") " :")
+          (<p> "The compiler will automatically replace " (<code> "(f a b)") " with " (<code> "(f~ package a b)") " when " (<code> "f") " is a field of " (<parameter> "package") ". "
+            "When multiple using directives are present, packages are searched in the appearance order in the file.")))
       (<Form-Doc> name: class parameters: "extends implements uses ..."
         (<description>
           (<p> "Jazz uses a single inheritance model where a class can extend only one superclass. "
-            "A class can implement any number of interfaces.")))
+            "A class can implement any number of interfaces.")
+          (<p>)
+          (<p> "Jazz also supports inner classes. "
+            "Inner classes can refer directly to outer class fields. "
+            "This is done by having an invisible slot that point to the outer class and transforming automatically an outer call (f x) into (f~ outer x). "
+            "This implies that for the system to remember this information, inner class creation must always be done inside an instance of its outer class.")))
       (<Form-Doc> name: interface parameters: "extends uses ..."
         (<description>
           (<p> "An interface defines a new type but cannot contain code.")))
-      (<Form-Doc> name: method parameters: "{modifiers} (name . parameters) {return-type} . body"
+      (<Form-Doc> name: package  parameters: "extends uses ..."
         (<description>
-          (<p> "A method is where code resides.")))
-      (<Form-Doc> name: slot parameters: "name <initialize> <initial-value>"
-        (<description>
-          (<p> "A slot is a field that defines the structure of the instances of a class.")))
-      (<Form-Doc> name: property parameters: "name <initialize> <initial-value> <getter> <getter-name> <setter> <setter-name>"
-        (<description>
-          (<p> "A property is a slot that can specify a getter and a setter."))))
-    (<Concept-Doc> name: cffi_syntax title: "CFFI Syntax"
+          (<p> "Inside a package, all definitions are automatically meta. "
+            "This implements a sort of dynamic namespace concept as no package instances are ever created and all package access is done through the package itself.")))
       (<Form-Doc> name: constant parameters: "name value"
         (<description>
           (<p> "A definition that cannot be modified. Note that currently, a constant definition is simply a definition.")
@@ -158,11 +157,51 @@
           (<p> "A structure is a template that can be used to create records containing primitive types. Here, type is any primitive type and field is a symbol that can be used to access this field is records of type structure-name. If the optional n is specified, then an array of n elements of type will be inserted.")
           (<p>)
           (<p> "Structure definitions are currently used mainly to access the Windows API.")))
+      (<Form-Doc> name: intrinsic parameters: "intrinsic module-name return-type (name param1 param2 ...) <entry-name> <intrinsic-name>"
+        (<description>
+          (<p> "An intrinsic is basically an external that will be treated specially by the compiler. "
+            "The compiler instead of generation a 'safe' call to entry-name will inline a call to intrinsic-name.")))
       (<Form-Doc> name: external parameters: "module-name return-type (name param1 param2 ...) <entry-name>"
         (<description>
           (<p> "An external entry point into a Windows module, i.e. a dynamic-link library or an executable.")
           (<p>)
-          (<p> "External definitions are currently used mainly to access the Jazz runtime and the Windows API."))))
+          (<p> "External definitions are currently used mainly to access the Jazz runtime and the Windows API.")))
+      (<Form-Doc> name: coexternal parameters: "coexternal {modifiers} return-type (name . parameters)"
+        (<description>
+          (<p> "An entry point into a COM class. Note that coexternal definitions do not have entry-names. Their entry position into the COM class is determined by their rank in the class.")
+          (<p>)
+          (<p> "(external void (f out x)) -> (values x) (external long (f)) -> result (external long (f out x)) -> (values result x) Because coexternals almost always return an hresult, it is very common to have only one out parameter which is really the function result. So Jazz treats coexternals a bit differently from externals... (coexternal void (f out x)) -> x (coexternal hresult (f out x)) -> x or throw a CoError (coexternal long (f out x)) -> (values result x) (coexternal long (f)) -> result (coexternal void (f out x out y)) -> (values x y) ")))
+      (<Form-Doc> name: definition parameters: "name value"
+        (<description>
+          (<p> "A definition associates name to value inside the defining unit. A definition is as field and as such is stored in the class and doesn't take any space in instances. At class instantiation, value is evaluated in an empty lexical environment and in an empty object environment.")))
+      (<Form-Doc> name: method parameters: "{modifiers} (name . parameters) {return-type} . body"
+        (<description>
+          (<p> "A method is where code resides.")))
+      (<Form-Doc> name: comethod parameters: "return-type (name . parameters)"
+        (<description>
+          (<p> "A comethod is used to create an COM entry point into a Jazz defined COM class.")))
+      (<Form-Doc> name: slot parameters: "name <initialize> <initial-value>"
+        (<description>
+          (<p> "A slot is a field that defines the structure of the instances of a class.")))
+      (<Form-Doc> name: property parameters: "name <initialize> <initial-value> <getter> <getter-name> <setter> <setter-name>"
+        (<description>
+          (<p> "A property is a slot that can specify a getter and a setter.")))
+      (<Form-Doc> name: properties parameters: "key1 value1 key2 value2 ..."
+        (<description>
+          (<p> "Enables associating a property list to any unit. Unit properties are currently used to specify COM interfaces GUID."))))
+    (<Concept-Doc> name: reference_desambiguation title: "Reference Desambiguation"
+      (<description>
+        (<p> "References inside units are resolved in the following order: ")
+        (<node>
+          (<span> "syntax")
+          (<span> "local variable")
+          (<span> "unit definition")
+          (<span> "metaclass definition")
+          (<span> "outer definition")
+          (<span> "imported definition")
+          (<span> "global definition"))
+        (<p>)
+        (<p> "Note that outside references [x f] are only allowed to access public unit definitions (and not metaclass, outer or imported definitions) for scope security reasons.")))
     (<Concept-Doc> name: naming title: "Naming Conventions"
       (<description>
         (<definition> name: naming_comments title: "Comments"
@@ -173,15 +212,8 @@
             (<span> ";;;; Chapter comment : specifies a section title naming and will be gathered in a chapter.")))
         (<p>)
         (<p>)
-        (<definition> name: naming_modules title: "Modules & Libraries"
-          (<p> "Modules and libraries names are lowercase separated .")
-          (<node>
-            (<span> (<code> "jazz.ui"))
-            (<span> (<code> "jedi.product"))))
-        (<p>)
-        (<p>)
-        (<definition> name: naming_classes title: "Classes & Interfaces"
-          (<p> "Class & Interfaces names are capitalized")
+        (<definition> name: naming_classes title: "Classes"
+          (<p> "Class names are capitalized")
           (<node>
             (<span> (<code> "View"))
             (<span> (<code> "Java-Text"))))
@@ -223,30 +255,128 @@
           (<node>
             (<span> "Variable number of parameters")
             (<span> "Optional parameters")
-            (<span> "Keyword parameters")))))
+            (<span> "Keyword parameters")))
+        (<p>)
+        (<p>)
+        (<definition> name: function_arguments title: "Arguments"
+          (<p> "Arguments are passed by pointer value, i.e. only a copy of the pointer to the argument is passed as opposed to copying the entire content of the object."))))
     (<Concept-Doc> name: lists title: "Lists"
       (<description>
-        (<p> "Lists are the most flexible data structure available in Jazz. They can grow to accommodate any number of elements and this very efficiently. As they are sequences, they are supported by a large number of manipulation functions")))
+        (<p> "Lists are the most flexible data structure available in Jazz. They can grow to accommodate any number of elements and this very efficiently. As they are sequences, they are supported by a huge number of manipulation functions")))
     (<Concept-Doc> name: symbols title: "Symbols"
       (<description>
         (<p> "Jazz is symbolic language where symbols are used extensively. Symbols can be used as a very efficient higher level abstraction replacement for integer enumerations")))
     (<Concept-Doc> name: objects title: "Objects"
       (<description>
-        (<p> "Jazz offers an object-oriented layer with :")
+        (<p> "Jazz is a fully object-oriented language that offers :")
         (<node>
           (<span> "Classes with single inheritance and multiple interfaces implemented")
-          (<span> "Metaclasses")
-          (<span> "Generic multi-dispatch methods 'a la' CommonLisp")
-          (<span> "Single-dispatch 'a la' Java"))))
+          (<span> "Packages that can be imported into classes")
+          (<span> "Inner classes")
+          (<span> "Metaclasses"))
+        (<p>)
+        (<p>)
+        (<definition> name: classes title: "Classes")
+        (<p>)
+        (<p>)
+        (<definition> name: interfaces title: "Interfaces")
+        (<p>)
+        (<p>)
+        (<definition> name: packages title: "Packages")
+        (<p>)
+        (<p>)
+        (<definition> name: metaclasses title: "Metaclasses")
+        (<p>)
+        (<p> (<xmp> "(class X
+  (field meta f ...)"))
+        (<p> "has exactly the same semantics as")
+        (<p>)
+        (<p> (<xmp> "(class MX
+  (field f ...)"))
+        (<p> "where MX is the class of the class X.")
+        (<p>)
+        (<p> "In Jazz, as a design decision, a class and it metaclass are both defined in the same file. "
+          "This simplifies metaclass design and ensures that the following always holds true for every class X :")
+        (<p> (<code> "(type-ascendant (class-of X)) = (class-of (type-ascendant X))"))
+        (<p>)
+        (<p> "i.e. the inheritance hierarchy of metaclasses follows the inheritance hierarchy of regular classes.")
+        (<p>)
+        (<p>)
+        (<definition> title: "Notes"
+          (<p> "One difference between a constant and a meta constant, is that to access the first one, you have to be able to create an instance of the class (it is more private than the second one). "
+            "Note that the previous comment applies to any definition. ")
+          (<p>)
+          (<p>)
+          (<p> "One big difference between having a meta slot and a meta definition is that every derived class will have its own space allocated for the meta slot, but every meta definition that is not overwritten will be shared. Ex: ")
+          (<p>)
+          (<p> (<code> "(slot meta public mouse-in initialize {})"))
+          (<p>
+            "will not work because accessing mouse-in from an instance of "
+            (<code> "Window")
+            " or from an instance of a "
+            (<code> "Text")
+            " will not access the same slot space. ")
+          (<p> (<code> "(definition meta public mouse-in nil)"))
+          (<p> "should be used instead. "))))
     (<Concept-Doc> name: components title: "Components"
       (<description>
         (<p> "One of the biggest strength of components is the full integration of the programming metaphor with the visual design metaphor they enable. "
           "By seamlessly intermixing programming code and designer data, components brings all the power of programming tools to the design part.")))
+    (<Concept-Doc> name: modifiers title: "Modifiers"
+      (<description>
+        (<definition> name: meta
+          (<p> "Defines a field of the meta class. Because a class is an object, meta methods can use self to refer to themselves (i.e. the class)."))
+        (<p>)
+        (<p>)
+        (<definition> name: private
+          (<p> "Access is restricted to classes that reside in the same file."))
+        (<p>)
+        (<p>)
+        (<definition> name: protected
+          (<p> "Access is restricted to sub-classes and classes in the same package."))
+        (<p>)
+        (<p>)
+        (<definition> name: public
+          (<p> "Access is unrestricted."))
+        (<p>)
+        (<p>)
+        (<definition> name: final
+          (<p> "A final definition cannot be overridden."))
+        (<p>)
+        (<p>)
+        (<definition> name: virtual
+          (<p> "A virtual definition can be overridden in sub-classes."))
+        (<p>)
+        (<p>)
+        (<definition> name: chained
+          (<p> "A chained method can be overridden in sub-classes and the override must call the overridden method."))
+        (<p>)
+        (<p>)
+        (<definition> name: abstract
+          (<p> "A abstract definition must overridden in some sub-class. This modifier is currently unimplemented."))
+        (<p>)
+        (<p>)
+        (<definition> name: inline
+          (<p> "An inline method permits the compiler to inline its code."))
+        (<p>)
+        (<p>)
+        (<definition> name: synchronized
+          (<p> "A synchronized method is guarantied to always be executing in at most one thread at a time."))
+        (<p>)
+        (<p>)
+        (<definition> name: remote
+          (<p> "A remote method can be used remotely (see the JRM package)."))
+        (<p>)))
     (<Concept-Doc> name: types title: "Types"
       (<description>
         (<p> "Jazz is a dynamically typed language. Types are associated with objects as opposed to statically typed languages where types are associated with variables. With a dynamically typed language, type information is always available at runtime contrary to statically typed languages where only the compiler has access to type information")
         (<p>)
-        (<p> "Jazz offer optional type declarations.")
+        (<p> "Types in Jazz are always optional.")
+        (<p>)
+        (<p> "Jazz classes are objects that can be manipulated like any other. "
+          "This enables powerful runtime flexibility that is very difficult to obtain in languages like C++.")
+        (<p>)
+        (<p> "In Jazz, even compiled code in entirely dynamic. One big consequence is that modifying a source file will never force recompilation of any other file than itself. ")
         (<p>)
         (<p> "Types are denoted by :")
         (<xmp> "<primitive> (ex: <int> <bool>)")
@@ -299,19 +429,576 @@
             (<span> "properties")
             (<span> "empty-value")
             (<span> "detail")))))
+    (<Concept-Doc> name: collector title: "Garbage Collector"
+      (<description>
+        (<p> "Jazz is a garbage collected language where memory management is entirely managed by the language freeing the programmer from these complexities. ")
+        (<p> "When a more precise control of memory and object lifespan is needed, Jazz offers structures similar to C++ scopes where a programmer can specify exactly where an object lifespan should end. The system is then able to immediately recycle the object thus freeing the garbage collector from first having to prove that the object was not used anymore before being able to recycle it. "
+          "With these structures, very efficient systems can be built where memory allocation is kept at a minimum.")
+        (<p> "The Jazz garbage collector is a fully incremental garbage collector, meaning that no discernable pauses should be experienced by the user caused by the garbage collector.")))
     (<Concept-Doc> name: launch title: "Launch Parameters"
       (<description>
         (<p> "Every Jazz application supports the following launch parameters:")
         (<properties>
-          (<prop> "/run" "name of the product to run")
-          (<prop> "/profile" "automatic profile name used for loggin")
+          (<prop> "/app" "name of the application to launch")
           (<prop> "/controllerhost" "host address of the debugger")
           (<prop> "/controllerport" "host port of the debugger")
-          (<prop> "/debug" "do we debug the process"))
+          (<prop> "/debug" "do we debug the process")
+          (<prop> "/homedir" "home directory of the application")
+          (<prop> "/jazzdir" "directory where to find the jazz executables")
+          (<prop> "/user" "login name of the user")
+          (<prop> "/userdir" "user directory"))
         (<p>)
         (<p> "Example:")
-        (<p> (<xmp> #"jazz.exe -run jedi -profile Guillaume"#)))))
+        (<p> (<xmp> #"Launcher.exe
+  /app State
+  /debug true
+  /controllerhost 16777343
+  /controllerport 32000
+  /jazzdir "C:\Jedi\Bin"
+  /jazzuser Guillaume
+  /jazzuserdir "C:\Jedi\Guillaume"
+  /homedir "C:\Jedi\Products\org.jazz.sample\Projects\State\Distribution"
+  /user Guillaume"#))
+        (<p>)
+        (<definition> name: directories title: "Directories"
+          (<p> "There are two main root directories: Home and Jazz. "
+            "In a standalone application, the Home directory will point to the same directory as the Jazz one. "
+            "The Jazz development environment uses this to point Jazz to its root and Home to the root of a project (in general the Jedi project as this will load the IDE). "
+            "Note that by pointing Home to another project than Jedi by using the /app command line argument, other projects can be loaded in the environment. "
+            "Also note that on a client site, starting the application with /jazz to point to a Jazz environment (typically on a CD-ROM) can be use to debug the application in interpreted mode.")
+          (<p> "Note that in Jazz, the Jazz root directory can be viewed as the root of the Jazz Development System, where as the Jedi directory is one part of the system, the IDE."))))
+    (<Concept-Doc> name: grammar title: "Formal Grammar"
+      (<description>
+        (<xmp> style: "font-size: small;"
+        #";;;
+;;;; Formal Syntax
+;;;
+
+
+;; ? -> 0 or 1
+;; * -> 0, 1, 2, ...
+;; + -> 1, 2, ...
+;; { ... } -> group
+
+
+;;;
+;;;; Lexical Structure
+;;;
+
+
+<content> ::= <read>+
+<read> ::= <ws> <expr>
+
+<expr> ::= <token> | <sequence> | <quote> | <string>
+
+<sequence> ::=
+    "(" <read>* { <ws> "." <read> }? ")"
+    | "" <read>+ ""
+    | "{" <symbol> <read>* "}"
+
+<quote> ::= "'" <read>
+<string> ::= """ { <string-char> | <escape> }* """
+
+<token> ::=
+    <type-specifier>
+    | <symbol>
+    | <hexadecimal>
+    | <binary>
+    | <integer>
+    | <long>
+    | <double>
+
+<type-specifier> ::= "<" <symbol> ">" "+"?
+<symbol> ::= <symbol-first> <symbol-subsequent>*
+
+<hexadecimal> ::= #x <hexdigit>+
+<binary> ::= #b <binarydigit>+
+<integer> ::= <sign>? <digit>+
+<long> ::= <sign>? <digit>+ L
+<double> ::= <sign>? <digit>+ "." <digit>+
+<escape> ::= "\" <any>
+<comment> ::= ";" <comment-char> {cr | lf}
+<expression-comment> ::= "@" <read> <read>
+<ws> ::= <whitespace>*
+<whitespace> ::=
+    <comment>
+    | <expression-comment>
+    | tab
+    | cr
+    | lf
+    | space
+
+<symbol-first> ::= <letter> | <digit> | <special>
+<symbol-subsequent> ::= <symbol-first> | <sign> | "."
+
+<letter> ::= A-Za-z
+<digit> ::= 0-9
+<special> ::= !#$%&*/:<=>?^_|~
+<hexdigit> ::= 0-9A-Fa-f
+<binarydigit> ::= "0" | "1"
+<sign> ::= "+" | "-"
+<string-char> ::= <any> except """ | "\"
+<comment-char> ::= <any> except cr | lf
+
+
+;;;
+;;;; Program Structure
+;;;
+
+
+<jazz-source-file> ::=
+    <in>? <using>* <toplevel-unit>
+
+<in> ::=
+    "(" "in" <package-identifier> ")"
+
+<using> ::=
+    "(" "using" <package-identifier> ")"
+
+;; toplevel units
+
+<toplevel-unit> ::=
+    "(" "class" "Object" <class-body> ")"
+    | "(" "interface" "Unknown" ")"
+    | "(" "package" "Common" ")"
+    | <toplevel-class>
+    | <toplevel-interface>
+    | <toplevel-package>
+
+<toplevel-class> ::=
+    "(" "class" <toplevel-unit-modifiers> <class-identifier>
+    "extends" <class-identifier>
+    { "implements" <interface-list> }?
+    <properties>?
+    <class-body> ")"
+
+<toplevel-interface> ::=
+    "(" "interface" <toplevel-unit-modifiers> <interface-identifier>
+    "extends" <interface-identifier>
+    <properties>?
+    <interface-body> ")"
+
+<toplevel-package> ::=
+    "(" "package" <toplevel-unit-modifiers> <package-identifier>
+    "extends" <package-identifier>
+    <properties>?
+    <package-body> ")"
+
+;; inner units
+
+<inner-unit> ::=
+    <inner-class> | <inner-interface> | <inner-package>
+
+<inner-class> ::=
+    "(" "class" <inner-unit-modifiers> <class-identifier>
+    "extends" <class-identifier>
+    { "implements" <interface-list> }?
+    <properties>?
+    <class-body> ")"
+
+<inner-interface> ::=
+    "(" "interface" <inner-unit-modifiers> <interface-identifier>
+    { "extends" <interface-identifier> }?
+    <properties>?
+    <interface-body> ")"
+
+<inner-package> ::=
+    "(" "package" <inner-unit-modifiers> <package-identifier>
+    { "extends" <package-identifier> }?
+    <properties>?
+    <package-body> ")"
+
+;; unit definition
+
+<interface-list> ::=
+    <interface-identifier>
+    | "(" <interface-identifier>+ ")"
+
+<properties> ::=
+    "(" "properties" { <identifier> <literal> }* ")"
+
+<class-body> ::=
+    <class-member>*
+
+<interface-body> ::=
+    <interface-member>*
+
+<package-body> ::=
+    <package-member>*
+
+;; members
+
+<class-member> ::=
+    <slot>
+    | <property>
+    | <macro>
+    | <method>
+    | <unit-member>
+
+<interface-member> ::=
+    <method-signature>
+    | <coexternal>
+    | <unit-member>
+
+<package-member> ::=
+    <macro>
+    | <method>
+    | <unit-member>
+
+<unit-member> ::=
+    <unit>
+    | <constant>
+    | <structure>
+    | <definition>
+    | <comethod>
+    | <external>
+
+<slot> ::=
+    "(" "slot" <member-modifiers> <slot-identifier> { "initialize" <expression> }? ")"
+
+<property> ::=
+    "(" "property" <member-modifiers> <property-identifier> { "initialize" <expression> }?
+                { "getter" <method-identifier> }? { "setter" <method-identifier> }? ")"
+
+<constant> ::=
+    "(" "constant" <member-modifiers> <constant-identifier> <expression> ")"
+
+<structure> ::=
+    "(" "structure" <member-modifiers> <structure-identifier> <expression> ")"
+
+<definition> ::=
+    "(" "definition" <definition-modifiers> <definition-identifier> <expression> ")"
+
+<macro> ::=
+    "(" "macro" <macro-modifiers> "(" <macro-identifier> <parameter-list> ")" <body> ")"
+
+<method-signature> ::=
+    "(" <method-signature-body> ")"
+
+<method-signature-body> ::=
+    "method" <method-modifiers> "(" <method-identifier> <parameter-list> ")"
+
+<method> ::=
+    "(" <method-signature-body> <body> ")"
+
+<comethod> ::=
+    "(" "comethod" <member-modifiers> "(" <comethod-identifier> <typed-parameter-list> ")" <body> ")"
+
+<external> ::=
+    "(" "external" <library-identifier> <member-modifiers> "(" <external-identifier> <typed-parameter-list> ")" <body> ")"
+
+<coexternal> ::=
+    "(" "coexternal" <member-modifiers> "(" <coexternal-identifier> <typed-parameter-list> ")" <body> ")"
+
+;; parameters
+
+<parameter-list> ::=
+    <parameter>* { "." <parameter-identifier> }?
+
+<parameter> ::=
+    <parameter-identifier> <type-specifier>?
+
+<typed-parameter-list> ::=
+    <typed-parameter>* { "." <parameter-identifier> }?
+
+<typed-parameter> ::=
+    <direction>? <parameter-identifier> <type-specifier>
+
+<direction> ::=
+    <in>
+    | <out>
+    | <in-out>
+
+;; modifiers
+
+<toplevel-unit-modifiers> ::= <toplevel-modifier>*
+<inner-unit-modifiers> ::= <member-modifier>*
+<definition-modifiers> ::= { <member-modifier> | <definition-modifier-extra> }*
+<macro-modifiers> ::= <member-modifier>*
+<method-modifiers> ::= { <definition-modifier> | <method-modifier-extra> }*
+<member-modifiers> ::= <member-modifier>*
+
+<member-modifier> ::= <toplevel-modifier> | "private"
+<toplevel-modifier> ::= "meta" | "protected" | "public"
+<definition-modifier-extra> ::= "final" | "virtual"
+<method-modifier-extra> ::= "chained" | "abstract" | "inline" | "synchronized" | "remote"
+
+
+;;;
+;;;; External Representations
+;;;
+
+
+<datum> ::=
+    <boolean> | <number> | <character> | <string> | <symbol> | <list>
+
+<symbol> ::= <identifier>
+<list> ::= "(" <datum>* ")" | "(" <datum>+ "." <datum> ")"
+
+
+;;;
+;;;; Expressions
+;;;
+
+
+<expression> ::=
+    <literal>
+    | <self>
+    | <variable>
+    | <function-call>
+    | <object-invocation>
+
+<literal> ::=
+    <quotation> | <self-evaluating>
+
+<variable> ::=
+    <identifier>
+
+<generalized-variable> ::=
+    <variable>
+    | <slot-access>
+
+<quotation> ::=
+    "'" <datum> | <quote>
+
+<function-call> ::=
+    "(" ")"
+
+<object-invocation> ::=
+    "" ""
+
+<self> ::=
+    "self"
+
+<super> ::=
+    "super"
+
+<body> ::=
+    <expression>*
+
+;; derived expressions
+
+<derived-expression> ::=
+    <enumeration>
+    | <quote> | <if> | <when> | <unless> | <while> | <begin> | <prog1> | <loop>
+    | <cond> | <case> | <ecase> | <typecase> | <and> | <or> | <essay> | <either>
+    | <set!> | <increase> | <decrease> | <cast> | <synchronize>
+    | <function> | <let> | <letrec> | <with> | <with-closed>
+    | <bind> | <bind-keywords> | <bind-optionals> | <bind-values> | <bind-properties> | <tie>
+    | <cotry> | <block> | <return-from> | <return> | <catch> | <unwind-protect>
+    | <error?> | <assert> | <assert-type> | <optimize> | <profile>
+
+<quote> ::=
+    "(" "quote" <expression> ")"
+
+<if> ::=
+    "(" "if" <test> <consequent> <alternate>+ ")"
+<test> ::= <expression>
+<consequent> ::= <expression>
+<alternate> ::= <expression>
+
+<while> ::=
+    "(" "while" <test> <body> ")"
+
+<and> ::=
+    "(" "and" <expression>* ")"
+
+<or> ::=
+    "(" "or" <expression>* ")"
+
+<set!> ::=
+    "(" "set!" <generalized-variable> <expression> ")"
+
+<cast> ::=
+    "(" "cast" <expression> <type-specifier> ")"
+
+<synchronize> ::=
+    "(" "synchronize" <expression>* ")"
+
+<function> ::=
+    "(" "function"  ")"
+
+<let> ::=
+    "(" "let" <bindings> <body> ")"
+
+<with> ::=
+    "(" "with" <bindings> <body> ")"
+
+<with-closed> ::=
+    "(" "with-closed" <bindings> <body> ")"
+
+<bind> ::=
+    "(" "bind" <tree-bindings> <expression> <body> ")"
+
+<bind-keywords> ::=
+    "(" "bind-keywords" <keyword-bindings> <expression> <body> ")"
+
+<bind-optionals> ::=
+    "(" "bind-optionals" <optional-bindings> <expression> <body> ")"
+
+<bind-values> ::=
+    "(" "bind-values" <value-bindings> <expression> <body> ")"
+
+<bind-properties> ::=
+    "(" "bind-properties" <property-bindings> <expression> <body> ")"
+
+<block> ::=
+    "(" "block" <identifier> <body> ")"
+
+<return-from> ::=
+    "(" "return-from" <identifier> <expression> ")"
+
+<return> ::=
+    "(" "return" <expression> ")"
+
+<catch> ::=
+    "(" "catch"  ")"
+
+<optimize> ::=
+    "(" "optimize" <optimize-settings> <expression>* ")"
+<optimize-settings> ::= "(" <optimize-setting>* ")"
+<optimize-setting> ::=
+    ":frame?" <boolean>
+
+<profile> ::=
+    "(" "profile" <boolean> <profile-body> ")"
+    | "(" "profile" <profile-body> ")"
+<profile-body> ::= <profile-name> <profile-condition> <body>
+<profile-name> ::= <identifier>
+<profile-condition> ::= <identifier>
+
+;; macros
+
+<enumeration> ::=
+    "(" "enumeration" <member-modifiers> <enumeration-identifier> <expression> ")"
+
+<when> ::=
+    "(" "when" <test> <consequent>+ ")"
+
+<unless> ::=
+    "(" "unless" <test> <consequent>+ ")"
+
+<begin> ::=
+    "(" "begin" <body> ")"
+
+<prog1> ::=
+    "(" "prog1" <expression> <body> ")"
+
+<loop> ::=
+    "(" "loop" <loop-clause>* ")"
+<loop-clause> ::=
+    "(" "for" <loop-for-clause> ")"
+    | "(" "repeat" <loop-repeat-clause> ")"
+    | "(" "do" <loop-do-clause> ")"
+    | "(" "sum" <loop-sum-clause> ")"
+    | "(" "collect" <loop-collect-clause> ")"
+    | <expression>
+<loop-for-clause> ::=
+    <variable> "in" <expression>
+    | "(" <variable> <variable> ")" "in-properties" <expression>
+    | <variable> "iterate" <expression>
+    | <variable> "from" <loop-for-from-clause>?
+<loop-for-from-clause> ::=
+    "to" <expression>
+    | "below" <expression>
+    | "downto" <expression>
+<loop-repeat-clause> ::= <expression>
+<loop-do-clause> ::= <expression>*
+<loop-sum-clause> ::= <expression>
+<loop-collect-clause> ::= <expression>
+
+<cond> ::=
+    "(" "cond" <cond-clause>* ")"
+
+<case> ::= "(" "case" <target> <case-clause>+ ")"
+<case> ::= "(" "case" <target> <case-clause>* "(" "else" <expression>* ")" ")"
+
+<ecase> ::=
+    "(" "ecase" <ecase-clause>* ")"
+
+<typecase> ::=
+    "(" "typecase" <typecase-clause>* ")"
+
+<essay> ::=
+    "(" "essay" <expression>+ ")"
+
+<either> ::=
+    "(" "either" <expression>+ ")"
+
+<increase> ::=
+    "(" "increase" <generalized-variable> <expression>? ")"
+
+<decrease> ::=
+    "(" "decrease" <generalized-variable> <expression>? ")"
+
+<letrec> ::=
+    "(" "letrec" <bindings> <body> ")"
+
+<tie> ::=
+    "(" "tie" <string> ")"
+
+<cotry> ::=
+    "(" "cotry" <expression> <cotry-clauses> ")"
+<cotry-clauses> ::= <cotry-clause>*
+<cotry-clause> ::= <ecase-clause>
+
+<unwind-protect> ::=
+    "(" "unwind-protect" <protected-expression> <protection-expressions> ")"
+<protected-expression> ::= <expression>
+<protection-expressions> ::= <expression>*
+
+<error?> ::=
+    "(" "error?" <expression>* ")"
+
+<assert> ::=
+    "(" "assert" <expression> ")"
+    | "(" "assert" <function> <expression> ")"
+
+<assert-type> ::=
+    "(" "assert-type" <expression> <type-specifier> ")"
+
+;; identifiers
+
+<class-identifier> ::= <identifier>
+<interface-identifier> ::= <identifier>
+<package-identifier> ::= <identifier>
+<constant-identifier> ::= <identifier>
+<enumeration-identifier> ::= <identifier>
+<structure-identifier> ::= <identifier>
+<definition-identifier> ::= <identifier>
+<slot-identifier> ::= <identifier>
+<property-identifier> ::= <identifier>
+<macro-identifier> ::= <identifier>
+<method-identifier> ::= <identifier>
+<comethod-identifier> ::= <identifier>
+<external-identifier> ::= <identifier>
+<coexternal-identifier> ::= <identifier>
+<parameter-identifier> ::= <identifier>
+
+<library-identifier> ::=
+    "Jazz"
+    | "Kernel"
+    | "GDI"
+    | ...
+
+<primitive-identifier> ::=
+    "void" |
+    "bool" |
+    "byte" | "ubyte" | "short" | "int" | "long" | "float" | "double" |
+    "string" | "ansistring" |
+    "hresult" | "variant" | "guid"
+"#)))
+    )
   (<Section-Doc> name: syntax_forms title: "Syntax"
+    (<description>
+      (<p> "Syntax forms in Jazz can be of two kinds :")
+      (<node>
+        (<p> "Special form"
+          (<p> "A special form is a fundamental syntactic element of the Jazz language. "
+            "It is explicitly recognized by both the interpreter and the compiler."))
+        (<p> "Macro"
+          (<p> "A macro works by rewriting a lisp expression into another valid lisp expression, often by using more fundamental special forms. "
+            "Because the code generated stays within the language, macros don't need explicit support in either the interpreter and the compiler."))))
     (<Syntax-Doc> name: bind parameters: "variables-tree values-tree expr ..."
       (<description>
         (<p>)))
@@ -321,7 +1008,7 @@
     (<Syntax-Doc> name: bind-keywords parameters: "((variable default) ...) values-list expr ..."
       (<description>
         (<p>)))
-    (<Syntax-Doc> name: receive parameters: "(variable ...) values expr ..."
+    (<Syntax-Doc> name: bind-values parameters: "(variable ...) values expr ..."
       (<description>
         (<p>)))
     (<Syntax-Doc> name: quote parameters: "expr"
@@ -383,9 +1070,6 @@
     (<Syntax-Doc> name: let parameters: "((variable value) ...) expr ..."
       (<description>
         (<p>)))
-    (<Syntax-Doc> name: let* parameters: "((variable value) ...) expr ..."
-      (<description>
-        (<p>)))
     (<Syntax-Doc> name: letrec parameters: "((variable value) ...) expr ..."
       (<description>
         (<p>)))
@@ -395,10 +1079,13 @@
     (<Syntax-Doc> name: unwind-protect parameters: "protected-expr protection-expr ..."
       (<description>
         (<p>)))
-    (<Syntax-Doc> name: lambda parameters: "parameters-list expr ..."
+    (<Syntax-Doc> name: function parameters: "parameters-list expr ..."
       (<description>
         (<p>)))
-    (<Syntax-Doc> name: function parameters: "parameters-list expr ..."
+    (<Syntax-Doc> name: with parameters: "((variable value) ...) expr ..."
+      (<description>
+        (<p>)))
+    (<Syntax-Doc> name: with-closed parameters: "((variable value) ...) expr ..."
       (<description>
         (<p>)))
     (<Syntax-Doc> name: and parameters: "expr ..."
@@ -424,212 +1111,69 @@
     (<Syntax-Doc> name: either parameters: "expr ..."
       (<description>
         (<p>)))
+    (<Syntax-Doc> name: error? parameters: "expr"
+      (<description>
+        (<p>)))
     (<Syntax-Doc> name: assert parameters: "asserted-expr"
       (<description>
         (<p>)))
     (<Syntax-Doc> name: assert-type parameters: "asserted-type"
       (<description>
+        (<p>)))
+    (<Syntax-Doc> name: optimize parameters: "settings expr ..."
+      (<description>
+        (<p>)))
+    (<Syntax-Doc> name: profile parameters: "..."
+      (<description>
         (<p>))))
-  (<Section-Doc> name: kernel title: "Kernel"
-    (<description>
-      "The kernel represents the Jazz runtime."
-      (<p>)
-      "The kernel implements a thin layer on top of the underlying Scheme system that implements a language agnostic module and package system. "
-      "The system supports dynamic discovery of packages and hierarchycal naming of modules. "
-      (<p>)
-      "A Jazz application can be seen as a built kernel + libraries of packages."
-      (<p>)
-      "To build the kernel, launch the build system and type 'make kernel'. "
-      "This will create a jazz.exe executable in your installation directory. "
-      (<p>)
-      "Note that a Jazz kernel statically includes the whole underlying Scheme so that for instance, a kernel built on top of Gambit has access to every feature and API of Gambit. ")
-    (<Section-Doc> name: repository title: "Repository"
+  (<Section-Doc> name: "constants" title: "Constants"
+    (<Constant-Doc> name: c_false title: "false"
       (<description>
-        "A repository is where packages are located."
-        (<p>)
-        "A repository is simply a directory that will be scanned for packages. "
-        "Note that repository order is important as it defines search precedence. "
-        (<p>)
-        "The kernel defines three standard repositories:"
-        (<p>)
-        (<node>
-          (<span>
-            "Install"
-            (<p>)
-            "This repository is where the build system will build all modules. "
-            "For instance, if you built your kernel on Windows with 'release' safety, the directory would be bin/GambitWindowsRelease/lib. "
-            "Note that by creating distinct install directories, the build system supports multiple configurations."))
-        (<p>)
-        (<node>
-          (<span>
-            "Jazz"
-            (<p>)
-            "The Jazz source repository located in lib. "
-            "Note that a compiled module can potentially be found in more than one repository. "
-            "For instance as a binary compiled module and as source module. "
-            "When loading, the kernel will choose the latest modified. "
-            "This greatly eases development as you never have to recompile to test a change as the module system will automatically load the newer source code over the compiled one. "))
-        (<p>)
-        (<node>
-          (<span>
-            "User"
-            (<p>)
-            "The user's repository located in ~/.jazz/lib. "
-            "This is where you should put your Jazz code. "))))
-    (<Section-Doc> name: package title: "Package"
+        "Represents the boolean value false."))
+    (<Constant-Doc> name: c_true title: "true"
       (<description>
-        "A package is the deployment unit that groups together related resources like code modules. "
-        "Packages are discovered automatically and their order within their repository should not be relevant. "
-        "They are similar in function to Ruby gems, Chicken eggs, Gambit snowballs, ... "
-        (<p>)
-        "Every package needs a manifest file at the toplevel. "
-        "This file contains meta information about the package and should be name with the same name as the package with .pck extension. "
-        (<p>)
-        "Example: org.jedi.pck"
-        (<p>)
-        (<xmp> #"(package org.jedi
-  
-  (root "src")
-  (products (jedi (module jedi.product) (dependencies platform))))"#)))
-    (<Section-Doc> name: product title: "Product"
+        "Represents the boolean value true."))
+    (<Constant-Doc> name: c_nil title: "nil"
       (<description>
-        "A product is the runtime implementation of some user level entity that can be run and built. "
-        "They correspond to targets in the build system. "
-        "For instance, when doing 'make jedi', the build system will find the 'jedi' product and ask it to build itself. "
-        (<p>)
-        "Products are listed inside their package manifest. "))
-    (<Section-Doc> name: resource title: "Resource"
+        "Represents the empty list.")))
+  (<Section-Doc> name: primitives title: "Primitive Types"
+    (<description>
+      (<p>))
+    (<Primitive-Doc> name: void
       (<description>
-        "A resource is a triplet (package path . extension) representing a resource inside a package."))
-    (<Section-Doc> name: arguments title: "Arguments"
+        (<p> "")))
+    (<Primitive-Doc> name: bool
       (<description>
-        "The kernel recognizes the following command-line arguments: "
-        (<node>
-          "-run <product> : run <product>"
-          "-debug <flag> : if <flag> is #t, try connecting to Jedi for remote debugging"))))
-  (<Section-Doc> name: jazz title: "Jazz"
-    (<description>
-      "The Jazz language is implemented as a single 'org.jazz' package. "))
-  (<Section-Doc> name: jedi title: "Jedi"
-    (<description>
-      "Jedi is the IDE. It is implemented inside the 'org.jedi' package. "))
-  (<Section-Doc> name: user title: "User"
-    (<description>
-      "The HOME/.jazz directory is called the user directory. "
-      "It contains user wide settings that the kernel will always apply. "
-      "See the section about profiles for ways to create separate sets of customizations. "
-      (<p>)
-      (<node>
-        (<span>
-          ".jazzini"
-          (<p>)
-          "The kernel will load early this Scheme file that can be used to customize many of the kernel's features. "))))
-  (<Section-Doc> name: profile title: "Profile"
-    (<description>
-      "A profile is a set of Jedi preferences. "
-      (<p>)
-      "Profiles are located in the org.jedi.profiles package inside the User repository. "
-      "For example, if a 'Me' profile is created, it will contain the following files: "
-      (<p>)
-      (<xmp> #"HOME
-  .jazz
-    .jazzini
-    lib
-      org.jedi.profiles
-        profile
-          Me
-            _Me.jazz
-            Me-Project.jazz
-            settings
-              Bindings.jml
-              Preferences.jml
-              WebServers.jml
-              Workbench.jml"#)
-      (<p>)
-      "The reason profiles reside inside a package is that they contain Jazz code. "
-      "In the example above, the _Me.jazz module contains a Me class that can be used to customize the IDE, experiment with code, ..."
-      (<p>)
-      "One nice way of using your profile is to test your code there is a very Lispish interactive fashion and when it is functional, migrate it to it's own module. "
-      ))
-  (<Section-Doc> name: scheme title: "Scheme"
-    (<description>
-      "Jazz fully supports every Scheme feature of the underlying Scheme system. "
-      "By using Scheme's load primitive, you can load any existing Scheme code. "))
-  (<Section-Doc> name: module_zoo title: "Module"
-    (<description>
-      "A Module is basically a file of Scheme code that was given a name. "
-      "That name can then be used to load, compile, ... the module. "
-      "The kernel will automatically located the module by searching all packages and ensure that it is loaded only once. "
-      (<p>)
-      "Syntax:"
-      (<p>)
-      (<xmp> #"(module <name>
-
-(require (<module-name>)
-         ...)
-
-<expr>
-...)"#)
-      (<p>)
-      "Examples:"
-      (<p>)
-      (<xmp> #"(module fib
-
-(define (fib n)
-  (if (or (= n 0) (= n 1))
-      n
-    (+ (fib (- n 1)) (fib (- n 2))))))
-
-(module test
-
-(require (fib))
-
-...)"#)))
-  (<Section-Doc> name: library_zoo title: "Library"
-    (<description>
-      "A library is a module that implements a specific dialect. "
-      "A library will walk it's code and resolve all symbols at walk time. "
-      (<p>)
-      "Currently supported dialects are:"
-      (<node>
-        "scheme"
-        "jazz")
-      (<p>)
-      "Syntax:"
-      (<p>)
-      (<xmp> #"(library <name> <dialect-name>
-
-(require (<module-name>)
-         ...)
-
-(export (<module-name>)
-         ...)
-
-(import)
-
-<expr>
-...)"#)
-      (<p>)
-      "Examples:"
-      (<p>)
-      (<xmp> #"(library jazz.sample.world jazz
-
-(import (jazz.platform)
-        (jazz.system)
-        (jazz.system.process)
-        (jazz.utilities))
-
-(class World extends Process
-  
-  (method (start-process)
-    (message-box "Hello World!")
-    (exit-process))))"#)))
-  (<Section-Doc> name: xxx title: "Profile"
-    (<description>
-      ))
-  @wait
-  (<Section-Doc> title: "Modules"
-      (<Package-Doc> name: jazz title: "jazz"
+        (<p> "A primitive boolean value.")))
+    (<Primitive-Doc> name: byte
+      (<description>
+        (<p> "An integer of size 1.")))
+    (<Primitive-Doc> name: ubyte
+      (<description>
+        (<p> "An unsigned integer of size 1.")))
+    (<Primitive-Doc> name: short
+      (<description>
+        (<p> "An integer of size 2.")))
+    (<Primitive-Doc> name: int
+      (<description>
+        (<p> "An integer of size 4.")))
+    (<Primitive-Doc> name: long
+      (<description>
+        (<p> "An integer of size 8.")))
+    (<Primitive-Doc> name: float
+      (<description>
+        (<p> "A small real.")))
+    (<Primitive-Doc> name: double
+      (<description>
+        (<p> "A large real.")))
+    (<Primitive-Doc> name: string
+      (<description>
+        (<p> "A unicode string.")))
+    (<Primitive-Doc> name: ansistring
+      (<description>
+        (<p> "An ansi string."))))
+  (<Section-Doc> title: "Packages"
+      (<Package-Doc> name: jazz title: "Jazz"
         (<Section-Doc> title: "Boolean"
           (<Method-Doc> name: eq? parameters: "x y"
             (<description>
@@ -1133,7 +1677,6 @@
           (<Method-Doc> name: values parameters: "object ..."))
         (<Section-Doc> title: "Vector"
           (<Method-Doc> name: vector? parameters: "object"))))
-  @wait
   (<Section-Doc> title: "Classes"
     (<Class-Doc> name: Object
       (<description>
@@ -1141,17 +1684,92 @@
       (<Method-Doc> name: initialize parameters: "object ...")
       (<Method-Doc> name: destroy parameters: "")
       (<Method-Doc> name: close parameters: "")
-      (<Method-Doc> name: print parameters: "printer detail")))
-  @wait
-  (<Section-Doc> title: "UI"
-  (<Section-Doc> title: "Activation"
-    (<node>
-      "focus-gain        : sent to a view that gains focus"
-      "focus-lose        : sent to a view that loses focus"
-      "host-activate     : sent to guest when host gains focus"
-      "host-deactivate   : sent to guest when host loses focus"
-      "client-activate   : sent to each tool when a document activates"
-      "client-deactivate : sent to each tool when last document closes"
-      "stage-activate    : sent to stage when last document closes"
-      "stage-deactivate  : sent to stage when a first document activates")
-    )))
+      (<Method-Doc> name: print parameters: "printer detail"))
+    (<Class-Doc> name: Boolean extends: Object implements: ()
+      (<description>
+        (<p>
+          "The "
+          (<code> "Boolean")
+          " class is used to represent truth values. Two boolean objects, "
+          (<code> "true")
+          " and "
+          (<code> "false")
+          " exist to represent truthness and falseness respectively. In general, every time a method expects a boolean value, you can use either "
+          (<code> "false")
+          " or "
+          (<code> "nil")
+          " to specify falseness and any other object to specify truthness.")))
+    (<Class-Doc> name: Char
+      (<description>
+        (<p>
+          "The Char type is used to represent characters. "
+          "The external representation of a character x is #\\x. "
+          "Certain special characters can also be represented by a symbolic name as in #\\symbolic-name.")
+        (<p>)
+        (<p> "Symbolic Names")
+        (<node>
+          "Home"
+          "Enter"
+          "End"
+          "Info"
+          "Backspace"
+          "Tab"
+          "Line-Feed"
+          "Page-Up"
+          "Page-Down"
+          "Return"
+          "Escape"
+          "Left-Arrow"
+          "Right-Arrow"
+          "Up-Arrow"
+          "Down-Arrow"
+          "Space"
+          "Exclamation-Mark"
+          "Quotation-Mark"
+          "Ampersand"
+          "Quote"
+          "Open-Parenthesis"
+          "Close-Parenthesis"
+          "Times"
+          "Plus"
+          "Comma"
+          "Minus"
+          "Period"
+          "Slash"
+          "Colon"
+          "Semi-Colon"
+          "Question-Mark"
+          "Open-Bracket"
+          "Backslash"
+          "Close-Bracket"
+          "Exponential"
+          "Underscore"
+          "Backquote"
+          "Open-Brace"
+          "Close-Brace"
+          "Delete"
+          "Ellipsis"
+          "Diamond"
+          "Lower-Equal"
+          "Greater-Equal"
+          "Not-Equal"
+          "Check-Mark"
+          "Triangle"
+          "Angle"
+          "F1"
+          "F2"
+          "F3"
+          "F4"
+          "F5"
+          "F6"
+          "F7"
+          "F8"
+          "F9"
+          "F10"
+          "F11"
+          "F12"
+          "F13"
+          "F14"
+          "F15"))))
+  (<Section-Doc> title: "Modules"
+    (<Doc-Insert> path: (org.jazz *))))

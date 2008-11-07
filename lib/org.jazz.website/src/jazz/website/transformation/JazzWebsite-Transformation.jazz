@@ -50,9 +50,9 @@
     #t)
   
   
-  (slot anchors      initialize (make-table test: eq?))
-  (slot anchor-names initialize (make-table test: eq?))
-  (slot next-section initialize 1)
+  (slot anchors)
+  (slot anchor-names)
+  (slot next-section)
   
   
   ;;;
@@ -93,7 +93,6 @@
     (let ((pages (new List-Factory))
           (sections (collect-sections website)))
       (process-sections sections pages)
-      (validate-anchor-names)
       (user-message "Parsing website...")
       `(<website>
          ,@(get-output~ pages))))
@@ -140,10 +139,18 @@
   
   (method (process-section section sections pages)
     (user-message "Generating {a}..." (get-property~ section 'name))
+    (reset-section)
     (let ((html (section-output section sections)))
       (when (or Generate-Manual? (not (get-property~ section 'manual? #f)))
         (put~ pages `(<page> path: ,(format "{a}" (section-path section))
-                                   ,html)))))
+                                   ,html))))
+    (validate-anchor-names))
+  
+  
+  (method (reset-section)
+    (set! anchors       (make-table test: eq?))
+    (set! anchor-names  (make-table test: eq?))
+    (set! next-section  1))
   
   
   (method (section-path section)
@@ -216,13 +223,14 @@
   
   
   (method (manual-output section)
-    (let* ((project-paths (get-property~ section 'projects '()))
+    (let* ((title (get-property~ section 'title))
+           (project-paths (get-property~ section 'projects '()))
            (projects (apply append (map find-docs project-paths)))
            (toc-anchors (make-table test: eq?))
            (content (manual-content-output projects))
-           (index (index-output))
+           (index (if (get-property~ section 'index? #t) (index-output) '()))
            (toc (toc-output projects toc-anchors))
-           (summary (summary-output projects toc-anchors)))
+           (summary (summary-output title section projects toc-anchors)))
       (append summary
               toc
               index
@@ -425,13 +433,14 @@
   ;;;
   
   
-  (method (summary-output projects toc-anchors)
+  (method (summary-output title section projects toc-anchors)
     (user-message "Generating Summary...")
-    `((<div> style: "margin-top: 22;"
-        (<b> "Note that this manual is not complete. It is a work in progress."))
-      (<h3> "Summary")
+    `((<div> style: "margin-top: 22;")
+      (<h3> ,title)
       (<div> class: "summary_toc" (<a> href: "#TOC" "Table of Contents"))
-      (<div> class: "summary_index" (<a> href: "#INDEX" "Index"))
+      ,@(if (get-property~ section 'index? #t)
+            `((<div> class: "summary_index" (<a> href: "#INDEX" "Index")))
+          `((<p>)))
       ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
           (map (function (doc rank)
                  (doc-summary-output toc-anchors doc 1 (list (+ rank 1))))

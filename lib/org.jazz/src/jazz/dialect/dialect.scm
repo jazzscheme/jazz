@@ -887,7 +887,8 @@
     (jazz.new-macro-form   'optimize        jazz.expand-optimize)
     (jazz.new-macro-form   'remotable-stub  jazz.expand-remotable-stub)
     (jazz.new-macro-form   'coexternal      jazz.expand-coexternal)
-    (jazz.new-macro-form   'assert          jazz.expand-assert)
+    (jazz.new-syntax-form  'assert          jazz.expand-assert)
+    (jazz.new-syntax-form  'assertion       jazz.expand-assertion)
     (jazz.new-macro-form   'c-structure     jazz.expand-c-structure)
     (jazz.new-macro-form   'c-union         jazz.expand-c-union)
     (jazz.new-macro-form   'c-external      jazz.expand-c-external)
@@ -2466,21 +2467,41 @@
 ;;;
 
 
-(define (jazz.expand-assert walker resume declaration environment assertion . body)
-  `(begin)
-  #; ;; wait
-  (if jazz.debug-user?
-      (let ((message (let ((port (open-output-string)))
-                       (display "Assertion " port)
-                       (write assertion port)
-                       (display " failed" port)
-                       (get-output-string port))))
+(define (jazz.expand-assert walker resume declaration environment form-src)
+  (jazz.expand-assert-test #t form-src))
+
+
+(define (jazz.expand-assertion walker resume declaration environment form-src)
+  (jazz.expand-assertion-test #t form-src))
+
+
+(define (jazz.expand-assert-test test? src)
+  (let ((assertion (%%cadr (%%source-code src)))
+        (body (%%cddr (%%source-code src))))
+    (let ((message (let ((port (open-output-string)))
+                     (display "Assertion " port)
+                     (write (%%desourcify assertion) port)
+                     (display " failed" port)
+                     (get-output-string port))))
+      (jazz.expand-assertion-body test? assertion (list 'error message) body))))
+
+
+(define (jazz.expand-assertion-test test? src)
+  (let ((assertion (%%cadr (%%source-code src)))
+        (action (%%car (%%cddr (%%source-code src))))
+        (body (%%cdr (%%cddr (%%source-code src)))))
+    (jazz.expand-assertion-body test? assertion action body)))
+
+
+(define (jazz.expand-assertion-body test? assertion action body)
+  (let ((body (if (%%not-null? body) body '((unspecified)))))
+    (if test?
         `(if (not ,assertion)
-             (error "{a}" ,message)
+             ,action
            ,(jazz.simplify-begin
               `(begin
-                 ,@body))))
-    (jazz.simplify-begin `(begin ,@body))))
+                 ,@body)))
+      (jazz.simplify-begin `(begin ,@body)))))
 
 
 ;;;

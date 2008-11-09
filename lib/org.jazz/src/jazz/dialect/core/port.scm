@@ -44,4 +44,21 @@
     (define jazz.input-port-timeout-set! input-port-timeout-set!)
     (define jazz.output-port-timeout-set! output-port-timeout-set!))
   
-  (else)))
+  (else))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(define jazz.dialect.language.get-console-port
+  #f)
+
+(set! jazz.dialect.language.get-console-port #f)
+
+
+(define (jazz.get-console-port)
+  (if jazz.dialect.language.get-console-port
+      (jazz.dialect.language.get-console-port)
+    #f)))

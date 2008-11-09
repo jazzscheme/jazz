@@ -125,17 +125,17 @@
                      (write (%%desourcify assertion) port)
                      (display " failed" port)
                      (get-output-string port))))
-      (jazz.expand-assertion test? assertion (list 'error message) body))))
+      (jazz.expand-%%assertion-body test? assertion (list 'error message) body))))
 
 
 (define (jazz.expand-%%assertion test? src)
   (let ((assertion (%%cadr (%%source-code src)))
         (action (%%car (%%cddr (%%source-code src))))
         (body (%%cdr (%%cddr (%%source-code src)))))
-    (jazz.expand-assertion test? assertion action body)))
+    (jazz.expand-%%assertion-body test? assertion action body)))
 
 
-(define (jazz.expand-assertion test? assertion action body)
+(define (jazz.expand-%%assertion-body test? assertion action body)
   (if test?
       `(if (%%not ,assertion)
            ,action

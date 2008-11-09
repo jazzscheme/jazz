@@ -2468,11 +2468,11 @@
 
 
 (define (jazz.expand-assert walker resume declaration environment form-src)
-  (jazz.expand-assert-test #t form-src))
+  (jazz.expand-assert-test jazz.debug-user? form-src))
 
 
 (define (jazz.expand-assertion walker resume declaration environment form-src)
-  (jazz.expand-assertion-test #t form-src))
+  (jazz.expand-assertion-test jazz.debug-user? form-src))
 
 
 (define (jazz.expand-assert-test test? src)

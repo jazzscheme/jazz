@@ -1,0 +1,411 @@
+
+\title{IrRegular Expressions}
+
+\eval
+(begin
+  (display "<style>\n")
+  (display (with-input-from-file "irregex.css" read-string))
+  (display "</style>\n"))
+
+\flushright{\urlh{http://synthcode.com/}{Alex Shinn}}
+\flushright{\urlh{http://synthcode.com/scheme/irregex/irregex-0.7.1.tar.gz}{Download Version 0.7.1}}
+
+\eval(display "<br /><br />\n\n<blockquote>")
+
+At this moment there was a loud ring at the bell, and I could
+hear Mrs. Hudson, our landlady, raising her voice in a wail of
+expostulation and dismay.
+
+"By heaven, Holmes," I said, half rising, "I believe that
+they are really after us."
+
+"No, it's not quite so bad as that.  It is the unofficial
+force, -- the Baker Street irregulars."
+
+\eval(display "</blockquote>\n\n")
+
+\eval(display "<br /><br />\n\n")
+
+A fully portable and efficient R[456]RS implementation of regular
+expressions, supporting both POSIX syntax with various (irregular)
+PCRE extensions, as well as SCSH's SRE syntax, with various aliases
+for commonly used patterns.  DFA matching is used when possible,
+otherwise a closure-compiled NFA approach is used.  The library makes
+no assumptions about the encoding of strings or range of characters
+and can thus be used in Unicode-aware Scheme implementations.
+Matching may be performed over standard Scheme strings, or over
+arbitrarily chunked streams of strings.
+
+\eval(display "<br /><br />\n\n")
+
+\section{Table of Contents}
+
+\eval(display "\n\n<!-- TOC -->\n\n")
+
+\eval(display "<br /><br />\n\n")
+
+\section{Installation}
+
+Just
+
+\q{
+  (load "irregex.scm")
+}
+
+in your favorite Scheme implementation and you're good to go!
+
+There is a global variable \q{*all-chars*} which is used for
+generating character set complements.  This defaults to the full
+Unicode range 0..#x10FFFF, but if your implementation can't handle
+characters that large you'll need to adjust it (a suitable ASCII
+definition is commented out in the source).
+
+If you are using an R6RS Scheme, you can instead
+
+\q{
+  (load "irregex-r6rs.scm")
+}
+
+There are also a handful of utility procedures described below you may
+wish to use in irregex-utils.scm.
+
+If you are using Chicken Scheme, you can just run chicken-setup, or
+wait for it to show up in the eggs repository.
+
+\section{Specification}
+
+\subsection{Procedures}
+
+\subsubsection*{(irregex <posix-string-or-sre> [<options> ...])}
+\subsubsection*{(string->irregex <posix-string> [<options> ...])}
+\subsubsection*{(sre->irregex <sre> [<options> ...])}
+
+Compiles a regular expression from either a POSIX-style regular
+expression string (with most PCRE extensions) or an SCSH-style SRE.
+There is no \q{(rx ...)} syntax - just use normal Scheme lists, with
+\q{quasiquote} if you like.
+
+Technically a string by itself could be considered a valid (though
+rather silly) SRE, so if you want to just match a literal string you
+should use something like \q{(irregex `(: ,str))}, or use the explicit
+\q{(string->irregex str)}.
+
+The options are a list of any of the following symbols:
+
+  \q{'i}, \q{'case-insensitive} - match case-insensitively
+
+  \q{'m}, \q{'multi-line}       - treat string as multiple lines (effects ^ and $)
+
+  \q{'s}, \q{'single-line}      - treat string as a single line (. can match newline)
+
+  \q{'utf8}             - utf8-mode (assumes strings are byte-strings)
+
+  \q{'fast}             - try to optimize the regular expression
+
+  \q{'small}            - try to compile a smaller regular expression
+
+The \q{'fast} and \q{'small} options may not actually make the
+compiled expression any faster or smaller at the moment.
+
+\subsubsection*{(irregex? <obj>)}
+
+Returns \q{#t} iff the object is a regular expression.
+
+\subsubsection*{(irregex-search <irx> <str> [<start> <end>])}
+
+Searches for any instances of the pattern <irx> (a POSIX string, SRE
+sexp, or pre-compiled regular expression) in <str>, optionally between
+the given range.  If a match is found, returns a match object,
+otherwise returns \q{#f}.
+
+Match objects can be used to query the original range of the string or
+its submatches using the \q{irregex-match-*} procedures below.
+
+Examples:
+
+  \q{(irregex-search "foobar" "abcFOOBARdef") => #f}
+
+  \q{(and (irregex-search "foobar" "abcFOOBARdef" 'i) #t) => #t}
+
+  \q{(and (irregex-search '(w/nocase "foobar") "abcFOOBARdef") #t) => #t}
+
+\subsubsection*{(irregex-match <irx> <str>)}
+
+Like \q{irregex-search}, but performs an anchored match against the
+beginning and end of the string, without searching.
+
+Examples:
+
+  \q{(irregex-match '(w/nocase "foobar") "abcFOOBARdef") => #f}
+
+  \q{(and (irregex-match '(w/nocase "foobar") "FOOBAR") #t) => #t}
+
+\subsubsection*{(irregex-match-data? <obj>)}
+
+Returns \q{#t} iff the object is a successful match result from
+\q{irregex-search} or \q{irregex-match}.
+
+\subsubsection*{(irregex-match-substring <match> [<index-or-name>])}
+\subsubsection*{(irregex-match-start-index <match> [<index-or-name>])}
+\subsubsection*{(irregex-match-end-index <match> [<index-or-name>])}
+
+Fetches the matched substring (or its start or end offset) at the
+given submatch index, or named submatch.  The entire match is index 0,
+the first 1, etc.  The default is index 0.
+
+\subsubsection*{(irregex-match-subchunk <match> [<index-or-name>])}
+
+Generates a chunked data-type for the given match item, of the same
+type as the underlying chunk type (see Chunked String Matching below).
+This is only available if the chunk type specifies the get-subchunk
+API, otherwise an error is raised.
+
+\subsubsection*{(irregex-replace <irx> <str> [<replacements> ...])}
+\subsubsection*{(irregex-replace/all <irx> <str> [<replacements> ...])}
+
+Matches a pattern in a string, and replaces it with a (possibly empty)
+list of substitutions.  Each \q{<replacement>} can be either a string
+literal, a numeric index, a symbol (as a named submatch), or a
+procedure which takes one argument (the match object) and returns a
+string.
+
+Examples:
+
+  \q{(irregex-replace "[aeiou]" "hello world" "*") => "h*llo world"}
+
+  \q{(irregex-replace/all "[aeiou]" "hello world" "*") => "h*ll* w*rld"}
+
+\subsubsection*{(irregex-fold <irx> <kons> <knil> <str> [<finish> <start> <end>])}
+
+This follows the API for \q{regexp-fold} from SCSH.
+
+\subsection{Supported PCRE Syntax}
+
+Since the PCRE syntax is so overwhelming complex, it's easier to just
+list what we *don't* support for now.  Refer to the
+\urlh{http://pcre.org/pcre.txt}{PCRE documentation} for details.
+
+Unicode character classes (\P) are not supported, but will be
+in an upcoming release.  \C named characters are not supported.
+
+Callbacks, subroutine patterns and recursive patterns are not
+supported.  (*FOO) patterns are not supported and may never be.
+
+\G and \K are not supported.
+
+Octal character escapes are not supported because they are ambiguous
+with back-references - just use hex character escapes.
+
+Other than that everything should work, including named submatches,
+zero-width assertions, conditional patterns, etc.
+
+In addition, \< and \> act as beginning-of-word and end-of-word marks,
+respectively, as in Emacs regular expressions.
+
+\subsection{Extended SRE Syntax}
+
+The following extensions to standard SRE syntax are provided:
+
+\q{
+  (?? <sre> ...)                 ; shy (non-greedy) patterns
+  (*? <sre> ...)
+  (**? <from> <to> <sre> ...)    ; +? isn't valid so use this
+  (backref <n>)
+  (look-ahead <sre> ...)         ; or Emacsish looking-at
+  (look-behind <sre> ...)        ; or Emacsish looking-back
+  (neg-look-ahead <sre> ...)     ; or not- prefix
+  (neg-look-behind <sre> ...)
+  (atomic <sre> ...)             ; for (?>...) independent patterns
+  (if <test> <pass> [<fail>])    ; conditional patterns
+  (submatch-named <name> <sre> ...)
+  newline                        ; general newline pattern
+  nwb                            ; non-word-boundary
+  commit                         ; disable backtracking beyond this (i.e. cut)
+}
+
+The following utility regular expressions are also provided for common
+patterns that people
+
+\q{
+  integer                        ; an integer
+  real                           ; a real number (including scientific)
+  string                         ; a "quoted" string
+  ipv4-address                   ; a numeric decimal ipv4 address
+  ipv6-address                   ; a numeric hexadecimal ipv6 address
+  domain                         ; a domain name
+  email                          ; an email address
+  http-url                       ; a URL beginning with https?://
+}
+
+More common patterns are planned.
+
+\subsection{Chunked String Matching}
+
+It's often desirable to perform regular expression matching over
+sequences of characters not represented as a single string.  The most
+obvious example is a text-buffer data structure, but you may also want
+to match over lists or trees of strings (i.e. ropes), over only
+certain ranges within a string, over an input port, etc.  With
+existing regular expression libraries, the only way to accomplish this
+is by converting the abstract sequence into a freshly allocated
+string.  This can be expensive, or even impossible if the object is a
+text-buffer opened onto a 500MB file.
+
+IrRegex provides a chunked string API specifically for this purpose.
+You define a chunking API with
+
+\subsubsection*{(make-irregex-chunker <get-next> <get-string> [<get-start> <get-end> <get-next> <get-substring> <get-subchunk>])}
+
+where 
+
+  \q{(<get-next> chunk) => } returns the next chunk, or \q{#f} if there are no more chunks
+
+  \q{(<get-string> chunk) => } a string source for the chunk
+
+  \q{(<get-start> chunk) => } the start index of the result of \q{<get-string>} (defaults to always 0)
+
+  \q{(<get-end> chunk) => } the end (exclusive) of the string (defaults to \q{string-length} of the source string)
+
+  \q{(<get-substring> cnk1 i cnk2 j) => } a substring for the range between the chunk \q{cnk1} starting at index \q{i} and ending at \q{cnk2} at index \q{j}
+
+  \q{(<get-subchunk> cnk1 i cnk2 j) => } as above but returns a new chunked data type instead of a string (optional)
+
+There are two important constraints on the \q{<get-next>} procedure.
+It must return an \q{eq?} identical object when called multiple times
+on the same chunk, and it must not return a chunk with an empty string
+(start == end).  This second constraint is for performance reasons -
+we push the work of possibly filtering empty chunks to the chunker
+since there are many chunk types for which empty strings aren't
+possible, and this work is thus not needed.  Note that the initial
+chunk passed to match on is allowed to be empty.
+
+\q{<get-substring>} is provided for possible performance improvements
+- without it a default is used.  \q{<get-subchunk>} is optional -
+without it you may not use \q{irregex-match-subchunk} described above.
+
+You can then match chunks of these types with the following
+procedures:
+
+\subsubsection*{(irregex-search/chunked <irx> <chunker> <chunk>)}
+\subsubsection*{(irregex-match/chunked <irx> <chunker> <chunk>)}
+
+These return normal match-data objects.
+
+Example:
+
+To match against a simple, flat list of strings use:
+
+\q{
+  (define (rope->string rope1 start rope2 end)
+    (if (eq? rope1 rope2)
+        (substring (car rope1) start end)
+        (let loop ((rope (cdr rope1))
+                   (res (list (substring (car rope1) start))))
+           (if (eq? rope rope2)
+               (string-concatenate-reverse      ; from SRFI-13
+                (cons (substring (car rope) 0 end) res))
+               (loop (cdr rope) (cons (car rope) res))))))
+
+  (define rope-chunker
+    (make-irregex-chunker (lambda (x) (and (pair? (cdr x)) (cdr x)))
+                          car
+                          (lambda (x) 0)
+                          (lambda (x) (string-length (car x)))
+                          rope->string))
+
+  (irregex-search/chunked <pat> rope-chunker <list-of-strings>)
+}
+
+Here we are just using the default start, end and substring behaviors,
+so the above chunker could simply be defined as:
+
+\q{
+  (define rope-chunker
+    (make-irregex-chunker (lambda (x) (and (pair? (cdr x)) (cdr x))) car))
+}
+
+\subsection{Utilities}
+
+The following procedures are available in irregex-utils.scm.
+
+\subsubsection*{(irregex-quote <str>)}
+
+Returns a new string with any special regular expression characters
+escaped, to match the original string literally in POSIX regular
+expressions.
+
+\subsubsection*{(irregex-opt <list-of-strings>)}
+
+Returns an optimized POSIX string matching any of the literal strings
+in the list, like Emacs' \q{regexp-opt}.  Note this optimization
+doesn't help when irregex is able to build a DFA.
+
+\subsubsection*{(sre->string <sre>)}
+
+Convert an SRE to a POSIX-style regular expression string, if
+possible.
+
+\section{Roadmap}
+
+  0.8   - utilities and API finalization
+
+  0.9   - (real) benchmarks and performance enhancements
+
+  1.0   - cleanup and better documentation
+
+\section{License}
+
+Copyright (c) 2005-2008 Alex Shinn
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the distribution.
+3. The name of the author may not be used to endorse or promote products
+   derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+\section{References}
+
+\bibitem{R5RS} R. Kelsey, W. Clinger, J. Rees (eds.)
+\urlh{http://www.schemers.org/Documents/Standards/R5RS/}{Revised^5 Report on the Algorithmic Language Scheme}
+
+\bibitem{ImplementingRegexps} Russ Cox
+\urlh{http://swtch.com/~rsc/regexp/}{Implementing Regular Expressions}
+
+\bibitem{Tcl} Russ Cox
+\urlh{http://compilers.iecc.com/comparch/article/07-10-026}{Henry Spencer's Tcl Regex Library}
+
+\bibitem{SRE} Olin Shivers
+\urlh{http://www.scsh.net/docu/post/sre.html}{Proposed SRE regular-expression notation}
+
+\bibitem{SCSH} Olin Shivers
+\urlh{http://www.scsh.net/docu/html/man-Z-H-7.html}{Pattern-matching strings with regular expressions}
+
+\bibitem{Gauche} Shiro Kawai
+\urlh{http://practical-scheme.net/gauche/man/gauche-refe_49.html}{Gauche Scheme - Regular Expressions}
+
+\bibitem{Perl6} Damian Conway
+\urlh{http://www.perl.com/pub/a/2002/08/22/exegesis5.html}{Perl6 Exegesis 5 - Regular Expressions}
+
+\bibitem{PCRE} Philip Hazel
+\urlh{http://www.pcre.org/}{PCRE - Perl Compatible Regular Expressions}
+
+\eval(display "<br /><br /><br /><br />\n")
+

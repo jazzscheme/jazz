@@ -884,15 +884,14 @@
     (jazz.new-special-form 'construct       jazz.walk-construct)
     (jazz.new-special-form 'time            jazz.walk-time)
     
-    (jazz.new-macro-form   'optimize        jazz.expand-optimize)
     (jazz.new-macro-form   'remotable-stub  jazz.expand-remotable-stub)
-    (jazz.new-macro-form   'coexternal      jazz.expand-coexternal)
     (jazz.new-syntax-form  'assert          jazz.expand-assert)
     (jazz.new-syntax-form  'assertion       jazz.expand-assertion)
     (jazz.new-macro-form   'c-structure     jazz.expand-c-structure)
     (jazz.new-macro-form   'c-union         jazz.expand-c-union)
     (jazz.new-macro-form   'c-external      jazz.expand-c-external)
     (jazz.new-macro-form   'c-external-so   jazz.expand-c-external-so)
+    (jazz.new-macro-form   'coexternal      jazz.expand-coexternal)
     (jazz.new-macro-form   'form            jazz.expand-form)))
 
 
@@ -2502,16 +2501,6 @@
               `(begin
                  ,@body)))
       (jazz.simplify-begin `(begin ,@body)))))
-
-
-;;;
-;;;; Optimize
-;;;
-
-
-(define (jazz.expand-optimize walker resume declaration environment parameters . body)
-  `(begin
-     ,@body))
 
 
 ;;;

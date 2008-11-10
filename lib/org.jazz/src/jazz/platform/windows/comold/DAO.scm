@@ -11,20 +11,20 @@
 
 
 ; _DBEngine
-(coexternal 15 VT_HRESULT (get-Workspaces (out VT_PTR VT_UNKNOWN)))
+(com-external 15 VT_HRESULT (get-Workspaces (out VT_PTR VT_UNKNOWN)))
 ;(get-Workspaces coptr)
 
 
 ; Workspaces
-(coexternal 12 VT_HRESULT (get-Item (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+(com-external 12 VT_HRESULT (get-Item (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 ;(get-Item coptr n)
 
 
 ; Workspace
-(coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+(com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 ;(OpenDatabase coptr name options read-only connect-string)
 
 
 ; Database
-(coexternal 22 VT_HRESULT (Close))
+(com-external 22 VT_HRESULT (Close))
 ;(Close coptr)

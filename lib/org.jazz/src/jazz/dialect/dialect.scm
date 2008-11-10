@@ -891,7 +891,7 @@
     (jazz.new-macro-form   'c-union         jazz.expand-c-union)
     (jazz.new-macro-form   'c-external      jazz.expand-c-external)
     (jazz.new-macro-form   'c-external-so   jazz.expand-c-external-so)
-    (jazz.new-macro-form   'coexternal      jazz.expand-coexternal)
+    (jazz.new-macro-form   'com-external    jazz.expand-com-external)
     (jazz.new-macro-form   'form            jazz.expand-form)))
 
 
@@ -2195,13 +2195,13 @@
 ;;;
 
 
-;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 @w
-(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature)
+(define (jazz.expand-com-external walker resume declaration environment offset result-type signature)
   (let ((name (car signature))
         (resolve-declaration (lambda (type) (if (symbol? type)
                                                 (jazz.resolve-c-type-reference walker resume declaration environment type)
-                                              (jazz.walk-error walker resume declaration "Illegal parameter type in coexternal {s}: {s}" (car signature) type))))
+                                              (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" (car signature) type))))
         (fix-locator (lambda (declaration) (if (eq? (%%get-c-type-declaration-kind declaration) 'type)
                                                (string->symbol (string-append (symbol->string (%%get-declaration-locator declaration)) "*"))
                                              (%%get-declaration-locator declaration)))))
@@ -2242,13 +2242,13 @@
 ;;;
 
 
-;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
-(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature . rest)
+;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+(define (jazz.expand-com-external walker resume declaration environment offset result-type signature . rest)
   (let* ((name (car signature))
          (refiid (if (%%null? rest) #f (%%car rest)))
          (resolve-declaration (lambda (type) (if (symbol? type)
                                                  (jazz.resolve-c-type-reference walker resume declaration environment type)
-                                               (jazz.walk-error walker resume declaration "Illegal parameter type in coexternal {s}: {s}" name type)))))
+                                               (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" name type)))))
     (let ((resolved-result (resolve-declaration result-type))
           (resolved-params (map resolve-declaration (map cadr (cdr signature))))
           (resolved-directions (map car (cdr signature)))
@@ -2257,7 +2257,7 @@
         (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
-               (definition ,name ,(jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
+               (definition ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
 
 
 (define (jazz.emit-com-function offset resolved-result resolved-params)
@@ -2290,7 +2290,7 @@
                   ");}")))
 
 
-(define (jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions refiid)
+(define (jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid)
   (define (generate-in resolved-param resolved-direction order)
     (if (eq? resolved-direction 'out)
         #f

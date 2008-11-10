@@ -58,7 +58,7 @@
   
   (method (initialize connection servername username password (databasename {}))
     (nextmethod connection)
-    (set! server (cocreate SQLDMO.SQLServer error?: #f))
+    (set! server (com-create SQLDMO.SQLServer error?: #f))
     (when (null? server)
       (error "Unable to locate SQLServer"))
     (Connect~ server servername username password)
@@ -76,18 +76,18 @@
   
   (method (destroy-inventory)
     (when system-types
-      (corelease system-types)
+      (com-release system-types)
       (set! system-types '()))
     (when database
       @debug-memory-leaks
-      (debug '*** (cointerface-refcount server) (cointerface-refcount database))
-      (corelease database)
+      (debug '*** (com-interface-refcount server) (com-interface-refcount database))
+      (com-release database)
       (set! database {}))
     (when server
       (DisConnect~ server)
       @debug-memory-leaks
-      (debug '*** (cointerface-refcount server))
-      (corelease server)
+      (debug '*** (com-interface-refcount server))
+      (com-release server)
       (set! server {})))
   
   
@@ -143,7 +143,7 @@
         (loop (for n from 1 to (get-Count~ tables))
               (let ((table (Item~ tables n {})))
                 (if (get-SystemObject~ table)
-                    (corelease table)
+                    (com-release table)
                   (put~ fact (new SQLServer-Inventory-Table self self table)))))
         (get-output~ fact))))
   
@@ -154,7 +154,7 @@
   
   
   (method (create-table name)
-    (let ((new-table (cocreate SQLDMO.Table)))
+    (let ((new-table (com-create SQLDMO.Table)))
       (put-Name~ new-table name)
       (new SQLServer-Inventory-Table self self new-table)))
   
@@ -185,7 +185,7 @@
               (let ((view (Item~ views n {})))
                 (if (not (get-SystemObject~ view))
                     (put~ fact (new SQLServer-Inventory-View self self view))
-                  (corelease view))))
+                  (com-release view))))
         (get-output~ fact))))
   
   
@@ -203,7 +203,7 @@
   
   
   (method (create-view name)
-    (let ((new-view (cocreate SQLDMO.View)))
+    (let ((new-view (com-create SQLDMO.View)))
       (put-Name~ new-view name)
       (new SQLServer-Inventory-View self self new-view)))
   
@@ -236,7 +236,7 @@
   
   
   (method (create-relation-complete relation-name primary-table primary-fields foreign-table foreign-fields)
-    (let ((new-key (cocreate SQLDMO.Key)))
+    (let ((new-key (com-create SQLDMO.Key)))
       (put-Name~ new-key relation-name)
       (put-Type~ new-key SQLDMO.SQLDMOKey_Foreign)
       (with-closed ((columns (get-KeyColumns~ new-key)))
@@ -282,7 +282,7 @@
               (let ((procedure (Item~ procedures n {})))
                 (if (not (get-SystemObject~ procedure))
                     (put~ fact (new SQLServer-Inventory-Procedure self self procedure))
-                  (corelease procedure))))
+                  (com-release procedure))))
         (get-output~ fact))))
   
   
@@ -304,7 +304,7 @@
 
 
   (method (create-procedure name)
-    (let ((new-procedure (cocreate SQLDMO.StoredProcedure)))
+    (let ((new-procedure (com-create SQLDMO.StoredProcedure)))
       (put-Name~ new-procedure name)
       (new SQLServer-Inventory-Procedure self self new-procedure)))
   
@@ -325,7 +325,7 @@
   
   
   (method public (restore-database database backup)
-    (with-closed ((restore (cocreate SQLDMO.Restore)))
+    (with-closed ((restore (com-create SQLDMO.Restore)))
       (put-Database~ restore database)
       (put-Files~ restore (parse~ backup))
       (SQLRestore~ restore server)))))

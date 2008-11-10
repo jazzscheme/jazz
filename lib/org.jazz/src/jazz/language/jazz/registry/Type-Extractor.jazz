@@ -56,18 +56,18 @@
 
   (slot library)
   (slot name)
-  (slot coclasses?)
+  (slot com-classes?)
   (slot pure-dispatch?)
   (slot to-emit)
   (slot emited)
   (slot waiting)
 
 
-  (method (initialize (library: library {}) (name: name (default-name library)) (coclasses?: coclasses? #f) (pure-dispatch?: pure-dispatch? #f))
+  (method (initialize (library: library {}) (name: name (default-name library)) (com-classes?: com-classes? #f) (pure-dispatch?: pure-dispatch? #f))
     (nextmethod)
     (set! library~self library)
     (set! name~self name)
-    (set! coclasses?~self coclasses?)
+    (set! com-classes?~self com-classes?)
     (set! pure-dispatch?~self pure-dispatch?))
   
   
@@ -168,7 +168,7 @@
         ((TKIND_MODULE)    (emit-package   info printer))
         ((TKIND_INTERFACE) (emit-interface info printer))
         ((TKIND_DISPATCH)  (emit-dispatch  info printer))
-        ((TKIND_COCLASS)   (emit-coclass   info printer))
+        ((TKIND_COCLASS)   (emit-com-class info printer))
         ((TKIND_ALIAS)     (emit-alias     info printer))
         ((TKIND_UNION)     (emit-union     info printer))
         ((TKIND_MAX)       (emit-max       info printer))
@@ -224,29 +224,29 @@
                          (final-typedesc (either ptr-typedesc typedesc))
                          (type-name (intern-type info final-typedesc #f)))
                     (format printer "{%}")
-                    (format printer "    (coexternal public virtual abstract {a} (get-{a}))" type-name name)))
+                    (format printer "    (com-external public virtual abstract {a} (get-{a}))" type-name name)))
                 variables)
-      (emit-functions info '() functions 'coexternal " public virtual abstract" printer ")")))
+      (emit-functions info '() functions 'com-external " public virtual abstract" printer ")")))
 
 
   (method (emit-dispatch info printer)
     (emit-interface info printer))
 
 
-  (method (emit-coclass info printer)
+  (method (emit-com-class info printer)
     (let* ((name (get-name~ info))
            (guid (get-guid~ info))
            (interfaces (get-implemented-types~ info))
            (interface-names (map info-name interfaces)))
       (emit-section-header name printer)
-      (format printer "  (class public{a} {a} extends CoObject" (if coclasses? "" " abstract") name)
+      (format printer "  (class public{a} {a} extends CoObject" (if com-classes? "" " abstract") name)
       (case (length interfaces)
         ((0))
         ((1) (format printer " implements {a}" (car interface-names)))
         (else (format printer " implements {a}" interface-names)))
       (format printer "{%}{%}{%}")
-      (format printer "    (properties guid: {s}{a})" guid (if coclasses? "" " external?: #t"))
-      (if (and coclasses? interfaces)
+      (format printer "    (properties guid: {s}{a})" guid (if com-classes? "" " external?: #t"))
+      (if (and com-classes? interfaces)
           (begin
             (format printer "{%}{%}")
             (let ((names '()))
@@ -255,7 +255,7 @@
                 (for-each-pair (function (pair)
                                  (bind (interface . tail) pair
                                    (let ((functions (get-functions~ interface)))
-                                     (set! names (emit-functions interface names functions 'comethod "" printer (essay (null? tail) ")")))))
+                                     (set! names (emit-functions interface names functions 'com-method "" printer (essay (null? tail) ")")))))
                                  interfaces)))))
         (format printer ")"))))
 

@@ -226,11 +226,10 @@
     (let* ((title (get-property~ section 'title))
            (project-paths (get-property~ section 'projects '()))
            (projects (apply append (map find-docs project-paths)))
-           (toc-anchors (make-table test: eq?))
            (content (manual-content-output projects))
            (index (if (get-property~ section 'index? #t) (index-output) '()))
-           (toc (toc-output projects toc-anchors))
-           (summary (summary-output title section projects toc-anchors)))
+           (toc (toc-output projects))
+           (summary (summary-output title section projects)))
       (append summary
               toc
               index
@@ -433,7 +432,7 @@
   ;;;
   
   
-  (method (summary-output title section projects toc-anchors)
+  (method (summary-output title section projects)
     (user-message "Generating Summary...")
     `((<div> style: "margin-top: 22;")
       (<h3> ,title)
@@ -443,15 +442,15 @@
           `((<p>)))
       ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
           (map (function (doc rank)
-                 (doc-summary-output toc-anchors doc 1 (list (+ rank 1))))
+                 (doc-summary-output doc 1 (list (+ rank 1))))
                docs
                (naturals 0 (length docs))))))
   
   
-  (method (doc-summary-output toc-anchors doc level path)
+  (method (doc-summary-output doc level path)
     (let* ((title (present-doc-title doc))
            (text (format "{a}. {a}" (present-toc-path path) title))
-           (anchor (format "#{a}" (table-ref toc-anchors doc #f)))
+           (anchor (format "#{a}" (table-ref anchors doc #f)))
            (children (collect-summary-children doc)))
       `(<div>
          (<div> class: ,(format "summary{a}" level) (<a> href: ,anchor ,text))
@@ -459,7 +458,7 @@
                '()
              `((<div>
                  ,@(map (function (child rank)
-                          (doc-summary-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
+                          (doc-summary-output child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
   
@@ -489,31 +488,30 @@
   ;;;
   
   
-  (method (toc-output projects toc-anchors)
+  (method (toc-output projects)
     (user-message "Generating Table of Contents...")
     `((<a> name: "TOC" (<h3> "Table of Contents"))
       ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
           (map (function (doc rank)
-                 (doc-toc-output toc-anchors doc 1 (list (+ rank 1))))
+                 (doc-toc-output doc 1 (list (+ rank 1))))
                docs
                (naturals 0 (length docs))))))
   
   
-  (method (doc-toc-output toc-anchors doc level path)
+  (method (doc-toc-output doc level path)
     (let* ((title (present-doc-title doc))
            (text (format "{a}. {a}" (present-toc-path path) title))
            (anchor (format "#{a}" (table-ref anchors doc #f)))
            (children (collect-toc-children doc))
            (rank (car path))
-           (toc-prefix (if (and (= rank 1) (<= level 3)) "toc_first" "toc"))
-           (toc-anchor (register-anchor doc {} toc-anchors)))
+           (toc-prefix (if (and (= rank 1) (<= level 3)) "toc_first" "toc")))
       `(<div>
-         (<div> class: ,(format "{a}{a}" toc-prefix level) (<a> name: ,toc-anchor href: ,anchor ,text))
+         (<div> class: ,(format "{a}{a}" toc-prefix level) (<a> href: ,anchor ,text))
          ,@(if (null? children)
                '()
              `((<div>
                  ,@(map (function (child rank)
-                          (doc-toc-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
+                          (doc-toc-output child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
   

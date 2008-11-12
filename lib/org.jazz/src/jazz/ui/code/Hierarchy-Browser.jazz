@@ -103,11 +103,8 @@
           (let ((moniker (get-moniker~ (get-controller~ guest))))
             (when moniker
               (let ((ext (get-extension~ moniker)))
-                (if #f @wait (ci=? ext "jml")
-                    (catch (Exception exc
-                             (message-box (format "The following exception occured: {s}" exc))
-                             {})
-                      (read-jml moniker))
+                (if (ci=? ext "jml")
+                    (read-jml moniker)
                   (let* ((appl (get-application))
                          (cataloguer (get-cataloguer~ appl))
                          (entries (get-file-entries~ cataloguer moniker context: (get-context~ guest))))
@@ -150,7 +147,7 @@
   
   
   (method (on-update evt)
-    (when (is? client Form)
+    (when (or (is? client Exception) (is? client Form))
       (reload-jml-client))
     (update))
 
@@ -166,7 +163,7 @@
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
         ((definitions)
-          (selection-change sender #t)))))
+         (selection-change sender #t)))))
   
   
   @convert-inconsistant-method
@@ -190,14 +187,20 @@
   
   
   (method (read-jml moniker)
-    (catch (Read-Error err
-             (message-box (get-message~ err) type: 'message)
-             {})
+    ;; quick solution we should catch only reading and parsing errors
+    (catch (Error err
+             err)
       (read-from-file moniker)))
   
   
   (method (reload-jml-client)
-    (set! client (read-from-file (get-origin~ client))))
+    (let ((document (current-document)))
+      (if document
+          (let ((moniker (get-moniker~ (get-controller~ document))))
+            (if moniker
+                (set! client (read-jml moniker))
+              (set! client {})))
+        (set! client {}))))
   
   
   (method (get-client-title client)
@@ -290,15 +293,18 @@
   
   (method (update)
     (let ((tree (locate 'definitions)))
-      (if (not client)
-          (begin
-            (set-title "Class Browser")
-            (remove-every-row~ tree))
-        (set-title (format "Class {a}" (get-client-title client)))
-        (with-update-locked~ tree
-          (function ()
-            (remove-every-row~ tree)
-            (insert-client-definition tree client))))))
+      (cond ((not client)
+             (set-title "Class Browser")
+             (remove-every-row~ tree))
+            ((is? client Exception)
+             (remove-every-row~ tree)
+             (add-row~ tree children: (list (new Tree-Node title: (get-message~ client) image: {Bitmap-Resource "Debugger"})) user-data: client))
+            (else
+             (set-title (format "Class {a}" (get-client-title client)))
+             (with-update-locked~ tree
+               (function ()
+                 (remove-every-row~ tree)
+                 (insert-client-definition tree client)))))))
   
   
   ;;;
@@ -313,8 +319,9 @@
               (selection (get-single-selection~ tree)))
           (when selection
             (let ((definition (get-user-data~ (get-row~ tree selection))))
-              (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                (edit-definitions definition))))))))
+              (unless (is? definition Exception)
+                (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
+                  (edit-definitions definition)))))))))
   
   
   (method (same-file? definition moniker)

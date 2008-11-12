@@ -77,6 +77,8 @@
         (register-literal 'Format                    'jazz.literals 'construct-format)
         (register-literal 'Text-Style                'jazz.literals 'construct-text-style)
         (register-literal 'Hyperlink-Style           'jazz.literals 'construct-hyperlink-style)
+        (register-literal 'Text                      'jazz.literals 'construct-text)
+        (register-literal 'Formatted-Text            'jazz.literals 'construct-formatted-text)
         (register-literal 'Bitmap-Resource           'jazz.literals 'construct-bitmap-resource)
         (register-literal 'Icon-Resource             'jazz.literals 'construct-icon-resource)
         (register-literal 'Cursor-Resource           'jazz.literals 'construct-cursor-resource)

@@ -483,7 +483,7 @@
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol external?)
   (let ((access (if external? jazz.public-access jazz.private-access)))
-    (%%table-ref (%%vector-ref (%%get-namespace-declaration-lookups declaration) access)
+    (%%table-ref (%%get-access-lookup declaration access)
                  symbol
                  #f)))
 

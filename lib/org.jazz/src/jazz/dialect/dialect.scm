@@ -252,7 +252,7 @@
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Category-Declaration category-declaration) symbol external?)
   (let ((access (if external? jazz.public-access jazz.private-access)))
-    (%%table-ref (%%vector-ref (%%get-namespace-declaration-lookups category-declaration) access)
+    (%%table-ref (%%get-access-lookup category-declaration access)
                  symbol
                  #f)))
 
@@ -290,7 +290,7 @@
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
-    ;; a test to evaluate performance
+    ;; a quick test
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.public-access private)
       (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.protected-access private))
@@ -461,7 +461,7 @@
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 ascendants))
     
-    ;; a test to evaluate performance
+    ;; a quick test
     (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
       (%%vector-set! (%%get-namespace-declaration-lookups interface-declaration) jazz.public-access private)
       (%%vector-set! (%%get-namespace-declaration-lookups interface-declaration) jazz.protected-access private))

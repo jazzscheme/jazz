@@ -455,12 +455,12 @@
 (define (jazz.table-merge-without-conflicts! library-declaration suffix table add)
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
-    (%%table-merge! table add)
+    (%%table-merge! table add #t)
     (%%when (%%not (%%fx= (%%table-length table) (%%fx+ table-count add-count)))
       (let ((conflicts (jazz.find-actual-conflicts table add)))
         ;; Can be null if the same declaration has been imported from
         ;; different libraries. Maybe we should also do an error in that case...
-        (%%when #f ;; temp commented because of bug (%%not (%%null? conflicts))
+        (%%when (%%not (%%null? conflicts))
           (jazz.error "Conflicts detected in {a} {a}: {s}"
                       (%%get-lexical-binding-name library-declaration)
                       suffix

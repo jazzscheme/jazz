@@ -1,0 +1,310 @@
+<html>
+
+<head>
+  <link href="css/master.css" rel="stylesheet" type="text/css"/>
+  <title>Module System</title>
+</head>
+
+<body>
+<div id="page">
+  <h1 id="title">JazzScheme</h1>
+  <div id="sectionnav">
+    <a class="section" href="index.htm">Home</a>
+    <a class="section" href="news.htm">News</a>
+    <a class="section" href="features.htm">Features</a>
+    <a class="section" href="screenshots.htm">Screenshots</a>
+    <a class="section" href="documentation.htm">Documentation</a>
+    <a class="subsection" href="installation.htm">Installation</a>
+    <a class="subsection" href="tutorials.htm">Tutorials</a>
+    <a class="subsection" href="kernel-manual.htm">
+      <b>Module System</b>
+    </a>
+    <a class="subsection" href="jazz-manual.htm">Jazz Platform</a>
+    <a class="subsection" href="jedi-manual.htm">Jedi IDE</a>
+    <a class="section" href="development.htm">Development</a>
+    <a class="section" href="download.htm">Download</a>
+  </div>
+  <div id="content">
+    <div style="margin-top: 22;"></div>
+    <h3 class="summary">Module System</h3>
+    <div class="summary_toc">
+      <a href="#TOC">Table of Contents</a>
+    </div>
+    <p></p>
+    <div>
+      <div class="summary1">
+        <a href="#kernel">1. Kernel</a>
+      </div>
+    </div>
+    <div>
+      <div class="summary1">
+        <a href="#scheme">2. Scheme</a>
+      </div>
+    </div>
+    <div>
+      <div class="summary1">
+        <a href="#modules">3. Modules</a>
+      </div>
+    </div>
+    <div>
+      <div class="summary1">
+        <a href="#packages">4. Packages</a>
+      </div>
+    </div>
+    <a name="kernel"></a>
+    <h3 class="section1">1. Kernel</h3>
+The kernel represents the Jazz runtime.    <p></p>
+The kernel implements a thin layer on top of the underlying Scheme system that implements a language agnostic module and package system. The system supports dynamic discovery of packages and hierarchycal naming of modules.     <p></p>
+A Jazz application can be seen as a built kernel + libraries of packages.    <p></p>
+To build the kernel, launch the build system and type 'make kernel'. This will create a jazz.exe executable in your installation directory.     <p></p>
+Note that a Jazz kernel statically includes the whole underlying Scheme so that for instance, a kernel built on top of Gambit has access to every feature and API of Gambit.     <a name="launch"></a>
+    <h4 class="section2">1.1. Launch Parameters</h4>
+    <p>Every Jazz application supports the following launch parameters:</p>
+    <table class="properties">
+      <tr>
+        <td>/run</td>
+        <td>name of the product to run</td>
+      </tr>
+    </table>
+    <p></p>
+    <p>Examples:</p>
+    <p>
+<xmp>jazz.exe -run jedi</xmp></p>
+    <p>
+<xmp>jazz.exe -run c4</xmp></p>
+    <a name="customization"></a>
+    <h4 class="section2">1.2. Customization</h4>
+The HOME/.jazz directory is called the user directory. It contains user wide settings that the kernel will always apply. See the section about profiles for ways to create separate sets of customizations for Jedi.     <p></p>
+    <ul>
+      <li>
+        <span>
+.jazzini          <p></p>
+The kernel will load early this Scheme file that can be used to customize many of the kernel's features.         </span>
+      </li>
+    </ul>
+    <a name="scheme"></a>
+    <h3 class="section1">2. Scheme</h3>
+    <a name="r5rs"></a>
+    <h4 class="section2">2.1. R5RS</h4>
+    <a name="srfi"></a>
+    <h4 class="section2">2.2. SRFI</h4>
+    <a name="gambit"></a>
+    <h4 class="section2">2.3. Gambit</h4>
+    <a name="system"></a>
+    <h4 class="section2">2.4. Other Scheme Systems</h4>
+    <a name="modules"></a>
+    <h3 class="section1">3. Modules</h3>
+    <a name="module_zoo"></a>
+    <h4 class="section2">3.1. Module</h4>
+A Module is basically a file of Scheme code that was given a name. That name can then be used to load, compile, ... the module. The kernel will automatically located the module by searching all packages and ensure that it is loaded only once.     <p></p>
+Syntax:    <p></p>
+    <xmp>(module <name>
+
+(require (<module-name>)
+         ...)
+
+<expr>
+...)</xmp>
+    <p></p>
+Examples:    <p></p>
+    <xmp>(module fib
+
+(define (fib n)
+  (if (or (= n 0) (= n 1))
+      n
+    (+ (fib (- n 1)) (fib (- n 2))))))
+
+(module test
+
+(require (fib))
+
+...)</xmp>
+    <a name="library_zoo"></a>
+    <h4 class="section2">3.2. Library</h4>
+A library is a module that implements a specific dialect. A library will walk it's code and resolve all symbols at walk time.     <p></p>
+Currently supported dialects are:    <ul>
+      <li>scheme</li>
+      <li>jazz</li>
+    </ul>
+    <p></p>
+Syntax:    <p></p>
+    <xmp>(library <name> <dialect-name>
+
+(require (<module-name>)
+         ...)
+
+(export (<module-name>)
+         ...)
+
+(import)
+
+<expr>
+...)</xmp>
+    <p></p>
+Examples:    <p></p>
+    <xmp>(library jazz.sample.world jazz
+
+(import (jazz.platform)
+        (jazz.system)
+        (jazz.system.process)
+        (jazz.utilities))
+
+(class World extends Process
+  
+  (method (start-process)
+    (message-box "Hello World!")
+    (exit-process))))</xmp>
+    <a name="product"></a>
+    <h4 class="section2">3.3. Product</h4>
+A product is the runtime implementation of some user level entity that can be run and built. They correspond to targets in the build system. For instance, when doing 'make jedi', the build system will find the 'jedi' product and ask it to build itself.     <p></p>
+Products are listed inside their package manifest.     <a name="resource"></a>
+    <h4 class="section2">3.4. Resource</h4>
+A resource is a triplet (package path . extension) representing a resource inside a package.    <a name="arguments"></a>
+    <h4 class="section2">3.5. Arguments</h4>
+The kernel recognizes the following command-line arguments:     <ul>
+      <li>-run <product> : run <product></li>
+      <li>-debug <flag> : if <flag> is #t, try connecting to Jedi for remote debugging</li>
+    </ul>
+    <a name="packages"></a>
+    <h3 class="section1">4. Packages</h3>
+    <a name="repository"></a>
+    <h4 class="section2">4.1. Repository</h4>
+A repository is where packages are located.    <p></p>
+A repository is simply a directory that will be scanned for packages. Note that repository order is important as it defines search precedence.     <p></p>
+The kernel defines three standard repositories:    <p></p>
+    <ul>
+      <li>
+        <span>
+Install          <p></p>
+This repository is where the build system will build all modules. For instance, if you built your kernel on Windows with 'release' safety, the directory would be bin/GambitWindowsRelease/lib. Note that by creating distinct install directories, the build system supports multiple configurations.        </span>
+      </li>
+    </ul>
+    <p></p>
+    <ul>
+      <li>
+        <span>
+Jazz          <p></p>
+The Jazz source repository located in lib. Note that a compiled module can potentially be found in more than one repository. For instance as a binary compiled module and as source module. When loading, the kernel will choose the latest modified. This greatly eases development as you never have to recompile to test a change as the module system will automatically load the newer source code over the compiled one.         </span>
+      </li>
+    </ul>
+    <p></p>
+    <ul>
+      <li>
+        <span>
+User          <p></p>
+The user's repository located in ~/.jazz/lib. This is where you should put your Jazz code.         </span>
+      </li>
+    </ul>
+    <a name="package"></a>
+    <h4 class="section2">4.2. Package</h4>
+A package is the deployment unit that groups together related resources like code modules. Packages are discovered automatically and their order within their repository should not be relevant. They are similar in function to Ruby gems, Chicken eggs, Gambit snowballs, ...     <p></p>
+Every package needs a manifest file at the toplevel. This file contains meta information about the package and should be name with the same name as the package with .pck extension.     <p></p>
+Example: org.jedi.pck    <p></p>
+    <xmp>(package org.jedi
+  
+  (root "src")
+  (products (jedi (module jedi.product) (dependencies platform))))</xmp>
+    <a name="TOC">
+      <h3 class="toc">Table of Contents</h3>
+    </a>
+    <div>
+      <div class="toc_first1">
+        <a href="#kernel">1. Kernel</a>
+      </div>
+      <div>
+        <div>
+          <div class="toc_first2">
+            <a href="#launch">1.1. Launch Parameters</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#customization">1.2. Customization</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="toc1">
+        <a href="#scheme">2. Scheme</a>
+      </div>
+      <div>
+        <div>
+          <div class="toc_first2">
+            <a href="#r5rs">2.1. R5RS</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#srfi">2.2. SRFI</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#gambit">2.3. Gambit</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#system">2.4. Other Scheme Systems</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="toc1">
+        <a href="#modules">3. Modules</a>
+      </div>
+      <div>
+        <div>
+          <div class="toc_first2">
+            <a href="#module_zoo">3.1. Module</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#library_zoo">3.2. Library</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#product">3.3. Product</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#resource">3.4. Resource</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#arguments">3.5. Arguments</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="toc1">
+        <a href="#packages">4. Packages</a>
+      </div>
+      <div>
+        <div>
+          <div class="toc_first2">
+            <a href="#repository">4.1. Repository</a>
+          </div>
+        </div>
+        <div>
+          <div class="toc2">
+            <a href="#package">4.2. Package</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="footer">
+      <p>Copyright &copy; 1996-2008 Guillaume Cartier</p>
+    </div>
+  </div>
+</div>
+</body>
+
+</html>

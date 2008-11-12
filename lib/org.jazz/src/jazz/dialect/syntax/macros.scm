@@ -186,4 +186,26 @@
     (list 'catch
           (list 'Error err #t)
           (cons 'begin body)
-          #f))))
+          #f)))
+
+
+;;;
+;;;; C Interface
+;;;
+
+
+(syntax (c-constant form-src)
+  (let ((name (cadr (source-code form-src)))
+        (value (caddr (source-code form-src))))
+    (sourcify-if
+      `(definition ,name ,value)
+      form-src)))
+
+
+(syntax (c-enumeration form-src)
+  (let ((name (cadr (source-code form-src)))
+        (declarations (cddr (source-code form-src))))
+    (sourcify-if
+      (let ((definitions (map (lambda (declaration) `(definition ,@(source-code declaration))) declarations)))
+        `(begin ,@definitions))
+      form-src))))

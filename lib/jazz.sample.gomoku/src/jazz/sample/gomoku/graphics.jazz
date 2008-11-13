@@ -1,0 +1,123 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Gomoku Graphics
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Joel Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.gomoku.graphics jazz
+
+
+(import (jazz.sample.imagemagick)
+        (jazz.system))
+
+
+(definition Gomoku-Images
+  {Directory Jazz "lib" "jazz.sample" "site" "content" "images" "gomoku"})
+
+
+(definition (generate-gomoku)
+  (parameterize ((current-directory (parse~ Gomoku-Images)))
+    (for-each (function (size)
+                (user-message "Generating {a}..." size)
+                (create-directories~ (new-directory~ Gomoku-Images (symbol->string size)))
+                (generate-stone "black" "black" size)
+                (generate-stone "white" "white" size))
+              '(small
+                 medium
+                 large)))
+  (user-message "Done"))
+
+
+(definition (generate-stone name color size)
+  (define (parameters)
+    (case size
+      ((small)
+       (values 35 3 4))
+      ((medium)
+       (values 49 3 6))
+      ((large)
+       (values 71 3 8))))
+  
+  (receive (width moku shadow) (parameters)
+    (define (prop x)
+      (fxround/ (* width x) 71))
+    
+    (let ((half (/ (- width 1) 2))
+          (first 0)
+          (last (- width 1))
+          (outer (prop 5))
+          (inner (prop 10)))
+      ;; empty
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_centercenter.png" width width half first half last first half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" -draw \"circle {a},{a} {a},{a}\" {a}/empty_moku.png" width width half first half last first half last half half half half (- half moku) size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_centerleft.png" width width half first half last half half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_topcenter.png" width width half half half last first half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_centerright.png" width width half first half last first half half half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_bottomcenter.png" width width half first half half first half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_topleft.png" width width half half half last half half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_topright.png" width width half half half last first half half half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_bottomleft.png" width width half first half half half half last half size))
+      (image-convert (format "-size {a}x{a} xc:none -fill black -stroke black -strokewidth 2 -draw \"line {a},{a} {a},{a}\" -draw \"line {a},{a} {a},{a}\" {a}/empty_bottomright.png" width width half first half half first half half half size))
+      ;; stone
+      (image-convert (format "-size {a}x{a} xc:none -fill white -draw \"circle {a},{a} {a},{a}\" ( -size {a}x{a} xc:none -fill black -draw \"circle {a},{a} {a},{a}\" ) -matte -compose Dst_Out -composite {a}/moon_crescent.png" width width half half half outer width width (prop 28) (prop 30) half outer size))
+      (image-convert (format "-size {a}x{a} xc:none -fill {a} -draw \"circle {a},{a} {a},{a}\" {a}/{a}_circle.png" width width color half half half inner size name))
+      (image-convert (format "{a}/{a}_circle.png -channel A -blur 0x{a} +channel -fill navy -colorize 100% {a}/{a}_shadow.png" size name shadow size name))
+      (image-convert (format "-size {a}x{a} xc:none -draw \"circle {a},{a} {a},{a}\" -negate -channel A -blur 0x8 {a}/{a}_highlight.png" width width half half half (prop 20) size name))
+      (image-composite (format "-compose ATop -geometry -{a}-{a} {a}/{a}_highlight.png {a}/{a}_circle.png {a}/{a}_ball.png" (prop 13) (prop 17) size name size name size name))
+      (image-convert (format "{a}/moon_crescent.png -fx 0 -channel A -blur 0x7 {a}/{a}_ball.png +swap -compose ATop -composite {a}/{a}_stone.png" size size name size name))
+      (image-composite (format "-compose Dst_Over {a}/{a}_shadow.png {a}/{a}_stone.png {a}/{a}_stone_glow.png" size name size name size name))
+      ;; composite
+      (for-each (function (location)
+                  (image-composite (format "-compose Dst_Over {a}/empty_{a}.png {a}/{a}_stone.png {a}/{a}_{a}.png" size location size name size name location))
+                  (image-composite (format "-compose Dst_Over {a}/empty_{a}.png {a}/{a}_stone_glow.png {a}/{a}_{a}_glow.png" size location size name size name location)))
+                '("centercenter"
+                  "centerleft"
+                  "topcenter"
+                  "centerright"
+                  "bottomcenter"
+                  "topleft"
+                  "topright"
+                  "bottomleft"
+                  "bottomright"))
+      ;; cleanup
+      (for-each (function (name)
+                  (delete-file~ (new-file~ Gomoku-Images name) error?: #f))
+                (list (format "{a}/{a}_circle.png" size name)
+                      (format "{a}/{a}_shadow.png" size name)
+                      (format "{a}/{a}_highlight.png" size name)
+                      (format "{a}/{a}_ball.png" size name)
+                      (format "{a}/{a}_stone.png" size name)
+                      (format "{a}/{a}_stone_glow.png" size name)))
+      (delete-file~ (new-file~ Gomoku-Images (format "{a}/moon_crescent.png" size)) error?: #f)))))

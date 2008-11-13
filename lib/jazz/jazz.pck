@@ -1,4 +1,4 @@
-(package org.jazz
+(package jazz
   
   (root "src")
   (install jazz.install)

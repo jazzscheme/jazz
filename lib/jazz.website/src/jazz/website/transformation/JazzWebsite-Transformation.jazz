@@ -184,9 +184,9 @@
                   (if (is? node JML-Element)
                       (case (get-tag~ node)
                         ((section)) ;; section will get its own page
-                        ((articles) (output-articles node output))
-                        (else (put~ output node)))
-                    (put~ output node)))
+                        ((article) (output-article node 1 output))
+                        (else (error "Ill-formed section")))
+                    (error "Ill-formed section")))
                 (get-children~ section))
       (get-output~ output)))
   
@@ -616,18 +616,27 @@
   ;;;
   
   
-  (method (output-articles articles output)
-    (for-each (function (article)
-                (output-article article output))
-             (get-children~ articles)))
+  (method (output-article article level output)
+    (for-each (function (node)
+                (if (is? node JML-Element)
+                    (case (get-tag~ node)
+                      ((description) (output-article-description article node level output))
+                      ((article) (output-article node (+ level 1) output))
+                      (else (error "Ill-formed article")))
+                  (error "Ill-formed article")))
+              (get-children~ article)))
   
   
-  (method (output-article article output)
+  (method (output-article-description article description level output)
     (put~ output
           `(<div>
             ,@(let ((name (get-property~ article 'name)))
                 (if (null? name)
                     '()
                   `((<a> name: ,(->string name)))))
-            (<h3> ,(get-property~ article 'title))
-            ,@(children->jml~ article))))))
+            ,(let ((title (get-property~ article 'title)))
+               (case level
+                 ((1) `(<h3> ,title))
+                 ((2) `(<h4> class: "section2" ,title))
+                 (else `(<h4> class: "section3" ,title))))
+            ,@(children->jml~ description))))))

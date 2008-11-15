@@ -2196,7 +2196,7 @@
 
 
 ;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
-@w
+#;
 (define (jazz.expand-com-external walker resume declaration environment offset result-type signature)
   (let ((name (car signature))
         (resolve-declaration (lambda (type) (if (symbol? type)
@@ -2209,7 +2209,7 @@
     (let ((resolved-result (resolve-declaration result-type))
           (resolved-params (map resolve-declaration (map cadr (cdr signature))))
           (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
-      @debug
+      #; ;; debug
       (apply jazz.debug name resolved-result resolved-params)
       (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
           `(definition ,lowlevel-name
@@ -2786,7 +2786,7 @@
         (jazz.walk-error walker resume declaration "Illegal clause size in {a}: {a}" struct clause))
       (receive (kind expansion) (jazz.kind+type walker resume declaration environment type)
         (let ((id-string (%%symbol->string id)))
-          @indev
+          #; ;; indev
           (let ((getter-string "todo"))
             (let ((getter `(definition ,(jazz.build-method-symbol struct id '-ref)
                                        (c-function (struct*) ,type ,(%%string-append getter-string id-string ";")))
@@ -2862,7 +2862,7 @@
          ,@(apply append (map expand-accessor clauses))))))
 
 
-@old
+#; ;; old
 (define (jazz.parse-structure-accessor walker resume declaration environment clause)
   (let* ((type (%%car clause))
          (type* (jazz.build-pointer-symbol type))
@@ -2889,7 +2889,7 @@
            (values type* identifier size-string #f #f #t)))))
 
 
-@old
+#; ;; old
 (define (jazz.expand-structure/union walker resume declaration environment name clauses)
   (receive (struct c-struct-string tag) (jazz.parse-structure-name name)
     (let ((struct* (jazz.build-pointer-symbol struct))

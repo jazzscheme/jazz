@@ -105,7 +105,7 @@
           (let ((ext (get-extension~ file)))
             (when (member? ext '("jazz") test: ci=?)
               (directory-feedback file)
-              (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+              (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
                 (function (port)
                   (let ((line (read-line port)))
                     (when (and (not (eof-object? line))
@@ -288,14 +288,15 @@
            (preferences (new JML-Preferences))
            (renderer (new XHTML-Renderer preferences))
            (html (first-child~ page)))
-      (call-with-output-file (list path: (parse~ file) eol-encoding: platform-eol-encoding)
+      ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
+      (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: platform-eol-encoding)
         (function (printer)
           (render~ renderer html printer)))))
   
   
   (method (export-latest-news)
     (let* ((site (load-jml JazzWebsite-Site))
-           (news (first-child~ (find-name~ site 'news)))
+           (news (second (get-children~ (find-name~ site 'news))))
            (latest (first (get-children~ news))))
       (let ((output (open-output-string))
             (left-margin 0)
@@ -314,6 +315,8 @@
                  ((br) (render-break node))
                  ((node) (render-node node))
                  ((span) (render-span node))
+                 ((cite) (render-cite node))
+                 ((a) (render-anchor node))
                  (else (error "Unable to render tag: {s}" tag)))))))
         
         (define (render-children node)
@@ -359,6 +362,16 @@
         
         (define (render-span node)
           (render-children node))
+        
+        (define (render-cite node)
+          (render-children node))
+        
+        (define (render-anchor node)
+          (let ((href (get-property~ node 'href))
+                (text (get-text~ (first-child~ node))))
+            (if (equal? href text)
+                (print href)
+              (print (format "{a}: {a}" text href)))))
         
         (define (with-margins left right thunk)
           (let ((old-left left-margin)

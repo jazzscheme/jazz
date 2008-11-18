@@ -420,13 +420,25 @@
 
 
 (definition (generate-x11-atoms)
+  (set! WM_PROTOCOLS                      (XInternAtom default-x11-display "WM_PROTOCOLS" #f))
   (set! WM_DELETE_WINDOW                  (XInternAtom default-x11-display "WM_DELETE_WINDOW" #f))
   (set! _NET_WM_WINDOW_TYPE               (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE" #f))
   (set! _NET_WM_WINDOW_TYPE_DIALOG        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_DIALOG" #f))
   (set! _NET_WM_WINDOW_TYPE_DROPDOWN_MENU (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU" #f))
   (set! _NET_WM_WINDOW_TYPE_TOOLTIP       (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_TOOLTIP" #f))
   (set! _NET_WM_WINDOW_TYPE_NORMAL        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_NORMAL" #f))
-  (set! XA_CLIPBOARD                      (XInternAtom default-x11-display "CLIPBOARD" #f)))
+  (set! XA_CLIPBOARD                      (XInternAtom default-x11-display "CLIPBOARD" #f))
+  (set! XdndAware                         (XInternAtom default-x11-display "XdndAware" #f))
+  (set! XdndEnter                         (XInternAtom default-x11-display "XdndEnter" #f))
+  (set! XdndLeave                         (XInternAtom default-x11-display "XdndLeave" #f))
+  (set! XdndSelection                     (XInternAtom default-x11-display "XdndSelection" #f))
+  (set! XdndPosition                      (XInternAtom default-x11-display "XdndPosition" #f))
+  (set! XdndDrop                          (XInternAtom default-x11-display "XdndDrop" #f))
+  (set! XdndStatus                        (XInternAtom default-x11-display "XdndStatus" #f))
+  (set! XdndFinished                      (XInternAtom default-x11-display "XdndFinished" #f))
+  (set! XdndTypeList                      (XInternAtom default-x11-display "XdndTypeList" #f))
+  (set! XdndActionCopy                    (XInternAtom default-x11-display "XdndActionCopy" #f))
+  (set! text/uri-list                     (XInternAtom default-x11-display "text/uri-list" #f)))
 
 ;;;
 ;;;; Base Atoms
@@ -437,6 +449,32 @@
 (definition XA_ATOM 4)
 (definition XA_STRING 31)
 (definition XA_CLIPBOARD {})
+
+
+;;;
+;;;; Drag and Drop
+;;;
+
+
+(definition XdndVersion 5)
+
+(definition XdndAware {})
+(definition XdndEnter {})
+(definition XdndLeave {})
+(definition XdndSelection {})
+(definition XdndPosition {})
+(definition XdndDrop {})
+(definition XdndStatus {})
+(definition XdndFinished {})
+(definition XdndTypeList {})
+(definition XdndActionCopy {})
+
+;;;
+;;;; Drag and Drop MIME
+;;;
+
+
+(definition text/uri-list {})
 
 
 ;;;
@@ -452,10 +490,11 @@
 
 
 ;;;
-;;;; WM_DELETE_WINDOW atom
+;;;; WM_PROTOCOLS
 ;;;
 
 
+(definition WM_PROTOCOLS {})
 (definition WM_DELETE_WINDOW {})
 
 
@@ -537,7 +576,7 @@
   (uint state)
   (uint button)
   (Bool same_screen))
-  
+
 
 (c-structure XClientMessageEvent
   (int type)
@@ -547,6 +586,21 @@
   (Window window)
   (Atom message_type)
   (int format))
+
+
+(definition XClientMessageEvent-b-ref
+  (c-function (XClientMessageEvent*) char*
+    "___result_voidstar = ___arg1->data.b;"))
+
+
+(definition XClientMessageEvent-s-ref
+  (c-function (XClientMessageEvent*) short*
+    "___result_voidstar = ___arg1->data.s;"))
+
+
+(definition XClientMessageEvent-l-ref
+  (c-function (XClientMessageEvent*) long*
+    "___result_voidstar = ___arg1->data.l;"))
   
   
 (c-structure XKeyEvent
@@ -906,6 +960,27 @@
     (values (int*-ref ret 0) (int*-ref ret 1))))
 
 
+(definition (XGetWindowProperty display window property long_offset long_length delete req_type)
+  (let ((actual_type_return-pt   (ulong*-alloc 1))
+        (actual_format_return-pt (int*-alloc 1))
+        (nitems_return-pt        (ulong*-alloc 1))
+        (bytes_after_return-pt   (ulong*-alloc 1))
+        (prop_return-pt          (uint8**-alloc 1))
+        (func                    (c-function (Display* Window Atom long long Bool Atom Atom* int* ulong* ulong* uint8**) int "XGetWindowProperty")))
+  (func display window property long_offset long_length delete req_type actual_type_return-pt actual_format_return-pt nitems_return-pt bytes_after_return-pt prop_return-pt)
+  (let ((nitems_return        (ulong*-ref nitems_return-pt 0))
+        (prop_return          (uint8**-ref prop_return-pt 0))
+        (actual_format_return (int*-ref actual_format_return-pt 0))
+        (actual_type_return   (ulong*-ref actual_type_return-pt 0))
+        (bytes_after_return   (ulong*-ref bytes_after_return-pt 0)))
+    (ulong*-free actual_type_return-pt)
+    (ulong*-free nitems_return-pt)
+    (ulong*-free bytes_after_return-pt)
+    (int*-free actual_format_return-pt)
+    (uint8**-free prop_return-pt)
+    (values actual_type_return actual_format_return nitems_return bytes_after_return prop_return))))
+
+
 (definition GetPropertyString
   (c-function (Display* Window Atom) char-string
     "unsigned char *ret;
@@ -915,6 +990,21 @@
      unsigned long bytes_after_return;
      XGetWindowProperty(___arg1,___arg2,___arg3,0,100000,False,XA_STRING,&type,&format,&nitems,&bytes_after_return,&ret);
      ___result = (char*)ret;"))
+
+
+(definition (XRetrieveSelection display toplevel selection target timestamp)
+  (XConvertSelection display selection target None toplevel timestamp)
+  (let ((ev (XEvent-make)))
+    (let loop ((i 0)
+               (return #f))
+         (if (and (< i 1000000) (not return))
+             (loop (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
+           (let* ((property (if return (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
+                  (result (if (= property None)
+                              #f
+                            (XGetWindowProperty display toplevel (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) 0 100000 #f target))))
+             (XEvent-free ev)
+             result)))))
 
      
 (definition (XGetClipboardString display toplevel)

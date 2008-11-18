@@ -296,6 +296,7 @@
                             _NET_WM_WINDOW_TYPE_DIALOG)
                            (else
                             _NET_WM_WINDOW_TYPE_NORMAL))))
+        (ChangeProperty default-x11-display handle XdndAware XA_ATOM PropModeReplace (u32vector XdndVersion))
         (XSetWMProtocols (get-default-x11-display) handle WM_DELETE_WINDOW)
         (XSelectInput
           default-x11-display
@@ -476,7 +477,7 @@
            (middle-mouse-down~ window h v))
           ((= button Button3)
            (right-mouse-down~ window h v)
-           (let ((pt (acquire-point (platform-get-desktop) window (new Point h v))))
+           (let ((pt (acquire-point (platform-get-desktop) (get-handle~ window) (new Point h v))))
              (call-context-menu~ window (get-h~ pt) (get-v~ pt))))
           ((or (= button Button4) (= button Button6))
            (mouse-wheel~ window h v 120))
@@ -564,9 +565,114 @@
 
 
 (definition (process-client-message-message window msg)
-  (let* ((msg (XEvent-xclient-ref msg)))
-    (if (ProcessClientMessage (get-default-x11-display) msg)
-        (on-close~ window {}))))
+  (let* ((msg (XEvent-xclient-ref msg))
+         (type (XClientMessageEvent-message_type-ref msg)))
+    (cond ((equal? type WM_PROTOCOLS)
+           (process-wm-protocols window msg))
+          ((equal? type XdndEnter)
+           (process-xdnd-enter window msg))
+          ((equal? type XdndPosition)
+           (process-xdnd-position window msg))
+          ((equal? type XdndDrop)
+           (process-xdnd-drop window msg))
+          ((equal? type XdndLeave)
+           (process-xdnd-leave window msg)))))
+          
+
+(definition (process-wm-protocols window msg)
+  (let* ((data (XClientMessageEvent-l-ref msg))
+         (protocol (long*-ref data 0)))
+    (cond ((equal? protocol WM_DELETE_WINDOW)
+           (on-close~ window {})))))
+
+
+(definition DndSource {})
+(definition DndAccept? {})
+(definition DndPosition {})
+    
+
+(definition (Dnd-type-supported? type typelist size)
+  (let loop ((i 0))
+     (if (= i size)
+         #f
+       (if (equal? type (ulong*-ref typelist i))
+           #t
+         (loop (+ i 1))))))
+
+
+(definition (process-xdnd-enter window msg)
+  (let* ((data (XClientMessageEvent-l-ref msg))
+         (source (long*-ref data 0))
+         (version (arithmetic-shift (bitwise-and (long*-ref data 1) #xff000000) -24))
+         (typelist? (= 1 (bitwise-and (long*-ref data 1) #x00000001))))
+    (unless (or (> version XdndVersion) DndSource)
+      (set! DndSource source)
+      (receive (actual_type_return actual_format_return nitems_return bytes_after_return prop_return) (XGetWindowProperty default-x11-display source XdndTypeList 0 100000 #f XA_ATOM)
+        (let ((data (uint8*->ulong* prop_return)))
+          (set! DndAccept? (Dnd-type-supported? text/uri-list data nitems_return)))))))
+      
+      
+(definition (process-xdnd-position window msg)
+  (let* ((data (XClientMessageEvent-l-ref msg))
+         (source (long*-ref data 0))
+         (position (long*-ref data 2)))
+    (if (equal? source DndSource)
+        (begin
+          (set! DndPosition (new Point (arithmetic-shift (bitwise-and position #xffff0000) -16) (bitwise-and position #x0000ffff)))
+          (let* ((ev (XEvent-make))
+                 (mess (XEvent-xclient-ref ev))
+                 (l (XClientMessageEvent-l-ref mess)))
+            (XClientMessageEvent-type-set! mess ClientMessage)
+            (XClientMessageEvent-window-set! mess source)
+            (XClientMessageEvent-message_type-set! mess XdndStatus)
+            (XClientMessageEvent-format-set! mess 32)
+            (long*-set! l 0 (get-handle~ window))
+            (long*-set! l 1 (bitwise-ior #x00000002 (if DndAccept? #x00000001 #x00000000)))
+            (long*-set! l 2 0)
+            (long*-set! l 3 0)
+            (long*-set! l 4 (if DndAccept? XdndActionCopy None))
+            (XSendEvent default-x11-display source #f 0 ev)
+            (XEvent-free ev))))))
+           
+
+(definition (process-xdnd-drop window msg)
+  (let* ((data (XClientMessageEvent-l-ref msg))
+         (source (long*-ref data 0))
+         (stamp (long*-ref data 2)))
+    (when (equal? source DndSource)
+      (receive (actual_type_return actual_format_return nitems_return bytes_after_return prop_return) (XRetrieveSelection default-x11-display (get-handle~ window) XdndSelection text/uri-list stamp)
+        (let ((files (collect (function (x) 
+                                (and (not (equal? x ""))
+                                     (let ((splitted (split x "://")))
+                                       (and (equal? (car splitted) "file")
+                                            (new (case (pathname-type (cadr splitted)) ((directory) Directory) (else File)) (tokenise-windows (cadr splitted)))))))
+                              (split (uint8*->char-string prop_return) "\r\n"))))
+          (receive-files~ window (acquire-point (get-handle~ window) (platform-get-desktop) DndPosition) files)))
+      (set! DndSource {})
+      (set! DndAccept? {})
+      (set! DndPosition {}h
+      (let* ((ev (XEvent-make))
+             (mess (XEvent-xclient-ref ev))
+             (l (XClientMessageEvent-l-ref mess)))
+        (XClientMessageEvent-type-set! mess ClientMessage)
+        (XClientMessageEvent-display-set! mess default-x11-display)
+        (XClientMessageEvent-window-set! mess source)
+        (XClientMessageEvent-message_type-set! mess XdndFinished)
+        (XClientMessageEvent-format-set! mess 32)
+        (long*-set! l 0 (get-handle~ window))
+        (long*-set! l 1 #x00000001)
+        (long*-set! l 2 XdndActionCopy)
+        (XSendEvent default-x11-display source #f 0 ev)
+        (XEvent-free ev))))))
+  
+
+(definition (process-xdnd-leave window msg)
+  (let* ((data (XClientMessageEvent-l-ref msg))
+         (source (long*-ref data 0)))
+    (when (equal? source DndSource)
+      (set! DndSource {})
+      (set! DndAccept? {})
+      (set! DndPosition {}))))
 
 
 (definition (translate-shortcut mods keycode)
@@ -685,14 +791,14 @@
     (= (XWindowAttributes-map_state-ref infos) IsViewable)))
 
 
-(definition (acquire-point to-handle from-window shape)
-  (receive (x y) (XTranslateCoordinates default-x11-display (get-handle~ from-window) to-handle (get-h~ shape) (get-v~ shape))
+(definition (acquire-point to-handle from-handle shape)
+  (receive (x y) (XTranslateCoordinates default-x11-display from-handle to-handle (get-h~ shape) (get-v~ shape))
     (new Point x y)))
 
 
-(definition (acquire-rect handle window shape)
-  (let ((left-top (acquire-point handle window (new Point (get-left~ shape) (get-top~ shape))))
-        (right-bottom (acquire-point handle window (new Point (get-right~ shape) (get-bottom~ shape)))))
+(definition (acquire-rect to-handle from-handle shape)
+  (let ((left-top (acquire-point to-handle from-handle (new Point (get-left~ shape) (get-top~ shape))))
+        (right-bottom (acquire-point to-handle from-handle (new Point (get-right~ shape) (get-bottom~ shape)))))
     (corners->rect left-top right-bottom)))
 
 

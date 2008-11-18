@@ -2696,10 +2696,11 @@
 
 (define (jazz.walk-c-function walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (jazz.bind (types result-type c-name-or-code) (%%cdr form)
-      (let ((resolve-access (lambda (type) (jazz.expand-c-type-reference walker resume declaration environment type))))
-        (jazz.new-c-function
-          `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code))))))
+    (%%assertion (and (list? form) (= 4 (%%length form))) (jazz.error "Ill-formed c-function")
+      (jazz.bind (types result-type c-name-or-code) (%%cdr form)
+        (let ((resolve-access (lambda (type) (jazz.expand-c-type-reference walker resume declaration environment type))))
+	  (jazz.new-c-function
+	   `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))))
 
 
 ;;;

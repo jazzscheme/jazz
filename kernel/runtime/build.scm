@@ -576,7 +576,7 @@
       ;;;
       
       (define (generate-gambcini)
-        (let ((file (kernel-file ".gambcini")))
+        (let ((file (install-file ".gambcini")))
           (if (not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)

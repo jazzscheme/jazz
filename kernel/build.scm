@@ -36,34 +36,30 @@
 
 
 ;;;
-;;;; Version
+;;;; Versions
 ;;;
 
 
-(define jazz.kernel-version
-  "2.0b1")
+(define (jazz.setup-versions)
+  (set! jazz.source-versions-file "kernel/versions")
+  (jazz.validate-gambit-version))
 
 
-(define jazz.gambit-version
-  403000)
-
-
-(define jazz.gambit-stamp
-  20081029202934)
-
-
-(define (jazz.validate-version)
+(define (jazz.validate-gambit-version)
   (define (wrong-version message)
     (display message)
     (newline)
     (exit 1))
   
-  (if (not jazz.gambit-stamp)
-      (if (< (system-version) jazz.gambit-version)
-          (wrong-version (jazz.format "Jazz needs Gambit version {a} or higher{%}Please see INSTALL for details" jazz.gambit-version)))
-    (if (and (<= (system-version) jazz.gambit-version)
-             (< (system-stamp) jazz.gambit-stamp))
-        (wrong-version (jazz.format "Jazz needs Gambit version {a} stamp {a} or higher{%}Please see INSTALL for details" jazz.gambit-version jazz.gambit-stamp)))))
+  (if (not (jazz.gambit-uptodate? (system-version) (system-stamp)))
+      (let ((gambit-version (jazz.get-gambit-version))
+            (gambit-stamp (jazz.get-gambit-stamp)))
+        (let ((stamp (if gambit-stamp (jazz.format " stamp {a}" gambit-stamp) "")))
+          (wrong-version
+            (jazz.format "JazzScheme needs Gambit version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
+                         gambit-version
+                         stamp
+                         gambit-stamp))))))
 
 
 ;;;
@@ -718,41 +714,6 @@
         (install (jazz.install-directory configuration))
         (source "./")
         (source-access? (jazz.configuration-source configuration)))
-    (define (install-file path)
-      (string-append install path))
-    
-    (define (generate-gambcini)
-      (let ((file (install-file ".gambcini")))
-        (if (not (file-exists? file))
-            (begin
-              (jazz.feedback "; generating {a}..." file)
-              (call-with-output-file file
-                (lambda (output)
-                  (jazz.print ";;;" output)
-                  (jazz.print ";;;===============" output)
-                  (jazz.print ";;;  Jazz System" output)
-                  (jazz.print ";;;===============" output)
-                  (jazz.print ";;;" output)
-                  (jazz.print ";;;; Gambit Ini" output)
-                  (jazz.print ";;;" output)
-                  (newline output)
-                  (newline output)
-                  (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
-                  (newline output)
-                  (jazz.print-variable 'jazz.product #f output)
-                  (newline output)
-                  (jazz.print-variable 'jazz.kernel-version jazz.kernel-version output)
-                  (newline output)
-                  (jazz.print-variable 'jazz.install "." output)
-                  (newline output)
-                  (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
-                  (newline output)
-                  (jazz.print-variable 'jazz.source-access? source-access? output)
-                  (newline output)
-                  (newline output)
-                  (display "(load (string-append jazz.source \"kernel/boot\"))" output)
-                  (newline output)))))))
-    
     (jazz.build-executable #f
       name:            name
       title:           title
@@ -767,10 +728,7 @@
       source:          source
       source-access?:  source-access?
       kernel?:         #t
-      console?:        #t)
-    
-    (if interpret?
-        (generate-gambcini))))
+      console?:        #t)))
 
 
 ;;;
@@ -950,7 +908,7 @@
 
 (define (jazz.build-system-repl)
   (let ((console (console-port)))
-    (jazz.print (jazz.format "Jazz {a} Build System" jazz.kernel-version) console)
+    (jazz.print (jazz.format "JazzScheme Build System {a}" (jazz.present-version (jazz.get-source-version-number))) console)
     (force-output console)
     (let loop ()
       (newline console)
@@ -1088,6 +1046,6 @@
 ;;;
 
 
-(jazz.validate-version)
+(jazz.setup-versions)
 (jazz.load-configurations)
 (jazz.build-system-boot)

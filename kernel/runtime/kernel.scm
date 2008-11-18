@@ -255,9 +255,6 @@
     (define jazz.file-exists?
       file-exists?)
     
-    (define (jazz.file-modification-time pathname)
-      (time->seconds (file-last-modification-time pathname)))
-    
     (define jazz.file-delete
       delete-file)
     
@@ -675,7 +672,9 @@
     (let ((manifest (and bin (jazz.load-manifest bin))))
       (let ((bin-uptodate?
               (and bin (or (%%not src)
-                           (and manifest (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
+                           (and manifest
+                                (not (jazz.manifest-needs-rebuild? manifest))
+                                (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
         (proc src bin bin-uptodate?)))))
 
 
@@ -955,22 +954,30 @@
             (lambda (input)
               (let ((form (read input)))
                 (let ((name (%%cadr form))
+                      (version-form (%%assq 'version (%%cddr form)))
                       (digest-form (%%assq 'digest (%%cddr form))))
-                  (let ((hash (%%cadr digest-form))
+                  (let (;; test is for backward compatibility and could be removed in the future
+                        (version (if version-form (%%cadr version-form) #f))
+                        (hash (%%cadr digest-form))
                         (cached-time (%%car (%%cddr digest-form)))
                         (cached-identical? (%%cadr (%%cddr digest-form))))
-                    (%%make-manifest name (%%make-digest hash cached-time cached-identical?)))))))
+                    (%%make-manifest name version (%%make-digest hash cached-time cached-identical?)))))))
         #f))))
 
 
 (define (jazz.save-manifest resource manifest)
   (let ((name (%%manifest-name manifest))
+        (version (%%manifest-version manifest))
         (digest (%%manifest-digest manifest)))
     (call-with-output-file (jazz.resource-pathname resource)
       (lambda (output)
         (display "(manifest " output)
         (display name output)
         (newline output)
+        (newline output)
+        (display "  (version " output)
+        (write version output)
+        (display ")" output)
         (newline output)
         (display "  (digest " output)
         (write (%%digest-hash digest) output)

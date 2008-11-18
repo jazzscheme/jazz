@@ -78,7 +78,7 @@
                     (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
               (let ((manifest-resource (%%make-resource build-package path jazz.Manifest-Extension))
                     (manifest-digest (jazz.resource-digest src)))
-                (jazz.save-manifest manifest-resource (%%make-manifest manifest-name manifest-digest)))))
+                (jazz.save-manifest manifest-resource (%%make-manifest manifest-name jazz.kernel-version manifest-digest)))))
           (if (jazz.compile-verbose?)
               (let ((before (time->seconds (current-time))))
                 (compile)

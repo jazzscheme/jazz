@@ -36,6 +36,206 @@
 
 
 ;;;
+;;;; Version
+;;;
+
+
+(define (jazz.make-version number gambit-version gambit-stamp rebuild description)
+  (vector 'version number gambit-version gambit-stamp rebuild description))
+
+(define (jazz.version-number version)
+  (vector-ref version 1))
+
+(define (jazz.version-gambit-version version)
+  (vector-ref version 2))
+
+(define (jazz.version-gambit-stamp version)
+  (vector-ref version 3))
+
+(define (jazz.version-rebuild version)
+  (vector-ref version 4))
+
+(define (jazz.version-description version)
+  (vector-ref version 5))
+
+
+(define (jazz.new-version
+          #!key
+          (version #f)
+          (gambit-version #f)
+          (gambit-stamp #f)
+          (rebuild #f)
+          (description #f))
+  (jazz.make-version
+    version
+    gambit-version
+    gambit-stamp
+    rebuild
+    description))
+
+
+(define (jazz.split-version number)
+  (let ((str (number->string number)))
+    (let ((len (string-length str)))
+      (let ((major (string->number (substring str 0 (- len 5))))
+            (minor (string->number (substring str (- len 5) (- len 3))))
+            (revision (string->number (substring str (- len 3) len))))
+        (values major minor revision)))))
+
+
+(define (jazz.present-version number)
+  (receive (major minor revision) (jazz.split-version number)
+    (string-append "v"
+                   (number->string major)
+                   "."
+                   (number->string minor)
+                   "."
+                   (number->string revision))))
+
+
+;;;
+;;;; Versions
+;;;
+
+
+(define jazz.source-versions-file
+  #f)
+
+(define jazz.source-versions
+  #f)
+
+(define jazz.source-version-number
+  #f)
+
+(define jazz.gambit-version
+  #f)
+
+(define jazz.gambit-stamp
+  #f)
+
+
+(define jazz.load-source-versions
+  (let ((loaded? #f))
+    (lambda ()
+      (define (determine-source-versions-file)
+        (or jazz.source-versions-file
+            (and jazz.source (string-append jazz.source "kernel/versions"))))
+      
+      (define (load-versions)
+        (let ((file (determine-source-versions-file)))
+          (if (and file (file-exists? file))
+              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
+                (lambda (input)
+                  (define (read-version input)
+                    (let ((list (read input)))
+                      (if (eof-object? list)
+                          list
+                        (apply jazz.new-version list))))
+                  (set! jazz.source-versions (read-all input read-version))
+                  (set! jazz.source-version-number (jazz.version-number (car jazz.source-versions))))))))
+      
+      (define (setup-gambit-version/stamp)
+        (if jazz.source-versions
+            (let iter ((source-versions jazz.source-versions))
+              (if (not (null? source-versions))
+                  (let ((source-version (car source-versions)))
+                    (let ((gambit-version (jazz.version-gambit-version source-version))
+                          (gambit-stamp (jazz.version-gambit-stamp source-version)))
+                      (if gambit-version
+                          (begin
+                            (set! jazz.gambit-version gambit-version)
+                            (set! jazz.gambit-stamp gambit-stamp))
+                        (iter (cdr source-versions)))))))))
+      
+      (if (not loaded?)
+          (begin
+            (load-versions)
+            (setup-gambit-version/stamp)
+            (set! loaded? #t))))))
+
+
+(define (jazz.get-source-versions)
+  (jazz.load-source-versions)
+  jazz.source-versions)
+
+
+(define (jazz.get-source-version-number)
+  (jazz.load-source-versions)
+  jazz.source-version-number)
+
+
+(define (jazz.get-gambit-version)
+  (jazz.load-source-versions)
+  jazz.gambit-version)
+
+
+(define (jazz.get-gambit-stamp)
+  (jazz.load-source-versions)
+  jazz.gambit-stamp)
+
+
+(define (jazz.for-each-source-version proc)
+  (for-each proc (jazz.get-source-versions)))
+
+
+(define (jazz.for-each-higher-source-version version proc)
+  (let iter ((source-versions (jazz.get-source-versions)))
+    (if (not (null? source-versions))
+        (let ((source-version (car source-versions)))
+          (if (> (jazz.version-number source-version) version)
+              (begin
+                (proc source-version)
+                (iter (cdr source-versions))))))))
+
+
+(define (jazz.gambit-uptodate? system-version system-stamp)
+  (let ((gambit-version (jazz.get-gambit-version))
+        (gambit-stamp (jazz.get-gambit-stamp)))
+    (if gambit-version
+        (if (not gambit-stamp)
+            (>= system-version gambit-version)
+          (or (> system-version gambit-version)
+              (>= system-stamp gambit-stamp)))
+      #t)))
+
+
+(define (jazz.kernel/product-needs-rebuild? version-file)
+  (receive (version gambit-version gambit-stamp) (jazz.load-version-file version-file)
+    (if (not version)
+        #t
+      (or (not (jazz.gambit-uptodate? gambit-version gambit-stamp))
+          (let ((rebuild? #f))
+            (jazz.for-each-higher-source-version version
+              (lambda (source-version)
+                (if (memq (jazz.version-rebuild source-version) '(kernel all))
+                    (set! rebuild? #t))))
+            rebuild?)))))
+
+
+(define (jazz.load-version-file version-file)
+  (if (file-exists? version-file)
+      (call-with-input-file (list path: version-file eol-encoding: 'cr-lf)
+        (lambda (input)
+          (let ((version (read input))
+                (gambit-version (read input))
+                (gambit-stamp (read input)))
+            (values version gambit-version gambit-stamp))))
+    (values #f #f #f)))
+
+
+(define (jazz.manifest-needs-rebuild? manifest)
+  (let ((version (%%manifest-version manifest)))
+    ;; test is for backward compatibility and could be removed in the future
+    (or (not version)
+        (let ((rebuild? #f))
+          (jazz.for-each-higher-source-version version
+            (lambda (source-version)
+              (if (eq? (jazz.version-rebuild source-version) 'all)
+                  (set! rebuild? #t))))
+          rebuild?))))
+
+
+;;;
 ;;;; Executable
 ;;;
 
@@ -60,23 +260,122 @@
           (maximum-heap #f)
           (feedback jazz.feedback))
   (let ((product-name (if (not product) "jazz" (symbol->string product))))
-    (let ((product-dir (string-append install "build/products/" product-name "/")))
+    (let ((kernel-dir (string-append install "build/kernel/"))
+          (product-dir (string-append install "build/products/" product-name "/")))
       (define (source-file path)
         (string-append source path))
       
       (define (install-file path)
         (string-append install path))
       
+      (define (kernel-file path)
+        (string-append kernel-dir path))
+      
       (define (product-file path)
         (string-append product-dir path))
+      
+      (define (print line output)
+        (display line output)
+        (newline output))
       
       (define (feedback-message fmt-string . rest)
         (if feedback
             (apply feedback fmt-string rest)))
       
-      (define (generate-architecture)
-        (let ((file (product-file "_architecture.scm")))
-          (if (not (file-exists? file))
+      (define (compile-file rebuild? name dir output)
+        (let ((src (string-append dir name ".scm"))
+              (dst (string-append output name ".c")))
+          (if (or rebuild? (jazz.file-needs-update? src dst))
+              (let ((path (string-append dir name))
+                    (options '(debug-environments)))
+                (feedback-message "; compiling {a}..." path)
+                (compile-file-to-c path options: options output: output)
+                #t)
+            #f)))
+      
+      (define (with-version-file version-file proc)
+        (let ((rebuild? (jazz.kernel/product-needs-rebuild? version-file))
+              (was-touched? #f))
+          (define (touch)
+            (if (file-exists? version-file)
+                (delete-file version-file))
+            (set! was-touched? #t))
+          
+          (define (touched?)
+            was-touched?)
+          
+          (proc rebuild? touch touched?)
+          (if (or was-touched? (not (file-exists? version-file)))
+              (call-with-output-file version-file
+                (lambda (output)
+                  (write (jazz.get-source-version-number) output)
+                  (newline output)
+                  (write (system-version) output)
+                  (newline output)
+                  (write (system-stamp) output)
+                  (newline output))))
+          was-touched?))
+      
+      (define (kernel-time)
+        (let ((version-file (kernel-file "version")))
+          (if (file-exists? version-file)
+              (jazz.file-modification-time version-file)
+            #f)))
+      
+      ;;;
+      ;;;; Kernel
+      ;;;
+      
+      (define (build-kernel)
+        (with-version-file (kernel-file "version")
+          (lambda (rebuild? touch touched?)
+            (compile-kernel rebuild? touch touched?))))
+      
+      (define (compile-kernel rebuild? touch touched?)
+        (let ((architecture? (generate-architecture rebuild?)))
+          (define (compile-kernel-file name)
+            (if (compile-file rebuild? name kernel-dir kernel-dir)
+                (touch)))
+          
+          (define (compile-source-file path name)
+            (if (compile-file rebuild?
+                              name
+                              (string-append (source-file "kernel/") path)
+                              (kernel-file path))
+                (touch)))
+          
+          (if kernel?
+              (begin
+                ;; load architecture
+                (load (kernel-file "_architecture"))
+                
+                ;; load syntax
+                (load (source-file "kernel/syntax/macros"))
+                (load (source-file "kernel/syntax/features"))
+                (load (source-file "kernel/syntax/declares"))
+                (load (source-file "kernel/syntax/primitives"))
+                (load (source-file "kernel/syntax/syntax"))
+                (load (source-file "kernel/syntax/runtime"))))
+          
+          (if architecture?
+              (compile-kernel-file "_architecture"))
+          
+          (compile-source-file "syntax/" "macros")
+          (compile-source-file "syntax/" "features")
+          (compile-source-file "syntax/" "declares")
+          (compile-source-file "syntax/" "primitives")
+          (compile-source-file "syntax/" "syntax")
+          (compile-source-file "syntax/" "runtime")
+          (compile-source-file "runtime/" "build")
+          (compile-source-file "runtime/" "settings")
+          (compile-source-file "runtime/" "install")
+          (compile-source-file "runtime/" "digest")
+          (compile-source-file "runtime/" "kernel")
+          (compile-source-file "runtime/" "main")))
+      
+      (define (generate-architecture rebuild?)
+        (let ((file (kernel-file "_architecture.scm")))
+          (if (or rebuild? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
@@ -85,16 +384,78 @@
                 #t)
             #f)))
       
-      (define (generate-product)
+      ;;;
+      ;;;; Product
+      ;;;
+      
+      (define (build-product)
+        (with-version-file (product-file "version")
+          (lambda (rebuild? touch touched?)
+            (compile-product rebuild? touch touched?))))
+      
+      (define (compile-product rebuild? touch touched?)
+        (let ((kernel-time (kernel-time))
+              (product? (generate-product rebuild?))
+              (main? (generate-main rebuild?)))
+          (define (compile-product-file name)
+            (if (compile-file rebuild? name product-dir product-dir)
+                (touch)))
+          
+          (if product?
+              (compile-product-file "_product"))
+          (if main?
+              (compile-product-file "_main"))
+          
+          (if (generate-resources rebuild?)
+              (touch))
+          
+          ;;;
+          ;;;; Link Kernel
+          ;;;
+          
+          (let ((link-file (product-file (string-append product-name ".c"))))
+            (if (or rebuild?
+                    (not (file-exists? link-file))
+                    (or (not kernel-time) (< (jazz.file-modification-time link-file) kernel-time))
+                    (touched?))
+                (begin
+                  (feedback-message "; linking kernel...")
+                  (link-incremental (list (kernel-file "_architecture")
+                                          (product-file "_product")
+                                          (kernel-file "syntax/macros")
+                                          (kernel-file "syntax/features")
+                                          (kernel-file "syntax/declares")
+                                          (kernel-file "syntax/primitives")
+                                          (kernel-file "syntax/syntax")
+                                          (kernel-file "syntax/runtime")
+                                          (kernel-file "runtime/build")
+                                          (kernel-file "runtime/settings")
+                                          (kernel-file "runtime/install")
+                                          (kernel-file "runtime/digest")
+                                          (kernel-file "runtime/kernel")
+                                          (kernel-file "runtime/main")
+                                          (product-file "_main"))
+                                    output: link-file
+                                    base: "~~/lib/_gambcgsc"))))
+          
+          ;;;
+          ;;;; Link Executable
+          ;;;
+          
+          (if (or rebuild?
+                  (not (file-exists? (executable-name)))
+                  (or (not kernel-time) (< (jazz.file-modification-time (executable-name)) kernel-time))
+                  (touched?))
+              (link-executable))))
+      
+      (define (generate-product rebuild?)
         (let ((file (product-file "_product.scm")))
-          (if (not (file-exists? file))
+          (if (or rebuild? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
-                    (newline output)
-                    (jazz.print-variable 'jazz.kernel-version jazz.kernel-version output)
                     (newline output)
                     (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
                     (newline output)
@@ -104,9 +465,9 @@
                 #t)
             #f)))
       
-      (define (generate-main)
+      (define (generate-main rebuild?)
         (let ((file (product-file "_main.scm")))
-          (if (not (file-exists? file))
+          (if (or rebuild? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
@@ -132,99 +493,17 @@
                 #t)
             #f)))
       
-      (define (generate-resources)
+      (define (generate-resources rebuild?)
         (case platform
           ((windows)
            (let ((file (product-file (string-append product-name ".ico"))))
-             (if (not (file-exists? file))
+             (if (or rebuild? (not (file-exists? file)))
                  (begin
                    (jazz.copy-file (source-file "etc/resources/windows/jazz.ico") file feedback: feedback)
                    #t)
                #f)))
           (else
            #f)))
-      
-      (define (compile-kernel)
-        (let ((architecture? (generate-architecture))
-              (product? (generate-product))
-              (main? (generate-main))
-              (latest #f))
-          (define (compile-file name dir output)
-            (let ((src (string-append dir name ".scm"))
-                  (dst (string-append output name ".c")))
-              (if (jazz.file-needs-update? src dst)
-                  (let ((path (string-append dir name))
-                        (options '(debug-environments)))
-                    (feedback-message "; compiling {a}..." path)
-                    (compile-file-to-c path options: options output: output)))
-              (let ((seconds (time->seconds (file-last-modification-time dst))))
-                (if (or (not latest) (> seconds latest))
-                    (set! latest seconds)))))
-          
-          (define (compile-kernel-file path name)
-            (compile-file name
-                          (string-append (source-file "kernel/") path)
-                          (install-file (string-append "build/kernel/" path))))
-          
-          (generate-resources)
-          
-          (if kernel?
-              (begin
-                ;; load architecture
-                (load (product-file "_architecture"))
-                
-                ;; load syntax
-                (load (source-file "kernel/syntax/macros"))
-                (load (source-file "kernel/syntax/features"))
-                (load (source-file "kernel/syntax/declares"))
-                (load (source-file "kernel/syntax/primitives"))
-                (load (source-file "kernel/syntax/syntax"))
-                (load (source-file "kernel/syntax/runtime"))))
-          
-          (if architecture?
-              (compile-file "_architecture" product-dir product-dir))
-          (if product?
-              (compile-file "_product" product-dir product-dir))
-          (if main?
-              (compile-file "_main" product-dir product-dir))
-          
-          (compile-kernel-file "syntax/" "macros")
-          (compile-kernel-file "syntax/" "features")
-          (compile-kernel-file "syntax/" "declares")
-          (compile-kernel-file "syntax/" "primitives")
-          (compile-kernel-file "syntax/" "syntax")
-          (compile-kernel-file "syntax/" "runtime")
-          (compile-kernel-file "runtime/" "build")
-          (compile-kernel-file "runtime/" "settings")
-          (compile-kernel-file "runtime/" "install")
-          (compile-kernel-file "runtime/" "digest")
-          (compile-kernel-file "runtime/" "kernel")
-          (compile-kernel-file "runtime/" "main")
-          
-          (let ((link-file (product-file (string-append product-name ".c"))))
-            (if (or (not (file-exists? link-file))
-                    (> latest (time->seconds (file-last-modification-time link-file))))
-                (begin
-                  (feedback-message "; linking kernel...")
-                  (link-incremental (list (product-file "_architecture")
-                                          (product-file "_product")
-                                          (install-file "build/kernel/syntax/macros")
-                                          (install-file "build/kernel/syntax/features")
-                                          (install-file "build/kernel/syntax/declares")
-                                          (install-file "build/kernel/syntax/primitives")
-                                          (install-file "build/kernel/syntax/syntax")
-                                          (install-file "build/kernel/syntax/runtime")
-                                          (install-file "build/kernel/runtime/build")
-                                          (install-file "build/kernel/runtime/settings")
-                                          (install-file "build/kernel/runtime/install")
-                                          (install-file "build/kernel/runtime/digest")
-                                          (install-file "build/kernel/runtime/kernel")
-                                          (install-file "build/kernel/runtime/main")
-                                          (product-file "_main"))
-                                    output: link-file
-                                    base: "~~/lib/_gambcgsc")
-                  #t)
-              #f))))
       
       (define (resource-files)
         (case platform
@@ -262,20 +541,20 @@
         (feedback-message "; linking executable...")
         (jazz.call-process
           "gcc"
-          `(,(jazz.quote-gcc-pathname (product-file "_architecture.c") platform)
+          `(,(jazz.quote-gcc-pathname (kernel-file "_architecture.c") platform)
             ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/macros.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/features.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/declares.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/primitives.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/syntax.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/syntax/runtime.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/build.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/settings.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/install.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/digest.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/kernel.c") platform)
-            ,(jazz.quote-gcc-pathname (install-file "build/kernel/runtime/main.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/macros.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/features.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/declares.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/primitives.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/syntax.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/runtime.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/kernel.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/main.c") platform)
             ,(jazz.quote-gcc-pathname (product-file "_main.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append product-name ".c")) platform)
             ,@(resource-files)
@@ -292,13 +571,49 @@
           (else
            (install-file product-name))))
       
-      (jazz.create-directories product-dir feedback: feedback)
-      (jazz.create-directories (install-file "build/kernel/syntax/") feedback: feedback)
-      (jazz.create-directories (install-file "build/kernel/runtime/") feedback: feedback)
+      ;;;
+      ;;;; Gambcini
+      ;;;
       
-      (if (or (compile-kernel)
-              (not (file-exists? (executable-name))))
-          (link-executable)))))
+      (define (generate-gambcini)
+        (let ((file (kernel-file ".gambcini")))
+          (if (not (file-exists? file))
+              (begin
+                (jazz.feedback "; generating {a}..." file)
+                (call-with-output-file file
+                  (lambda (output)
+                    (print ";;;" output)
+                    (print ";;;===============" output)
+                    (print ";;;  Jazz System" output)
+                    (print ";;;===============" output)
+                    (print ";;;" output)
+                    (print ";;;; Gambit Ini" output)
+                    (print ";;;" output)
+                    (newline output)
+                    (newline output)
+                    (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.product #f output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.install "." output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source-access? source-access? output)
+                    (newline output)
+                    (newline output)
+                    (display "(load (string-append jazz.source \"kernel/boot\"))" output)
+                    (newline output)))))))
+      
+      (jazz.create-directories product-dir feedback: feedback)
+      (jazz.create-directories (kernel-file "syntax/") feedback: feedback)
+      (jazz.create-directories (kernel-file "runtime/") feedback: feedback)
+      
+      (build-kernel)
+      (build-product)
+      
+      (if interpret?
+          (generate-gambcini)))))
 
 
 (define (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
@@ -318,7 +633,9 @@
   (newline output)
   (jazz.print-variable 'jazz.kernel-include-source? include-source? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-interpret? interpret? output))
+  (jazz.print-variable 'jazz.kernel-interpret? interpret? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-version (jazz.get-source-version-number) output))
 
 
 (define (jazz.print-variable variable value output)
@@ -406,6 +723,10 @@
   file-exists?)
 
 
+(define (jazz.file-modification-time pathname)
+  (time->seconds (file-last-modification-time pathname)))
+
+
 (define (jazz.copy-file src dst #!key (feedback #f))
   (if (jazz.file-needs-update? src dst)
       (begin
@@ -418,8 +739,8 @@
 
 (define (jazz.file-needs-update? src dst)
   (or (%%not (file-exists? dst))
-      (> (time->seconds (file-last-modification-time src))
-         (time->seconds (file-last-modification-time dst)))))
+      (> (jazz.file-modification-time src)
+         (jazz.file-modification-time dst))))
 
 
 (define (jazz.create-directory dir #!key (feedback #f))

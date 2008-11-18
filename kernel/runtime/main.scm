@@ -185,8 +185,8 @@
     (lambda (first output-port)
       (if jazz.warnings
           (jazz.warnings output-port))
-      (display "Jazz " output-port)
-      (display jazz.kernel-version output-port)
+      (display "JazzScheme " output-port)
+      (display (jazz.present-version jazz.kernel-version) output-port)
       (newline output-port)
       (newline output-port)
       (force-output output-port)

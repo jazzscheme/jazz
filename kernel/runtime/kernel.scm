@@ -650,15 +650,21 @@
           (lambda (package path)
             (let ((src (jazz.package-find-src package path extensions)))
               (if src
-                  (continuation-return return src)))))
+                  (begin
+                    #; ;; test
+                    (jazz.validate-repository-unicity (%%package-repository package)
+                                                      module-name
+                                                      (lambda (package)
+                                                        (jazz.package-find-src package path extensions)))
+                    (continuation-return return src))))))
         (if error?
             (jazz.error "Unable to find module: {s}" module-name)
           #f)))))
 
 
 (define (jazz.with-module-src/bin module-name extensions proc)
-  (let ((src #f)
-        (bin #f))
+  (let ((bin #f)
+        (src #f))
     (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
@@ -669,6 +675,18 @@
                 (set! src (jazz.package-find-src package path extensions)))
             (if src
                 (continuation-return return #f))))))
+    #; ;; test
+    (if bin
+        (jazz.validate-repository-unicity (%%package-repository (%%resource-package bin))
+                                          (jazz.path->name (%%resource-path bin))
+                                          (lambda (package)
+                                            (jazz.package-find-bin package (%%resource-path bin)))))
+    #; ;; test
+    (if src
+        (jazz.validate-repository-unicity (%%package-repository (%%resource-package src))
+                                          (jazz.path->name (%%resource-path src))
+                                          (lambda (package)
+                                            (jazz.package-find-src package (%%resource-path src) extensions))))
     (let ((manifest (and bin (jazz.load-manifest bin))))
       (let ((bin-uptodate?
               (and bin (or (%%not src)
@@ -676,6 +694,26 @@
                                 (not (jazz.manifest-needs-rebuild? manifest))
                                 (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
         (proc src bin bin-uptodate?)))))
+
+
+(define (jazz.validate-repository-unicity repository module-name proc)
+  (if (%%not (jazz.repository-unique? repository proc))
+      (jazz.error "Found duplicate resource in {a} repository: {s}"
+                  (or (%%repository-name repository) "anonymous")
+                  module-name)))
+
+
+(define (jazz.repository-unique? repository proc)
+  (let iter ((packages (jazz.repository-packages repository))
+             (found? #f))
+    (if (%%null? packages)
+        #t
+      (let ((package (%%car packages)))
+        (if (proc package)
+            (if found?
+                #f
+              (iter (%%cdr packages) #t))
+          (iter (%%cdr packages) found?))))))
 
 
 ;;;

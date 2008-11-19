@@ -71,8 +71,9 @@
             (<Tree-View>            name: profiles          show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of profiles found in the standard directories" double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
               (<Tree-Node-Column>                           title: "Profile" width: 176 toplevel-controls?: #f display-images?: #f)))))
       (<Horizontal-Line>                                    position: {Point 0 160} size: {Dimension 400 8})
-      (<Push-Button>                name: login             title: "Login" position: {Point 117 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
-      (<Push-Button>                name: cancel            title: "Cancel" position: {Point 203 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+      (<Check-Box>                  name: always-use        title: "Always use this profile" position: {Point 10 175} size: {Dimension 130 18})
+      (<Push-Button>                name: login             title: "Login" position: {Point 225 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>                name: cancel            title: "Cancel" position: {Point 311 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
       (<Branch>                     name: new
         (<install>
           (<!>                      name: new-label         visible?: #t)
@@ -97,12 +98,13 @@
   
   
   (method (setup-existing-profiles)
-    (let ((profiles (collect-existing-profiles)))
+    (receive (profiles rank) (collect-profile-info)
+      (set-checked?~ (locate 'always-use) rank)
       (cond ((null? profiles)
              (install-new)
              (set-selected?~ (locate 'new-button) #t))
             (else
-             (install-existing profiles)
+             (install-existing profiles rank)
              (set-selected?~ (locate 'existing-button) #t)))))
   
 
@@ -119,16 +121,18 @@
   
   
   (method (get-modal-result)
-    (case (get-name~ branch)
-      ((new)
-       (let ((name (get-string-content~ (locate 'new-profile))))
-         (compose-name 'profile (string->symbol name))))
-      ((existing)
-       (let* ((tree (locate 'profiles))
-              (rank (get-single-selection~ tree)))
-         (when rank
-           (let ((row (get-row~ tree rank)))
-             (compose-name 'profile (get-user-data~ row))))))))
+    (let ((always-use? (get-checked?~ (locate 'always-use))))
+      (case (get-name~ branch)
+        ((new)
+         (let ((name (get-string-content~ (locate 'new-profile))))
+           (values name always-use?)))
+        ((existing)
+         (let* ((tree (locate 'profiles))
+                (rank (get-single-selection~ tree)))
+           (if (not rank)
+               (values {} #f)
+             (let ((row (get-row~ tree rank)))
+               (values (get-user-data~ row) always-use?))))))))
   
 
   ;;;
@@ -154,7 +158,8 @@
   
   
   (method (on-existing evt)
-    (install-existing (collect-existing-profiles)))
+    (receive (profiles rank) (collect-profile-info)
+      (install-existing profiles rank)))
   
   
   (method (on-content-change evt)
@@ -199,20 +204,25 @@
     (update-login))
   
   
-  (method (install-existing profiles)
+  (method (install-existing profiles rank)
     (set-active-branch (locate 'existing))
     (let ((tree (locate 'profiles))
-          (rank (either (find profiles (either (command-argument "defaultprofile") (get-setting 'Default-Profile)) test: equal?) (essay profiles 0))))
+          (rank (either rank (essay (not-null? profiles) 0))))
       (remove-every-row~ tree)
       (for-each (function (profile)
-                  (let ((name (string->symbol profile)))
-                    (add-row~ tree children: (list (new Tree-Node title: profile)) user-data: name)))
+                  (add-row~ tree children: (list (new Tree-Node title: profile)) user-data: profile))
                 profiles)
       (when (and rank (< rank (get-visible-count~ tree)))
         (set-single-selection~ tree rank)
         (ensure-displayed~ tree))
       (acquire-focus~ tree))
     (update-login))
+  
+  
+  (method (collect-profile-info)
+    (let ((profiles (collect-existing-profiles)))
+      (let ((rank (find profiles (argument/setting "profile" 'profile) test: equal?)))
+        (values profiles rank))))
   
   
   (method (collect-existing-profiles)

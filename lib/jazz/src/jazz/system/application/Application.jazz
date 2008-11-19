@@ -409,12 +409,13 @@
   
   
   (method (log-profile)
-    (let ((profile-arg (or (jazz-profile) (command-argument "profile"))))
-      (set! profile-module (cond (profile-arg (standard-profile-module profile-arg))
-                                 ((use-profile-logging?) (login-profile))
-                                 (else 'jazz.profile.Me @convert (system-profile-module))))
-      (install-profile)
-      (load-profile-jazzini)))
+    (let ((use-logging? (use-profile-logging?)))
+      (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (argument/setting "profile" 'profile)))))
+        (set! profile-module (cond (profile-arg (standard-profile-module profile-arg))
+                                   (use-logging? (login-profile))
+                                   (else 'jazz.profile.Me @convert (system-profile-module))))
+        (install-profile)
+        (load-profile-jazzini))))
   
   
   (method (standard-profile-module name)
@@ -430,12 +431,17 @@
 
   
   (method (login-profile)
-    (if (or (command-argument "defaultstart") (get-setting 'Default-Start?))
-        (let ((name (either (command-argument "defaultprofile") (get-setting 'Default-Profile))))
-          (standard-profile-module name))
-      (catch (Cancel-Signal signal
-               (exit))
-        (choose-login))))
+    (catch (Cancel-Signal signal
+             (exit))
+      (receive (profile always-use?) (choose-login)
+        (when settings
+          (set-setting~ settings 'profile (if always-use? profile #f))
+          (save-content~ settings)
+          (when always-use?
+            (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
+                                 profile))))
+        (let ((module-name (compose-name 'profile (string->symbol profile))))
+          module-name))))
   
   
   (method (install-profile)
@@ -461,7 +467,9 @@
       (let ((file (new-file~ directory (format "_{a}.jazz" name))))
         (copy-profile file expander associations))
       (let ((file (new-file~ directory (format "{a}-Project.jazz" name))))
-        (copy-project file expander associations))))
+        (copy-project file expander associations))
+      (create-directories~ {Directory Home ".jedi"})
+      (copy-jedi-settings {File Home ".jedi" ".settings"} expander associations)))
   
   
   (method (load-profile-jazzini)
@@ -470,42 +478,48 @@
         (load (parse~ file)))))
   
   
-  (method (copy-jazzini file expander associations)
-    (when (not (exists?~ file))
-      (let ((template {File Jazz "lib" "jedi" "templates" "user" ".jazzini"}))
-        (copy-template template file expander associations))))
+  (method (copy-jazzini destination expander associations)
+    (when (not (exists?~ destination))
+      (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jazz" ".jazzini"}))
+        (copy-template template destination expander associations))))
   
   
-  (method (copy-profiles-package file expander associations)
-    (when (not (exists?~ file))
-      (let ((template {File Jazz "lib" "jedi" "templates" "user" "lib" "jedi.profiles" "jedi.profiles.pck"}))
-        (copy-template template file expander associations))
+  (method (copy-profiles-package destination expander associations)
+    (when (not (exists?~ destination))
+      (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jazz" "lib" "jedi.profiles" "jedi.profiles.pck"}))
+        (copy-template template destination expander associations))
       (let ((repository (find-repository 'user)))
-        (repository-add-package repository (load-package repository 'jedi.profiles (parse~ file))))))
+        (repository-add-package repository (load-package repository 'jedi.profiles (parse~ destination))))))
   
   
   (method (copy-profile-settings directory expander associations)
-    (let ((settings {Directory Jazz "lib" "jedi" "templates" "user" "lib" "jedi.profiles" "profile" "default" "settings"}))
+    (let ((settings {Directory Jazz "lib" "jedi" "templates" "home" ".jazz" "lib" "jedi.profiles" "profile" "default" "settings"}))
       (copy-directory~ settings (new-directory~ directory "settings")
         copier: (function (src dst)
                   (copy-template src dst expander associations))
         touch-files?: #t)))
   
   
-  (method (copy-profile file expander associations)
-    (let ((template {File Jazz "lib" "jedi" "templates" "user" "lib" "jedi.profiles" "profile" "default" "default-profile.jazz"}))
-      (copy-template template file expander associations)))
+  (method (copy-profile destination expander associations)
+    (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jazz" "lib" "jedi.profiles" "profile" "default" "default-profile.jazz"}))
+      (copy-template template destination expander associations)))
   
   
-  (method (copy-project file expander associations)
-    (let ((template {File Jazz "lib" "jedi" "templates" "user" "lib" "jedi.profiles" "profile" "default" "default-project.jazz"}))
-      (copy-template template file expander associations)))
+  (method (copy-project destination expander associations)
+    (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jazz" "lib" "jedi.profiles" "profile" "default" "default-project.jazz"}))
+      (copy-template template destination expander associations)))
   
   
   (method (copy-template template destination expander associations)
     (call-with-output-file (parse~ destination)
       (function (printer)
         (expand~ expander template associations printer))))
+  
+  
+  (method (copy-jedi-settings destination expander associations)
+    (when (not (exists?~ destination))
+      (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jedi" ".settings"}))
+        (copy-template template destination expander associations))))
 
   
   (method (create-profile)
@@ -2126,7 +2140,7 @@
   (method public (set-search-targets targets)
     (let ((search (active-search)))
       (if (not search)
-          (set-setting 'Search-Targets targets)
+          #f @convert (set-setting 'Search-Targets targets)
         (set-search-targets~ search targets))))
 
 

@@ -94,23 +94,94 @@
 ;;;
 
 
-(definition Settings
-  (make-table test: eq?))
+(class Settings extends Object
+
+
+  (slot file      initialize {})
+  (slot content   initialize {})
+  (slot modified? initialize #f)
+  
+  
+  (method (initialize (file: file {}))
+    (nextmethod)
+    (set-file file))
+
+
+  (method public (get-file)
+    file)
+
+
+  (method public (set-file value)
+    (set! file value)
+    (if (not file)
+        (set! content {})
+      (load-content)))
+
+
+  (method public (get-setting setting (default {}))
+    (table-ref content setting default))
+
+
+  (method public (set-setting setting value)
+    (table-set! content setting value)
+    (set! modified? #t))
+
+
+  (method public (load-content)
+    (set! content (make-table test: eq?))
+    (table-load content file #f)
+    (set! modified? #f))
+
+
+  (method public (save-content)
+    (define (find-longest list)
+      (apply max (map (function (info)
+                        (cardinality (symbol->string (car info))))
+                      list)))
+    
+    (call-with-output-file (parse~ file)
+      (function (output)
+        (let ((all (table->list content)))
+          (when (not-null? all)
+            (let ((max (find-longest all))
+                  (sorted (sort string<? all key: (function (info) (symbol->string (car info))))))
+              (for-each (function (info)
+                          (bind (setting . value) info
+                            (format output "{s}{_ :v} {s}{%}" setting (- max (cardinality (symbol->string setting))) value)))
+                        sorted))))))
+    (set! modified? #f)))
+
+
+;;;
+;;;; Settings List
+;;;
+
+
+(definition *settings*
+  '())
 
 
 (definition public (get-settings)
-  Settings)
+  *settings*)
 
 
-(definition public (load-settings file)
-  (table-load Settings file #f))
+(definition public (register-settings settings)
+  (set! *settings* (cons settings *settings*)))
 
 
-(definition public (get-setting name)
-  (table-ref Settings name {}))
+(definition Not-Found
+  (list 'not-found))
 
-(definition public (set-setting name value)
-  (table-set! Settings name value))
+
+(definition public (get-setting name (default {}))
+  (continuation-capture
+    (function (return)
+      (for-each (function (settings)
+                  (let ((value (get-setting~ settings name Not-Found)))
+                    (when (neq? value Not-Found)
+                      (continuation-return return value))))
+                *settings*)
+      default)))
 
 
 (definition public (require-setting name)

@@ -582,10 +582,9 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (print ";;;" output)
-                    (print ";;;===============" output)
-                    (print ";;;  Jazz System" output)
-                    (print ";;;===============" output)
+                    (print ";;;==============" output)
+                    (print ";;;  JazzScheme" output)
+                    (print ";;;==============" output)
                     (print ";;;" output)
                     (print ";;;; Gambit Ini" output)
                     (print ";;;" output)

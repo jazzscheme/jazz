@@ -908,9 +908,37 @@
     (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
 
 
+(definition (scroll-invalidate handle dh dv src-rect clip-rect)
+  (let* ((src-rect (rect-intersection src-rect clip-rect))
+         (dst-rect (offset-rect src-rect dh dv))
+         (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect)))
+    (let ((ml (get-left~ modified-rect))
+          (mt (get-top~ modified-rect))
+          (mr (get-right~ modified-rect))
+          (mb (get-bottom~ modified-rect)))
+      ;; TODO : Be smarter in intersecting with the clip rect
+      (when (< dh 0)
+        (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect (+ mr dh) mt mr mb))))
+      (when (< dv 0)
+        (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect ml (+ mb dv) mr mb))))
+      (when (> dh 0)
+        (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect ml mt (+ ml dh) mb))))
+      (when (> dv 0)
+        (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect ml mt mr (+ mt dv))))))))
+
+
 (definition (platform-scroll-window handle dh dv rect clip-rect)
-  (platform-invalidate-rect handle clip-rect)
-  @w(platform-update-window handle))
+  (let ((gc (XCreateGC default-x11-display handle 0 #f))
+        (xrect (XRectangle-make)))
+    (XRectangle-x-set! xrect 0)
+    (XRectangle-x-set! xrect 0)
+    (XRectangle-width-set! xrect (- (get-right~ clip-rect) (get-left~ clip-rect)))
+    (XRectangle-height-set! xrect (- (get-bottom~ clip-rect) (get-top~ clip-rect)))
+    (XSetClipRectangles default-x11-display gc (get-left~ clip-rect) (get-top~ clip-rect) xrect 1 0)
+    (XCopyArea default-x11-display handle handle gc (get-left~ rect) (get-top~ rect) (- (get-right~ rect) (get-left~ rect)) (- (get-bottom~ rect) (get-top~ rect)) (+ (get-left~ rect) dh) (+ (get-top~ rect) dv))
+    (XFreeGC default-x11-display gc)
+    (scroll-invalidate handle dh dv rect clip-rect)
+    (platform-update-window handle)))
 
 
 (definition inval-rects (make-table))

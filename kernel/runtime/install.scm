@@ -39,7 +39,11 @@
 
 
 (cond-expand
-  (mac)
+  (mac
+    (c-declare "#include <mach-o/dyld.h>")
+    (set! jazz.executable-directory
+          (lambda ()
+            (jazz.pathname-dir (jazz.pathname-normalize (GetExecutablePath))))))
   (windows
     (set! jazz.executable-directory
           (lambda ()
@@ -70,6 +74,14 @@
          GetProcessInformation(&serial, &info);
          FSpMakeFSRef(&spec, &ref);
          FSRefMakePath(&ref, (UInt8*)path, 2048);
+         ___result = path;")))
+  (mac
+    (define GetExecutablePath
+      (c-lambda () char-string
+        "char path[1024];
+         uint32_t pathLength = 1023;
+         _NSGetExecutablePath(path,&pathLength);
+         path[1023] = 0;
          ___result = path;")))
   (windows
     (define GetModuleFileName

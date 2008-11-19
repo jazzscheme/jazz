@@ -159,7 +159,7 @@
       (jazz.build-clipboard)))
   (windows
     (define (jazz.build-platform)
-      (let ((install jazz.install)
+      (let ((install jazz.kernel-install)
             (source jazz.source))
         (define (install-file path)
           (string-append install path))

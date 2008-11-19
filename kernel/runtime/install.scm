@@ -36,57 +36,58 @@
 
 
 (jazz.kernel-declares)
+  
+
+(cond-expand
+  (mac
+    (c-declare "#include <mach-o/dyld.h>"))
+  (unix
+    (c-declare "#include <unistd.h>")
+    (c-declare "#include <stdio.h>"))
+  (else))
+
+
+(define platform-executable-path)
 
 
 (cond-expand
   (mac
-    (c-declare "#include <mach-o/dyld.h>")
-    (set! jazz.executable-directory
-          (lambda ()
-            (jazz.pathname-dir (jazz.pathname-normalize (GetExecutablePath))))))
+    (set! platform-executable-path
+          (c-lambda () char-string
+            "char path[1024];
+             uint32_t pathLength = 1023;
+             _NSGetExecutablePath(path,&pathLength);
+             path[1023] = 0;
+             ___result = path;")))
   (windows
-    (set! jazz.executable-directory
-          (lambda ()
-            (jazz.pathname-dir (jazz.pathname-normalize (GetModuleFileName))))))
+    (set! platform-executable-path
+          (c-lambda () wchar_t-string
+            "wchar_t buf[MAX_PATH];
+             GetModuleFileNameW(NULL, buf, 300);
+              ___result = buf;")))
+  (unix
+    (set! platform-executable-path
+          (c-lambda () char-string
+            "char link[64];
+             char path[1024];
+             pid_t pid;
+             int result;
+             pid = getpid();
+             result = snprintf(link, sizeof(link), \"/proc/%i/exe\", pid);
+             if (result >= 0) {
+               result = readlink(link, path, sizeof(path));
+               if( result < 0 || result >= (int)sizeof(path) )
+                 ___result = 0;
+               else {
+                 path[result] = 0;
+                 ___result = path;
+               }
+             }
+             else
+               ___result = 0;")))
   (else))
 
 
-;;;
-;;;; Platform
-;;;
-
-
-(cond-expand
-  #; ;; to complete
-  (mac
-    (define ExecutablePath
-      (c-lambda () char-string
-        "ProcessInfoRec info;
-         ProcessSerialNumber serial;
-         FSSpec spec;
-         FSRef ref;
-         char path[2048];
-         serial.highLongOfPSN = 0;
-         serial.lowLongOfPSN = kCurrentProcess;
-         info.processInfoLength = sizeof(info);
-         info.processName = NULL;
-         info.processAppSpec = &spec;
-         GetProcessInformation(&serial, &info);
-         FSpMakeFSRef(&spec, &ref);
-         FSRefMakePath(&ref, (UInt8*)path, 2048);
-         ___result = path;")))
-  (mac
-    (define GetExecutablePath
-      (c-lambda () char-string
-        "char path[1024];
-         uint32_t pathLength = 1023;
-         _NSGetExecutablePath(path,&pathLength);
-         path[1023] = 0;
-         ___result = path;")))
-  (windows
-    (define GetModuleFileName
-      (c-lambda () wchar_t-string
-        "wchar_t buf[MAX_PATH];
-         GetModuleFileNameW(NULL, buf, 300);
-         ___result = buf;")))
-  (else))
+(set! jazz.executable-directory
+      (lambda ()
+        (jazz.pathname-dir (jazz.pathname-normalize (platform-executable-path)))))

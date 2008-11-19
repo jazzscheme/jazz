@@ -90,4 +90,7 @@
 
 (set! jazz.executable-directory
       (lambda ()
-        (jazz.pathname-dir (jazz.pathname-normalize (platform-executable-path)))))
+        (let ((path (platform-executable-path)))
+          (if path
+              (jazz.pathname-dir (jazz.pathname-normalize path))
+            #f))))

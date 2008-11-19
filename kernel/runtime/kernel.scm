@@ -289,9 +289,8 @@
 
 
 (define jazz.kernel-install
-  (if jazz.executable-directory
-      (jazz.executable-directory)
-    (jazz.pathname-normalize jazz.install)))
+  (or (and jazz.executable-directory (jazz.executable-directory))
+      (jazz.pathname-normalize jazz.install)))
 
 
 (define jazz.kernel-source

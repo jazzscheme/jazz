@@ -119,7 +119,7 @@
     (lambda ()
       (define (determine-source-versions-file)
         (or jazz.source-versions-file
-            (and jazz.source (string-append jazz.source "kernel/versions"))))
+            (and jazz.kernel-source (string-append jazz.kernel-source "kernel/versions"))))
       
       (define (load-versions)
         (let ((file (determine-source-versions-file)))

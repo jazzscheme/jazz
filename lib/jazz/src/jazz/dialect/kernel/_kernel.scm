@@ -315,6 +315,8 @@
 (native jazz.find-repository)
 (native jazz.repository-add-package)
 (native jazz.repository-remove-package)
+(native jazz.split-version)
+(native jazz.present-version)
 (native jazz.load-package)
 (native jazz.register-product)
 (native jazz.get-registered-product)

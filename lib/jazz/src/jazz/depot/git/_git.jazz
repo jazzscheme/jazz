@@ -59,6 +59,14 @@
 ;;;
 
 
+(definition public (git-clone directory address)
+  (let ((parent (get-parent~ directory))
+        (name (get-name~ directory)))
+    (create-directories~ parent)
+    (git-command (list "clone" address name) parent)
+    (new Git-Depot directory)))
+
+
 (definition public (git-add)
   (git-add~ (git-depot)))
 
@@ -134,6 +142,14 @@
 
 (definition public (git-show object (output (current-output-port)))
   (git-show~ (git-depot) output))
+
+
+(definition (git-command arguments directory (output (current-output-port)))
+  (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))))
+    (if (not output)
+        port
+      (pipe port output)
+      (close-port port))))
 
 
 ;;;
@@ -243,11 +259,7 @@
   
   
   (method (git arguments (output (current-output-port)))
-    (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))))
-      (if (not output)
-          port
-        (pipe port output)
-        (close-port port))))
+    (git-command arguments directory output))
   
   
   ;;;

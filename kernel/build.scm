@@ -373,7 +373,7 @@
 
 
 (define (jazz.validate-title title)
-  (if (or (not title) (and (string? title) (jazz.string-alphanumeric? title)))
+  (if (or (not title) (eq? title #t) (and (string? title) (jazz.string-alphanumeric? title)))
       title
     (jazz.error "Invalid title: {s}" title)))
 
@@ -605,7 +605,7 @@
       (string-append "bin/"
                      (let ((name (jazz.configuration-name configuration))
                            (title (jazz.configuration-title configuration)))
-                       (cond (title title)
+                       (cond (title (if (eq? title #t) (default-name) title))
                              (name (symbol->string name))
                              (else (default-name))))
                      "/")))
@@ -908,7 +908,7 @@
 
 (define (jazz.build-system-repl)
   (let ((console (console-port)))
-    (jazz.print (jazz.format "JazzScheme Build System {a}" (jazz.present-version (jazz.get-source-version-number))) console)
+    (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
     (force-output console)
     (let loop ()
       (newline console)

@@ -85,8 +85,7 @@
 
 (define (jazz.present-version number)
   (receive (major minor revision) (jazz.split-version number)
-    (string-append "v"
-                   (number->string major)
+    (string-append (number->string major)
                    "."
                    (number->string minor)
                    "."

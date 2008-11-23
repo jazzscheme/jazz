@@ -53,31 +53,40 @@
 
 
   (form
-    (<install>                                              size: {Dimension 400 206} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+    (<install>                                              size: {Dimension 400 216} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
       (<Label-View>                 name: title             title: "Welcome to Jedi" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Caption})
       (<Label-View>                 name: description       title: "Please enter the profile that will be used for this session" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Label})
-      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 83} tooltip?: #t tooltip-text: "Create a new profile" action-handler: {Event-Handler :form on-new})
-      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 109} tooltip?: #t tooltip-text: "Open an existing profile from the standard directories" action-handler: {Event-Handler :form on-existing})
+      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 88} tooltip?: #t tooltip-text: "Create a new profile" action-handler: {Event-Handler :form on-new})
+      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 114} tooltip?: #t tooltip-text: "Open an existing profile from the standard directories" action-handler: {Event-Handler :form on-existing})
       (<Horizontal-Line>                                    position: {Point 0 48} size: {Dimension 400 8})
-      (<Vertical-Line>                                      position: {Point 110 59} size: {Dimension 8 91})
-      (<Label-View>                 name: new-label         title: "Name:" position: {Point 136 100} size: {Dimension 33 16} visible?: #f font: {Font name: Label})
-      (<Border-View>                name: new-border        position: {Point 173 97} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
+      (<Vertical-Line>                                      position: {Point 110 59} size: {Dimension 8 101})
+      (<Label-View>                 name: new-label         title: "Name:" position: {Point 136 88} size: {Dimension 33 16} visible?: #f font: {Font name: Label})
+      (<Border-View>                name: new-border        position: {Point 173 85} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                      name: content           layout-type: fill
             (<Profile-Text-View>    name: new-profile       left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Profile name. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
-      (<Border-View>                name: existing-border   position: {Point 140 64} size: {Dimension 251 82} visible?: #f border-type: edge style: entry
+      (<Label-View>                 name: bindings-label    title: "Key Bindings:" position: {Point 136 114} size: {Dimension 100 16} visible?: #f font: {Font name: Label})
+      (<Border-View>                name: bindings-border   position: {Point 204 110} size: {Dimension 165 22} visible?: #f border-insets: {Rect 2 2 2 1} border-color: {Color name: Medium}
+        (<Border-View>                                      border-color: {Color name: Entry-Border}
+          (<Combo-Box>              name: bindings
+            (<!>                    name: scroller
+              (<!>                  name: content
+                (<!>                name: body              left-padding: 2 top-padding: 2))))))
+      (<Border-View>                name: existing-border   position: {Point 140 64} size: {Dimension 251 92} visible?: #f border-type: edge style: entry
         (<Scroller-View>                                    vscroll?: #t style: document
           (<!>                      name: content           layout-type: fill
             (<Tree-View>            name: profiles          show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of profiles found in the standard directories" double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
               (<Tree-Node-Column>                           title: "Profile" width: 176 toplevel-controls?: #f display-images?: #f)))))
-      (<Horizontal-Line>                                    position: {Point 0 160} size: {Dimension 400 8})
-      (<Check-Box>                  name: always-use        title: "Always use this profile" position: {Point 10 175} size: {Dimension 130 18})
-      (<Push-Button>                name: login             title: "Login" position: {Point 225 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
-      (<Push-Button>                name: cancel            title: "Cancel" position: {Point 311 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+      (<Horizontal-Line>                                    position: {Point 0 170} size: {Dimension 400 8})
+      (<Check-Box>                  name: always-use        title: "Always use this profile" position: {Point 10 185} size: {Dimension 130 18})
+      (<Push-Button>                name: login             title: "Login" position: {Point 225 182} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>                name: cancel            title: "Cancel" position: {Point 311 182} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
       (<Branch>                     name: new
         (<install>
           (<!>                      name: new-label         visible?: #t)
-          (<!>                      name: new-border        visible?: #t)))
+          (<!>                      name: new-border        visible?: #t)
+          (<!>                      name: bindings-label    visible?: #t)
+          (<!>                      name: bindings-border   visible?: #t)))
       (<Branch>                     name: existing
         (<install>
           (<!>                      name: existing-border   visible?: #t)))))
@@ -94,7 +103,19 @@
   
   
   (method (setup-new-profile)
-    (set-string-content~ (locate 'new-profile) (user-name)))
+    (set-string-content~ (locate 'new-profile) (user-name))
+    (setup-bindings))
+  
+  
+  (definition Bindings
+    '((jazz "Jazz")
+      (emacs "Emacs (subset)")))
+  
+  
+  (method (setup-bindings)
+    (let ((combo (locate 'bindings)))
+      (set-choices~ combo Bindings)
+      (set-value~ combo 'jazz)))
   
   
   (method (setup-existing-profiles)
@@ -121,18 +142,19 @@
   
   
   (method (get-modal-result)
-    (let ((always-use? (get-checked?~ (locate 'always-use))))
+    (let ((bindings (get-value~ (locate 'bindings)))
+          (always-use? (get-checked?~ (locate 'always-use))))
       (case (get-name~ branch)
         ((new)
          (let ((name (get-string-content~ (locate 'new-profile))))
-           (values name always-use?)))
+           (values name bindings always-use?)))
         ((existing)
          (let* ((tree (locate 'profiles))
                 (rank (get-single-selection~ tree)))
            (if (not rank)
-               (values {} #f)
+               (values {} {} #f)
              (let ((row (get-row~ tree rank)))
-               (values (get-user-data~ row) always-use?))))))))
+               (values (get-user-data~ row) bindings always-use?))))))))
   
 
   ;;;

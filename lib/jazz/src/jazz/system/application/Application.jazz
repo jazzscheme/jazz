@@ -78,6 +78,7 @@
   (slot menubar                  initialize {})
   (slot status-bar               initialize {})
   (slot profile-module           initialize {})
+  (slot profile-bindings         initialize {})
   (slot profile                  initialize {})
   (slot focus-listeners          initialize '())
   (slot application-listeners    initialize (make-table test: eq?))
@@ -433,7 +434,8 @@
   (method (login-profile)
     (catch (Cancel-Signal signal
              (exit))
-      (receive (profile always-use?) (choose-login)
+      (receive (profile bindings always-use?) (choose-login)
+        (set! profile-bindings bindings)
         (when settings
           (set-setting~ settings 'profile (if always-use? profile #f))
           (save-content~ settings)
@@ -456,6 +458,7 @@
   (method (install-new-profile name)
     (let ((expander (new Template-Expander))
           (associations (list (cons 'module profile-module)
+                              (cons 'bindings (either profile-bindings 'jazz))
                               (cons 'profile name)
                               (cons 'project-module (standard-project-module name))
                               (cons 'project-title (downcase name))))

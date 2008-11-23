@@ -500,6 +500,7 @@
 
 
 (native jazz.random-integer)
+(native jazz.random-source-randomize!)
 (native jazz.random-source-pseudo-randomize!)
 (native jazz.default-random-source)
 

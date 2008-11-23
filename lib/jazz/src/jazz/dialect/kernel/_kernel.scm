@@ -137,6 +137,75 @@
 
 
 ;;;
+;;;; Development
+;;;
+
+
+;; These globals should really be some readtime mecanism like Gambit's #
+;; Need to discuss with Marc Feeley about how to do that cleanly
+
+
+(native ?) (native get-?) (native set-?)
+(native %) (native get-%) (native set-%)
+
+
+(native ?a) (native get-?a) (native set-?a)
+(native ?b) (native get-?b) (native set-?b)
+(native ?c) (native get-?c) (native set-?c)
+(native ?d) (native get-?d) (native set-?d)
+(native ?e) (native get-?e) (native set-?e)
+(native ?f) (native get-?f) (native set-?f)
+(native ?g) (native get-?g) (native set-?g)
+(native ?h) (native get-?h) (native set-?h)
+(native ?i) (native get-?i) (native set-?i)
+(native ?j) (native get-?j) (native set-?j)
+(native ?k) (native get-?k) (native set-?k)
+(native ?l) (native get-?l) (native set-?l)
+(native ?m) (native get-?m) (native set-?m)
+(native ?n) (native get-?n) (native set-?n)
+(native ?o) (native get-?o) (native set-?o)
+(native ?p) (native get-?p) (native set-?p)
+(native ?q) (native get-?q) (native set-?q)
+(native ?r) (native get-?r) (native set-?r)
+(native ?s) (native get-?s) (native set-?s)
+(native ?t) (native get-?t) (native set-?t)
+(native ?u) (native get-?u) (native set-?u)
+(native ?v) (native get-?v) (native set-?v)
+(native ?w) (native get-?w) (native set-?w)
+(native ?x) (native get-?x) (native set-?x)
+(native ?y) (native get-?y) (native set-?y)
+(native ?z) (native get-?z) (native set-?z)
+
+
+(native %a) (native get-%a) (native set-%a)
+(native %b) (native get-%b) (native set-%b)
+(native %c) (native get-%c) (native set-%c)
+(native %d) (native get-%d) (native set-%d)
+(native %e) (native get-%e) (native set-%e)
+(native %f) (native get-%f) (native set-%f)
+(native %g) (native get-%g) (native set-%g)
+(native %h) (native get-%h) (native set-%h)
+(native %i) (native get-%i) (native set-%i)
+(native %j) (native get-%j) (native set-%j)
+(native %k) (native get-%k) (native set-%k)
+(native %l) (native get-%l) (native set-%l)
+(native %m) (native get-%m) (native set-%m)
+(native %n) (native get-%n) (native set-%n)
+(native %o) (native get-%o) (native set-%o)
+(native %p) (native get-%p) (native set-%p)
+(native %q) (native get-%q) (native set-%q)
+(native %r) (native get-%r) (native set-%r)
+(native %s) (native get-%s) (native set-%s)
+(native %t) (native get-%t) (native set-%t)
+(native %u) (native get-%u) (native set-%u)
+(native %v) (native get-%v) (native set-%v)
+(native %w) (native get-%w) (native set-%w)
+(native %x) (native get-%x) (native set-%x)
+(native %y) (native get-%y) (native set-%y)
+(native %z) (native get-%z) (native set-%z)
+
+
+;;;
 ;;;; Digest
 ;;;
 

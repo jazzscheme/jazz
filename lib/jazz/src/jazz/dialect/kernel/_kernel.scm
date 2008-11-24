@@ -540,6 +540,8 @@
 (native current-error-port)
 (native with-output-to-port)
 (native write-u8)
+(native ##open-predefined)
+(native ##wait-for-io!)
 
 
 ;;;
@@ -889,6 +891,7 @@
 (native f64vector-ref)
 (native f64vector-set!)
 (native f64vector?)
+(native ##vector-ref)
 
 
 ;;;

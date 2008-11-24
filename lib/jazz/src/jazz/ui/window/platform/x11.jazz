@@ -408,10 +408,14 @@
 
 (definition (process-messages-single-threaded thunk)
   (declare (proper-tail-calls))
-  (with ((msg (XEvent-make)))
+  (with ((msg (XEvent-make))
+         (display-fd (ConnectionNumber (get-default-x11-display)))
+         (fdset (setup-fdset display-fd)))
     (let (loop)
       (process-inval-rects)
-      (wait-on-port (get-x11-display-port) 0.01)
+      ;; buggy takes 98% of the cpu
+      ;; (wait-on-port (get-x11-display-port) 0.01)
+      (select (+ display-fd 1) fdset #f #f 0 1000)
       (if (= 0 (XPending default-x11-display))
           (thread-yield!)
         (XNextEvent default-x11-display msg)

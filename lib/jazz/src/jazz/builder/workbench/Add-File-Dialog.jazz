@@ -43,6 +43,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.literals)
+        (jazz.runtime)
         (jazz.ui)
         (jazz.utilities))
 
@@ -236,28 +237,29 @@
   
   
   (method (validate-name kind name destination)
-    (if #f @convert-manifest (find-source~ (get-workbench) destination)
-        (format "File \"{a}\" already exists in the workbench" (parse~ destination))
-      (case kind
-        ((jazz)
-         (cond ((let ((first (first name)))
-                  (not (or (eqv? first #\_)
-                           (alphabetic? first))))
-                "Name must start with a letter or an underscore")
-               ((not (every? (function (char)
-                               (or (alphabetic? char)
-                                   (numeric? char)
-                                   (memv? char '(#\minus #\_))))
-                             name))
-                "Name can only contain letters, digits, dashes and underscores")
-               @convert-manifest
-               ((let ((symbol (find-symbol name)))
-                  (and symbol (in-manifest? symbol)))
-                (format "The name \"{a}\" already exists as a Jazz class" name))
-               (else
-                {})))
-        (else
-         {}))))
+    (if (memq? kind '(jazz project product))
+        (let ((module-name (find-pathname-module (parse~ destination))))
+          (cond ((let ((first (first name)))
+                   (not (or (eqv? first #\_)
+                            (alphabetic? first))))
+                 "Name must start with a letter or an underscore")
+                ((not (every? (function (char)
+                                (or (alphabetic? char)
+                                    (numeric? char)
+                                    (memv? char '(#\minus #\_))))
+                              name))
+                 "Name can only contain letters, digits, dashes and underscores")
+                ((not module-name)
+                 (format "{a} must be located inside a Jazz repository"
+                         (case kind
+                           ((jazz) "Jazz files")
+                           ((project) "Projects")
+                           ((product) "Products"))))
+                ((find-module-source module-name)
+                 (format "Module {a} already exists" module-name))
+                (else
+                 {})))
+      {}))
   
 
   ;;;

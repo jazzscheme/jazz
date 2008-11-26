@@ -900,7 +900,7 @@
 
 
 (define jazz.prompt
-  "$ ")
+  "% ")
 
 (define jazz.debug-build-system?
   #f)

@@ -93,7 +93,6 @@
   (slot profile-actions          initialize '())
   (slot guest-actions            initialize '())
   (slot focus-actions            initialize '())
-  (slot bindings                 initialize {})
   (slot bindings-designer        initialize {})
   (slot shortcut-table           initialize {})
   (slot shortcut-hook            initialize {})
@@ -1110,12 +1109,13 @@
   (method (setup-bindings)
     (with-safe-execution "loading the bindings"
       (function ()
-        (set! bindings (load-bindings))
-        (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
-        (let ((active (either (get-active-bindings~ (get-preferences #f)) 'jazz)))
-          (let ((branch (locate-component~ bindings active)))
-            (when (is? branch Branch)
-              (set-active-branch~ bindings branch)))))
+        (let ((bindings (load-bindings)))
+          (set-bindings bindings)
+          (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
+          (let ((active (either (get-active-bindings~ (get-preferences #f)) 'jazz)))
+            (let ((branch (locate-component~ bindings active)))
+              (when (is? branch Branch)
+                (set-active-branch~ bindings branch))))))
       continue-handler:
       (function (err)
         )))
@@ -1135,10 +1135,6 @@
   (method (save-bindings)
     (when (and bindings-designer (get-modified?~ bindings-designer) (is-not? profile Me))
       (save~ bindings-designer)))
-  
-  
-  (method public (get-bindings)
-    bindings)
   
   
   (method public (get-bindings-designer)
@@ -1274,7 +1270,7 @@
   
   
   (method (show-box text rest)
-    (if (not (get-bindings~ (get-application)))
+    (if (not (get-bindings))
         (apply system-message text rest)
       (apply ui-message-box text rest)))
   

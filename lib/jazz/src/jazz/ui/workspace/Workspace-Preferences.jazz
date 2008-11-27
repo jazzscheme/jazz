@@ -98,12 +98,17 @@
         (function ()
           (close-palettes)
           (full-screen-stage~ appl #f)
-          (let ((splitter (get-root~ toplevel))
-                (visibility (collect-visibility)))
+          (let ((visibility (collect-visibility)))
             (process-frames visibility #f)
-            (let ((root-preferences (find-child-located 'root)))
+            (let ((previous-root (get-root~ toplevel))
+                  (root-preferences (find-child-located 'root)))
               (when root-preferences
-                (apply-root~ root-preferences toplevel)))
+                (apply-root~ root-preferences toplevel)
+                ;; quick solution to the memory leak that needs some thinking through
+                (when previous-root
+                  (let ((offscreen (slot-value previous-root 'offscreen)))
+                    (when offscreen
+                      (close~ offscreen))))))
             (set-workspace-preferences self)
             (set-selected-workspace self)
             (set-maximized?~ stage maximized?)

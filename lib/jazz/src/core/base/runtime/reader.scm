@@ -49,14 +49,15 @@
   (##input-port-line-set! port line)
   (##input-port-column-set! port col)
   
-  (##source-code
-    (##read-all-as-a-begin-expr-from-port
-      port
-      (##current-readtable)
-      ##wrap-datum
-      ##unwrap-datum
-      (macro-readtable-start-syntax (##current-readtable))
-      #t)))
+  (let ((begin-src
+          (##read-all-as-a-begin-expr-from-port
+            port
+            (##current-readtable)
+            ##wrap-datum
+            ##unwrap-datum
+            (macro-readtable-start-syntax (##current-readtable))
+            #t)))
+    (##source-code (##source-code begin-src))))
 
 
 (define (jazz.read-source-first-expr port)

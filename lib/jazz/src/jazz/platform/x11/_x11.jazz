@@ -812,6 +812,7 @@
 (c-external GC           (XCreateGC              Display* Drawable ulong XGCValues*))
 (c-external void         (XFreeGC                Display* GC))
 (c-external void         (XSetClipRectangles     Display* GC int int XRectangle* int int))
+(c-external void         (XFree                  void*))
 
 
 
@@ -868,6 +869,11 @@
        set)))
 
 
+(definition free-fdset
+  (c-function (fd_set*) void
+    "free(___arg1);"))
+
+
 (definition ProcessClientMessage
   (c-function (Display* XClientMessageEvent*) Bool
     "Atom wm_delete_window = XInternAtom(___arg1, \"WM_DELETE_WINDOW\", False);
@@ -884,12 +890,15 @@
 
 
 (definition (XTranslateCoordinates disp src_win dst_win x y)
-  (let ((pt ((c-function (Display* Window Window int int) int*
+  (let* ((pt ((c-function (Display* Window Window int int) int*
                   "int *point = malloc(2*sizeof(int));
                   Window tmp;
                   XTranslateCoordinates( ___arg1, ___arg2, ___arg3, ___arg4, ___arg5, point, point+1, &tmp);
-                  ___result_voidstar = point;") disp src_win dst_win x y)))
-      (values (int*-ref pt 0) (int*-ref pt 1))))
+                  ___result_voidstar = point;") disp src_win dst_win x y))
+         (x (int*-ref pt 0))
+         (y (int*-ref pt 1)))
+    (int*-free pt)
+    (values x y)))
 
 
 (definition XNumberOfChildren
@@ -978,7 +987,10 @@
                    XGetInputFocus(___arg1, &win, ret+1);
                    *ret = (int)win;
                    ___result_voidstar = ret;") display)))
-    (values (int*-ref ret 0) (int*-ref ret 1))))
+    (let ((x (int*-ref ret 0))
+          (y (int*-ref ret 1)))
+      (int*-free ret)
+      (values x y))))
 
 
 (definition (XGetWindowProperty display window property long_offset long_length delete req_type)
@@ -1003,15 +1015,16 @@
 
 
 (definition GetPropertyString
-  (c-function (Display* Window Atom) char-string
+  (c-function (Display* Window Atom) uint8*
     "unsigned char *ret;
      Atom type;
      int format;
      unsigned long nitems;
      unsigned long bytes_after_return;
      XGetWindowProperty(___arg1,___arg2,___arg3,0,100000,False,XA_STRING,&type,&format,&nitems,&bytes_after_return,&ret);
-     ___result = (char*)ret;"))
+     ___result_voidstar = ret;"))
 
+     
 
 (definition (XRetrieveSelection display toplevel selection target timestamp)
   (XConvertSelection display selection target None toplevel timestamp)
@@ -1031,7 +1044,9 @@
 (definition (XGetClipboardString display toplevel)
   (let ((owner (XGetSelectionOwner display XA_CLIPBOARD)))
     (if (= owner toplevel)
-        (GetPropertyString display toplevel XA_PRIMARY)
+        (let ((data (GetPropertyString display toplevel XA_PRIMARY)))
+          (prog1 (uint8*->char-string data)
+            (XFree data)))
       (XConvertSelection display XA_CLIPBOARD XA_STRING None toplevel CurrentTime)
       (let ((ev (XEvent-make)))
         (let loop ((i 0)
@@ -1039,10 +1054,10 @@
           (if (and (< i 1000000) (not return))
               (loop (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
             (let* ((property (if return (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
-                   (result (if (= property None)
-                               ""
-                             (GetPropertyString display toplevel (XSelectionEvent-property-ref (XEvent-xselection-ref ev))))))
+                   (data (if (= property None) #f (GetPropertyString display toplevel (XSelectionEvent-property-ref (XEvent-xselection-ref ev)))))
+                   (result (if (= property None) "" (uint8*->char-string data))))
               (XEvent-free ev)
+              (when data (XFree data))
               result)))))))
 
 
@@ -1053,7 +1068,7 @@
 
 (definition (XSendClipboardString display toplevel requestor selection target property)
   (let ((string (GetPropertyString display toplevel XA_PRIMARY)))
-    (XChangeProperty display requestor property target 8 PropModeReplace (char-string->uint8* string) (string-length string))
+    (XChangeProperty display requestor property target 8 PropModeReplace string (string-length string))
     (let* ((ev (XEvent-make))
            (xselection (XEvent-xselection-ref ev)))
       (XSelectionEvent-type-set! xselection SelectionNotify)

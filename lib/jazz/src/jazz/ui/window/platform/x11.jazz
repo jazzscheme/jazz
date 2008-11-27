@@ -422,7 +422,9 @@
           (process-expose)))
       (thunk)
       (when (thread-loop? (current-thread))
-        (loop)))))
+        (loop)))
+    (XEvent-free msg)
+    (free-fdset fdset)))
 
 
 ;;;
@@ -647,6 +649,7 @@
                                        (and (equal? (car splitted) "file")
                                             (new (case (pathname-type (cadr splitted)) ((directory) Directory) (else File)) (tokenise-windows (cadr splitted)))))))
                               (split (uint8*->char-string prop_return) "\r\n"))))
+          (XFree prop_return)
           (receive-files~ window (acquire-point (get-handle~ window) (platform-get-desktop) DndPosition) files)))
       (set! DndSource {})
       (set! DndAccept? {})
@@ -788,7 +791,8 @@
 (definition (platform-is-window-visible? handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
-    (= (XWindowAttributes-map_state-ref infos) IsViewable)))
+    (prog1 (= (XWindowAttributes-map_state-ref infos) IsViewable)
+      (XWindowAttributes-free infos))))
 
 
 (definition (acquire-point to-handle from-handle shape)
@@ -817,6 +821,7 @@
     (XGetWindowAttributes default-x11-display handle infos)
     (let* ((x (XWindowAttributes-x-ref infos))
            (y (XWindowAttributes-y-ref infos)))
+      (XWindowAttributes-free infos)
       (new Point x y))))
 
 
@@ -831,7 +836,10 @@
 (definition (platform-get-size handle)
   (with ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
-    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+    (let ((width (XWindowAttributes-width-ref infos))
+          (height (XWindowAttributes-height-ref infos)))
+      (XWindowAttributes-free infos)
+      (new Dimension width height))))
 
 
 (definition (platform-get-window-size handle)
@@ -905,7 +913,10 @@
 (definition (platform-get-client-rect handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
-    (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+    (let ((width (XWindowAttributes-width-ref infos))
+          (height (XWindowAttributes-height-ref infos)))
+      (XWindowAttributes-free infos)
+      (new Rect 0 0 width height))))
 
 
 (definition (scroll-invalidate handle dh dv src-rect clip-rect)
@@ -939,6 +950,7 @@
     (XSetClipRectangles default-x11-display gc (get-left~ clip-rect) (get-top~ clip-rect) xrect 1 0)
     (XCopyArea default-x11-display handle handle gc (get-left~ rect) (get-top~ rect) (- (get-right~ rect) (get-left~ rect)) (- (get-bottom~ rect) (get-top~ rect)) (+ (get-left~ rect) dh) (+ (get-top~ rect) dv))
     (XFreeGC default-x11-display gc)
+    (XRectangle-free xrect)
     (scroll-invalidate handle dh dv rect clip-rect)
     (platform-update-window handle)))
 
@@ -968,6 +980,7 @@
 (definition (process-inval-rects)
   (iterate-table inval-rects
     (function (handle rect)
+      (table-set! inval-rects handle)
       (let ((window (get-window handle)))
         (when window
           (let ((l (get-left~ rect))
@@ -976,8 +989,7 @@
                 (b (get-bottom~ rect)))
             (let ((w (- r l))
                   (h (- b t)))
-              (XInvalidateRect default-x11-display handle l t w h)))))))
-  (set! inval-rects (make-table)))
+              (XInvalidateRect default-x11-display handle l t w h))))))))
 
 
 (definition (platform-invalidate-rect handle rect)

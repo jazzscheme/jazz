@@ -39,6 +39,9 @@
 (library jazz.platform.types jazz
 
 
+(import (jazz.platform.types-syntax (phase syntax)))
+
+
 @debug
 (definition stack-depth
   (c-function () int
@@ -54,6 +57,60 @@
 (cond-expand
   (mac  (c-include "<CoreServices/CoreServices.h>"))
   (else (c-include "<stdlib.h>")))
+
+
+(c-named-declare size_t-declare
+                 
+#<<c-declare-end
+
+___SCMOBJ SCMOBJ_to_size_t (___SCMOBJ src, size_t *dst) {
+  ___SCMOBJ ___err = ___FIX(___NO_ERR);
+
+  if ( ___FIXNUMP(src) ) {
+    ___WORD ___temp = ___INT(src);
+                            
+    if ( ___temp > ___MAX_FIX32 || ___temp < 0 )
+       ___err = ___FIX(___UNKNOWN_ERR);
+    else
+       *dst = ___CAST(size_t,___temp);
+  }
+  
+  else
+    ___err = ___FIX(___UNKNOWN_ERR);
+    
+  return ___err;
+}
+
+
+___SCMOBJ size_t_to_SCMOBJ (size_t src, ___SCMOBJ *dst) {
+  ___SCMOBJ ___err = ___FIX(___NO_ERR);
+
+  if ( src > ___MAX_FIX32 )
+    ___err = ___FIX(___UNKNOWN_ERR);
+  else
+    *dst = ___FIX(src);
+    
+  return ___err;
+}
+
+#define ___BEGIN_CFUN_SCMOBJ_to_size_t(src,dst,i) \
+if ((___err = SCMOBJ_to_size_t (src, &dst)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_SCMOBJ_to_size_t(src,dst,i) }
+
+#define ___BEGIN_CFUN_size_t_to_SCMOBJ(src,dst) \
+if ((___err = size_t_to_SCMOBJ (src, &dst)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_size_t_to_SCMOBJ(src,dst) }
+
+#define ___BEGIN_SFUN_size_t_to_SCMOBJ(src,dst,i) \
+if ((___err = size_t_to_SCMOBJ (src, &dst)) == ___FIX(___NO_ERR)) {
+#define ___END_SFUN_size_t_to_SCMOBJ(src,dst,i) }
+
+#define ___BEGIN_SFUN_SCMOBJ_to_size_t(src,dst) \
+{ ___err = SCMOBJ_to_size_t (src, &dst);
+#define ___END_SFUN_SCMOBJ_to_size_t(src,dst) }
+
+c-declare-end
+)
 
 
 (c-named-declare U8PTR-declare
@@ -249,35 +306,39 @@ c-declare-end
 (c-type scheme-object      (native scheme-object))
 
 
+(c-type size_t "size_t" "size_t_to_SCMOBJ" "SCMOBJ_to_size_t" size_t-declare)
+
+
 (c-type U8PTR "U8PTR" "U8PTR_to_SCMOBJ" "SCMOBJ_to_U8PTR" U8PTR-declare)
 (c-type U16PTR "U16PTR" "U16PTR_to_SCMOBJ" "SCMOBJ_to_U16PTR" U16PTR-declare)
 (c-type U32PTR "U32PTR" "U32PTR_to_SCMOBJ" "SCMOBJ_to_U32PTR" U32PTR-declare)
 (c-type F64PTR "F64PTR" "F64PTR_to_SCMOBJ" "SCMOBJ_to_F64PTR" F64PTR-declare)
 
-
-(definition char-string->uint8*
-  (c-function (char-string) uint8*
-    "___result_voidstar = ___arg1;"))
-
-
-(definition uint8*->char-string
-  (c-function (uint8*) char-string
-    "___result = ___arg1;"))
-
-
-(definition uint8*-alloc
-  (c-function (int) uint8*
-    "___result_voidstar = calloc(___arg1,sizeof(___U8));"))
+(setup-pointer-to-type    byte   "___U8")
+(setup-pointer-to-type    uint8  "___U8")
+(setup-pointer-to-pointer uint8* "___U8*")
+(setup-pointer-to-type    uint16 "___U16")
+(setup-pointer-to-type    uint32 "___U32")
+(setup-pointer-to-type    short  "short")
+(setup-pointer-to-type    int    "int")
+(setup-pointer-to-type    long   "long")
+(setup-pointer-to-type    double "double")
+(setup-pointer-to-type    ulong  "unsigned long")
 
 
-(definition uint8*-free
-  (c-function (uint8*) void
+(cast-lambda     uint8*      char-string)
+(cast-lambda-ptr char-string uint8*)
+(cast-lambda-ptr uint32*     uint8*)
+(cast-lambda-ptr uint8*      ulong*)
+
+(definition malloc
+  (c-function (size_t) void*
+    "___result_voidstar = malloc(___arg1);"))
+
+
+(definition free
+  (c-function (void*) void
     "free(___arg1);"))
-
-
-(definition uint8*-set!
-  (c-function (uint8* int uint8) void
-    "*(___arg1 + ___arg2) = ___arg3;"))
 
 
 (definition (u8vector->uint8* vector)
@@ -290,46 +351,6 @@ c-declare-end
            (loop (+ i 1))))))
 
 
-(definition uint8*->ulong*
-  (c-function (uint8*) ulong*
-    "___result_voidstar = ___arg1;"))
-
-
-(definition uint8**-alloc
-  (c-function (int) uint8**
-    "___result_voidstar = calloc(___arg1,sizeof(___U8*));"))
-
-
-(definition uint8**-free
-  (c-function (uint8**) void
-    "free(___arg1);"))
-
-
-(definition uint8**-set!
-  (c-function (uint8** int uint8*) void
-    "*(___arg1 + ___arg2) = ___arg3;"))
-
-
-(definition uint8**-ref
-  (c-function (uint8** int) uint8*
-    "___result_voidstar = *(___arg1 + ___arg2);"))
-
-
-(definition uint16*-alloc
-  (c-function (int) uint16*
-    "___result_voidstar = calloc(___arg1,sizeof(___U16));"))
-
-
-(definition uint32*-alloc
-  (c-function (int) uint32*
-    "___result_voidstar = calloc(___arg1,sizeof(___U32));"))
-
-
-(definition uint32*-set!
-  (c-function (uint32* int uint32) void
-    "*(___arg1 + ___arg2) = ___arg3;"))
-
-
 (definition (u32vector->uint32* vector)
   (let* ((size (u32vector-length vector))
          (pointer (uint32*-alloc size)))
@@ -337,79 +358,4 @@ c-declare-end
          (if (= i size)
              pointer
            (uint32*-set! pointer i (u32vector-ref vector i))
-           (loop (+ i 1))))))
-           
-
-(definition uint32*->uint8*
-  (c-function (uint32*) uint8*
-    "___result_voidstar = ___arg1;"))
-
-
-(definition void*->byte*
-  (c-function (void*) byte*
-    "___result_voidstar = ___arg1;"))
-
-
-(definition byte*-ref
-  (c-function (byte* int) byte
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition int*-alloc
-  (c-function (int) int*
-    "___result_voidstar = calloc(___arg1,sizeof(int));"))
-
-
-(definition byte*-set!
-  (c-function (byte* int byte) void
-    "*(___arg1 + ___arg2) = ___arg3;"))
-
-
-(definition short*-ref
-  (c-function (short* int) short
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition int*-ref
-  (c-function (int* int) int
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition long*-ref
-  (c-function (long* int) int
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition long*-set!
-  (c-function (long* int long) void
-    "*(___arg1 + ___arg2) = ___arg3;"))
-
-
-(definition double*-ref
-  (c-function (double* int) double
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition int*-free
-  (c-function (int*) void
-    "free(___arg1);"))
-
-
-(definition double*-free
-  (c-function (double*) void
-    "free(___arg1);"))
-
-
-(definition ulong*-alloc
-  (c-function (int) ulong*
-    "___result_voidstar = calloc(___arg1,sizeof(unsigned long));"))
-
-
-(definition ulong*-ref
-  (c-function (ulong* int) ulong
-    "___result = *(___arg1 + ___arg2);"))
-
-
-(definition ulong*-free
-  (c-function (ulong*) void
-    "free(___arg1);")))
+           (loop (+ i 1)))))))

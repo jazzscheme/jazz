@@ -1,0 +1,120 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Basic Types
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform.types-syntax jazz
+
+
+(define-macro (setup-pointer-to-type type c-type)
+  (let ((pt-type (string->symbol (string-append (symbol->string type) "*"))))
+    `(begin
+       (size-of ,type ,c-type)
+       (cast-lambda-ptr void* ,pt-type)
+       (cast-lambda-ptr ,pt-type void*)
+       (alloc-lambda ,type ,pt-type)
+       (free-lambda ,pt-type)
+       (set-lambda ,type ,pt-type)
+       (ref-lambda ,type ,pt-type))))
+
+
+(define-macro (setup-pointer-to-pointer type c-type)
+  (let ((pt-type (string->symbol (string-append (symbol->string type) "*"))))
+    `(begin
+       (size-of ,type ,c-type)
+       (cast-lambda-ptr void* ,pt-type)
+       (cast-lambda-ptr ,pt-type void*)
+       (alloc-lambda ,type ,pt-type)
+       (free-lambda ,pt-type)
+       (set-lambda ,type ,pt-type)
+       (ref-lambda-pt ,type ,pt-type))))
+
+
+(define-macro (size-of type c-type)
+  (let ((name (string->symbol (string-append "size-of-" (symbol->string type))))
+        (code (string-append "___result = sizeof(" c-type ");")))
+    `(definition ,name
+       ((c-function () size_t ,code)))))
+
+
+(define-macro (cast-lambda from to)
+  `(definition ,(string->symbol (string-append (symbol->string from) "->" (symbol->string to)))
+     (c-function (,from) ,to
+       "___result = ___arg1;")))
+
+
+(define-macro (cast-lambda-ptr from to)
+  `(definition ,(string->symbol (string-append (symbol->string from) "->" (symbol->string to)))
+     (c-function (,from) ,to
+       "___result_voidstar = ___arg1;")))
+
+
+(define-macro (free-lambda type)
+  (let ((name (string->symbol (string-append (symbol->string type) "-free")))
+        (cast (string->symbol (string-append (symbol->string type) "->void*"))))
+    `(definition ,name
+       (lambda (pt)
+         (free (,cast pt))))))
+        
+
+(define-macro (alloc-lambda type pt-type)
+  (let ((name (string->symbol (string-append (symbol->string pt-type) "-alloc")))
+        (cast (string->symbol (string-append "void*->" (symbol->string pt-type))))
+        (sizeof (string->symbol (string-append "size-of-" (symbol->string type)))))
+    `(definition ,name
+       (lambda (size)
+         (,cast (malloc (* size ,sizeof)))))))
+
+
+(define-macro (set-lambda type pt-type)
+  (let ((name (string->symbol (string-append (symbol->string pt-type) "-set!"))))
+    `(definition ,name
+       (c-function (,pt-type int ,type) void
+         "*(___arg1 + ___arg2) = ___arg3;"))))
+
+  
+(define-macro (ref-lambda type pt-type)
+  (let ((name (string->symbol (string-append (symbol->string pt-type) "-ref"))))
+    `(definition ,name
+       (c-function (,pt-type int) ,type
+         "___result = *(___arg1 + ___arg2);"))))
+
+
+(define-macro (ref-lambda-pt type pt-type)
+  (let ((name (string->symbol (string-append (symbol->string pt-type) "-ref"))))
+    `(definition ,name
+       (c-function (,pt-type int) ,type
+         "___result_voidstar = *(___arg1 + ___arg2);")))))
+         

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Product Selector
+;;;; Project Selector
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.builder.workbench.Product-Selector jazz
+(library jazz.builder.workbench.Project-Selector jazz
 
 
 (import (jazz.builder)
@@ -49,7 +49,7 @@
         (jazz.utilities))
 
 
-(class Product-Selector extends Layout-View
+(class Project-Selector extends Layout-View
   
   
   (form
@@ -77,7 +77,7 @@
   
   
   (method meta (host-title)
-    "Select Product")
+    "Select Project")
   
   
   (method (install-in-host host)
@@ -147,41 +147,42 @@
                     (table-set! rows file row)
                     row))))
       
-      (define (insert product)
-        (let ((parent (get-parent~ product)))
+      (define (insert project)
+        (let ((parent (get-parent~ project)))
           (if (not parent)
-              (add product {})
-            (add product (insert parent)))))
+              (add project {})
+            (add project (insert parent)))))
       
-      (for-each insert (collect-products))))
+      (for-each insert (collect-projects))))
   
   
   (method (update-flat tree)
-    (for-each (function (product)
-                  (let ((title (get-presentation~ product))
-                        (image (get-component-image~ product)))
-                    (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: product)))
-                (sort string<? (collect-products)
-                  key: (function (product) (get-presentation~ product)))))
+    (for-each (function (project)
+                  (let ((title (get-presentation~ project))
+                        (image (get-component-image~ project)))
+                    (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
+                (sort string<? (collect-projects)
+                  key: (function (project) (get-presentation~ project)))))
   
   
-  (method (collect-products)
-    (let ((products (new-queue)))
+  (method (collect-projects)
+    (let ((projects (new-queue)))
       (for-each-descendant~ (get-workbench)
         (function (file level)
-          (when (is? file Product)
-            (enqueue products file))))
-      (queue-list products)))
+          (when (and (is? file Project)
+                     (concrete?~ file))
+            (enqueue projects file))))
+      (queue-list projects)))
   
   
   (method (update-buttons)
-    (let ((product (selected-product)))
-      (set-enabled?~ (locate 'ok) product)))
+    (let ((project (selected-project)))
+      (set-enabled?~ (locate 'ok) project)))
   
   
   (method (select-active)
-    (when active-product
-      (select-user-data-row~ (get-tree) active-product)))
+    (when active-project
+      (select-user-data-row~ (get-tree) active-project)))
   
 
   ;;;
@@ -190,7 +191,7 @@
   
   
   (method (get-modal-result)
-    (selected-product))
+    (selected-project))
   
   
   (method (ok-enabled?)
@@ -217,7 +218,8 @@
   ;;;
   
   
-  (method (selected-product)
+  (method (selected-project)
     (let ((file (get-single-selected-data~ (get-tree))))
-      (when (is? file Product)
+      (when (and (is? file Project)
+                 (concrete?~ file))
         file)))))

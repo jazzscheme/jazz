@@ -70,7 +70,7 @@
       (<Workbench-Editor> name: descendants        location: center
         (<!>              name: scroller           flat?: #t)
         (<!>              name: tree               show-header?: #f highlight-edited?: #f
-          (<!>            name: descendant         title: "Product" width: 291 highlight-color: {Color name: Dark-Blue})))))
+          (<!>            name: descendant         title: "Project" width: 291 highlight-color: {Color name: Dark-Blue})))))
   
   
   (method meta (external-name . rest)
@@ -92,7 +92,7 @@
   
   (method (install-in-host host)
     (setup-active-configuration)
-    (setup-active-product))
+    (setup-active-project))
   
   
   (method (setup-workbench-title configuration)
@@ -112,12 +112,12 @@
       (set-active-configuration configuration)))
   
   
-  (method (setup-active-product)
+  (method (setup-active-project)
     (let* ((pref (get-preferences 'build))
-           (product (get-active-product~ pref))
+           (project (get-active-project~ pref))
            (workbench (get-workbench)))
-      (when (and product workbench)
-        (activate-product (find-product~ workbench product)))))
+      (when (and project workbench)
+        (activate-project (find-project~ workbench project)))))
   
   
   ;;;
@@ -309,13 +309,13 @@
   
   
   (method public (select-current)
-    (select-product))
+    (select-project))
   
   
-  (method (select-product)
-    (let ((product (get-modal Product-Selector)))
-      (when product
-        (activate-product product))))
+  (method (select-project)
+    (let ((project (get-modal Project-Selector)))
+      (when project
+        (activate-project project))))
 
   
   ;;;
@@ -324,7 +324,7 @@
   
   
   (method public (edit-current)
-    (edit-project (current-product)))
+    (edit-project (current-project)))
   
   
   (method (edit-selection)
@@ -380,7 +380,7 @@
                   (function (printer)
                     (expand~ expander template associations printer)))
                 (let ((component
-                        (if (memq? kind '(project product))
+                        (if (memq? kind '(project))
                             (install-project destination parent #f)
                           (import-pathname (ascendant-project parent) destination parent #f))))
                   (select-component~ (get-tree) component)))))))))
@@ -703,24 +703,25 @@
   
   
   (method (activate-object object)
-    (if (is-not? object Product)
-        (bell)
-      (activate-product object)))
+    (if (and (is? object Project)
+             (concrete?~ object))
+        (activate-project object)
+      (bell)))
   
   
-  (method (activate-product product)
-    (unless (eq? product active-product)
+  (method (activate-project project)
+    (unless (eq? project active-project)
       (let ((tree (get-tree)))
-        (when active-product
-          (unhighlight-component~ tree active-product))
-        (set-active-product product)
-        (when active-product
-          (let ((row (user-data-row~ tree active-product visible?: #f)))
+        (when active-project
+          (unhighlight-component~ tree active-project))
+        (set-active-project project)
+        (when active-project
+          (let ((row (user-data-row~ tree active-project visible?: #f)))
             (when row
               (ensure-expanded~ tree row)))
-          (highlight-component~ tree active-product)))
+          (highlight-component~ tree active-project)))
       (let ((appl (get-application)))
-        (update-product-actions~ appl))))
+        (update-project-actions~ appl))))
     
   
   ;;;
@@ -742,8 +743,8 @@
   
   
   (method public (test-current)
-    (let ((product (current-product)))
-      (product-test~ product)))
+    (let ((project (current-project)))
+      (project-test~ project)))
 
   
   ;;;
@@ -752,7 +753,7 @@
   
   
   (method public (launch-current)
-    (debug-product (current-product)))
+    (debug-project (current-project)))
   
   
   (method public (launch-selection)
@@ -760,8 +761,8 @@
           (tree (get-tree)))
       (for-each (function (component)
                   (typecase component
-                    ((Product)
-                     (debug-product component))
+                    ((Project)
+                     (debug-project component))
                     ((Project-File)
                      (let* ((file (get-effective-source~ component))
                             (ext (get-extension~ file)))
@@ -769,8 +770,8 @@
                 (selected-components~ tree))))
       
   
-  (method (debug-product product)
-    (debug-product~ (get-application) product
+  (method (debug-project project)
+    (debug-project~ (get-application) project
       configuration: (get-active-configuration)))
   
   
@@ -780,16 +781,16 @@
   
   
   (method public (run-current)
-    (let ((product (current-product)))
-      (run-product product)))
+    (let ((project (current-project)))
+      (run-project project)))
 
 
   (method public (run-selection)
     )
 
   
-  (method (run-product product)
-    (run-product~ (get-application) product))
+  (method (run-project project)
+    (run-project~ (get-application) project))
   
   
   ;;;
@@ -844,16 +845,16 @@
   (method (preprocess-file moniker file)
     (let ((proc
            (function (thread)
-             (let ((product (get-project~ file)))
-               (prepare-maps~ product)
-               (prepare-directories~ product)
+             (let ((project (get-project~ file)))
+               (prepare-maps~ project)
+               (prepare-directories~ project)
                (user-message "Preprocessing {a}..." moniker)
                (let ((output (get-output-log))
                      (timer (new Timer)))
                  (clear-results~ output)
                  (select-results~ output)
                  (select-palette Output-Log)
-                 (preprocess~ file product {} {} output force?: #t)
+                 (preprocess~ file project {} {} output force?: #t)
                  (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})))
   
@@ -864,24 +865,24 @@
   
   
   (method (on-build-current evt)
-    (let ((product (current-product)))
-      (if (not product)
+    (let ((project (current-project)))
+      (if (not project)
           (bell)
-        (build-product product))))
+        (build-project project))))
   
   
   (method public (build-current)
-    ;; should be only the product's files...
+    ;; should be only the project's files...
     (save-all~ (get-application))
-    (let ((product (current-product)))
-      (build-product product)))
+    (let ((project (current-project)))
+      (build-project project)))
   
   
-  (method (build-product product)
-    (if (is-not? product Product)
-        (bell)
-      (let ((product-name (get-product~ product)))
-        (launch-runtime~ (get-application) arguments: (list "-make" (->string product-name)) show-console?: #t))))
+  (method (build-project project)
+    (if (concrete?~ project)
+        (let ((project-name (get-project~ project)))
+          (launch-runtime~ (get-application) arguments: (list "-make" (->string project-name)) show-console?: #t))
+      (bell)))
   
   
   ;;;
@@ -890,15 +891,15 @@
   
   
   (method public (clean-current)
-    (let ((product (current-product)))
-      (clean-product product)))
+    (let ((project (current-project)))
+      (clean-project project)))
   
   
-  (method (clean-product product)
-    (if (is-not? product Product)
-        (bell)
-      ;; to complete
-      {}))
+  (method (clean-project project)
+    (if (concrete?~ project)
+        ;; to complete
+        {}
+      (bell)))
 
   
   ;;;
@@ -907,26 +908,26 @@
   
   
   (method (on-distribute-current evt)
-    (let ((product (selected-product)))
-      (if (not product)
+    (let ((project (selected-project)))
+      (if (not project)
           (bell)
-        (distribute-product product))))
+        (distribute-project project))))
   
   
   (method public (distribute-current)
-    (let ((product (current-product)))
-      (distribute-product product)))
+    (let ((project (current-project)))
+      (distribute-project project)))
   
   
   (method (distribute-selection)
-    (distribute-product (selected-product)))
+    (distribute-project (selected-project)))
   
   
-  (method (distribute-product product)
+  (method (distribute-project project)
     (let* ((mode         'backup)
-           (left         (product-distribution~ product))
-           (right        (product-distribution-directory~ product))
-           (content      (product-distribution-list~ product))
+           (left         (project-distribution~ project))
+           (right        (project-distribution-directory~ project))
+           (content      (project-distribution-list~ project))
            (ignored-dirs (list ".git" ".hg" "bin"))
            (files        (list "vssver.scc"))
            (extensions   (list))
@@ -959,16 +960,17 @@
         object)))
   
   
-  (method (selected-product)
+  (method (selected-concrete-project)
     (let ((object (selected-object)))
-      (when (is? object Product)
+      (when (and (is? object Project)
+                 (concrete?~ object))
         object)))
   
   
-  (method (current-product)
-    (if (not active-product)
-        (error "No active product")
-      active-product))
+  (method (current-project)
+    (if (not active-project)
+        (error "No active project")
+      active-project))
 
   
   ;;;
@@ -978,12 +980,13 @@
   
   (method public (new-menu)
     (let ((object (selected-object)))
-      (when object
-        (typecase object
-          ((Project-Group) (new-group-menu object))
-          ((Product) (new-product-menu object))
-          ((Project) (new-project-menu object))
-          (else (new Element-Menu client: (get-tree)))))))
+      (typecase object
+        ((Project-Group) (new-group-menu object))
+        ((Project)
+         (if (concrete?~ object)
+             (new-concrete-project-menu object)
+           (new-project-menu object)))
+        (else (new Element-Menu client: (get-tree))))))
   
   
   (method (new-group-menu object)
@@ -994,8 +997,8 @@
       menu))
   
   
-  (method (new-product-menu object)
-    (let ((menu (new Product-Menu client: (get-tree))))
+  (method (new-concrete-project-menu object)
+    (let ((menu (new Concrete-Project-Menu client: (get-tree))))
       (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
       (update-group/project-menu menu)
       (cleanup-separators~ menu)
@@ -1035,7 +1038,7 @@
   
   (method (describe-state pos)
     (let ((workbench (get-workbench)))
-      (format :console "{%}active-product = {s}" active-product)
+      (format :console "{%}active-project = {s}" active-project)
       (format :console "{%}project-designers =")
       (let* ((pairs (sort < (get-project-designers~ designer) key: (function (pair) (type-name (class-of (car pair))))))
              (more? (> (length pairs) 5)))
@@ -1172,16 +1175,16 @@
 
 
 ;;;
-;;;; Product-Menu
+;;;; Concrete-Project-Menu
 ;;;
 
 
-(class Product-Menu extends Project-Menu
+(class Concrete-Project-Menu extends Project-Menu
   
   
   (form
     (<install>
-      (<Label-Item>     name: activate title: "Select as Active Product" before: cut default?: #t action: {Action workbench-manager activate})
+      (<Label-Item>     name: activate title: "Select as Active Project" before: cut default?: #t action: {Action workbench-manager activate})
       (<Separator-Item>                before: cut))))
 
 

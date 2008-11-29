@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Core Product
+;;;; Gambit Projects
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,69 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.project.JazzCore-Product jazz
+(library jazz.debugger.debuggers.gambit.Gambit-Project jazz
 
 
 (import (jazz.builder)
+        (jazz.builder.workbench)
         (jazz.debugger)
-        (jazz.debugger.debuggers.jazz)
-        (jazz.jml)
+        (jazz.debugger.debuggers.gambit)
+        (jazz.io)
+        (jazz.jrm)
         (jazz.library)
-        (jazz.literals))
+        (jazz.utilities))
 
 
-(class JazzCore-Product extends Jazz-Product
+(class Gambit-Project extends Project
+
+
+  ;;;
+  ;;;; Concrete
+  ;;;
   
   
-  (form
-    (<install> title: "Core" product: core)))
+  (method (concrete?)
+    #t)
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (definition started?
+    #f)
+  
+  
+  (method (start-debugger)
+    (when (not started?)
+      (let ((debugger (new Gambit-Debugger)))
+        (start-debugger~ debugger)
+        (register-debugger debugger))
+      (set! started? #t)))
 
 
-(register-autoclass JazzCore-Product))
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method (launch (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (start-debugger)
+    (open-process
+      (list
+        path: "gsi"
+        arguments: (list "-:dar" "-debug")
+        stdin-redirection: #f
+        stdout-redirection: #f
+        stderr-redirection: #f
+        show-console: #f)))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method meta (get-class-image)
+    {Bitmap-Resource "ConcreteProject"})))

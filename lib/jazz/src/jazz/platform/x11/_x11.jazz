@@ -831,8 +831,8 @@
         
          (data      (case format
                       ((8)  (u8vector->uint8* data))
-                      ((32) (let ((pointer (u32vector->uint32* data)))
-                              (uint32*->uint8* pointer))))))
+                      ((32) (let ((pointer (u32vector->long* data)))
+                              (long*->uint8* pointer))))))
     (XChangeProperty display window property type format mode data nelements)
     (uint8*-free data)))
 
@@ -993,6 +993,8 @@
       (values x y))))
 
 
+
+
 (definition (XGetWindowProperty display window property long_offset long_length delete req_type)
   (let ((actual_type_return-pt   (ulong*-alloc 1))
         (actual_format_return-pt (int*-alloc 1))
@@ -1012,18 +1014,6 @@
     (int*-free actual_format_return-pt)
     (uint8**-free prop_return-pt)
     (values actual_type_return actual_format_return nitems_return bytes_after_return prop_return))))
-
-
-(definition GetPropertyString
-  (c-function (Display* Window Atom) uint8*
-    "unsigned char *ret;
-     Atom type;
-     int format;
-     unsigned long nitems;
-     unsigned long bytes_after_return;
-     XGetWindowProperty(___arg1,___arg2,___arg3,0,100000,False,XA_STRING,&type,&format,&nitems,&bytes_after_return,&ret);
-     ___result_voidstar = ret;"))
-
      
 
 (definition (XRetrieveSelection display toplevel selection target timestamp)
@@ -1044,7 +1034,7 @@
 (definition (XGetClipboardString display toplevel)
   (let ((owner (XGetSelectionOwner display XA_CLIPBOARD)))
     (if (= owner toplevel)
-        (let ((data (GetPropertyString display toplevel XA_PRIMARY)))
+        (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel XA_PRIMARY 0 100000 #f XA_STRING)
           (prog1 (uint8*->char-string data)
             (XFree data)))
       (XConvertSelection display XA_CLIPBOARD XA_STRING None toplevel CurrentTime)
@@ -1054,21 +1044,26 @@
           (if (and (< i 1000000) (not return))
               (loop (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
             (let* ((property (if return (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
-                   (data (if (= property None) #f (GetPropertyString display toplevel (XSelectionEvent-property-ref (XEvent-xselection-ref ev)))))
-                   (result (if (= property None) "" (uint8*->char-string data))))
+                   (result (if (= property None)
+                               #f
+                             (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel property 0 100000 #f XA_STRING)
+                               (prog1 (uint8*->char-string data)
+                                 (XFree data))))))
               (XEvent-free ev)
-              (when data (XFree data))
               result)))))))
 
 
 (definition (XSetClipboardString display window string)
-    (XChangeProperty display window XA_PRIMARY XA_STRING 8 PropModeReplace (char-string->uint8* string) (string-length string))
-    (XSetSelectionOwner display XA_CLIPBOARD window CurrentTime))
+  (let ((data (char-string->uint8* string))
+        (len (+ 1 (string-length string))))
+    (XChangeProperty display window XA_PRIMARY XA_STRING 8 PropModeReplace data len)
+    (XSetSelectionOwner display XA_CLIPBOARD window CurrentTime)
+    (uint8*-free data)))
 
 
 (definition (XSendClipboardString display toplevel requestor selection target property)
-  (let ((string (GetPropertyString display toplevel XA_PRIMARY)))
-    (XChangeProperty display requestor property target 8 PropModeReplace string (string-length string))
+  (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel XA_PRIMARY 0 100000 #f XA_STRING)
+    (XChangeProperty display requestor property target 8 PropModeReplace data nitems)
     (let* ((ev (XEvent-make))
            (xselection (XEvent-xselection-ref ev)))
       (XSelectionEvent-type-set! xselection SelectionNotify)

@@ -56,7 +56,8 @@
 
 (cond-expand
   (mac  (c-include "<CoreServices/CoreServices.h>"))
-  (else (c-include "<stdlib.h>")))
+  (else (c-include "<stdlib.h>")
+        (c-include "<string.h>")))
 
 
 (c-named-declare size_t-declare
@@ -314,22 +315,31 @@ c-declare-end
 (c-type U32PTR "U32PTR" "U32PTR_to_SCMOBJ" "SCMOBJ_to_U32PTR" U32PTR-declare)
 (c-type F64PTR "F64PTR" "F64PTR_to_SCMOBJ" "SCMOBJ_to_F64PTR" F64PTR-declare)
 
-(setup-pointer-to-type    byte   "___U8")
-(setup-pointer-to-type    uint8  "___U8")
-(setup-pointer-to-pointer uint8* "___U8*")
-(setup-pointer-to-type    uint16 "___U16")
-(setup-pointer-to-type    uint32 "___U32")
-(setup-pointer-to-type    short  "short")
-(setup-pointer-to-type    int    "int")
-(setup-pointer-to-type    long   "long")
-(setup-pointer-to-type    double "double")
-(setup-pointer-to-type    ulong  "unsigned long")
+(define-pointer-to-type    byte   "___U8")
+(define-pointer-to-type    uint8  "___U8")
+(define-pointer-to-pointer uint8* "___U8*")
+(define-pointer-to-type    uint16 "___U16")
+(define-pointer-to-type    uint32 "___U32")
+(define-pointer-to-type    short  "short")
+(define-pointer-to-type    int    "int")
+(define-pointer-to-type    long   "long")
+(define-pointer-to-type    double "double")
+(define-pointer-to-type    ulong  "unsigned long")
 
 
-(cast-lambda     uint8*      char-string)
-(cast-lambda-ptr char-string uint8*)
-(cast-lambda-ptr uint32*     uint8*)
-(cast-lambda-ptr uint8*      ulong*)
+(define-cast-lambda uint8* char-string)
+(define-cast-lambda-ptr uint32*     uint8*)
+(define-cast-lambda-ptr uint8*      ulong*)
+(define-cast-lambda-ptr long*       uint8*)
+
+
+(definition char-string->uint8*
+  (c-function (char-string) uint8*
+    "size_t len = strlen(___arg1);
+     ___U8 *ptr = (___U8*) malloc( (len+1)*sizeof(___U8) );
+     memcpy(ptr, ___arg1, len+1);
+     ___result_voidstar = ptr;"))
+
 
 (definition malloc
   (c-function (size_t) void*
@@ -348,6 +358,16 @@ c-declare-end
          (if (= i size)
              pointer
            (uint8*-set! pointer i (u8vector-ref vector i))
+           (loop (+ i 1))))))
+
+
+(definition (u32vector->long* vector)
+  (let* ((size (u32vector-length vector))
+         (pointer (long*-alloc size)))
+    (let loop ((i 0))
+         (if (= i size)
+             pointer
+           (long*-set! pointer i (u32vector-ref vector i))
            (loop (+ i 1))))))
 
 

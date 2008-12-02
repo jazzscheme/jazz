@@ -71,40 +71,40 @@
   
 (definition public (carbon-get-clipboard-text)
    (let ((func (c-function (PasteboardRef) scheme-object
-                 "OSStatus err;
-                  ___SCMOBJ r = ___FAL;
-                  ___U8 *vec;
+                 "___SCMOBJ r = ___FAL;
+                  PasteboardSyncFlags syncFlags = PasteboardSynchronize(___arg1);
+                  OSStatus err;
                   ItemCount itemCount;
-                  PasteboardSynchronize( ___arg1 );
-                  PasteboardGetItemCount( ___arg1, &itemCount );
-                  if (itemCount >= 1) {
-                       PasteboardItemID itemID;
-                       CFArrayRef flavorTypeArray;
-                       CFIndex flavorCount;
-                       CFIndex flavorIndex;
-                       PasteboardGetItemIdentifier( ___arg1, 1, &itemID );
-                       PasteboardCopyItemFlavors( ___arg1, itemID, &flavorTypeArray );
-                       flavorCount = CFArrayGetCount( flavorTypeArray );
-                       for( flavorIndex = 0; flavorIndex < flavorCount; flavorIndex++ ) {
-                            CFStringRef flavorType;
-                            CFDataRef flavorData;
-                            CFIndex flavorDataSize;
-                            UInt32 dataIndex;
-                            flavorType = (CFStringRef)CFArrayGetValueAtIndex(flavorTypeArray, flavorIndex);
-                            if( UTTypeConformsTo(flavorType, CFSTR(\"public.utf16-plain-text\")) ) {
-                                PasteboardCopyItemFlavorData( ___arg1, itemID, flavorType, &flavorData );
-                                flavorDataSize = CFDataGetLength( flavorData );
-                                r = ___EXT(___alloc_scmobj) (___sU8VECTOR, flavorDataSize+1, ___STILL);
-                                vec = ___CAST(___U8*, ___BODY_AS(r, ___tSUBTYPED));
-                                for( dataIndex = 0; dataIndex <= flavorDataSize; dataIndex++ ) {
-                                     char byte = *(CFDataGetBytePtr( flavorData ) + dataIndex);
-                                     vec[dataIndex] = byte;
-                                }
-                                CFRelease( flavorData );
-                                break;
-                            }
-                        }
-                        CFRelease( flavorTypeArray );
+                  UInt32 itemIndex = 1;
+                  if (noErr == (err = PasteboardGetItemCount(___arg1, &itemCount))
+                  &&  itemCount > 0)
+                  {
+                      PasteboardItemID itemID;
+                      CFArrayRef flavorTypeArray;
+                      if (noErr == (err = PasteboardGetItemIdentifier(___arg1, itemIndex, &itemID))
+                      &&  noErr == (err = PasteboardCopyItemFlavors(___arg1, itemID, &flavorTypeArray)))
+                      {
+                          CFIndex flavorCount;
+                          CFIndex flavorIndex;
+                          flavorCount = CFArrayGetCount(flavorTypeArray);
+                          for (flavorIndex = 0; flavorIndex < flavorCount; flavorIndex++)
+                          {
+                              CFStringRef flavorType = (CFStringRef)CFArrayGetValueAtIndex(flavorTypeArray, flavorIndex);
+                              CFDataRef flavorData;
+                              if (UTTypeConformsTo(flavorType, CFSTR(\"public.utf16-plain-text\"))
+                              &&  noErr == (err = PasteboardCopyItemFlavorData(___arg1, itemID, flavorType, &flavorData)))
+                              {
+                                  const UInt8* flavorBytes = CFDataGetBytePtr(flavorData);
+                                  CFIndex flavorDataSize = CFDataGetLength(flavorData);
+                                  CFRelease(flavorData);
+                                  r = ___EXT(___alloc_scmobj) (___sU8VECTOR, flavorDataSize+1, ___STILL);
+                                  ___U8 *vec = ___CAST(___U8*, ___BODY_AS(r, ___tSUBTYPED));
+                                  memcpy(vec, flavorBytes, flavorDataSize);
+                                  break;
+                              }
+                          }
+                          CFRelease(flavorTypeArray);
+                      }
                   }
                   ___result = r;")))
      (func *clipboard*))))

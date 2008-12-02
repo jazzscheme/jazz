@@ -534,7 +534,7 @@
 (native jazz.with-jazz-readtable)
 (native jazz.print)
 (native jazz.pretty-print)
-(native jazz.read-source-as-begin)
+(native jazz.read-source-all-expr)
 (native jazz.read-source-first-expr)
 (native force-output)
 (native current-error-port)

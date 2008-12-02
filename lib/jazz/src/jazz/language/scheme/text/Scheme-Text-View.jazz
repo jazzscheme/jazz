@@ -204,23 +204,30 @@
             (with-cursor :wait
               (function ()
                 (sleep .1)
-                (let ((forms (read-text-forms range)))
-                  (when forms
-                    (evaluate-forms range forms))))))))))
+                (evaluate-forms range))))))))
   
   
-  (method (evaluate-forms range forms)
+  (method (evaluate-forms range)
     (let ((debugged (get-focused-process)))
       (if (not debugged)
           (bell)
-        (let ((expl <Text-Explorer> (new (explorer-class) self)))
-          (let ((names (map (function (form) (form-name~ expl form)) forms))
-                (expressions (map (function (form) (->string form :reader)) forms)))
-            (evaluate-expressions~ debugged expressions)
+        (let ((expressions (get-string range))
+              (container (get-locat-container))
+              (line (get-row~ (get-start~ range)))
+              (col (get-col~ (get-start~ range))))
+          (let ((names (collect-names range expressions)))
+            (evaluate-expressions~ debugged expressions container line col)
             (user-message "Evaluated: {l detail: :human}"
                           (map (function (name)
                                  (either name '<expr>))
                                names)))))))
+  
+  
+  (method (collect-names range expressions)
+    (let ((expl <Text-Explorer> (new (explorer-class) self)))
+      (map (function (form)
+             (form-name~ expl form))
+           (read-text-forms range string: expressions))))
   
   
   ;;;

@@ -154,17 +154,19 @@
   
   
   (method (module/library-form? expr)
-    (and (pair? expr)
-         (memq? (car expr) '(module library))))
+    (and (pair? (source-code expr))
+         (memq? (source-code (car (source-code expr))) '(module library))))
   
   
-  (method (evaluate-expressions expressions)
+  (method (evaluate-expressions string container line col)
     (let ((expressions (with-jazz-readtable
                          (function ()
-                           (map read-string-element expressions)))))
+                           (call-with-input-string string
+                             (function (port)
+                               (read-source-all-expr port container line col)))))))
       (map (function (expr)
              (if (module/library-form? expr)
-                 (let ((module-name (cadr expr)))
+                 (let ((module-name (source-code (cadr (source-code expr)))))
                    (load-module module-name)
                    (locate-library-declaration module-name)
                    (parameterize ((requested-module-name module-name))

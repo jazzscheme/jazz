@@ -41,13 +41,17 @@
 (include "~~/lib/_gambit#.scm")
 
 
-(define (jazz.read-source-as-begin port container line col)
-  ;; hack to set the names of the port until there is an accessor
+(define (jazz.read-source-all-expr port #!optional (container #f) (line #f) (col #f))
+  ;; hack to set the names of the port until there is a setter
   (if container
       (##vector-set! port 4 (lambda (port) container)))
   
-  (##input-port-line-set! port line)
-  (##input-port-column-set! port col)
+  (if line
+      ;; this +1 should be fixed in Gambit
+      (##input-port-line-set! port (+ line 1)))
+  (if col
+      ;; this +1 should be fixed in Gambit
+      (##input-port-column-set! port (+ col 1)))
   
   (let ((begin-src
           (##read-all-as-a-begin-expr-from-port
@@ -57,16 +61,8 @@
             ##unwrap-datum
             (macro-readtable-start-syntax (##current-readtable))
             #t)))
-    (##source-code (##source-code begin-src))))
+    (##cdr (##source-code (##source-code begin-src)))))
 
 
-(define (jazz.read-source-first-expr port)
-  (let ((begin-src
-          (##read-all-as-a-begin-expr-from-port
-            port
-            (##current-readtable)
-            ##wrap-datum
-            ##unwrap-datum
-            (macro-readtable-start-syntax (##current-readtable))
-            #t)))
-    (##cadr (##source-code (##source-code begin-src))))))
+(define (jazz.read-source-first-expr port #!optional (container #f) (line #f) (col #f))
+  (##car (jazz.read-source-all-expr port container line col))))

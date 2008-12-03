@@ -225,6 +225,32 @@
   (method (move-caret pos direction shift?)
     (nextmethod pos direction shift?)
     (end-completion))
+  
+  
+  (method (on-toggle-expr evt)
+    (toggle-expr))
+  
+  
+  (method public (toggle-expr)
+    (if (has-selection?)
+        (bell)
+      (with-atomic-undo~ undoer
+        (function ()
+          (let ((left-expl <Text-Explorer> (new (explorer-class) self))
+                (right-expl <Text-Explorer> (new (explorer-class) self)))
+            (set-pos~ left-expl (get-start))
+            (backward-expr~ left-expl)
+            (set-pos~ right-expl (get-end))
+            (forward-expr~ right-expl)
+            (let ((left (get-range~ left-expl))
+                  (right (get-range~ right-expl)))
+              (if (or (not left) (not right))
+                  (bell)
+                (let ((ls (range-strings left))
+                      (rs (range-strings right)))
+                  (replace right ls)
+                  (replace left rs)))))
+          (set-modified? #t)))))
 
   
   ;;;
@@ -616,7 +642,23 @@
   ;;;
   
   
-  (method protected virtual (evaluate-forms . rest)
+  (method (on-evaluate evt)
+    (evaluate-selection))
+  
+  
+  (method (on-evaluate-buffer evt)
+    (evaluate-buffer))
+  
+  
+  (method protected virtual (evaluate-selection)
+    )
+  
+  
+  (method protected virtual (evaluate-buffer)
+    )
+  
+  
+  (method protected virtual (evaluate-range range)
     )
 
   

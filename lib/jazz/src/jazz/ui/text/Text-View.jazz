@@ -1646,7 +1646,7 @@
   
   
   (method (select-all . rest)
-    (set-selection (new Range$Cell$ (text-beginning) (text-ending))))
+    (set-selection (buffer-selection)))
   
   
   (method public (clear-all)
@@ -1693,6 +1693,10 @@
   
   (method (empty-selection) <Range$Cell$>
     (new Range$Cell$ (text-beginning) (text-beginning)))
+  
+  
+  (method (buffer-selection) <Range$Cell$>
+    (new Range$Cell$ (text-beginning) (text-ending)))
   
   
   (method (row-selected? row) <bool>
@@ -4327,23 +4331,31 @@
     (let ((string (either (get-selected-string) (current-expr-string))))
       (if (not string)
           #f
-        (let ((appl (get-application)))
-          (make-search-context string
-            whole-words?: (get-whole-words?~ appl)
-            ignore-case?: (get-ignore-case?~ appl)
-            constituent-test: (get-constituent-test~ syntax))))))
+        (application-search-context string))))
+  
+  
+  (method (application-search-context string)
+    (let ((appl (get-application)))
+      (make-search-context string
+        whole-words?: (get-whole-words?~ appl)
+        ignore-case?: (get-ignore-case?~ appl)
+        constituent-test: (get-constituent-test~ syntax))))
   
   
   (method public (on-find-next evt)
-    (let ((context (find-context)))
-      (unless (and context (select-next (list context)))
-        (bell))))
+    (if (empty-selection?)
+        (bell)
+      (let ((context (application-search-context (get-selected-string))))
+        (unless (select-next (list context))
+          (bell)))))
   
   
   (method public (on-find-previous evt)
-    (let ((context (find-context)))
-      (unless (and context (select-previous (list context)))
-        (bell))))
+    (if (empty-selection?)
+        (bell)
+      (let ((context (application-search-context (get-selected-string))))
+        (unless (select-previous (list context))
+          (bell)))))
   
   
   (method public virtual (select-next contexts)

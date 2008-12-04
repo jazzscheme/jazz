@@ -43,22 +43,62 @@
         (jazz.utilities))
 
 
-(class Radio-Item extends Label-Item
+(class Radio-Item extends Label-Item implements (Groupable Selectable)
   
   
+  (property group     initialize {} getter get-group     setter set-group)
   (property selected? initialize #f getter get-selected? setter set-selected?)
   
   
   ;;;
-  ;;;; Access
+  ;;;; Groupable
   ;;;
 
 
-  (method public (get-selected?)
+  (method (get-group)
+    group)
+
+
+  (method (set-group value)
+    (set! group value))
+
+
+  (method (radio-group)
+    (collect-if (function (component)
+                  (and (is? component Radio-Item)
+                       (eq? (get-group~ component) group)))
+                (get-children~ parent)))
+
+
+  (method (find-selected)
+    (find-if (function (view)
+               (get-selected?~ view))
+             (radio-group)))
+  
+  
+  ;;;
+  ;;;; Selectable
+  ;;;
+
+
+  (method (get-selected?)
     selected?)
   
 
-  (method public (set-selected? flag)
+  (method (set-selected? flag)
+    (when (neq? flag selected?)
+      (let ((current (find-selected)))
+        (set-selected-state flag)
+        (when current
+          (set-selected-state~ current (not flag))))))
+  
+  
+  (method (unselect)
+    (when selected?
+      (set-selected-state #f)))
+  
+  
+  (method (set-selected-state flag)
     (set! selected? flag)
     (invalidate-view))
   

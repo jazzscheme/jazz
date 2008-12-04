@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Reader
+;;;; Repositories
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,34 +35,75 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.reader
+(library jazz.builder.repositories.Repository jazz
 
 
-(include "~~/lib/_gambit#.scm")
+(import (jazz.builder)
+        (jazz.designer)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.runtime)
+        (jazz.utilities))
 
 
-(define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))
-  ;; hack to set the names of the port until there is a setter
-  (if container
-      (##vector-set! port 4 (lambda (port) container)))
+(class Repository extends Component
   
-  (if line
-      ;; this +1 should be fixed in Gambit
-      (##input-port-line-set! port (+ line 1)))
-  (if col
-      ;; this +1 should be fixed in Gambit
-      (##input-port-column-set! port (+ col 1)))
   
-  (let ((begin-src
-          (##read-all-as-a-begin-expr-from-port
-            port
-            (##current-readtable)
-            ##wrap-datum
-            ##unwrap-datum
-            (macro-readtable-start-syntax (##current-readtable))
-            #t)))
-    (##cdr (##source-code (##source-code begin-src)))))
+  (property title     initialize {} accessors generate)
+  (property directory initialize {} accessors generate)
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{a}"
+                title))))
 
 
-(define (jazz.read-source-first port #!optional (container #f) (line #f) (col #f))
-  (##car (jazz.read-source-all port container line col))))
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method meta (get-class-image)
+    {Bitmap-Resource "CompareManager"})
+  
+  
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((title) "Title")
+      ((directory) "Directory")
+      (else (nextmethod property))))
+  
+  
+  (method (presentation-property? property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method (get-presentation)
+    title)
+  
+  
+  (method (set-presentation designer presentation)
+    (set-property~ designer self title: presentation))
+  
+  
+  (method (addable-class? class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method (get-addable-classes)
+    (list
+      Project-Group))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((directory) (new Directory-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(directory))))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Reader
+;;;; Repository
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,34 +35,25 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.reader
+(module jazz.dialect.core.repository
 
 
-(include "~~/lib/_gambit#.scm")
+;;;
+;;;; Repository
+;;;
 
 
-(define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))
-  ;; hack to set the names of the port until there is a setter
-  (if container
-      (##vector-set! port 4 (lambda (port) container)))
-  
-  (if line
-      ;; this +1 should be fixed in Gambit
-      (##input-port-line-set! port (+ line 1)))
-  (if col
-      ;; this +1 should be fixed in Gambit
-      (##input-port-column-set! port (+ col 1)))
-  
-  (let ((begin-src
-          (##read-all-as-a-begin-expr-from-port
-            port
-            (##current-readtable)
-            ##wrap-datum
-            ##unwrap-datum
-            (macro-readtable-start-syntax (##current-readtable))
-            #t)))
-    (##cdr (##source-code (##source-code begin-src)))))
+(define (jazz.repository-name repository)
+  (%%repository-name repository))
+
+(define (jazz.repository-directory repository)
+  (%%repository-directory repository))
 
 
-(define (jazz.read-source-first port #!optional (container #f) (line #f) (col #f))
-  (##car (jazz.read-source-all port container line col))))
+;;;
+;;;; Package
+;;;
+
+
+(define (jazz.package-name package)
+  (%%package-name package)))

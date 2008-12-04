@@ -5433,7 +5433,7 @@
                      (let ((form (read port))
                            (extraneous? (%%not (%%eof-object? (read port)))))
                        (values form extraneous?))
-                   (values (jazz.read-source-first-expr port) #f)))))))
+                   (values (jazz.read-source-first port) #f)))))))
     (if (or read-source? (and (%%pair? form) (%%memq (%%car form) '(module library))))
         (if (%%not extraneous?)
             form

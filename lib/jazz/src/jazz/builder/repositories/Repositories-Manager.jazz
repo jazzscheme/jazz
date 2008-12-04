@@ -1,0 +1,136 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Repositories Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.builder.repositories.Repositories-Manager jazz
+
+
+(import (jazz.builder)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Repositories-Manager extends Layout-View
+
+
+  (form
+    (<install>                                           layout-type: fill
+      (<Layout-View>                name: tools)
+      (<Scroller-View>              name: scroller       vscroll?: #t hscroll?: #t flat?: #t
+        (<!>                        name: content        layout-type: fill
+          (<Tree-Header>            name: header         shown?: #f
+            (<!>                    name: content
+              (<Tree-View>          name: repositories   portfolio: :icons show-header?: #f
+                (<Tree-Node-Column>                      title: "Repositories" width: 329))))))))
+  
+  
+  (method meta (external-name . rest)
+    'repositories-manager)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta (host-icon)
+    {Bitmap-Resource "Repositories"})
+  
+  
+  (method meta (host-title)
+    "Repositories")
+  
+  
+  (method (install-in-host host)
+    (setup-repositories))
+  
+  
+  (method (setup-repositories)
+    (update))
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (get-tree)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'repositories))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update)
+    (let ((tree (get-tree)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})))))
+            (for-each (function (repository)
+                        (let ((name (repository-name repository)))
+                          (let ((title (->string name))
+                                (image {Bitmap-Resource "Repository"}))
+                            (let ((repository-row (add-row~ tree father: repositories-row children: (list (new Tree-Node title: title image: image)) user-data: repository)))
+                              (for-each (function (package)
+                                          (let ((name (package-name package)))
+                                            (let ((title (->string name))
+                                                  (image {Bitmap-Resource "Package"}))
+                                              (add-row~ tree father: repository-row children: (list (new Tree-Node title: title image: image)) user-data: package))))
+                                        (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))))))
+                      (get-repositories)))))))))

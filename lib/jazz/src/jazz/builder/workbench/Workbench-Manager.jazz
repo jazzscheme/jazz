@@ -63,6 +63,7 @@
   (form
     (<install>                                     size: {Dimension 650 400} layout-type: border
       (<Layout-View>      name: tools
+        @convert
         (<Push-Combo>     name: configure
           (<!>            name: body               portfolio: :icons image-name: {Bitmap-Resource "Configure"} tooltip?: #t tooltip-text: "Configure" @wait action-handler: @wait {Event-Handler :form on-configure})
           (<!>            name: pick               action-handler: {Event-Handler :form on-configurations-menu}))
@@ -96,12 +97,13 @@
   
   
   (method (setup-workbench-title configuration)
-    (let ((host (get-host))
+    @convert
+    (let ((cell (get-child~ (user-data-row~ (get-tree) (get-workbench)) 0))
           (title
             (if (not configuration)
                 "Workbench"
               (format "Workbench - {a}" (get-name~ configuration)))))
-      (set-title~ host title)))
+      (set-title~ cell title)))
   
   
   (method (setup-active-configuration)
@@ -710,16 +712,16 @@
   
   
   (method (activate-project project)
-    (unless (eq? project active-project)
+    (unless (eq? project (get-active-project))
       (let ((tree (get-tree)))
-        (when active-project
-          (unhighlight-component~ tree active-project))
+        (when (get-active-project)
+          (unhighlight-component~ tree (get-active-project)))
         (set-active-project project)
-        (when active-project
-          (let ((row (user-data-row~ tree active-project visible?: #f)))
+        (when (get-active-project)
+          (let ((row (user-data-row~ tree (get-active-project) visible?: #f)))
             (when row
               (ensure-expanded~ tree row)))
-          (highlight-component~ tree active-project)))
+          (highlight-component~ tree (get-active-project))))
       (let ((appl (get-application)))
         (update-project-actions~ appl))))
     
@@ -968,9 +970,9 @@
   
   
   (method (current-project)
-    (if (not active-project)
+    (if (not (get-active-project))
         (error "No active project")
-      active-project))
+      (get-active-project)))
 
   
   ;;;
@@ -1038,7 +1040,7 @@
   
   (method (describe-state pos)
     (let ((workbench (get-workbench)))
-      (format :console "{%}active-project = {s}" active-project)
+      (format :console "{%}active-project = {s}" (get-active-project))
       (format :console "{%}project-designers =")
       (let* ((pairs (sort < (get-project-designers~ designer) key: (function (pair) (type-name (class-of (car pair))))))
              (more? (> (length pairs) 5)))
@@ -1170,7 +1172,7 @@
       @wait-complete
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut)
-      (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Bitmap-Resource "Repository"} action: {Action workbench-manager update-catalog})
+      (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Bitmap-Resource "Catalog"} action: {Action workbench-manager update-catalog})
       (<Separator-Item>                           before: cut))))
 
 

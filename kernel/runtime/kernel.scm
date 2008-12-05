@@ -335,7 +335,7 @@
   (jazz.make-repository 'jazz "Jazz" jazz.kernel-source "lib/" error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'user "User" "~/" ".jazz/lib/" create?: #t))
+  (jazz.make-repository 'user "User" "~/" "jazz_projects/lib/" create?: #t))
 
 
 (define (jazz.make-repositories)

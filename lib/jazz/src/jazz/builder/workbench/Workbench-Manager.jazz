@@ -220,6 +220,10 @@
     (highlight-document))
   
   
+  (method (on-add-project evt)
+    (add-project))
+  
+  
   (method (on-add-file evt)
     (add-file))
   
@@ -366,8 +370,36 @@
   ;;;
   
   
-  (definition Templates-Directory
-    {Directory Jazz "lib" "jedi" "templates" "new"})
+  (definition Project-Templates-Directory
+    {Directory Jazz "lib" "jedi" "templates" "project"})
+  
+  (definition File-Templates-Directory
+    {Directory Jazz "lib" "jedi" "templates" "file"})
+  
+  
+  (method protected (add-project)
+    (let ((parent (either (selected-object) (get-workbench))))
+      (when (or (is? parent Project-Group)
+                (is? parent Project))
+        (let ((default-directory (either (default-import-directory parent must-exist?: #f) {Directory Profile} @not-sure-this-is-best (get-current-directory))))
+          (when (or (exists?~ default-directory)
+                    (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
+            (create-directories~ default-directory)
+            (receive (kind template directory name) (get-modal Add-Project-Dialog directory: default-directory)
+              (let* ((expander (new Template-Expander))
+                     (extension (extract-extension template))
+                     (template (new-file~ Project-Templates-Directory (concatenate template ".template")))
+                     (destination (new-file~ directory (format "{a}.{a}" name extension)))
+                     (module (find-pathname-module (parse~ destination)))
+                     (associations (list (cons 'name name) (cons 'module module))))
+                (call-with-output-file (parse~ destination)
+                  (function (printer)
+                    (expand~ expander template associations printer)))
+                (let ((component
+                        (if (memq? kind '(project))
+                            (install-project destination parent #f)
+                          (import-pathname (ascendant-project parent) destination parent #f))))
+                  (select-component~ (get-tree) component)))))))))
   
   
   (method protected (add-file)
@@ -381,7 +413,7 @@
             (receive (kind template directory name) (get-modal Add-File-Dialog directory: default-directory)
               (let* ((expander (new Template-Expander))
                      (extension (extract-extension template))
-                     (template (new-file~ Templates-Directory (concatenate template ".template")))
+                     (template (new-file~ File-Templates-Directory (concatenate template ".template")))
                      (destination (new-file~ directory (format "{a}.{a}" name extension)))
                      (module (find-pathname-module (parse~ destination)))
                      (associations (list (cons 'name name) (cons 'module module))))
@@ -1149,8 +1181,8 @@
   
   (form
     (<install>
-      (<Label-Item>     name: add-file            title: "Add..." before: add-item icon: {Bitmap-Resource "Added"} action: {Action workbench-manager add-file})
-      (<Label-Item>     name: add-group           title: "Add Group..." before: add-item action: {Action workbench-manager add-group})
+      (<Label-Item>     name: add-project         title: "Add Project..." before: add-item action: {Action workbench-manager add-project})
+      (<Label-Item>     name: add-file            title: "Add Document..." before: add-item icon: {Bitmap-Resource "Added"} action: {Action workbench-manager add-file})
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
@@ -1171,8 +1203,8 @@
     (<install>
       (<Label-Item>     name: edit                title: "Edit" before: add-item icon: {Bitmap-Resource "Edit"} action: {Action workbench-manager edit})
       (<Separator-Item>                           before: add-item)
-      (<Label-Item>     name: add-file            title: "Add..." before: add-item icon: {Bitmap-Resource "Added"} action: {Action workbench-manager add-file})
-      (<Label-Item>     name: add-group           title: "Add Group..." before: add-item action: {Action workbench-manager add-group})
+      (<Label-Item>     name: add-project         title: "Add Project..." before: add-item action: {Action workbench-manager add-project})
+      (<Label-Item>     name: add-file            title: "Add Document..." before: add-item icon: {Bitmap-Resource "Added"} action: {Action workbench-manager add-file})
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})

@@ -51,6 +51,7 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.library.listener)
+        (jazz.library.template)
         (jazz.literals)
         (jazz.platform)
         (jazz.profile)
@@ -419,6 +420,12 @@
         (load-profile-jazzini))))
   
   
+  (method (load-profile-jazzini)
+    (let ((file {File Profile ".jazzini"}))
+      (when (exists?~ file)
+        (load (parse~ file)))))
+  
+  
   (method (standard-profile-module name)
     (string->symbol (format "profile.{a}" name)))
   
@@ -456,80 +463,15 @@
 
   
   (method (install-new-profile name)
-    (let ((expander (new Template-Expander))
-          (associations (list (cons 'module profile-module)
+    (let ((associations (list (cons 'module profile-module)
                               (cons 'bindings (either profile-bindings 'jazz))
                               (cons 'profile name)
                               (cons 'manifest-module (standard-manifest-module name))
-                              (cons 'manifest-title (downcase name))))
-          (directory (new Directory (list 'Profiles name))))
-      (create-directories~ directory)
-      (copy-jazzini {File Home ".jazz" ".jazzini"} expander associations)
-      (copy-profiles-package {File User "lib" "jedi.profiles" "jedi.profiles.pck"} expander associations)
-      (copy-profile-catalogs directory)
-      (copy-profile-settings directory expander associations)
-      (let ((file (new-file~ directory (format "_{a}.jazz" name))))
-        (copy-profile file expander associations))
-      (let ((file (new-file~ directory (format "{a}-Manifest.jazz" name))))
-        (copy-manifest file expander associations))
-      (create-directories~ {Directory Home ".jedi"})
-      (copy-jedi-settings {File Home ".jedi" ".settings"} expander associations)))
-  
-  
-  (method (load-profile-jazzini)
-    (let ((file {File Profile ".jazzini"}))
-      (when (exists?~ file)
-        (load (parse~ file)))))
-  
-  
-  (method (copy-jazzini destination expander associations)
-    (when (not (exists?~ destination))
-      (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jazz" ".jazzini"}))
-        (copy-template template destination expander associations))))
-  
-  
-  (method (copy-profiles-package destination expander associations)
-    (when (not (exists?~ destination))
-      (let ((template {File Jazz "lib" "jedi" "templates" "home" "jazz_projects" "lib" "jedi.profiles" "jedi.profiles.pck"}))
-        (copy-template template destination expander associations))
-      (let ((repository (find-repository 'user)))
-        (repository-add-package repository (load-package repository 'jedi.profiles (parse~ destination))))))
-  
-  
-  (method (copy-profile-catalogs directory)
-    (let ((catalogs {Directory Jazz "lib" "jedi" "templates" "home" "jazz_projects" "lib" "jedi.profiles" "profile" "default" "catalogs"}))
-      (copy-directory~ catalogs (new-directory~ directory "catalogs")
-        touch-files?: #t)))
-  
-  
-  (method (copy-profile-settings directory expander associations)
-    (let ((settings {Directory Jazz "lib" "jedi" "templates" "home" "jazz_projects" "lib" "jedi.profiles" "profile" "default" "settings"}))
-      (copy-directory~ settings (new-directory~ directory "settings")
-        copier: (function (src dst)
-                  (copy-template src dst expander associations))
-        touch-files?: #t)))
-  
-  
-  (method (copy-profile destination expander associations)
-    (let ((template {File Jazz "lib" "jedi" "templates" "home" "jazz_projects" "lib" "jedi.profiles" "profile" "default" "default-profile.jazz"}))
-      (copy-template template destination expander associations)))
-  
-  
-  (method (copy-manifest destination expander associations)
-    (let ((template {File Jazz "lib" "jedi" "templates" "home" "jazz_projects" "lib" "jedi.profiles" "profile" "default" "default-manifest.jazz"}))
-      (copy-template template destination expander associations)))
-  
-  
-  (method (copy-template template destination expander associations)
-    (call-with-output-file (parse~ destination)
-      (function (printer)
-        (expand~ expander template associations printer))))
-  
-  
-  (method (copy-jedi-settings destination expander associations)
-    (when (not (exists?~ destination))
-      (let ((template {File Jazz "lib" "jedi" "templates" "home" ".jedi" ".settings"}))
-        (copy-template template destination expander associations))))
+                              (cons 'manifest-title (downcase name)))))
+      (copy-template {Directory Jazz "lib" "jedi" "templates" "home"}
+                     {Directory Home}
+                     associations
+                     non-expanded-nodes: '("catalogs"))))
 
   
   (method (create-profile)

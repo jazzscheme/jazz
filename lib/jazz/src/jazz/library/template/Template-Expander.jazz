@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; File Template Expander
+;;;; Template Expander
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -77,9 +77,22 @@
   
   
   (method (process-variable input output associations)
-    (bind (name) (read-delimited input "template parameter" delimiter-end)
+    (let ((name (read-variable input)))
       (format output "{a}"
               (let ((info (assv name associations)))
                 (if info
                     (cdr info)
-                  (error "Unable to find variable {t} in association list" name))))))))
+                  (error "Unable to find variable {t} in association list" name))))))
+  
+  
+  (method (read-variable input)
+    (let ((name-output (open-output-string)))
+      (let (iterate)
+        (let ((c (read-char input)))
+          (cond ((eof-object? c)
+                 (error "Unexpected end of stream reached while reading template parameter"))
+                ((eqv? c delimiter-end)
+                 (string->symbol (get-output-string name-output)))
+                (else
+                 (write-char c name-output)
+                 (iterate)))))))))

@@ -307,12 +307,14 @@
       (case action
         ((new)
          (let* ((module (get-tag-module~ form))
-                (model (if module (load-class (get-model-name~ form) module) (form-model~ (either creator self) form)))
-                (component (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)))
-           (when creator
-             (add-to-index~ creator (get-name~ component) component))
-           (when restore-form
-             (remember-creation~ restore-form self component))))
+                (model (if module (load-class (get-model-name~ form) module) (form-model~ (either creator self) form))))
+           (if (not model)
+               (error "Unable to find autoload {s} in {s}" (get-model-name~ form) module)
+             (let ((component (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)))
+               (when creator
+                 (add-to-index~ creator (get-name~ component) component))
+               (when restore-form
+                 (remember-creation~ restore-form self component))))))
         ((modify locate)
          (when restore-form
            (set! restore-form (remember-reference~ restore-form self name)))

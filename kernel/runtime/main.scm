@@ -70,6 +70,76 @@
 
 
 ;;;
+;;;; Hooks
+;;;
+
+
+#;
+(define (FFF x y)
+  (write x)
+  (display " ")
+  (write y)
+  (newline)
+  (force-output))
+
+
+#;
+(define (jazz.path->container-hook path)
+  (FFF 111 path)
+  (let ((x (jazz.find-pathname-module path)))
+    (FFF 222 x)
+    x))
+
+
+#;
+(define (jazz.container->path-hook container)
+  (FFF 333 container)
+  (let ((x (if (%%symbol? container)
+               (let ((src (jazz.find-module-src container #f #f)))
+                 (if src
+                     (jazz.resource-pathname src)
+                   #f))
+             #f)))
+    (FFF 444 x)
+    x))
+
+
+#;
+(define (jazz.container->id-hook container)
+  (FFF 555 container)
+  (let ((x
+  (if (%%symbol? container)
+      (%%symbol->string container)
+    #f)))
+  (FFF 666 x)
+  x))
+
+
+#;
+(define (jazz.path->container-hook path)
+  (cons 'hello path))
+
+
+#;
+(define (jazz.container->path-hook container)
+  (if (pair? container)
+      (cdr container)
+    #f))
+
+
+#;
+(define (jazz.container->id-hook container)
+  (if (pair? container)
+      "yo"
+    #f))
+
+
+;(set! ##path->container-hook jazz.path->container-hook)
+;(set! ##container->path-hook jazz.container->path-hook)
+;(set! ##container->id-hook jazz.container->id-hook)
+
+
+;;;
 ;;;; Main
 ;;;
 

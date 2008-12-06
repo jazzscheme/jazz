@@ -47,10 +47,8 @@
       (##vector-set! port 4 (lambda (port) container)))
   
   (if line
-      ;; this +1 should be fixed in Gambit
       (##input-port-line-set! port (+ line 1)))
   (if col
-      ;; this +1 should be fixed in Gambit
       (##input-port-column-set! port (+ col 1)))
   
   (let ((begin-src

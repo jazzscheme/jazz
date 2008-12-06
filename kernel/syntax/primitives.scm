@@ -643,8 +643,8 @@
           (##locat-position locat)
         (error "LOCAT expected" locat)))
     
-    (define (%%container->file container)
-      (##container->file container))
+    (define (%%container->path container)
+      (##container->path container))
     
     (define (%%position->filepos position)
       (##position->filepos position))

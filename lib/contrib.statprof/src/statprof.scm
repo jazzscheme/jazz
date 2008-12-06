@@ -120,7 +120,7 @@
   
   (define (identify-location locat)
     (if locat
-        (let ((file (##container->file (##locat-container locat))))
+        (let ((file (##container->path (##locat-container locat))))
           (if file
               (let ((filepos (##position->filepos (##locat-position locat))))
                 (let ((line (##filepos-line filepos))

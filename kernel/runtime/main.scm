@@ -75,16 +75,28 @@
 
 
 (define (jazz.path->container-hook path)
+  ;; store module name instead of path if available
   (jazz.find-pathname-module path))
 
 
 (define (jazz.container->path-hook container)
-  (if (%%symbol? container)
-      (let ((src (jazz.find-module-src container #f #f)))
-        (if src
-            (jazz.resource-pathname src)
-          #f))
-    #f))
+  (cond ;; relocate if kernel was moved from source built directory
+        ((and (%%string? container)
+              jazz.kernel-source-built
+              jazz.kernel-source
+              (jazz.string-starts-with? container jazz.kernel-source-built))
+         (%%string-append jazz.kernel-source
+                          (%%substring container
+                                       (%%string-length jazz.kernel-source-built)
+                                       (%%string-length container))))
+        ;; find path from module name
+        ((%%symbol? container)
+         (let ((src (jazz.find-module-src container #f #f)))
+           (if src
+               (jazz.resource-pathname src)
+             #f)))
+        (else
+         #f)))
 
 
 (define (jazz.container->id-hook container)

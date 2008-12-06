@@ -374,6 +374,7 @@
 (native jazz.kernel-optimize?)
 (native jazz.kernel-include-source?)
 (native jazz.kernel-interpret?)
+(native jazz.kernel-built)
 (native jazz.kernel-install)
 (native jazz.kernel-source)
 (native jazz.kernel-version)

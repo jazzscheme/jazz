@@ -250,7 +250,7 @@
           (optimize? jazz.kernel-optimize?)
           (include-source? jazz.kernel-include-source?)
           (interpret? jazz.kernel-interpret?)
-          (install jazz.install)
+          (install jazz.kernel-install)
           (source jazz.source)
           (source-access? jazz.source-access?)
           (kernel? #f)
@@ -286,9 +286,11 @@
               (dst (string-append output name ".c")))
           (if (or rebuild? (jazz.file-needs-update? src dst))
               (let ((path (string-append dir name))
-                    (options '(debug-environments)))
-                (feedback-message "; compiling {a}..." path)
-                (compile-file-to-c path options: options output: output)
+                    (options '(debug-location debug-environments)))
+                ;; standardize path as it will be the path stored in debugging information
+                (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
+                  (feedback-message "; compiling {a}..." path)
+                  (compile-file-to-c standardized-path options: options output: output))
                 #t)
             #f)))
       
@@ -456,7 +458,9 @@
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
                     (newline output)
-                    (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
+                    (jazz.print-variable 'jazz.built (jazz.pathname-normalize install) output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
                     (newline output)
@@ -593,7 +597,9 @@
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
-                    (jazz.print-variable 'jazz.install "." output)
+                    (jazz.print-variable 'jazz.built "." output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
                     (newline output)
@@ -680,8 +686,18 @@
     cpy))
 
 
-(define (jazz.string-ends-with? str c)
-  (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) c))
+(define (jazz.string-starts-with? str target)
+  (let ((sl (%%string-length str))
+        (tl (%%string-length target)))
+    (and (%%fx>= sl tl)
+         (%%string=? (%%substring str 0 tl) target))))
+
+
+(define (jazz.string-ends-with? str target)
+  (let ((sl (%%string-length str))
+        (tl (%%string-length target)))
+    (and (%%fx>= sl tl)
+         (%%string=? (%%substring str (%%fx- sl tl) sl) target))))
 
 
 (define (jazz.split-string str separator)
@@ -760,18 +776,22 @@
                   (jazz.create-directory subdir feedback: feedback))))))))
 
 
+(define (jazz.pathname-standardize path)
+  (jazz.string-replace path #\\ #\/))
+
+
 (define (jazz.pathname-normalize path #!optional (error? #t))
   (if (%%not (jazz.pathname-exists? path))
       (if error?
           (jazz.error "No such directory: {s}" path)
         #f)
     (let ((len (%%string-length path)))
-      (let ((dir? (jazz.string-ends-with? path #\/)))
+      (let ((dir? (jazz.string-ends-with? path "/")))
         (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
-          (let ((slashified (jazz.string-replace normalized #\\ #\/)))
-            (if (and dir? (%%not (jazz.string-ends-with? slashified #\/)))
-                (%%string-append slashified "/")
-              slashified)))))))
+          (let ((standardized (jazz.pathname-standardize normalized)))
+            (if (and dir? (%%not (jazz.string-ends-with? standardized "/")))
+                (%%string-append standardized "/")
+              standardized)))))))
 
 
 (define (jazz.relativise-directory dir basedir)

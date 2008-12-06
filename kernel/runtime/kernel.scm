@@ -288,17 +288,24 @@
 ;;;
 
 
+(define jazz.kernel-built
+  jazz.built)
+
+
 (define jazz.kernel-install
   (or (and jazz.executable-directory (jazz.executable-directory))
-      (jazz.pathname-normalize jazz.install)))
+      (jazz.pathname-normalize jazz.built)))
+
+
+(define jazz.kernel-source-built
+  jazz.source-built)
 
 
 (define jazz.kernel-source
   ;; kernel always needs source access to build
   (if (or jazz.source-access? (not jazz.product))
       ;; when the install directory is a subdirectory of the source use a .. notation
-      (if (and (%%fx>= (%%string-length jazz.source) 3)
-               (%%string=? (%%substring jazz.source 0 3) "../"))
+      (if (jazz.string-starts-with? jazz.source "../")
           (jazz.pathname-normalize (%%string-append jazz.kernel-install jazz.source) #f)
         (jazz.pathname-normalize jazz.source #f))
     #f))

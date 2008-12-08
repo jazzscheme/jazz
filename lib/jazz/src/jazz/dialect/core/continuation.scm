@@ -38,21 +38,26 @@
 (module jazz.dialect.core.continuation
 
 
+;; temp fixes (not calling the %% macros) for what really
+;; appears to be a bug in gambit that only occurs on unix
+;; when the enable-single-host flag is *not* used
+
+
 (cond-expand
   (gambit
-    (define (jazz.continuation? obj)
-      (%%continuation? obj))
+    (define jazz.continuation?
+      continuation?)
     
     
-    (define (jazz.continuation-capture proc)
-      (%%continuation-capture proc))
+    (define jazz.continuation-capture
+      continuation-capture)
     
     
-    (define (jazz.continuation-graft cont proc)
-      (%%continuation-graft cont proc))
+    (define jazz.continuation-graft
+      continuation-graft)
     
     
     (define jazz.continuation-return
-      ##continuation-return))
+      continuation-return))
   
   (else)))

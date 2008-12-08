@@ -324,6 +324,12 @@
 ;;;
 
 
+(define (jazz.repository? obj)
+  (and (%%vector? obj)
+       (%%fx> (%%vector-length obj) 0)
+       (%%eq? (%%vector-ref obj 0) 'repository)))
+
+
 (define (jazz.make-repository name dirname dir subdir #!key (create? #f) (error? #t))
   (if (and dir (%%not (jazz.directory-exists? dir)))
       (jazz.directory-create dir))
@@ -497,6 +503,12 @@
 
 (define jazz.Package-Extension
   "pck")
+
+
+(define (jazz.package? obj)
+  (and (%%vector? obj)
+       (%%fx> (%%vector-length obj) 0)
+       (%%eq? (%%vector-ref obj 0) 'package)))
 
 
 (define (jazz.make-package repository name root install products)

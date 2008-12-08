@@ -59,7 +59,7 @@
         (<!>                        name: content        layout-type: fill
           (<Tree-Header>            name: header         shown?: #f
             (<!>                    name: content
-              (<Tree-View>          name: repositories   portfolio: :icons show-header?: #f
+              (<Tree-View>          name: repositories   portfolio: :icons show-header?: #f context-menu-handler: {Event-Handler :form on-context-menu}
                 (<Tree-Node-Column>                      title: "Repositories" width: 329))))))))
   
   
@@ -133,4 +133,112 @@
                                                   (image {Bitmap-Resource "Package"}))
                                               (add-row~ tree father: repository-row children: (list (new Tree-Node title: title image: image)) user-data: package))))
                                         (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))))))
-                      (get-repositories)))))))))
+                      (get-repositories)))))))
+  
+  
+  ;;;
+  ;;;; Repositories
+  ;;;
+  
+  
+  (method (on-install-repository evt)
+    (unimplemented 'install-repository))
+  
+  
+  ;;;
+  ;;;; Repository
+  ;;;
+  
+  
+  (method (on-install-package evt)
+    (unimplemented 'install-package))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-object)
+    (get-single-selected-data~ (get-tree)))
+  
+  
+  (method (selected-repository)
+    (let ((object (selected-object)))
+      (when (repository? object)
+        object)))
+  
+  
+  (method (selected-package)
+    (let ((object (selected-object)))
+      (when (package? object)
+        object)))
+
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (function ()
+          (let ((menu (new-menu)))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (method public (new-menu)
+    (let ((object (selected-object)))
+      (cond ((not object) (new-repositories-menu object))
+            ((repository? object) (new-repository-menu object))
+            (else {}))))
+  
+  
+  (method (new-repositories-menu object)
+    (let ((menu (new Repositories-Menu client: (get-tree))))
+      ;(update-group/project-menu menu)
+      (cleanup-separators~ menu)
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (new-repository-menu object)
+    (let ((menu (new Repository-Menu client: (get-tree))))
+      ;(update-group/project-menu menu)
+      (cleanup-separators~ menu)
+      (layout-menu~ menu)
+      menu)))
+
+
+;;;
+;;;; Repositories-Menu
+;;;
+
+
+(class Repositories-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: install-repository title: "Install Repository..." action: {Action repositories-manager install-repository}))))
+
+
+;;;
+;;;; Repository-Menu
+;;;
+
+
+(class Repository-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: install-package title: "Install Package..." action: {Action repositories-manager install-package})
+      @wait
+      (<Separator-Item>)
+      @wait
+      (<Label-Item> name: refresh title: "Refresh" icon: {Bitmap-Resource "Refresh"} action: {Action repositories-manager install-repository})))))

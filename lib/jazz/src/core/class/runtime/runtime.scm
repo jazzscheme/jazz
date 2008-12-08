@@ -78,7 +78,8 @@
 
 
 (define (jazz.split-identifier identifier)
-  (map string->symbol (jazz.split-string (%%symbol->string identifier) #\.)))
+  (%%debug-assert (%%symbol? identifier)
+    (map string->symbol (jazz.split-string (%%symbol->string identifier) #\.))))
 
 
 (define (jazz.split-composite identifier)

@@ -676,11 +676,11 @@
 (define (jazz.build-recursive target configuration)
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
-          (configuration-argument (if configuration-name (symbol->string configuration-name) "#f"))
+          (configuration-argument-list (if configuration-name (list (symbol->string configuration-name)) (list)))
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
-      (jazz.call-process gsc-path (list "-:dq-" "build" target-argument configuration-argument)))))
+      (jazz.call-process gsc-path `("-:dq-" "-build" ,target-argument ,@configuration-argument-list)))))
 
 
 (define (jazz.build target configuration-name)
@@ -985,20 +985,37 @@
     (force-output)
     (exit 1))
   
+  (define (option? arg)
+    (and (< 0 (string-length arg))
+         (or (char=? (string-ref arg 0) #\-)
+             (char=? (string-ref arg 0) #\/))))
+  
+  (define (convert-option arg)
+    (substring arg 1 (string-length arg)))
+  
   (let ((command-arguments (cdr (command-line))))
     (if (null? command-arguments)
         (jazz.build-system-repl)
-      (let ((command (car command-arguments)))
-        (if (equal? command "build")
+      (let ((arg (car command-arguments)))
+        (if (or (and (option? arg)
+                     (equal? (convert-option arg) "build"))
+                ;; support the old format so we can git bisect
+                ;; and remove when enough time has passed...
+                (equal? arg "build"))
             (let ((arguments (cdr command-arguments)))
-              (if (= (length arguments) 2)
-                  (let ((target-argument (car arguments))
-                        (configuration-argument (cadr arguments)))
-                    (let ((target (string->symbol target-argument))
-                          (configuration-name (if (equal? configuration-argument "#f") #f (string->symbol configuration-argument))))
-                      (jazz.build target configuration-name)))
-                (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))
-          (fatal (jazz.format "Unknown build system command: {s}" command)))))))
+              (define (build target-argument configuration-argument)
+                (let ((target (string->symbol target-argument))
+                      (configuration-name (and configuration-argument (string->symbol configuration-argument))))
+                  (jazz.build target configuration-name)))
+              
+              (case (length arguments)
+                ((1)
+                 (build (car arguments) #f))
+                ((2)
+                 (build (car arguments) (cadr arguments)))
+                (else
+                 (fatal (jazz.format "Ill-formed build command: {s}" command-arguments)))))
+          (fatal (jazz.format "Unknown build system command: {s}" arg)))))))
 
 
 ;;;

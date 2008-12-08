@@ -62,15 +62,15 @@
       (<Border-View>              name: kind-border         position: {Point 13 64} size: {Dimension 140 137} border-type: edge style: entry
         (<Scroller-View>                                    vscroll?: #t style: document
           (<!>                    name: content             layout-type: fill
-            (<Tree-View>          name: kinds               portfolio: :icons show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of document kinds" selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+            (<Tree-View>          name: kinds               portfolio: :icons show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "Document kind" selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
               (<Tree-Node-Column>                           title: "User" width: 176 toplevel-controls?: #f controls?: #f display-images?: #f)))))
       (<Label-View>               name: name-label          title: "Name:" position: {Point 182 111} size: {Dimension 33 16} font: {Font name: Label})
-      (<Border-View>              name: name-border         position: {Point 221 109} size: {Dimension 244 19} border-type: edge style: entry
+      (<Border-View>              name: name-border         position: {Point 241 109} size: {Dimension 224 19} border-type: edge style: entry
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                    name: content             layout-type: fill
             (<Name-Text-View>     name: name-text           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Name of the document without the file extension" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
-      (<Label-View>               name: directory-label     title: "Dir:" position: {Point 182 143} size: {Dimension 24 16} font: {Font name: Label})
-      (<Moniker-Widget>           name: directory           position: {Point 221 140} size: {Dimension 269 24} protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler :form on-moniker-update}
+      (<Label-View>               name: directory-label     title: "Directory:" position: {Point 182 143} size: {Dimension 54 16} font: {Font name: Label})
+      (<Moniker-Widget>           name: directory           position: {Point 241 140} size: {Dimension 249 24} protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler :form on-moniker-update}
         (<!>                      name: moniker-border      style: entry
           (<!>                    name: scroller
             (<!>                  name: content
@@ -234,25 +234,28 @@
   
   
   (method (validate-name kind name destination)
-    (if (memq? kind '(jazz))
-        (let ((module-name (find-pathname-module (parse~ destination))))
-          (cond ((let ((first (first name)))
-                   (not (or (eqv? first #\_)
-                            (alphabetic? first))))
-                 "Name must start with a letter or an underscore")
-                ((not (every? (function (char)
-                                (or (alphabetic? char)
-                                    (numeric? char)
-                                    (memv? char '(#\minus #\_))))
-                              name))
-                 "Name can only contain letters, digits, dashes and underscores")
-                ((not module-name)
-                 "Jazz files must be located inside a Jazz repository")
-                ((find-module-source module-name)
-                 (format "Module {a} already exists" module-name))
-                (else
-                 {})))
-      {}))
+    (cond ((exists?~ destination)
+           (format "Document {a} already exists" name))
+          ((memq? kind '(jazz))
+           (let ((module-name (find-pathname-module (parse~ destination))))
+             (cond ((let ((first (first name)))
+                      (not (or (eqv? first #\_)
+                               (alphabetic? first))))
+                    "Name must start with a letter or an underscore")
+                   ((not (every? (function (char)
+                                   (or (alphabetic? char)
+                                       (numeric? char)
+                                       (memv? char '(#\minus #\_))))
+                                 name))
+                    "Name can only contain letters, digits, dashes and underscores")
+                   ((not module-name)
+                    "Jazz files must be located inside a Jazz package")
+                   ((find-module-source module-name)
+                    (format "Module {a} already exists" module-name))
+                   (else
+                    {}))))
+          (else
+           {})))
   
 
   ;;;

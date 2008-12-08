@@ -336,13 +336,13 @@
 
 
 (define jazz.Install-Repository
-  (jazz.make-repository 'install "Install" jazz.kernel-install "lib/"))
+  (jazz.make-repository 'Install "Install" jazz.kernel-install "lib/"))
 
 (define jazz.Jazz-Repository
-  (jazz.make-repository 'jazz "Jazz" jazz.kernel-source "lib/" error?: #f))
+  (jazz.make-repository 'Jazz "Jazz" jazz.kernel-source "lib/" error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'user "User" "~/" "jazz_projects/lib/" create?: #t))
+  (jazz.make-repository 'User "User" "~/" "jazz_projects/lib/" create?: #t))
 
 
 (define (jazz.make-repositories)

@@ -42,31 +42,50 @@
         (jazz.library))
 
 
+(definition name-delimiter-start
+  #\%)
+
+(definition name-delimiter-end
+  #\%)
+
+(definition content-delimiter-start
+  #\%)
+
+(definition content-delimiter-end
+  #\%)
+
+
 (definition public (copy-template template destination associations (non-expanded-nodes: non-expanded-nodes '()) (non-expanded-leaves: non-expanded-leaves '()))
-  (let ((name-expander (new Template-Expander delimiter-escape: #\! delimiter-start: #\% delimiter-end: #\%))
-        (content-expander (new Template-Expander)))
+  (let ((name-expander (new Template-Expander delimiter-start: name-delimiter-start delimiter-end: name-delimiter-end))
+        (content-expander (new Template-Expander delimiter-start: content-delimiter-start delimiter-end: content-delimiter-end)))
     (define (expand-name name)
-      (let ((output (open-output-string)))
-        (expand~ name-expander name associations output)
-        (get-output-string output)))
+      (continuation-capture
+        (function (return)
+          (let ((output (open-output-string)))
+            (expand~ name-expander name associations output
+              printer: (function (name value output)
+                         (if (list? value)
+                             (continuation-return return value)
+                           (format output "{a}" value))))
+            (get-output-string output)))))
     
     (define (expand-pathname pathname)
       (new-brother~ pathname (expand-name (get-name~ pathname))))
     
     (define (copy-file template destination)
-      (unless (exists?~ destination)
-        (if (member? (get-name~ destination) non-expanded-leaves test: ci=?)
-            (copy-file~ template destination)
-          (let ((destination (expand-pathname destination)))
+      (let ((destination (expand-pathname destination)))
+        (unless (exists?~ destination)
+          (if (member? (get-name~ destination) non-expanded-leaves test: ci=?)
+              (copy-file~ template destination)
             (call-with-output-file (list path: (parse~ destination) eol-encoding: platform-eol-encoding)
               (function (output)
                 (expand~ content-expander template associations output)))))))
     
     (define (copy-directory template destination)
-      (if (member? (get-name~ destination) non-expanded-nodes test: ci=?)
-          (unless (exists?~ destination)
-            (copy-directory~ template destination touch-files?: #t))
-        (let ((destination (expand-pathname destination)))
+      (let ((destination (expand-pathname destination)))
+        (if (member? (get-name~ destination) non-expanded-nodes test: ci=?)
+            (unless (exists?~ destination)
+              (copy-directory~ template destination touch-files?: #t))
           (unless (exists?~ destination)
             (create-directories~ destination))
           (iterate-directory~ template

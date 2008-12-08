@@ -38,7 +38,8 @@
 (library jazz.library.template.Template-Expander jazz
 
 
-(import (jazz.library)
+(import (jazz.io)
+        (jazz.library)
         (jazz.utilities))
 
 
@@ -57,7 +58,7 @@
     (set! delimiter-end~self delimiter-end))
   
   
-  (method public (expand template associations output)
+  (method public (expand template associations output (printer: printer {}))
     (with-closed ((input (template-reader template)))
       (let (iterate)
         (let ((c (read-char input)))
@@ -65,7 +66,7 @@
             (if (eqv? c delimiter-start)
                 (if (eqv? (peek-char input) delimiter-start)
                     (format output "{c}" (read-char input))
-                  (process-variable input output associations))
+                  (process-variable input output associations printer))
               (format output "{c}" c))
             (iterate))))))
   
@@ -73,16 +74,18 @@
   (method (template-reader template)
     (if (sequence? template)
         (open-input-string template)
-      (open-input-file (parse~ template))))
+      (open-input-file (list path: (parse~ template) eol-encoding: platform-eol-encoding))))
   
   
-  (method (process-variable input output associations)
+  (method (process-variable input output associations printer)
     (let ((name (read-variable input)))
-      (format output "{a}"
-              (let ((info (assv name associations)))
-                (if info
-                    (cdr info)
-                  (error "Unable to find variable {t} in association list" name))))))
+      (let ((info (assv name associations)))
+        (if info
+            (let ((value (cdr info)))
+              (if printer
+                  (printer name value output)
+                (format output "{a}" value)))
+          (error "Unable to find variable {t} in association list" name)))))
   
   
   (method (read-variable input)

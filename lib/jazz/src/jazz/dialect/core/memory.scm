@@ -38,4 +38,5 @@
 (module jazz.dialect.core.memory
 
 
-(define jazz.gc ##gc))
+(define (jazz.gc)
+  (%%gc)))

@@ -42,25 +42,23 @@
 
 
 (define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))
-  ;; hack to set the names of the port until there is a setter
   (if container
-      (##vector-set! port 4 (lambda (port) container)))
-  
+      (%%input-port-names-set! port (lambda (port) container)))
   (if line
-      (##input-port-line-set! port (+ line 1)))
+      (%%input-port-line-set! port (+ line 1)))
   (if col
-      (##input-port-column-set! port (+ col 1)))
+      (%%input-port-column-set! port (+ col 1)))
   
   (let ((begin-src
-          (##read-all-as-a-begin-expr-from-port
+          (%%read-all-as-a-begin-expr-from-port
             port
-            (##current-readtable)
-            ##wrap-datum
-            ##unwrap-datum
-            (macro-readtable-start-syntax (##current-readtable))
+            (%%current-readtable)
+            %%wrap-datum
+            %%unwrap-datum
+            (macro-readtable-start-syntax (%%current-readtable))
             #t)))
-    (##cdr (##source-code (##source-code begin-src)))))
+    (%%cdr (%%source-code (%%source-code begin-src)))))
 
 
 (define (jazz.read-source-first port #!optional (container #f) (line #f) (col #f))
-  (##car (jazz.read-source-all port container line col))))
+  (%%car (jazz.read-source-all port container line col))))

@@ -302,9 +302,9 @@
 (native jazz.foreign-release!)
 (native jazz.foreign-released?)
 (native jazz.foreign-tags)
+;;(native jazz.still-obj-refcount)
 (native jazz.still-obj-refcount-dec!)
 (native jazz.still-obj-refcount-inc!)
-;;(native jazz.still-obj-refcount)
 
 
 ;;;

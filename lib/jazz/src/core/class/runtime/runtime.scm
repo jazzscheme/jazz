@@ -1551,15 +1551,15 @@
     
     ;; quicky until we find a clean solution with Marc
     (define jazz.table-type
-      (##structure-type (make-table)))
+      (%%structure-type (make-table)))
     
     ;; quicky until we find a clean solution with Marc
     (define jazz.port-type
-      (##structure-type (open-output-string)))
+      (%%structure-type (open-output-string)))
     
     ;; quicky until we find a clean solution with Marc
     (define jazz.thread-type
-      (##structure-type (current-thread)))
+      (%%structure-type (current-thread)))
     
     (%%vector-set! jazz.subtypes (macro-subtype-vector)       jazz.Vector)
     (%%vector-set! jazz.subtypes (macro-subtype-pair)         jazz.Pair)

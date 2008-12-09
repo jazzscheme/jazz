@@ -129,21 +129,21 @@
   (define (warn-missing-argument-for-option opt)
     (set! jazz.warnings
           (lambda (output-port)
-            (##write-string
+            (%%write-string
               "*** WARNING -- Missing argument for option \""
               output-port)
-            (##write-string opt output-port)
-            (##write-string "\"\n" output-port)
+            (%%write-string opt output-port)
+            (%%write-string "\"\n" output-port)
             #t))
     (jazz.repl-main))
   
   (define (option? arg)
-    (and (##fixnum.< 0 (##string-length arg))
-         (or (##char=? (##string-ref arg 0) #\-)
-             (##char=? (##string-ref arg 0) #\/))))
+    (and (%%fx< 0 (%%string-length arg))
+         (or (%%char=? (%%string-ref arg 0) #\-)
+             (%%char=? (%%string-ref arg 0) #\/))))
              
   (define (convert-option arg)
-    (##substring arg 1 (##string-length arg)))
+    (%%substring arg 1 (%%string-length arg)))
 
   (define (split-command-line
            arguments
@@ -152,23 +152,23 @@
            cont)
     (let loop ((args arguments)
                (rev-options '()))
-      (if (and (##pair? args)
-               (option? (##car args)))
-          (let ((opt (convert-option (##car args)))
-                (rest (##cdr args)))
-            (cond ((##member opt options-with-no-args)
+      (if (and (%%pair? args)
+               (option? (%%car args)))
+          (let ((opt (convert-option (%%car args)))
+                (rest (%%cdr args)))
+            (cond ((%%member opt options-with-no-args)
                    (loop rest
-                         (##cons (##cons opt #f) rev-options)))
-                  ((##member opt options-with-args)
-                   (if (##pair? rest)
-                       (loop (##cdr rest)
-                             (##cons (##cons opt (##car rest)) rev-options))
+                         (%%cons (%%cons opt #f) rev-options)))
+                  ((%%member opt options-with-args)
+                   (if (%%pair? rest)
+                       (loop (%%cdr rest)
+                             (%%cons (%%cons opt (%%car rest)) rev-options))
                      (begin
                        (warn-missing-argument-for-option opt)
                        (loop rest rev-options))))
                   (else
-                   (cont (##reverse rev-options) args))))
-        (cont (##reverse rev-options) args))))
+                   (cont (%%reverse rev-options) args))))
+        (cont (%%reverse rev-options) args))))
   
   (define (process-initialization-file)
     (if (file-exists? jazz.initialization-file)
@@ -222,7 +222,7 @@
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
-  (##repl
+  (%%repl
     (lambda (first output-port)
       (if jazz.warnings
           (jazz.warnings output-port))

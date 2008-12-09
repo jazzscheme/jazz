@@ -99,37 +99,37 @@
 (define (jazz.present-source obj)
   
   (define (present-src src)
-    (let ((code (##source-code src))
-          (pos (##locat-position (##source-locat src))))
-      (##vector 'source
+    (let ((code (%%source-code src))
+          (pos (%%locat-position (%%source-locat src))))
+      (%%vector 'source
                 (jazz.present-source code)
-                (##fixnum.+ (##filepos-line pos) 1)
-                (##fixnum.+ (##filepos-col pos) 1))))
+                (%%fx+ (%%filepos-line pos) 1)
+                (%%fx+ (%%filepos-col pos) 1))))
 
   (define (present-list lst)
-    (cond ((##pair? lst)
-           (##cons (jazz.present-source (##car lst))
-                   (present-list (##cdr lst))))
-          ((##null? lst)
+    (cond ((%%pair? lst)
+           (%%cons (jazz.present-source (%%car lst))
+                   (present-list (%%cdr lst))))
+          ((%%null? lst)
            '())
           (else
            (jazz.present-source lst))))
 
   (define (present-vector vect)
-    (let* ((len (##vector-length vect))
-           (x (##make-vector len 0)))
-      (let loop ((i (##fixnum.- len 1)))
-        (if (##fixnum.< i 0)
+    (let* ((len (%%vector-length vect))
+           (x (%%make-vector len 0)))
+      (let loop ((i (%%fx- len 1)))
+        (if (%%fx< i 0)
             x
           (begin
-            (##vector-set! x i (jazz.present-source (##vector-ref vect i)))
-            (loop (##fixnum.- i 1)))))))
+            (%%vector-set! x i (jazz.present-source (%%vector-ref vect i)))
+            (loop (%%fx- i 1)))))))
 
-  (cond ((##source? obj)
+  (cond ((%%source? obj)
          (present-src obj))
-        ((##pair? obj)
+        ((%%pair? obj)
          (present-list obj))
-        ((##vector? obj)
+        ((%%vector? obj)
          (present-vector obj))
         (else
          obj))))

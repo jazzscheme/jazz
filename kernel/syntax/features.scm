@@ -44,11 +44,11 @@
   (let ((features (list jazz.kernel-system jazz.kernel-platform jazz.kernel-windowing jazz.kernel-safety)))
     (for-each (lambda (feature)
                 (if feature
-                    (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
+                    (set! ##cond-expand-features (cons feature ##cond-expand-features))))
               features)
     `(for-each (lambda (feature)
                  (if feature
-                     (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
+                     (set! ##cond-expand-features (cons feature ##cond-expand-features))))
                ',features)))
 
 

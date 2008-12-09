@@ -49,16 +49,16 @@
     
     
     (define (jazz.make-jazz-readtable)
-      (let ((readtable (readtable-max-unescaped-char-set (##readtable-copy ##main-readtable) #\U0010ffff)))
+      (let ((readtable (readtable-max-unescaped-char-set (%%readtable-copy ##main-readtable) #\U0010ffff)))
         (jazz.jazzify-readtable! readtable)
         readtable))
     
     
     (define (jazz.jazzify-readtable! readtable)
       (macro-readtable-named-char-table-set! readtable (append (macro-readtable-named-char-table readtable) jazz.named-chars))
-      (##readtable-char-class-set! readtable #\{ #t jazz.read-literal)
-      (##readtable-char-class-set! readtable #\@ #t jazz.read-comment)
-      (##readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
+      (%%readtable-char-class-set! readtable #\{ #t jazz.read-literal)
+      (%%readtable-char-class-set! readtable #\@ #t jazz.read-comment)
+      (%%readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
     
     
     (define jazz.named-chars
@@ -114,15 +114,15 @@
     
     (define (jazz.read-literal re c)
       (let ((port (macro-readenv-port re))
-            (start-pos (##readenv-current-filepos re)))
+            (start-pos (%%readenv-current-filepos re)))
         (read-char port)
         (if (%%eqv? (peek-char port) #\@)
             (jazz.error "Trying to read an unreadable literal")
-          (let ((lst (##build-list re #t start-pos #\})))
+          (let ((lst (%%build-list re #t start-pos #\})))
             (macro-readenv-wrap re
               (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
                   #f
-                (jazz.construct-literal (map ##desourcify lst))))))))
+                (jazz.construct-literal (map %%desourcify lst))))))))
     
     
     (define (jazz.read-comment re c)
@@ -131,7 +131,7 @@
           (read-char port)
           (read port)   ; comment name
           (read port))  ; commented expr
-        (##read-datum-or-label-or-none-or-dot re)))
+        (%%read-datum-or-label-or-none-or-dot re)))
     
     
     (define (jazz.read-delimited-string re next start-pos)
@@ -205,7 +205,7 @@
             (values #f #f)
           (let ((len (%%string-length line)))
             (if (and (%%fx> len 0) (%%eqv? (%%string-ref line (%%fx- len 1)) #\newline))
-                (values (##string-shrink! line (%%fx- len 1)) #t)
+                (values (%%string-shrink! line (%%fx- len 1)) #t)
               (values line #f))))))
     
     (define jazz.read-all

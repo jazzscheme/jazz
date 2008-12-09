@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(include "~~/lib/_gambit#.scm")
+
+
 (jazz.kernel-declares)
 
 
@@ -126,7 +129,42 @@
              (values (##cddr (##source-code src))))
          (if jazz.debug-core?
              `(continuation-return ,cont ,@values)
-           `(##continuation-return ,cont ,@values))))))
+           `(##continuation-return ,cont ,@values)))))
+   
+   (define (%%continuation-graft-no-winding cont values)
+     (##continuation-graft-no-winding cont values))
+   
+   (define (%%continuation-return-no-winding cont values)
+     (##continuation-return-no-winding cont values))
+   
+   (define (%%interp-continuation? cont)
+     (##interp-continuation? cont))
+   
+   (define (%%continuation-creator cont)
+     (if (%%continuation? cont)
+         (##continuation-creator cont)
+       (error "CONTINUATION expected" cont)))
+   
+   (define (%%continuation-locat cont)
+     (if (%%continuation? cont)
+         (##continuation-locat cont)
+       (error "CONTINUATION expected" cont)))
+   
+   (define (%%continuation-locals cont)
+     (if (%%continuation? cont)
+         (##continuation-locals cont)
+       (error "CONTINUATION expected" cont)))
+   
+   (define (%%continuation-next cont)
+     (if (%%continuation? cont)
+         (##continuation-next cont)
+       (error "CONTINUATION expected" cont)))
+   
+   (define (%%continuation-first-frame cont all-frames?)
+     (##continuation-first-frame cont all-frames?))
+   
+   (define (%%continuation-next-frame cont all-frames?)
+     (##continuation-next-frame cont all-frames?)))
   
   (else))
 
@@ -179,6 +217,19 @@
   (else
    (jazz.define-macro (%%eq? x y)
      `(eq? ,x ,y))))
+
+
+;;;
+;;;; Eval
+;;;
+
+
+(cond-expand
+  (gambit
+   (define (%%load path script-callback clone-cte? raise-os-exception? quiet?)
+     (if (##string? path)
+         (##load path script-callback clone-cte? raise-os-exception? quiet?)
+       (error "STRING expected" path)))))
 
 
 ;;;
@@ -317,7 +368,33 @@
 (cond-expand
   (gambit
    (jazz.define-macro (%%foreign? obj)
-     `(##foreign? ,obj)))
+     `(##foreign? ,obj))
+   
+   (define (%%still-obj-refcount-dec! foreign)
+     (if (%%foreign? foreign)
+         (##still-obj-refcount-dec! foreign)
+       (error "FOREIGN expected" foreign)))
+   
+   (define (%%still-obj-refcount-inc! foreign)
+     (if (%%foreign? foreign)
+         (##still-obj-refcount-inc! foreign)
+       (error "FOREIGN expected" foreign))))
+  
+  (else))
+
+
+;;;
+;;;; Interruption
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (%%interrupt-handler code)
+      (##interrupt-handler code))
+    
+    (define (%%interrupt-vector-set! code handler)
+      (##interrupt-vector-set! code handler)))
   
   (else))
 
@@ -417,6 +494,11 @@
     (jazz.define-macro (%%memv obj lst)
       `(memv ,obj ,lst))
     
+    (jazz.define-macro (%%member obj lst)
+      (if jazz.debug-core?
+          `(member ,obj ,lst)
+        `(##member ,obj ,lst)))
+    
     (jazz.define-macro (%%assq obj alist)
       (if jazz.debug-core?
           `(assq ,obj ,alist)
@@ -460,6 +542,17 @@
   (else
    (jazz.define-macro (%%memq obj lst)
      `(memq ,obj ,lst))))
+
+
+;;;
+;;;; Memory
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz.define-macro (%%gc)
+      `(##gc))))
 
 
 ;;;
@@ -507,7 +600,48 @@
     (jazz.define-macro (%%eof-object? obj)
       (if jazz.debug-core?
           `(eof-object? ,obj)
-        `(##eof-object? ,obj))))
+        `(##eof-object? ,obj)))
+    
+    (define (%%input-port-names-set! port names)
+      (if (%%port? port)
+          ;; hack to set the names of the port until there is a setter
+          (##vector-set! port 4 names)
+        (error "PORT expected" port)))
+    
+    (define (%%input-port-line-set! port line)
+      (if (%%port? port)
+          (##input-port-line-set! port line)
+        (error "PORT expected" port)))
+    
+    (define (%%input-port-column-set! port col)
+      (if (%%port? port)
+          (##input-port-column-set! port col)
+        (error "PORT expected" port)))
+    
+    (define (%%read-all-as-a-begin-expr-from-port port readtable wrap unwrap start-syntax close-port?)
+      (if (%%port? port)
+          (##read-all-as-a-begin-expr-from-port port readtable wrap unwrap start-syntax close-port?)
+        (error "PORT expected" port)))
+    
+    (define (%%write-string str port)
+      (if (%%port? port)
+          (##write-string str port)
+        (error "PORT expected" port))))
+  
+  (else))
+
+
+;;;
+;;;; Procedure
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (%%procedure-name procedure)
+      (if (##procedure? procedure)
+          (##procedure-name procedure)
+        (error "PROCEDURE expected" procedure))))
   
   (else))
 
@@ -524,6 +658,102 @@
           `(rational? ,obj)
         `(##rational? ,obj))))
 
+  (else))
+
+
+;;;
+;;;; Readenv
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz.define-macro (%%readenv? obj)
+      `(macro-readenv? ,obj))
+    
+    (define (%%readenv-current-filepos readenv)
+      (if (%%readenv? readenv)
+          (##readenv-current-filepos readenv)
+        (error "READENV expected" readenv)))
+    
+    (define (%%wrap-datum readenv expr)
+      (if (%%readenv? readenv)
+          (##wrap-datum readenv expr)
+        (error "READENV expected" readenv)))
+    
+    (define (%%unwrap-datum readenv expr)
+      (if (%%readenv? readenv)
+          (##unwrap-datum readenv expr)
+        (error "READENV expected" readenv)))
+    
+    (define (%%build-list readenv allow-improper? start-pos close)
+      (if (%%readenv? readenv)
+          (##build-list readenv allow-improper? start-pos close)
+        (error "READENV expected" readenv)))
+    
+    (define (%%read-datum-or-label-or-none-or-dot readenv)
+      (if (%%readenv? readenv)
+          (##read-datum-or-label-or-none-or-dot readenv)
+        (error "READENV expected" readenv))))
+
+  (else))
+
+
+;;;
+;;;; Readtable
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz.define-macro (%%readtable? obj)
+      (if jazz.debug-core?
+          `(readtable? ,obj)
+        `(##readtable? ,obj)))
+    
+    (jazz.define-macro (%%current-readtable)
+      `(##current-readtable))
+    
+    (define (%%readtable-copy readtable)
+      (if (%%readtable? readtable)
+          (##readtable-copy readtable)
+        (error "READTABLE expected" readtable)))
+    
+    (define (%%readtable-char-class-set! readtable c delimiter? handler)
+      (if (%%readtable? readtable)
+          (##readtable-char-class-set! readtable c delimiter? handler)
+        (error "READTABLE expected" readtable)))
+    
+    (define (%%readtable-char-sharp-handler-set! readtable c handler)
+      (if (%%readtable? readtable)
+          (##readtable-char-sharp-handler-set! readtable c handler)
+        (error "READTABLE expected" readtable))))
+
+  (else))
+
+
+;;;
+;;;; Repl
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (%%repl #!optional (write-reason #f))
+      (if (or (##not write-reason)
+              (##procedure? write-reason))
+          (##repl write-reason)
+        (error "PROCEDURE expected" write-reason)))
+    
+    (define (%%thread-repl-context-get!)
+      (##thread-repl-context-get!))
+    
+    (define (%%thread-repl-channel-get! thread)
+      (##thread-repl-channel-get! thread))
+    
+    (define (%%repl-channel-result-history-add channel result)
+      (##repl-channel-result-history-add channel result)))
+  
   (else))
 
 
@@ -572,8 +802,26 @@
    (jazz.define-macro (%%string-append . rest)
      (if jazz.debug-core?
          `(string-append ,@rest)
-       `(##string-append ,@rest))))
+       `(##string-append ,@rest)))
+   
+   (define (%%string-shrink! str len)
+     (if (%%string? str)
+         (##string-shrink! str len)
+       (error "STRING expected" str))))
 
+  (else))
+
+
+;;;
+;;;; Structure
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (%%structure-type structure)
+      (##structure-type structure)))
+  
   (else))
 
 
@@ -597,7 +845,20 @@
    (jazz.define-macro (%%symbol->string symbol)
      (if jazz.debug-core?
          `(symbol->string ,symbol)
-       `(##symbol->string ,symbol))))
+       `(##symbol->string ,symbol)))
+   
+   (jazz.define-macro (%%unbound? obj)
+     `(##unbound? ,obj))
+   
+   (define (%%global-var? symbol)
+     (if (%%symbol? symbol)
+         (##global-var? symbol)
+       (error "SYMBOL expected" symbol)))
+   
+   (define (%%global-var-ref symbol)
+     (if (%%symbol? symbol)
+         (##global-var-ref symbol)
+       (error "SYMBOL expected" symbol))))
 
   (else))
 
@@ -624,6 +885,9 @@
     
     (define (%%desourcify expr)
       (##desourcify expr))
+    
+    (define (%%make-source code locat)
+      (##make-source code locat))
     
     (define (%%sourcify expr src)
       (if (##source? src)
@@ -721,7 +985,10 @@
 (cond-expand
   (gambit
     (jazz.define-macro (%%thread? obj)
-      `(thread? ,obj)))
+      `(thread? ,obj))
+    
+    (jazz.define-macro (%%current-thread)
+      `(##current-thread)))
   
   (else))
 

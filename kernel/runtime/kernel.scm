@@ -204,11 +204,11 @@
   
   (gambit
     (define (jazz.global-variable? symbol)
-      (and (##global-var? symbol)
-           (%%not (##unbound? (##global-var-ref symbol)))))
+      (and (%%global-var? symbol)
+           (%%not (%%unbound? (%%global-var-ref symbol)))))
     
     (define (jazz.global-value symbol)
-      (##global-var-ref symbol)))
+      (%%global-var-ref symbol)))
   
   (else))
 
@@ -1054,7 +1054,7 @@
   (gambit
     (define (jazz.load pathname . rest)
       (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load pathname (lambda rest #f) #f #t quiet?))
+        (%%load pathname (lambda rest #f) #f #t quiet?))
       (void)))
   
   (else

@@ -29,26 +29,26 @@
 
 
 (define (make-profile depth)
-  (##vector 'profile depth 0 0 (make-table test: equal?)))
+  (%%vector 'profile depth 0 0 (make-table test: equal?)))
 
 
 (define (profile-depth profile)
-  (##vector-ref profile 1))
+  (%%vector-ref profile 1))
 
 (define (profile-total profile)
-  (##vector-ref profile 2))
+  (%%vector-ref profile 2))
 
 (define (profile-total-set! profile total)
-  (##vector-set! profile 2 total))
+  (%%vector-set! profile 2 total))
 
 (define (profile-unknown profile)
-  (##vector-ref profile 3))
+  (%%vector-ref profile 3))
 
 (define (profile-unknown-set! profile unknown)
-  (##vector-set! profile 3 unknown))
+  (%%vector-set! profile 3 unknown))
 
 (define (profile-calls profile)
-  (##vector-ref profile 4))
+  (%%vector-ref profile 4))
 
 
 ;;;
@@ -72,16 +72,17 @@
 ;;;; Interruption
 ;;;
 
+
 (define *profile-running?*
   #f)
 
 
 (define (profile-start!)
-  (##interrupt-vector-set! 1 profile-heartbeat!)
+  (%%interrupt-vector-set! 1 profile-heartbeat!)
   (set! *profile-running?* #t))
 
 (define (profile-stop!)
-  (##interrupt-vector-set! 1 ##thread-heartbeat!)
+  (%%interrupt-vector-set! 1 ##thread-heartbeat!)
   (set! *profile-running?* #f))
 
 
@@ -95,7 +96,7 @@
 
 
 (define (profile-heartbeat!)
-  (##continuation-capture
+  (%%continuation-capture
     (lambda (cont)
       (##thread-heartbeat!)
       (register-continuation cont))))
@@ -108,7 +109,7 @@
       (begin
         (profile-total-set! *profile* (+ (profile-total *profile*) 1))
         (let ((actual (table-ref (profile-calls *profile*) stack 0)))
-          (table-set! (profile-calls *profile*) stack (##fixnum.+ actual 1)))))))
+          (table-set! (profile-calls *profile*) stack (%%fx+ actual 1)))))))
 
 
 ;;;
@@ -120,22 +121,22 @@
   
   (define (identify-location locat)
     (if locat
-        (let ((file (##container->path (##locat-container locat))))
+        (let ((file (%%container->path (%%locat-container locat))))
           (if file
-              (let ((filepos (##position->filepos (##locat-position locat))))
-                (let ((line (##filepos-line filepos))
-                      (col (##filepos-col filepos)))
+              (let ((filepos (%%position->filepos (%%locat-position locat))))
+                (let ((line (%%filepos-line filepos))
+                      (col (%%filepos-col filepos)))
                   (list file line col)))
             #f))
       #f))
   
   (define (identify cont stack count)
-    (if (or (##not cont) (and depth (##fixnum.>= count depth)))
+    (if (or (%%not cont) (and depth (%%fx>= count depth)))
         stack
-      (let ((creator (##continuation-creator cont))
-            (location (identify-location (##continuation-locat cont))))
-        (identify (##continuation-next cont)
+      (let ((creator (%%continuation-creator cont))
+            (location (identify-location (%%continuation-locat cont))))
+        (identify (%%continuation-next cont)
                   (cons (list creator location) stack)
-                  (##fixnum.+ count 1)))))
+                  (%%fx+ count 1)))))
   
   (identify cont '() 0)))

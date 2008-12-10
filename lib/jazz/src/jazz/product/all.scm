@@ -128,7 +128,9 @@
     jazz.ui.workspace
     jazz.utilities
     jazz.xml
-    time))
+    irregex.implementation.irregex
+    statprof
+    time.implementation))
 
 
 (define (jazz.build-all)

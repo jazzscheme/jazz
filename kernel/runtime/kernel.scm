@@ -1269,6 +1269,14 @@
   (%%make-table test: equal?))
 
 
+(define jazz.scheme-readtable
+  (%%current-readtable))
+
+(jazz.register-reader-extension "scm"
+  (lambda ()
+    jazz.scheme-readtable))
+
+
 (define (jazz.get-extension-reader extension)
   (%%table-ref jazz.Extension-Readers extension #f))
 

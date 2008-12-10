@@ -47,6 +47,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; data structures
 
+(module irregex.implementation.irregex
+
+(declare (proper-tail-calls))
+
 (define irregex-tag '*irregex-tag*)
 
 (define (make-irregex dfa dfa/search dfa/extract nfa flags
@@ -3202,3 +3206,5 @@
                (error "unknown match replacement" (car ls)))))))
          (else
           (lp (cdr ls) (cons (car ls) res)))))))
+
+)

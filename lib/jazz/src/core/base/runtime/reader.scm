@@ -49,7 +49,7 @@
   (if col
       (%%input-port-column-set! port (+ col 1)))
   
-  (let ((begin-src
+  (let ((begin-vector
           (%%read-all-as-a-begin-expr-from-port
             port
             (%%current-readtable)
@@ -57,7 +57,7 @@
             ##unwrap-datum
             (macro-readtable-start-syntax (%%current-readtable))
             #t)))
-    (%%cdr (%%source-code (%%source-code begin-src)))))
+    (%%cdr (%%source-code (%%vector-ref begin-vector 1)))))
 
 
 (define (jazz.read-source-first port #!optional (container #f) (line #f) (col #f))

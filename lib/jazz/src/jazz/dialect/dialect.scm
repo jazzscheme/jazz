@@ -940,10 +940,10 @@
   (let ((table (%%make-table test: eq?))
         (done? #f))
     (%%while (%%not done?)
-      (if (or (%%null? rest) (%%not (%%memq (%%source-code (%%car rest)) keywords)))
+      (if (or (%%null? rest) (%%not (%%memq (jazz.source-code (%%car rest)) keywords)))
           (set! done? #t)
         (begin
-          (%%table-set! table (%%source-code (%%car rest)) (%%source-code (%%cadr rest)))
+          (%%table-set! table (jazz.source-code (%%car rest)) (jazz.source-code (%%cadr rest)))
           (set! rest (%%cddr rest)))))
     (%%apply values (%%append (map (lambda (keyword)
                                      (%%table-ref table keyword (jazz.unspecified)))
@@ -1012,7 +1012,7 @@
 
 
 (jazz.define-method (jazz.walk-symbol (jazz.Jazz-Walker walker) resume declaration environment symbol-src)
-  (let ((symbol (%%source-code symbol-src)))
+  (let ((symbol (jazz.source-code symbol-src)))
     (let ((slot-name (jazz.self-access symbol)))
       (if slot-name
           (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
@@ -1050,7 +1050,7 @@
 
 
 (jazz.define-method (jazz.walk-form (jazz.Jazz-Walker walker) resume declaration environment form-src)
-  (let ((procedure-expr (%%source-code (%%car (%%source-code form-src)))))
+  (let ((procedure-expr (jazz.source-code (%%car (jazz.source-code form-src)))))
     (if (jazz.dispatch? procedure-expr)
         (jazz.walk-dispatch walker resume declaration environment form-src)
       (nextmethod walker resume declaration environment form-src))))
@@ -1351,8 +1351,8 @@
 
 
 (define (jazz.walk-dispatch walker resume declaration environment form-src)
-  (let ((name (jazz.dispatch->symbol (%%source-code (%%car (%%source-code form-src)))))
-        (arguments (%%cdr (%%source-code form-src))))
+  (let ((name (jazz.dispatch->symbol (jazz.source-code (%%car (jazz.source-code form-src)))))
+        (arguments (%%cdr (jazz.source-code form-src))))
     (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
       (jazz.new-dispatch form-src name
         (jazz.walk-list walker resume declaration environment arguments)))))
@@ -1371,12 +1371,12 @@
 
 (define (jazz.parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz.parse-modifiers walker resume declaration jazz.definition-modifiers rest)
-    (if (%%symbol? (%%source-code (%%car rest)))
-        (let ((name (%%source-code (%%car rest))))
+    (if (%%symbol? (jazz.source-code (%%car rest)))
+        (let ((name (jazz.source-code (%%car rest))))
           (jazz.parse-specifier (%%cdr rest)
             (lambda (specifier rest)
               (values name specifier access compatibility expansion (%%car rest) #f))))
-      (let* ((name (%%source-code (%%car (%%source-code (%%car rest)))))
+      (let* ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
@@ -1402,7 +1402,7 @@
 
 
 (define (jazz.walk-definition walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let* ((new-declaration (jazz.find-form-declaration declaration name))
            (new-environment (%%cons new-declaration environment)))
       (%%when (%%not (%%eq? expansion 'inline))
@@ -1583,7 +1583,7 @@
 
 (define (jazz.parse-class walker resume declaration rest)
   (receive (access abstraction compatibility implementor rest) (jazz.parse-modifiers walker resume declaration jazz.class-modifiers rest)
-    (let ((name (%%source-code (%%car rest)))
+    (let ((name (jazz.source-code (%%car rest)))
           (type jazz.Any)
           (rest (%%cdr rest)))
       (receive (metaclass-name ascendant-name interface-names attributes body) (jazz.parse-keywords jazz.class-keywords rest)
@@ -1591,10 +1591,10 @@
 
 
 (define (jazz.expand-class walker resume declaration environment form-src)
-  (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
     (receive (metaclass-body class-body) (jazz.preprocess-meta body)
       (cond ((%%null? metaclass-body)
-             `(%class ,@(%%cdr (%%source-code form-src))))
+             `(%class ,@(%%cdr (jazz.source-code form-src))))
             ((%%specified? metaclass-name)
              (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
             (else
@@ -1610,10 +1610,10 @@
   (let ((metaclass (jazz.new-queue))
         (class (jazz.new-queue)))
     (for-each (lambda (expr)
-                (if (and (%%pair? (%%source-code expr))
-                         (%%pair? (%%cdr (%%source-code expr)))
-                         (%%eq? (%%source-code (%%cadr (%%source-code expr))) 'meta))
-                    (jazz.enqueue metaclass (%%cons (%%car (%%source-code expr)) (%%cddr (%%source-code expr))))
+                (if (and (%%pair? (jazz.source-code expr))
+                         (%%pair? (%%cdr (jazz.source-code expr)))
+                         (%%eq? (jazz.source-code (%%cadr (jazz.source-code expr))) 'meta))
+                    (jazz.enqueue metaclass (%%cons (%%car (jazz.source-code expr)) (%%cddr (jazz.source-code expr))))
                   (jazz.enqueue class expr)))
               body)
     (values (jazz.queue-list metaclass)
@@ -1910,8 +1910,8 @@
 
 (define (jazz.parse-method walker resume declaration rest)
   (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz.parse-modifiers walker resume declaration jazz.method-modifiers rest)
-    (%%assertion (and (%%pair? rest) (%%pair? (%%source-code (%%car rest)))) (jazz.error "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method (jazz.desourcify-list rest)))
-      (let ((name (%%source-code (%%car (%%source-code (%%car rest)))))
+    (%%assertion (and (%%pair? rest) (%%pair? (jazz.source-code (%%car rest)))) (jazz.error "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method (jazz.desourcify-list rest)))
+      (let ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
             (parameters (jazz.wrap-parameters (%%cdr (%%desourcify (%%car rest))))))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
@@ -1944,7 +1944,7 @@
 
 
 (define (jazz.walk-method walker resume declaration environment form-src)
-  (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr (jazz.source-code form-src)))
     (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name)
       (let* ((new-declaration (jazz.lookup-declaration declaration name #f))
              (category-declaration (%%get-declaration-parent new-declaration))
@@ -2475,8 +2475,8 @@
 
 
 (define (jazz.expand-assert-test test? src)
-  (let ((assertion (%%cadr (%%source-code src)))
-        (body (%%cddr (%%source-code src))))
+  (let ((assertion (%%cadr (jazz.source-code src)))
+        (body (%%cddr (jazz.source-code src))))
     (let ((message (let ((port (open-output-string)))
                      (display "Assertion " port)
                      (write (%%desourcify assertion) port)
@@ -2486,9 +2486,9 @@
 
 
 (define (jazz.expand-assertion-test test? src)
-  (let ((assertion (%%cadr (%%source-code src)))
-        (action (%%car (%%cddr (%%source-code src))))
-        (body (%%cdr (%%cddr (%%source-code src)))))
+  (let ((assertion (%%cadr (jazz.source-code src)))
+        (action (%%car (%%cddr (jazz.source-code src))))
+        (body (%%cdr (%%cddr (jazz.source-code src)))))
     (jazz.expand-assertion-body test? assertion action body)))
 
 
@@ -2993,7 +2993,7 @@
 
 
 (define (jazz.parse-function walker resume declaration form-src)
-  (let* ((rest (%%cdr (%%source-code form-src)))
+  (let* ((rest (%%cdr (jazz.source-code form-src)))
          (parameters (%%desourcify (%%car rest)))
          (body (%%cdr rest))
          (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
@@ -3014,15 +3014,15 @@
 
 
 (define (jazz.walk-parameterize walker resume declaration environment form-src)
-  (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
-        (body (%%cddr (%%source-code form-src))))
+  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (body (%%cddr (jazz.source-code form-src))))
     (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
           (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (binding-form)
                   (continuation-capture
                     (lambda (resume)
-                      (let ((variable (%%car (%%source-code binding-form)))
-                            (value (%%car (%%source-code (%%cdr (%%source-code binding-form))))))
+                      (let ((variable (%%car (jazz.source-code binding-form)))
+                            (value (%%car (jazz.source-code (%%cdr (jazz.source-code binding-form))))))
                         (jazz.enqueue expanded-bindings
                                       (%%cons (continuation-capture
                                                 (lambda (resume)

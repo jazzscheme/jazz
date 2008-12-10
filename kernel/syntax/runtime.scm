@@ -58,8 +58,8 @@
 
 (define (jazz.parse-module rest proc)
   (if (and (%%pair? rest)
-           (%%pair? (%%source-code (%%car rest)))
-           (%%eq? (%%source-code (%%car (%%source-code (%%car rest)))) 'require))
+           (%%pair? (jazz.source-code (%%car rest)))
+           (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
       (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
     (proc '() rest)))
 

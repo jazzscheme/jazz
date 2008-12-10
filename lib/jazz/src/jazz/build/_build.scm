@@ -70,7 +70,7 @@
                        (jazz.requested-module-resource src))
           (case 'library ;; kind
             ;; todo ((module) (jazz.expand-module (car rest) (cdr rest)))
-            ((library) (jazz.expand-library (%%cdr (%%source-code syntax))))))))))
+            ((library) (jazz.expand-library (%%cdr (jazz.source-code syntax))))))))))
 
 
 (define (expand-to-file library-name . rest)

@@ -246,8 +246,8 @@
 
 (jazz.define-syntax module
   (lambda (form-src)
-    (let ((name (%%source-code (%%cadr (%%source-code form-src))))
-          (rest (%%cddr (%%source-code form-src))))
+    (let ((name (jazz.source-code (%%cadr (jazz.source-code form-src))))
+          (rest (%%cddr (jazz.source-code form-src))))
       (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
           (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
         (jazz.expand-module name rest)))))

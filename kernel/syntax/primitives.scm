@@ -874,11 +874,10 @@
     (jazz.define-macro (%%source? expr)
       `(##source? ,expr))
     
-    (jazz.define-macro (%%source-code expr)
-      (%%force-uniqueness (expr)
-        `(if (##source? ,expr)
-             (##source-code ,expr)
-           ,expr)))
+    (jazz.define-macro (%%source-code src)
+      (%%force-uniqueness (src)
+        `(%%check-source ,src 1 (%%source-code ,src)
+           (##source-code ,src))))
     
     (jazz.define-macro (%%source-locat src)
       (%%force-uniqueness (src)

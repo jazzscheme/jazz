@@ -40,13 +40,13 @@
 
 (jazz.define-syntax %%boolean
   (lambda (src)
-    (let ((expr (%%cadr (%%source-code src))))
+    (let ((expr (%%cadr (jazz.source-code src))))
       `(if ,expr #t #f))))
 
 
 (jazz.define-syntax %%not-null?
   (lambda (src)
-    (let ((expr (%%cadr (%%source-code src))))
+    (let ((expr (%%cadr (jazz.source-code src))))
       `(%%not (%%null? ,expr)))))
 
 
@@ -57,8 +57,8 @@
 
 (jazz.define-syntax %%when
   (lambda (src)
-    (let ((test (%%cadr (%%source-code src)))
-          (body (%%cddr (%%source-code src))))
+    (let ((test (%%cadr (jazz.source-code src)))
+          (body (%%cddr (jazz.source-code src))))
       `(if ,test
            (begin
              ,@body)
@@ -72,8 +72,8 @@
 
 (jazz.define-syntax %%while
   (lambda (src)
-    (let ((test (%%cadr (%%source-code src)))
-          (body (%%cddr (%%source-code src)))
+    (let ((test (%%cadr (jazz.source-code src)))
+          (body (%%cddr (jazz.source-code src)))
           (iter (jazz.generate-symbol "iter")))
       `(let ,iter ()
          (if ,test
@@ -118,8 +118,8 @@
 
 
 (define (jazz.expand-%%assert test? src)
-  (let ((assertion (%%cadr (%%source-code src)))
-        (body (%%cddr (%%source-code src))))
+  (let ((assertion (%%cadr (jazz.source-code src)))
+        (body (%%cddr (jazz.source-code src))))
     (let ((message (let ((port (open-output-string)))
                      (display "Assertion " port)
                      (write (%%desourcify assertion) port)
@@ -129,9 +129,9 @@
 
 
 (define (jazz.expand-%%assertion test? src)
-  (let ((assertion (%%cadr (%%source-code src)))
-        (action (%%car (%%cddr (%%source-code src))))
-        (body (%%cdr (%%cddr (%%source-code src)))))
+  (let ((assertion (%%cadr (jazz.source-code src)))
+        (action (%%car (%%cddr (jazz.source-code src))))
+        (body (%%cdr (%%cddr (jazz.source-code src)))))
     (jazz.expand-%%assertion-body test? assertion action body)))
 
 

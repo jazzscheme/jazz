@@ -1191,8 +1191,8 @@
 
 
 (define (jazz.parse-specifier lst proc)
-  (if (and (%%pair? lst) (jazz.specifier? (%%source-code (%%car lst))))
-      (proc (%%source-code (%%car lst)) (%%cdr lst))
+  (if (and (%%pair? lst) (jazz.specifier? (jazz.source-code (%%car lst))))
+      (proc (jazz.source-code (%%car lst)) (%%cdr lst))
     (proc #f lst)))
 
 
@@ -2498,7 +2498,7 @@
 
 (define (jazz.walk-unresolved walker resume declaration symbol-src)
   (let ((location (jazz.walk-location walker declaration (if (%%source? symbol-src) (%%source-locat symbol-src) #f))))
-    (jazz.walker-error walker resume (jazz.new-unresolved-error location (%%source-code symbol-src)))))
+    (jazz.walker-error walker resume (jazz.new-unresolved-error location (jazz.source-code symbol-src)))))
 
 
 (define (jazz.walker-warning walker warning)
@@ -2607,27 +2607,27 @@
 
 
 (define (jazz.parse-library partial-form)
-  (let ((name (%%source-code (%%car partial-form)))
-        (dialect-name (%%source-code (%%cadr partial-form)))
+  (let ((name (jazz.source-code (%%car partial-form)))
+        (dialect-name (jazz.source-code (%%cadr partial-form)))
         (scan (%%cddr partial-form))
         (requires '())
         (exports '())
         (imports '()))
     (if (and (%%pair? scan)
-             (%%pair? (%%source-code (%%car scan)))
-             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'require))
+             (%%pair? (jazz.source-code (%%car scan)))
+             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'require))
         (begin
           (set! requires (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
-             (%%pair? (%%source-code (%%car scan)))
-             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'export))
+             (%%pair? (jazz.source-code (%%car scan)))
+             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'export))
         (begin
           (set! exports (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
-             (%%pair? (%%source-code (%%car scan)))
-             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'import))
+             (%%pair? (jazz.source-code (%%car scan)))
+             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'import))
         (begin
           (set! imports (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
@@ -2791,23 +2791,23 @@
 
 (define (jazz.parse-module rest proc)
   (if (and (%%pair? rest)
-           (%%pair? (%%source-code (%%car rest)))
-           (%%eq? (%%source-code (%%car (%%source-code (%%car rest)))) 'require))
+           (%%pair? (jazz.source-code (%%car rest)))
+           (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
       (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
     (proc '() rest)))
 
 
 (define (jazz.cond-expand form-src cont)
-  (if (and (%%pair? (%%source-code form-src))
-           (%%eq? (%%source-code (%%car (%%source-code form-src))) 'cond-expand))
-      (let iter ((scan (%%cdr (%%source-code form-src))))
+  (if (and (%%pair? (jazz.source-code form-src))
+           (%%eq? (jazz.source-code (%%car (jazz.source-code form-src))) 'cond-expand))
+      (let iter ((scan (%%cdr (jazz.source-code form-src))))
         (if (%%null? scan)
             (jazz.error "Unfulfilled cond-expand")
-          (let ((clause (%%source-code (%%car scan))))
+          (let ((clause (jazz.source-code (%%car scan))))
             (if (or (%%not (%%pair? clause))
-                    (%%not (%%symbol? (%%source-code (%%car clause)))))
+                    (%%not (%%symbol? (jazz.source-code (%%car clause)))))
                 (jazz.error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
-              (let ((feature-requirement (%%source-code (%%car clause))))
+              (let ((feature-requirement (jazz.source-code (%%car clause))))
                 (if (or (jazz.feature-safisfied? feature-requirement)
                         (%%eq? feature-requirement 'else))
                     (if (%%null? (%%cdr clause))
@@ -2976,13 +2976,13 @@
 
 
 (define (jazz.begin-form? form)
-  (and (%%pair? (%%source-code form))
-       (%%eq? (%%source-code (%%car (%%source-code form))) 'begin)))
+  (and (%%pair? (jazz.source-code form))
+       (%%eq? (jazz.source-code (%%car (jazz.source-code form))) 'begin)))
 
 
 (define (jazz.define-form? form)
-  (and (%%pair? (%%source-code form))
-       (%%eq? (%%source-code (%%car (%%source-code form))) 'define)))
+  (and (%%pair? (jazz.source-code form))
+       (%%eq? (jazz.source-code (%%car (jazz.source-code form))) 'define)))
 
 
 ;;;
@@ -4588,7 +4588,7 @@
 
 
 (define (jazz.walk walker resume declaration environment form-src)
-  (let ((form (%%source-code form-src)))
+  (let ((form (jazz.source-code form-src)))
     (cond ((%%symbol? form)
            (jazz.walk-symbol walker resume declaration environment form-src))
           ((%%pair? form)
@@ -4619,7 +4619,7 @@
                                             (set! state substate)
                                           (if (%%neq? substate state)
                                               (jazz.error "Inconsistant internal defines")))))
-                                    (%%cdr (%%source-code form)))
+                                    (%%cdr (jazz.source-code form)))
                           state))
                        ((jazz.define-form? form)
                         (set! internal-defines (%%cons form internal-defines))
@@ -4651,18 +4651,18 @@
 
 
 (define (jazz.walk-internal-define walker resume declaration environment form-src variable)
-  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
       (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
 
 
 (define (jazz.parse-define walker resume declaration rest)
-  (if (%%symbol? (%%source-code (%%car rest)))
-      (let ((name (%%source-code (%%car rest))))
+  (if (%%symbol? (jazz.source-code (%%car rest)))
+      (let ((name (jazz.source-code (%%car rest))))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier rest)
             (values name specifier (%%car rest) #f))))
-    (let ((name (%%source-code (%%car (%%source-code (%%car rest)))))
+    (let ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
           (parameters (%%cdr (%%desourcify (%%car rest)))))
       (jazz.parse-specifier (%%cdr rest)
         (lambda (specifier body)
@@ -4692,7 +4692,7 @@
 
 
 (define (jazz.walk-constant walker resume declaration environment form-src)
-  (let ((form (%%source-code form-src)))
+  (let ((form (jazz.source-code form-src)))
     (cond ((%%boolean? form)
            (jazz.new-constant form-src jazz.Boolean))
           ((%%char? form)
@@ -4878,7 +4878,7 @@
 
 
 (jazz.define-method (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol-src)
-  (let ((symbol (%%source-code symbol-src)))
+  (let ((symbol (jazz.source-code symbol-src)))
     (cond ((jazz.enumerator? symbol)
            (jazz.walk-enumerator walker symbol))
           (else
@@ -4886,8 +4886,8 @@
 
 
 (define (jazz.walk-setbang walker resume declaration environment form-src)
-  (let ((form (%%source-code (%%cadr (%%source-code form-src))))
-        (value (%%car (%%cddr (%%source-code form-src)))))
+  (let ((form (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (value (%%car (%%cddr (jazz.source-code form-src)))))
     (if (%%symbol? form)
         (jazz.walk-symbol-assignment walker resume declaration environment form value)
       (jazz.error "Illegal set! of {s}" form))))
@@ -4919,7 +4919,7 @@
 
 
 (define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)
-  (let ((referenced-declaration (jazz.lookup-symbol walker environment (%%source-code symbol-src))))
+  (let ((referenced-declaration (jazz.lookup-symbol walker environment (jazz.source-code symbol-src))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
         (begin
           (jazz.validate-access walker resume declaration referenced-declaration)
@@ -4998,7 +4998,7 @@
 
 
 (jazz.define-method (jazz.walk-form (jazz.Walker walker) resume declaration environment form-src)
-  (let ((procedure-expr (%%desourcify (%%car (%%source-code form-src)))))
+  (let ((procedure-expr (%%desourcify (%%car (jazz.source-code form-src)))))
     (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-accessible/compatible-symbol walker resume declaration environment procedure-expr))))
       ;; special form
       (if (and binding (jazz.walk-binding-walkable? binding))
@@ -5040,8 +5040,8 @@
 
 
 (define (jazz.walk-call walker resume declaration environment procedure-binding form-src)
-  (let ((operator (%%car (%%source-code form-src)))
-        (arguments (%%cdr (%%source-code form-src))))
+  (let ((operator (%%car (jazz.source-code form-src)))
+        (arguments (%%cdr (jazz.source-code form-src))))
     (if procedure-binding
         (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-list arguments)))
     (jazz.new-call form-src
@@ -5151,7 +5151,7 @@
 
 
 (define (jazz.walk-macro walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-macro-declaration-signature new-declaration signature)
@@ -5190,7 +5190,7 @@
 
 
 (define (jazz.walk-syntax walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-syntax-declaration-signature new-declaration signature)

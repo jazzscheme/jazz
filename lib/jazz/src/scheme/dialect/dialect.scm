@@ -247,7 +247,7 @@
 
 
 (define (jazz.walk-define walker resume declaration environment form-src)
-  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (jazz.source-code form-src)))
     (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
       (let* ((new-declaration (jazz.find-form-declaration declaration name))
              (new-environment (%%cons new-declaration environment)))
@@ -280,7 +280,7 @@
 
 
 (define (jazz.walk-define-macro walker resume declaration environment form-src)
-  (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr (%%source-code form-src)))
+  (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-signature new-declaration signature)
@@ -335,8 +335,8 @@
 
 
 (define (jazz.walk-lambda walker resume declaration environment form-src)
-  (let ((parameters (%%desourcify (%%cadr (%%source-code form-src)))))
-    (jazz.parse-specifier (%%cddr (%%source-code form-src))
+  (let ((parameters (%%desourcify (%%cadr (jazz.source-code form-src)))))
+    (jazz.parse-specifier (%%cddr (jazz.source-code form-src))
       (lambda (specifier body)
         (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
           (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
@@ -350,9 +350,9 @@
 
 
 (define (jazz.parse-binding walker resume declaration environment form-src)
-  (%%assertion (and (%%pair? (%%source-code form-src)) (%%pair? (%%cdr (%%source-code form-src)))) (jazz.error "Ill-formed binding: {s}" (%%desourcify form-src))
-    (let ((symbol (%%source-code (%%car (%%source-code form-src)))))
-      (jazz.parse-specifier (%%cdr (%%source-code form-src))
+  (%%assertion (and (%%pair? (jazz.source-code form-src)) (%%pair? (%%cdr (jazz.source-code form-src)))) (jazz.error "Ill-formed binding: {s}" (%%desourcify form-src))
+    (let ((symbol (jazz.source-code (%%car (jazz.source-code form-src)))))
+      (jazz.parse-specifier (%%cdr (jazz.source-code form-src))
         (lambda (specifier rest)
           (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
                 (value (%%car rest)))
@@ -360,11 +360,11 @@
 
 
 (define (jazz.walk-let walker resume declaration environment form-src)
-  (if (%%symbol? (%%source-code (%%cadr (%%source-code form-src))))
+  (if (%%symbol? (jazz.source-code (%%cadr (jazz.source-code form-src))))
       (jazz.walk-named-let walker resume declaration environment form-src)
-    (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
-          (body (%%cddr (%%source-code form-src))))
-      (if (and (%%pair? bindings) (%%symbol? (%%source-code (%%car bindings))))
+    (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+          (body (%%cddr (jazz.source-code form-src))))
+      (if (and (%%pair? bindings) (%%symbol? (jazz.source-code (%%car bindings))))
           (jazz.signature-named-let walker resume declaration environment form-src bindings body)
         (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
           (let ((augmented-environment environment)
@@ -382,8 +382,8 @@
 
 
 (define (jazz.walk-letstar walker resume declaration environment form-src)
-  (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
-        (body (%%cddr (%%source-code form-src))))
+  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (body (%%cddr (jazz.source-code form-src))))
     (let ((augmented-environment environment)
           (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (binding-form)
@@ -399,15 +399,15 @@
 
 
 (define (jazz.walk-letrec walker resume declaration environment form-src)
-  (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
-        (body (%%cddr (%%source-code form-src))))
-    (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (%%source-code (%%car (%%source-code binding-form))) #f)) bindings))
+  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (body (%%cddr (jazz.source-code form-src))))
+    (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (jazz.source-code (%%car (jazz.source-code binding-form))) #f)) bindings))
            (augmented-environment (%%append new-variables environment))
            (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (variable binding-form)
                   (continuation-capture
                     (lambda (resume)
-                      (let ((value (%%cadr (%%source-code binding-form))))
+                      (let ((value (%%cadr (jazz.source-code binding-form))))
                         (jazz.enqueue expanded-bindings (cons variable (jazz.walk walker resume declaration augmented-environment value)))))))
                 new-variables
                 bindings)
@@ -429,9 +429,9 @@
                   (jazz.enqueue queue (jazz.new-variable expr type))
                   (iter rest)))))))))
   
-  (let* ((parameters (%%desourcify (%%cadr (%%source-code form-src))))
-         (expression (%%car (%%cddr (%%source-code form-src))))
-         (body (%%cdr (%%cddr (%%source-code form-src))))
+  (let* ((parameters (%%desourcify (%%cadr (jazz.source-code form-src))))
+         (expression (%%car (%%cddr (jazz.source-code form-src))))
+         (body (%%cdr (%%cddr (jazz.source-code form-src))))
          (variables (walk-parameters parameters))
          (new-environment (%%append variables environment)))
     (jazz.new-receive form-src variables (continuation-capture
@@ -446,11 +446,11 @@
 
 
 (define (jazz.walk-if walker resume declaration environment form-src)
-  (if (< (length (%%source-code form-src)) 3)
+  (if (< (length (jazz.source-code form-src)) 3)
       (jazz.walk-error walker resume declaration "Ill-formed if: {s}" (%%desourcify form-src))
-    (let ((test (%%cadr (%%source-code form-src)))
-          (yes (%%car (%%cddr (%%source-code form-src))))
-          (no (%%cdr (%%cddr (%%source-code form-src)))))
+    (let ((test (%%cadr (jazz.source-code form-src)))
+          (yes (%%car (%%cddr (jazz.source-code form-src))))
+          (no (%%cdr (%%cddr (jazz.source-code form-src)))))
       (jazz.new-if form-src
                    (continuation-capture
                      (lambda (resume)
@@ -466,13 +466,13 @@
 
 
 (define (jazz.walk-cond walker resume declaration environment form-src)
-  (let ((clauses (%%cdr (%%source-code form-src))))
+  (let ((clauses (%%cdr (jazz.source-code form-src))))
     (let ((expanded-clauses (jazz.new-queue)))
       (for-each (lambda (clause)
-                  (let ((test (%%car (%%source-code clause)))
-                        (body (%%cdr (%%source-code clause))))
+                  (let ((test (%%car (jazz.source-code clause)))
+                        (body (%%cdr (jazz.source-code clause))))
                     (jazz.enqueue expanded-clauses
-                      (cons (if (%%eq? (%%source-code test) 'else)
+                      (cons (if (%%eq? (jazz.source-code test) 'else)
                                 #f
                               (continuation-capture
                                 (lambda (resume)
@@ -483,8 +483,8 @@
 
 
 (define (jazz.walk-case walker resume declaration environment form-src)
-  (let ((target (%%cadr (%%source-code form-src)))
-        (clauses (%%cddr (%%source-code form-src))))
+  (let ((target (%%cadr (jazz.source-code form-src)))
+        (clauses (%%cddr (jazz.source-code form-src))))
     (jazz.new-case form-src
                    (continuation-capture
                      (lambda (resume)
@@ -492,8 +492,8 @@
                    (map (lambda (clause)
                           (continuation-capture
                             (lambda (resume)
-                              (let* ((tries (%%desourcify (%%car (%%source-code clause))))
-                                     (body (%%cdr (%%source-code clause)))
+                              (let* ((tries (%%desourcify (%%car (jazz.source-code clause))))
+                                     (body (%%cdr (jazz.source-code clause)))
                                      (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                                 (if (or (%%eq? tries 'else) (%%pair? tries))
                                     (cons tries (jazz.walk-implicit-begin walker resume declaration environment clause effective-body))
@@ -502,11 +502,11 @@
 
 
 (define (jazz.walk-and walker resume declaration environment form-src)
-  (jazz.new-and form-src (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
+  (jazz.new-and form-src (jazz.walk-list walker resume declaration environment (%%cdr (jazz.source-code form-src)))))
 
 
 (define (jazz.walk-or walker resume declaration environment form-src)
-  (jazz.new-or form-src (jazz.walk-list walker resume declaration environment (%%cdr (%%source-code form-src)))))
+  (jazz.new-or form-src (jazz.walk-list walker resume declaration environment (%%cdr (jazz.source-code form-src)))))
 
 
 ;;;
@@ -515,7 +515,7 @@
 
 
 (define (jazz.walk-begin walker resume declaration environment form-src)
-  (let ((body (%%cdr (%%source-code form-src))))
+  (let ((body (%%cdr (jazz.source-code form-src))))
     (jazz.new-begin form-src (jazz.walk-list walker resume declaration environment body))))
 
 
@@ -531,18 +531,18 @@
 
 
 (define (jazz.walk-do walker resume declaration environment form-src)
-  (let ((bindings (%%source-code (%%cadr (%%source-code form-src))))
-        (test (%%car (%%source-code (%%car (%%cddr (%%source-code form-src))))))
-        (result (%%cdr (%%source-code (%%car (%%cddr (%%source-code form-src))))))
-        (body (%%cdr (%%cddr (%%source-code form-src)))))
-    (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (%%source-code (%%car (%%source-code binding-form))) #f)) bindings))
+  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (test (%%car (jazz.source-code (%%car (%%cddr (jazz.source-code form-src))))))
+        (result (%%cdr (jazz.source-code (%%car (%%cddr (jazz.source-code form-src))))))
+        (body (%%cdr (%%cddr (jazz.source-code form-src)))))
+    (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (jazz.source-code (%%car (jazz.source-code binding-form))) #f)) bindings))
            (augmented-environment (%%append new-variables environment))
            (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (variable binding-form)
                   (continuation-capture
                     (lambda (resume)
-                      (let ((init (jazz.walk walker resume declaration augmented-environment (%%cadr (%%source-code binding-form))))
-                            (step (if (%%null? (%%cddr (%%source-code binding-form))) #f (jazz.walk walker resume declaration augmented-environment (%%car (%%cddr (%%source-code binding-form)))))))
+                      (let ((init (jazz.walk walker resume declaration augmented-environment (%%cadr (jazz.source-code binding-form))))
+                            (step (if (%%null? (%%cddr (jazz.source-code binding-form))) #f (jazz.walk walker resume declaration augmented-environment (%%car (%%cddr (jazz.source-code binding-form)))))))
                         (jazz.enqueue expanded-bindings (cons variable (cons init step)))))))
                 new-variables
                 bindings)
@@ -557,9 +557,9 @@
 
 
 (define (jazz.walk-named-let walker resume declaration environment form-src)
-  (let ((name (%%source-code (%%cadr (%%source-code form-src))))
-        (bindings (%%desourcify (%%car (%%cddr (%%source-code form-src)))))
-        (body (%%cdr (%%cddr (%%source-code form-src)))))
+  (let ((name (jazz.source-code (%%cadr (jazz.source-code form-src))))
+        (bindings (%%desourcify (%%car (%%cddr (jazz.source-code form-src)))))
+        (body (%%cdr (%%cddr (jazz.source-code form-src)))))
     (let ((augmented-environment environment)
           (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (binding-form)
@@ -577,7 +577,7 @@
 
 
 (define (jazz.signature-named-let walker resume declaration environment form-src bindings body)
-  (let ((name (%%source-code (%%car bindings)))
+  (let ((name (jazz.source-code (%%car bindings)))
         (bindings (%%cdr bindings)))
     (jazz.walk-named-let walker resume declaration environment
       (jazz.sourcify-if
@@ -592,7 +592,7 @@
 
 
 (define (jazz.walk-delay walker resume declaration environment form-src)
-  (let ((expression (%%cadr (%%source-code form-src))))
+  (let ((expression (%%cadr (jazz.source-code form-src))))
     (jazz.new-delay (jazz.walk walker resume declaration environment expression))))
 
 

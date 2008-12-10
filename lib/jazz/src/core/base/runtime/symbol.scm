@@ -87,10 +87,10 @@
 
 
 (define (jazz.binding-specifier binding)
-  (let ((cdr-binding (%%cdr (%%source-code binding))))
+  (let ((cdr-binding (%%cdr (jazz.source-code binding))))
     (and (%%pair? cdr-binding)
-         (jazz.specifier? (%%source-code (%%car cdr-binding)))
-         (%%source-code (%%car cdr-binding)))))
+         (jazz.specifier? (jazz.source-code (%%car cdr-binding)))
+         (jazz.source-code (%%car cdr-binding)))))
 
 
 ;;;

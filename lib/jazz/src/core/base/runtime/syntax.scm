@@ -38,14 +38,16 @@
 (module core.base.runtime.syntax
 
 
-(define (jazz.source? expr)
-  (%%source? expr))
+(define (jazz.source? obj)
+  (%%source? obj))
 
 (define (jazz.source-code expr)
-  (%%source-code expr))
+  (if (%%source? expr)
+      (%%source-code expr)
+    expr))
 
-(define (jazz.source-locat expr)
-  (%%source-locat expr))
+(define (jazz.source-locat src)
+  (%%source-locat src))
 
 (define (jazz.desourcify expr)
   (%%desourcify expr))
@@ -99,7 +101,7 @@
 (define (jazz.present-source obj)
   
   (define (present-src src)
-    (let ((code (%%source-code src))
+    (let ((code (jazz.source-code src))
           (pos (%%locat-position (%%source-locat src))))
       (%%vector 'source
                 (jazz.present-source code)

@@ -645,12 +645,12 @@
   'jazz)
 
 
-(define (jazz.make #!optional (target #f))
-  (let ((target (or target jazz.default-target)))
-    (let ((name (symbol->string target)))
+(define (jazz.make targets)
+  (define (make-symbol symbol)
+    (let ((name (symbol->string symbol)))
       (let ((pos (jazz.string-find name #\@)))
         (if (not pos)
-            (jazz.make-target target (jazz.require-default-configuration))
+            (jazz.make-target symbol (jazz.require-default-configuration))
           (let ((target
                   (if (= pos 0)
                       jazz.default-target
@@ -659,7 +659,12 @@
                   (if (= (+ pos 1) (string-length name))
                       (jazz.require-default-configuration)
                     (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
-            (jazz.make-target target configuration)))))))
+            (jazz.make-target target configuration))))))
+  
+  (let ((effective-targets (if (null? targets)
+                               (list jazz.default-target)
+                             targets)))
+    (for-each make-symbol effective-targets)))
 
 
 (define (jazz.make-target target configuration)
@@ -956,7 +961,7 @@
 
 
 (define (jazz.make-command arguments output)
-  (apply jazz.make arguments))
+  (jazz.make arguments))
 
 
 (define (jazz.help-command arguments output)

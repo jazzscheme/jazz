@@ -38,5 +38,4 @@
 (module core.base.syntax
 
 
-(require (core.base.syntax.runtime)
-         (core.base.syntax.macros)))
+(require (core.base.syntax.macros)))

@@ -159,20 +159,22 @@
   
   
   (method (evaluate-expressions string container line col)
-    (let ((expressions (with-jazz-readtable
-                         (function ()
-                           (call-with-input-string string
-                             (function (port)
-                               (read-source-all port container line col)))))))
-      (for-each (function (expr)
-                  (if (module/library-form? expr)
-                      (let ((module-name (source-code (cadr (source-code expr)))))
-                        (load-module module-name)
-                        (locate-library-declaration module-name)
-                        (parameterize ((requested-module-name module-name))
-                          (->string (eval expr) :reader)))
-                    (->string (eval expr) :reader)))
-                expressions)))
+    (thread-call (primordial-thread) 'evaluate-expressions
+      (function ()
+        (let ((expressions (with-jazz-readtable
+                             (function ()
+                               (call-with-input-string string
+                                 (function (port)
+                                   (read-source-all port container line col)))))))
+          (for-each (function (expr)
+                      (if (module/library-form? expr)
+                          (let ((module-name (source-code (cadr (source-code expr)))))
+                            (load-module module-name)
+                            (locate-library-declaration module-name)
+                            (parameterize ((requested-module-name module-name))
+                              (->string (eval expr) :reader)))
+                        (->string (eval expr) :reader)))
+                    expressions)))))
   
   
   ;;;

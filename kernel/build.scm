@@ -645,7 +645,7 @@
   'jazz)
 
 
-(define (jazz.make targets)
+(define (jazz.make symbols)
   (define (make-symbol symbol)
     (let ((name (symbol->string symbol)))
       (let ((pos (jazz.string-find name #\@)))
@@ -661,10 +661,16 @@
                     (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
             (jazz.make-target target configuration))))))
   
-  (let ((effective-targets (if (null? targets)
-                               (list jazz.default-target)
-                             targets)))
-    (for-each make-symbol effective-targets)))
+  (let iter ((scan (if (null? symbols)
+                       (list jazz.default-target)
+                     symbols)))
+    (if (not (null? scan))
+        (let ((symbol (car scan)))
+          (make-symbol symbol)
+          (let ((tail (cdr scan)))
+            (if (not (null? tail))
+                (newline (console-port)))
+            (iter tail))))))
 
 
 (define (jazz.make-target target configuration)

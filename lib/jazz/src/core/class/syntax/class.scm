@@ -292,7 +292,7 @@ end-of-c-code
            (jazz.usertype ,obj)))
     
     (jazz.define-macro (%%class-of obj)
-      (jazz.with-expression-value obj
+      (jazz.with-uniqueness obj
         (lambda (symbol)
           (case (jazz.walk-for)
             ((compile)
@@ -319,7 +319,7 @@ end-of-c-code
   
   (else
     (jazz.define-macro (%%class-of obj)
-      (jazz.with-expression-value obj
+      (jazz.with-uniqueness obj
         (lambda (symbol)
           `(if (%%object? ,symbol)
                (%%get-object-class ,symbol)

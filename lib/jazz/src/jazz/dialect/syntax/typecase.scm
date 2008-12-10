@@ -53,7 +53,7 @@
   (let ((target (cadr (source-code form-src)))
         (clauses (cddr (source-code form-src))))
     (sourcify-if
-      (with-expression-value target
+      (with-uniqueness target
         (lambda (variable)
           `(cond ,@(map (lambda (clause)
                           (let ((value (desourcify (car (source-code clause))))

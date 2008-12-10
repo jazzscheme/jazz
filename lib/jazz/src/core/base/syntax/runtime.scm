@@ -35,21 +35,4 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.syntax.runtime
-
-
-(define (jazz.with-expression-value expr proc)
-  (if (symbol? (%%source-code expr))
-      (proc expr)
-    (let ((value (jazz.generate-symbol "val")))
-      `(let ((,value ,expr))
-         ,(proc value)))))
-
-
-(define (jazz.simplify-begin form)
-  (if (and (%%pair? form)
-           (%%eq? (%%car form) 'begin)
-           (%%pair? (%%cdr form))
-           (%%null? (%%cddr form)))
-      (%%cadr form)
-    form)))
+(module core.base.syntax.runtime)

@@ -75,7 +75,7 @@
     
     (jazz.define-macro (%%object-length object)
       (if jazz.debug-core?
-          (jazz.with-expression-value object
+          (jazz.with-uniqueness object
             (lambda (obj)
               `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
                  (##vector-length ,obj))))
@@ -83,9 +83,9 @@
     
     (jazz.define-macro (%%object-ref object n)
       (if jazz.debug-core?
-          (jazz.with-expression-value object
+          (jazz.with-uniqueness object
             (lambda (obj)
-              (jazz.with-expression-value n
+              (jazz.with-uniqueness n
                 (lambda (rnk)
                   `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
                      (##vector-ref ,obj ,n)
@@ -96,9 +96,9 @@
     
     (jazz.define-macro (%%object-set! object n value)
       (if jazz.debug-core?
-          (jazz.with-expression-value object
+          (jazz.with-uniqueness object
             (lambda (obj)
-              (jazz.with-expression-value n
+              (jazz.with-uniqueness n
                 (lambda (rnk)
                   `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
                      (##vector-set! ,obj ,n ,value)

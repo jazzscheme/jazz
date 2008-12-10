@@ -352,6 +352,7 @@
                 
                 ;; load syntax
                 (load (source-file "kernel/syntax/macros"))
+                (load (source-file "kernel/syntax/expansion"))
                 (load (source-file "kernel/syntax/features"))
                 (load (source-file "kernel/syntax/declares"))
                 (load (source-file "kernel/syntax/primitives"))
@@ -362,6 +363,7 @@
               (compile-kernel-file "_architecture"))
           
           (compile-source-file "syntax/" "macros")
+          (compile-source-file "syntax/" "expansion")
           (compile-source-file "syntax/" "features")
           (compile-source-file "syntax/" "declares")
           (compile-source-file "syntax/" "primitives")
@@ -424,6 +426,7 @@
                   (link-incremental (list (kernel-file "_architecture")
                                           (product-file "_product")
                                           (kernel-file "syntax/macros")
+                                          (kernel-file "syntax/expansion")
                                           (kernel-file "syntax/features")
                                           (kernel-file "syntax/declares")
                                           (kernel-file "syntax/primitives")
@@ -547,6 +550,7 @@
           `(,(jazz.quote-gcc-pathname (kernel-file "_architecture.c") platform)
             ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/macros.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/expansion.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/features.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/declares.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/primitives.c") platform)

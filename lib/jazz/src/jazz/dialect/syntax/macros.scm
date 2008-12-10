@@ -139,7 +139,7 @@
   (let ((name (source-code (cadr (source-code form-src))))
         (object (car (cddr (source-code form-src)))))
     (sourcify-if
-      (with-expression-value object
+      (with-uniqueness object
         (lambda (obj)
           `(lambda rest
              (apply (dispatch ,obj ',name) ,obj rest))))

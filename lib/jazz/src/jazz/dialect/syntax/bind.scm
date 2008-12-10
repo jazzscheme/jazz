@@ -59,7 +59,7 @@
         (tree (car (cddr (source-code form-src))))
         (body (cdr (cddr (source-code form-src)))))
     (sourcify-if
-      (with-expression-value tree
+      (with-uniqueness tree
         (lambda (tree-value)
           `(begin
              ,@(expand-bind-car bindings tree-value body))))

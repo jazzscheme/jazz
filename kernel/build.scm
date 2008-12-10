@@ -1052,6 +1052,7 @@
 
 
 (load "kernel/syntax/macros")
+(load "kernel/syntax/expansion")
 (load "kernel/syntax/features")
 (load "kernel/syntax/declares")
 (load "kernel/syntax/primitives")

@@ -122,7 +122,7 @@
             (macro-readenv-wrap re
               (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
                   #f
-                (jazz.construct-literal (map %%desourcify lst))))))))
+                (jazz.construct-literal (map (lambda (expr) (%%desourcify expr)) lst))))))))
     
     
     (define (jazz.read-comment re c)

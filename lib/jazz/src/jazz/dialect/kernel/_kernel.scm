@@ -708,7 +708,7 @@
 
 
 (native jazz.generate-symbol)
-(native jazz.with-expression-value)
+(native jazz.with-uniqueness)
 
 
 ;;;

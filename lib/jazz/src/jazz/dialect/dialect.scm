@@ -1290,7 +1290,7 @@
                                   (set! ,q q)
                                   (set! ,t t)))
                 (jazz.new-code
-                  (jazz.with-expression-value (jazz.sourcified-form object-code)
+                  (jazz.with-uniqueness (jazz.sourcified-form object-code)
                     (lambda (object)
                       `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
                   jazz.Any

@@ -142,6 +142,10 @@
     (error error-string)))
 
 
+(define (jazz.primitive-type-error num type proc args)
+  (error (jazz.format "(Argument {a}) {a} expected :" num type) (cons proc args)))
+
+
 ;;;
 ;;;; List
 ;;;

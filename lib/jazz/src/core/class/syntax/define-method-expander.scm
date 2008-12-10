@@ -53,7 +53,7 @@
              (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class ,object-parameter)) ',rank-name)
                      ,object-parameter
                      ,@extra-parameters))
-         (jazz.with-expression-value ,object-parameter
+         (jazz.with-uniqueness ,object-parameter
            (lambda (obj)
              (%%list '%%core-assertion (list ',is-test obj ',class-name) (list 'jazz.error (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
                (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class obj)) ',rank-name)

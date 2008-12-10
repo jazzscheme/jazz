@@ -122,9 +122,9 @@
 
 
 (jazz.define-macro (%%class-subtype? target class)
-  (jazz.with-expression-value target
+  (jazz.with-uniqueness target
     (lambda (trg)
-      (jazz.with-expression-value class
+      (jazz.with-uniqueness class
         (lambda (cls)
           `(let ((class-level (%%get-class-level ,cls)))
              (and (%%fx>= (%%get-class-level ,trg) class-level)

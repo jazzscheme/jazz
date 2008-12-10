@@ -53,8 +53,8 @@
           (%%read-all-as-a-begin-expr-from-port
             port
             (%%current-readtable)
-            %%wrap-datum
-            %%unwrap-datum
+            ##wrap-datum
+            ##unwrap-datum
             (macro-readtable-start-syntax (%%current-readtable))
             #t)))
     (%%cdr (%%source-code (%%source-code begin-src)))))

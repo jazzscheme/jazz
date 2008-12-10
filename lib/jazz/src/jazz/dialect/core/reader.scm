@@ -209,7 +209,11 @@
               (values line #f))))))
     
     (define jazz.read-all
-      read-all))
+      read-all)
+    
+    (define (jazz.with-readtable readtable thunk)
+      (parameterize ((current-readtable readtable))
+        (thunk))))
   
   (else))
 

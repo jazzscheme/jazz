@@ -159,12 +159,13 @@
 (class Console extends Object
   
   
-  (slot remote  getter generate)
-  (slot pump    getter generate)
-  (slot tail    getter generate)
-  (slot head    getter generate)
-  (slot context accessors generate)
-  (slot history accessors generate)
+  (slot remote    getter generate)
+  (slot pump      getter generate)
+  (slot tail      getter generate)
+  (slot head      getter generate)
+  (slot readtable accessors generate)
+  (slot context   accessors generate)
+  (slot history   accessors generate)
   
   
   (method (initialize remote pump tail head)
@@ -172,6 +173,7 @@
     (set! pump~self pump)
     (set! tail~self tail)
     (set! head~self head)
+    (set! readtable~self {})
     (set! context~self (unspecified))
     (set! history~self {})))
 
@@ -295,27 +297,30 @@
 
 
 (definition (read-eval-print thread port level)
-  (let ((expr (read port)))
-    (if (eof-object? expr)
-        (thread-post thread 'resume-loop
-          (function ()
-            (let ((restarts (find-restarts 'resume-loop)))
-              (when (> (length restarts) 1)
-                (newline port)
-                ;; skip the current resume-loop restart
-                (let ((restart (second restarts)))
-                  (invoke-restart restart))))))
-      (let ((result
-              (thread-call thread 'evaluate
-                (function ()
-                  (evaluate expr)))))
-        (when (and (thread-call-result? result)
-                   (specified? result))
-          (repl-result-history-add result)
-          (format port "{s}" result)
-          (format port "{%}"))
-        (display-prompt port level)
-        (force-output port)))))
+  (let ((console (thread-console thread)))
+    (let ((expr (with-readtable (either (get-readtable~ console) scheme-readtable)
+                  (function ()
+                    (read port)))))
+      (if (eof-object? expr)
+          (thread-post thread 'resume-loop
+            (function ()
+              (let ((restarts (find-restarts 'resume-loop)))
+                (when (> (length restarts) 1)
+                  (newline port)
+                  ;; skip the current resume-loop restart
+                  (let ((restart (second restarts)))
+                    (invoke-restart restart))))))
+        (let ((result
+                (thread-call thread 'evaluate
+                  (function ()
+                    (evaluate expr)))))
+          (when (and (thread-call-result? result)
+                     (specified? result))
+            (repl-result-history-add result)
+            (format port "{s}" result)
+            (format port "{%}"))
+          (display-prompt port level)
+          (force-output port))))))
 
 
 (definition (evaluate expr)
@@ -360,6 +365,7 @@
                      (when (symbol? new-context)
                        (load-module new-context))
                      (set-context~ console new-context)
+                     (set-readtable~ console (if (not new-context) {} jazz-readtable))
                      new-context))))
               (#f @convert frame-box
                (evaluate-in-frame (unbox frame-box) expr))

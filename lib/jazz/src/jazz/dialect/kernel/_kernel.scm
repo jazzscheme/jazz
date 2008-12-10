@@ -537,10 +537,6 @@
 (native jazz.read-line)
 (native jazz.read-proper-line)
 (native jazz.read-all)
-(native jazz.scheme-readtable)
-(native jazz.jazz-readtable)
-(native jazz.with-jazz-readtable)
-(native jazz.install-jazz-literals)
 (native jazz.print)
 (native jazz.pretty-print)
 (native jazz.read-source-all)
@@ -581,6 +577,18 @@
 (native jazz.random-source-randomize!)
 (native jazz.random-source-pseudo-randomize!)
 (native jazz.default-random-source)
+
+
+;;;
+;;;; Readtable
+;;;
+
+
+(native jazz.with-readtable)
+(native jazz.scheme-readtable)
+(native jazz.jazz-readtable)
+(native jazz.with-jazz-readtable)
+(native jazz.install-jazz-literals)
 
 
 ;;;

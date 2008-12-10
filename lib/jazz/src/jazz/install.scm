@@ -60,6 +60,7 @@
         (register-literal 'Rect                      'jazz.literals 'construct-rect)
         (register-literal 'Range                     'jazz.literals 'construct-range)
         (register-literal 'Exception-Detail          'jazz.literals 'construct-exception-detail)
+        (register-literal 'Walk-Location             'jazz.literals 'construct-walk-location)
         (register-literal 'Box                       'jazz.literals 'construct-box)
         (register-literal 'Action                    'jazz.literals 'construct-action)
         (register-literal 'Shortcut                  'jazz.literals 'construct-shortcut)

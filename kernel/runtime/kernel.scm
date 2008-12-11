@@ -465,11 +465,13 @@
           (if (%%eq? name package-name)
               (let ((root (assq 'root alist))
                     (install (assq 'install alist))
-                    (products (assq 'products alist)))
+                    (products (assq 'products alist))
+                    (profiles (assq 'profiles alist)))
                 (jazz.make-package repository name
                   (if root (%%cadr root) #f)
                   (if install (%%cadr install) #f)
-                  (if products (%%cdr products) '())))
+                  (if products (%%cdr products) '())
+                  (if profiles (%%cdr profiles) '())))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
@@ -515,11 +517,11 @@
        (%%eq? (%%vector-ref obj 0) 'package)))
 
 
-(define (jazz.make-package repository name root install products)
+(define (jazz.make-package repository name root install products profiles)
   (let ((path (if (%%not root)
                   (%%symbol->string name)
                 (%%string-append (%%symbol->string name) "/" root))))
-    (%%make-package repository name root path install products)))
+    (%%make-package repository name root path install products profiles)))
 
 
 (define (jazz.package-pathname package path)
@@ -616,6 +618,36 @@
     (if resource
         (jazz.path->name (%%resource-path resource))
       #f)))
+
+
+;;;
+;;;; Profiles
+;;;
+
+
+(define (jazz.gather-profiles)
+  (let iter-repo ((repositories jazz.Repositories) (profiles '()))
+    (if (%%null? repositories)
+        profiles
+      (let iter ((packages (jazz.repository-packages (%%car repositories))) (profiles profiles))
+        (if (%%null? packages)
+            (iter-repo (%%cdr repositories) profiles)
+          (let ((package-profiles (%%package-profiles (%%car packages))))
+            (iter (%%cdr packages) (%%append package-profiles profiles))))))))
+
+
+(define (jazz.make-profile name module-name)
+  `(,name (module ,module-name)))
+
+
+(define (jazz.profile-name profile)
+  (%%car profile))
+
+(define (jazz.profile-title profile)
+  (symbol->string (jazz.profile-name profile)))
+
+(define (jazz.profile-module profile)
+  (%%cadr (%%assq 'module (%%cdr profile))))
 
 
 ;;;

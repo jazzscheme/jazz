@@ -146,15 +146,17 @@
           (always-use? (get-checked?~ (locate 'always-use))))
       (case (get-name~ branch)
         ((new)
-         (let ((name (get-string-content~ (locate 'new-profile))))
-           (values name bindings always-use?)))
+         (let ((content (get-string-content~ (locate 'new-profile))))
+           (let ((name (string->symbol (capitalize content)))
+                 (module (string->symbol (format "profile.{a}" (downcase content)))))
+             (values name module bindings always-use?))))
         ((existing)
          (let* ((tree (locate 'profiles))
                 (rank (get-single-selection~ tree)))
            (if (not rank)
                (values {} {} #f)
-             (let ((row (get-row~ tree rank)))
-               (values (get-user-data~ row) bindings always-use?))))))))
+             (let ((profile (get-user-data~ (get-row~ tree rank))))
+               (values (profile-name profile) (profile-module profile) bindings always-use?))))))))
   
 
   ;;;
@@ -232,7 +234,8 @@
           (rank (either rank (essay (not-null? profiles) 0))))
       (remove-every-row~ tree)
       (for-each (function (profile)
-                  (add-row~ tree children: (list (new Tree-Node title: profile)) user-data: profile))
+                  (let ((title (profile-title profile)))
+                    (add-row~ tree children: (list (new Tree-Node title: title)) user-data: profile)))
                 profiles)
       (when (and rank (< rank (get-visible-count~ tree)))
         (set-single-selection~ tree rank)
@@ -243,28 +246,12 @@
   
   (method (collect-profile-info)
     (let ((profiles (collect-existing-profiles)))
-      (let ((rank (find profiles (argument/setting "profile" 'profile) test: equal?)))
+      (let ((rank (find profiles (->string (argument/setting "profile" 'profile)) key: profile-title test: ci=?)))
         (values profiles rank))))
   
   
   (method (collect-existing-profiles)
-    (let ((lst '()))
-      (define (collect-directory dir)
-        (when (exists?~ dir)
-          (iterate-directory~ dir
-            (function (dir)
-              (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
-                (when (exists?~ file)
-                  (let ((base (get-base~ file)))
-                    (let ((profile (substring base 1 (string-length base))))
-                      (set! lst (cons profile lst)))))))
-            files?: #f
-            directories?: #t
-            recursive?: #f)))
-      
-      (collect-directory {Directory Profiles})
-      
-      (sort ci<? lst)))
+    (sort ci<? (gather-profiles) key: profile-title))
   
 
   ;;;

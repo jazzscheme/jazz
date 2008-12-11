@@ -114,8 +114,8 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name root path install products)
-  `(%%vector 'package ,repository ,name ,root ,path ,install ,products (%%make-table test: eq?)))
+(jazz.define-macro (%%make-package repository name root path install products profiles)
+  `(%%vector 'package ,repository ,name ,root ,path ,install ,products ,profiles (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -136,8 +136,11 @@
 (jazz.define-macro (%%package-products package)
   `(%%vector-ref ,package 6))
 
-(jazz.define-macro (%%package-autoloads package)
+(jazz.define-macro (%%package-profiles package)
   `(%%vector-ref ,package 7))
+
+(jazz.define-macro (%%package-autoloads package)
+  `(%%vector-ref ,package 8))
 
 
 ;;;

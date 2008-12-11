@@ -79,7 +79,9 @@
   (slot stage                    initialize {})
   (slot menubar                  initialize {})
   (slot status-bar               initialize {})
+  (slot profile-name             initialize {})
   (slot profile-module           initialize {})
+  (slot profile-class            initialize {})
   (slot profile-bindings         initialize {})
   (slot profile                  initialize {})
   (slot focus-listeners          initialize '())
@@ -135,10 +137,6 @@
 
   (method public (set-status-bar status)
     (set! status-bar status))
-
-
-  (method public (get-profile-module)
-    profile-module)
 
 
   (method public (get-profile)
@@ -413,11 +411,14 @@
   (method (log-profile)
     (let ((use-logging? (use-profile-logging?)))
       (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (argument/setting "profile" 'profile)))))
-        (set! profile-module (cond (profile-arg (standard-profile-module profile-arg))
-                                   (use-logging? (login-profile))
-                                   (else 'jazz.profile.Me @convert (system-profile-module))))
-        (install-profile)
-        (load-profile-jazzini))))
+        (receive (name module) (cond (profile-arg (standard-profile (->string profile-arg)))
+                                     (use-logging? (login-profile))
+                                     (else (system-profile)))
+          (set! profile-name name)
+          (set! profile-module module)
+          (set! profile-class (compose-name module name))
+          (install-profile)
+          (load-profile-jazzini)))))
   
   
   (method (load-profile-jazzini)
@@ -426,58 +427,63 @@
         (load (parse~ file)))))
   
   
-  (method (standard-profile-module name)
-    (string->symbol (format "profile.{a}" name)))
+  (method (standard-profile title)
+    (let ((name (string->symbol title))
+          (module-name (string->symbol (format "profile.{a}" (downcase title)))))
+      (values name module-name)))
   
   
-  (method (standard-manifest-module name)
-    (string->symbol (format "profile.{a}.{a}-Manifest" name name)))
-  
-  
-  (method (system-profile-module)
-    (standard-profile-module (get-system-user-name)))
+  (method (system-profile)
+    (values 'Me 'jazz.profile)
+    @convert
+    (standard-profile (get-system-user-name)))
 
   
   (method (login-profile)
     (catch (Cancel-Signal signal
              (exit))
-      (receive (profile bindings always-use?) (choose-login)
+      (receive (name module bindings always-use?) (choose-login)
         (set! profile-bindings bindings)
         (when settings
-          (set-setting~ settings 'profile (if always-use? profile #f))
+          (set-setting~ settings 'profile (if always-use? name #f))
           (save-content~ settings)
           (when always-use?
             (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
-                                 profile))))
-        (let ((module-name (compose-name 'profile (string->symbol profile))))
-          module-name))))
-  
-  
-  (method (install-profile)
-    (let ((source (find-module-source profile-module)))
-      (if source
-          (register-alias 'Profile (get-list~ (get-parent~ source)))
-        (let ((name (symbol->string (identifier-name profile-module))))
-          (register-alias 'Profile (list 'Profiles name))
-          (install-new-profile name)))))
+                                 name))))
+        (values name module))))
 
   
-  (method (install-new-profile name)
-    (let ((associations (list (cons 'module profile-module)
-                              (cons 'bindings (either profile-bindings 'jazz))
-                              (cons 'profile name)
-                              (cons 'manifest-module (standard-manifest-module name))
-                              (cons 'manifest-title (downcase name)))))
+  (method (install-profile)
+    (let ((source (find-module-source profile-class)))
+      (when (not source)
+        (install-new-profile)
+        (set! source (find-module-source profile-class)))
+      (register-alias 'Profile (get-list~ (get-parent~ source)))))
+
+  
+  (method (install-new-profile)
+    (let ((associations (list (cons 'profile profile-name)
+                              (cons 'profile-lowercase (downcase (symbol->string profile-name)))
+                              (cons 'profile-module profile-module)
+                              (cons 'profile-bindings (either profile-bindings 'jazz)))))
       (copy-template {Directory Jazz "lib" "jedi" "templates" "profile"}
                      {Directory Home}
                      associations
-                     non-expanded-nodes: '("catalogs"))))
+                     non-expanded-nodes: '("catalogs")))
+    (let ((repository (find-repository 'User)))
+      (let ((package-name profile-module)
+            (package-path (concatenate (repository-directory repository) (format "{a}/{a}.pck" profile-module profile-module))))
+        (repository-add-package repository (load-package repository package-name package-path)))))
+  
+  
+  (method (standard-manifest-module name)
+    (string->symbol (format "profile.{a}.{a}-Manifest" name name)))
 
   
   (method (create-profile)
     (with-safe-execution "creating the profile"
       (function ()
-        (set! profile (new (load-profile-class profile-module))))
+        (set! profile (new (load-profile-class profile-class))))
       continue-text: (list (format "Press Continue to bypass this problem by using a generic profile class instead of {a}" (identifier-name profile-module)))
       continue-handler:
       (function (err)

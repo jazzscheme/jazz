@@ -132,7 +132,7 @@
       (let ((host (get-host~ proxy-ior))
             (service (get-service~ proxy-ior)))
         (when *debug?*
-          (terminal '***remoting*** 'live? remote-proxy))
+          (terminal '***client*** 'live? remote-proxy))
         (call-with-tcp-client (list server-address: host port-number: service)
           (function (port)
             (with-exception-catcher
@@ -174,7 +174,7 @@
     (let ((host (get-host~ proxy-ior))
           (service (get-service~ proxy-ior)))
       (when *debug?*
-        (terminal '***remoting*** 'invoke kind method-name remote-proxy (and *debug-arguments?* arguments)))
+        (terminal '***client*** kind method-name remote-proxy (and *debug-arguments?* arguments)))
       (call-with-tcp-client (list server-address: host port-number: service)
         (function (port)
           (send-remote-message (list kind method-name proxy-ior arguments) port)
@@ -184,7 +184,7 @@
             ((exec)
              (let ((received (receive-remote-result port)))
                (when *debug?*
-                 (terminal '***remoting*** 'received kind method-name '-> received))
+                 (terminal '***client*** 'received method-name '-> received))
                (bind (err result) received
                  (if err
                      (error "Remote error while executing {s}: {a}" method-name err)
@@ -192,7 +192,7 @@
             ((call)
              (let ((received (receive-remote-result port)))
                (when *debug?*
-                 (terminal '***remoting*** 'received kind method-name '-> received))
+                 (terminal '***client*** 'received method-name '-> received))
                (bind (err result) received
                  (if err
                      (error "Remote error while executing {s}: {a}" method-name err)
@@ -227,19 +227,19 @@
         (send-remote-result live-response port)
       (bind (kind method-name proxy-ior arguments) message
         (when *debug?*
-          (terminal '***remoting*** 'process kind method-name proxy-ior (and *debug-arguments?* arguments)))
+          (terminal '***server*** kind method-name proxy-ior (and *debug-arguments?* arguments)))
         (case kind
           ((post)
            (dispatch-remote method-name proxy-ior arguments))
           ((exec)
            (receive (err result) (execute-remote method-name proxy-ior arguments)
              (when *debug?*
-               (terminal '***remoting*** 'return kind method-name err result))
+               (terminal '***server*** 'return method-name err result))
              (send-remote-result (list err (marshall (unspecified))) port)))
           ((call)
            (receive (err result) (execute-remote method-name proxy-ior arguments)
              (when *debug?*
-               (terminal '***remoting*** 'return kind method-name err result))
+               (terminal '***server*** 'return method-name err result))
              (send-remote-result (list err (marshall result)) port))))))))
 
 
@@ -253,7 +253,7 @@
             (continuation-capture
               (function (cont)
                 (when *debug?*
-                  (terminal '***remoting*** 'exception)
+                  (terminal '***server*** 'exception method-name)
                   (display-exception exc)
                   (display-continuation-backtrace cont))
                 (return (values (exception-reason exc) #f)))))

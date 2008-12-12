@@ -420,6 +420,9 @@
 
 
 (definition (generate-x11-atoms)
+  (set! TIMESTAMP                         (XInternAtom default-x11-display "TIMESTAMP" #f))
+  (set! TEXT                              (XInternAtom default-x11-display "TEXT" #f))
+  (set! TARGETS                           (XInternAtom default-x11-display "TARGETS" #f))
   (set! WM_PROTOCOLS                      (XInternAtom default-x11-display "WM_PROTOCOLS" #f))
   (set! WM_DELETE_WINDOW                  (XInternAtom default-x11-display "WM_DELETE_WINDOW" #f))
   (set! _NET_WM_WINDOW_TYPE               (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE" #f))
@@ -449,6 +452,9 @@
 (definition XA_ATOM 4)
 (definition XA_STRING 31)
 (definition XA_CLIPBOARD {})
+(definition TIMESTAMP {})
+(definition TEXT {})
+(definition TARGETS {})
 
 
 ;;;
@@ -496,6 +502,33 @@
 
 (definition WM_PROTOCOLS {})
 (definition WM_DELETE_WINDOW {})
+
+
+;;;
+;;;; Latest event timestamp
+;;;
+
+
+(definition x11-latest-timestamp {})
+
+
+(definition (x11-set-timestamp stamp)
+  (set! x11-latest-timestamp stamp))
+
+
+(definition (x11-get-timestamp)
+  x11-latest-timestamp)
+
+
+;;;
+;;;; Clipboard
+;;;
+
+
+(definition clipboard-string "")
+
+
+(definition clipboard-stamp {})
 
 
 ;;;
@@ -816,6 +849,12 @@
 
 
 
+(definition (XGetAtomName display atom)
+  (let ((result ((c-function (Display* Atom) char* "XGetAtomName") display atom)))
+    (prog1 (char*->char-string result)
+      (XFree result))))
+    
+
 ;;;
 ;;;; Custom functions
 ;;;
@@ -993,8 +1032,6 @@
       (values x y))))
 
 
-
-
 (definition (XGetWindowProperty display window property long_offset long_length delete req_type)
   (let ((actual_type_return-pt   (ulong*-alloc 1))
         (actual_format_return-pt (int*-alloc 1))
@@ -1034,9 +1071,7 @@
 (definition (XGetClipboardString display toplevel)
   (let ((owner (XGetSelectionOwner display XA_CLIPBOARD)))
     (if (= owner toplevel)
-        (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel XA_PRIMARY 0 100000 #f XA_STRING)
-          (prog1 (uint8*->char-string data)
-            (XFree data)))
+        clipboard-string
       (XConvertSelection display XA_CLIPBOARD XA_STRING None toplevel CurrentTime)
       (let ((ev (XEvent-make)))
         (let loop ((i 0)
@@ -1054,16 +1089,13 @@
 
 
 (definition (XSetClipboardString display window string)
-  (let ((data (char-string->uint8* string))
-        (len (+ 1 (string-length string))))
-    (XChangeProperty display window XA_PRIMARY XA_STRING 8 PropModeReplace data len)
-    (XSetSelectionOwner display XA_CLIPBOARD window CurrentTime)
-    (uint8*-free data)))
+  (set! clipboard-string string)
+  (set! clipboard-stamp (x11-get-timestamp))
+  (XSetSelectionOwner display XA_CLIPBOARD window clipboard-stamp))
 
 
-(definition (XSendClipboardString display toplevel requestor selection target property)
-  (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel XA_PRIMARY 0 100000 #f XA_STRING)
-    (XChangeProperty display requestor property target 8 PropModeReplace data nitems)
+(definition (XSendClipboardSelection display toplevel requestor selection target property time)
+  (define (send-event property)
     (let* ((ev (XEvent-make))
            (xselection (XEvent-xselection-ref ev)))
       (XSelectionEvent-type-set! xselection SelectionNotify)
@@ -1073,9 +1105,24 @@
       (XSelectionEvent-selection-set! xselection selection)
       (XSelectionEvent-target-set! xselection target)
       (XSelectionEvent-property-set! xselection property)
-      (XSelectionEvent-time-set! xselection CurrentTime)
+      (XSelectionEvent-time-set! xselection time)
       (XSendEvent display requestor #f 0 ev)
-      (XEvent-free ev))))
+      (XEvent-free ev)))
+  
+  (cond ((eq? target TIMESTAMP)
+         (ChangeProperty display requestor property target PropModeReplace (u32vector clipboard-stamp))
+         (send-event property))
+        ((eq? target TARGETS)
+         (ChangeProperty display requestor property target PropModeReplace (u32vector TIMESTAMP TARGETS XA_STRING)))
+        ((eq? target XA_STRING)
+         (let ((data (char-string->uint8* clipboard-string))
+               (nitems (+ (string-length clipboard-string) 1)))
+           (XChangeProperty display requestor property target 8 PropModeReplace data nitems)
+           (send-event property)
+           (uint8*-free data)))
+        (else
+         (terminal 'unknown-target (XGetAtomName display target))
+         (send-event None))))
 
 
 (definition XSetWMName

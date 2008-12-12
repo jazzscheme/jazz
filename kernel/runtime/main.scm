@@ -115,7 +115,7 @@
 ;;;
 
 
-(define jazz.debug?
+(define jazz.debugger
   #f)
 
 (define jazz.initialization-file
@@ -182,7 +182,7 @@
           (current-handler exc))
         thunk)))
   
-  (split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debug")
+  (split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debugger")
     (lambda (options remaining)
       (define (get-option name)
         (let ((pair (%%assoc name options)))
@@ -194,8 +194,8 @@
             (make (get-option "make"))
             (build (get-option "build"))
             (compile (get-option "compile"))
-            (debug? (get-option "debug")))
-        (set! jazz.debug? debug?)
+            (debugger (get-option "debugger")))
+        (set! jazz.debugger debugger)
         (process-initialization-file)
         (jazz.install-repositories)
         (cond (run

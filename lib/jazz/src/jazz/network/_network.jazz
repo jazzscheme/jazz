@@ -42,17 +42,46 @@
 (import (jazz.network.autoload))
 
 
+(definition public (host->string host)
+  (format "{a}.{a}.{a}.{a}"
+          (u8vector-ref host 0)
+          (u8vector-ref host 1)
+          (u8vector-ref host 2)
+          (u8vector-ref host 3)))
+
+
+(definition public (string->host string)
+  (let ((parts (split string ".")))
+    (if (every? numeric? parts)
+        (apply u8vector (map string->number parts))
+      string)))
+
+
+(definition public (port->string port)
+  (number->string port))
+
+
+(definition public (string->port string)
+  (string->number string))
+
+
 (definition public (parse-host/service str)
   (let ((pos (find str #\:))
         (len (cardinality str)))
     (if (not pos)
-        (values str {})
+        (values (string->host str) {})
       (values (if (= pos 0)
                   {}
-                (subseq str 0 pos))
+                (string->host (subseq str 0 pos)))
               (if (= pos (- len 1))
                   {}
-                (read-string-element (subseq str (+ pos 1) len)))))))
+                (string->port (subseq str (+ pos 1) len)))))))
+
+
+(definition public (encode-host/port host port)
+  (format "{a}:{a}"
+          (host->string host)
+          (port->string port)))
 
 
 (definition public (command-host/service name)

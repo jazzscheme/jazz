@@ -234,12 +234,12 @@
   
   
   (definition System-Threads
-    '("Message Pump"
-      "Debuggee Console Pump"
-      "Debugger Console Pump"
-      "Remoting Server"
-      "Remote Connection"
-      "Repl"))
+    '(message-pump
+      debuggee-console-pump
+      debugger-console-pump
+      remoting-server
+      remote-connection
+      repl))
   
   
   (method (with-preserving-update tree thunk)
@@ -309,14 +309,14 @@
       (let ((debugger (get-debugger~ process))
             (problem? #f))
         (for-each (function (thread)
-                    (let ((stop (get-active-stop~ thread)))
-                      (set-debugged-problem? thread (boolean stop))
-                      (let ((title (thread-title thread stop))
-                            (image (thread-image thread stop))
-                            (frame-color (thread-frame-color thread))
-                            (background (thread-background thread)))
-                        ;; quicky until a cleaner solution
-                        (when (not (member? title System-Threads test: equal?))
+                    ;; quicky until a cleaner solution
+                    (when (or detailed? (not (memq? (get-name~ thread) System-Threads)))
+                      (let ((stop (get-active-stop~ thread)))
+                        (set-debugged-problem? thread (boolean stop))
+                        (let ((title (thread-title thread stop))
+                              (image (thread-image thread stop))
+                              (frame-color (thread-frame-color thread))
+                              (background (thread-background thread)))
                           (when stop
                             (set! problem? #t))
                           (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))))

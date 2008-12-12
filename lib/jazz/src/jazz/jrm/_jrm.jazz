@@ -39,7 +39,8 @@
 
 
 (export (jazz.jrm.autoload))
-(import (jazz.jrm.autoload))
+(import (jazz.jrm.autoload)
+        (jazz.network))
 
 
 (definition *debug?*
@@ -57,43 +58,44 @@
 ;;;
 
 
-(definition Remoting-Host
+(definition Remote-Listener-Host
   "localhost")
 
-(definition Remoting-Service
+(definition Remote-Listener-Service
   'any)
 
 
-(definition remoting-server
+(definition remote-listener
   {})
 
 
-(definition public (get-remoting-server)
-  remoting-server)
+(definition public (get-remote-listener)
+  remote-listener)
 
-(definition public (set-remoting-server server)
-  (set! remoting-server server))
-
-
-(definition public (require-remoting-server)
-  (if (not remoting-server)
-      (error "Unable to complete operation because the remoting server is not running")
-    remoting-server))
+(definition public (set-remote-listener server)
+  (set! remote-listener server))
 
 
-(definition public (start-remoting-server)
-  (unless remoting-server
-    (let ((server (new Remoting-Server name: "Remoting" host: Remoting-Host service: Remoting-Service)))
-      (start~ server)
-      (if (wait-started~ server error?: #f)
-          (set! remoting-server server)
-        (error "Unable to start remoting server")))))
+(definition public (require-remote-listener)
+  (if (not remote-listener)
+      (error "Unable to complete operation because the remote listener is not running")
+    remote-listener))
 
 
-(definition public (stop-remoting-server)
-  (when remoting-server
-    (stop~ remoting-server)
-    (set! remoting-server {})))
+(definition public (start-remote-listener)
+  (unless remote-listener
+    (receive (host service) (command-host/service "listen")
+      (let ((server (new Remote-Listener host: (either host Remote-Listener-Host) service: (either service Remote-Listener-Service))))
+        (start~ server)
+        (if (wait-started~ server error?: #f)
+            (set! remote-listener server)
+          (error "Unable to start remote listener"))))))
+
+
+(definition public (stop-remote-listener)
+  (when remote-listener
+    (stop~ remote-listener)
+    (set! remote-listener {})))
 
 
 ;;;
@@ -332,7 +334,7 @@
 
 
 (definition (marshall-local-proxy local-proxy)
-  (let ((server (require-remoting-server)))
+  (let ((server (require-remote-listener)))
     (new IOR
       (listening-host~ server)
       (listening-port~ server)
@@ -402,7 +404,7 @@
 
 
 (definition public (local-ior? ior)
-  (let ((server (require-remoting-server)))
+  (let ((server (require-remote-listener)))
     (and (host=? (get-host~ ior) (listening-host~ server))
          (service=? (get-service~ ior) (listening-port~ server)))))
 

@@ -38,6 +38,9 @@
 (module jazz.dialect.core.thread
 
 
+(include "~~/lib/_gambit#.scm")
+
+
 ;;;
 ;;;; Thread
 ;;;
@@ -98,6 +101,9 @@
     (define jazz.mutex-state mutex-state)
     (define jazz.mutex-lock! mutex-lock!)
     (define jazz.mutex-unlock! mutex-unlock!)
+    
+    (define (jazz.mutex-owner mutex)
+      (macro-btq-owner mutex))
     
     (define (jazz.mutex-wait mutex)
       (mutex-lock! mutex)

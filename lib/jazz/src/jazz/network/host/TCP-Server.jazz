@@ -49,7 +49,6 @@
   (slot service)
   (slot socket-info)
   (slot started-condition)
-  (slot state             initialize 'stopped)
   
   
   (method (initialize . rest)
@@ -83,14 +82,6 @@
     socket-info)
   
   
-  (method public (get-state)
-    state)
-  
-  
-  (method (set-state value)
-    (set! state value))
-  
-  
   ;;;
   ;;;; Thread
   ;;;
@@ -106,7 +97,6 @@
     
   
   (method (start)
-    (set-state 'starting)
     (thread-start!
       (create-thread
         (lambda ()
@@ -115,7 +105,8 @@
   
   
   (method (stop)
-    (set-state 'stopping))
+    ;; todo using thread-interrupt!
+    )
   
   
   (method (restart)
@@ -167,21 +158,16 @@
         (unwind-protect
             (begin
               (set! socket-info (tcp-server-socket-info server-port))
-              (set-state 'started)
               ;;(condition-broadcast! started-condition)
               (let (loop)
-                (when (neq? state 'stopping)
-                  (input-port-timeout-set! server-port Server-Timeout)
-                  (let ((port (read server-port)))
-                    (unless (eof-object? port)
-                      (thread-start!
-                        (create-thread
-                          (lambda ()
-                            (accept-connection port))
-                          (connection-name))))
-                    (loop)))))
+                (let ((port (read server-port)))
+                  (thread-start!
+                    (create-thread
+                      (lambda ()
+                        (accept-connection port))
+                      (connection-name)))
+                  (loop))))
           (close-port server-port)
-          (set-state 'stopped)
           (set! socket-info {})))))
   
   

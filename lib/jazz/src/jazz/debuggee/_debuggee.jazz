@@ -443,6 +443,7 @@
 
 
 (definition (invoke-debugger kind reason detail continuation)
+  (release-load-mutex!)
   (let* ((thread (current-thread))
          (port (get-console-port))
          (level (+ (current-repl-level) 1))
@@ -465,6 +466,17 @@
                       (process-debuggee-loop~ process)))))))))
       (function ()
         (unregister-stop stop)))))
+
+
+;; this is a temporary solution to threads keeping the load-mutex locked
+;; see the todo file for details on what needs to be done for a clean solution
+(definition (release-load-mutex!)
+  (let ((load-mutex (get-load-mutex)))
+    ;; limit the scope of the patch by a heuristic that could turn out
+    ;; to be wrong if a loading thread depends on a thread that errors
+    ;; but this is very far fetched and will do until a clean solution
+    (when (eq? (mutex-owner load-mutex) (current-thread))
+      (mutex-unlock! load-mutex))))
 
 
 (definition (compute-restarts thread)

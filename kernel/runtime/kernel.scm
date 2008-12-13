@@ -1232,6 +1232,10 @@
   (make-parameter #f))
 
 
+(define (jazz.get-load-mutex)
+  jazz.Load-Mutex)
+
+
 (define (jazz.push-load-stack mode module-name)
   (set! jazz.Load-Stack (cons (cons mode module-name) jazz.Load-Stack)))
 

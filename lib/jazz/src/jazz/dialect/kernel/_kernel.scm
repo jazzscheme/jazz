@@ -419,7 +419,10 @@
 (native jazz.module-autoload)
 (native jazz.get-environment)
 (native jazz.get-environment-module)
+(native jazz.load-module)
+(native jazz.reload-module)
 (native jazz.load-all)
+(native jazz.get-load-mutex)
 (native jazz.walk-for)
 (native main)
 
@@ -473,8 +476,6 @@
 (native jazz.subtype?)
 (native jazz.subcategory?)
 (native jazz.subclass?)
-(native jazz.load-module)
-(native jazz.reload-module)
 
 
 ;;;
@@ -840,6 +841,7 @@
 (native jazz.mutex-lock!)
 (native jazz.mutex-unlock!)
 (native jazz.mutex-wait)
+(native jazz.mutex-owner)
 (native jazz.condition?)
 (native jazz.make-condition)
 (native jazz.condition-name)

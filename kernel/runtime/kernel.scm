@@ -151,16 +151,6 @@
 ;;;
 
 
-(define (jazz.collect-if predicate lst)
-  (let iter ((scan lst))
-    (if (%%not (%%null? scan))
-        (let ((value (%%car scan)))
-          (if (predicate value)
-              (%%cons value (iter (%%cdr scan)))
-            (iter (%%cdr scan))))
-      '())))
-
-
 (define (jazz.some? predicate lst)
   (let iter ((scan lst))
     (if (%%null? scan)
@@ -253,9 +243,6 @@
 
 (cond-expand
   (gambit
-    (define jazz.pathname-type
-      file-type)
-    
     (define jazz.file-exists?
       file-exists?)
     
@@ -269,20 +256,7 @@
       file-exists?)
     
     (define jazz.directory-create
-      create-directory)
-    
-    (define jazz.directory-content
-      directory-files)
-    
-    (define (jazz.directory-files directory)
-      (jazz.collect-if (lambda (name)
-                         (%%eq? (jazz.pathname-type (%%string-append directory name)) 'regular))
-                       (jazz.directory-content directory)))
-    
-    (define (jazz.directory-directories directory)
-      (jazz.collect-if (lambda (name)
-                         (%%eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
-                       (jazz.directory-content directory))))
+      create-directory))
   
   (else))
 
@@ -943,7 +917,7 @@
   (let ((build (%%product-build (jazz.setup-product name))))
     (if build
         (begin
-          (jazz.feedback "making {a}" name)
+          (jazz.feedback "make {a}" name)
           (jazz.load-module 'core.library)
           (jazz.load-module 'core.module.build)
           (build))

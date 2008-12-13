@@ -675,6 +675,21 @@
 
 
 ;;;
+;;;; List
+;;;
+
+
+(define (jazz.collect-if predicate lst)
+  (let iter ((scan lst))
+    (if (%%not (%%null? scan))
+        (let ((value (%%car scan)))
+          (if (predicate value)
+              (%%cons value (iter (%%cdr scan)))
+            (iter (%%cdr scan))))
+      '())))
+
+
+;;;
 ;;;; String
 ;;;
 
@@ -740,6 +755,9 @@
 (define jazz.pathname-exists?
   file-exists?)
 
+(define jazz.pathname-type
+  file-type)
+
 
 (define (jazz.file-modification-time pathname)
   (time->seconds (file-last-modification-time pathname)))
@@ -778,6 +796,22 @@
             (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
               (if (%%not (file-exists? subdir))
                   (jazz.create-directory subdir feedback: feedback))))))))
+
+
+(define jazz.directory-content
+  directory-files)
+
+
+(define (jazz.directory-files directory)
+  (jazz.collect-if (lambda (name)
+                     (%%eq? (jazz.pathname-type (%%string-append directory name)) 'regular))
+                   (jazz.directory-content directory)))
+
+
+(define (jazz.directory-directories directory)
+  (jazz.collect-if (lambda (name)
+                     (%%eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
+                   (jazz.directory-content (list path: directory ignore-hidden: 'dot-and-dot-dot))))
 
 
 (define (jazz.pathname-standardize path)

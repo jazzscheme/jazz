@@ -675,6 +675,7 @@
 
 (define (jazz.make-target target configuration)
   (case target
+    #; ((clean) (jazz.make-clean configuration))
     ((kernel) (jazz.make-kernel configuration))
     (else (jazz.make-product target configuration))))
 
@@ -702,12 +703,45 @@
 
 
 ;;;
+;;;; Clean
+;;;
+
+
+;; really not sure about this approach as deleting the install dir
+;; recursively is very dangerous...
+#;
+(define (jazz.make-clean configuration)
+  (jazz.feedback "make clean")
+  (let ((install (jazz.install-directory configuration)))
+    (define (empty-dir dir level)
+      (for-each (lambda (name)
+                  (let ((path (string-append dir name)))
+                    (if (< level 2)
+                        (jazz.feedback "; deleting {a}..." path))
+                    (delete-file path)))
+                (jazz.directory-files dir))
+      (for-each (lambda (name)
+                  (let ((path (string-append dir name "/")))
+                    (if (< level 2)
+                        (jazz.feedback "; deleting {a}..." path))
+                    (delete-dir path (+ level 1))))
+                (jazz.directory-directories dir)))
+    
+    (define (delete-dir dir level)
+      (empty-dir dir level)
+      (delete-directory dir))
+    
+    (if (file-exists? install)
+        (delete-dir install 0))))
+
+
+;;;
 ;;;; Kernel
 ;;;
 
 
 (define (jazz.make-kernel configuration)
-  (jazz.feedback "making kernel")
+  (jazz.feedback "make kernel")
   (jazz.build-recursive 'kernel configuration))
 
 

@@ -695,10 +695,9 @@
 
 
 (define (jazz.build target configuration-name)
-  (let ((configuration (jazz.require-configuration configuration-name)))
-    (case target
-      ((kernel) (jazz.build-kernel configuration))
-      (else (jazz.error "Unknown build target: {s}" target))))
+  (case target
+    ((kernel) (jazz.build-kernel configuration-name))
+    (else (jazz.error "Unknown build target: {s}" target)))
   (exit))
 
 
@@ -712,34 +711,35 @@
   (jazz.build-recursive 'kernel configuration))
 
 
-(define (jazz.build-kernel configuration)
-  (let ((name (jazz.configuration-name configuration))
-        (title (jazz.configuration-title configuration))
-        (system (jazz.configuration-system configuration))
-        (platform (jazz.configuration-platform configuration))
-        (windowing (jazz.configuration-windowing configuration))
-        (safety (jazz.configuration-safety configuration))
-        (optimize? (jazz.configuration-optimize? configuration))
-        (include-source? (jazz.configuration-include-source? configuration))
-        (interpret? (jazz.configuration-interpret? configuration))
-        (install (jazz.install-directory configuration))
-        (source "./")
-        (source-access? (jazz.configuration-source configuration)))
-    (jazz.build-executable #f
-      name:            name
-      title:           title
-      system:          system
-      platform:        platform
-      windowing:       windowing
-      safety:          safety
-      optimize?:       optimize?
-      include-source?: include-source?
-      interpret?:      interpret?
-      install:         install
-      source:          source
-      source-access?:  source-access?
-      kernel?:         #t
-      console?:        #t)))
+(define (jazz.build-kernel #!optional (configuration-name #f))
+  (let ((configuration (jazz.require-configuration configuration-name)))
+    (let ((name (jazz.configuration-name configuration))
+          (title (jazz.configuration-title configuration))
+          (system (jazz.configuration-system configuration))
+          (platform (jazz.configuration-platform configuration))
+          (windowing (jazz.configuration-windowing configuration))
+          (safety (jazz.configuration-safety configuration))
+          (optimize? (jazz.configuration-optimize? configuration))
+          (include-source? (jazz.configuration-include-source? configuration))
+          (interpret? (jazz.configuration-interpret? configuration))
+          (install (jazz.install-directory configuration))
+          (source "./")
+          (source-access? (jazz.configuration-source configuration)))
+      (jazz.build-executable #f
+        name:            name
+        title:           title
+        system:          system
+        platform:        platform
+        windowing:       windowing
+        safety:          safety
+        optimize?:       optimize?
+        include-source?: include-source?
+        interpret?:      interpret?
+        install:         install
+        source:          source
+        source-access?:  source-access?
+        kernel?:         #t
+        console?:        #t))))
 
 
 ;;;
@@ -1008,25 +1008,28 @@
     (if (null? command-arguments)
         (jazz.build-system-repl)
       (let ((arg (car command-arguments)))
-        (if (or (and (option? arg)
-                     (equal? (convert-option arg) "build"))
-                ;; support the old format so we can git bisect
-                ;; and remove when enough time has passed...
-                (equal? arg "build"))
-            (let ((arguments (cdr command-arguments)))
-              (define (build target-argument configuration-argument)
-                (let ((target (string->symbol target-argument))
-                      (configuration-name (and configuration-argument (string->symbol configuration-argument))))
-                  (jazz.build target configuration-name)))
-              
-              (case (length arguments)
-                ((1)
-                 (build (car arguments) #f))
-                ((2)
-                 (build (car arguments) (cadr arguments)))
-                (else
-                 (fatal (jazz.format "Ill-formed build command: {s}" command-arguments)))))
-          (fatal (jazz.format "Unknown build system command: {s}" arg)))))))
+        (cond ((and (option? arg)
+                    (equal? (convert-option arg) "debug"))
+               (##repl-debug-main))
+              ((or (and (option? arg)
+                        (equal? (convert-option arg) "build"))
+                   ;; support the old format so we can git bisect
+                   ;; and remove when enough time has passed...
+                   (equal? arg "build"))
+               (let ((arguments (cdr command-arguments)))
+                 (define (build target-argument configuration-argument)
+                   (let ((target (string->symbol target-argument))
+                         (configuration-name (and configuration-argument (string->symbol configuration-argument))))
+                     (jazz.build target configuration-name)))
+                 
+                 (case (length arguments)
+                   ((1)
+                    (build (car arguments) #f))
+                   ((2)
+                    (build (car arguments) (cadr arguments)))
+                   (else
+                    (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))))
+              (fatal (jazz.format "Unknown build system command: {s}" arg)))))))
 
 
 ;;;

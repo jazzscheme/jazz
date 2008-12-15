@@ -677,7 +677,8 @@
 
 (define (jazz.make-target target configuration)
   (case target
-    #; ((clean) (jazz.make-clean configuration))
+    ((clean) (jazz.make-clean configuration))
+    ((install) (jazz.make-install configuration))
     ((kernel) (jazz.make-kernel configuration))
     (else (jazz.make-product target configuration))))
 
@@ -709,7 +710,6 @@
 ;;;
 
 
-#;
 (define (jazz.make-clean configuration)
   (jazz.feedback "make clean")
   (let ((dest (jazz.destination-directory configuration)))
@@ -733,6 +733,15 @@
     
     (if (file-exists? dest)
         (delete-dir dest 0))))
+
+
+;;;
+;;;; Install
+;;;
+
+
+(define (jazz.make-install configuration)
+  (jazz.error "Make install is not supported. See INSTALL for details"))
 
 
 ;;;

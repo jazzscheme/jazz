@@ -49,12 +49,12 @@
 
 (define (jazz.compile-module . rest)
   (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   (apply jazz.compile-module-internal rest))
 
 (define (jazz.build-module . rest)
   (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   (apply jazz.build-module-internal rest))
 
 
@@ -65,7 +65,7 @@
 
 (define (jazz.compile name)
   (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   (jazz.compile-module name))
 
 

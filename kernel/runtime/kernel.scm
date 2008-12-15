@@ -919,7 +919,7 @@
         (begin
           (jazz.feedback "make {a}" name)
           (jazz.load-module 'core.library)
-          (jazz.load-module 'core.module.build)
+          (jazz.load-module 'core.module.builder)
           (build))
       (jazz.error "Product is not buildable: {s}" name))))
 

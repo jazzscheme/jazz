@@ -97,7 +97,7 @@
 
 
 (define (jazz.build-carbon)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   (jazz.compile-module 'jazz.platform.carbon              ld-options: "-framework Carbon")
   (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon"))
 
@@ -108,7 +108,7 @@
         (windows-include-path (jazz.quote-jazz-gcc-pathname "foreign/windows/include"))
         (windows-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
-    (jazz.load-module 'core.module.build)
+    (jazz.load-module 'core.module.builder)
     (jazz.compile-module 'jazz.platform.windows.WinDef      cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinTypes    cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinBase     cc-options: base-windows-cc-options ld-options: "-mwindows")
@@ -135,7 +135,7 @@
 
 
 (define (jazz.build-x11)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   (jazz.compile-module 'jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
   (jazz.compile-module 'jazz.platform.x11.x11-types))
 

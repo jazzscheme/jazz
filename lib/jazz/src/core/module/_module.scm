@@ -38,4 +38,4 @@
 (module core.module
 
 
-(require (core.module.build)))
+(require (core.module.builder)))

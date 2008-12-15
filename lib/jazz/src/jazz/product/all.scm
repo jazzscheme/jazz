@@ -46,8 +46,8 @@
 (define jazz.All-Modules
   '(gambit
     jazz
-    jazz.build
     jazz.builder
+    jazz.builder.development
     jazz.builder.workbench
     jazz.catalog
     jazz.console
@@ -154,7 +154,7 @@
         (jazz.load-module module-name))))
   
   (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.build)
+  (jazz.load-module 'core.module.builder)
   
   (for-each load jazz.All-Modules))
 

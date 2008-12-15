@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Build
+;;;; Builder Development
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.build
+(module jazz.builder.development
 
 
 (require (core.base))

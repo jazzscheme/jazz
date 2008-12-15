@@ -242,7 +242,6 @@
 (define (jazz.build-executable product
           #!key
           (name jazz.kernel-name)
-          (title jazz.kernel-title)
           (system jazz.kernel-system)
           (platform jazz.kernel-platform)
           (windowing jazz.kernel-windowing)
@@ -250,22 +249,23 @@
           (optimize? jazz.kernel-optimize?)
           (include-source? jazz.kernel-include-source?)
           (interpret? jazz.kernel-interpret?)
-          (install jazz.kernel-install)
           (source jazz.source)
           (source-access? jazz.source-access?)
+          (destination jazz.kernel-destination)
+          (destination-directory jazz.kernel-install)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
           (feedback jazz.feedback))
   (let ((product-name (if (not product) "jazz" (symbol->string product))))
-    (let ((kernel-dir (string-append install "build/kernel/"))
-          (product-dir (string-append install "build/products/" product-name "/")))
+    (let ((kernel-dir (string-append destination-directory "build/kernel/"))
+          (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
         (string-append source path))
       
-      (define (install-file path)
-        (string-append install path))
+      (define (build-file path)
+        (string-append destination-directory path))
       
       (define (kernel-file path)
         (string-append kernel-dir path))
@@ -383,7 +383,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)))
+                    (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)))
                 #t)
             #f)))
       
@@ -461,11 +461,11 @@
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
                     (newline output)
-                    (jazz.print-variable 'jazz.built (jazz.pathname-normalize install) output)
+                    (jazz.print-variable 'jazz.built (jazz.pathname-normalize destination-directory) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source destination-directory) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-access? source-access? output)))
                 #t)
@@ -569,21 +569,21 @@
             ,(string-append "-L" (jazz.quote-gcc-pathname (path-expand "~~/lib") platform))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(jazz.quote-gcc-pathname (install-file product-name) platform))))
+            "-o" ,(jazz.quote-gcc-pathname (build-file product-name) platform))))
       
       (define (executable-name)
         (case platform
           ((windows)
-           (install-file (string-append product-name ".exe")))
+           (build-file (string-append product-name ".exe")))
           (else
-           (install-file product-name))))
+           (build-file product-name))))
       
       ;;;
       ;;;; Gambcini
       ;;;
       
       (define (generate-gambcini)
-        (let ((file (install-file ".gambcini")))
+        (let ((file (build-file ".gambcini")))
           (if (not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
@@ -597,7 +597,7 @@
                     (print ";;;" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
+                    (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
@@ -605,7 +605,7 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source destination-directory) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-access? source-access? output)
                     (newline output)
@@ -624,10 +624,8 @@
           (generate-gambcini)))))
 
 
-(define (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
+(define (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)
   (jazz.print-variable 'jazz.kernel-name name output)
-  (newline output)
-  (jazz.print-variable 'jazz.kernel-title title output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
@@ -642,6 +640,8 @@
   (jazz.print-variable 'jazz.kernel-include-source? include-source? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-interpret? interpret? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-destination destination output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-version (jazz.get-source-version-number) output))
 

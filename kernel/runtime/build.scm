@@ -235,6 +235,83 @@
 
 
 ;;;
+;;;; Destination
+;;;
+
+
+(define (jazz.parse-destination dest proc)
+  (if (not dest)
+      (proc #f #f)
+    (let ((pos (jazz.string-find dest #\:))
+          (len (string-length dest)))
+      (if (not pos)
+          (proc #f dest)
+        (proc (if (= pos 0)
+                  #f
+                (string->symbol (substring dest 0 pos)))
+              (if (= pos (- len 1))
+                  #f
+                (substring dest (+ pos 1) len)))))))
+
+
+(define jazz.user-build-directory
+  #f)
+
+
+(define (jazz.get-user-build-directory)
+  (define (user-build-directory)
+    (let ((dir "~/jazz_user/build/"))
+      (jazz.create-directories dir)
+      (jazz.pathname-normalize dir)))
+  
+  (or jazz.user-build-directory
+      (let ((dir (user-build-directory)))
+        (set! jazz.user-build-directory dir)
+        dir)))
+
+
+(define (jazz.destination-directory name system platform windowing safety destination source)
+  (define (default-dirname)
+    (if name
+        (symbol->string name)
+      (string-append (system-name system)
+                     (platform-name platform)
+                     (windowing-name windowing)
+                     (safety-name safety))))
+  
+  (define (system-name system)
+    (case system
+      ((gambit) "Gambit")))
+  
+  (define (platform-name platform)
+    (case platform
+      ((mac) "Mac")
+      ((windows) "Windows")
+      ((unix) "Unix")))
+  
+  (define (windowing-name windowing)
+    (if (not windowing)
+        ""
+      (case windowing
+        ((carbon) "Carbon")
+        ((x11) "X11"))))
+  
+  (define (safety-name safety)
+    (case safety
+      ((core) "Core")
+      ((debug) "Debug")
+      ((release) "Release")))
+      
+  (jazz.parse-destination destination
+    (lambda (alias dirname)
+      (let ((dirname (or dirname (default-dirname))))
+        (case (or alias 'user)
+          ((user) (string-append (jazz.get-user-build-directory) dirname "/"))
+          ((jazz) (string-append source "build/" dirname "/"))
+          ((bin) (string-append source "bin/")))))))
+
+
+;;;
 ;;;; Executable
 ;;;
 
@@ -252,13 +329,13 @@
           (source jazz.source)
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
-          (destination-directory jazz.kernel-install)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
           (feedback jazz.feedback))
-  (let ((product-name (if (not product) "jazz" (symbol->string product))))
+  (let ((product-name (if (not product) "jazz" (symbol->string product)))
+        (destination-directory (jazz.destination-directory name system platform windowing safety destination source)))
     (let ((kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
@@ -572,11 +649,7 @@
             "-o" ,(jazz.quote-gcc-pathname (build-file product-name) platform))))
       
       (define (executable-name)
-        (case platform
-          ((windows)
-           (build-file (string-append product-name ".exe")))
-          (else
-           (build-file product-name))))
+        (build-file (string-append product-name (jazz.executable-extension platform))))
       
       ;;;
       ;;;; Gambcini
@@ -622,6 +695,14 @@
       
       (if interpret?
           (generate-gambcini)))))
+
+
+(define (jazz.executable-extension platform)
+  (case platform
+    ((windows)
+     ".exe")
+    (else
+     "")))
 
 
 (define (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)
@@ -692,6 +773,17 @@
 ;;;
 ;;;; String
 ;;;
+
+
+(define (jazz.string-find str c)
+  (let ((len (%%string-length str)))
+    (let iter ((n 0))
+      (cond ((%%fx>= n len)
+             #f)
+            ((%%char=? (%%string-ref str n) c)
+             n)
+            (else
+             (iter (%%fx+ n 1)))))))
 
 
 (define (jazz.string-replace str old new)

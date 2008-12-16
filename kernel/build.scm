@@ -376,11 +376,6 @@
     (jazz.error "Invalid system: {s}" system)))
 
 
-(define (jazz.system-name system)
-  (case system
-    ((gambit) "Gambit")))
-
-
 ;;;
 ;;;; Platform
 ;;;
@@ -408,13 +403,6 @@
   (if (memq platform jazz.valid-platforms)
       platform
     (jazz.error "Invalid platform: {s}" platform)))
-
-
-(define (jazz.platform-name platform)
-  (case platform
-    ((mac) "Mac")
-    ((windows) "Windows")
-    ((unix) "Unix")))
 
 
 ;;;
@@ -445,14 +433,6 @@
     (jazz.error "Invalid windowing: {s}" windowing)))
 
 
-(define (jazz.windowing-name windowing)
-  (if (not windowing)
-      ""
-    (case windowing
-      ((carbon) "Carbon")
-      ((x11) "X11"))))
-
-
 ;;;
 ;;;; Safety
 ;;;
@@ -475,13 +455,6 @@
   (if (memq safety jazz.valid-safeties)
       safety
     (jazz.error "Invalid safety: {s}" safety)))
-
-
-(define (jazz.safety-name safety)
-  (case safety
-    ((core) "Core")
-    ((debug) "Debug")
-    ((release) "Release")))
 
 
 ;;;
@@ -579,54 +552,15 @@
     (jazz.error "Invalid destination: {s}" destination)))
 
 
-(define (jazz.parse-destination dest proc)
-  (if (not dest)
-      (proc #f #f)
-    (let ((pos (jazz.string-find dest #\:))
-          (len (string-length dest)))
-      (if (not pos)
-          (proc #f dest)
-        (proc (if (= pos 0)
-                  #f
-                (string->symbol (substring dest 0 pos)))
-              (if (= pos (- len 1))
-                  #f
-                (substring dest (+ pos 1) len)))))))
-
-
-(define jazz.user-build-directory
-  #f)
-
-
-(define (jazz.get-user-build-directory)
-  (define (user-build-directory)
-    (let ((dir "~/jazz_user/build/"))
-      (jazz.create-directories dir)
-      (jazz.pathname-normalize dir)))
-  
-  (or jazz.user-build-directory
-      (let ((dir (user-build-directory)))
-        (set! jazz.user-build-directory dir)
-        dir)))
-
-
-(define (jazz.destination-directory configuration)
-  (define (default-title)
-    (let ((name (jazz.configuration-name configuration)))
-      (if name
-          (symbol->string name)
-        (string-append (jazz.system-name (jazz.configuration-system configuration))
-                       (jazz.platform-name (jazz.configuration-platform configuration))
-                       (jazz.windowing-name (jazz.configuration-windowing configuration))
-                       (jazz.safety-name (jazz.configuration-safety configuration))))))
-      
-  (jazz.parse-destination (jazz.configuration-destination configuration)
-    (lambda (alias title)
-      (let ((title (or title (default-title))))
-        (case (or alias 'user)
-          ((user) (string-append (jazz.get-user-build-directory) title "/"))
-          ((jazz) (string-append "./build/" title "/"))
-          ((bin) "./bin/"))))))
+(define (jazz.configuration-destination-directory configuration)
+  (jazz.destination-directory
+    (jazz.configuration-name configuration)
+    (jazz.configuration-system configuration)
+    (jazz.configuration-platform configuration)
+    (jazz.configuration-windowing configuration)
+    (jazz.configuration-safety configuration)
+    (jazz.configuration-destination configuration)
+    "./"))
 
 
 ;;;
@@ -712,7 +646,7 @@
 
 (define (jazz.make-clean configuration)
   (jazz.feedback "make clean")
-  (let ((dest (jazz.destination-directory configuration)))
+  (let ((dest (jazz.configuration-destination-directory configuration)))
     (define (empty-dir dir level)
       (for-each (lambda (name)
                   (let ((path (string-append dir name)))
@@ -766,23 +700,21 @@
           (interpret? (jazz.configuration-interpret? configuration))
           (source "./")
           (source-access? (jazz.configuration-source configuration))
-          (destination (jazz.configuration-destination configuration))
-          (destination-directory (jazz.destination-directory configuration)))
+          (destination (jazz.configuration-destination configuration)))
       (jazz.build-executable #f
-        name:                  name
-        system:                system
-        platform:              platform
-        windowing:             windowing
-        safety:                safety
-        optimize?:             optimize?
-        include-source?:       include-source?
-        interpret?:            interpret?
-        source:                source
-        source-access?:        source-access?
-        destination:           destination
-        destination-directory: destination-directory
-        kernel?:               #t
-        console?:              #t))))
+        name:            name
+        system:          system
+        platform:        platform
+        windowing:       windowing
+        safety:          safety
+        optimize?:       optimize?
+        include-source?: include-source?
+        interpret?:      interpret?
+        source:          source
+        source-access?:  source-access?
+        destination:     destination
+        kernel?:         #t
+        console?:        #t))))
 
 
 ;;;
@@ -796,7 +728,7 @@
 
 
 (define (jazz.product-make product configuration)
-  (let ((destdir (jazz.destination-directory configuration))
+  (let ((destdir (jazz.configuration-destination-directory configuration))
         (platform (jazz.configuration-platform configuration)))
     (define (build-file path)
       (string-append destdir path))
@@ -914,17 +846,6 @@
 ;;;
 ;;;; String
 ;;;
-
-
-(define (jazz.string-find str c)
-  (let ((len (string-length str)))
-    (let iter ((n 0))
-      (cond ((>= n len)
-             #f)
-            ((char=? (string-ref str n) c)
-             n)
-            (else
-             (iter (+ n 1)))))))
 
 
 (define (jazz.string-alphanumeric? str)

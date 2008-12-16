@@ -65,10 +65,6 @@
   (form
     (<install>                                     size: {Dimension 650 400} layout-type: border
       (<Layout-View>      name: tools
-        @convert
-        (<Push-Combo>     name: configure
-          (<!>            name: body               portfolio: :icons image-name: {Bitmap-Resource "Configure"} tooltip?: #t tooltip-text: "Configure" @wait action-handler: @wait {Event-Handler :form on-configure})
-          (<!>            name: pick               action-handler: {Event-Handler :form on-configurations-menu}))
         (<Push-Tool>      name: highlight-document size: {Dimension 22 22} tooltip?: #t tooltip-text: "Highlight Document" image-name: {Bitmap-Resource "Synchronize"} portfolio: :icons action-handler: {Event-Handler :form on-highlight-document}))
       (<Workbench-Editor> name: descendants        location: center
         (<!>              name: scroller           flat?: #t)
@@ -94,26 +90,7 @@
   
   
   (method (install-in-host host)
-    (setup-active-configuration)
     (setup-active-project))
-  
-  
-  (method (setup-workbench-title configuration)
-    @convert
-    (let ((cell (get-child~ (user-data-row~ (get-tree) (get-workbench)) 0))
-          (title
-            (if (not configuration)
-                "Workbench"
-              (format "Workbench - {a}" (get-name~ configuration)))))
-      (set-title~ cell title)))
-  
-  
-  (method (setup-active-configuration)
-    (let* ((pref (get-preferences 'build))
-           (active (get-active-configuration~ pref))
-           (configuration (essay active (child~ (child~ pref 'configurations) active))))
-      (setup-workbench-title configuration)
-      (set-active-configuration configuration)))
   
   
   (method (setup-active-project)
@@ -208,13 +185,6 @@
   (method (key-press key)
     (case key
       ((#\return) (launch-selection))))
-  
-  
-  (method (on-configurations-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (combo (get-combo~ sender))
-           (pos (new Point 0 (get-height~ (get-size~ sender)))))
-      (track-popup-menu~ sender (new Configurations-Menu client: self) pos initiator: combo)))
   
   
   (method (on-highlight-document evt)
@@ -875,8 +845,7 @@
       
   
   (method (debug-project project)
-    (debug-project~ (get-application) project
-      configuration: (get-active-configuration)))
+    (debug-project~ (get-application) project))
   
   
   ;;;
@@ -912,8 +881,6 @@
   
   
   (method public (compile-moniker moniker)
-    (compile-file moniker #f)
-    @temp
     (let* ((workbench (get-workbench))
            (project-file (find-source~ workbench moniker)))
       (if (not project-file)
@@ -925,7 +892,8 @@
     (let ((name (find-pathname-module (parse~ moniker))))
       (if (not name)
           (bell)
-        (launch-runtime~ (get-application) arguments: (list "-compile" (->string name)) show-console?: #t))))
+        (let ((kernel (project-kernel~ (get-project~ project-file))))
+          (launch-kernel kernel arguments: (list "-compile" (->string name)) show-console?: #t)))))
   
   
   ;;;
@@ -984,8 +952,9 @@
   
   (method (build-project project)
     (if (concrete?~ project)
-        (let ((project-name (get-product~ project)))
-          (launch-runtime~ (get-application) arguments: (list "-make" (->string project-name)) show-console?: #t))
+        (let ((kernel (project-kernel~ project))
+              (project-name (get-product~ project)))
+          (launch-kernel kernel arguments: (list "-make" (->string project-name)) show-console?: #t))
       (bell)))
   
   
@@ -1130,11 +1099,6 @@
         (set-visible?~ (locate~ menu 'import-directory) #f))))
   
   
-  (method (install-configuration configuration)
-    (set-active-configuration configuration)
-    (setup-workbench-title configuration))
-  
-  
   ;;;
   ;;;; Debugging
   ;;;
@@ -1208,30 +1172,6 @@
           (<Tree-Header>                           flat?: #t
             (<!>                     name: content
               (<Synchronize-Tree>    name: tree))))))))
-
-
-;;;
-;;;; Configurations-Menu
-;;;
-
-
-(class Configurations-Menu extends Context-Menu
-  
-  
-  (method (finish rest)
-    (nextmethod rest)
-    (let ((configurations (get-children~ (get-preferences '(build configurations)))))
-      (for-each (function (configuration)
-                  (let* ((name (get-name~ configuration))
-                         (title (either (get-title~ configuration) (->string name))))
-                    (new Check-Item parent: self checked?: (eq? configuration (get-active-configuration)) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list configuration: configuration)))))
-                configurations)))
-  
-  
-  (method (on-action evt)
-    (let ((appl (get-application))
-          (configuration (get-property~ evt configuration:)))
-      (install-configuration~ client configuration))))
 
 
 ;;;

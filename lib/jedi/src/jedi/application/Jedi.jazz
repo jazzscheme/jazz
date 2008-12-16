@@ -320,10 +320,9 @@
   ;;;
   
   
-  (method public (run-project project (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    ;; should probably try and launch a built executable of the project if present
+  (method public (run-project project (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    ;; should try and launch a built executable of the project if present
     (launch~ project
-      configuration: configuration
       debug?: #f
       profile: profile
       command-action: command-action
@@ -337,107 +336,14 @@
   ;;;
 
 
-  (method public (debug-project project (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method public (debug-project project (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (launch~ project
-      configuration: configuration
       debug?: #t
       profile: profile
       command-action: command-action
       command-arguments: (either command-arguments (debug-arguments~ project))
       show-console?: show-console?
       wait?: wait))
-
-  
-  ;;;
-  ;;;; Runtime
-  ;;;
-  
-  
-  (method public (find-runtime configuration)
-    (new-file~ (find-install-directory configuration) (list "jazz")))
-  
-  
-  (method public (actual-runtime (name {}) (title {}) (system {}) (platform {}) (windowing {}) (safety {}) (optimize? #t) (include-source? #f) (interpret? #f))
-    (find-runtime
-      (new Build-Configuration
-        name: (either name kernel-name)
-        title: (either title kernel-title)
-        system: (either system kernel-system)
-        platform: (either platform kernel-platform)
-        windowing: (either windowing kernel-windowing)
-        safety: (either safety kernel-safety)
-        optimize?: (either optimize? kernel-optimize?)
-        include-source?: (either include-source? kernel-include-source?)
-        interpret?: (either interpret? kernel-interpret?))))
-  
-  
-  (method public (launch-runtime (configuration: configuration {}) (arguments: arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    (let* ((runtime-arg   (list "-:m250000,h1000000"))
-           (arguments-arg (if arguments arguments '()))
-           (arguments     (append runtime-arg arguments-arg))
-           (executable    (if (not configuration) (actual-runtime) (find-runtime configuration))))
-      @debug
-      (debug executable arguments)
-      (open-process
-        (list
-          path: (parse~ executable)
-          arguments: arguments
-          directory: (parse~ (get-parent~ executable))
-          stdin-redirection: #f
-          stdout-redirection: #f
-          stderr-redirection: #f
-          show-console: show-console?))))
-
-  
-  ;;;
-  ;;;; Install
-  ;;;
-  
-  
-  (definition (system-name system)
-    (case system
-      ((gambit) "Gambit")))
-  
-  
-  (definition (platform-name platform)
-    (case platform
-      ((mac) "Mac")
-      ((windows) "Windows")
-      ((unix) "Unix")))
-  
-  
-  (definition (windowing-name windowing)
-    (if (not windowing)
-        ""
-      (case windowing
-        ((carbon) "Carbon")
-        ((x11) "X11"))))
-  
-  
-  (definition (safety-name safety)
-    (case safety
-      ((core) "Core")
-      ((debug) "Debug")
-      ((release) "Release")))
-  
-  
-  (definition (find-install-directory configuration)
-    (define (default-name)
-      (string-append
-        (system-name (get-system~ configuration))
-        (platform-name (get-platform~ configuration))
-        (windowing-name (get-windowing~ configuration))
-        (safety-name (get-safety~ configuration))))
-    
-    (let ((configuration (either configuration (require-active-configuration))))
-      (either (get-install~ configuration)
-              (new Directory
-                (list 'Jazz "bin"
-                  (let ((name (get-name~ configuration))
-                        (title (get-title~ configuration)))
-                    (cond (title (if (eq? title #t) (default-name) title))
-                          (name (symbol->string name))
-                          (else (default-name)))))))))
 
 
   ;;;

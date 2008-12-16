@@ -38,4 +38,99 @@
 (library jazz.builder jazz
 
 
-(export (jazz.builder.autoload)))
+(export (jazz.builder.autoload))
+
+(import (jazz.io)
+        (jazz.utilities))
+
+
+;;;
+;;;; Kernel
+;;;
+
+
+@wait
+(definition public (build-kernel
+                     (name: name {})
+                     (system: system {})
+                     (platform: platform {})
+                     (windowing: windowing {})
+                     (safety: safety {})
+                     (optimize?: optimize? #t)
+                     (include-source?: include-source? #f)
+                     (interpret?: interpret? #f)
+                     (destination: destination {}))
+  (build-executable #f
+    name:            name
+    system:          system
+    platform:        platform
+    windowing:       windowing
+    safety:          safety
+    optimize?:       optimize?
+    include-source?: include-source?
+    interpret?:      interpret?
+    destination:     destination
+    kernel?:         #t
+    console?:        #t))
+
+
+@wait
+(definition public (find-kernel name system platform windowing safety destination)
+  (let ((dir (destination-directory name system platform windowing safety destination kernel-source)))
+    (new File (tokenise-filename (concatenate dir "jazz" (executable-extension kernel-platform))))))
+
+
+@wait
+(definition public (require-kernel
+                     (system: system {})
+                     (platform: platform {})
+                     (windowing: windowing {})
+                     (safety: safety {})
+                     (optimize?: optimize? {})
+                     (include-source?: include-source? {})
+                     (interpret?: interpret? {})
+                     (destination: destination {}))
+  (let ((kernel (find-kernel system platform windowing safety destination)))
+    (if (exists?~ kernel)
+        kernel
+      (build-kernel
+        system: system
+        platform: platform
+        windowing: windowing
+        safety: safety
+        optimize?: optimize?
+        include-source?: include-source?
+        interpret?: interpret?
+        destination: destination)
+      (if (exists?~ kernel)
+          kernel
+        (error "Unable to build kernel")))))
+
+
+(definition public (find-kernel)
+  (let ((filename (concatenate kernel-install "jazz" (executable-extension kernel-platform))))
+    (new File (tokenise-filename filename))))
+
+
+(definition public (require-kernel)
+  (either (find-kernel)
+          (error "Unable to find kernel")))
+
+
+(definition public (launch-kernel kernel (runtime-arguments: runtime-arguments {}) (arguments: arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (let* ((runtime-arg   (either runtime-arguments '()))
+         (arguments-arg (either arguments '()))
+         (arguments     (append runtime-arg arguments-arg)))
+    @debug
+    (debug kernel arguments)
+    (open-process
+      (list
+        path: (parse~ kernel)
+        directory: (parse~ (get-parent~ kernel))
+        arguments: arguments
+        ;; this is not yet quite what we want as an access to the terminal
+        ;; will not dynamically show the console when using show-console: #f
+        stdin-redirection: #f
+        stdout-redirection: #f
+        stderr-redirection: #f
+        show-console: show-console?)))))

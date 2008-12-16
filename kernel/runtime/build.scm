@@ -288,7 +288,6 @@
 
 (define (jazz.build-executable product
           #!key
-          (name jazz.kernel-name)
           (system jazz.kernel-system)
           (platform jazz.kernel-platform)
           (windowing jazz.kernel-windowing)
@@ -299,13 +298,13 @@
           (source jazz.source)
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
+          (destination-directory jazz.kernel-install)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
           (feedback jazz.feedback))
-  (let ((product-name (if (not product) "jazz" (symbol->string product)))
-        (destination-directory (jazz.destination-directory name destination source)))
+  (let ((product-name (if (not product) "jazz" (symbol->string product))))
     (let ((kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
@@ -430,7 +429,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)))
+                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)))
                 #t)
             #f)))
       
@@ -622,6 +621,19 @@
         (build-file (string-append product-name (jazz.executable-extension platform))))
       
       ;;;
+      ;;;; Configuration
+      ;;;
+      
+      (define (generate-configuration)
+        (let ((file (build-file ".configuration")))
+          (if (not (file-exists? file))
+              (begin
+                (jazz.feedback "; generating {a}..." file)
+                (call-with-output-file file
+                  (lambda (output)
+                    (jazz.print-configuration #f system platform windowing safety optimize? include-source? interpret? source-access? destination output)))))))
+      
+      ;;;
       ;;;; Gambcini
       ;;;
       
@@ -640,7 +652,7 @@
                     (print ";;;" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)
+                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
@@ -660,6 +672,9 @@
       (jazz.create-directories (kernel-file "syntax/") feedback: feedback)
       (jazz.create-directories (kernel-file "runtime/") feedback: feedback)
       
+      (if kernel?
+          (generate-configuration))
+      
       (build-kernel)
       (build-product)
       
@@ -675,9 +690,41 @@
      "")))
 
 
-(define (jazz.print-architecture name system platform windowing safety optimize? include-source? interpret? destination output)
-  (jazz.print-variable 'jazz.kernel-name name output)
-  (newline output)
+(define (jazz.print-configuration name system platform windowing safety optimize? include-source? interpret? source? destination output)
+  (define first?
+    #t)
+  
+  (define (print-property property value)
+    (if first?
+        (set! first? #f)
+      (display " " output))
+    (display property output)
+    (display " " output)
+    (write value output))
+  
+  (display "(" output)
+  (if name
+      (print-property name: name))
+  (print-property system: system)
+  (print-property platform: platform)
+  (if windowing
+      (print-property windowing: windowing))
+  (print-property safety: safety)
+  (if (not optimize?)
+      (print-property optimize?: optimize?))
+  (if include-source?
+      (print-property include-source?: include-source?))
+  (if interpret?
+      (print-property interpret?: interpret?))
+  (if (not (eqv? source? #t))
+      (print-property source?: source?))
+  (if destination
+      (print-property destination: destination))
+  (display ")" output)
+  (newline output))
+
+
+(define (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-platform platform output)

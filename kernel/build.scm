@@ -94,7 +94,7 @@
 (define (jazz.configuration-interpret? configuration)
   (vector-ref configuration 8))
 
-(define (jazz.configuration-source configuration)
+(define (jazz.configuration-source? configuration)
   (vector-ref configuration 9))
 
 (define (jazz.configuration-destination configuration)
@@ -154,10 +154,19 @@
 
 
 (define (jazz.find-configuration name)
-  (let ((pair (jazz.find-configuration-pair name)))
-    (if (not pair)
-        #f
-      (car pair))))
+  (let ((configuration
+          (let ((pair (jazz.find-configuration-pair name)))
+            (if (not pair)
+                #f
+              (car pair)))))
+    ;; special case to support make of binaries
+    (if (and (not name) (not configuration))
+        (let ((configuration-dir (jazz.destination-directory #f "bin:" "./")))
+          (let ((configuration-file (string-append configuration-dir ".configuration")))
+            (if (file-exists? configuration-file)
+                (jazz.load-configuration-file configuration-file)
+              #f)))
+      configuration)))
 
 (define (jazz.find-configuration-pair name)
   (let iter ((configurations jazz.configurations))
@@ -212,54 +221,30 @@
           (set! jazz.configurations (read-all input read-configuration))))))
 
 
+(define (jazz.load-configuration-file file)
+  (call-with-input-file (list path: file eol-encoding: 'cr-lf)
+    (lambda (input)
+      (apply jazz.new-configuration (read input)))))
+
+
 (define (jazz.save-configurations)
   (jazz.create-directories "~/.jazz" feedback: jazz.feedback)
   (call-with-output-file jazz.configurations-file
     (lambda (output)
-      (define (print-configuration configuration)
-        (define first?
-          #t)
-        
-        (define (print-property property value)
-          (if first?
-              (set! first? #f)
-            (display " " output))
-          (display property output)
-          (display " " output)
-          (write value output))
-        
-        (let ((name (jazz.configuration-name configuration))
-              (system (jazz.configuration-system configuration))
-              (platform (jazz.configuration-platform configuration))
-              (windowing (jazz.configuration-windowing configuration))
-              (safety (jazz.configuration-safety configuration))
-              (optimize? (jazz.configuration-optimize? configuration))
-              (include-source? (jazz.configuration-include-source? configuration))
-              (interpret? (jazz.configuration-interpret? configuration))
-              (source (jazz.configuration-source configuration))
-              (destination (jazz.configuration-destination configuration)))
-          (display "(" output)
-          (if name
-              (print-property name: name))
-          (print-property system: system)
-          (print-property platform: platform)
-          (if windowing
-              (print-property windowing: windowing))
-          (print-property safety: safety)
-          (if (not optimize?)
-              (print-property optimize?: optimize?))
-          (if include-source?
-              (print-property include-source?: include-source?))
-          (if interpret?
-              (print-property interpret?: interpret?))
-          (if (not (eqv? source #t))
-              (print-property source: source))
-          (if destination
-              (print-property destination: destination))
-          (display ")" output)
-          (newline output)))
-      
-      (for-each print-configuration (jazz.sorted-configurations)))))
+      (for-each (lambda (configuration)
+                  (jazz.print-configuration
+                    (jazz.configuration-name configuration)
+                    (jazz.configuration-system configuration)
+                    (jazz.configuration-platform configuration)
+                    (jazz.configuration-windowing configuration)
+                    (jazz.configuration-safety configuration)
+                    (jazz.configuration-optimize? configuration)
+                    (jazz.configuration-include-source? configuration)
+                    (jazz.configuration-interpret? configuration)
+                    (jazz.configuration-source? configuration)
+                    (jazz.configuration-destination configuration)
+                    output))
+                (jazz.sorted-configurations)))))
 
 
 (define (jazz.describe-configuration configuration)
@@ -271,7 +256,7 @@
         (optimize? (jazz.configuration-optimize? configuration))
         (include-source? (jazz.configuration-include-source? configuration))
         (interpret? (jazz.configuration-interpret? configuration))
-        (source (jazz.configuration-source configuration))
+        (source? (jazz.configuration-source? configuration))
         (destination (jazz.configuration-destination configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
     (jazz.feedback "  system: {s}" system)
@@ -285,8 +270,8 @@
         (jazz.feedback "  include-source?: {s}" include-source?))
     (if interpret?
         (jazz.feedback "  interpret?: {s}" interpret?))
-    (if (not (eqv? source #t))
-        (jazz.feedback "  source: {s}" source))
+    (if (not (eqv? source? #t))
+        (jazz.feedback "  source?: {s}" source?))
     (if destination
         (jazz.feedback "  destination: {s}" destination))))
 
@@ -344,7 +329,7 @@
 
 
 (define (jazz.validate-name name)
-  (if (or (not name) (and (symbol? name) (jazz.string-alphanumeric? (symbol->string name))))
+  (if (or (not name) (and (symbol? name) (jazz.valid-filename? (symbol->string name))))
       name
     (jazz.error "Invalid name: {s}" name)))
 
@@ -547,16 +532,21 @@
                                  (jazz.parse-destination destination
                                    (lambda (alias title)
                                      (and (or (not alias) (memq alias '(user jazz bin)))
-                                          (or (not title) (jazz.string-alphanumeric? title)))))))
+                                          (or (not title) (jazz.valid-filename? title)))))))
       destination
     (jazz.error "Invalid destination: {s}" destination)))
 
 
-(define (jazz.configuration-destination-directory configuration)
+(define (jazz.configuration-directory configuration)
   (jazz.destination-directory
     (jazz.configuration-name configuration)
     (jazz.configuration-destination configuration)
     "./"))
+
+
+(define (jazz.configuration-file configuration)
+  (let ((dir (jazz.configuration-directory configuration)))
+    (string-append dir ".configuration")))
 
 
 ;;;
@@ -642,7 +632,7 @@
 
 (define (jazz.make-clean configuration)
   (jazz.feedback "make clean")
-  (let ((dest (jazz.configuration-destination-directory configuration)))
+  (let ((dest (jazz.configuration-directory configuration)))
     (define (empty-dir dir level)
       (for-each (lambda (name)
                   (let ((path (string-append dir name)))
@@ -685,7 +675,7 @@
 
 
 (define (jazz.build-kernel #!optional (configuration-name #f))
-  (let ((configuration (jazz.require-configuration configuration-name)))
+  (define (build configuration)
     (let ((name (jazz.configuration-name configuration))
           (system (jazz.configuration-system configuration))
           (platform (jazz.configuration-platform configuration))
@@ -695,22 +685,29 @@
           (include-source? (jazz.configuration-include-source? configuration))
           (interpret? (jazz.configuration-interpret? configuration))
           (source "./")
-          (source-access? (jazz.configuration-source configuration))
-          (destination (jazz.configuration-destination configuration)))
+          (source-access? (jazz.configuration-source? configuration))
+          (destination (jazz.configuration-destination configuration))
+          (destination-directory (jazz.configuration-directory configuration)))
       (jazz.build-executable #f
-        name:            name
-        system:          system
-        platform:        platform
-        windowing:       windowing
-        safety:          safety
-        optimize?:       optimize?
-        include-source?: include-source?
-        interpret?:      interpret?
-        source:          source
-        source-access?:  source-access?
-        destination:     destination
-        kernel?:         #t
-        console?:        #t))))
+        system:                system
+        platform:              platform
+        windowing:             windowing
+        safety:                safety
+        optimize?:             optimize?
+        include-source?:       include-source?
+        interpret?:            interpret?
+        source:                source
+        source-access?:        source-access?
+        destination:           destination
+        destination-directory: destination-directory
+        kernel?:               #t
+        console?:              #t)))
+  
+    (let ((configuration (jazz.require-configuration configuration-name)))
+      (let ((configuration-file (jazz.configuration-file configuration)))
+        (if (file-exists? configuration-file)
+            (build (jazz.load-configuration-file configuration-file))
+          (build configuration)))))
 
 
 ;;;
@@ -724,7 +721,7 @@
 
 
 (define (jazz.product-make product configuration)
-  (let ((destdir (jazz.configuration-destination-directory configuration))
+  (let ((destdir (jazz.configuration-directory configuration))
         (platform (jazz.configuration-platform configuration)))
     (define (build-file path)
       (string-append destdir path))
@@ -840,17 +837,18 @@
 
 
 ;;;
-;;;; String
+;;;; Pathname
 ;;;
 
 
-(define (jazz.string-alphanumeric? str)
+(define (jazz.valid-filename? str)
   (let iter ((n (- (string-length str) 1)))
     (if (< n 0)
         #t
       (let ((c (string-ref str n)))
         (if (or (char-alphabetic? c)
-                (char-numeric? c))
+                (char-numeric? c)
+                (memv c '(#\- #\_)))
             (iter (- n 1))
           #f)))))
 
@@ -996,9 +994,6 @@
 ;;;; Kernel
 ;;;
 
-
-(define jazz.kernel-name
-  #f)
 
 (define jazz.kernel-system
   'gambit)

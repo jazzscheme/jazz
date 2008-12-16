@@ -270,45 +270,15 @@
         dir)))
 
 
-(define (jazz.destination-directory name system platform windowing safety destination source)
-  (define (default-dirname)
-    (if name
-        (symbol->string name)
-      (string-append (system-name system)
-                     (platform-name platform)
-                     (windowing-name windowing)
-                     (safety-name safety))))
-  
-  (define (system-name system)
-    (case system
-      ((gambit) "Gambit")))
-  
-  (define (platform-name platform)
-    (case platform
-      ((mac) "Mac")
-      ((windows) "Windows")
-      ((unix) "Unix")))
-  
-  (define (windowing-name windowing)
-    (if (not windowing)
-        ""
-      (case windowing
-        ((carbon) "Carbon")
-        ((x11) "X11"))))
-  
-  (define (safety-name safety)
-    (case safety
-      ((core) "Core")
-      ((debug) "Debug")
-      ((release) "Release")))
-      
-  (jazz.parse-destination destination
+(define (jazz.destination-directory name destination source)
+  (jazz.parse-destination (cond (destination destination)
+                                (name (jazz.format ":{a}" name))
+                                (else "bin:"))
     (lambda (alias dirname)
-      (let ((dirname (or dirname (default-dirname))))
-        (case (or alias 'user)
-          ((user) (string-append (jazz.get-user-build-directory) dirname "/"))
-          ((jazz) (string-append source "build/" dirname "/"))
-          ((bin) (string-append source "bin/")))))))
+      (case (or alias 'user)
+        ((user) (string-append (jazz.get-user-build-directory) dirname "/"))
+        ((jazz) (string-append source "build/" dirname "/"))
+        ((bin) (string-append source "bin/"))))))
 
 
 ;;;
@@ -335,7 +305,7 @@
           (maximum-heap #f)
           (feedback jazz.feedback))
   (let ((product-name (if (not product) "jazz" (symbol->string product)))
-        (destination-directory (jazz.destination-directory name system platform windowing safety destination source)))
+        (destination-directory (jazz.destination-directory name destination source)))
     (let ((kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)

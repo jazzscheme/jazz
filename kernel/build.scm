@@ -555,10 +555,6 @@
 (define (jazz.configuration-destination-directory configuration)
   (jazz.destination-directory
     (jazz.configuration-name configuration)
-    (jazz.configuration-system configuration)
-    (jazz.configuration-platform configuration)
-    (jazz.configuration-windowing configuration)
-    (jazz.configuration-safety configuration)
     (jazz.configuration-destination configuration)
     "./"))
 

@@ -1809,7 +1809,7 @@
         (call-selection-handler old-selection selection force? user-origin?))))
   
   
-  (method (remember-selection use)
+  (method (remember-selection use selection)
     (let ((proc (case use
                   ((row) get-row)
                   ((rank) identity)
@@ -1817,8 +1817,8 @@
       (case selection-mode
         ((cell) (map (function (cell)
                      (cons (proc (get-row~ cell)) (get-col~ cell)))
-                   (get-selection)))
-        (else (map proc (get-selection))))))
+                   selection))
+        (else (map proc selection)))))
   
   
   (method (restore-selection use saved-sel test)
@@ -1838,12 +1838,18 @@
   
   
   (method public (with-preserved-selection proc (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
-    (let ((saved-sel (remember-selection use)))
+    (let ((saved-sel (remember-selection use (get-selection)))
+          (saved-pivot (and selection-pivot (remember-selection use (list selection-pivot)))))
       ;; This is pretty braindead but I remember it was necessary for some code (in the MetaModeler?)
       ;; Fix that code or include then the (set-selection '()) inside that code's proc
       ;; (set-selection '())
       (proc)
       (let ((selection (restore-selection use saved-sel test)))
+        (when saved-pivot
+          (let ((pivot (restore-selection use saved-pivot test)))
+            (set! selection-pivot (cond ((pair? pivot) (car pivot))
+                                        ((null? selection) {})
+                                        (else (car selection))))))
         (when (in-edition?)
           (let ((edition-row (get-parent~ cell-editor)))
             (when (neq? edition-row (get-row (get-row~ edited-cell)))
@@ -1942,44 +1948,53 @@
   (method (added-update-selection rank count)
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
-    (for-each-pair (case selection-mode
-                     ((cell) (function (pair)
-                               (let* ((cell (car pair))
-                                      (r (get-row~ cell)))
-                                 (when (>= r rank)
-                                   (set-car! pair (new Cell (+ r count) (get-col~ cell)))))))
-                     (else (function (pair)
-                             (let ((r (car pair)))
-                               (when (>= r rank)
-                                 (set-car! pair (+ r count)))))))
-                   selection))
+    (let ((proc (case selection-mode
+                  ((cell) (function (cell)
+                            (let ((r (get-row~ cell)))
+                              (if (>= r rank)
+                                  (new Cell (+ r count) (get-col~ cell))
+                                cell))))
+                  (else (function (r)
+                          (if (>= r rank)
+                              (+ r count)
+                            r))))))
+      (set! selection (map proc selection))
+      (when selection-pivot
+        (let ((new-pivot (proc selection-pivot)))
+          (when new-pivot
+            (set! selection-pivot new-pivot))))))
   
   
   ;; update slots that are rank based
   (method (removed-update-selection rank count)
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (- (get-row~ edited-cell) count)))
-    (let ((removed '()))
-      (set! selection (collect (case selection-mode
-                                 ((cell) (function (cell)
-                                           (let ((r (get-row~ cell)))
-                                             (if (< r rank)
-                                                 cell
-                                               (if (> r (+ rank count -1))
-                                                   (new Cell (- r count) (get-col~ cell))
-                                                 (set! removed (cons cell removed))
-                                                 {})))))
-                                 (else (function (r)
-                                         (if (< r rank)
-                                             r
-                                           (if (> r (+ rank count -1))
-                                               (- r count)
-                                             (set! removed (cons r removed))
-                                             {})))))
-                               selection))
-      (if (null? removed)
-          #f
-        (car removed))))
+    (let ((end-rank (+ rank count))
+          (removed #f))
+      (let ((proc (case selection-mode
+                    ((cell) (function (cell)
+                              (let ((r (get-row~ cell)))
+                                (cond ((< r rank)
+                                       cell)
+                                      ((>= r end-rank)
+                                       (new Cell (- r count) (get-col~ cell)))
+                                      (else #f)))))
+                    (else (function (r)
+                            (cond ((< r rank)
+                                   r)
+                                  ((>= r end-rank)
+                                   (- r count))
+                                  (else #f)))))))
+        (set! selection (collect (function (old)
+                                   (let ((new (proc old)))
+                                     (unless (or new removed)
+                                       (set! removed old))
+                                     new))
+                                 selection))
+        (when selection-pivot
+          (let ((pivot (proc selection-pivot)))
+            (set! selection-pivot (or pivot (and selection (car selection))))))
+        removed)))
   
   
   (method (selection-region sel dh dv sc)

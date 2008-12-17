@@ -281,30 +281,17 @@
   ;;;; Exit
   ;;;
   
-  
-  ;; this is definitly a quick fix until a better solution
-  (definition exiting?
-    #f)
-  
-  
-  (method public (exiting-process?)
-    exiting?)
-  
 
   (method public (exit-process (status 0))
-    (let ((preserved exiting?))
-      (unwind-protect
-          (begin
-            (set! exiting? #t)
-            (preserve-environment)
-            (close-environment)
-            (terminate-process)
-            (set-process {})
-            (let ((restart (find-restart 'exit-process)))
-              (if restart
-                  (invoke-restart restart status)
-                (exit status))))
-        (set! exiting? preserved))))
+    (parameterize ((exiting? #t))
+      (preserve-environment)
+      (close-environment)
+      (terminate-process)
+      (set-process {})
+      (let ((restart (find-restart 'exit-process)))
+        (if restart
+            (invoke-restart restart status)
+          (exit status)))))
 
   ;;;
   ;;;; Alias

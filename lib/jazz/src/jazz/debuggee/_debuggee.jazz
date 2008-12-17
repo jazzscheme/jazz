@@ -98,7 +98,7 @@
     (when (live?~ controller-debugger)
       (detach-process~ controller-debugger local-process))
     (set! controller-debugger {})
-    (reset-consoles)))
+    (detach-consoles)))
 
 
 (definition (setup-debuggee)
@@ -194,12 +194,14 @@
 
 
 (definition (thread-console thread)
-  (with-consoles-mutex
-    (function ()
-      (either (table-ref *consoles* thread #f)
-              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))))
-                (table-set! *consoles* thread console)
-                console)))))
+  (if (not controller-debugger)
+      {}
+    (with-consoles-mutex
+      (function ()
+        (either (table-ref *consoles* thread #f)
+                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))))
+                  (table-set! *consoles* thread console)
+                  console))))))
 
 
 (definition (thread-console-pump-port thread)
@@ -221,11 +223,25 @@
 
 
 (definition (console-port-getter)
-  (get-head~ (current-console)))
+  (if (not controller-debugger)
+      (terminal-port)
+    (get-head~ (current-console))))
 
 
-(definition (reset-consoles)
-  (set! *consoles* (make-table test: eq?)))
+(definition (detach-consoles)
+  (with-consoles-mutex
+    (function ()
+      (for-each (function (pair)
+                  (bind (thread . console) pair
+                    (detach-console thread console)))
+                (table-keys/values *consoles*)))))
+
+
+(definition (detach-console thread console)
+  (stop-debuggee-console-pump (get-pump~ console))
+  (close-port (get-tail~ console))
+  (close-port (get-head~ console))
+  (table-clear *consoles* thread))
 
 
 ;;;
@@ -305,7 +321,7 @@
 
 (definition (read-eval-print thread port level)
   (let ((console (thread-console thread)))
-    (let ((expr (with-readtable (either (get-readtable~ console) scheme-readtable)
+    (let ((expr (with-readtable (either (essay console (get-readtable~ console)) scheme-readtable)
                   (function ()
                     (read port)))))
       (if (eof-object? expr)
@@ -361,7 +377,7 @@
       (values {} {})))
   
   (let ((console (current-console)))
-    (let ((context (context-init console))
+    (let ((context (if (not console) {} (context-init console)))
           (frame-box (current-repl-frame)))
       (receive (command arguments) (parse-unquote-command expr)
         (cond ((eq? command 'ctx)
@@ -371,8 +387,9 @@
                    (let ((new-context (either (context-alias ctx) (evaluate ctx))))
                      (when (symbol? new-context)
                        (load-module new-context))
-                     (set-context~ console new-context)
-                     (set-readtable~ console (if (not new-context) {} jazz-readtable))
+                     (when console
+                       (set-context~ console new-context)
+                       (set-readtable~ console (if (not new-context) {} jazz-readtable)))
                      new-context))))
               (#f @convert frame-box
                (evaluate-in-frame (unbox frame-box) expr))

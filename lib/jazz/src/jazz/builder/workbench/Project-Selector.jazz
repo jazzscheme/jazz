@@ -138,7 +138,8 @@
   
   
   (method (update-hierarchycal tree)
-    (let ((rows (make-table test: eq?)))
+    (let ((workbench (get-workbench))
+          (rows (make-table test: eq?)))
       (define (add file father)
         (either (table-ref rows file {})
                 (let ((title (get-presentation~ file))
@@ -153,26 +154,17 @@
               (add project {})
             (add project (insert parent)))))
       
-      (for-each insert (collect-projects))))
+      (for-each insert (collect-projects workbench))))
   
   
   (method (update-flat tree)
-    (for-each (function (project)
+    (let ((workbench (get-workbench)))
+      (for-each (function (project)
                   (let ((title (get-presentation~ project))
                         (image (get-component-image~ project)))
                     (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
-                (sort string<? (collect-projects)
-                  key: (function (project) (get-presentation~ project)))))
-  
-  
-  (method (collect-projects)
-    (let ((projects (new-queue)))
-      (for-each-descendant~ (get-workbench)
-        (function (file level)
-          (when (and (is? file Project)
-                     (concrete?~ file))
-            (enqueue projects file))))
-      (queue-list projects)))
+                (sort string<? (collect-projects workbench)
+                  key: (function (project) (get-presentation~ project))))))
   
   
   (method (update-buttons)

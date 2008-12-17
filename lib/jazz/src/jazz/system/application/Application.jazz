@@ -231,6 +231,31 @@
     (nextmethod)
     (when controller-debugger
       (start-repl-thread event-thread {} (get-console-port))))
+  
+  
+  ;;;
+  ;;;; Termination
+  ;;;
+  
+  
+  (method (terminate-process)
+    (nextmethod)
+    (unregister-alias 'Profile)
+    (reset-palettes)
+    (reset-dockeds)
+    (reset-toolbars)
+    (when toplevel
+      (close~ toplevel)
+      (set! toplevel {})
+      (set! stage-border {})
+      (set! stage {})
+      (set! menubar {})
+      (set! status-bar {})
+      (set! profile-name {})
+      (set! profile-module {})
+      (set! profile-class {})
+      (set! profile-bindings {})
+      (set! profile {})))
 
 
   ;;;
@@ -440,17 +465,15 @@
 
   
   (method (login-profile)
-    (catch (Cancel-Signal signal
-             (exit))
-      (receive (name module bindings always-use?) (choose-login)
-        (set! profile-bindings bindings)
-        (when settings
-          (set-setting~ settings 'profile (if always-use? name #f))
-          (save-content~ settings)
-          (when always-use?
-            (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
-                                 name))))
-        (values name module))))
+    (receive (name module bindings always-use?) (choose-login)
+      (set! profile-bindings bindings)
+      (when settings
+        (set-setting~ settings 'profile (if always-use? name #f))
+        (save-content~ settings)
+        (when always-use?
+          (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
+                               name))))
+      (values name module)))
 
   
   (method (install-profile)
@@ -748,13 +771,11 @@
   
   
   (method public virtual (application-anchors)
-    (map (function (alias)
-           (new Directory (list alias)))
-         (append! (table-keys (get-aliases))
-                  (let ((workbench (get-workbench)))
-                    (if (not workbench)
-                        '()
-                      (table-keys (get-projects-table~ workbench)))))))
+    (append! (table-keys (get-aliases))
+             (let ((workbench (get-workbench)))
+               (if (not workbench)
+                   '()
+                 (table-keys (get-projects-table~ workbench))))))
 
   
   ;;;

@@ -293,8 +293,17 @@
   jazz.product)
 
 
-(define jazz.jazz-profile
-  jazz.profile)
+(define (jazz.jazz-profile)
+  (jazz.profile))
+
+
+(define jazz.profile
+  (make-parameter #f))
+
+
+;; to enable timing loading of jedi
+(define jazz.run-loop?
+  (make-parameter #t))
 
 
 ;;;

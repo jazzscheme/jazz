@@ -118,17 +118,3 @@
 
 (jazz.define-setting jazz.profile-walker?
   #f)
-
-
-;;;
-;;;; Product
-;;;
-
-
-(jazz.define-setting jazz.profile
-  #f)
-
-
-;; to enable timing loading of jedi
-(jazz.define-setting jazz.run-loop?
-  #t)

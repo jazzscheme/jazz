@@ -121,19 +121,22 @@
   
   
   (method public virtual (boot-environment)
-    (update-debuggee)
-    (install-literals)
-    (initialize-aliases)
-    (initialize-settings)
-    (register-versions)
-    (prepare-phase)
-    (start-phase)
-    (finalize-phase)
-    (finish-phase)
-    (conclude-phase)
-    (activate-process)
-    (when (run-loop?)
-      (run-loop)))
+    (catch (Cancel-Signal signal
+             {})
+      (update-debuggee)
+      (install-literals)
+      (initialize-aliases)
+      (initialize-settings)
+      (register-versions)
+      (prepare-phase)
+      (start-phase)
+      (finalize-phase)
+      (finish-phase)
+      (conclude-phase)
+      (activate-process)
+      (when (run-loop?)
+        (run-loop))
+      {}))
   
   
   (method (update-debuggee)
@@ -237,6 +240,15 @@
   
   
   ;;;
+  ;;;; Termination
+  ;;;
+  
+  
+  (method protected virtual (terminate-process)
+    (terminate-profile-aliases))
+  
+  
+  ;;;
   ;;;; Environment
   ;;;
   
@@ -286,6 +298,8 @@
             (set! exiting? #t)
             (preserve-environment)
             (close-environment)
+            (terminate-process)
+            (set-process {})
             (let ((restart (find-restart 'exit-process)))
               (if restart
                   (invoke-restart restart status)
@@ -529,6 +543,16 @@
                             (directory (get-directory~ pref)))
                         (when directory
                           (register-alias alias (get-list~ directory)))))
+                    aliases)))))
+  
+  
+  (method public virtual (terminate-profile-aliases)
+    (let ((pref (get-preferences 'aliases error?: #f)))
+      (when pref
+        (let ((aliases (get-children~ pref)))
+          (for-each (function (pref)
+                      (let ((alias (get-alias~ pref)))
+                        (unregister-alias alias)))
                     aliases)))))
   
   

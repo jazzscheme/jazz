@@ -79,6 +79,10 @@
       @convert (get-manifest-source name)))
 
 
+(definition public (valid-alias? name)
+  (is-alias? name))
+
+
 (definition public (get-alias name (error?: error? #t))
   (either (find-alias name)
           (when error?
@@ -106,7 +110,7 @@
 
 (definition public (register-alias name path)
   (define (expand-up path)
-    (let ((dir (anchorize~ (get-parent~ (new Directory (list (car path))))))
+    (let ((dir (anchorize~ (get-parent~ (new Directory (list (car path)))) ignored-anchors: (list name)))
           (sub (cddr path)))
       (append (get-list~ dir) sub)))
   
@@ -118,6 +122,10 @@
       path))
   
   (set-alias name (process-up path)))
+
+
+(definition public (unregister-alias name)
+  (table-clear (get-aliases) name))
 
 
 (definition public (set-alias name path)
@@ -613,9 +621,9 @@
           (new (class-of self) result-list)))))
   
   
-  (method public (anchorize (anchors: anchors {}))
-    (let* ((anchors (if (not anchors) (default-anchors) anchors))
-           (anchored (collect (function (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: #f))) anchors))
+  (method public (anchorize (anchors: anchors {}) (ignored-anchors: ignored-anchors {}))
+    (let* ((anchors (difference (either anchors (default-anchors)) (either ignored-anchors '())))
+           (anchored (collect (function (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
            (sorted (sort < anchored key: (function (path) (length (get-list~ path))))))
       (if (null? sorted)
           self

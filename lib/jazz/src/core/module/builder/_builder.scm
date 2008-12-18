@@ -95,7 +95,7 @@
 (define (jazz.copy-package package)
   (let* ((name (%%package-name package))
          (dir (%%string-append (%%symbol->string name) "/"))
-         (path (%%string-append dir (%%symbol->string name) "." jazz.Package-Extension))
+         (path (%%string-append dir jazz.Package-Filename))
          (src (jazz.repository-pathname (%%package-repository package) path))
          (dst (jazz.repository-pathname jazz.Install-Repository path)))
     (if (and (jazz.file-exists? dst) (>= (jazz.file-modification-time dst) (jazz.file-modification-time src)))

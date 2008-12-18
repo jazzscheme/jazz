@@ -311,17 +311,30 @@
 ;;;
 
 
+(define jazz.Repository-Filename
+  ".repository")
+
+
 (define (jazz.repository? obj)
   (and (%%vector? obj)
        (%%fx> (%%vector-length obj) 0)
        (%%eq? (%%vector-ref obj 0) 'repository)))
 
 
-(define (jazz.make-repository name dirname dir subdir #!key (create? #f) (error? #t))
+(define (jazz.make-repository name dirname dir subdir #!key (error? #t))
   (if (and dir (%%not (jazz.directory-exists? dir)))
       (jazz.directory-create dir))
   (if (and dir (jazz.directory-exists? dir))
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
+        (if (%%not (jazz.directory-exists? directory))
+            (begin
+              (jazz.directory-create directory)
+              (call-with-output-file (%%string-append directory jazz.Repository-Filename)
+                (lambda (output)
+                  (display "(repository " output)
+                  (display name output)
+                  (display ")" output)
+                  (newline output)))))
         (%%make-repository name directory))
     (if error?
         (jazz.error "{a} directory is inexistant: {a}" dirname dir)
@@ -335,10 +348,10 @@
   (jazz.make-repository 'Jazz "Jazz" jazz.kernel-source "lib/" error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'User "User" "~/" "jazz_user/lib/" create?: #t))
+  (jazz.make-repository 'User "User" "~/" "jazz_user/lib/"))
 
 
-(define (jazz.make-repositories)
+(define (jazz.all-repositories)
   (define (listify repository)
     (if repository
         (%%list repository)
@@ -350,7 +363,7 @@
 
 
 (define jazz.Repositories
-  (jazz.make-repositories))
+  (jazz.all-repositories))
 
 
 (define (jazz.get-repositories)
@@ -422,7 +435,7 @@
               packages
             (let ((dirname (%%car dirnames)))
               (let ((directory (%%string-append repository-directory dirname "/")))
-                (let ((package-pathname (%%string-append directory dirname "." jazz.Package-Extension)))
+                (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
                   (if (jazz.file-exists? package-pathname)
                       (iter (%%cdr dirnames) (cons (jazz.load-package repository (%%string->symbol dirname) package-pathname) packages))
                     (iter (%%cdr dirnames) packages)))))))
@@ -490,8 +503,8 @@
 ;;;
 
 
-(define jazz.Package-Extension
-  "pck")
+(define jazz.Package-Filename
+  ".package")
 
 
 (define (jazz.package? obj)

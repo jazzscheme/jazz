@@ -1016,6 +1016,7 @@
   (method public (new-menu)
     (let ((object (selected-object)))
       (typecase object
+        ((Workbench) (new-workbench-menu object))
         ((Project-Group) (new-group-menu object))
         ((Project)
          (if (concrete?~ object)
@@ -1026,6 +1027,15 @@
   
   (method (new-group-menu object)
     (let ((menu (new Group-Menu client: (get-tree))))
+      (update-group/project-menu menu)
+      (cleanup-separators~ menu)
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (new-workbench-menu object)
+    (let ((menu (new Workbench-Menu client: (get-tree))))
+      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
       (update-group/project-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1043,9 +1053,6 @@
   
   (method (new-project-menu object)
     (let ((menu (new Project-Menu client: (get-tree))))
-      @wait-complete
-      (when (is? object Workbench)
-        (set-visible?~ (locate~ menu 'synchronize-content) #f))
       (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
       (update-group/project-menu menu)
       (cleanup-separators~ menu)
@@ -1146,9 +1153,7 @@
   
   (form
     (<install>
-      (<Label-Item>     name: add-project         title: "Add Project..." before: add-item action: {Action workbench-manager add-project})
-      (<Label-Item>     name: add-file            title: "Add Document..." before: add-item icon: {Bitmap-Resource "Add"} action: {Action workbench-manager add-file})
-      (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
+      (<Label-Item>     name: add-file            title: "New Document..." before: add-item icon: {Bitmap-Resource "Add"} action: {Action workbench-manager add-file})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
       @wait-complete
@@ -1169,9 +1174,7 @@
     (<install>
       (<Label-Item>     name: edit                title: "Edit" before: add-item icon: {Bitmap-Resource "Edit"} action: {Action workbench-manager edit})
       (<Separator-Item>                           before: add-item)
-      (<Label-Item>     name: add-project         title: "Add Project..." before: add-item action: {Action workbench-manager add-project})
-      (<Label-Item>     name: add-file            title: "Add Document..." before: add-item icon: {Bitmap-Resource "Add"} action: {Action workbench-manager add-file})
-      (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
+      (<Label-Item>     name: add-file            title: "New Document..." before: add-item icon: {Bitmap-Resource "Add"} action: {Action workbench-manager add-file})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
       @wait-complete
@@ -1194,6 +1197,22 @@
     (<install>
       (<Label-Item>     name: activate title: "Select as Active Project" before: cut default?: #t action: {Action workbench-manager activate})
       (<Separator-Item>                before: cut))))
+
+
+;;;
+;;;; Workbench-Menu
+;;;
+
+
+(class Workbench-Menu extends Project-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: add-project         title: "New Project..." before: add-file action: {Action workbench-manager add-project})
+      (<Label-Item>     name: install-project     title: "Install Project..." before: import-files icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
+      @wait-complete
+      (<!>              name: synchronize-content visible?: #f))))
 
 
 ;;;

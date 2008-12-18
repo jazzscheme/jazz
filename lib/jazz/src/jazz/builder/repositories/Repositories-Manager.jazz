@@ -59,7 +59,7 @@
         (<!>                        name: content        layout-type: fill
           (<Tree-Header>            name: header         shown?: #f
             (<!>                    name: content
-              (<Tree-View>          name: repositories   portfolio: :icons show-header?: #f context-menu-handler: {Event-Handler :form on-context-menu}
+              (<Tree-View>          name: repositories   portfolio: :icons show-header?: #f multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
                 (<Tree-Node-Column>                      title: "Repositories" width: 329))))))))
   
   
@@ -121,7 +121,7 @@
       (with-update-locked~ tree
         (function ()
           (remove-every-row~ tree)
-          (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})))))
+          (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})) user-data: {})))
             (for-each (function (repository)
                         (let ((name (repository-name repository)))
                           (let ((title (->string name))
@@ -141,8 +141,17 @@
   ;;;
   
   
+  (method (on-add-repository evt)
+    (let ((file (choose-file title: "Choose Repository" filenames: '(".repository"))))
+      ))
+  
+  
   (method (on-install-repository evt)
-    (unimplemented 'install-repository))
+    )
+  
+  
+  (method (on-refresh-repositories evt)
+    )
   
   
   ;;;
@@ -150,8 +159,31 @@
   ;;;
   
   
+  (method (on-edit-repository evt)
+    (for-each edit-repository (selected-objects)))
+  
+  
+  (method (edit-repository repository)
+    (append 1 2)
+    (let ((dir (new Directory (tokenise-filename (repository-directory repository)))))
+      (edit-document~ (get-application) (new-file~ dir ".repository"))))
+  
+  
+  (method (on-add-package evt)
+    (let ((file (choose-file title: "Choose Package" filenames: '(".package"))))
+      ))
+  
+  
   (method (on-install-package evt)
-    (unimplemented 'install-package))
+    )
+  
+  
+  (method (on-remove-repository evt)
+    )
+  
+  
+  (method (on-refresh-packages evt)
+    )
   
   
   ;;;
@@ -160,7 +192,20 @@
   
   
   (method (on-edit-package evt)
-    (unimplemented 'edit-package))
+    (for-each edit-package (selected-objects)))
+  
+  
+  (method (edit-package package)
+    (let ((dir (new Directory (tokenise-filename (repository-directory (package-repository package))))))
+      (edit-document~ (get-application) (new-file~ dir (list (->string (package-name package)) ".package")))))
+  
+  
+  (method (on-install-in-workbench evt)
+    )
+  
+  
+  (method (on-remove-package evt)
+    )
   
   
   ;;;
@@ -168,20 +213,28 @@
   ;;;
   
   
-  (method (selected-object)
-    (get-single-selected-data~ (get-tree)))
+  (method (selected-kind object)
+    (cond ((not object)
+           'repositories)
+          ((repository? object)
+           'repository)
+          ((package? object)
+           'package)))
   
   
-  (method (selected-repository)
-    (let ((object (selected-object)))
-      (when (repository? object)
-        object)))
+  (method (selected-kind/objects)
+    (let ((objects (get-selected-data~ (get-tree))))
+      (if (null? objects)
+          (values {} {})
+        (let ((kind (uniform objects key: selected-kind)))
+          (if (not kind)
+              (values {} {})
+            (values kind objects))))))
   
   
-  (method (selected-package)
-    (let ((object (selected-object)))
-      (when (package? object)
-        object)))
+  (method (selected-objects)
+    (receive (kind objects) (selected-kind/objects)
+      objects))
 
   
   ;;;
@@ -201,32 +254,36 @@
   
   
   (method public (new-menu)
-    (let ((object (selected-object)))
-      (cond ((not object) (new-repositories-menu object))
-            ((repository? object) (new-repository-menu object))
-            ((package? object) (new-package-menu object))
-            (else {}))))
+    (receive (kind objects) (selected-kind/objects)
+      (if (not kind)
+          {}
+        (case kind
+          ((repositories) (new-repositories-menu objects))
+          ((repository) (new-repository-menu objects))
+          ((package) (new-package-menu objects))))))
   
   
-  (method (new-repositories-menu object)
+  (method (new-repositories-menu objects)
     (let ((menu (new Repositories-Menu client: (get-tree))))
-      ;(update-group/project-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu))
   
   
-  (method (new-repository-menu object)
+  (method (new-repository-menu objects)
     (let ((menu (new Repository-Menu client: (get-tree))))
-      ;(update-group/project-menu menu)
+      (when (> (length objects) 1)
+        (set-visible?~ (locate~ menu 'add-package-separator) #f)
+        (set-visible?~ (locate~ menu 'add-package) #f)
+        (set-visible?~ (locate~ menu 'install-package-separator) #f)
+        (set-visible?~ (locate~ menu 'install-package) #f))
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu))
   
   
-  (method (new-package-menu object)
+  (method (new-package-menu objects)
     (let ((menu (new Package-Menu client: (get-tree))))
-      ;(update-group/project-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu)))
@@ -242,7 +299,9 @@
   
   (form
     (<install>
-      (<Label-Item> name: install-repository title: "Install Repository..." action: {Action repositories-manager install-repository}))))
+      (<Label-Item> name: add-repository       title: "Add Repository..." icon: {Bitmap-Resource "Add"} action: {Action repositories-manager add-repository})
+      (<Separator-Item>)
+      (<Label-Item> name: install-repository   title: "Install Repository..." icon: {Bitmap-Resource "Import"} action: {Action repositories-manager install-repository}))))
 
 
 ;;;
@@ -255,11 +314,13 @@
   
   (form
     (<install>
-      (<Label-Item> name: install-package title: "Install Package..." action: {Action repositories-manager install-package})
-      @wait
+      (<Label-Item>     name: edit-repository           title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-repository})
+      (<Separator-Item> name: add-package-separator)
+      (<Label-Item>     name: add-package               title: "Add Package..." icon: {Bitmap-Resource "Add"} action: {Action repositories-manager add-package})
       (<Separator-Item>)
-      @wait
-      (<Label-Item> name: refresh title: "Refresh" icon: {Bitmap-Resource "Refresh"} action: {Action repositories-manager install-repository}))))
+      (<Label-Item>     name: refresh-packages          title: "Refresh Packages" icon: {Bitmap-Resource "Refresh"} action: {Action repositories-manager refresh-packages})
+      (<Separator-Item>)
+      (<Label-Item>     name: remove-repository         title: "Remove" icon: {Bitmap-Resource "Remove"} action: {Action repositories-manager remove-repository}))))
 
 
 ;;;
@@ -272,4 +333,6 @@
   
   (form
     (<install>
-      (<Label-Item> name: edit-package title: "Edit Package" action: {Action repositories-manager edit-package})))))
+      (<Label-Item> name: edit-package    title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-package})
+      (<Separator-Item>)
+      (<Label-Item> name: install-package title: "Install in Workbench" icon: {Bitmap-Resource "Import"} action: {Action repositories-manager install-in-workbench})))))

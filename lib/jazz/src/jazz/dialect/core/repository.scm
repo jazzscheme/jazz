@@ -55,5 +55,8 @@
 ;;;
 
 
+(define (jazz.package-repository package)
+  (%%package-repository package))
+
 (define (jazz.package-name package)
   (%%package-name package)))

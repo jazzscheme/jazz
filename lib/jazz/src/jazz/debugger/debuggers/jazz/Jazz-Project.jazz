@@ -51,8 +51,9 @@
 (class Jazz-Project extends Project
   
   
-  (property product     initialize {} accessors generate)
-  (property destination initialize {} accessors generate)
+  (property product      initialize {}  accessors generate)
+  (property destination  initialize {}  accessors generate)
+  (property repositories initialize '() accessors generate)
 
 
   ;;;
@@ -116,6 +117,7 @@
     (case (field-name property)
       ((product) "Product")
       ((destination) "Destination")
+      ((repositories) "Repositories")
       (else (nextmethod property))))
   
   
@@ -124,10 +126,43 @@
       product
       include-extensions
       catalog? catalog-extensions catalog-heuristics
-      destination))
+      destination
+      repositories))
   
   
   (method (get-row-instance property)
     (case (field-name property)
       ((destination) (new String-Row nullable?: #t))
-      (else (nextmethod property))))))
+      ((repositories) (new Repositories-Row))
+      (else (nextmethod property)))))
+
+
+;;;
+;;;; Repositories-Row
+;;;
+
+
+(class Repositories-Row extends Value-Row
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present names)
+    (if (null? names)
+        "{}"
+      (format "{l}" names)))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (get-edited-value)
+    (let ((content (get-string-content~ editor)))
+      (if (or (empty-string? content) (string=? content "{}"))
+          '()
+        (read-string-content content))))))

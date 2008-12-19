@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Add File Dialog
+;;;; New Project Dialog
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.builder.workbench.Add-File-Dialog jazz
+(library jazz.builder.workbench.New-Project-Dialog jazz
 
 
 (import (jazz.builder)
@@ -48,33 +48,34 @@
         (jazz.utilities))
 
 
-(class Add-File-Dialog extends View
+(class New-Project-Dialog extends View
   
   
-  (property directory initialize {} accessors generate)
+  (property repository initialize {} accessors generate)
   
   
   (form
     (<install>                                              size: {Dimension 500 261}
-      (<Label-View>               name: title               title: "Add Document" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Caption})
-      (<Label-View>               name: description         title: "Please specify document kind, name and directory" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Label})
+      (<Label-View>               name: title               title: "New Project" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Caption})
+      (<Label-View>               name: description         title: "Please specify project kind, name and repository" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Label})
       (<Horizontal-Line>                                    position: {Point 0 50} size: {Dimension 500 8})
       (<Border-View>              name: kind-border         position: {Point 13 64} size: {Dimension 140 137} border-type: edge style: entry
         (<Scroller-View>                                    vscroll?: #t style: document
           (<!>                    name: content             layout-type: fill
-            (<Tree-View>          name: kinds               portfolio: :icons show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "Document kind" selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+            (<Tree-View>          name: kinds               portfolio: :icons show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "Project kind" selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
               (<Tree-Node-Column>                           title: "User" width: 176 toplevel-controls?: #f controls?: #f display-images?: #f)))))
       (<Label-View>               name: name-label          title: "Name:" position: {Point 182 111} size: {Dimension 33 16} font: {Font name: Label})
-      (<Border-View>              name: name-border         position: {Point 241 109} size: {Dimension 224 19} border-type: edge style: entry
+      (<Border-View>              name: name-border         position: {Point 247 109} size: {Dimension 218 19} border-type: edge style: entry
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                    name: content             layout-type: fill
-            (<Name-Text-View>     name: name-text           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Name of the document without the file extension" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
-      (<Label-View>               name: directory-label     title: "Directory:" position: {Point 182 143} size: {Dimension 54 16} font: {Font name: Label})
-      (<Moniker-Widget>           name: directory           position: {Point 241 140} size: {Dimension 249 24} protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler :form on-moniker-update}
-        (<!>                      name: moniker-border      style: entry
-          (<!>                    name: scroller
-            (<!>                  name: content
-              (<!>                name: text                editable?: #f show-unfocused-selection?: #f focus-selects-all?: #t tooltip?: #t tooltip-text: "Directory where the document will be created" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press})))))
+            (<Name-Text-View>     name: name-text           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Fully qualified name of the project" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
+      (<Label-View>               name: repository-label    title: "Repository:" position: {Point 182 143} size: {Dimension 64 16} font: {Font name: Label})
+      (<Border-View>              name: repository-border   position: {Point 245 139} size: {Dimension 222 22} border-insets: {Rect 2 2 2 1} border-color: {Color name: Medium}
+        (<Border-View>                                      border-color: {Color name: Entry-Border}
+          (<Combo-Box>            name: repository
+            (<!>                  name: scroller
+              (<!>                name: content
+                (<!>              name: body                left-padding: 2 top-padding: 2 tooltip?: #t tooltip-text: "Repository where the project will be created"))))))
       (<Horizontal-Line>                                    position: {Point 0 213} size: {Dimension 500 8})
       (<Push-Button>              name: ok                  title: "OK" position: {Point 167 227} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
       (<Push-Button>              name: cancel              title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
@@ -83,8 +84,8 @@
   (method (finish rest)
     (nextmethod rest)
     (setup-kinds)
-    (set-string-content~ (locate 'name-text) "New")
-    (set-moniker~ (locate 'directory) directory))
+    (setup-name)
+    (setup-repositories))
   
   
   (method (install-in-host host)
@@ -99,21 +100,12 @@
   
   (definition Kinds
     '(<kinds>
-       (<kind>     name: "Scheme"      kind: scheme     template: "scheme/New.scm")
-       (<kind>     name: "Jazz"
-         (<kind>   name: "Module"      kind: jazz       template: "jazz/NewModule.jazz")
-         (<kind>   name: "Library"     kind: jazz       template: "jazz/NewLibrary.jazz"
-           (<kind> name: "Class"       kind: jazz       template: "jazz/NewClass.jazz")
-           (<kind> name: "Interface"   kind: jazz       template: "jazz/NewInterface.jazz")))
-       (<kind>     name: "Common Lisp" kind: lisp       template: "lisp/New.lisp")
-       (<kind>     name: "C/C++"
-         (<kind>   name: "Header"      kind: c          template: "c/NewHeader.h")
-         (<kind>   name: "C Source"    kind: c          template: "c/NewC.c")
-         (<kind>   name: "C++ Source"  kind: c          template: "c/NewCpp.cpp"))
-       (<kind>     name: "Java"        kind: java       template: "java/New.java"
-         (<kind>   name: "Class"       kind: java       template: "java/NewClass.java"))
-       (<kind>     name: "SQL"         kind: sql        template: "sql/New.sql")
-       (<kind>     name: "Text"        kind: text       template: "text/New.txt")))
+       (<kind>   name: "Empty"       kind: project template: "empty")
+       (<kind>   name: "Gambit"      kind: project template: "gambit")
+       (<kind>   name: "Jazz"        kind: project template: "jazz/default"
+         (<kind> name: "Process"     kind: project template: "jazz/process")
+         (<kind> name: "Application" kind: project template: "jazz/application/empty"
+           (<kind> name: "Standard"  kind: project template: "jazz/application/standard")))))
   
   
   (method (setup-kinds)
@@ -135,6 +127,20 @@
       (set-single-selection~ tree 0)
       (ensure-displayed~ tree))
     (update-ok))
+  
+  
+  (method (setup-name)
+    (set-string-content~ (locate 'name-text) "new"))
+  
+  
+  (method (setup-repositories)
+    (let ((combo (locate 'repository))
+          (repositories (get-repositories)))
+      (set-choices~ combo (map (function (repository)
+                                 (list repository (->string (repository-name repository))))
+                               repositories))
+      (set-value~ combo (either (find-repository 'User)
+                                (car repositories)))))
 
   
   ;;;
@@ -143,7 +149,7 @@
   
   
   (method meta (host-title)
-    "Add")
+    "New")
   
 
   ;;;
@@ -152,9 +158,9 @@
   
   
   (method (validate-dialog)
-    (receive (kind template directory name) (get-modal-result)
-      (let* ((extension (extract-extension template))
-             (destination (new-file~ directory (format "{a}.{a}" name extension)))
+    (receive (kind template repository name) (get-modal-result)
+      (let* ((directory (new Directory (tokenise-filename (repository-directory repository))))
+             (destination (new-directory~ directory name))
              (message (validate-name kind name destination)))
         (when message
           (message-box message)
@@ -163,7 +169,7 @@
   
   (method (get-modal-result)
     (let ((node (selected-kind)))
-      (values (get-property~ node 'kind) (get-property~ node 'template) (get-moniker~ (locate 'directory)) (get-string-content~ (locate 'name-text)))))
+      (values (get-property~ node 'kind) (get-property~ node 'template) (get-value~ (locate 'repository)) (get-string-content~ (locate 'name-text)))))
   
   
   (method (selected-kind)
@@ -183,7 +189,7 @@
     (list
       (locate 'kinds)
       (locate 'name-text)
-      (get-text~ (locate 'directory))))
+      (get-body~ (locate 'repository))))
   
 
   ;;;
@@ -230,30 +236,22 @@
   
   
   (method (update-ok)
-    (set-enabled?~ (locate 'ok) (and (get-property~ (selected-kind) 'kind) (get-moniker~ (locate 'directory)) (not (empty-string? (get-string-content~ (locate 'name-text)))))))
+    (set-enabled?~ (locate 'ok) (and (get-property~ (selected-kind) 'kind) (not (empty-string? (get-string-content~ (locate 'name-text)))))))
   
   
   (method (validate-name kind name destination)
     (cond ((exists?~ destination)
-           (format "Document {a} already exists" name))
-          ((memq? kind '(jazz))
-           (let ((module-name (find-pathname-module (parse~ destination))))
-             (cond ((let ((first (first name)))
-                      (not (or (eqv? first #\_)
-                               (alphabetic? first))))
-                    "Name must start with a letter or an underscore")
-                   ((not (every? (function (char)
-                                   (or (alphabetic? char)
-                                       (numeric? char)
-                                       (memv? char '(#\minus #\_))))
-                                 name))
-                    "Name can only contain letters, digits, dashes and underscores")
-                   ((not module-name)
-                    "Jazz files must be located inside a Jazz package")
-                   ((find-module-source module-name)
-                    (format "Module {a} already exists" module-name))
-                   (else
-                    {}))))
+           (format "Project {a} already exists" name))
+          ((let ((first (first name)))
+             (not (or (eqv? first #\_)
+                      (alphabetic? first))))
+           "Name must start with a letter or an underscore")
+          ((not (every? (function (char)
+                          (or (alphabetic? char)
+                              (numeric? char)
+                              (memv? char '(#\minus #\_ #\.))))
+                        name))
+           "Name can only contain letters, digits, dashes, underscores and periods")
           (else
            {})))
   

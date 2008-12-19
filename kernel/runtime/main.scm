@@ -197,7 +197,7 @@
             (debugger (get-option "debugger")))
         (set! jazz.debugger debugger)
         (process-initialization-file)
-        (jazz.install-repositories)
+        (jazz.setup-repositories)
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product

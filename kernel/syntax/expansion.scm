@@ -109,6 +109,10 @@
   ##foreign?
   "FOREIGN")
 
+(jazz.define-check-macro %%check-list
+  list?
+  "LIST")
+
 (jazz.define-check-macro %%check-locat
   ##locat?
   "LOCAT")

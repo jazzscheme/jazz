@@ -156,7 +156,11 @@
   
   
   (method (on-install-repository evt)
-    )
+    (let ((dir (choose-directory)))
+      (let ((repository-file (new-file~ dir ".repository")))
+        (if (exists?~ repository-file)
+            (install-repository (parse~ dir))
+          (message-box "Unable to find \".repository\" file")))))
   
   
   ;;;
@@ -188,7 +192,11 @@
   
   
   (method (on-uninstall-repository evt)
-    )
+    (for-each (function (row)
+                (let ((repository (get-user-data~ row)))
+                  (uninstall-repository repository)
+                  (remove-row~ (get-tree) row)))
+              (selected-rows)))
   
   
   ;;;
@@ -236,6 +244,10 @@
   (method (selected-objects)
     (receive (kind objects) (selected-kind/objects)
       objects))
+  
+  
+  (method (selected-rows)
+    (get-selected-rows~ (get-tree)))
 
   
   ;;;
@@ -275,9 +287,12 @@
     (let ((menu (new Repository-Menu client: (get-tree))))
       (when (> (length objects) 1)
         (set-visible?~ (locate~ menu 'new-package-separator) #f)
-        (set-visible?~ (locate~ menu 'new-package) #f)
-        (set-visible?~ (locate~ menu 'install-package-separator) #f)
-        (set-visible?~ (locate~ menu 'install-package) #f))
+        (set-visible?~ (locate~ menu 'new-package) #f))
+      (when (some? (function (repository)
+                     (memq? (repository-name repository) '(Install Jazz User)))
+                   objects)
+        (set-visible?~ (locate~ menu 'uninstall-repository-separator) #f)
+        (set-visible?~ (locate~ menu 'uninstall-repository) #f))
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu))
@@ -315,13 +330,13 @@
   
   (form
     (<install>
-      (<Label-Item>     name: edit-repository           title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-repository})
+      (<Label-Item>     name: edit-repository                title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-repository})
       (<Separator-Item> name: new-package-separator)
-      (<Label-Item>     name: new-package               title: "New Package..." icon: {Bitmap-Resource "Add"} action: {Action repositories-manager new-package})
+      (<Label-Item>     name: new-package                    title: "New Package..." icon: {Bitmap-Resource "Add"} action: {Action repositories-manager new-package})
       (<Separator-Item>)
-      (<Label-Item>     name: rescan-packages           title: "Rescan Packages" icon: {Bitmap-Resource "Refresh"} action: {Action repositories-manager rescan-packages})
-      (<Separator-Item>)
-      (<Label-Item>     name: uninstall-repository      title: "Uninstall" icon: {Bitmap-Resource "Remove"} action: {Action repositories-manager uninstall-repository}))))
+      (<Label-Item>     name: rescan-packages                title: "Rescan Packages" icon: {Bitmap-Resource "Refresh"} action: {Action repositories-manager rescan-packages})
+      (<Separator-Item> name: uninstall-repository-separator)
+      (<Label-Item>     name: uninstall-repository           title: "Uninstall" icon: {Bitmap-Resource "Remove"} action: {Action repositories-manager uninstall-repository}))))
 
 
 ;;;

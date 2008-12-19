@@ -381,6 +381,8 @@
 (native jazz.jazz-profile)
 (native jazz.use-debugger?)
 (native jazz.get-repositories)
+(native jazz.install-repository)
+(native jazz.uninstall-repository)
 (native jazz.find-repository)
 (native jazz.repository?)
 (native jazz.repository-name)

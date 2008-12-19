@@ -124,17 +124,25 @@
           (remove-every-row~ tree)
           (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})) user-data: {})))
             (for-each (function (repository)
-                        (let ((name (repository-name repository)))
-                          (let ((title (->string name))
-                                (image {Bitmap-Resource "Repository"}))
-                            (let ((repository-row (add-row~ tree father: repositories-row children: (list (new Tree-Node title: title image: image)) user-data: repository)))
-                              (for-each (function (package)
-                                          (let ((name (package-name package)))
-                                            (let ((title (->string name))
-                                                  (image {Bitmap-Resource "Package"}))
-                                              (add-row~ tree father: repository-row children: (list (new Tree-Node title: title image: image)) user-data: package))))
-                                        (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))))))
+                        (add-repository tree repositories-row repository))
                       (get-repositories)))))))
+  
+  
+  (method (add-repository tree father repository)
+    (let ((name (repository-name repository)))
+      (let ((title (->string name))
+            (image {Bitmap-Resource "Repository"}))
+        (let ((repository-row (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: repository)))
+          (for-each (function (package)
+                      (add-package tree repository-row package))
+                    (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))))))
+  
+  
+  (method (add-package tree father package)
+    (let ((name (package-name package)))
+      (let ((title (->string name))
+            (image {Bitmap-Resource "Package"}))
+        (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package))))
   
   
   ;;;
@@ -152,15 +160,51 @@
             (destination (new-file~ directory ".repository"))
             (associations (list (cons 'name name))))
         (copy-template template destination associations)
-        )))
+        (install/add-repository directory))))
   
   
   (method (on-install-repository evt)
+    (define (load-repository-name file)
+      (call-with-input-file (parse~ file)
+        (lambda (input)
+          (let ((form (read input)))
+            (cadr form)))))
+    
     (let ((dir (choose-directory)))
       (let ((repository-file (new-file~ dir ".repository")))
         (if (exists?~ repository-file)
-            (install-repository (parse~ dir))
+            (let ((name (load-repository-name repository-file)))
+              (if (find-repository name)
+                  (message-box (format "A repository with this name is already installed: {a}" name))
+                (install/add-repository dir)
+                (save-repositories)))
           (message-box "Unable to find \".repository\" file")))))
+  
+  
+  (method (install/add-repository dir)
+    (let ((tree (get-tree))
+          (repositories-row (selected-row))
+          (repository (install-repository (parse~ dir))))
+      (add-repository tree repositories-row repository)))
+  
+  
+  (method (save-repositories)
+    (let ((pref (get-preferences 'repositories))
+          (repositories (collect-user-repositories)))
+      (let ((directories (map (function (repository)
+                                (anchorize~ (new Directory (tokenise-filename (repository-directory repository)))))
+                              repositories)))
+        (set-preferences-property~ (get-application) pref 'repositories directories))))
+  
+  
+  (method (collect-user-repositories)
+    (collect-if (function (repository)
+                  (not (system-repository? repository)))
+                (get-repositories)))
+  
+  
+  (definition (system-repository? repository)
+    (memq? (repository-name repository) '(Install Jazz User)))
   
   
   ;;;
@@ -182,9 +226,18 @@
   
   
   (method (on-new-package evt)
-    (receive (repository package) (get-modal New-Package-Dialog)
-      (debug repository package)
-      ))
+    (receive (repository name) (get-modal New-Package-Dialog)
+      (let* ((template Package-Template)
+             (directory (new Directory (tokenise-filename (repository-directory repository))))
+             (destination (new-directory~ directory name))
+             (associations (list (cons 'name name))))
+        (copy-template template destination associations)
+        (let* ((file (new-file~ destination (list name ".package")))
+               (package (load-package repository name (parse~ file))))
+          (repository-add-package repository package)
+          (let ((tree (get-tree))
+                (repository-row (selected-row)))
+            (add-package tree repository-row package))))))
   
   
   (method (on-rescan-packages evt)
@@ -192,11 +245,14 @@
   
   
   (method (on-uninstall-repository evt)
-    (for-each (function (row)
-                (let ((repository (get-user-data~ row)))
-                  (uninstall-repository repository)
-                  (remove-row~ (get-tree) row)))
-              (selected-rows)))
+    (for-each uninstall/remove-repository (selected-rows))
+    (save-repositories))
+  
+  
+  (method (uninstall/remove-repository row)
+    (let ((repository (get-user-data~ row)))
+      (uninstall-repository repository)
+      (remove-row~ (get-tree) row)))
   
   
   ;;;
@@ -248,6 +304,10 @@
   
   (method (selected-rows)
     (get-selected-rows~ (get-tree)))
+  
+  
+  (method (selected-row)
+    (get-selected-row~ (get-tree)))
 
   
   ;;;
@@ -288,9 +348,7 @@
       (when (> (length objects) 1)
         (set-visible?~ (locate~ menu 'new-package-separator) #f)
         (set-visible?~ (locate~ menu 'new-package) #f))
-      (when (some? (function (repository)
-                     (memq? (repository-name repository) '(Install Jazz User)))
-                   objects)
+      (when (some? system-repository? objects)
         (set-visible?~ (locate~ menu 'uninstall-repository-separator) #f)
         (set-visible?~ (locate~ menu 'uninstall-repository) #f))
       (cleanup-separators~ menu)

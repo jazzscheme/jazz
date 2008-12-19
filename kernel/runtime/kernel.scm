@@ -382,7 +382,8 @@
 (define (jazz.install-repository directory)
   (let ((repository (jazz.load-repository directory)))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))
-    (jazz.setup-repository repository)))
+    (jazz.setup-repository repository)
+    repository))
 
 
 (define (jazz.uninstall-repository repository)

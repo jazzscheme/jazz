@@ -907,8 +907,8 @@
                   (jazz.create-directory subdir feedback: feedback))))))))
 
 
-(define jazz.directory-content
-  directory-files)
+(define (jazz.directory-content directory)
+  (directory-files (list path: directory ignore-hidden: 'dot-and-dot-dot)))
 
 
 (define (jazz.directory-files directory)
@@ -920,7 +920,7 @@
 (define (jazz.directory-directories directory)
   (jazz.collect-if (lambda (name)
                      (%%eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
-                   (jazz.directory-content (list path: directory ignore-hidden: 'dot-and-dot-dot))))
+                   (jazz.directory-content directory)))
 
 
 (define (jazz.pathname-standardize path)

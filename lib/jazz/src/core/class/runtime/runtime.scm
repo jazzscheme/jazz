@@ -527,7 +527,8 @@
 
 
 (define (jazz.get-category-name category)
-  (%%get-category-name category))
+  (%%debug-assert (jazz.category? category)
+    (%%get-category-name category)))
 
 
 (define (jazz.add-field category field)

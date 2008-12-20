@@ -323,12 +323,12 @@
 
 (define (jazz.make-repository name dirname dir subdir #!key (error? #t))
   (if (and dir (%%not (jazz.directory-exists? dir)))
-      (jazz.directory-create dir))
+      (jazz.create-directories dir))
   (if (and dir (jazz.directory-exists? dir))
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
         (if (%%not (jazz.directory-exists? directory))
             (begin
-              (jazz.directory-create directory)
+              (jazz.create-directories directory)
               (call-with-output-file (%%string-append directory jazz.Repository-Filename)
                 (lambda (output)
                   (display "(repository " output)

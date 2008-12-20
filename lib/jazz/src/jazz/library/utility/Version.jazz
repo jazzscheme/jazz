@@ -47,17 +47,15 @@
   (slot major)
   (slot minor)
   (slot stage)
-  (slot release)
   (slot revision)
     
     
-  (method (initialize major minor (stage {}) (release {}) (revision {}))
+  (method (initialize major minor (revision 0) (stage {}))
     (nextmethod)
     (set! major~self major)
     (set! minor~self minor)
-    (set! stage~self stage)
-    (set! release~self release)
-    (set! revision~self revision))
+    (set! revision~self revision)
+    (set! stage~self stage))
 
 
   (method (compare-object target)
@@ -70,7 +68,6 @@
                      (else {})))))
         (either (try major (get-major~ target))
                 (try minor (get-minor~ target))
-                (try release (get-release~ target))
                 (try revision (get-revision~ target))
                 :equal))))
   
@@ -79,9 +76,8 @@
     `(new Version
        ',major
        ',minor
-       ',stage
-       ',release
-       ',revision))
+       ',revision
+       ',stage))
   
   
   (method (print printer readably)
@@ -89,26 +85,23 @@
             (identifier-name (type-name (class-of self)))
             major
             minor
-            stage stage
-            (or (/= release 0) (/= revision 0)) release
-            (/= revision 0) revision))
+            (/= revision 0) revision)
+            stage stage)
   
   
   (method public (present)
     (format "{a}.{a}{a}{a}"
             major
             minor
-            (if (and (= release 0) (= revision 0))
-                ""
-              (format "{a}{a}"
-                      (case stage
-                        ((alpha) "a")
-                        ((beta) "b")
-                        (else "."))
-                      release))
             (if (= revision 0)
                 ""
-              (format "r{a}" revision))))
+              (format ".{a}" revision))
+            (if (not stage)
+                ""
+              (format " {a}"
+                      (case stage
+                        ((alpha) "alpha")
+                        ((beta) "beta"))))))
 
 
   ;;;
@@ -124,13 +117,9 @@
     minor)
   
   
-  (method public (get-stage)
-    stage)
-  
-  
-  (method public (get-release)
-    release)
-  
-  
   (method public (get-revision)
-    revision)))
+    revision)
+  
+  
+  (method public (get-stage)
+    stage)))

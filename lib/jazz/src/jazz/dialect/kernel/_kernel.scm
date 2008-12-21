@@ -617,7 +617,6 @@
 (native jazz.inspect-repl-context)
 (native jazz.repl)
 (native jazz.eval-within-no-winding)
-(native jazz.eval-within-no-winding)
 (native jazz.repl-result-history-add)
 (native repl-result-history-ref)
 

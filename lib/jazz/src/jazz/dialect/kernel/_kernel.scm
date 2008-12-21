@@ -745,11 +745,11 @@
 (native jazz.present-source)
 (native jazz.locat-container)
 (native jazz.locat-position)
+(native jazz.locat->file/line/col)
 (native jazz.container->path)
 (native jazz.position->filepos)
 (native jazz.filepos-line)
 (native jazz.filepos-col)
-(native jazz.locat->file/line/col)
 
 
 ;;;

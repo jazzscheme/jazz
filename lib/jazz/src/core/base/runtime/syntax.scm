@@ -69,6 +69,17 @@
 (define (jazz.locat-position locat)
   (%%locat-position locat))
 
+(define (jazz.locat->file/line/col locat)
+  (if locat
+      (let ((file (%%container->path (%%locat-container locat))))
+        (if file
+            (let ((filepos (%%position->filepos (%%locat-position locat))))
+              (let ((line (%%filepos-line filepos))
+                    (col (%%filepos-col filepos)))
+                (list file line col)))
+          #f))
+    #f))
+
 (define (jazz.container->path container)
   (%%container->path container))
 
@@ -80,17 +91,6 @@
 
 (define (jazz.filepos-col filepos)
   (%%filepos-col filepos))
-
-(define (jazz.locat->file/line/col locat)
-  (if locat
-      (let ((file (%%container->path (%%locat-container locat))))
-        (if file
-            (let ((filepos (%%position->filepos (%%locat-position locat))))
-              (let ((line (%%filepos-line filepos))
-                    (col (%%filepos-col filepos)))
-                (list file line col)))
-          #f))
-    #f))
 
 
 ;;;

@@ -124,18 +124,19 @@
           (remove-every-row~ tree)
           (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})) user-data: {})))
             (for-each (function (repository)
-                        (add-repository tree repositories-row repository))
+                        (add-repository tree repositories-row 'collapsed repository))
                       (get-repositories)))))))
   
   
-  (method (add-repository tree father repository)
+  (method (add-repository tree father state repository)
     (let ((name (repository-name repository)))
       (let ((title (->string name))
             (image {Bitmap-Resource "Repository"}))
-        (let ((repository-row (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: repository)))
+        (let ((repository-row (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: repository)))
           (for-each (function (package)
                       (add-package tree repository-row package))
-                    (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))))))
+                    (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))
+          repository-row))))
   
   
   (method (add-package tree father package)
@@ -185,7 +186,9 @@
     (let ((tree (get-tree))
           (repositories-row (selected-row))
           (repository (install-repository (parse~ dir))))
-      (add-repository tree repositories-row repository)))
+      (let ((repository-row (add-repository tree repositories-row 'expanded repository)))
+        (ensure-expanded~ tree repository-row)
+        (set-single-selection~ tree (row-rank~ tree repository-row)))))
   
   
   (method (save-repositories)
@@ -229,15 +232,17 @@
     (receive (repository name) (get-modal New-Package-Dialog repository: (selected-object))
       (let* ((template Package-Template)
              (directory (new Directory (tokenise-filename (repository-directory repository))))
-             (destination (new-directory~ directory name))
+             (destination directory)
              (associations (list (cons 'name name))))
         (copy-template template destination associations)
         (let* ((file (new-file~ destination (list name ".package")))
-               (package (load-package repository name (parse~ file))))
+               (package (load-package repository (string->symbol name) (parse~ file))))
           (repository-add-package repository package)
           (let ((tree (get-tree))
                 (repository-row (selected-row)))
-            (add-package tree repository-row package))))))
+            (let ((package-row (add-package tree repository-row  package)))
+              (ensure-expanded~ tree package-row)
+              (set-single-selection~ tree (row-rank~ tree package-row))))))))
   
   
   (method (on-rescan-packages evt)

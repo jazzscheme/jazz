@@ -121,7 +121,7 @@
         (thread-start! pump))
       (unwind-protect
           (let (loop)
-            (with-restart-catcher 'resume-loop "Resume event loop" {}
+            (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
               (function ()
                 (catch Cancel-Signal
                   (let ((thunk (thread-read)))
@@ -135,7 +135,7 @@
 (definition (process-events-single-threaded)
   (declare (proper-tail-calls))
   (let (loop)
-    (with-restart-catcher 'resume-loop "Resume event loop" {}
+    (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
       (function ()
         (catch Cancel-Signal
           (process-messages-single-threaded
@@ -147,6 +147,14 @@
                       thunk)
                     (loop)))))))))
     (loop)))
+
+
+(definition (present-event-loop-restart)
+  (let ((level (get-level~ (current-loop))))
+    (format "Resume event loop{a}"
+            (if (= level 0)
+                ""
+              (format " {a}" level)))))
 
 
 ;;;

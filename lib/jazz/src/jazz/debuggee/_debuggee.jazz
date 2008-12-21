@@ -155,6 +155,32 @@
 
 
 ;;;
+;;;; Loop
+;;;
+
+
+(class Loop extends Object
+  
+  
+  (slot level accessors generate)
+  
+  
+  (method (initialize level)
+    (set! level~self level)))
+
+
+(definition current-loop
+  (make-parameter {}))
+
+
+(definition (with-current-loop thunk)
+  (let ((current (current-loop)))
+    (let ((loop (new Loop (if current (+ (get-level~ current) 1) 0))))
+      (parameterize ((current-loop loop))
+        (thunk)))))
+
+
+;;;
 ;;;; Console
 ;;;
 
@@ -481,10 +507,12 @@
               (function ()
                 (parameterize ((current-repl-frame (box {})))
                   (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
-                  (let ((process (get-process)))
-                    (if (not process)
-                        (debuggee-loop)
-                      (process-debuggee-loop~ process)))))))))
+                  (with-current-loop
+                    (function ()
+                      (let ((process (get-process)))
+                        (if (not process)
+                            (debuggee-loop)
+                          (process-debuggee-loop~ process)))))))))))
       (function ()
         (unregister-stop stop)))))
 

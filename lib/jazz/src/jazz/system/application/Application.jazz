@@ -147,6 +147,13 @@
   ;;;
   ;;;; Startup
   ;;;
+  
+  
+  (method (prepare-bindings)
+    (nextmethod)
+    ;; this is critical as any problem in the boot process
+    ;; might display a message-box that needs basic bindings
+    (set-bindings (new Application-Bindings)))
 
 
   (method (prepare-environment)
@@ -1071,18 +1078,21 @@
   
   
   (method (setup-bindings)
+    (define (set-bindings/designer bindings)
+      (set-bindings bindings)
+      (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings)))
+    
     (with-safe-execution "loading the bindings"
       (function ()
         (let ((bindings (load-bindings)))
-          (set-bindings bindings)
-          (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
+          (set-bindings/designer bindings)
           (let ((active (either (get-active-bindings~ (get-preferences #f)) 'jazz)))
             (let ((branch (locate-component~ bindings active)))
               (when (is? branch Branch)
                 (set-active-branch~ bindings branch))))))
       continue-handler:
       (function (err)
-        )))
+        (set-bindings/designer (default-bindings)))))
   
   
   (method protected virtual (load-bindings)
@@ -1226,21 +1236,6 @@
   
   (method public virtual (text-menu text)
     (new-text-context-menu~ text))
-
-
-  ;;;
-  ;;;; Message
-  ;;;
-  
-  
-  (method (show-message-box text rest)
-    (if (not (get-bindings))
-        (apply system-message text rest)
-      (apply ui-message-box text rest)))
-  
-  
-  (method (message-box-available?)
-    (boolean (get-bindings)))
   
   
   ;;;

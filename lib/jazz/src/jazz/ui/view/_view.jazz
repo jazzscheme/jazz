@@ -468,11 +468,11 @@
 
 
 ;;;
-;;;; Message Box
+;;;; Message
 ;;;
 
 
-(definition public (ui-message-box text (class: class {}) (type: type 'message) (title: title {}) (size: size {}) (icon: icon {}) (content: content {}) (sound: sound 'default) (selection: selection {}) (yes: yes {}) (no: no {}) (cancel: cancel {}) (actions: actions '()) (default-button: default-button {}) (process-keys?: process-keys? #t) (sizable?: sizable? #f))
+(definition public (message-box text (class: class {}) (type: type 'message) (title: title {}) (size: size {}) (icon: icon {}) (content: content {}) (sound: sound 'default) (selection: selection {}) (yes: yes {}) (no: no {}) (cancel: cancel {}) (actions: actions '()) (default-button: default-button {}) (process-keys?: process-keys? #t) (sizable?: sizable? #f))
   (receive (process? dialog) (new-dialog (either class Message-Box) host-visible?: #f host-sizable?: sizable?)
     (let ((guest (get-guest~ dialog)))
       (process-box~ guest text
@@ -489,6 +489,39 @@
         actions: actions
         default-button: default-button
         process-keys?: process-keys?))))
+
+
+;;;
+;;;; Safety
+;;;
+
+
+(definition public (with-safe-execution context thunk (continue-text: continue-text {}) (continue-handler: continue-handler {}))
+  (call-with-catch Error
+        (function (err)
+          @convert
+          (dump-stack exception: err)
+          (let ((invite (format "The following error occured while {a}:" context))
+                (message (get-message~ err)))
+            (let ((text
+                    (format "{a}{%}{%}{a}{a}"
+                            invite
+                            message
+                            (if (not continue-handler)
+                                ""
+                              (format "{%}{%}Press Continue {a}, Exit to exit immediately"
+                                      (either continue-text "to bypass this problem"))))))
+              (if (not continue-handler)
+                  (begin
+                    (message-box text yes: "Exit")
+                    (exit))
+                (case (message-box text
+                                   type: 'question
+                                   yes: "Continue"
+                                   no: "Exit")
+                  ((yes) (continue-handler err))
+                  ((no) (exit)))))))
+    thunk))
 
 
 ;;;
@@ -705,7 +738,8 @@
           (let ((host (essay view (get-host~ view))))
             (when host
               (activate-focus~ host)))
-          (process-focus-change~ (get-application) old view))))))
+          (when (process-active?)
+            (process-focus-change~ (get-application) old view)))))))
 
 
 (definition public (get-focus-actions view)

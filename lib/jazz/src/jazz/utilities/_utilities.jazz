@@ -937,46 +937,6 @@
 
 
 ;;;
-;;;; Safety
-;;;
-
-
-(definition public (with-safe-execution context thunk (continue-text: continue-text {}) (continue-handler: continue-handler {}))
-  (call-with-catch Error
-        (function (err)
-          @convert
-          (dump-stack exception: err)
-          (let ((invite (format "The following error occured while {a}:" context))
-                (message (get-message~ err))
-                (message-box? (message-box-available?)))
-            (let ((continue-title (if message-box? "Continue" "Yes"))
-                  (exit-title (if message-box? "Exit" "No")))
-              (let ((text
-                      (format "{a}{%}{%}{a}{a}"
-                              invite
-                              message
-                              (if (not continue-handler)
-                                  (if message-box?
-                                      ""
-                                    (format "{%}{%}Process will exit after you press OK"))
-                                (format "{%}{%}Press {a} {a}, {a} to exit immediately"
-                                        continue-title
-                                        (either continue-text "to bypass this problem")
-                                        exit-title)))))
-                (if (not continue-handler)
-                    (begin
-                      (message-box text yes: "Exit")
-                      (exit))
-                  (case (message-box text
-                                     type: 'question
-                                     yes: "Continue"
-                                     no: "Exit")
-                    ((yes) (continue-handler err))
-                    ((no) (exit))))))))
-    thunk))
-
-
-;;;
 ;;;; Various
 ;;;
 
@@ -1849,23 +1809,6 @@
   (format "{a width: 2 justify: :right padding: #\\0}:{a width: 2 justify: :right padding: #\\0}"
     hour
     minutes))
-
-
-;;;
-;;;; Message
-;;;
-
-
-(definition public (message-box text . rest)
-  (let ((process (get-process)))
-    (if (not process)
-        (apply system-message text rest)
-      (show-message-box~ process text rest))))
-
-
-(definition public (message-box-available?)
-  (let ((process (get-process)))
-    (and process (message-box-available?~ process))))
 
 
 ;;;

@@ -53,4 +53,15 @@
   (%%get-error-message error))
 
 
-(jazz.encapsulate-class jazz.Error))
+(jazz.encapsulate-class jazz.Error)
+
+
+(declare (proper-tail-calls))
+
+
+(define (jazz.raise-jazz-error fmt-string . rest)
+  (let ((message (apply jazz.format fmt-string rest)))
+    (raise (jazz.new-error message))))
+
+
+(set! jazz.error jazz.raise-jazz-error))

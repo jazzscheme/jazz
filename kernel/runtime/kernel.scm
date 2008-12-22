@@ -137,9 +137,13 @@
   (apply error rest))
 
 
-(define (jazz.error fmt-string . rest)
+(define (jazz.raise-system-error fmt-string . rest)
   (let ((error-string (apply jazz.format fmt-string rest)))
     (error error-string)))
+
+
+(define jazz.error #f)
+(set! jazz.error jazz.raise-system-error)
 
 
 (define (jazz.primitive-type-error num type proc args)

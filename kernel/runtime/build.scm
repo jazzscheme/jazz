@@ -40,8 +40,8 @@
 ;;;
 
 
-(define (jazz.make-version number gambit-version gambit-stamp rebuild description)
-  (vector 'version number gambit-version gambit-stamp rebuild description))
+(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile description)
+  (vector 'version number gambit-version gambit-stamp rebuild recompile description))
 
 (define (jazz.version-number version)
   (vector-ref version 1))
@@ -55,8 +55,11 @@
 (define (jazz.version-rebuild version)
   (vector-ref version 4))
 
-(define (jazz.version-description version)
+(define (jazz.version-recompile version)
   (vector-ref version 5))
+
+(define (jazz.version-description version)
+  (vector-ref version 6))
 
 
 (define (jazz.new-version
@@ -65,12 +68,14 @@
           (gambit-version #f)
           (gambit-stamp #f)
           (rebuild #f)
+          (recompile #f)
           (description #f))
   (jazz.make-version
     version
     gambit-version
     gambit-stamp
     rebuild
+    recompile
     description))
 
 
@@ -212,6 +217,20 @@
             rebuild?)))))
 
 
+(define (jazz.kernel/product-architecture-needs-rebuild? version-file)
+  (receive (version gambit-version gambit-stamp) (jazz.load-version-file version-file)
+    (if (not version)
+        #t
+      (or (not (jazz.gambit-uptodate? gambit-version gambit-stamp))
+          (let ((rebuild-architecture? #f))
+            (jazz.for-each-higher-source-version version
+              (lambda (source-version)
+                (if (or (memq (jazz.version-rebuild source-version) '(kernel all))
+                        (jazz.version-recompile source-version))
+                    (set! rebuild-architecture? #t))))
+            rebuild-architecture?)))))
+
+
 (define (jazz.load-version-file version-file)
   (if (file-exists? version-file)
       (call-with-input-file (list path: version-file eol-encoding: 'cr-lf)
@@ -224,14 +243,18 @@
 
 
 (define (jazz.manifest-needs-rebuild? manifest)
-  (let ((version (%%manifest-version manifest)))
+  (let ((name (%%manifest-name manifest))
+        (version (%%manifest-version manifest)))
     ;; test is for backward compatibility and could be removed in the future
     (or (not version)
         (let ((rebuild? #f))
           (jazz.for-each-higher-source-version version
             (lambda (source-version)
-              (if (eq? (jazz.version-rebuild source-version) 'all)
-                  (set! rebuild? #t))))
+              (let ((rebuild (jazz.version-rebuild source-version))
+                    (recompile (jazz.version-recompile source-version)))
+                (if (or (eq? rebuild 'all)
+                        (and recompile (memq name recompile)))
+                    (set! rebuild? #t)))))
           rebuild?))))
 
 
@@ -343,6 +366,7 @@
       
       (define (with-version-file version-file proc)
         (let ((rebuild? (jazz.kernel/product-needs-rebuild? version-file))
+              (rebuild-architecture? (jazz.kernel/product-architecture-needs-rebuild? version-file))
               (was-touched? #f))
           (define (touch)
             (if (file-exists? version-file)
@@ -352,7 +376,7 @@
           (define (touched?)
             was-touched?)
           
-          (proc rebuild? touch touched?)
+          (proc rebuild? rebuild-architecture? touch touched?)
           (if (or was-touched? (not (file-exists? version-file)))
               (call-with-output-file version-file
                 (lambda (output)
@@ -376,11 +400,11 @@
       
       (define (build-kernel)
         (with-version-file (kernel-file "version")
-          (lambda (rebuild? touch touched?)
-            (compile-kernel rebuild? touch touched?))))
+          (lambda (rebuild? rebuild-architecture? touch touched?)
+            (compile-kernel rebuild? rebuild-architecture? touch touched?))))
       
-      (define (compile-kernel rebuild? touch touched?)
-        (let ((architecture? (generate-architecture rebuild?)))
+      (define (compile-kernel rebuild? rebuild-architecture? touch touched?)
+        (let ((architecture? (generate-architecture rebuild? rebuild-architecture?)))
           (define (compile-kernel-file name)
             (if (compile-file rebuild? name kernel-dir kernel-dir)
                 (touch)))
@@ -423,9 +447,9 @@
           (compile-source-file "runtime/" "kernel")
           (compile-source-file "runtime/" "main")))
       
-      (define (generate-architecture rebuild?)
+      (define (generate-architecture rebuild? rebuild-architecture?)
         (let ((file (kernel-file "_architecture.scm")))
-          (if (or rebuild? (not (file-exists? file)))
+          (if (or rebuild? rebuild-architecture? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
@@ -440,7 +464,7 @@
       
       (define (build-product)
         (with-version-file (product-file "version")
-          (lambda (rebuild? touch touched?)
+          (lambda (rebuild? rebuild-architecture? touch touched?)
             (compile-product rebuild? touch touched?))))
       
       (define (compile-product rebuild? touch touched?)

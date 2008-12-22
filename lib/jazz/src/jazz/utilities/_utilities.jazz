@@ -936,45 +936,44 @@
   (is? object Resource))
 
 
-
 ;;;
 ;;;; Safety
 ;;;
 
 
-(definition public (with-safe-execution title proc (continue-text: continue-text {}) (continue-handler: continue-handler {}))
-  (proc)
-  @convert-message-box?
+(definition public (with-safe-execution context thunk (continue-text: continue-text {}) (continue-handler: continue-handler {}))
   (call-with-catch Error
         (function (err)
+          @convert
           (dump-stack exception: err)
-          (let ((invite (format "The following error occured while {a}:" title))
-                (message (present-message~ err active-content?: #f))
-                (message-box? (message-box?)))
-            (let ((text
-                    (if (not message-box?)
-                        (format "{a}{%}{%}{a}{%}{%}Press Yes to try and continue, No to exit" invite (car message))
-                      (append (list invite {})
+          (let ((invite (format "The following error occured while {a}:" context))
+                (message (get-message~ err))
+                (message-box? (message-box-available?)))
+            (let ((continue-title (if message-box? "Continue" "Yes"))
+                  (exit-title (if message-box? "Exit" "No")))
+              (let ((text
+                      (format "{a}{%}{%}{a}{a}"
+                              invite
                               message
-                              (if (and continue-handler continue-text)
-                                  (append (list {}) continue-text)
-                                '())))))
-              (if (not continue-handler)
-                  (begin
-                    (if (not message-box?)
-                        (system-message text)
-                      (message-box text yes: "Exit"))
-                    (exit))
-                (case (if (not message-box?)
-                          (system-message text type: 'question)
-                        (message-box text
+                              (if (not continue-handler)
+                                  (if message-box?
+                                      ""
+                                    (format "{%}{%}Process will exit after you press OK"))
+                                (format "{%}{%}Press {a} {a}, {a} to exit immediately"
+                                        continue-title
+                                        (either continue-text "to bypass this problem")
+                                        exit-title)))))
+                (if (not continue-handler)
+                    (begin
+                      (message-box text yes: "Exit")
+                      (exit))
+                  (case (message-box text
                                      type: 'question
                                      yes: "Continue"
-                                     no: "Exit"))
-                  ((yes) (continue-handler err))
-                  ((no) (exit)))))))
-      {}
-    proc))
+                                     no: "Exit")
+                    ((yes) (continue-handler err))
+                    ((no) (exit))))))))
+    thunk))
 
 
 ;;;
@@ -1861,7 +1860,12 @@
   (let ((process (get-process)))
     (if (not process)
         (apply system-message text rest)
-      (show-box~ process text rest))))
+      (show-message-box~ process text rest))))
+
+
+(definition public (message-box-available?)
+  (let ((process (get-process)))
+    (and process (message-box-available?~ process))))
 
 
 ;;;

@@ -490,12 +490,14 @@
               (let ((root (assq 'root alist))
                     (install (assq 'install alist))
                     (products (assq 'products alist))
-                    (profiles (assq 'profiles alist)))
+                    (profiles (assq 'profiles alist))
+                    (project (assq 'project alist)))
                 (jazz.make-package repository name
                   (if root (%%cadr root) #f)
                   (if install (%%cadr install) #f)
                   (if products (%%cdr products) '())
-                  (if profiles (%%cdr profiles) '())))
+                  (if profiles (%%cdr profiles) '())
+                  (if project (%%cadr project) #f)))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
@@ -541,11 +543,11 @@
        (%%eq? (%%vector-ref obj 0) 'package)))
 
 
-(define (jazz.make-package repository name root install products profiles)
+(define (jazz.make-package repository name root install products profiles project)
   (let ((path (if (%%not root)
                   (%%symbol->string name)
                 (%%string-append (%%symbol->string name) "/" root))))
-    (%%make-package repository name root path install products profiles)))
+    (%%make-package repository name root path install products profiles project)))
 
 
 (define (jazz.package-pathname package path)

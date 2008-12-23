@@ -39,11 +39,13 @@
 
 
 (import (jazz.builder)
+        (jazz.builder.workbench)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.library.template)
         (jazz.literals)
+        (jazz.runtime)
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view)
@@ -141,9 +143,12 @@
   
   (method (add-package tree father package)
     (let ((name (package-name package)))
-      (let ((title (->string name))
-            (image {Bitmap-Resource "Package"}))
-        (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package))))
+      (receive (project-name project-module) (parse-package-project package)
+        (let ((title (->string name))
+              (image (cond ((not project-name) {Bitmap-Resource "NoProjectPackage"})
+                           ((find-project~ (get-workbench) project-name) {Bitmap-Resource "Package"})
+                           (else {Bitmap-Resource "UninstalledPackage"}))))
+          (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package)))))
   
   
   ;;;
@@ -290,7 +295,38 @@
   
   
   (method (on-install-in-workbench evt)
-    )
+    (let ((workbench-manager (get-workbench-manager~ (get-application)))
+          (workbench (get-workbench))
+          (tree (get-tree)))
+      (for-each (function (row)
+                  (install-in-workbench workbench-manager workbench tree row))
+                (selected-rows))))
+  
+  
+  (method (install-in-workbench workbench-manager workbench tree row)
+    (let ((package (get-user-data~ row)))
+      (receive (name module) (parse-package-project package)
+        (let ((file (find-module-source module)))
+          (install-project~ workbench-manager file workbench #f)
+          (let ((rank (row-rank~ tree row)))
+            (let ((cell (new Cell rank 0)))
+              (let ((node (get-cell-data~ tree cell)))
+                (set-image~ node {Bitmap-Resource "Package"})
+                (invalidate-cell~ tree cell))))))))
+  
+  
+  (method (parse-package-project package)
+    (let ((project (package-project package)))
+      (if (not project)
+          (values {} {})
+        (let ((name (car project))
+              (module (cadr (assq 'module (cdr project)))))
+          (values name module)))))
+  
+  
+  (method (package-project-installable? package)
+    (receive (name module) (parse-package-project package)
+      (and name (not (find-project~ (get-workbench) name)))))
   
   
   ;;;
@@ -382,6 +418,9 @@
   
   (method (new-package-menu objects)
     (let ((menu (new Package-Menu client: (get-tree))))
+      (unless (every? package-project-installable? objects)
+        (set-visible?~ (locate~ menu 'install-package-separator) #f)
+        (set-visible?~ (locate~ menu 'install-package) #f))
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu)))
@@ -431,6 +470,6 @@
   
   (form
     (<install>
-      (<Label-Item> name: edit-package    title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-package})
-      (<Separator-Item>)
-      (<Label-Item> name: install-package title: "Install in Workbench" icon: {Bitmap-Resource "Import"} action: {Action repositories-manager install-in-workbench})))))
+      (<Label-Item>     name: edit-package              title: "Edit" icon: {Bitmap-Resource "Edit"} action: {Action repositories-manager edit-package})
+      (<Separator-Item> name: install-package-separator)
+      (<Label-Item>     name: install-package           title: "Install in Workbench" icon: {Bitmap-Resource "Import"} action: {Action repositories-manager install-in-workbench})))))

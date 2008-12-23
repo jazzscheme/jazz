@@ -48,6 +48,10 @@
       (jazz.pathname-normalize (current-directory)))
     
     (define (jazz.current-directory-set! dir)
-      (current-directory dir)))
+      (current-directory dir))
+    
+    (define (jazz.with-current-directory dir thunk)
+      (parameterize ((current-directory dir))
+        (thunk))))
   
   (else)))

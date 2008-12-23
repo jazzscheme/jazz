@@ -68,6 +68,41 @@
 
 
   ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method (project-debug (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (if product
+        (launch
+          debug?: #t
+          profile: profile
+          command-action: command-action
+          command-arguments: command-arguments
+          show-console?: show-console?
+          wait?: wait?)
+      (message-box "Project doesn't define a product property")))
+
+
+  ;;;
+  ;;;; Run
+  ;;;
+  
+  
+  ;; should try and launch a built executable of the project if present
+  (method (project-run (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (if product
+        (launch
+          debug?: #f
+          profile: profile
+          command-action: command-action
+          command-arguments: command-arguments
+          show-console?: show-console?
+          wait?: wait?)
+      (message-box "Project doesn't define a product property")))
+
+
+  ;;;
   ;;;; Launch
   ;;;
   
@@ -80,7 +115,7 @@
       (let* ((runtime-arg   (list))
              (product-arg   (list "-run" (->string product)))
              (debugger-arg  (if debug? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-             (profile       (either profile (default-profile)))
+             (profile       (either profile (project-profile)))
              (profile-arg   (if profile (list "-profile" (->string profile)) '()))
              (action-arg    (if command-action (list command-action) '()))
              (arguments-arg (if command-arguments command-arguments '()))
@@ -92,7 +127,7 @@
           show-console?: show-console?))))
   
   
-  (method protected virtual (default-profile)
+  (method protected virtual (project-profile)
     {})
   
   
@@ -104,6 +139,21 @@
           executable
         (message-box (format "Unable to find kernel{?~: {a}~}" destination))
         (throw-cancel))))
+
+
+  ;;;
+  ;;;; Build
+  ;;;
+
+
+  (method (project-build)
+    (if product
+        (begin
+          ;; should be only the project's files...
+          (save-all~ (get-application))
+          (let ((kernel (project-kernel)))
+            (launch-kernel kernel arguments: (list "-make" (->string product)) show-console?: #t)))
+      (message-box "Project doesn't define a product property")))
 
 
   ;;;

@@ -236,12 +236,16 @@
     (activate-selection))
   
   
-  (method (on-launch evt)
-    (launch-selection))
-  
-  
   (method (on-run evt)
     (run-selection))
+  
+  
+  (method (on-debug evt)
+    (debug-selection))
+  
+  
+  (method (on-launch evt)
+    (launch-selection))
   
   
   (method (on-distribute evt)
@@ -787,26 +791,17 @@
 
   
   ;;;
-  ;;;; Launch
+  ;;;; Debug
   ;;;
   
   
-  (method public (launch-current)
+  (method public (debug-current)
     (debug-project (current-project)))
   
   
-  (method public (launch-selection)
-    (let ((appl (get-application))
-          (tree (get-tree)))
-      (for-each (function (component)
-                  (typecase component
-                    ((Project)
-                     (debug-project component))
-                    ((Project-File)
-                     (let* ((file (get-effective-source~ component))
-                            (ext (get-extension~ file)))
-                       (edit-document~ appl file)))))
-                (selected-components~ tree))))
+  (method public (debug-selection)
+    (let ((project (current-project)))
+      (debug-project project)))
       
   
   (method (debug-project project)
@@ -829,6 +824,46 @@
   
   (method (run-project project)
     (run-project~ (get-application) project))
+
+  
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method public (launch-selection)
+    (let ((appl (get-application))
+          (tree (get-tree)))
+      (for-each (function (component)
+                  (typecase component
+                    ((Project)
+                     (debug-project component))
+                    ((Project-File)
+                     (let* ((file (get-effective-source~ component))
+                            (ext (get-extension~ file)))
+                       (edit-document~ appl file)))))
+                (selected-components~ tree))))
+  
+  
+  ;;;
+  ;;;; Build
+  ;;;
+  
+  
+  (method (on-build-current evt)
+    (let ((project (current-project)))
+      (if (not project)
+          (bell)
+        (build-project project))))
+  
+  
+  (method public (build-current)
+    (let ((project (current-project)))
+      (build-project project)))
+  
+  
+  (method (build-project project)
+    (project-build~ project))
   
   
   ;;;
@@ -894,33 +929,6 @@
                  (preprocess~ file project {} {} output force?: #t)
                  (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})))
-  
-  
-  ;;;
-  ;;;; Build
-  ;;;
-  
-  
-  (method (on-build-current evt)
-    (let ((project (current-project)))
-      (if (not project)
-          (bell)
-        (build-project project))))
-  
-  
-  (method public (build-current)
-    ;; should be only the project's files...
-    (save-all~ (get-application))
-    (let ((project (current-project)))
-      (build-project project)))
-  
-  
-  (method (build-project project)
-    (if (concrete?~ project)
-        (let ((kernel (project-kernel~ project))
-              (project-name (get-product~ project)))
-          (launch-kernel kernel arguments: (list "-make" (->string project-name)) show-console?: #t))
-      (bell)))
   
   
   ;;;

@@ -390,6 +390,7 @@
 (native jazz.repository-directory)
 (native jazz.repository-packages)
 (native jazz.repository-find-package)
+(native jazz.repository-install-packages)
 (native jazz.repository-add-package)
 (native jazz.repository-remove-package)
 (native jazz.package?)

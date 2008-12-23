@@ -413,10 +413,7 @@
   (or (%%repository-packages-table repository)
       (let ((table (%%make-table test: eq?)))
         (%%repository-packages-table-set! repository table)
-        (let ((packages (jazz.repository-discover-packages repository)))
-          (for-each (lambda (package)
-                      (%%table-set! table (%%package-name package) package))
-                    packages))
+        (jazz.repository-install-packages repository)
         table)))
 
 
@@ -444,8 +441,18 @@
   (%%table-ref (jazz.repository-packages-table repository) package-name #f))
 
 
+(define (jazz.repository-install-packages repository)
+  (let ((table (%%repository-packages-table repository))
+        (packages (jazz.repository-discover-packages repository)))
+    (for-each (lambda (package)
+                (%%table-set! table (%%package-name package) package))
+              packages)
+    packages))
+
+
 (define (jazz.repository-discover-packages repository)
-  (let ((repository-directory (%%repository-directory repository)))
+  (let ((table (%%repository-packages-table repository))
+        (repository-directory (%%repository-directory repository)))
     (if (jazz.directory-exists? repository-directory)
         (let iter ((dirnames (jazz.directory-directories repository-directory))
                    (packages '()))
@@ -455,7 +462,10 @@
               (let ((directory (%%string-append repository-directory dirname "/")))
                 (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
                   (if (jazz.file-exists? package-pathname)
-                      (iter (%%cdr dirnames) (cons (jazz.load-package repository (%%string->symbol dirname) package-pathname) packages))
+                      (let ((package-name (%%string->symbol dirname)))
+                        (if (%%table-ref table package-name #f)
+                            (iter (%%cdr dirnames) packages)
+                          (iter (%%cdr dirnames) (cons (jazz.load-package repository package-name package-pathname) packages))))
                     (iter (%%cdr dirnames) packages)))))))
       '())))
 

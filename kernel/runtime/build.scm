@@ -656,10 +656,6 @@
   #f)
 
 
-(define jazz.pathname-exists?
-  file-exists?)
-
-
 (define (jazz.file-modification-time pathname)
   (time->seconds (file-last-modification-time pathname)))
 
@@ -678,24 +674,6 @@
   (or (%%not (file-exists? dst))
       (> (jazz.file-modification-time src)
          (jazz.file-modification-time dst))))
-
-
-(define (jazz.pathname-standardize path)
-  (jazz.string-replace path #\\ #\/))
-
-
-(define (jazz.pathname-normalize path #!optional (error? #t))
-  (if (%%not (jazz.pathname-exists? path))
-      (if error?
-          (jazz.error "No such directory: {s}" path)
-        #f)
-    (let ((len (%%string-length path)))
-      (let ((dir? (jazz.string-ends-with? path "/")))
-        (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
-          (let ((standardized (jazz.pathname-standardize normalized)))
-            (if (and dir? (%%not (jazz.string-ends-with? standardized "/")))
-                (%%string-append standardized "/")
-              standardized)))))))
 
 
 (define (jazz.relativise-directory dir basedir)

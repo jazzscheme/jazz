@@ -532,7 +532,9 @@
                                  (jazz.parse-destination destination
                                    (lambda (alias title)
                                      (and (or (not alias) (memq alias '(user jazz bin)))
-                                          (or (not title) (jazz.valid-filename? title)))))))
+                                          (if (eq? alias 'bin)
+                                              (not title)
+                                            (and title (jazz.valid-filename? title))))))))
       destination
     (jazz.error "Invalid destination: {s}" destination)))
 

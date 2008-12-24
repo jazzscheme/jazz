@@ -36,147 +36,8 @@
 
 
 ;;;
-;;;; Version
-;;;
-
-
-(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile description)
-  (vector 'version number gambit-version gambit-stamp rebuild recompile description))
-
-(define (jazz.version-number version)
-  (vector-ref version 1))
-
-(define (jazz.version-gambit-version version)
-  (vector-ref version 2))
-
-(define (jazz.version-gambit-stamp version)
-  (vector-ref version 3))
-
-(define (jazz.version-rebuild version)
-  (vector-ref version 4))
-
-(define (jazz.version-recompile version)
-  (vector-ref version 5))
-
-(define (jazz.version-description version)
-  (vector-ref version 6))
-
-
-(define (jazz.new-version
-          #!key
-          (version #f)
-          (gambit-version #f)
-          (gambit-stamp #f)
-          (rebuild #f)
-          (recompile #f)
-          (description #f))
-  (jazz.make-version
-    version
-    gambit-version
-    gambit-stamp
-    rebuild
-    recompile
-    description))
-
-
-(define (jazz.split-version number)
-  (let ((str (number->string number)))
-    (let ((len (string-length str)))
-      (let ((major (string->number (substring str 0 (- len 5))))
-            (minor (string->number (substring str (- len 5) (- len 3))))
-            (revision (string->number (substring str (- len 3) len))))
-        (values major minor revision)))))
-
-
-(define (jazz.present-version number)
-  (receive (major minor revision) (jazz.split-version number)
-    (string-append (number->string major)
-                   "."
-                   (number->string minor)
-                   "."
-                   (number->string revision)
-                   " beta")))
-
-
-;;;
 ;;;; Versions
 ;;;
-
-
-(define jazz.source-versions-file
-  #f)
-
-(define jazz.source-versions
-  #f)
-
-(define jazz.source-version-number
-  #f)
-
-(define jazz.gambit-version
-  #f)
-
-(define jazz.gambit-stamp
-  #f)
-
-
-(define jazz.load-source-versions
-  (let ((loaded? #f))
-    (lambda ()
-      (define (determine-source-versions-file)
-        (or jazz.source-versions-file
-            (and jazz.kernel-source (string-append jazz.kernel-source "kernel/versions"))))
-      
-      (define (load-versions)
-        (let ((file (determine-source-versions-file)))
-          (if (and file (file-exists? file))
-              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
-                (lambda (input)
-                  (define (read-version input)
-                    (let ((list (read input)))
-                      (if (eof-object? list)
-                          list
-                        (apply jazz.new-version list))))
-                  (set! jazz.source-versions (read-all input read-version))
-                  (set! jazz.source-version-number (jazz.version-number (car jazz.source-versions))))))))
-      
-      (define (setup-gambit-version/stamp)
-        (if jazz.source-versions
-            (let iter ((source-versions jazz.source-versions))
-              (if (not (null? source-versions))
-                  (let ((source-version (car source-versions)))
-                    (let ((gambit-version (jazz.version-gambit-version source-version))
-                          (gambit-stamp (jazz.version-gambit-stamp source-version)))
-                      (if gambit-version
-                          (begin
-                            (set! jazz.gambit-version gambit-version)
-                            (set! jazz.gambit-stamp gambit-stamp))
-                        (iter (cdr source-versions)))))))))
-      
-      (if (not loaded?)
-          (begin
-            (load-versions)
-            (setup-gambit-version/stamp)
-            (set! loaded? #t))))))
-
-
-(define (jazz.get-source-versions)
-  (jazz.load-source-versions)
-  jazz.source-versions)
-
-
-(define (jazz.get-source-version-number)
-  (jazz.load-source-versions)
-  jazz.source-version-number)
-
-
-(define (jazz.get-gambit-version)
-  (jazz.load-source-versions)
-  jazz.gambit-version)
-
-
-(define (jazz.get-gambit-stamp)
-  (jazz.load-source-versions)
-  jazz.gambit-stamp)
 
 
 (define (jazz.for-each-source-version proc)
@@ -191,17 +52,6 @@
               (begin
                 (proc source-version)
                 (iter (cdr source-versions))))))))
-
-
-(define (jazz.gambit-uptodate? system-version system-stamp)
-  (let ((gambit-version (jazz.get-gambit-version))
-        (gambit-stamp (jazz.get-gambit-stamp)))
-    (if gambit-version
-        (if (not gambit-stamp)
-            (>= system-version gambit-version)
-          (or (> system-version gambit-version)
-              (>= system-stamp gambit-stamp)))
-      #t)))
 
 
 (define (jazz.kernel/product-needs-rebuild? version-file)
@@ -256,53 +106,6 @@
                         (and recompile (memq name recompile)))
                     (set! rebuild? #t)))))
           rebuild?))))
-
-
-;;;
-;;;; Destination
-;;;
-
-
-(define (jazz.parse-destination dest proc)
-  (if (not dest)
-      (proc #f #f)
-    (let ((pos (jazz.string-find dest #\:))
-          (len (string-length dest)))
-      (if (not pos)
-          (proc #f dest)
-        (proc (if (= pos 0)
-                  #f
-                (string->symbol (substring dest 0 pos)))
-              (if (= pos (- len 1))
-                  #f
-                (substring dest (+ pos 1) len)))))))
-
-
-(define jazz.user-build-directory
-  #f)
-
-
-(define (jazz.get-user-build-directory)
-  (define (user-build-directory)
-    (let ((dir "~/jazz_user/build/"))
-      (jazz.create-directories dir)
-      (jazz.pathname-normalize dir)))
-  
-  (or jazz.user-build-directory
-      (let ((dir (user-build-directory)))
-        (set! jazz.user-build-directory dir)
-        dir)))
-
-
-(define (jazz.destination-directory name destination source)
-  (jazz.parse-destination (cond (destination destination)
-                                (name (jazz.format ":{a}" name))
-                                (else "bin:"))
-    (lambda (alias dirname)
-      (case (or alias 'user)
-        ((user) (string-append (jazz.get-user-build-directory) dirname "/"))
-        ((jazz) (string-append source "build/" dirname "/"))
-        ((bin) (string-append source "bin/"))))))
 
 
 ;;;
@@ -442,6 +245,7 @@
           (compile-source-file "syntax/" "primitives")
           (compile-source-file "syntax/" "syntax")
           (compile-source-file "syntax/" "runtime")
+          (compile-source-file "runtime/" "base")
           (compile-source-file "runtime/" "build")
           (compile-source-file "runtime/" "settings")
           (compile-source-file "runtime/" "install")
@@ -506,6 +310,7 @@
                                           (kernel-file "syntax/primitives")
                                           (kernel-file "syntax/syntax")
                                           (kernel-file "syntax/runtime")
+                                          (kernel-file "runtime/base")
                                           (kernel-file "runtime/build")
                                           (kernel-file "runtime/settings")
                                           (kernel-file "runtime/install")
@@ -631,6 +436,7 @@
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/primitives.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/syntax.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/runtime.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/base.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
@@ -719,40 +525,6 @@
      "")))
 
 
-(define (jazz.print-configuration name system platform windowing safety optimize? include-source? interpret? source? destination output)
-  (define first?
-    #t)
-  
-  (define (print-property property value)
-    (if first?
-        (set! first? #f)
-      (display " " output))
-    (display property output)
-    (display " " output)
-    (write value output))
-  
-  (display "(" output)
-  (if name
-      (print-property name: name))
-  (print-property system: system)
-  (print-property platform: platform)
-  (if windowing
-      (print-property windowing: windowing))
-  (print-property safety: safety)
-  (if (not optimize?)
-      (print-property optimize?: optimize?))
-  (if include-source?
-      (print-property include-source?: include-source?))
-  (if interpret?
-      (print-property interpret?: interpret?))
-  (if (not (eqv? source? #t))
-      (print-property source?: source?))
-  (if destination
-      (print-property destination: destination))
-  (display ")" output)
-  (newline output))
-
-
 (define (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
@@ -789,12 +561,6 @@
 ;;;
 ;;;; Feedback
 ;;;
-
-
-(define (jazz.feedback fmt-string . rest)
-  (display (apply jazz.format fmt-string rest))
-  (newline)
-  (force-output))
 
 
 (define jazz.build-feedback
@@ -893,9 +659,6 @@
 (define jazz.pathname-exists?
   file-exists?)
 
-(define jazz.pathname-type
-  file-type)
-
 
 (define (jazz.file-modification-time pathname)
   (time->seconds (file-last-modification-time pathname)))
@@ -915,41 +678,6 @@
   (or (%%not (file-exists? dst))
       (> (jazz.file-modification-time src)
          (jazz.file-modification-time dst))))
-
-
-(define (jazz.create-directory dir #!key (feedback #f))
-  (if (%%not (file-exists? dir))
-      (begin
-        (if feedback
-            (feedback "; creating {a}..." dir))
-        (create-directory dir))))
-
-
-(define (jazz.create-directories dir #!key (feedback #f))
-  (let ((path (%%reverse (jazz.split-string dir #\/))))
-    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
-      (if (%%not (%%null? scan))
-          (begin
-            (iter (%%cdr scan))
-            (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
-              (if (%%not (file-exists? subdir))
-                  (jazz.create-directory subdir feedback: feedback))))))))
-
-
-(define jazz.directory-content
-  directory-files)
-
-
-(define (jazz.directory-files directory)
-  (jazz.collect-if (lambda (name)
-                     (%%eq? (jazz.pathname-type (%%string-append directory name)) 'regular))
-                   (jazz.directory-content (list path: directory ignore-hidden: 'dot-and-dot-dot))))
-
-
-(define (jazz.directory-directories directory)
-  (jazz.collect-if (lambda (name)
-                     (%%eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
-                   (jazz.directory-content (list path: directory ignore-hidden: 'dot-and-dot-dot))))
 
 
 (define (jazz.pathname-standardize path)
@@ -996,36 +724,3 @@
     (else
      ;; quoting is only necessary on windows as arguments are passed explicitly in unix
      pathname)))
-
-
-;;;
-;;;; Process
-;;;
-
-
-(define (jazz.call-process path arguments #!optional (directory #f))
-  (let ((port (open-process
-                (%%list
-                  path: path
-                  arguments: arguments
-                  directory: (or directory (current-directory))
-                  stdin-redirection: #f
-                  stdout-redirection: #f
-                  stderr-redirection: #f))))
-    (let ((code (process-status port)))
-      (if (%%not (%%fx= code 0))
-          (jazz.error "failed")))))
-
-
-;;;
-;;;; Debug
-;;;
-
-
-(define (jazz.debug-exception exc console display-exception? display-backtrace?)
-  (if display-exception?
-      (display-exception exc console))
-  (if display-backtrace?
-      (continuation-capture
-        (lambda (cont)
-          (display-continuation-backtrace cont console #t #t 0 30)))))

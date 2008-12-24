@@ -795,6 +795,16 @@
 ;;;
 
 
+(define (jazz.collect-if predicate lst)
+  (let iter ((scan lst))
+    (if (not (null? scan))
+        (let ((value (car scan)))
+          (if (predicate value)
+              (cons value (iter (cdr scan)))
+            (iter (cdr scan))))
+      '())))
+
+
 (define (jazz.filter pred lis)
   (let recur ((lis lis))
     (if (null? lis) lis
@@ -837,6 +847,46 @@
 
 
 ;;;
+;;;; String
+;;;
+
+
+(define (jazz.string-find str c)
+  (let ((len (string-length str)))
+    (let iter ((n 0))
+      (cond ((>= n len)
+             #f)
+            ((char=? (string-ref str n) c)
+             n)
+            (else
+             (iter (+ n 1)))))))
+
+
+(define (jazz.split-string str separator)
+  (let ((lst '())
+        (end (string-length str)))
+    (let iter ((pos (- end 1)))
+      (if (> pos 0)
+          (begin
+            (if (eqv? (string-ref str pos) separator)
+                (begin
+                  (set! lst (cons (substring str (+ pos 1) end) lst))
+                  (set! end pos)))
+            (iter (- pos 1))))
+        (cons (substring str 0 end) lst))))
+
+
+(define (jazz.join-strings strings separator)
+  (let ((output (open-output-string)))
+    (display (car strings) output)
+    (for-each (lambda (string)
+                (display separator output)
+                (display string output))
+              (cdr strings))
+    (get-output-string output)))
+
+
+;;;
 ;;;; Pathname
 ;;;
 
@@ -871,7 +921,10 @@
 (define jazz.prompt
   "% ")
 
-(define jazz.debug-build-system?
+(define jazz.display-exception?
+  #t)
+
+(define jazz.display-backtrace?
   #f)
 
 
@@ -888,7 +941,7 @@
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
-                (jazz.debug-exception exc console #t jazz.debug-build-system?)
+                (jazz.debug-exception exc console jazz.display-exception? jazz.display-backtrace?)
                 (continuation-return stop #f))
               (lambda ()
                 (jazz.process-command command console)))))
@@ -968,6 +1021,7 @@
       (let ((arg (car command-arguments)))
         (cond ((and (option? arg)
                     (equal? (convert-option arg) "debug"))
+               (jazz.load-kernel-build)
                (##repl-debug-main))
               ((or (and (option? arg)
                         (equal? (convert-option arg) "build"))
@@ -978,6 +1032,7 @@
                  (define (build target-argument configuration-argument)
                    (let ((target (string->symbol target-argument))
                          (configuration-name (and configuration-argument (string->symbol configuration-argument))))
+                     (jazz.load-kernel-build)
                      (jazz.build target configuration-name)))
                  
                  (case (length arguments)
@@ -1020,13 +1075,18 @@
   #f)
 
 
-(load "kernel/syntax/header")
-(load "kernel/syntax/macros")
-(load "kernel/syntax/expansion")
-(load "kernel/syntax/features")
-(load "kernel/syntax/declares")
-(load "kernel/syntax/primitives")
-(load "kernel/runtime/build")
+(define (jazz.load-kernel-base)
+  (load "kernel/runtime/base"))
+
+
+(define (jazz.load-kernel-build)
+  (load "kernel/syntax/header")
+  (load "kernel/syntax/macros")
+  (load "kernel/syntax/expansion")
+  (load "kernel/syntax/features")
+  (load "kernel/syntax/declares")
+  (load "kernel/syntax/primitives")
+  (load "kernel/runtime/build"))
 
 
 ;;;
@@ -1034,6 +1094,7 @@
 ;;;
 
 
+(jazz.load-kernel-base)
 (jazz.setup-versions)
 (jazz.load-configurations)
 (jazz.build-system-boot)

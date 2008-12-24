@@ -422,6 +422,7 @@
                 (load (kernel-file "_architecture"))
                 
                 ;; load syntax
+                (load (source-file "kernel/syntax/header"))
                 (load (source-file "kernel/syntax/macros"))
                 (load (source-file "kernel/syntax/expansion"))
                 (load (source-file "kernel/syntax/features"))
@@ -433,6 +434,7 @@
           (if architecture?
               (compile-kernel-file "_architecture"))
           
+          (compile-source-file "syntax/" "header")
           (compile-source-file "syntax/" "macros")
           (compile-source-file "syntax/" "expansion")
           (compile-source-file "syntax/" "features")
@@ -496,6 +498,7 @@
                   (feedback-message "; linking kernel...")
                   (link-incremental (list (kernel-file "_architecture")
                                           (product-file "_product")
+                                          (kernel-file "syntax/header")
                                           (kernel-file "syntax/macros")
                                           (kernel-file "syntax/expansion")
                                           (kernel-file "syntax/features")
@@ -620,6 +623,7 @@
           "gcc"
           `(,(jazz.quote-gcc-pathname (kernel-file "_architecture.c") platform)
             ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/header.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/macros.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/expansion.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/features.c") platform)

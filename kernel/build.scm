@@ -1020,6 +1020,7 @@
   #f)
 
 
+(load "kernel/syntax/header")
 (load "kernel/syntax/macros")
 (load "kernel/syntax/expansion")
 (load "kernel/syntax/features")

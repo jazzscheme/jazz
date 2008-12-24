@@ -45,9 +45,6 @@
 
 (cond-expand
   (gambit
-    (include "~~/lib/_gambit#.scm")
-    
-    
     (define (jazz.make-jazz-readtable)
       (let ((readtable (readtable-max-unescaped-char-set (%%readtable-copy ##main-readtable) #\U0010ffff)))
         (jazz.jazzify-readtable! readtable)
@@ -55,7 +52,7 @@
     
     
     (define (jazz.jazzify-readtable! readtable)
-      (macro-readtable-named-char-table-set! readtable (append (macro-readtable-named-char-table readtable) jazz.named-chars))
+      (jazz.readtable-named-char-table-set! readtable (append (jazz.readtable-named-char-table readtable) jazz.named-chars))
       (%%readtable-char-class-set! readtable #\{ #t jazz.read-literal)
       (%%readtable-char-class-set! readtable #\@ #t jazz.read-comment)
       (%%readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
@@ -113,20 +110,20 @@
     
     
     (define (jazz.read-literal re c)
-      (let ((port (macro-readenv-port re))
+      (let ((port (jazz.readenv-port re))
             (start-pos (%%readenv-current-filepos re)))
         (read-char port)
         (if (%%eqv? (peek-char port) #\@)
             (jazz.error "Trying to read an unreadable literal")
           (let ((lst (%%build-list re #t start-pos #\})))
-            (macro-readenv-wrap re
+            (jazz.readenv-wrap re
               (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
                   #f
                 (jazz.construct-literal (map (lambda (expr) (%%desourcify expr)) lst))))))))
     
     
     (define (jazz.read-comment re c)
-      (let ((port (macro-readenv-port re)))
+      (let ((port (jazz.readenv-port re)))
         (parameterize ((jazz.in-expression-comment? #t))
           (read-char port)
           (read port)   ; comment name
@@ -135,7 +132,7 @@
     
     
     (define (jazz.read-delimited-string re next start-pos)
-      (let ((port (macro-readenv-port re)))
+      (let ((port (jazz.readenv-port re)))
         (read-char port)
         (let ((output (open-output-string)))
           (let iter ()
@@ -157,7 +154,7 @@
                     ((and (%%eqv? c #\")
                           (%%eqv? (peek-char port) #\#))
                      (read-char port)
-                     (macro-readenv-wrap re (get-output-string output)))
+                     (jazz.readenv-wrap re (get-output-string output)))
                     (else
                      (write-char c output)
                      (iter))))))))
@@ -173,7 +170,7 @@
     
     
     (define (jazz.char-symbol char)
-      (let ((table (macro-readtable-named-char-table jazz.jazz-readtable)))
+      (let ((table (jazz.readtable-named-char-table jazz.jazz-readtable)))
         (let ((res (jazz.rassq char table)))
           (and res (%%car res))))))
   

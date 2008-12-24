@@ -38,9 +38,6 @@
 (module core.class.runtime.runtime
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (define jazz.new-interface-rank
   0)
 
@@ -1562,20 +1559,20 @@
     (define jazz.thread-type
       (%%structure-type (current-thread)))
     
-    (%%vector-set! jazz.subtypes (macro-subtype-vector)       jazz.Vector)
-    (%%vector-set! jazz.subtypes (macro-subtype-pair)         jazz.Pair)
-    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)       jazz.Rational)
-    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)       jazz.Complex)
-    (%%vector-set! jazz.subtypes (macro-subtype-symbol)       jazz.Symbol)
-    (%%vector-set! jazz.subtypes (macro-subtype-keyword)      jazz.Keyword)
-    (%%vector-set! jazz.subtypes (macro-subtype-continuation) jazz.Continuation)
-    (%%vector-set! jazz.subtypes (macro-subtype-procedure)    jazz.Procedure)
-    (%%vector-set! jazz.subtypes (macro-subtype-string)       jazz.String)
-    (%%vector-set! jazz.subtypes (macro-subtype-flonum)       jazz.Flonum)
-    (%%vector-set! jazz.subtypes (macro-subtype-bignum)       jazz.Rational)
-    (%%vector-set! jazz.subtypes (macro-subtype-foreign)      jazz.Foreign)
-    (%%vector-set! jazz.subtypes (macro-subtype-u8vector)     jazz.U8Vector)
-    (%%vector-set! jazz.subtypes (macro-subtype-boxvalues)    jazz.Values)
+    (%%vector-set! jazz.subtypes jazz.subtype-vector       jazz.Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-pair         jazz.Pair)
+    (%%vector-set! jazz.subtypes jazz.subtype-ratnum       jazz.Rational)
+    (%%vector-set! jazz.subtypes jazz.subtype-cpxnum       jazz.Complex)
+    (%%vector-set! jazz.subtypes jazz.subtype-symbol       jazz.Symbol)
+    (%%vector-set! jazz.subtypes jazz.subtype-keyword      jazz.Keyword)
+    (%%vector-set! jazz.subtypes jazz.subtype-continuation jazz.Continuation)
+    (%%vector-set! jazz.subtypes jazz.subtype-procedure    jazz.Procedure)
+    (%%vector-set! jazz.subtypes jazz.subtype-string       jazz.String)
+    (%%vector-set! jazz.subtypes jazz.subtype-flonum       jazz.Flonum)
+    (%%vector-set! jazz.subtypes jazz.subtype-bignum       jazz.Rational)
+    (%%vector-set! jazz.subtypes jazz.subtype-foreign      jazz.Foreign)
+    (%%vector-set! jazz.subtypes jazz.subtype-u8vector     jazz.U8Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-boxvalues    jazz.Values)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)

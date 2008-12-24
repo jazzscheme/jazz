@@ -35,9 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (jazz.kernel-declares)
 
 

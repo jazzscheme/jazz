@@ -40,9 +40,6 @@
 
 (cond-expand
   (gambit
-    (include "~~/lib/_gambit#.scm")
-    
-    
     (define jazz.write-jazz
       #f)
     
@@ -52,7 +49,7 @@
     (set! ##wr
           (lambda (we obj)
             (cond ((and (##jazz? obj) jazz.write-jazz)
-                   (jazz.write-jazz (macro-writeenv-port we) obj))
+                   (jazz.write-jazz (jazz.writeenv-port we) obj))
                   (else (##default-wr we obj))))))
   
   (else)))

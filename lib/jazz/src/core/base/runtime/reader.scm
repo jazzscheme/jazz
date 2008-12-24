@@ -38,9 +38,6 @@
 (module core.base.runtime.reader
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))
   (if container
       (%%input-port-names-set! port (lambda (port) container)))
@@ -55,7 +52,7 @@
             (%%current-readtable)
             ##wrap-datum
             ##unwrap-datum
-            (macro-readtable-start-syntax (%%current-readtable))
+            (jazz.readtable-start-syntax (%%current-readtable))
             #t)))
     (%%cdr (%%source-code (%%vector-ref begin-vector 1)))))
 

@@ -35,9 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (define jazz.Macros
   (make-table test: eq?))
 
@@ -57,50 +54,3 @@
 
 (define (jazz.expand-macro form)
   (apply (jazz.need-macro (car form)) (cdr form)))
-
-
-(define-runtime-macro (jazz.define-macro pattern . rest)
-
-  (define (form-size parms)
-    (let loop ((lst parms) (n 1))
-      (cond ((pair? lst)
-             (let ((parm (car lst)))
-               (if (memq parm '(#!optional #!key #!rest))
-                 (- n)
-                 (loop (cdr lst)
-                       (+ n 1)))))
-            ((null? lst)
-             n)
-            (else
-             (- n)))))
-
-  (let ((src `(lambda ,(cdr pattern) ,@rest)))
-    `(begin
-       (##define-macro ,pattern
-         ,@rest)
-       (##top-cte-add-macro!
-        ##interaction-cte
-        ',(car pattern)
-        (##make-macro-descr
-          #f
-          ',(form-size (cdr pattern))
-          ,src
-          #f))
-       (jazz.register-macro ',(car pattern)
-         ,src))))
-
-
-(define-runtime-macro (jazz.define-syntax name expander)
-  `(begin
-     (##define-syntax ,name
-       ,expander)
-     (##top-cte-add-macro!
-      ##interaction-cte
-      ',name
-      (##make-macro-descr
-        #t
-        -1
-        ,expander
-        #f))
-     (jazz.register-macro ',name
-       ,expander)))

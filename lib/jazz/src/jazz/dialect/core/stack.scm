@@ -45,9 +45,6 @@
 
 (cond-expand
   (gambit
-    (include "~~/lib/_gambit#.scm")
-    
-    
     (define (jazz.get-procedure-name procedure)
       (if procedure
           (%%procedure-name procedure)
@@ -96,11 +93,11 @@
       (let ((queue (jazz.new-queue)))
         (and cont
              (collect-parameters
-               (##dynamic-env->list (macro-continuation-denv cont))
+               (##dynamic-env->list (jazz.continuation-denv cont))
                (if (%%interp-continuation? cont)
                    (let (($code (##interp-continuation-code cont))
                          (rte (##interp-continuation-rte cont)))
-                     (macro-code-cte $code))
+                     (jazz.code-cte $code))
                  ##interaction-cte)
                queue))
         (jazz.queue-list queue)))
@@ -122,7 +119,7 @@
                            (loop2 (%%cdr vars)
                                   (%%cdr vals)))
                        (loop1 (##cte-parent-cte c)
-                              (macro-rte-up r)))))
+                              (jazz.rte-up r)))))
                (else
                 (loop1 (##cte-parent-cte c)
                        r)))))
@@ -145,8 +142,8 @@
              (if (%%interp-continuation? cont)
                  (let (($code (##interp-continuation-code cont))
                        (rte (##interp-continuation-rte cont)))
-                   (collect-rte (macro-code-cte $code) rte queue)
-                   (macro-code-cte $code))
+                   (collect-rte (jazz.code-cte $code) rte queue)
+                   (jazz.code-cte $code))
                (begin
                  (collect-locals (%%continuation-locals cont) ##interaction-cte queue)
                  ##interaction-cte)))
@@ -157,40 +154,17 @@
       (jazz.locat->file/line/col (%%continuation-locat cont)))
     
     
-    (define (jazz.current-repl-context)
-      (macro-current-repl-context))
-    
-    
-    (define (jazz.repl-context-level context)
-      (macro-repl-context-level context))
-    
-    (define (jazz.repl-context-depth context)
-      (macro-repl-context-depth context))
-    
-    (define (jazz.repl-context-cont context)
-      (macro-repl-context-cont context))
-    
-    (define (jazz.repl-context-initial-cont context)
-      (macro-repl-context-initial-cont context))
-        
-    (define (jazz.repl-context-prev-level context)
-      (macro-repl-context-prev-level context))
-    
-    (define (jazz.repl-context-prev-depth context)
-      (macro-repl-context-prev-depth context))
-
-    
     (define (jazz.with-repl-context cont thunk)
       (let ((prev-context (%%thread-repl-context-get!)))
         (let ((context
-                (macro-make-repl-context
-                  (%%fx+ (macro-repl-context-level prev-context) 1)
+                (jazz.make-repl-context
+                  (%%fx+ (jazz.repl-context-level prev-context) 1)
                   0
                   cont
                   cont
                   prev-context
                   #f)))
-          (macro-dynamic-bind repl-context
+          (jazz.repl-context-bind
             context
             thunk))))
     
@@ -213,16 +187,16 @@
         (%%continuation-graft-no-winding
           cont
           (lambda ()
-            (macro-dynamic-bind repl-context
+            (jazz.repl-context-bind
               repl-context
               (lambda ()
                 (receiver
                   (let ((rte rte))
-                    (macro-code-run c))))))))
+                    (jazz.code-run c rte))))))))
       
       (if (%%interp-continuation? cont)
           (let* (($code (##interp-continuation-code cont))
-                 (cte (macro-code-cte $code))
+                 (cte (jazz.code-cte $code))
                  (rte (##interp-continuation-rte cont)))
             (run (##compile-inner cte
                                   (%%sourcify src (%%make-source #f #f)))
@@ -238,7 +212,7 @@
           (eval-within-no-winding
             expr
             cont
-            (macro-current-repl-context)
+            (jazz.current-repl-context)
             (lambda (results)
               (call-with-values
                 (lambda ()

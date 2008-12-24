@@ -35,9 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (define (jazz.source-code expr)
   (if (##source? expr)
       (##source-code expr)
@@ -91,10 +88,6 @@
               ,code
             (jazz.primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
        code)))
-
-
-(define (jazz.readenv? obj)
-  (macro-readenv? obj))
 
 
 (jazz.define-check-macro %%check-continuation

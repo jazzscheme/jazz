@@ -68,6 +68,30 @@
 
 
   ;;;
+  ;;;; Run
+  ;;;
+  
+  
+  (method (project-run (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (define (determine-executable)
+      (let ((executable (project-executable)))
+        (if (exists?~ executable)
+            executable
+          (project-kernel))))
+      
+    (if product
+        (launch
+          executable: (determine-executable)
+          debug?: #f
+          profile: profile
+          command-action: command-action
+          command-arguments: command-arguments
+          show-console?: show-console?
+          wait?: wait?)
+      (message-box "This project doesn't define a product property")))
+
+
+  ;;;
   ;;;; Debug
   ;;;
   
@@ -85,34 +109,17 @@
 
 
   ;;;
-  ;;;; Run
-  ;;;
-  
-  
-  ;; should try and launch a built executable of the project if present
-  (method (project-run (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    (if product
-        (launch
-          debug?: #f
-          profile: profile
-          command-action: command-action
-          command-arguments: command-arguments
-          show-console?: show-console?
-          wait?: wait?)
-      (message-box "This project doesn't define a product property")))
-
-
-  ;;;
   ;;;; Launch
   ;;;
   
   
-  (method (launch (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method (launch (executable: executable {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (let ((ide (get-process)))
       (when debug?
         (start-remote-listener)
         (start-jazz-debugger~ ide))
-      (let* ((runtime-arg   (list))
+      (let* ((executable    (either executable (project-kernel)))
+             (runtime-arg   (list))
              (product-arg   (list "-run" (->string product)))
              (debugger-arg  (if debug? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
              (profile       (either profile (project-profile)))
@@ -121,7 +128,7 @@
              (arguments-arg (if command-arguments command-arguments '()))
              (arguments     (append runtime-arg action-arg product-arg debugger-arg profile-arg arguments-arg)))
         (save-all~ ide)
-        (launch-kernel (project-kernel)
+        (launch-executable executable
           ;; runtime-arguments: (list "-:m250000,h1000000")
           arguments: arguments
           show-console?: show-console?))))
@@ -139,6 +146,11 @@
           executable
         (message-box (format "Unable to find kernel{?~: {a}~}" destination))
         (throw-cancel))))
+  
+  
+  (method (project-executable)
+    (let ((kernel (project-kernel)))
+      (new-brother~ kernel (format "{a}{a}" product (executable-extension kernel-platform)))))
 
 
   ;;;
@@ -152,7 +164,7 @@
           ;; should be only the project's files...
           (save-all~ (get-application))
           (let ((kernel (project-kernel)))
-            (launch-kernel kernel arguments: (list "-make" (->string product)) show-console?: #t)))
+            (launch-executable kernel arguments: (list "-make" (->string product)) show-console?: #t)))
       (message-box "This project doesn't define a product property")))
 
 

@@ -600,6 +600,7 @@
 (define (jazz.make-target target configuration)
   (case target
     ((clean) (jazz.make-clean configuration))
+    ((cleankernel) (jazz.make-cleankernel configuration))
     ((install) (jazz.make-install configuration))
     ((kernel) (jazz.make-kernel configuration))
     (else (jazz.make-product target configuration))))
@@ -634,27 +635,14 @@
 
 (define (jazz.make-clean configuration)
   (jazz.feedback "make clean")
-  (let ((dest (jazz.configuration-directory configuration)))
-    (define (empty-dir dir level)
-      (for-each (lambda (name)
-                  (let ((path (string-append dir name)))
-                    (if (< level 2)
-                        (jazz.feedback "; deleting {a}..." path))
-                    (delete-file path)))
-                (jazz.directory-files dir))
-      (for-each (lambda (name)
-                  (let ((path (string-append dir name "/")))
-                    (if (< level 2)
-                        (jazz.feedback "; deleting {a}..." path))
-                    (delete-dir path (+ level 1))))
-                (jazz.directory-directories dir)))
-    
-    (define (delete-dir dir level)
-      (empty-dir dir level)
-      (delete-directory dir))
-    
-    (if (file-exists? dest)
-        (delete-dir dest 0))))
+  (jazz.delete-directory (jazz.configuration-directory configuration)))
+
+
+(define (jazz.make-cleankernel configuration)
+  (jazz.feedback "make cleankernel")
+  (let ((dir (jazz.configuration-directory configuration)))
+    (if (file-exists? dir)
+        (jazz.empty-directory dir '("lib")))))
 
 
 ;;;
@@ -921,6 +909,30 @@
                 (memv c '(#\- #\_)))
             (iter (- n 1))
           #f)))))
+
+
+(define (jazz.delete-directory dir #!optional (level 0))
+  (if (file-exists? dir)
+      (begin
+        (jazz.empty-directory dir #f level)
+        (delete-directory dir))))
+
+
+(define (jazz.empty-directory dir #!optional (ignored #f) (level 0))
+  (for-each (lambda (name)
+              (if (or (not ignored) (not (member name ignored)))
+                  (let ((path (string-append dir name)))
+                    (if (< level 2)
+                        (jazz.feedback "; deleting {a}..." path))
+                    (delete-file path))))
+            (jazz.directory-files dir))
+  (for-each (lambda (name)
+              (if (or (not ignored) (not (member name ignored)))
+                  (let ((path (string-append dir name "/")))
+                    (if (< level 2)
+                        (jazz.feedback "; deleting {a}..." path))
+                    (jazz.delete-directory path (+ level 1)))))
+            (jazz.directory-directories dir)))
 
 
 ;;;

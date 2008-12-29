@@ -319,7 +319,7 @@
                                           (kernel-file "runtime/main")
                                           (product-file "_main"))
                                     output: link-file
-                                    base: "~~/lib/_gambcgsc"))))
+                                    base: "~~lib/_gambcgsc"))))
           
           ;;;
           ;;;; Link Executable
@@ -446,8 +446,8 @@
             ,(jazz.quote-gcc-pathname (product-file "_main.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append product-name ".c")) platform)
             ,@(resource-files)
-            ,(string-append "-I" (jazz.quote-gcc-pathname (path-expand "~~/include") platform))
-            ,(string-append "-L" (jazz.quote-gcc-pathname (path-expand "~~/lib") platform))
+            ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
+            ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)
             ,@(link-options)
             "-o" ,(jazz.quote-gcc-pathname (build-file product-name) platform))))

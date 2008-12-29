@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/lib/_gambit#.scm")
+(include "~~lib/_gambit#.scm")
 
 
 ;;;

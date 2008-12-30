@@ -885,8 +885,17 @@
 
   (method (get-modification-time)
     {})
-
-
+  
+  
+  ;; ... give us this day our windows drives ...
+  (cond-expand
+    (windows
+      (method (get-parent)
+        (if (= 1 (length path))
+            (new Win-Meta-Root)
+          (nextmethod)))))
+  
+  
   (method (create)
     (directory-create (parse)))
   
@@ -1085,6 +1094,45 @@
                 (when (and max-count (> count max-count))
                   (continuation-return return #f)))))
           count)))))
+
+
+;; Ugly class providing the ugly thing known as windows drives
+(cond-expand
+  (windows
+    (class Win-Meta-Root extends Pathname
+      (method (initialize))
+      
+      
+      (method public (get-name)
+        "This computer")
+      
+      
+      (method public (present)
+        (get-name))
+      
+      
+      (method public (get-parent)
+        #f)
+      
+      
+      (method public (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+        (let ((fact (new List-Factory)))
+          (when nodes? (map (function (letter)
+                              (put~ fact (new Directory (list (string letter #\:)))))
+                            (enumerate-drives)))
+          (get-output~ fact)))
+      
+      
+      (method (enumerate-drives)
+        (let loop ((drives (jazz.platform.windows.GetLogicalDrives))
+                   (letter 0)
+                   (ret '()))
+             (if (/= drives 0)
+                 (begin
+                   (if (/= 0 (bitwise-and drives 1))
+                       (set! ret (cons (integer->char (+ 65 letter)) ret)))
+                   (loop (arithmetic-shift drives -1) (+ letter 1) ret))
+               (reverse! ret)))))))
 
 
 (definition public inline (directory? obj)

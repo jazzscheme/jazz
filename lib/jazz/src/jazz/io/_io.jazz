@@ -891,9 +891,10 @@
   (cond-expand
     (windows
       (method (get-parent)
-        (if (= 1 (length path))
-            (new Win-Meta-Root)
-          (nextmethod)))))
+        (let ((effective-path (if (= (length path) 1) (expand) path)))
+          (if (= 1 (length effective-path))
+              (new Windows-Meta-Root)
+            (nextmethod))))))
   
   
   (method (create)
@@ -1096,43 +1097,48 @@
           count)))))
 
 
-;; Ugly class providing the ugly thing known as windows drives
+;; class providing the ugly thing known as windows drives
 (cond-expand
   (windows
-    (class Win-Meta-Root extends Pathname
-      (method (initialize))
+    (class Windows-Meta-Root extends Pathname
       
       
-      (method public (get-name)
-        "This computer")
+      (method (initialize)
+        )
+
+      
+      (method (get-name)
+        "This Computer")
       
       
-      (method public (present)
+      (method (present)
         (get-name))
       
       
-      (method public (get-parent)
+      (method (get-parent)
         #f)
       
       
-      (method public (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+      (method (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
         (let ((fact (new List-Factory)))
-          (when nodes? (map (function (letter)
-                              (put~ fact (new Directory (list (string letter #\:)))))
-                            (enumerate-drives)))
+          (when nodes?
+            (for-each (function (letter)
+                        (put~ fact (new Directory (list (string letter #\:)))))
+                      (enumerate-drives)))
           (get-output~ fact)))
       
       
       (method (enumerate-drives)
-        (let loop ((drives (jazz.platform.windows.GetLogicalDrives))
-                   (letter 0)
-                   (ret '()))
-             (if (/= drives 0)
-                 (begin
-                   (if (/= 0 (bitwise-and drives 1))
-                       (set! ret (cons (integer->char (+ 65 letter)) ret)))
-                   (loop (arithmetic-shift drives -1) (+ letter 1) ret))
-               (reverse! ret)))))))
+        (reverse!
+          (let (loop (drives (jazz.platform.windows.GetLogicalDrives))
+                     (letter (char->integer #\A))
+                     (result '()))
+            (if (= drives 0)
+                result
+              (loop (arithmetic-shift drives -1) (+ letter 1)
+                (if (/= 0 (bitwise-and drives 1))
+                    (cons (integer->char letter) result)
+                  result)))))))))
 
 
 (definition public inline (directory? obj)

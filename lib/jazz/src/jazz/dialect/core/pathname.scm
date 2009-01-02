@@ -45,7 +45,11 @@
     (define jazz.directory-delete delete-directory)
     
     (define (jazz.current-directory)
-      (jazz.pathname-normalize (current-directory)))
+      (let ((dir (current-directory)))
+        (jazz.pathname-normalize
+          (if (jazz.pathname-exists? dir)
+              dir
+            "~"))))
     
     (define (jazz.current-directory-set! dir)
       (current-directory dir))

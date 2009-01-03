@@ -981,18 +981,20 @@
 
 
 (define (jazz.process-command command output)
-  (call-with-input-string command
-    (lambda (input)
-      (let ((command (read input))
-            (arguments (read-all input read)))
-        (case command
-          ((list) (jazz.list-command arguments output))
-          ((delete) (jazz.delete-command arguments output))
-          ((configure) (jazz.configure-command arguments output))
-          ((make) (jazz.make-command arguments output))
-          ((help ?) (jazz.help-command arguments output))
-          ((quit) (jazz.quit-command arguments output))
-          (else (jazz.error "Unknown command: {s}" command)))))))
+  (if (eof-object? command)
+      (jazz.quit-command '() output)
+    (call-with-input-string command
+      (lambda (input)
+        (let ((command (read input))
+              (arguments (read-all input read)))
+          (case command
+            ((list) (jazz.list-command arguments output))
+            ((delete) (jazz.delete-command arguments output))
+            ((configure) (jazz.configure-command arguments output))
+            ((make) (jazz.make-command arguments output))
+            ((help ?) (jazz.help-command arguments output))
+            ((quit) (jazz.quit-command arguments output))
+            (else (jazz.error "Unknown command: {s}" command))))))))
 
 
 (define (jazz.list-command arguments output)

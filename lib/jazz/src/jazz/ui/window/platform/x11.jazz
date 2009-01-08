@@ -536,22 +536,24 @@
 
 
 (definition (process-key-press-message window msg)
-  (let* ((msg (XEvent-xkey-ref msg))
-         (keycode (XKeyEvent-keycode-ref msg))
-         (state (XKeyEvent-state-ref msg))
+  (let* ((key-msg (XEvent-xkey-ref msg))
+         (keycode (XKeyEvent-keycode-ref key-msg))
+         (keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) 0)) 
+         (state (XKeyEvent-state-ref key-msg))
          (mod  '())
-         (stamp (XKeyEvent-time-ref msg)))
+         (stamp (XKeyEvent-time-ref key-msg)))
     (x11-set-timestamp stamp)
     (when (bit-set? ShiftMask state) (set! mod (cons :shift mod)))
     (when (bit-set? ControlMask state) (set! mod (cons :control mod)))
     (when (bit-set? (alt-key) state) (set! mod (cons :alt mod)))
-    (unless (translate-shortcut mod keycode)
-      (let* ((keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) (if (memq :shift mod) 1 0)))
-             (key (assv-value keysym Symbolic-Keys #f)))
-        (let ((key (if (eq? key 'Space) #\space key)))
-          (if (and key (char? key))
-              (call-key-press~ window key)
-            unprocessed))))))
+    (unless (or (translate-shortcut mod keysym)
+                ;; XIM filter for dead keys and composition
+                (XFilterEvent msg None))
+      (let ((str (Xutf8LookupString default-XIC key-msg)))
+        ;; We do not yet support multi-character input
+        (if (and str (= (string-length str) 1))
+            (call-key-press~ window (string-ref str 0))
+          unprocessed)))))
 
 
 (definition (process-configure-notify-message window msg)
@@ -686,10 +688,9 @@
       (set! DndPosition {}))))
 
 
-(definition (translate-shortcut mods keycode)
-  (let* ((keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) 0))
-         (key (assv-value keysym Symbolic-Keys #f))
-         (app (get-application)))
+(definition (translate-shortcut mods keysym)
+  (let ((key (assv-value keysym Symbolic-Keys #f))
+        (app (get-application)))
     (if (and key app)
         (dispatch-shortcut~ app (new Shortcut mods key))
       #f)))

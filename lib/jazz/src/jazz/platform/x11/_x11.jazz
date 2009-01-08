@@ -45,6 +45,7 @@
 (c-include "<X11/Xlib.h>")
 (c-include "<X11/Xutil.h>")
 (c-include "<X11/Xatom.h>")
+(c-include "<X11/Xlocale.h>")
 (c-include "<stdlib.h>")
 (c-include "<string.h>")
 (c-include "<unistd.h>")
@@ -412,6 +413,49 @@
 
 
 ;;;
+;;;; XIM and XIC
+;;;
+
+
+(definition default-XIM {})
+(definition default-XIC {})
+
+
+(definition XNInputStyle "inputStyle")
+(definition XNFocusWindow "focusWindow")
+(definition XNClientWindow "clientWindow")
+
+
+(c-constant LC_ALL 0)
+(c-constant XIMPreeditPosition 4)
+(c-constant XIMPreeditNothing 8)
+(c-constant XIMStatusNothing  1024)
+
+
+(definition (initialize-locale)
+  (unless (setlocale LC_ALL "")
+    (error "setlocale failed"))
+  (unless (XSupportsLocale)
+    (error "XSupportsLocale failed")))
+
+
+(definition (initialize-xim)
+  (unless (XSetLocaleModifiers "@im=none")
+    (error "XSetLocaleModifiers failed"))
+  (let ((xim (XOpenIM default-x11-display #f "Jazz" "Jazz")))
+    (unless xim
+      (error "Error creating XIM"))
+    (set! default-XIM xim)))
+
+
+(definition (initialize-xic handle)
+  (let ((xic (XCreateIC default-XIM XNInputStyle (bitwise-ior XIMPreeditNothing XIMStatusNothing) XNClientWindow handle XNFocusWindow handle #f)))
+    (unless xic
+      (error "Error creating XIC"))
+    (set! default-XIC xic)))
+
+
+;;;
 ;;;; XChangeProperty modes
 ;;;
 
@@ -442,6 +486,7 @@
   (set! XdndTypeList                      (XInternAtom default-x11-display "XdndTypeList" #f))
   (set! XdndActionCopy                    (XInternAtom default-x11-display "XdndActionCopy" #f))
   (set! text/uri-list                     (XInternAtom default-x11-display "text/uri-list" #f)))
+
 
 ;;;
 ;;;; Base Atoms
@@ -846,14 +891,19 @@
 (c-external void         (XFreeGC                Display* GC))
 (c-external void         (XSetClipRectangles     Display* GC int int XRectangle* int int))
 (c-external void         (XFree                  void*))
-
+(c-external XIM          (XOpenIM                Display* XrmDatabase char-string char-string))
+(c-external XIC          (XCreateIC              XIM char-string int char-string Window char-string Window char*))
+(c-external char*        (setlocale              int char-string))
+(c-external char*        (XSetLocaleModifiers    char-string))
+(c-external Bool         (XSupportsLocale))
+(c-external Bool         (XFilterEvent XEvent* Window))
 
 
 (definition (XGetAtomName display atom)
   (let ((result ((c-function (Display* Atom) char* "XGetAtomName") display atom)))
     (prog1 (char*->char-string result)
       (XFree result))))
-    
+
 
 ;;;
 ;;;; Custom functions
@@ -1142,6 +1192,18 @@
 (definition XSetWMProtocols
   (c-function (Display* Window Atom) void
     "XSetWMProtocols( ___arg1, ___arg2, &___arg3, 1 );"))
+
+
+(definition (Xutf8LookupString xic event)
+  (let ((func (c-function (XIC XKeyEvent* char* int ulong* int*) int "Xutf8LookupString"))
+        (str-buffer (char*-alloc 20))
+        (sym-buffer (ulong*-alloc 1))
+        (status-buffer (int*-alloc 1)))
+    (let ((result (func xic event str-buffer 20 sym-buffer status-buffer)))
+      (prog1 (if (> result 0) (char*->UTF-8-string str-buffer) #f)
+        (char*-free str-buffer)
+        (ulong*-free sym-buffer)
+        (int*-free status-buffer)))))
 
 
 ;;;

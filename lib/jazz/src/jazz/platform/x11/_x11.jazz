@@ -432,6 +432,12 @@
 (c-constant XIMStatusNothing  1024)
 
 
+(c-constant XLookupNone 1)
+(c-constant XLookupChars 2)
+(c-constant XLookupKeySym 3)
+(c-constant XLookupBoth 4)
+
+
 (definition (initialize-locale)
   (unless (setlocale LC_ALL "")
     (error "setlocale failed"))
@@ -897,6 +903,7 @@
 (c-external char*        (XSetLocaleModifiers    char-string))
 (c-external Bool         (XSupportsLocale))
 (c-external Bool         (XFilterEvent XEvent* Window))
+(c-external KeySym       (XLookupKeysym XKeyEvent* int))
 
 
 (definition (XGetAtomName display atom)
@@ -1199,11 +1206,20 @@
         (str-buffer (char*-alloc 20))
         (sym-buffer (ulong*-alloc 1))
         (status-buffer (int*-alloc 1)))
-    (let ((result (func xic event str-buffer 20 sym-buffer status-buffer)))
-      (prog1 (if (> result 0) (char*->UTF-8-string str-buffer) #f)
-        (char*-free str-buffer)
-        (ulong*-free sym-buffer)
-        (int*-free status-buffer)))))
+    (func xic event str-buffer 20 sym-buffer status-buffer)
+    (let* ((status (int*-ref status-buffer 0))
+           (sym (if (or (= status XLookupKeySym)
+                        (= status XLookupBoth))
+                    (ulong*-ref sym-buffer 0)
+                  #f))
+           (str (if (or (= status XLookupChars)
+                        (= status XLookupBoth))
+                    (char*->UTF-8-string str-buffer)
+                  #f)))
+      (char*-free str-buffer)
+      (ulong*-free sym-buffer)
+      (int*-free status-buffer)
+      (values sym str))))
 
 
 ;;;

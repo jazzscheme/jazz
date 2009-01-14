@@ -58,6 +58,7 @@
 ;; - symbol
 ;; - keyword
 ;; - expr-comment
+;; - named-comment
 ;; - list
 ;; - reference
 ;; - literal
@@ -92,10 +93,6 @@
   
   (method public virtual (get-modifiers)
     )
-  
-  
-  (method (get-syntax)
-    'jazz)
   
   
   (method (explore-error message start end)
@@ -161,8 +158,8 @@
                   ((#\at)
                    (backward)
                    (let ((prev (char-backward 0)))
-                     (if (not (eqv? prev #\comma))
-                         'expr-comment
+                     (if (and (eq? (get-syntax) 'jazz) (not (eqv? prev #\comma)))
+                         'name-comment
                        (backward)
                        found)))
                   (else
@@ -175,8 +172,8 @@
         (cond ((eqv? c #\sharp)            (forward-sharp))
               ((string-delimiter? c)       (forward-string))
               ((eqv? c #\|)                (forward-escaped-symbol))
-              ((jazz-constituent? c)       (forward-constituent))
-              ((eqv? c #\at)               (forward-expr-comment))
+              ((text-constituent? c)       (forward-constituent))
+              ((eqv? c #\at)               (forward-named-comment))
               ((eqv? c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
               ((eqv? c #\open-bracket)     (forward-composite 'reference #\close-bracket))
               ((eqv? c #\open-brace)       (forward-composite 'literal   #\close-brace))
@@ -188,7 +185,7 @@
       (when c
         (cond ((string-delimiter? c)        (backward-string))
               ((eqv? c #\|)                 (backward-escaped-symbol))
-              ((jazz-constituent? c)        (backward-constituent))
+              ((text-constituent? c)        (backward-constituent))
               ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
               ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
               ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
@@ -219,7 +216,7 @@
                  (forward)
                  (set! last c)
                  (iterate))
-                ((or (not c) (not (jazz-constituent? c)))
+                ((or (not c) (not (text-constituent? c)))
                  (set! kind (if (or keyword? (and last (eqv? last #\colon))) 'keyword 'symbol))
                  kind)
                 (else
@@ -238,7 +235,7 @@
                  (backward)
                  (set! last c)
                  (iterate))
-                ((or (not c) (not (jazz-constituent? c)))
+                ((or (not c) (not (text-constituent? c)))
                  (set! kind (if (or keyword? (eqv? last #\colon)) 'keyword 'symbol))
                  kind)
                 (else
@@ -281,11 +278,13 @@
     kind)
   
   
-  (method private (forward-scheme-comment)
-    (forward)
-    (forward-expr)
-    (set! kind 'expr-comment)
-    'expr-comment)
+  (method private (forward-named-comment)
+    (if (neq? (get-syntax) 'jazz)
+        (forward-constituent)
+      (forward)
+      (forward-expr)
+      (set! kind 'named-comment)
+      kind))
   
   
   (method private (forward-sharp)
@@ -302,7 +301,7 @@
             ((eqv? c0 #\\)
              (forward-scheme-char))
             ((eqv? c0 #\;)
-             (forward-scheme-comment))
+             (forward-expr-comment))
             (else
              (forward-constituent)))))
   
@@ -371,7 +370,7 @@
           (let ((c (char-forward 0)))
             (cond ((not c)
                    #f)
-                  ((not (jazz-constituent? c))
+                  ((not (text-constituent? c))
                    (set! kind 'char)
                    kind)
                   (else
@@ -659,21 +658,21 @@
           (e <Cell> (copy end))
           (prv (previous-char start 0))
           (nxt (next-char end 0)))
-      (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (jazz-constituent? nxt))))))
+      (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (text-constituent? nxt))))))
              (backward-expr))
-            ((and prv (= s e) (jazz-constituent? prv))
+            ((and prv (= s e) (text-constituent? prv))
              (forward-constituent)
              (backward-constituent))
-            ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (jazz-constituent? prv)))))
+            ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (text-constituent? prv)))))
              (forward-expr))
-            ((and nxt (jazz-constituent? nxt))
+            ((and nxt (text-constituent? nxt))
              (forward-constituent)
              (backward-constituent))
             ((and (memv? prv '(#\quote #\backquote #\comma #\at))
                   (let* ((s (get-char s))
                          @see-further-comment
                          (e (get-char e)))
-                    (or (jazz-constituent? s)
+                    (or (text-constituent? s)
                         (and (eqv? prv #\comma) (eqv? s #\at))
                         (and (eqv? prv #\quote) (eqv? s #\comma))
                         (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
@@ -802,7 +801,7 @@
                       (let ((string (paragraph-string row))
                             (style (get-style-at~ text pos))
                             (start pos))
-                        (unless (or (eq? (get-name~ style) 'Expr-Comment) (string-style?~ text style))
+                        (unless (or (memq? (get-name~ style) '(Expr-Comment Named-Comment)) (string-style?~ text style))
                           (set! previous-row (get-row~ pos))
                           (set-end pos)
                           (paragraph-end)
@@ -952,7 +951,7 @@
   ;; VARIABLES
   ;; - Generalized variable syntax is ?name:kind
   ;; - The name is optional (not used at the moment)
-  ;; - The kind is optional and can be : number boolean char string delimited-string named-string symbol keyword expr-comment list reference literal
+  ;; - The kind is optional and can be : number boolean char string delimited-string named-string symbol keyword expr-comment named-comment list reference literal
   
   ;; REPLACEMENT
   ;; - A good approach I think would be to generalize the backquote construct to non-code generation

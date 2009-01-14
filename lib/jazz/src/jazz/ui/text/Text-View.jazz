@@ -2326,7 +2326,7 @@
   
   (method public (next-word pos)
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (get-constituent-test~ syntax)))
+          (test (get-constituent-test)))
       (forward-until~ expl (function (c) (test c)))
       (forward-until~ expl (function (c) (not (test c))))
       (get-end~ expl)))
@@ -2334,10 +2334,23 @@
   
   (method public (previous-word pos)
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (get-constituent-test~ syntax)))
+          (test (get-constituent-test)))
       (backward-until~ expl (function (c) (test c)))
       (backward-until~ expl (function (c) (not (test c))))
       (get-start~ expl)))
+  
+  
+  ;;;
+  ;;;; Constituent
+  ;;;
+  
+  
+  (method public (get-constituent-test)
+    (get-constituent-test~ syntax))
+  
+  
+  (method public (text-constituent? char)
+    (text-constituent?~ syntax char))
   
   
   ;;;
@@ -3822,9 +3835,9 @@
           (end (get-end)))
       (when (/= start (text-beginning))
         (let ((sc (get-char (previous-cell start))))
-          (when (and (text-constituent?~ syntax (element copy 0)) (text-constituent?~ syntax sc) (not (memv? sc '(#\minus))))
+          (when (and (text-constituent? (element copy 0)) (text-constituent? sc) (not (memv? sc '(#\minus))))
             (set! copy (string-append " " copy)))))
-      (when (and (/= end (text-ending)) (text-constituent?~ syntax (last copy)) (text-constituent?~ syntax (get-char end)))
+      (when (and (/= end (text-ending)) (text-constituent? (last copy)) (text-constituent? (get-char end)))
         (set! copy (string-append copy " ")))
       (with-update-locked
         (function ()
@@ -4352,7 +4365,7 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((targets (get-find-targets~ appl (get-constituent-test~ syntax))))
+            (let ((targets (get-find-targets~ appl (get-constituent-test))))
               (unless (select-next targets)
                 (bell)))
           (on-find-forward~ search evt)))))
@@ -4362,7 +4375,7 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((targets (get-find-targets~ appl (get-constituent-test~ syntax))))
+            (let ((targets (get-find-targets~ appl (get-constituent-test))))
               (unless (select-previous targets)
                 (bell)))
           (on-find-backward~ search evt)))))
@@ -4380,7 +4393,7 @@
       (make-search-context string
         whole-words?: (get-whole-words?~ appl)
         ignore-case?: (get-ignore-case?~ appl)
-        constituent-test: (get-constituent-test~ syntax))))
+        constituent-test: (get-constituent-test))))
   
   
   (method public (on-find-next evt)

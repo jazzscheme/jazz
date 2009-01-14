@@ -154,7 +154,7 @@
   
   
   (method (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #f self jazz-constituent?))
+    (build-search-automata (syntax-targets) #t #f self text-constituent?))
   
   
   (method (colorize-type found type start end colorizer recolorize?)
@@ -201,6 +201,8 @@
              (apply-coloring colorizer start end 'Named-String))
             ((expr-comment)
              (apply-coloring colorizer start end 'Expr-Comment))
+            ((named-comment)
+             (apply-coloring colorizer start end 'Named-Comment))
             ((literal)
              @wait-buggy-because-of-coloring-within-coloring
              (apply-coloring colorizer start end 'Literal))
@@ -246,9 +248,8 @@
           (recolorize-row row)))
 
   
-  (method (recolorize-row row)
+  (method protected virtual (recolorize-row row)
     (recolorize-declarations row)
-    (recolorize-expr-comments row)
     (recolorize-comments row)
     (recolorize-booleans row)
     (recolorize-chars row)
@@ -284,29 +285,12 @@
                   ((string)
                    (apply-style 'String start end))
                   ((expr-comment)
-                   (apply-style 'Expr-Comment start end))))
+                   (apply-style 'Expr-Comment start end))
+                  ((named-comment)
+                   (apply-style 'Named-Comment start end))))
               {} @need-better-handling-of-error-cases (get-documentation-cataloguer~ (get-application))
               row
               #f))))))
-  
-  
-  (method (recolorize-expr-comments row)
-    (let* ((line (paragraph-string row))
-           (len (cardinality line))
-           (col 0)
-           (done? #f))
-      (while (not done?)
-        (let ((comment (search line "@" start: col)))
-          (if (not comment)
-              (set! done? #t)
-            (unless (and (> comment 0) (eqv? (element line (- comment 1)) #\,))
-              (let* ((pos (new Cell row (+ comment 1)))
-                     (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
-                     (kind (forward-expr~ expl))
-                     (end (get-end~ expl)))
-                (when (and (eq? kind 'symbol) (= (get-row~ end) row))
-                  (apply-style 'Expr-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
-            (set! col (+ comment 1)))))))
   
   
   (method (recolorize-comments row)
@@ -354,7 +338,7 @@
                     (apply-style 'Char (new Cell row pos) (new Cell row end)))
                   (set! col end))
               (let ((end (+ pos 3)))
-                (while (and (< end len) (jazz-constituent? (get-char (new Cell row end))))
+                (while (and (< end len) (text-constituent? (get-char (new Cell row end))))
                   (increase! end))
                 (unless (commented? (new Cell row pos))
                   (apply-style 'Char (new Cell row pos) (new Cell row end)))

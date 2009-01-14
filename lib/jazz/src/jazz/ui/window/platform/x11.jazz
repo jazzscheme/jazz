@@ -220,6 +220,10 @@
   (make-table test: eqv?))
 
 
+(definition public XIC-Table
+  (make-table test: eqv?))
+
+
 (definition last-click
   (time->seconds (current-time)))
 
@@ -230,6 +234,18 @@
 
 (definition public inline (set-window handle window)
   (table-set! Windows-Table handle window))
+
+
+(definition public inline (get-xic handle)
+  (table-ref XIC-Table handle #f))
+
+
+(definition public inline (set-xic handle xic)
+  (table-set! XIC-Table handle xic))
+
+
+(definition public inline (clear-xic handle)
+  (table-set! XIC-Table handle))
 
 
 (definition public (platform-get-window-handle-title handle)
@@ -305,12 +321,14 @@
           default-x11-display
           handle
           (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
+        (set-xic handle (create-xic handle))
         handle))))
 
 
 (definition (destroy-window handle)
   (let ((window (get-window handle)))
     (table-set! expose-store window)
+    (clear-xic handle)
     (when (= handle (platform-get-focus))
       (focus-lose~ window #f))
     (let ((parent (get-parent~ window)))
@@ -552,7 +570,7 @@
     (unless (or (translate-shortcut mod keysym)
                 ;; XIM filter for dead keys and composition
                 (XFilterEvent msg None))
-      (receive (sym str) (Xutf8LookupString default-XIC key-msg)
+      (receive (sym str) (Xutf8LookupString (get-xic (get-handle~ window)) key-msg)
         ;; We do not yet support multi-character input
         (if (and str (= (string-length str) 1))
             (call-key-press~ window (string-ref str 0))

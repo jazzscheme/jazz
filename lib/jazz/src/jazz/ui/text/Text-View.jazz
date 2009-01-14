@@ -643,29 +643,30 @@
              (row (get-row~ pos))
              (col (get-col~ pos))
              (len (paragraph-length row)))
-        (new Range
-          pos
-          (if (= col len)
-              (new Cell (+ row 1) 0)
-            (new Cell row len)))))
+        (if (= col len)
+            (if (= row (get-limit))
+                {}
+              (new Range pos (new Cell (+ row 1) 0)))
+          (new Range pos (new Cell row len)))))
     
-    (let* ((range (kill-range))
-           (string (get-string range)))
-      (define (replace-clipboard)
-        (add-clipboard~ (get-application))
-        (set-clipboard-text string)
-        (set! special-mode 'kill-line))
+    (let ((range (kill-range)))
+      (when range
+        (let ((string (get-string range)))
+          (define (replace-clipboard)
+            (add-clipboard~ (get-application))
+            (set-clipboard-text string)
+            (set! special-mode 'kill-line))
+          
+          (define (append-clipboard actual)
+            (set-clipboard-text (string-append actual string)))
       
-      (define (append-clipboard actual)
-        (set-clipboard-text (string-append actual string)))
-      
-      (if (neq? special-mode 'kill-line)
-          (replace-clipboard)
-        (let ((actual (get-clipboard-text)))
-          (if (not actual)
+          (if (neq? special-mode 'kill-line)
               (replace-clipboard)
-            (append-clipboard actual))))
-      (replace range (list ""))))
+            (let ((actual (get-clipboard-text)))
+              (if (not actual)
+                  (replace-clipboard)
+                (append-clipboard actual))))
+          (replace range (list ""))))))
   
   
   (method (return-press key)

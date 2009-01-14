@@ -480,6 +480,8 @@
   (set! _NET_WM_WINDOW_TYPE_DROPDOWN_MENU (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU" #f))
   (set! _NET_WM_WINDOW_TYPE_TOOLTIP       (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_TOOLTIP" #f))
   (set! _NET_WM_WINDOW_TYPE_NORMAL        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_NORMAL" #f))
+  (set! _NET_WM_STATE                     (XInternAtom default-x11-display "_NET_WM_STATE" #f))
+  (set! _NET_WM_STATE_MODAL               (XInternAtom default-x11-display "_NET_WM_STATE_MODAL" #f))
   (set! XA_CLIPBOARD                      (XInternAtom default-x11-display "CLIPBOARD" #f))
   (set! XdndAware                         (XInternAtom default-x11-display "XdndAware" #f))
   (set! XdndEnter                         (XInternAtom default-x11-display "XdndEnter" #f))
@@ -544,6 +546,17 @@
 (definition _NET_WM_WINDOW_TYPE_DROPDOWN_MENU {})
 (definition _NET_WM_WINDOW_TYPE_TOOLTIP {})
 (definition _NET_WM_WINDOW_TYPE_NORMAL {})
+
+
+;;;
+;;;; _NET_WM_STATE
+;;;
+
+
+(definition _NET_WM_STATE {})
+(definition _NET_WM_STATE_MODAL {})
+
+(definition _NET_WM_STATE_ADD 1)
 
 
 ;;;
@@ -904,6 +917,7 @@
 (c-external Bool         (XSupportsLocale))
 (c-external Bool         (XFilterEvent XEvent* Window))
 (c-external KeySym       (XLookupKeysym XKeyEvent* int))
+(c-external void         (XSetTransientForHint Display* Window Window))
 
 
 (definition (XGetAtomName display atom)
@@ -1221,6 +1235,29 @@
       (int*-free status-buffer)
       (values sym str))))
 
+
+(definition (wm-change-state display handle atom)
+  (let* ((msg (XEvent-make))
+         (ev (XEvent-xclient-ref msg)))
+    (XClientMessageEvent-type-set! ev ClientMessage)
+    (XClientMessageEvent-window-set! ev handle)
+    (XClientMessageEvent-message_type-set! ev _NET_WM_STATE)
+    (XClientMessageEvent-format-set! ev 32)
+    (let ((l (XClientMessageEvent-l-ref ev)))
+      (long*-set! l 0 _NET_WM_STATE_ADD)
+      (long*-set! l 1 atom)
+      (long*-set! l 2 0)
+      (long*-set! l 3 1)
+      (long*-set! l 4 0))
+    (terminal 'CHANGE-STATE)
+    (XSendEvent 
+      display 
+      (XRootWindow display (XDefaultScreen display))
+      #f 
+      (bitwise-ior SubstructureRedirectMask SubstructureNotifyMask)
+      msg)))
+      
+      
 
 ;;;
 ;;;; Error functions

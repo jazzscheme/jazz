@@ -111,6 +111,7 @@
   (slot protected locked-anchor?        initialize #f)
   (slot protected mouse-selecting?      initialize #f)
   (slot protected selection-mode        initialize 'char)
+  (slot protected special-mode          initialize {})
   (slot protected virtual-h             initialize {})
   (slot protected caret-position        initialize {})
   (slot protected caret-pulse           initialize {})
@@ -637,12 +638,33 @@
   
   
   (method (on-kill-line evt)
-    (let* ((start (selection-tail 'forward))
-           (end (new Cell (get-row~ start) (paragraph-length (get-row~ start))))
-           (range (new Range start end))
+    (define (kill-range)
+      (let* ((pos (selection-tail 'forward))
+             (row (get-row~ pos))
+             (col (get-col~ pos))
+             (len (paragraph-length row)))
+        (new Range
+          pos
+          (if (= col len)
+              (new Cell (+ row 1) 0)
+            (new Cell row len)))))
+    
+    (let* ((range (kill-range))
            (string (get-string range)))
-      (add-clipboard~ (get-application))
-      (set-clipboard-text string)
+      (define (replace-clipboard)
+        (add-clipboard~ (get-application))
+        (set-clipboard-text string)
+        (set! special-mode 'kill-line))
+      
+      (define (append-clipboard actual)
+        (set-clipboard-text (string-append actual string)))
+      
+      (if (neq? special-mode 'kill-line)
+          (replace-clipboard)
+        (let ((actual (get-clipboard-text)))
+          (if (not actual)
+              (replace-clipboard)
+            (append-clipboard actual))))
       (replace range (list ""))))
   
   
@@ -670,8 +692,10 @@
       (insert-char translated)))
   
   
-  (method (reset-virtual)
-    (set! virtual-h {}))
+  (method (reset-mode (keep: keep {}))
+    (set! special-mode {})
+    (unless (eq? keep 'virtual)
+      (set! virtual-h {})))
   
   
   (method (on-insert evt)
@@ -988,7 +1012,7 @@
                     (change-selection pos)
                   (set-caret pos))
                 (update-caret)))
-            (reset-virtual)
+            (reset-mode)
             (set! previous-position pos))))))
   
   
@@ -1060,7 +1084,7 @@
                     (set-selection (get-range~ expl) set-anchor?: #t))
                   (set! mouse-selecting? #t)
                   (set! selection-mode 'word)
-                  (reset-virtual)
+                  (reset-mode)
                   (set! previous-position pos))))))
       (call-mouse-down view)))
   
@@ -1224,7 +1248,7 @@
   
   
   (method public (goto-home document? extend?)
-    (reset-virtual)
+    (reset-mode)
     (if document?
         (if extend?
             (change-selection (text-beginning))
@@ -1246,7 +1270,7 @@
   
   
   (method public (goto-end document? extend?)
-    (reset-virtual)
+    (reset-mode)
     (if document?
         (if extend?
             (change-selection (text-ending))
@@ -1278,7 +1302,7 @@
   
   
   (method protected virtual (left-arrow-move extend? word?)
-    (reset-virtual)
+    (reset-mode)
     (if extend?
         (change-selection (move-backward (selection-tail 'backward) word?))
       (if (empty-selection?)
@@ -1288,7 +1312,7 @@
   
   
   (method protected virtual (right-arrow-move extend? word?)
-    (reset-virtual)
+    (reset-mode)
     (if extend?
         (change-selection (move-forward (selection-tail 'forward) word?))
       (if (empty-selection?)
@@ -1298,6 +1322,7 @@
   
   
   (method protected virtual (up-arrow-move extend? scroll?)
+    (reset-mode keep: 'virtual)
     (let* ((pos (if extend? (selection-tail 'backward) (get-start)))
            (row (get-row~ pos))
            (col (get-col~ pos)))
@@ -1312,6 +1337,7 @@
   
   
   (method protected virtual (down-arrow-move extend? scroll?)
+    (reset-mode keep: 'virtual)
     (let* ((pos (if extend? (selection-tail 'forward) (get-end)))
            (row (get-row~ pos))
            (col (get-col~ pos)))

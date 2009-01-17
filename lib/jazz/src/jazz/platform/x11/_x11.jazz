@@ -484,6 +484,8 @@
   (set! _NET_WM_WINDOW_TYPE_NORMAL        (XInternAtom default-x11-display "_NET_WM_WINDOW_TYPE_NORMAL" #f))
   (set! _NET_WM_STATE                     (XInternAtom default-x11-display "_NET_WM_STATE" #f))
   (set! _NET_WM_STATE_MODAL               (XInternAtom default-x11-display "_NET_WM_STATE_MODAL" #f))
+  (set! _NET_WM_STATE_STICKY              (XInternAtom default-x11-display "_NET_WM_STATE_STICKY" #f))
+  (set! _NET_WM_STATE_FULLSCREEN          (XInternAtom default-x11-display "_NET_WM_STATE_FULLSCREEN" #f))
   (set! XA_CLIPBOARD                      (XInternAtom default-x11-display "CLIPBOARD" #f))
   (set! XdndAware                         (XInternAtom default-x11-display "XdndAware" #f))
   (set! XdndEnter                         (XInternAtom default-x11-display "XdndEnter" #f))
@@ -557,6 +559,8 @@
 
 (definition _NET_WM_STATE {})
 (definition _NET_WM_STATE_MODAL {})
+(definition _NET_WM_STATE_STICKY {})
+(definition _NET_WM_STATE_FULLSCREEN {})
 
 (definition _NET_WM_STATE_ADD 1)
 
@@ -1236,30 +1240,25 @@
       (ulong*-free sym-buffer)
       (int*-free status-buffer)
       (values sym str))))
-
-
-(definition (wm-change-state display handle atom)
-  (let* ((msg (XEvent-make))
-         (ev (XEvent-xclient-ref msg)))
-    (XClientMessageEvent-type-set! ev ClientMessage)
-    (XClientMessageEvent-window-set! ev handle)
-    (XClientMessageEvent-message_type-set! ev _NET_WM_STATE)
-    (XClientMessageEvent-format-set! ev 32)
-    (let ((l (XClientMessageEvent-l-ref ev)))
-      (long*-set! l 0 _NET_WM_STATE_ADD)
-      (long*-set! l 1 atom)
-      (long*-set! l 2 0)
-      (long*-set! l 3 1)
-      (long*-set! l 4 0))
-    (XSendEvent 
-      display 
-      (XRootWindow display (XDefaultScreen display))
-      #f 
-      (bitwise-ior SubstructureRedirectMask SubstructureNotifyMask)
-      msg)))
       
       
-
+(definition set-modal
+  (c-function (Display* Window) void
+     "XClientMessageEvent xclient;
+      Atom _NET_WM_STATE = XInternAtom( ___arg1, \"_NET_WM_STATE\", False );
+      Atom _NET_WM_STATE_MODAL = XInternAtom( ___arg1, \"_NET_WM_STATE_MODAL\", False );
+      xclient.type = ClientMessage;
+      xclient.window = ___arg2;
+      xclient.message_type = _NET_WM_STATE;
+      xclient.format = 32;
+      xclient.data.l[0] = 1;
+      xclient.data.l[1] = _NET_WM_STATE_MODAL;
+      xclient.data.l[2] = 0;
+      xclient.data.l[3] = 0;
+      xclient.data.l[4] = 0; 
+      XSendEvent (___arg1, XRootWindow(___arg1, XDefaultScreen(___arg1)), False,
+	      SubstructureRedirectMask | SubstructureNotifyMask,
+	      (XEvent *)&xclient);"))
 ;;;
 ;;;; Error functions
 ;;;

@@ -314,7 +314,9 @@
                            (else
                             _NET_WM_WINDOW_TYPE_NORMAL))))
         (when (is? window Dialog)
-          (wm-change-state default-x11-display handle _NET_WM_STATE_MODAL)
+          (set-modal default-x11-display handle)
+          @a
+          (wm-change-state default-x11-display handle _NET_WM_STATE_FULLSCREEN)
           (when (get-toplevel)
             (XSetTransientForHint default-x11-display handle (get-handle~ (get-toplevel)))))
         (ChangeProperty default-x11-display handle XdndAware XA_ATOM PropModeReplace (u32vector XdndVersion))
@@ -325,6 +327,28 @@
           (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
         (set-xic handle (create-xic handle))
         handle))))
+
+
+(definition (wm-change-state display handle atom)
+  (let* ((msg (XEvent-make))
+         (ev (XEvent-xclient-ref msg)))
+    (XClientMessageEvent-type-set! ev ClientMessage)
+    (XClientMessageEvent-window-set! ev handle)
+    (XClientMessageEvent-message_type-set! ev _NET_WM_STATE)
+    (XClientMessageEvent-format-set! ev 32)
+    (let ((l (XClientMessageEvent-l-ref ev)))
+      (long*-set! l 0 _NET_WM_STATE_ADD)
+      (long*-set! l 1 atom)
+      (long*-set! l 2 0)
+      (long*-set! l 3 1)
+      (long*-set! l 4 0))
+    (terminal (XSendEvent 
+      display 
+      (XRootWindow display (XDefaultScreen display))
+      #f 
+      (bitwise-ior SubstructureRedirectMask SubstructureNotifyMask)
+      msg))SubstructureRedirectMask
+    (XEvent-free msg)))
 
 
 (definition (destroy-window handle)

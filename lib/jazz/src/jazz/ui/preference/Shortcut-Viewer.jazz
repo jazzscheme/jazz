@@ -43,6 +43,7 @@
         (jazz.literals)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.dialog)
         (jazz.utilities))
 
 
@@ -65,7 +66,7 @@
             (<!>                   name: content         layout-type: fill
               (<Tree-Header>                             style: document
                 (<!>               name: content
-                  (<Bindings-Tree> name: bindings        return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press})))))))
+                  (<Bindings-Tree> name: bindings        return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} double-click-handler: {Event-Handler :form on-double-click} context-menu-handler: {Event-Handler :form on-context-menu})))))))
       (<Horizontal-Line>                                 position: {Point 0 210} size: {Dimension 408 2})
       (<View>                      name: buttons         size: {Dimension 100 40} location: south
         (<Push-Button>             name: choose          title: "Choose Again" position: {Point 7 9} size: {Dimension 120 24} enabled?: #f action-handler: {Event-Handler :form on-choose})
@@ -136,6 +137,27 @@
     (setup-chooser))
   
   
+  (method (on-double-click evt)
+    (edit-action)
+    (close-modal-dialog))
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (function ()
+          (let ((menu (new-menu)))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (method (on-edit-action evt)
+    (edit-action)
+    (close-modal-dialog))
+  
+  
   (method (on-return-press evt)
     (when (get-enabled?~ (locate 'ok))
       (let ((dialog (get-host)))
@@ -180,7 +202,32 @@
                                   (put~ fact action))))
                             (get-children~ actions)))
                 (get-children~ (get-bindings)))
-      (get-output~ fact))))
+      (get-output~ fact)))
+    
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (edit-action)
+    (let ((action (get-single-selected-data~ (get-tree))))
+      (when action
+        (let ((action-handler (get-action-handler~ action)))
+          (if (not action-handler)
+              (bell)
+            (edit-definitions~ (get-application) (get-method-name~ action-handler)))))))
+    
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (new-menu)
+    (let ((action (get-single-selected-data~ (get-tree))))
+      (when action
+        (new Action-Menu client: self)))))
 
 
 ;;;
@@ -209,4 +256,17 @@
   
   
   (method (draw surface context lh lv)
-    (gradient-fill~ surface (get-bounds) (list (list 0 {Color name: White}) (list 1 Header-Color))))))
+    (gradient-fill~ surface (get-bounds) (list (list 0 {Color name: White}) (list 1 Header-Color)))))
+
+
+;;;
+;;;; Action-Menu
+;;;
+
+
+(class Action-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: edit-action title: "Edit Action" icon: {Bitmap-Resource "Edit"} action: {Action shortcut-viewer edit-action})))))

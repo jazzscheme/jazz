@@ -146,7 +146,8 @@
     (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
     (jazz.compile-module 'jazz.platform.carbon.clipboard ld-options: "-framework Carbon")))
  (else
-  (define (jazz.build-clipboard) #f)))
+  (define (jazz.build-clipboard)
+    #f)))
 
 
 (cond-expand

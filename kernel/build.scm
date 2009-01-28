@@ -569,21 +569,26 @@
   'jazz)
 
 
+(define (jazz.parse-target/configuration str)
+  (let ((pos (jazz.string-find str #\@)))
+    (if (not pos)
+        (values (string->symbol str) (jazz.require-default-configuration))
+      (let ((target
+              (if (= pos 0)
+                  jazz.default-target
+                (string->symbol (substring str 0 pos))))
+            (configuration
+              (if (= (+ pos 1) (string-length str))
+                  (jazz.require-default-configuration)
+                (jazz.require-configuration (string->symbol (substring str (+ pos 1) (string-length str)))))))
+        (values target configuration)))))
+
+
 (define (jazz.make symbols)
   (define (make-symbol symbol)
     (let ((name (symbol->string symbol)))
-      (let ((pos (jazz.string-find name #\@)))
-        (if (not pos)
-            (jazz.make-target symbol (jazz.require-default-configuration))
-          (let ((target
-                  (if (= pos 0)
-                      jazz.default-target
-                    (string->symbol (substring name 0 pos))))
-                (configuration
-                  (if (= (+ pos 1) (string-length name))
-                      (jazz.require-default-configuration)
-                    (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
-            (jazz.make-target target configuration))))))
+      (receive (target configuration) (jazz.parse-target/configuration name)
+        (jazz.make-target target configuration))))
   
   (let iter ((scan (if (null? symbols)
                        (list jazz.default-target)
@@ -613,17 +618,18 @@
 
 (define (jazz.build-recursive target configuration)
   (let ((configuration-name (jazz.configuration-name configuration)))
-    (let ((target-argument (symbol->string target))
-          (configuration-argument-list (if configuration-name (list (symbol->string configuration-name)) (list)))
+    (let ((argument (if configuration-name
+                        (jazz.format "{a}@{a}" target configuration-name)
+                      (symbol->string target)))
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
-      (jazz.call-process gsc-path `("-:dq-" "-build" ,target-argument ,@configuration-argument-list)))))
+      (jazz.call-process gsc-path `("-:dq-" "-build" ,argument)))))
 
 
-(define (jazz.build target configuration-name)
+(define (jazz.build target configuration)
   (case target
-    ((kernel) (jazz.build-kernel configuration-name))
+    ((kernel) (jazz.build-kernel configuration))
     (else (jazz.error "Unknown build target: {s}" target)))
   (exit))
 
@@ -664,7 +670,7 @@
   (jazz.build-recursive 'kernel configuration))
 
 
-(define (jazz.build-kernel #!optional (configuration-name #f))
+(define (jazz.build-kernel #!optional (configuration #f))
   (define (build configuration)
     (let ((name (jazz.configuration-name configuration))
           (system (jazz.configuration-system configuration))
@@ -693,7 +699,7 @@
         kernel?:               #t
         console?:              #t)))
   
-    (let ((configuration (jazz.require-configuration configuration-name)))
+    (let ((configuration (or configuration (jazz.require-default-configuration))))
       (let ((configuration-file (jazz.configuration-file configuration)))
         (if (file-exists? configuration-file)
             (build (jazz.load-configuration-file configuration-file))
@@ -1057,26 +1063,32 @@
                     (equal? (convert-option arg) "debug"))
                (jazz.load-kernel-build)
                (##repl-debug-main))
-              ((or (and (option? arg)
-                        (equal? (convert-option arg) "build"))
-                   ;; support the old format so we can git bisect
-                   ;; and remove when enough time has passed...
-                   (equal? arg "build"))
+              ((and (option? arg)
+                    (equal? (convert-option arg) "build"))
                (let ((arguments (cdr command-arguments)))
-                 (define (build target-argument configuration-argument)
-                   (let ((target (string->symbol target-argument))
-                         (configuration-name (and configuration-argument (string->symbol configuration-argument))))
+                 (define (build argument)
+                   (receive (target configuration) (jazz.parse-target/configuration argument)
                      (jazz.load-kernel-build)
-                     (jazz.build target configuration-name)))
+                     (jazz.build target configuration)))
                  
                  (case (length arguments)
                    ((1)
-                    (build (car arguments) #f))
-                   ((2)
-                    (build (car arguments) (cadr arguments)))
+                    (build (car arguments)))
                    (else
                     (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))))
-              (fatal (jazz.format "Unknown build system command: {s}" arg)))))))
+              ((and (option? arg)
+                    (equal? (convert-option arg) "help"))
+               (let ((console (console-port)))
+                 (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
+                 (jazz.print "" console)
+                 (jazz.print "Usage: gsc [options]" console)
+                 (jazz.print "" console)
+                 (jazz.print "Options: " console)
+                 (jazz.print "  -help                         Display this help information" console)
+                 (jazz.print "  -build <target@configuration> Build <target> for <configuration> where both <target> and <configuration> are optional" console))
+               (exit))
+              (else
+               (fatal (jazz.format "Unknown build system command: {s}" arg))))))))
 
 
 ;;;

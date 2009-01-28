@@ -606,8 +606,17 @@
   (case target
     ((clean) (jazz.make-clean configuration))
     ((cleankernel) (jazz.make-cleankernel configuration))
-    ((install) (jazz.make-install configuration))
     ((kernel) (jazz.make-kernel configuration))
+    ((install) (jazz.make-install configuration))
+    (else (jazz.make-product target configuration))))
+
+
+(define (jazz.make-local target configuration)
+  (case target
+    ((clean) (jazz.make-clean configuration))
+    ((cleankernel) (jazz.make-cleankernel configuration))
+    ((kernel) (jazz.build-kernel configuration))
+    ((install) (jazz.make-install configuration))
     (else (jazz.make-product target configuration))))
 
 
@@ -624,14 +633,7 @@
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
-      (jazz.call-process gsc-path `("-:dq-" "-build" ,argument)))))
-
-
-(define (jazz.build target configuration)
-  (case target
-    ((kernel) (jazz.build-kernel configuration))
-    (else (jazz.error "Unknown build target: {s}" target)))
-  (exit))
+      (jazz.call-process gsc-path `("-:dq-" "-make" ,argument)))))
 
 
 ;;;
@@ -1064,18 +1066,17 @@
                (jazz.load-kernel-build)
                (##repl-debug-main))
               ((and (option? arg)
-                    (equal? (convert-option arg) "build"))
+                    (equal? (convert-option arg) "make"))
                (let ((arguments (cdr command-arguments)))
-                 (define (build argument)
-                   (receive (target configuration) (jazz.parse-target/configuration argument)
-                     (jazz.load-kernel-build)
-                     (jazz.build target configuration)))
-                 
                  (case (length arguments)
                    ((1)
-                    (build (car arguments)))
+                    (let ((argument (car arguments)))
+                      (receive (target configuration) (jazz.parse-target/configuration argument)
+                        (jazz.load-kernel-build)
+                        (jazz.make-local target configuration)
+                        (exit))))
                    (else
-                    (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))))
+                    (fatal (jazz.format "Ill-formed make command: {s}" command-arguments))))))
               ((and (option? arg)
                     (equal? (convert-option arg) "help"))
                (let ((console (console-port)))
@@ -1084,8 +1085,8 @@
                  (jazz.print "Usage: gsc [options]" console)
                  (jazz.print "" console)
                  (jazz.print "Options: " console)
-                 (jazz.print "  -help                         Display this help information" console)
-                 (jazz.print "  -build <target@configuration> Build <target> for <configuration> where both <target> and <configuration> are optional" console))
+                 (jazz.print "  -help                        Display this help information" console)
+                 (jazz.print "  -make <target@configuration> Make <target> for <configuration> where both parts are optional" console))
                (exit))
               (else
                (fatal (jazz.format "Unknown build system command: {s}" arg))))))))

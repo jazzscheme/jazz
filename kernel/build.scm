@@ -1085,8 +1085,8 @@
                  (jazz.print "Usage: gsc [options]" console)
                  (jazz.print "" console)
                  (jazz.print "Options: " console)
-                 (jazz.print "  -help                        Display this help information" console)
-                 (jazz.print "  -make <target@configuration> Make <target> for <configuration> where both parts are optional" console))
+                 (jazz.print "  -make <target@configuration> Make <target> for <configuration> where both parts are optional" console)
+                 (jazz.print "  -help                        Display help information" console))
                (exit))
               (else
                (fatal (jazz.format "Unknown build system command: {s}" arg))))))))

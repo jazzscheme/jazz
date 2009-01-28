@@ -81,8 +81,8 @@
               (function (output)
                 (expand~ content-expander template associations output)))))))
     
-    (define (copy-directory template destination)
-      (let ((destination (expand-pathname destination)))
+    (define (copy-directory template destination root?)
+      (let ((destination (if root? destination (expand-pathname destination))))
         (if (member? (get-name~ destination) non-expanded-nodes test: ci=?)
             (unless (exists?~ destination)
               (copy-directory~ template destination touch-files?: #t))
@@ -95,15 +95,15 @@
                   ((file)
                    (copy-file (new-file~ template name) (new-file~ destination name)))
                   ((directory)
-                   (copy-directory (new-directory~ template name) (new-directory~ destination name))))))
+                   (copy-directory (new-directory~ template name) (new-directory~ destination name) #f)))))
             full?: #f
             files?: #t
             directories?: #t
             recursive?: #f))))
     
-    (define (copy-pathname template destination)
+    (define (copy-pathname template destination root?)
       (if (file? template)
           (copy-file template destination)
-        (copy-directory template destination)))
+        (copy-directory template destination root?)))
     
-    (copy-pathname template destination))))
+    (copy-pathname template destination #t))))

@@ -342,6 +342,55 @@
 
 
 ;;;
+;;;; Command Line
+;;;
+
+
+(define (jazz.option? arg)
+  (and (< 0 (string-length arg))
+       (or (char=? (string-ref arg 0) #\-)
+           (char=? (string-ref arg 0) #\/))))
+
+
+(define (jazz.convert-option arg)
+  (substring arg 1 (string-length arg)))
+
+
+(define (jazz.option=? arg option)
+  (and (jazz.option? arg)
+       (equal? (jazz.convert-option arg) option)))
+
+
+(define (jazz.get-option name options)
+  (let ((pair (assoc name options)))
+    (if pair
+        (cdr pair)
+      #f)))
+
+
+(define (jazz.split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
+  (let loop ((args arguments)
+             (rev-options '()))
+    (if (and (pair? args)
+             (jazz.option? (car args)))
+        (let ((opt (jazz.convert-option (car args)))
+              (rest (cdr args)))
+          (cond ((member opt options-with-no-args)
+                 (loop rest
+                       (cons (cons opt #f) rev-options)))
+                ((member opt options-with-args)
+                 (if (pair? rest)
+                     (loop (cdr rest)
+                           (cons (cons opt (car rest)) rev-options))
+                   (begin
+                     (missing-argument-for-option opt)
+                     (loop rest rev-options))))
+                (else
+                 (cont (reverse rev-options) args))))
+      (cont (reverse rev-options) args))))
+
+
+;;;
 ;;;; Process
 ;;;
 

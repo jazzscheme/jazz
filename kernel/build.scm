@@ -615,7 +615,7 @@
   (case target
     ((clean) (jazz.make-clean configuration))
     ((cleankernel) (jazz.make-cleankernel configuration))
-    ((kernel) (jazz.build-kernel configuration))
+    ((kernel) (jazz.make-kernel-local configuration))
     ((install) (jazz.make-install configuration))
     (else (jazz.make-product target configuration))))
 
@@ -633,7 +633,7 @@
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
-      (jazz.call-process gsc-path `("-:dq-" "-make" ,argument)))))
+      (jazz.call-process gsc-path `("-:dq-" "make" ,argument)))))
 
 
 ;;;
@@ -668,8 +668,11 @@
 
 
 (define (jazz.make-kernel configuration)
-  (jazz.feedback "make kernel")
   (jazz.build-recursive 'kernel configuration))
+
+
+(define (jazz.make-kernel-local configuration)
+  (jazz.build-kernel configuration))
 
 
 (define (jazz.build-kernel #!optional (configuration #f))
@@ -701,11 +704,12 @@
         kernel?:               #t
         console?:              #t)))
   
-    (let ((configuration (or configuration (jazz.require-default-configuration))))
-      (let ((configuration-file (jazz.configuration-file configuration)))
-        (if (file-exists? configuration-file)
-            (build (jazz.load-configuration-file configuration-file))
-          (build configuration)))))
+  (jazz.feedback "make kernel")
+  (let ((configuration (or configuration (jazz.require-default-configuration))))
+    (let ((configuration-file (jazz.configuration-file configuration)))
+      (if (file-exists? configuration-file)
+          (build (jazz.load-configuration-file configuration-file))
+        (build configuration)))))
 
 
 ;;;
@@ -1049,47 +1053,64 @@
     (force-output)
     (exit 1))
   
-  (define (option? arg)
-    (and (< 0 (string-length arg))
-         (or (char=? (string-ref arg 0) #\-)
-             (char=? (string-ref arg 0) #\/))))
+  (define (unknown-option opt)
+    (fatal (jazz.format "Unknown option: {a}" opt)))
   
-  (define (convert-option arg)
-    (substring arg 1 (string-length arg)))
+  (define (missing-argument-for-option opt)
+    (fatal (jazz.format "Missing argument for option: {a}" opt)))
   
   (let ((command-arguments (cdr (command-line))))
     (if (null? command-arguments)
         (jazz.build-system-repl)
-      (let ((arg (car command-arguments)))
-        (cond ((and (option? arg)
-                    (equal? (convert-option arg) "debug"))
-               (jazz.load-kernel-build)
-               (##repl-debug-main))
-              ((and (option? arg)
-                    (equal? (convert-option arg) "make"))
+      (let ((action (car command-arguments)))
+        (cond ((equal? action "configure")
+               (jazz.split-command-line (cdr command-arguments) '() '("system" "platform" "windowing" "safety") missing-argument-for-option
+                 (lambda (options remaining)
+                   (define (symbol-option name options)
+                     (let ((opt (jazz.get-option name options)))
+                       (if (not opt)
+                           #f
+                         (string->symbol opt))))
+                   
+                   (if (null? remaining)
+                       (let ((system (symbol-option "system" options))
+                             (platform (symbol-option "platform" options))
+                             (windowing (symbol-option "windowing" options))
+                             (safety (symbol-option "safety" options)))
+                         (jazz.configure system: system platform: platform windowing: windowing safety: safety)
+                         (exit))
+                     (unknown-option (car remaining))))))
+              ((equal? action "make")
                (let ((arguments (cdr command-arguments)))
+                 (define (make target configuration)
+                   (jazz.load-kernel-build)
+                   (jazz.make-local target configuration)
+                   (exit))
+                 
                  (case (length arguments)
+                   ((0)
+                    (make jazz.default-target (jazz.require-default-configuration)))
                    ((1)
                     (let ((argument (car arguments)))
                       (receive (target configuration) (jazz.parse-target/configuration argument)
-                        (jazz.load-kernel-build)
-                        (jazz.make-local target configuration)
-                        (exit))))
+                        (make target configuration))))
                    (else
-                    (fatal (jazz.format "Ill-formed make command: {s}" command-arguments))))))
-              ((and (option? arg)
-                    (equal? (convert-option arg) "help"))
+                    (fatal (jazz.format "Ill-formed make command: {a}" command-arguments))))))
+              ((jazz.option=? action "debug")
+               (jazz.load-kernel-build)
+               (##repl-debug-main))
+              ((jazz.option=? action "help")
                (let ((console (console-port)))
                  (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
                  (jazz.print "" console)
-                 (jazz.print "Usage: gsc [options]" console)
-                 (jazz.print "" console)
-                 (jazz.print "Options: " console)
-                 (jazz.print "  -make <target@configuration> Make <target> for <configuration> where both parts are optional" console)
-                 (jazz.print "  -help                        Display help information" console))
+                 (jazz.print "Usage:" console)
+                 (jazz.print "  gsc configure [-system] [-platform] [-windowing] [-safety]" console)
+                 (jazz.print "  gsc make [target]@[configuration]" console)
+                 (jazz.print "  gsc -debug" console)
+                 (jazz.print "  gsc -help" console))
                (exit))
               (else
-               (fatal (jazz.format "Unknown build system command: {s}" arg))))))))
+               (fatal (jazz.format "Unknown build system action: {a}" action))))))))
 
 
 ;;;

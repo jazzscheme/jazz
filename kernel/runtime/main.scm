@@ -126,7 +126,7 @@
 
 
 (define (jazz.process-main)
-  (define (warn-missing-argument-for-option opt)
+  (define (missing-argument-for-option opt)
     (set! jazz.warnings
           (lambda (output-port)
             (%%write-string
@@ -136,39 +136,6 @@
             (%%write-string "\"\n" output-port)
             #t))
     (jazz.repl-main))
-  
-  (define (option? arg)
-    (and (%%fx< 0 (%%string-length arg))
-         (or (%%char=? (%%string-ref arg 0) #\-)
-             (%%char=? (%%string-ref arg 0) #\/))))
-             
-  (define (convert-option arg)
-    (%%substring arg 1 (%%string-length arg)))
-
-  (define (split-command-line
-           arguments
-           options-with-no-args
-           options-with-args
-           cont)
-    (let loop ((args arguments)
-               (rev-options '()))
-      (if (and (%%pair? args)
-               (option? (%%car args)))
-          (let ((opt (convert-option (%%car args)))
-                (rest (%%cdr args)))
-            (cond ((%%member opt options-with-no-args)
-                   (loop rest
-                         (%%cons (%%cons opt #f) rev-options)))
-                  ((%%member opt options-with-args)
-                   (if (%%pair? rest)
-                       (loop (%%cdr rest)
-                             (%%cons (%%cons opt (%%car rest)) rev-options))
-                     (begin
-                       (warn-missing-argument-for-option opt)
-                       (loop rest rev-options))))
-                  (else
-                   (cont (%%reverse rev-options) args))))
-        (cont (%%reverse rev-options) args))))
   
   (define (process-initialization-file)
     (if (file-exists? jazz.initialization-file)
@@ -182,19 +149,13 @@
           (current-handler exc))
         thunk)))
   
-  (split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debugger")
+  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debugger") missing-argument-for-option
     (lambda (options remaining)
-      (define (get-option name)
-        (let ((pair (%%assoc name options)))
-          (if pair
-              (%%cdr pair)
-            #f)))
-      
-      (let ((run (get-option "run"))
-            (make (get-option "make"))
-            (build (get-option "build"))
-            (compile (get-option "compile"))
-            (debugger (get-option "debugger")))
+      (let ((run (jazz.get-option "run" options))
+            (make (jazz.get-option "make" options))
+            (build (jazz.get-option "build" options))
+            (compile (jazz.get-option "compile" options))
+            (debugger (jazz.get-option "debugger" options)))
         (set! jazz.debugger debugger)
         (process-initialization-file)
         (jazz.setup-repositories)

@@ -133,14 +133,15 @@
             (service (get-service~ proxy-ior)))
         (when *debug?*
           (terminal '***client*** 'live? remote-proxy))
-        (call-with-tcp-client (list server-address: host port-number: service)
-          (function (port)
-            (with-exception-catcher
-              (function (exc)
-                #f)
-              (function ()
-                (send-remote-message live-request port)
-                (eq? (receive-remote-result port) live-response)))))))))
+        (let ((port (open-tcp-client (list server-address: host port-number: service))))
+          (with-exception-catcher
+            (function (exc)
+              #f)
+            (function ()
+              (send-remote-message live-request port)
+              (let ((result (receive-remote-result port)))
+                (close-port port)
+                (eq? result live-response)))))))))
 
 
 ;;;

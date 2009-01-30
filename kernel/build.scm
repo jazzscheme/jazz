@@ -131,16 +131,18 @@
 ;;;
 
 
-(define jazz.configurations-file
-  "~/.jazz/.configurations")
+(define jazz.anonymous-configuration-file
+  "./.configuration")
 
+(define jazz.named-configurations-file
+  "~/.jazz/.configurations")
 
 (define jazz.configurations
   '())
 
 
 (define (jazz.list-configurations)
-  (for-each jazz.describe-configuration (jazz.sorted-configurations)))
+  (for-each jazz.describe-configuration (jazz.sort-configurations jazz.configurations)))
 
 
 (define (jazz.require-configuration name)
@@ -178,8 +180,8 @@
           (iter (cdr configurations)))))))
 
 
-(define (jazz.sorted-configurations)
-  (jazz.sort jazz.configurations
+(define (jazz.sort-configurations configurations)
+  (jazz.sort configurations
              (lambda (c1 c2)
                (let ((n1 (jazz.configuration-name c1))
                      (n2 (jazz.configuration-name c2)))
@@ -191,11 +193,22 @@
                         (string-ci<? (symbol->string n1) (symbol->string n2))))))))
 
 
+(define (jazz.split-configurations configurations)
+  (let split ((configurations configurations) (anonymous #f) (named '()))
+    (if (null? configurations)
+        (values anonymous named)
+      (let ((configuration (car configurations)))
+        (if (not (jazz.configuration-name configuration))
+            (split (cdr configurations) configuration named)
+          (split (cdr configurations) anonymous (cons configuration named)))))))
+
+
 (define (jazz.register-configuration configuration)
-  (let ((pair (jazz.find-configuration-pair (jazz.configuration-name configuration))))
-    (if pair
-        (set-car! pair configuration)
-      (set! jazz.configurations (append jazz.configurations (list configuration)))))
+  (let ((name (jazz.configuration-name configuration)))
+    (let ((pair (jazz.find-configuration-pair name)))
+      (if pair
+          (set-car! pair configuration)
+        (set! jazz.configurations (append jazz.configurations (list configuration))))))
   (jazz.save-configurations))
 
 
@@ -209,8 +222,8 @@
 
 
 (define (jazz.load-configurations)
-  (if (file-exists? jazz.configurations-file)
-      (call-with-input-file (list path: jazz.configurations-file eol-encoding: 'cr-lf)
+  (if (file-exists? jazz.named-configurations-file)
+      (call-with-input-file (list path: jazz.named-configurations-file eol-encoding: 'cr-lf)
         (lambda (input)
           (define (read-configuration input)
             (let ((list (read input)))
@@ -218,7 +231,9 @@
                   list
                 (apply jazz.new-configuration list))))
           
-          (set! jazz.configurations (read-all input read-configuration))))))
+          (set! jazz.configurations (read-all input read-configuration)))))
+  (if (file-exists? jazz.anonymous-configuration-file)
+      (jazz.register-configuration (jazz.load-configuration-file jazz.anonymous-configuration-file))))
 
 
 (define (jazz.load-configuration-file file)
@@ -228,23 +243,36 @@
 
 
 (define (jazz.save-configurations)
-  (jazz.create-directories "~/.jazz" feedback: jazz.feedback)
-  (call-with-output-file jazz.configurations-file
-    (lambda (output)
-      (for-each (lambda (configuration)
-                  (jazz.print-configuration
-                    (jazz.configuration-name configuration)
-                    (jazz.configuration-system configuration)
-                    (jazz.configuration-platform configuration)
-                    (jazz.configuration-windowing configuration)
-                    (jazz.configuration-safety configuration)
-                    (jazz.configuration-optimize? configuration)
-                    (jazz.configuration-include-source? configuration)
-                    (jazz.configuration-interpret? configuration)
-                    (jazz.configuration-source? configuration)
-                    (jazz.configuration-destination configuration)
-                    output))
-                (jazz.sorted-configurations)))))
+  (define (print-configuration configuration output)
+    (jazz.print-configuration
+      (jazz.configuration-name configuration)
+      (jazz.configuration-system configuration)
+      (jazz.configuration-platform configuration)
+      (jazz.configuration-windowing configuration)
+      (jazz.configuration-safety configuration)
+      (jazz.configuration-optimize? configuration)
+      (jazz.configuration-include-source? configuration)
+      (jazz.configuration-interpret? configuration)
+      (jazz.configuration-source? configuration)
+      (jazz.configuration-destination configuration)
+      output))
+  
+  (receive (anonymous named) (jazz.split-configurations jazz.configurations)
+    (if anonymous
+        (call-with-output-file jazz.anonymous-configuration-file
+          (lambda (output)
+            (print-configuration anonymous output)))
+      (if (file-exists? jazz.anonymous-configuration-file)
+          (delete-file jazz.anonymous-configuration-file)))
+    (let ((configurations (jazz.sort-configurations named)))
+      (if (not (null? configurations))
+          (begin
+            (jazz.create-directories "~/.jazz" feedback: jazz.feedback)
+            (call-with-output-file jazz.named-configurations-file
+              (lambda (output)
+                (for-each (lambda (configuration)
+                            (print-configuration configuration output))
+                          configurations))))))))
 
 
 (define (jazz.describe-configuration configuration)

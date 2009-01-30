@@ -60,6 +60,7 @@
   (slot modified?    initialize #f)
   (slot read-only?   initialize #f)
   (slot moniker-time initialize {})
+  (slot moniker-sha1 initialize {})
 
 
   (method (initialize document (tool?: tool? #f) (console?: console? #f))
@@ -318,7 +319,8 @@
   
   
   (method public virtual (update-moniker-time moniker)
-    (set! moniker-time (get-modification-time~ moniker)))
+    (set! moniker-time (get-modification-time~ moniker))
+    (set! moniker-sha1 (digest-file (parse~ moniker) 'sha-1)))
   
   
   (method public (verify-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
@@ -330,10 +332,7 @@
     (and moniker moniker-time
          (exists?~ moniker)
          (/= (time->seconds (get-modification-time~ moniker)) (time->seconds moniker-time))
-         ;; temporary patch until I find a clean solution to the annoying
-         ;; fact that if I am editing lets say A and B from a zip file and
-         ;; I save A and then go to B, Jazz will propose to reload the file!
-         (is-not? moniker Zipped)))
+         (not (equal? (digest-file (parse~ moniker) 'sha-1) moniker-sha1))))
 
   
   (method public (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
@@ -341,7 +340,7 @@
                     'yes
                   (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
                                title: "File Status"
-                               type: 'confirmation))))
+                               type: 'question))))
       (case code
         ((yes)
          (reload-moniker~ document moniker)
@@ -349,9 +348,7 @@
            (throw-cancel)))
         ((no)
          (update-moniker-time moniker)
-         (update-status))
-        ((cancel)
-         (throw-cancel)))))
+         (update-status)))))
   
 
   ;;;

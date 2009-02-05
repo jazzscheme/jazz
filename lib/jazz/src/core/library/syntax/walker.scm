@@ -2730,37 +2730,45 @@
                   '())
                 (if library-exports
                     (map (lambda (export)
-                           (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice export)
-                             (let ((library-reference (jazz.new-library-reference library-name #f)))
-                               (jazz.new-export-invoice library-reference
-                                                        library-phase
-                                                        library-version
-                                                        (if (%%not library-only)
-                                                            #f
-                                                          (map (lambda (symbol)
-                                                                 (jazz.new-export-reference symbol #f #f))
-                                                               library-only))
-                                                        (if (%%not library-autoload)
-                                                            #f
-                                                          (map (lambda (symbol)
-                                                                 (jazz.new-autoload-reference symbol #f #f))
-                                                               library-autoload))))))
+                           (jazz.walk-library-export walker export))
                          (%%cdr library-exports))
                   '())))))
 
 
+(define (jazz.walk-library-export walker export)
+  (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice export)
+    (let ((library-reference (jazz.new-library-reference library-name #f)))
+      (jazz.new-export-invoice library-reference
+                               library-phase
+                               library-version
+                               (if (%%not library-only)
+                                   #f
+                                 (map (lambda (symbol)
+                                        (jazz.new-export-reference symbol #f #f))
+                                      library-only))
+                               (if (%%not library-autoload)
+                                   #f
+                                 (map (lambda (symbol)
+                                        (jazz.new-autoload-reference symbol #f #f))
+                                      library-autoload))))))
+
+
 (define (jazz.walk-library-imports walker imports)
   (map (lambda (import)
-         (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
-           (jazz.new-import-invoice (jazz.lookup-library walker #f #f '() library-name)
-                                    library-phase
-                                    library-version
-                                    (if (%%not library-only)
-                                        #f
-                                      (map (lambda (symbol)
-                                             (jazz.new-export-reference symbol #f #f))
-                                           library-only)))))
+         (jazz.walk-library-import walker import))
        imports))
+
+
+(define (jazz.walk-library-import walker import)
+  (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
+    (jazz.new-import-invoice (jazz.lookup-library walker #f #f '() library-name)
+                             library-phase
+                             library-version
+                             (if (%%not library-only)
+                                 #f
+                               (map (lambda (symbol)
+                                      (jazz.new-export-reference symbol #f #f))
+                                    library-only)))))
 
 
 (define (jazz.expand-library partial-form)

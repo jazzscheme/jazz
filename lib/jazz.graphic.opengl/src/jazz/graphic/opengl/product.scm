@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Exploring C Code
+;;;; OpenGL Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,26 +35,28 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.language.c.text.C-Explorer jazz
+(module jazz.graphic.opengl.product
 
 
-(import (jazz.language.c)
-        (jazz.library)
-        (jazz.ui)
-        (jazz.utilities))
+;;;
+;;;; Build
+;;;
 
 
-(class C-Explorer extends Code-Explorer
-  
-  
-  (method (get-syntax)
-    'c)
-  
-  
-  ;;;
-  ;;;; Scheme
-  ;;;
-  
-  
-  (method (c->scheme)
-    )))
+(define (jazz.build-opengl)
+  (jazz.load-module 'core.module.builder)
+  (jazz.compile-module 'jazz.graphic.opengl.gl-header)
+  (jazz.compile-module 'jazz.graphic.opengl.gl ld-options: "-lopengl32")
+  (jazz.compile-module 'jazz.graphic.opengl.glu-header)
+  (jazz.compile-module 'jazz.graphic.opengl.glu ld-options: "-lopengl32 -lglu32")
+  (jazz.compile-module 'jazz.graphic.opengl.glut-header)
+  (jazz.compile-module 'jazz.graphic.opengl.glut ld-options: "-lopengl32 -lglu32 -lglut32"))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz.register-product 'opengl
+  build: jazz.build-opengl))

@@ -2613,6 +2613,8 @@
         (requires '())
         (exports '())
         (imports '()))
+    ;#;
+    (begin
     (if (and (%%pair? scan)
              (%%pair? (jazz.source-code (%%car scan)))
              (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'require))
@@ -2631,12 +2633,13 @@
         (begin
           (set! imports (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
-      (values name
-              dialect-name
-              (jazz.filter-features requires)
-              (jazz.filter-features exports)
-              (jazz.filter-features imports)
-              scan)))
+      )
+    (values name
+            dialect-name
+            (jazz.filter-features requires)
+            (jazz.filter-features exports)
+            (jazz.filter-features imports)
+            scan)))
 
 
 (define (jazz.parse-library-invoice specification)
@@ -2901,6 +2904,9 @@
 
 (define (jazz.core-bindings)
   (%%list
+    (jazz.new-special-form 'require  jazz.walk-require)
+    (jazz.new-special-form 'export   jazz.walk-export)
+    (jazz.new-special-form 'import   jazz.walk-import)
     (jazz.new-special-form 'proclaim jazz.walk-proclaim)
     (jazz.new-special-form 'native   jazz.walk-native)
     (jazz.new-special-form 'macro    jazz.walk-macro)
@@ -2932,10 +2938,13 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((native) (jazz.walk-native-declaration walker resume declaration environment form))
-          ((macro)  (jazz.walk-macro-declaration  walker resume declaration environment form))
-          ((syntax) (jazz.walk-syntax-declaration walker resume declaration environment form))
-          (else     #f)))
+          ((require) (jazz.walk-require-declaration walker resume declaration environment form))
+          ((export)  (jazz.walk-export-declaration walker resume declaration environment form))
+          ((import)  (jazz.walk-import-declaration walker resume declaration environment form))
+          ((native)  (jazz.walk-native-declaration walker resume declaration environment form))
+          ((macro)   (jazz.walk-macro-declaration  walker resume declaration environment form))
+          ((syntax)  (jazz.walk-syntax-declaration walker resume declaration environment form))
+          (else      #f)))
     #f))
 
 
@@ -5070,6 +5079,54 @@
         (let ((locator (%%get-declaration-locator declaration)))
           (jazz.walk-error walker resume source-declaration "Wrong number of arguments to {a} (passed {a} expected{a} {a})"
             locator passed (if rest " at least" "") mandatory)))))
+
+
+;;;
+;;;; Require
+;;;
+
+
+(define (jazz.walk-require-declaration walker resume declaration environment form)
+  (let ((requires (%%cdr form)))
+    (%%set-library-declaration-requires declaration (%%append (%%get-library-declaration-requires declaration) requires))))
+
+
+(define (jazz.walk-require walker resume declaration environment form-src)
+  (jazz.new-begin #f '()))
+
+
+;;;
+;;;; Export
+;;;
+
+
+(define (jazz.walk-export-declaration walker resume declaration environment form)
+  (let ((export-invoices (jazz.walk-library-exports walker (%%cdr form))))
+    (for-each (lambda (export-invoice)
+                (%%set-library-declaration-exports declaration (%%append (%%get-library-declaration-exports declaration) (%%list export-invoice)))
+                (jazz.add-library-export declaration export-invoice))
+              export-invoices)))
+
+
+(define (jazz.walk-export walker resume declaration environment form-src)
+  (jazz.new-begin #f '()))
+
+
+;;;
+;;;; Import
+;;;
+
+
+(define (jazz.walk-import-declaration walker resume declaration environment form)
+  (let ((import-invoices (jazz.walk-library-imports walker (%%cdr form))))
+    (for-each (lambda (import-invoice)
+                (%%set-library-declaration-imports declaration (%%append (%%get-library-declaration-imports declaration) (%%list import-invoice)))
+                (jazz.add-library-import declaration import-invoice))
+              import-invoices)))
+
+
+(define (jazz.walk-import walker resume declaration environment form-src)
+  (jazz.new-begin #f '()))
 
 
 ;;;

@@ -915,10 +915,6 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          #; ;; wait
-          ((export)          (jazz.walk-export-declaration          walker resume declaration environment form))
-          #; ;; wait
-          ((import)          (jazz.walk-import-declaration          walker resume declaration environment form))
           ((definition)      (jazz.walk-definition-declaration      walker resume declaration environment form))
           ((%specialize)     (jazz.walk-specialize-declaration      walker resume declaration environment form))
           ((generic)         (jazz.walk-generic-declaration         walker resume declaration environment form))
@@ -1360,28 +1356,6 @@
     (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
       (jazz.new-dispatch form-src name
         (jazz.walk-list walker resume declaration environment arguments)))))
-
-
-;;;
-;;;; Export
-;;;
-
-
-#; ;; wait
-(define (jazz.walk-export-declaration walker resume declaration environment form)
-  (let ((export-invoice (jazz.walk-library-export walker (%%cdr form))))
-    (jazz.add-library-export declaration export-invoice)))
-
-
-;;;
-;;;; Import
-;;;
-
-
-#; ;; wait
-(define (jazz.walk-import-declaration walker resume declaration environment form)
-  (let ((import-invoice (jazz.walk-library-import walker (%%cdr form))))
-    (jazz.add-library-import declaration import-invoice)))
 
 
 ;;;

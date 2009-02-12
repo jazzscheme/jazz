@@ -169,7 +169,7 @@
 (jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator source lookups children-lookup children body) jazz.Object-Class jazz.allocate-library-declaration
   ((dialect-name    %%get-library-declaration-dialect-name    ())
    (dialect-invoice %%get-library-declaration-dialect-invoice ())
-   (requires        %%get-library-declaration-requires        ())
+   (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
    (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
    (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
    (proclaims       %%get-library-declaration-proclaims       %%set-library-declaration-proclaims)

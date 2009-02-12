@@ -51,10 +51,59 @@
     'c)
   
   
-  ;;;
-  ;;;; Scheme
-  ;;;
+  (method private (forward-single-line-comment)
+    (next-paragraph))
   
   
-  (method (c->scheme)
-    )))
+  (method private (forward-multi-line-comment)
+    (forward)
+    (forward)
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (when c
+          (if (and (eqv? c #\times)
+                   (eqv? (char-forward 1) #\slash))
+              (begin
+                (forward)
+                (forward))
+            (forward)
+            (iterate))))))
+  
+  
+  (method public (forward-comments)
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (when c
+          (cond ((eqv? c #\slash)
+                 (case (char-forward 1)
+                   ((#\slash)
+                    (forward-single-line-comment)
+                    (iterate))
+                   ((#\times)
+                    (forward-multi-line-comment)
+                    (iterate)))))))))
+  
+  
+  (method public (forward-whites)
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (when c
+          (cond ((eqv? c #\slash)
+                 (case (char-forward 1)
+                   ((#\slash)
+                    (forward-single-line-comment)
+                    (iterate))
+                   ((#\times)
+                    (forward-multi-line-comment)
+                    (iterate))))
+                ((whitespace? c)
+                 (forward)
+                 (iterate)))))))
+  
+  
+  (method public (forward-identifier-or-number)
+    (let (iterate)
+      (forward-word)
+      (when (eqv? (char-forward 0) #\period)
+        (forward)
+        (iterate))))))

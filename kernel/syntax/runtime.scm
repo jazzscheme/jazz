@@ -48,6 +48,9 @@
     (lambda (requires body)
       `(begin
          ,@(jazz.declares 'module)
+         ;; note that making require a macro instead of being part of the
+         ;; module syntax could be done but would pollute the underlying scheme
+         ;; with an unnecessary extra macro
          ,@(map (lambda (require)
                   (jazz.parse-require require
                     (lambda (module-name feature-requirement phase)

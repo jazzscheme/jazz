@@ -403,8 +403,8 @@
 (jazz.define-class-runtime jazz.Library-Declaration)
 
 
-(define (jazz.new-library-declaration name parent dialect-name dialect-invoice requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice requires exports imports (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
+(define (jazz.new-library-declaration name parent dialect-name dialect-invoice)
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice  '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2609,37 +2609,10 @@
 (define (jazz.parse-library partial-form)
   (let ((name (jazz.source-code (%%car partial-form)))
         (dialect-name (jazz.source-code (%%cadr partial-form)))
-        (scan (%%cddr partial-form))
-        (requires '())
-        (exports '())
-        (imports '()))
-    ;#;
-    (begin
-    (if (and (%%pair? scan)
-             (%%pair? (jazz.source-code (%%car scan)))
-             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'require))
-        (begin
-          (set! requires (%%cdr (%%desourcify (%%car scan))))
-          (set! scan (%%cdr scan))))
-    (if (and (%%pair? scan)
-             (%%pair? (jazz.source-code (%%car scan)))
-             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'export))
-        (begin
-          (set! exports (%%cdr (%%desourcify (%%car scan))))
-          (set! scan (%%cdr scan))))
-    (if (and (%%pair? scan)
-             (%%pair? (jazz.source-code (%%car scan)))
-             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car scan)))) 'import))
-        (begin
-          (set! imports (%%cdr (%%desourcify (%%car scan))))
-          (set! scan (%%cdr scan))))
-      )
+        (body (%%cddr partial-form)))
     (values name
             dialect-name
-            (jazz.filter-features requires)
-            (jazz.filter-features exports)
-            (jazz.filter-features imports)
-            scan)))
+            body)))
 
 
 (define (jazz.parse-library-invoice specification)
@@ -2683,45 +2656,23 @@
 
 
 (define (jazz.parse-library-declaration partial-form)
-  (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
+  (receive (name dialect-name body) (jazz.parse-library partial-form)
     (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
                (dialect (jazz.require-dialect dialect-name))
                (walker (jazz.dialect-walker dialect)))
-          (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice requires exports imports body))))))
+          (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice body))))))
 
 
-(define (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice requires exports imports body)
-  (let ((exports (jazz.walk-library-exports walker exports))
-        (imports (jazz.walk-library-imports walker imports)))
-    (let ((new-declaration (jazz.new-library-declaration name #f dialect-name dialect-invoice requires exports imports)))
-      (jazz.load-library-syntax new-declaration)
-      (jazz.setup-library-lookups new-declaration)
-      (let ((declaration (jazz.merge-declarations actual new-declaration)))
-        (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
-        (jazz.validate-walk-problems walker)
-        declaration))))
-
-
-(define (jazz.load-library-syntax declaration)
-  (for-each (lambda (spec)
-              (jazz.parse-require spec
-                (lambda (module-name feature-requirement phase)
-                  (%%when (%%eq? phase 'syntax)
-                    (jazz.load-module module-name)))))
-            (%%get-library-declaration-requires declaration))
-  (for-each (lambda (library-invoice)
-              (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
-                (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) declaration)))
-                  (jazz.load-module (%%get-lexical-binding-name library-declaration)))))
-            (%%get-library-declaration-exports declaration))
-  (for-each (lambda (library-invoice)
-              (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
-                (let ((library-declaration (%%get-library-invoice-library library-invoice)))
-                  (jazz.load-module (%%get-lexical-binding-name library-declaration)))))
-            (%%get-library-declaration-imports declaration)))
+(define (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice body)
+  (let ((new-declaration (jazz.new-library-declaration name #f dialect-name dialect-invoice)))
+    (jazz.setup-library-lookups new-declaration)
+    (let ((declaration (jazz.merge-declarations actual new-declaration)))
+      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
+      (jazz.validate-walk-problems walker)
+      declaration)))
 
 
 (define (jazz.walk-library-exports walker exports)
@@ -2779,7 +2730,7 @@
 
 
 (define (jazz.walk-library partial-form)
-  (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
+  (receive (name dialect-name body) (jazz.parse-library partial-form)
     (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
@@ -2790,7 +2741,7 @@
                (actual (jazz.get-catalog-entry name))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice requires exports imports (jazz.desourcify-list body))))
+                                (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice (jazz.desourcify-list body))))
                                   (jazz.set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz.walker-environment walker)))
@@ -5087,8 +5038,15 @@
 
 
 (define (jazz.walk-require-declaration walker resume declaration environment form)
-  (let ((requires (%%cdr form)))
-    (%%set-library-declaration-requires declaration (%%append (%%get-library-declaration-requires declaration) requires))))
+  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+    (let ((requires (jazz.filter-features (%%cdr form))))
+      (for-each (lambda (require)
+                  (%%set-library-declaration-requires declaration (%%append (%%get-library-declaration-requires declaration) (%%list require)))
+                  (jazz.parse-require require
+                    (lambda (module-name feature-requirement phase)
+                      (%%when (%%eq? phase 'syntax)
+                        (jazz.load-module module-name)))))
+                requires))))
 
 
 (define (jazz.walk-require walker resume declaration environment form-src)
@@ -5101,11 +5059,15 @@
 
 
 (define (jazz.walk-export-declaration walker resume declaration environment form)
-  (let ((export-invoices (jazz.walk-library-exports walker (%%cdr form))))
-    (for-each (lambda (export-invoice)
-                (%%set-library-declaration-exports declaration (%%append (%%get-library-declaration-exports declaration) (%%list export-invoice)))
-                (jazz.add-library-export declaration export-invoice))
-              export-invoices)))
+  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+    (let ((export-invoices (jazz.walk-library-exports walker (jazz.filter-features (%%cdr form)))))
+      (for-each (lambda (export-invoice)
+                  (%%set-library-declaration-exports declaration (%%append (%%get-library-declaration-exports declaration) (%%list export-invoice)))
+                  (jazz.add-library-export declaration export-invoice)
+                  (%%when (%%eq? (%%get-library-invoice-phase export-invoice) 'syntax)
+                    (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library export-invoice) declaration)))
+                      (jazz.load-module (%%get-lexical-binding-name library-declaration)))))
+                export-invoices))))
 
 
 (define (jazz.walk-export walker resume declaration environment form-src)
@@ -5118,11 +5080,15 @@
 
 
 (define (jazz.walk-import-declaration walker resume declaration environment form)
-  (let ((import-invoices (jazz.walk-library-imports walker (%%cdr form))))
-    (for-each (lambda (import-invoice)
-                (%%set-library-declaration-imports declaration (%%append (%%get-library-declaration-imports declaration) (%%list import-invoice)))
-                (jazz.add-library-import declaration import-invoice))
-              import-invoices)))
+  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+    (let ((import-invoices (jazz.walk-library-imports walker (jazz.filter-features (%%cdr form)))))
+      (for-each (lambda (import-invoice)
+                  (%%set-library-declaration-imports declaration (%%append (%%get-library-declaration-imports declaration) (%%list import-invoice)))
+                  (jazz.add-library-import declaration import-invoice)
+                  (%%when (%%eq? (%%get-library-invoice-phase import-invoice) 'syntax)
+                    (let ((library-declaration (%%get-library-invoice-library import-invoice)))
+                      (jazz.load-module (%%get-lexical-binding-name library-declaration)))))
+                import-invoices))))
 
 
 (define (jazz.walk-import walker resume declaration environment form-src)

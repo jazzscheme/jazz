@@ -285,7 +285,7 @@
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
-          (%%table-merge! private (%%get-access-lookup ascendant jazz.public-access)))
+          (%%table-merge! private (%%get-access-lookup ascendant jazz.public-access) #t))
       (for-each (lambda (interface)
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
@@ -458,7 +458,7 @@
     
     (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
       (for-each (lambda (interface)
-                  (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
+                  (%%table-merge! private (%%get-access-lookup interface jazz.public-access) #t))
                 ascendants))
     
     ;; a quick test
@@ -2338,7 +2338,6 @@
   (let ((out-list (generate-cotype-transform generate-out)))
     `(function (coptr ,@(generate-cotype-transform generate-in))
                (let (,@(generate-cotype-transform generate-encode/enref))
-                 ;;(jazz.debug ',lowlevel-name coptr ,@(generate-cotype-transform generate-low))
                  (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
                    ,(if hresult?
                         (if refiid
@@ -2637,8 +2636,6 @@
                (jazz.enqueue queue c-type-declaration)
                (values 'alias (%%get-declaration-locator c-type-declaration) #f)))
             ((%%string? type)
-             #;
-             (jazz.debug type)
              (values 'type type #f))
             ((%%pair? type)
              (case (%%car type)
@@ -2656,13 +2653,9 @@
                   (values 'function `(function ,(map resolve-expansion parameter-types) ,(resolve-expansion result-type)) #f)))
                ((struct)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  #;
-                  (jazz.debug type)
                   (values 'struct `(struct ,c-string ,@tag-rest) #f)))
                ((union)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  #;
-                  (jazz.debug type)
                   (values 'union `(union ,c-string ,@tag-rest) #f)))))
             (else
              (jazz.error "Ill-formed c-type: {s}" type))))

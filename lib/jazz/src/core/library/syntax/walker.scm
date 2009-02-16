@@ -2638,11 +2638,11 @@
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
                (dialect (jazz.require-dialect dialect-name))
                (walker (jazz.dialect-walker dialect)))
-          (jazz.walk-library-declaration walker name dialect-name dialect-invoice body))))))
+          (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice body))))))
 
 
-(define (jazz.walk-library-declaration walker name dialect-name dialect-invoice body)
-  (let ((declaration (jazz.new-library-declaration name #f dialect-name dialect-invoice)))
+(define (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice body)
+  (let ((declaration (or actual (jazz.new-library-declaration name #f dialect-name dialect-invoice))))
     (%%when dialect-invoice
       (jazz.add-library-import declaration dialect-invoice #f))
     (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
@@ -2713,9 +2713,10 @@
                (dialect (jazz.require-dialect dialect-name))
                (walker (jazz.dialect-walker dialect))
                (resume #f)
+               (actual (and (%%eq? (jazz.walk-for) 'eval) (jazz.get-catalog-entry name)))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz.walk-library-declaration walker name dialect-name dialect-invoice (jazz.desourcify-list body))))
+                                (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice (jazz.desourcify-list body))))
                                   (jazz.set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz.walker-environment walker)))

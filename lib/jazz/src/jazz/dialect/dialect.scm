@@ -1627,7 +1627,7 @@
         (receive (ascendant ascendant-relation ascendant-base) (jazz.lookup-ascendant walker resume declaration environment ascendant-name)
           (let ((metaclass (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name))
                 (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
-            (let ((new-declaration (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+            (let ((new-declaration (or (jazz.find-actual-declaration declaration jazz.Class-Declaration name) (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 (jazz.setup-class-lookups effective-declaration)
                 (let ((new-environment (%%cons effective-declaration environment)))
@@ -1954,7 +1954,7 @@
         (cond ((%%eq? category-declaration root-category-declaration)
                (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
               ((and root-category-declaration (%%memq root-method-propagation '(final inherited)))
-               (jazz.walk-error walker resume declaration "Cannot redefine method {s}" name))
+               (jazz.walk-error walker resume declaration "Cannot redefine method: {s}" name))
               ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'inherited))
                (case propagation
                  ((virtual chained)
@@ -1962,7 +1962,7 @@
                  ((final)
                   (jazz.walk-error walker resume declaration "Cannot finalize virtual method: {s}" name))))
               ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
-               (jazz.walk-error walker resume declaration "Interface method must be virtual {s}" name))
+               (jazz.walk-error walker resume declaration "Interface method must be virtual: {s}" name))
               (else
                (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                  (let ((body-expression

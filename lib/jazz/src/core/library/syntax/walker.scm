@@ -2906,6 +2906,15 @@
       declaration)))
 
 
+(define (jazz.find-actual-declaration namespace-declaration class name)
+  (if (%%eq? (jazz.walk-for) 'eval)
+      (let ((declaration (jazz.find-declaration namespace-declaration name)))
+        (if (and declaration (%%class-is? declaration class))
+            declaration
+          #f))
+    #f))
+
+
 (define (jazz.begin-form? form)
   (and (%%pair? (jazz.source-code form))
        (%%eq? (jazz.source-code (%%car (jazz.source-code form))) 'begin)))

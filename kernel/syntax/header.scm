@@ -186,8 +186,8 @@
 (define (jazz.repl-context-prev-depth context)
   (macro-repl-context-prev-depth context))
 
-(define (jazz.make-repl-context level depth cont initial-cont prev-level prev-depth)
-  (macro-make-repl-context level depth cont initial-cont prev-level prev-depth))
+(define (jazz.make-repl-context level depth cont initial-cont reason prev-level prev-depth)
+  (macro-make-repl-context level depth cont initial-cont reason prev-level prev-depth))
 
 
 ;;;

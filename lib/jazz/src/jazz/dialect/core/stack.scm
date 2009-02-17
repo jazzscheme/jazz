@@ -162,6 +162,7 @@
                   0
                   cont
                   cont
+                  #f
                   prev-context
                   #f)))
           (jazz.repl-context-bind

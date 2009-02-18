@@ -492,10 +492,10 @@
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
   (let ((body-expansion (jazz.emit-namespace-statements (%%get-namespace-declaration-body declaration) declaration environment))
-        (references-expansion (jazz.expand-library-references declaration))
-        (literals-expansion (jazz.expand-library-literals declaration))
-        (variables-expansion (jazz.expand-library-variables declaration))
-        (autoloads-expansion (jazz.expand-library-autoloads declaration environment)))
+        (references-expansion (jazz.emit-library-references declaration))
+        (literals-expansion (jazz.emit-library-literals declaration))
+        (variables-expansion (jazz.emit-library-variables declaration))
+        (autoloads-expansion (jazz.emit-library-autoloads declaration environment)))
     `(begin
        ,@(case (jazz.walk-for)
            ((eval) '())
@@ -2779,7 +2779,7 @@
         #f))))
 
 
-(define (jazz.expand-library-references library-declaration)
+(define (jazz.emit-library-references library-declaration)
   (define (find-name name lst)
     (if (%%null? lst)
         #f
@@ -2803,7 +2803,7 @@
            (jazz.queue-list queue)))))
 
 
-(define (jazz.expand-library-literals library-declaration)
+(define (jazz.emit-library-literals library-declaration)
   (map (lambda (info)
          (let ((name (%%cadr info))
                (value (%%cddr info)))
@@ -2811,7 +2811,7 @@
        (%%get-library-declaration-literals library-declaration)))
 
 
-(define (jazz.expand-library-variables library-declaration)
+(define (jazz.emit-library-variables library-declaration)
   (map (lambda (variable)
          (let ((symbol (%%car variable))
                (value (%%cdr variable)))
@@ -2819,7 +2819,7 @@
        (jazz.queue-list (%%get-library-declaration-variables library-declaration))))
 
 
-(define (jazz.expand-library-autoloads library-declaration environment)
+(define (jazz.emit-library-autoloads library-declaration environment)
   (map (lambda (autoload-declaration)
          (let ((referenced-declaration (jazz.resolve-declaration autoload-declaration)))
            (let ((locator (jazz.autoload-locator referenced-declaration)))

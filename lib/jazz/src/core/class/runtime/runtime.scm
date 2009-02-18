@@ -1947,7 +1947,10 @@
   (let ((field (%%get-category-field category method-name)))
     (if (jazz.virtual-method? field)
         (let ((node (%%get-method-implementation-tree field)))
-          (%%set-method-node-implementation node method-implementation))
+          (%%set-method-node-implementation node method-implementation)
+          (for-each (lambda (child)
+                      (%%set-method-node-next-implementation child method-implementation))
+                    (%%get-method-node-children node)))
       (jazz.error "Cannot virtualize final method: {a}" method-implementation))
     (jazz.update-category category)
     (%%get-method-implementation-rank field)))
@@ -1987,7 +1990,7 @@
 
 (define (jazz.create/update-method-node root-node class method-implementation)
   (let ((node (jazz.locate-most-specific-method-node root-node class)))
-    (if (%%eq? class (%%get-method-node-category node))
+    (if (%%eq? class (%%get-method-node-category node)) ; exact match
         (jazz.update-method-node node class method-implementation)
       (jazz.create-method-node node class method-implementation))))
 
@@ -2011,6 +2014,9 @@
 
 (define (jazz.update-method-node node class method-implementation)
   (%%set-method-node-implementation node method-implementation)
+  (for-each (lambda (child)
+              (%%set-method-node-next-implementation child method-implementation))
+            (%%get-method-node-children node))
   (values node (%%get-method-node-children node)))
 
 

@@ -433,6 +433,7 @@
       (with-safe-explore
         (function ()
           (when (outer-expr~ expl)
+            (reset-mode)
             (set-selection (get-range~ expl)))))))
   
   
@@ -1337,7 +1338,7 @@
   
   
   (method protected virtual (up-arrow-move extend? scroll?)
-    (reset-mode keep: 'virtual)
+    (reset-mode-on-anchor)
     (let* ((pos (if extend? (selection-tail 'backward) (get-start)))
            (row (get-row~ pos))
            (col (get-col~ pos)))
@@ -1352,7 +1353,7 @@
   
   
   (method protected virtual (down-arrow-move extend? scroll?)
-    (reset-mode keep: 'virtual)
+    (reset-mode-on-anchor)
     (let* ((pos (if extend? (selection-tail 'forward) (get-end)))
            (row (get-row~ pos))
            (col (get-col~ pos)))
@@ -1366,6 +1367,12 @@
              (process-selection-change)))))
   
   
+  (method (reset-mode-on-anchor)
+    (if (and (has-selection?) (nu=? (get-start) (get-start~ selection-anchor)) (nu=? (get-end) (get-end~ selection-anchor)))
+        (reset-mode)
+      (reset-mode keep: 'virtual)))
+  
+  
   (method (move-verticaly row col inc direction shift?)
     (let* ((par     (get-paragraph row))
            (h       (get-h~ (text->view (new Cell row col))))
@@ -1373,7 +1380,9 @@
            (new-par (get-paragraph new-row))
            (new-len (paragraph-length new-row))
            (new-end (get-h~ (text->view (new Cell new-row new-len)))))
-      (cond (virtual-h
+      (cond ((and (has-selection?) (not shift?))
+             (set-caret (if (eq? direction 'backward) (get-start) (get-end))))
+            (virtual-h
              (move-caret (new Cell new-row (min (get-col~ (view->text (new Point virtual-h (get-top~ new-par)))) new-len)) direction shift?))
             ((> h new-end)
              (set! virtual-h h)

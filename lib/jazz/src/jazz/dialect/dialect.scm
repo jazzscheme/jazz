@@ -1627,7 +1627,8 @@
         (receive (ascendant ascendant-relation ascendant-base) (jazz.lookup-ascendant walker resume declaration environment ascendant-name)
           (let ((metaclass (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name))
                 (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
-            (let ((new-declaration (or (jazz.find-actual-declaration declaration jazz.Class-Declaration name) (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
+            (let ((new-declaration (or (jazz.find-actual-declaration declaration jazz.Class-Declaration name)
+                                       (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 (jazz.setup-class-lookups effective-declaration)
                 (let ((new-environment (%%cons effective-declaration environment)))
@@ -1920,6 +1921,13 @@
 
 
 (define (jazz.walk-method-declaration walker resume declaration environment form)
+  (define (find-root-declaration name)
+    (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
+           (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration))))
+      (if (and root-declaration (%%eq? declaration (%%get-declaration-parent root-declaration)))
+          #f
+        root-declaration)))
+  
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr form))
     (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name)
       (let ((type (if specifier (jazz.new-function-type '() '() '() #f (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
@@ -1931,8 +1939,7 @@
               (values
                 (jazz.walk-parameters walker resume declaration environment parameters #t #f)
                 (jazz.unspecified)))
-          (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
-                 (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration)))
+          (let* ((root-declaration (find-root-declaration name))
                  (new-declaration (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature)))
             (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
               (%%when (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))

@@ -2713,7 +2713,7 @@
                (dialect (jazz.require-dialect dialect-name))
                (walker (jazz.dialect-walker dialect))
                (resume #f)
-               (actual (and (%%eq? (jazz.walk-for) 'eval) (jazz.get-catalog-entry name)))
+               (actual (jazz.get-catalog-entry name))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
                                 (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice (jazz.desourcify-list body))))
@@ -2780,11 +2780,22 @@
 
 
 (define (jazz.expand-library-references library-declaration)
+  (define (find-name name lst)
+    (if (%%null? lst)
+        #f
+      (if (%%eq? (%%get-lexical-binding-name (%%car lst)) name)
+          #t
+        (find-name name (%%cdr lst)))))
+  
   (let ((queue (jazz.new-queue)))
     (letrec ((collect-declarations
               (lambda (declaration)
                 (for-each collect-declarations (jazz.get-declaration-references declaration))
-                (%%when (%%not (%%memq declaration (jazz.queue-list queue)))
+                ;; This name based test if a quick solution to the complex problem of a declaration
+                ;; replacing another one where there are references to the old one. Should we then just
+                ;; replace or destructively modify the old one and what if the type of the one replacing
+                ;; is incompatible...
+                (%%when (%%not (find-name (%%get-lexical-binding-name declaration) (jazz.queue-list queue)))
                   (jazz.enqueue queue declaration)))))
       (for-each collect-declarations (%%get-library-declaration-references library-declaration))
       (map (lambda (declaration)

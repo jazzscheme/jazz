@@ -361,8 +361,7 @@
                              (jazz.global-value ',locator)
                            (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
                        (define ,level-locator (%%get-class-level ,locator)))))))
-           ,@(jazz.emit-namespace-statements body declaration environment)
-           (jazz.update-class ,locator))
+           ,@(jazz.emit-namespace-statements body declaration environment))
         (%%get-declaration-source declaration)))))
 
 
@@ -499,8 +498,7 @@
            (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
          (define ,rank-locator
            (%%get-interface-rank ,locator))
-         ,@(jazz.emit-namespace-statements body declaration environment)
-         (jazz.update-interface ,locator))
+         ,@(jazz.emit-namespace-statements body declaration environment))
       (%%get-declaration-source declaration))))
 
 
@@ -854,45 +852,46 @@
 
 (define (jazz.jazz-bindings)
   (%%list
-    (jazz.new-special-form 'definition      jazz.walk-definition)
-    (jazz.new-special-form 'generic         jazz.walk-generic)
-    (jazz.new-special-form 'specific        jazz.walk-specific)
-    (jazz.new-syntax-form  'class           jazz.expand-class)
-    (jazz.new-special-form '%class          jazz.walk-%class)
-    (jazz.new-special-form 'interface       jazz.walk-interface)
-    (jazz.new-macro-form   'slot            jazz.expand-slot)
-    (jazz.new-macro-form   'property        jazz.expand-property)
-    (jazz.new-special-form '%slot           jazz.walk-%slot)
-    (jazz.new-special-form '%property       jazz.walk-%slot)
-    (jazz.new-special-form 'method          jazz.walk-method)
+    (jazz.new-special-form 'definition        jazz.walk-definition)
+    (jazz.new-special-form 'generic           jazz.walk-generic)
+    (jazz.new-special-form 'specific          jazz.walk-specific)
+    (jazz.new-syntax-form  'class             jazz.expand-class)
+    (jazz.new-special-form '%class            jazz.walk-%class)
+    (jazz.new-special-form 'interface         jazz.walk-interface)
+    (jazz.new-macro-form   'slot              jazz.expand-slot)
+    (jazz.new-macro-form   'property          jazz.expand-property)
+    (jazz.new-special-form '%slot             jazz.walk-%slot)
+    (jazz.new-special-form '%property         jazz.walk-%slot)
+    (jazz.new-special-form 'method            jazz.walk-method)
 
-    (jazz.new-special-form 'declare         jazz.walk-declare)
-    (jazz.new-special-form 'c-include       jazz.walk-c-include)
-    (jazz.new-special-form 'c-declare       jazz.walk-c-declare)
-    (jazz.new-special-form 'c-named-declare jazz.walk-c-named-declare)
-    (jazz.new-special-form 'c-initialize    jazz.walk-c-initialize)
-    (jazz.new-special-form 'c-function      jazz.walk-c-function)
-    (jazz.new-special-form 'c-type          jazz.walk-c-type)
-    (jazz.new-special-form 'c-definition    jazz.walk-c-definition)
-    (jazz.new-special-form 'function        jazz.walk-function)
-    (jazz.new-macro-form   'specialize      jazz.expand-specialize)
-    (jazz.new-special-form '%specialize     jazz.walk-specialize)
-    (jazz.new-special-form 'parameterize    jazz.walk-parameterize)
-    (jazz.new-special-form 'with-slots      jazz.walk-with-slots)
-    (jazz.new-special-form 'with-self       jazz.walk-with-self)
-    (jazz.new-special-form 'cast            jazz.walk-cast)
-    (jazz.new-special-form 'construct       jazz.walk-construct)
-    (jazz.new-special-form 'time            jazz.walk-time)
+    (jazz.new-special-form 'declare           jazz.walk-declare)
+    (jazz.new-special-form 'c-include         jazz.walk-c-include)
+    (jazz.new-special-form 'c-declare         jazz.walk-c-declare)
+    (jazz.new-special-form 'c-named-declare   jazz.walk-c-named-declare)
+    (jazz.new-special-form 'c-initialize      jazz.walk-c-initialize)
+    (jazz.new-special-form 'c-function        jazz.walk-c-function)
+    (jazz.new-special-form 'c-type            jazz.walk-c-type)
+    (jazz.new-special-form 'c-definition      jazz.walk-c-definition)
+    (jazz.new-special-form 'function          jazz.walk-function)
+    (jazz.new-macro-form   'specialize        jazz.expand-specialize)
+    (jazz.new-special-form '%specialize       jazz.walk-specialize)
+    (jazz.new-special-form 'parameterize      jazz.walk-parameterize)
+    (jazz.new-special-form 'with-slots        jazz.walk-with-slots)
+    (jazz.new-special-form 'with-self         jazz.walk-with-self)
+    (jazz.new-special-form 'with-dynamic-self jazz.walk-with-dynamic-self)
+    (jazz.new-special-form 'cast              jazz.walk-cast)
+    (jazz.new-special-form 'construct         jazz.walk-construct)
+    (jazz.new-special-form 'time              jazz.walk-time)
     
-    (jazz.new-macro-form   'remotable-stub  jazz.expand-remotable-stub)
-    (jazz.new-syntax-form  'assert          jazz.expand-assert)
-    (jazz.new-syntax-form  'assertion       jazz.expand-assertion)
-    (jazz.new-macro-form   'c-structure     jazz.expand-c-structure)
-    (jazz.new-macro-form   'c-union         jazz.expand-c-union)
-    (jazz.new-macro-form   'c-external      jazz.expand-c-external)
-    (jazz.new-macro-form   'c-external-so   jazz.expand-c-external-so)
-    (jazz.new-macro-form   'com-external    jazz.expand-com-external)
-    (jazz.new-macro-form   'form            jazz.expand-form)))
+    (jazz.new-macro-form   'remotable-stub    jazz.expand-remotable-stub)
+    (jazz.new-syntax-form  'assert            jazz.expand-assert)
+    (jazz.new-syntax-form  'assertion         jazz.expand-assertion)
+    (jazz.new-macro-form   'c-structure       jazz.expand-c-structure)
+    (jazz.new-macro-form   'c-union           jazz.expand-c-union)
+    (jazz.new-macro-form   'c-external        jazz.expand-c-external)
+    (jazz.new-macro-form   'c-external-so     jazz.expand-c-external-so)
+    (jazz.new-macro-form   'com-external      jazz.expand-com-external)
+    (jazz.new-macro-form   'form              jazz.expand-form)))
 
 
 (define jazz.jazz-environment
@@ -915,19 +914,20 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((definition)      (jazz.walk-definition-declaration      walker resume declaration environment form))
-          ((%specialize)     (jazz.walk-specialize-declaration      walker resume declaration environment form))
-          ((generic)         (jazz.walk-generic-declaration         walker resume declaration environment form))
-          ((specific)        #f)
-          ((%class)          (jazz.walk-%class-declaration          walker resume declaration environment form))
-          ((interface)       (jazz.walk-interface-declaration       walker resume declaration environment form))
-          ((%slot %property) (jazz.walk-%slot-declaration           walker resume declaration environment form))
-          ((method)          (jazz.walk-method-declaration          walker resume declaration environment form))
-          ((c-include)       #f)
-          ((c-named-declare) (jazz.walk-c-named-declare-declaration walker resume declaration environment form))
-          ((c-type)          (jazz.walk-c-type-declaration          walker resume declaration environment form))
-          ((c-definition)    (jazz.walk-c-definition-declaration    walker resume declaration environment form))
-          (else              (nextmethod walker resume declaration environment form))))
+          ((definition)        (jazz.walk-definition-declaration        walker resume declaration environment form))
+          ((%specialize)       (jazz.walk-specialize-declaration        walker resume declaration environment form))
+          ((generic)           (jazz.walk-generic-declaration           walker resume declaration environment form))
+          ((specific)          #f)
+          ((%class)            (jazz.walk-%class-declaration            walker resume declaration environment form))
+          ((interface)         (jazz.walk-interface-declaration         walker resume declaration environment form))
+          ((%slot %property)   (jazz.walk-%slot-declaration             walker resume declaration environment form))
+          ((method)            (jazz.walk-method-declaration            walker resume declaration environment form))
+          ((with-dynamic-self) (jazz.walk-with-dynamic-self-declaration walker resume declaration environment form))
+          ((c-include)         #f)
+          ((c-named-declare)   (jazz.walk-c-named-declare-declaration   walker resume declaration environment form))
+          ((c-type)            (jazz.walk-c-type-declaration            walker resume declaration environment form))
+          ((c-definition)      (jazz.walk-c-definition-declaration      walker resume declaration environment form))
+          (else                (nextmethod walker resume declaration environment form))))
     #f))
 
 
@@ -1085,6 +1085,38 @@
 
 
 (jazz.encapsulate-class jazz.With-Self)
+
+
+;;;
+;;;; With-Dynamic-Self
+;;;
+
+
+(jazz.define-class-runtime jazz.With-Dynamic-Self)
+
+
+(define (jazz.new-with-dynamic-self code body)
+  (jazz.allocate-with-dynamic-self jazz.With-Dynamic-Self #f #f code body))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.With-Dynamic-Self expression) declaration environment)
+  (let ((code (%%get-with-dynamic-self-code expression))
+        (body (%%get-with-dynamic-self-body expression)))
+    (jazz.new-code
+      (jazz.simplify-begin
+        `(begin
+           ,@(parameterize ((jazz.*self* (jazz.new-code code declaration #f)))
+               (jazz.sourcified-form (jazz.emit-statements-code body declaration environment)))))
+      jazz.Any
+      #f)))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.With-Dynamic-Self expression) f k s)
+  (f expression
+     (jazz.fold-expressions (%%get-with-dynamic-self-body expression) f k s s)))
+
+
+(jazz.encapsulate-class jazz.With-Dynamic-Self)
 
 
 ;;;
@@ -2049,6 +2081,30 @@
       (jazz.new-with-self
         (let ((body (%%cdr form)))
           (jazz.walk-body walker resume declaration new-environment body))))))
+
+
+;;;
+;;;; With Dynamic Self
+;;;
+
+
+(define (jazz.parse-with-dynamic-self form)
+  (let ((code (%%car form))
+        (body (%%cdr form)))
+    (values code body)))
+
+
+(define (jazz.walk-with-dynamic-self-declaration walker resume declaration environment form)
+  (receive (code body) (jazz.parse-with-dynamic-self (%%cdr form))
+    (jazz.walk-declarations walker resume declaration environment body)))
+
+
+(define (jazz.walk-with-dynamic-self walker resume declaration environment form-src)
+  (receive (code body) (jazz.parse-with-dynamic-self (%%cdr (%%desourcify form-src)))
+    (let ((new-environment (%%cons (jazz.new-dynamic-self-binding #f code) environment)))
+      (jazz.new-with-dynamic-self
+        code
+        (jazz.walk-list walker resume declaration new-environment body)))))
 
 
 ;;;

@@ -515,6 +515,13 @@
   (%%get-category-name type))
 
 
+(jazz.define-virtual-runtime (jazz.update-category (jazz.Category category)))
+
+
+(jazz.define-method (jazz.update-category (jazz.Category category))
+  #f)
+
+
 (define (jazz.is? object category)
   (%%boolean (%%is? object category)))
 
@@ -634,6 +641,10 @@
 
 (jazz.define-method (jazz.of-type? (jazz.Class class) object)
   (%%class-subtype? (%%class-of object) class))
+
+
+(jazz.define-method (jazz.update-category (jazz.Class class))
+  (jazz.update-class class))
 
 
 (define (jazz.slot-form? form)
@@ -1648,6 +1659,10 @@
   (jazz.of-subtype? interface (%%class-of object)))
 
 
+(jazz.define-method (jazz.update-category (jazz.Interface interface))
+  (jazz.update-interface interface))
+
+
 (define (jazz.update-interface interface)
   (let ((added-methods (jazz.update-interface-root-methods interface)))
     (%%when (%%not-null? added-methods)
@@ -1924,6 +1939,7 @@
     (%%set-method-implementation-rank method virtual-size)
     (%%set-category-virtual-size category (+ virtual-size 1))
     (jazz.add-field category method)
+    (jazz.update-category category)
     virtual-size))
 
 
@@ -1933,6 +1949,7 @@
         (let ((node (%%get-method-implementation-tree field)))
           (%%set-method-node-implementation node method-implementation))
       (jazz.error "Cannot virtualize final method: {a}" method-implementation))
+    (jazz.update-category category)
     (%%get-method-implementation-rank field)))
 
 

@@ -2051,6 +2051,28 @@
 
 
 ;;;
+;;;; Dynamic-Self-Binding
+;;;
+
+
+(jazz.define-class-runtime jazz.Dynamic-Self-Binding)
+
+
+(define (jazz.new-dynamic-self-binding type code)
+  (jazz.allocate-dynamic-self-binding jazz.Dynamic-Self-Binding 'self type code))
+
+
+(jazz.define-method (jazz.emit-binding-reference (jazz.Dynamic-Self-Binding declaration) source-declaration environment)
+  (jazz.new-code
+    (%%get-dynamic-self-binding-code declaration)
+    (%%get-declaration-parent source-declaration)
+    #f))
+
+
+(jazz.encapsulate-class jazz.Dynamic-Self-Binding)
+
+
+;;;
 ;;;; With-Self
 ;;;
 
@@ -5021,10 +5043,10 @@
 
 
 (define (jazz.walk-require-declaration walker resume declaration environment form)
-  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+  (let ((library-declaration (%%get-declaration-toplevel declaration)))
     (let ((requires (jazz.filter-features (%%cdr form))))
       (for-each (lambda (require)
-                  (jazz.add-library-require declaration require))
+                  (jazz.add-library-require library-declaration require))
                 requires))))
 
 
@@ -5038,10 +5060,10 @@
 
 
 (define (jazz.walk-export-declaration walker resume declaration environment form)
-  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+  (let ((library-declaration (%%get-declaration-toplevel declaration)))
     (let ((export-invoices (jazz.walk-library-exports walker (jazz.filter-features (%%cdr form)))))
       (for-each (lambda (export-invoice)
-                  (jazz.add-library-export declaration export-invoice))
+                  (jazz.add-library-export library-declaration export-invoice))
                 export-invoices))))
 
 
@@ -5055,10 +5077,10 @@
 
 
 (define (jazz.walk-import-declaration walker resume declaration environment form)
-  (%%assert (%%class-is? declaration jazz.Library-Declaration)
+  (let ((library-declaration (%%get-declaration-toplevel declaration)))
     (let ((import-invoices (jazz.walk-library-imports walker (jazz.filter-features (%%cdr form)))))
       (for-each (lambda (import-invoice)
-                  (jazz.add-library-import declaration import-invoice #t))
+                  (jazz.add-library-import library-declaration import-invoice #t))
                 import-invoices))))
 
 

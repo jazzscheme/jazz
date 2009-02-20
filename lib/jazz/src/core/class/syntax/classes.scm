@@ -101,6 +101,9 @@
    (descendants  () ())))
 
 
+(jazz.define-virtual (jazz.update-category (jazz.Category category)))
+
+
 ;;;
 ;;;; Class
 ;;;

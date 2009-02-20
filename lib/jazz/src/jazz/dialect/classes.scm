@@ -167,6 +167,16 @@
 
 
 ;;;
+;;;; With Dynamic Self
+;;;
+
+
+(jazz.define-class jazz.With-Dynamic-Self jazz.Expression (type source) jazz.Object-Class jazz.allocate-with-dynamic-self
+  ((code %%get-with-dynamic-self-code ())
+   (body %%get-with-dynamic-self-body ())))
+
+
+;;;
 ;;;; Cast
 ;;;
 

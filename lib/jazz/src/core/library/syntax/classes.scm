@@ -612,6 +612,15 @@
 
 
 ;;;
+;;;; Dynamic-Self-Binding
+;;;
+
+
+(jazz.define-class jazz.Dynamic-Self-Binding jazz.Lexical-Binding (name type) jazz.Object-Class jazz.allocate-dynamic-self-binding
+  ((code %%get-dynamic-self-binding-code ())))
+
+
+;;;
 ;;;; Macro Symbol
 ;;;
 

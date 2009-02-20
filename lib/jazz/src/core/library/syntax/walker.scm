@@ -267,6 +267,12 @@
   (f declaration s))
 
 
+(define (jazz.declaration-result)
+  (if (%%eq? (jazz.walk-for) 'eval)
+      '((jazz.unspecified))
+    '()))
+
+
 (jazz.encapsulate-class jazz.Declaration)
 
 

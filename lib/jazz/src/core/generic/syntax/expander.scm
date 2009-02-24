@@ -118,7 +118,7 @@
            (define ,specific-implementation-locator
              ,(if (%%null? body)
                   `(lambda ,formal-signature
-                     (error "Generic {a} is abstract" ,generic-method-locator))
+                     (jazz.error "Generic {a} is abstract" ,generic-method-locator))
                 `(lambda ,formal-signature
                    ,@body)))
            (define ,generic-locator

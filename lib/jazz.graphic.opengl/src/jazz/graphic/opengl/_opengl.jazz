@@ -1,6 +1,241 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; OpenGL
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
 (library jazz.graphic.opengl jazz
 
 
-(export (jazz.graphic.opengl.gl)
-        (jazz.graphic.opengl.glu)
-        (jazz.graphic.opengl.glut)))
+(export (jazz.graphic.opengl.autoload)
+        (jazz.graphic.opengl.foreign.gl)
+        (jazz.graphic.opengl.foreign.glext)
+        (jazz.graphic.opengl.foreign.glu)
+        (jazz.graphic.opengl.foreign.glut)
+        (jazz.graphic.opengl.platform))
+
+(import (jazz.graphic.opengl.foreign.gl)
+        (jazz.graphic.opengl.foreign.glext)
+        (jazz.graphic.opengl.foreign.glu)
+        (jazz.graphic.opengl.foreign.glut))
+
+
+;;;
+;;;; GL
+;;;
+
+
+(definition gl-inside-begin/end?
+  (make-parameter #f))
+
+
+(define (gl-check-error tag)
+  (let ((err (glGetError)))
+    (when (/= err GL_NO_ERROR)
+      (error "OpenGL error ({s}) at {a}" err tag))))
+
+
+(definition (with-gl-error tag proc)
+  (if (gl-inside-begin/end?)
+      (proc)
+    (prog1 (proc)
+      (gl-check-error tag))))
+
+
+(definition (gl-shade-model mode)
+  (with-gl-error 'gl-shade-model
+    (function ()
+      (glShadeModel mode))))
+
+
+(definition (gl-clear mask)
+  (with-gl-error 'gl-clear
+    (function ()
+      (glClear mask))))
+
+
+(definition (gl-clear-color red green blue alpha)
+  (with-gl-error 'gl-clear-color
+    (function ()
+      (glClearColor red green blue alpha))))
+
+
+(definition (gl-clear-depth depth)
+  (with-gl-error 'gl-clear-depth
+    (function ()
+      (glClearDepth depth))))
+
+
+(definition (gl-enable cap)
+  (with-gl-error 'gl-enable
+    (function ()
+      (glEnable cap))))
+
+
+(definition (gl-disable cap)
+  (with-gl-error 'gl-disable
+    (function ()
+      (glDisable cap))))
+
+
+(definition (gl-blend-func sfactor dfactor)
+  (with-gl-error 'gl-blend-func
+    (function ()
+      (glBlendFunc sfactor dfactor))))
+
+
+(definition (gl-depth-func func)
+  (with-gl-error 'gl-depth-func
+    (function ()
+      (glDepthFunc func))))
+
+
+(definition (gl-hint target mode)
+  (with-gl-error 'gl-hint
+    (function ()
+      (glHint target mode))))
+
+
+(definition (gl-viewport x y width height)
+  (with-gl-error 'gl-viewport
+    (function ()
+      (glViewport x y width height))))
+
+
+(definition (gl-matrix-mode mode)
+  (with-gl-error 'gl-matrix-mode
+    (function ()
+      (glMatrixMode mode))))
+
+
+(definition (gl-push-matrix)
+  (with-gl-error 'gl-push-matrix
+    (function ()
+      (glPushMatrix))))
+
+
+(definition (gl-pop-matrix)
+  (with-gl-error 'gl-pop-matrix
+    (function ()
+      (glPopMatrix))))
+
+
+(definition (gl-load-identity)
+  (with-gl-error 'gl-load-identity
+    (function ()
+      (glLoadIdentity))))
+
+
+(definition (gl-translate x y z)
+  (with-gl-error 'gl-translate
+    (function ()
+      (glTranslatef x y z))))
+
+
+(definition (gl-rotate angle x y z)
+  (with-gl-error 'gl-rotate
+    (function ()
+      (glRotatef angle x y z))))
+
+
+(definition (gl-scale x y z)
+  (with-gl-error 'gl-scale
+    (function ()
+      (glScalef x y z))))
+
+
+(definition (gl-begin mode)
+  (with-gl-error 'gl-begin
+    (function ()
+      (glBegin mode))))
+
+
+(definition (gl-end)
+  (with-gl-error 'gl-end
+    (function ()
+      (glEnd))))
+
+
+(definition (with-gl-begin/end mode thunk)
+  (parameterize ((gl-inside-begin/end? #t))
+    (gl-begin mode)
+    (thunk)
+    (gl-end)))
+
+
+(definition (gl-color red green blue)
+  (with-gl-error 'gl-color
+    (function ()
+      (glColor3f red green blue))))
+
+
+(definition (gl-vertex x y z)
+  (with-gl-error 'gl-vertex
+    (function ()
+      (glVertex3f x y z))))
+
+
+(define (gl-bind-texture target texture)
+  (with-gl-error 'gl-bind-texture
+    (function ()
+      (glBindTexture target texture))))
+
+
+(define (gl-texture-parameterize target pname param)
+  (with-gl-error 'gl-texture-parameterize
+    (function ()
+      (glTexParameteri target pname param))))
+
+
+(define (gl-texture-image target level internalformat width height border format type pixels)
+  (with-gl-error 'gl-texture-image
+    (function ()
+      (glTexImage2D target level internalformat width height border format type pixels))))
+
+
+(define (gl-texture-coord s t)
+  (with-gl-error 'gl-texture-coord
+    (function ()
+      (glTexCoord2f s t))))
+
+
+;;;
+;;;; GLU
+;;;
+
+
+(definition (glu-perspective fovy aspect znear zfar)
+  (with-gl-error 'glu-perspective
+    (function ()
+      (gluPerspective fovy aspect znear zfar)))))

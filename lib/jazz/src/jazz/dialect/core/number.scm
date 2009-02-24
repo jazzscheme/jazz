@@ -76,6 +76,7 @@
 (cond-expand
   (gambit
     (define jazz.random-integer random-integer)
+    (define jazz.random-real random-real)
     (define jazz.random-source-randomize! random-source-randomize!)
     (define jazz.random-source-pseudo-randomize! random-source-pseudo-randomize!)
     (define jazz.default-random-source default-random-source))

@@ -101,7 +101,10 @@
   in-creation)
 
 
-(definition (window-class)
+(generic (window-class (<Window> window)))
+
+
+(specific (window-class (<Window> window))
   CLASS_ATOM)
 
 
@@ -155,47 +158,79 @@
 (register-window-class)
 
 
-(definition (window-style window rest)
-  (typecase window
-    ((Frame)            (bitwise-ior WS_CHILD
-                                     WS_SYSMENU
-                                     WS_CLIPCHILDREN
-                                     WS_CLIPSIBLINGS))
-    ((Popup)            (bitwise-ior WS_POPUP
-                                     WS_CLIPCHILDREN))
-    ((Palette)          (bitwise-ior WS_POPUP
-                                     WS_OVERLAPPEDWINDOW
-                                     WS_CLIPCHILDREN))
-    ((Toplevel)         (bitwise-ior WS_CLIPSIBLINGS
-                                     WS_CLIPCHILDREN
-                                     WS_POPUP
-                                     WS_OVERLAPPEDWINDOW
-                                     WS_MINIMIZEBOX
-                                     WS_SYSMENU))
-    ((Dialog)           (bitwise-ior WS_CLIPCHILDREN
-                                     WS_CLIPSIBLINGS
-                                     WS_POPUP
-                                     WS_BORDER
-                                     WS_OVERLAPPED
-                                     WS_CAPTION
-                                     WS_DLGFRAME
-                                     (if (getf rest sizable?: not-found: #t) WS_THICKFRAME 0)
-                                     (if (getf rest closable?: not-found: #t) WS_SYSMENU 0)))
-    (else               (bitwise-ior WS_CHILD
-                                     WS_CLIPCHILDREN
-                                     WS_CLIPSIBLINGS))))
+(generic (window-style (<Window> window) rest))
 
 
-(definition (window-ex-style window rest)
-  (let ((transparent (if (window-transparent?~ window) WS_EX_TRANSPARENT 0)))
-    (bitwise-ior transparent
-                 (typecase window
-                   ((Popup)     WS_EX_TOOLWINDOW)
-                   ((Palette)   WS_EX_TOOLWINDOW)
-                   ((Toplevel)  WS_EX_APPWINDOW)
-                   ((Dialog)    WS_EX_DLGMODALFRAME)
-                   ((Transient) (bitwise-ior WS_EX_TOOLWINDOW WS_EX_TOPMOST))
-                   (else        0)))))
+(specific (window-style (<Window> window) rest)
+  (bitwise-ior WS_CHILD
+               WS_CLIPCHILDREN
+               WS_CLIPSIBLINGS))
+
+
+(specific (window-style (<Frame> frame) rest)
+  (bitwise-ior WS_CHILD
+               WS_SYSMENU
+               WS_CLIPCHILDREN
+               WS_CLIPSIBLINGS))
+
+
+(specific (window-style (<Popup> popup) rest)
+  (bitwise-ior WS_POPUP
+               WS_CLIPCHILDREN))
+
+
+(specific (window-style (<Palette> palette) rest)
+  (bitwise-ior WS_POPUP
+               WS_OVERLAPPEDWINDOW
+               WS_CLIPCHILDREN))
+
+
+(specific (window-style (<Toplevel> toplevel) rest)
+  (bitwise-ior WS_CLIPSIBLINGS
+               WS_CLIPCHILDREN
+               WS_POPUP
+               WS_OVERLAPPEDWINDOW
+               WS_MINIMIZEBOX
+               WS_SYSMENU))
+
+
+(specific (window-style (<Dialog> dialog) rest)
+  (bitwise-ior WS_CLIPCHILDREN
+               WS_CLIPSIBLINGS
+               WS_POPUP
+               WS_BORDER
+               WS_OVERLAPPED
+               WS_CAPTION
+               WS_DLGFRAME
+               (if (getf rest sizable?: not-found: #t) WS_THICKFRAME 0)
+               (if (getf rest closable?: not-found: #t) WS_SYSMENU 0)))
+
+
+(generic (window-ex-style (<Window> window) rest))
+
+
+(specific (window-ex-style (<Window> window) rest)
+  0)
+
+
+(specific (window-ex-style (<Popup> window) rest)
+  WS_EX_TOOLWINDOW)
+
+
+(specific (window-ex-style (<Palette> palette) rest)
+  WS_EX_TOOLWINDOW)
+
+
+(specific (window-ex-style (<Toplevel> toplevel) rest)
+  WS_EX_APPWINDOW)
+
+
+(specific (window-ex-style (<Dialog> dialog) rest)
+  WS_EX_DLGMODALFRAME)
+
+
+(specific (window-ex-style (<Transient> transient) rest)
+  (bitwise-ior WS_EX_TOOLWINDOW WS_EX_TOPMOST))
 
 
 (definition (window-parent window)
@@ -218,7 +253,9 @@
     (else
      (CreateWindowEx
        (window-ex-style window rest)
-       (window-class)
+       CLASS_ATOM
+       @temp
+       (window-class window)
        NULL
        (window-style window rest)
        0 0 500 500
@@ -554,7 +591,7 @@
     ((WM_KILLFOCUS)       (focus-lose~ window (get-window wparam)))
     ((WM_DROPFILES)       (drop-files~ window wparam))
     ((WM_SETTINGCHANGE)   (settings-change window wparam))
-    ((WM_TIMER)           (timer-pulse))
+    ((WM_TIMER)           (timer-pulse~ window))
     (else                 (unprocessed-message~ window))))
 
 
@@ -589,10 +626,6 @@
      @not-correct-to-call-set-fullscreen?
      (when (is? window Toplevel)
        (set-fullscreen?~ window #t)))))
-
-
-(definition (timer-pulse)
-  (thread-yield!))
 
 
 ;;;

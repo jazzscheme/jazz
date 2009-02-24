@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; OpenGL Product
+;;;; OpenGL Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,30 +35,54 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.graphic.opengl.product
+(library jazz.graphic.opengl.platform.OpenGL-Window jazz
 
 
-;;;
-;;;; Build
-;;;
+(import (jazz.debuggee)
+        (jazz.graphic.opengl)
+        (jazz.ui))
 
 
-(define (jazz.build-opengl)
-  (jazz.load-module 'core.module.builder)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.gl-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glext-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glext)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glu-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glut-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glut ld-options: "-lopengl32 -lglu32 -lglut32"))
-
-
-;;;
-;;;; Register
-;;;
-
-
-(jazz.register-product 'opengl
-  build: jazz.build-opengl))
+(class OpenGL-Window extends Window
+  
+  
+  (slot device initialize {} accessors generate)
+  (slot render initialize {} accessors generate)
+  
+  
+  (method protected virtual (initialize-opengl)
+    (gl-shade-model GL_SMOOTH)
+    (gl-clear-color 0.0 0.0 0.0 0.5)
+    (gl-clear-depth 1.0)
+    (gl-enable GL_LINE_SMOOTH)
+    (gl-enable GL_POLYGON_SMOOTH)
+    ;(gl-enable GL_MULTISAMPLE_ARB)
+    ;(gl-enable GL_BLEND)
+    ;(gl-enable GL_SRC_COLOR)
+    (gl-enable GL_DEPTH_TEST)
+    (gl-depth-func GL_LEQUAL)
+    (gl-hint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
+  
+  
+  (method protected virtual (resize-scene width height)
+    (gl-viewport 0 0 width height)
+    (gl-matrix-mode GL_PROJECTION)
+    (gl-load-identity)
+    (glu-perspective 45.0 (fl/ width height) 0.1 100.0)
+    (gl-matrix-mode GL_MODELVIEW)
+    (gl-load-identity))
+  
+  
+  (method protected virtual (draw-scene)
+    )
+  
+  
+  (method protected virtual (render-scene)
+    (make-render-current self render)
+    (draw-scene)
+    (swap-buffers self))
+  
+  
+  (method (timer-pulse)
+    (unless (> (current-repl-level) 0)
+      (render-scene)))))

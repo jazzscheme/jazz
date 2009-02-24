@@ -1,0 +1,148 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Platform-dependant OpenGL (Windows)
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.graphic.opengl.platform.windows jazz
+
+
+(import (jazz.graphic.opengl.autoload)
+        (jazz.graphic.opengl.foreign.gl)
+        (jazz.graphic.opengl.foreign.glu)
+        (jazz.platform.windows)
+        (jazz.platform.windows.WinOpenGL)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.window))
+
+
+(definition OPENGL_CLASS_ATOM
+  #f)
+
+
+(definition (register-window-class)
+  (let ((instance (current-instance))
+        (background (class-background))
+        (wc (WNDCLASSEX-make)))
+    (WNDCLASSEX-cbSize-set! wc         (WNDCLASSEX-sizeof))
+    (WNDCLASSEX-style-set! wc          (bitwise-ior CS_HREDRAW CS_VREDRAW CS_OWNDC))
+    (WNDCLASSEX-lpfnWndProc-set! wc    call-process-hwnd-message)
+    (WNDCLASSEX-cbClsExtra-set! wc     0)
+    (WNDCLASSEX-cbWndExtra-set! wc     0)
+    (WNDCLASSEX-hInstance-set! wc      instance)
+    (WNDCLASSEX-hIcon-set! wc          (load-product-icon 32 32))
+    (WNDCLASSEX-hCursor-set! wc        NULL)
+    (WNDCLASSEX-hbrBackground-set! wc  NULL)
+    (WNDCLASSEX-lpszMenuName-set! wc   NULL)
+    (WNDCLASSEX-lpszClassName-set! wc  "JOpenGLWindow")
+    (WNDCLASSEX-hIconSm-set! wc        (load-product-icon 16 16))
+    (set! OPENGL_CLASS_ATOM (RegisterClassEx wc))))
+
+
+(register-window-class)
+
+
+(specific (window-class (<OpenGL-Window> window))
+  OPENGL_CLASS_ATOM)
+
+
+(specific (window-style (<OpenGL-Window> window) rest)
+  (bitwise-ior WS_CLIPSIBLINGS
+               WS_CLIPCHILDREN
+               WS_POPUP
+               WS_OVERLAPPEDWINDOW
+               WS_MINIMIZEBOX
+               WS_SYSMENU))
+
+
+(specific (window-ex-style (<OpenGL-Window> window) rest)
+  WS_EX_APPWINDOW)
+
+
+(definition (swap-buffers window)
+  (SwapBuffers (get-device~ window)))
+
+
+(definition (make-render-current window render)
+  (wglMakeCurrent (get-device~ window) render))
+
+
+(definition (new-opengl-window (class: class {}) (width: width {}) (height: height {}))
+  (let ((class (either class OpenGL-Window))
+        (width (either width 600))
+        (height (either height 400)))
+    (let ((window (new (either class OpenGL-Window) visible?: #f))
+          (pfd (PIXELFORMATDESCRIPTOR-make)))
+      (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
+      (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
+      (PIXELFORMATDESCRIPTOR-dwFlags-set! pfd (bitwise-ior PFD_DRAW_TO_WINDOW PFD_SUPPORT_OPENGL PFD_DOUBLEBUFFER))
+      (PIXELFORMATDESCRIPTOR-iPixelType-set! pfd PFD_TYPE_RGBA)
+      (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 32)
+      (PIXELFORMATDESCRIPTOR-cRedBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cRedShift-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cGreenBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cGreenShift-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cBlueBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cBlueShift-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAlphaBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAlphaShift-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAccumBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAccumRedBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAccumGreenBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAccumBlueBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAccumAlphaBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 32)
+      (PIXELFORMATDESCRIPTOR-cStencilBits-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-cAuxBuffers-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
+      (PIXELFORMATDESCRIPTOR-bReserved-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-dwLayerMask-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-dwVisibleMask-set! pfd 0)
+      (PIXELFORMATDESCRIPTOR-dwDamageMask-set! pfd 0)
+      (let ((hdc (GetDC (get-handle~ window))))
+        (let ((pixel-format (ChoosePixelFormat hdc pfd)))
+          (SetPixelFormat hdc pixel-format pfd)
+          (let ((hrc (wglCreateContext hdc)))
+            (set-device~ window hdc)
+            (set-render~ window hrc)
+            (wglMakeCurrent hdc hrc)
+            (set-title~ window "OpenGL")
+            (set-position~ window {Point 50 50})
+            (set-size~ window (new Dimension width height))
+            (SetTimer (get-handle~ window) 0 10 NULL)
+            (initialize-opengl~ window)
+            (resize-scene~ window width height)
+            (set-visible?~ window #t)
+            window)))))))

@@ -46,12 +46,6 @@
         (jazz.utilities))
 
 
-(class SQL-Text-View extends Code-Text-View)
-
-
-@convert-search-string
-
-
 (class SQL-Text-View extends Code-Text-View
   
   
@@ -78,17 +72,7 @@
   
   
   (method (host-workspaces)
-    '(sql))
-  
-
-  ;;;
-  ;;;; Actions
-  ;;;
-  
-
-  (method (focus-actions)
-    (cons (find-actions 'sql-text)
-          (nextmethod)))
+    '(text))
 
   
   ;;;
@@ -142,7 +126,7 @@
   (method (name-at range)
     (when range
       (let ((name (get-string range)))
-        (when (> (length name) 0)
+        (when (> (cardinality name) 0)
           (if (eqv? (element name 0) #\open-brace)
               (read-string-element name)
             name)))))
@@ -370,20 +354,17 @@
   
   (method (statement-range)
     (let* ((pos (statement-pos))
-           (start (search-string ";" position: pos reverse?: #t))
-           (end (search-string ";" position: pos)))
-      ;; to try and debug a bug
-      @not-now
-      (debug 'start: start 'end: end)
+           (start #f @convert (search-string ";" position: pos reverse?: #t))
+           (end #f @convert (search-string ";" position: pos)))
       (new Range$Cell$
-        (if start (next start 1) (text-beginning))
+        (if start (next-pos start 1) (text-beginning))
         (if end end (text-ending)))))
   
   
   (method (statement-pos)
     (let* ((start (get-start))
-           (previous (previous start 1)))
-      (if (and previous (= (get-char previous) #\semi-colon))
+           (previous (previous-pos start 1)))
+      (if (and previous (eqv? (get-char previous) #\semi-colon))
           previous
         start)))
   
@@ -394,7 +375,7 @@
   
   
   (method (uncommented-line line)
-    (let ((pos (search-string~ line "--")))
-      (if (null? pos)
+    (let ((pos #f @convert (search-string~ line "--")))
+      (if (not pos)
           line
         (subseq line 0 pos))))))

@@ -13,6 +13,7 @@
 (declare
  (standard-bindings)
  (extended-bindings)
+ (not inline)
  (not safe))
 
 (define-macro (fx+ . args) `(##fx+ ,@args))

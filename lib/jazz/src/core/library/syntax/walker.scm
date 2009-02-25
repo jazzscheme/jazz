@@ -5277,7 +5277,7 @@
                                      (let* ((specifier/code (%%car parameter))
                                             (code (if (jazz.specifier? specifier/code) (jazz.specifier->name specifier/code) specifier/code))
                                             (variable (%%cadr parameter))
-                                            (dynamic-parameter (jazz.new-dynamic-parameter variable jazz.Any (if walk? (jazz.walk walker resume declaration augmented-environment code) #f))))
+                                            (dynamic-parameter (jazz.new-dynamic-parameter variable jazz.Any (jazz.walk walker resume declaration augmented-environment code))))
                                        (jazz.enqueue positional dynamic-parameter)
                                        (%%when walk?
                                          (set! augmented-environment (%%cons dynamic-parameter augmented-environment))))

@@ -1615,18 +1615,18 @@
          (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
                (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
            (cond ((and generic-dynamic? specific-dynamic?)
-                  (let ((generic-class (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter)))
-                        (specific-class (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter))))
+                  (let ((generic-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
+                        (specific-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
                     (if (jazz.of-subtype? generic-class specific-class)
                         (iter (cdr generic-parameters)
                               (cdr specific-parameters)
                               (%%eq? generic-class specific-class))
-                      (jazz.walk-error walker resume declaration "Dynamic parameter {a} is not a subtype of {a}: {s}."
+                      (jazz.walk-error walker resume declaration "Dynamic parameter {a} is not a subtype of {a}: {s}"
                         (%%get-lexical-binding-name specific-parameter)
                         (%%get-declaration-locator generic-class)
                         (cons name parameters)))))
                  ((or generic-dynamic? specific-dynamic?)
-                  (jazz.walk-error walker resume declaration "Specific {s} must dispatch on the same number of dynamic parameters." (cons name parameters)))
+                  (jazz.walk-error walker resume declaration "Specific {s} must dispatch on the same number of dynamic parameters" (cons name parameters)))
                  (else
                   root?))))))
 

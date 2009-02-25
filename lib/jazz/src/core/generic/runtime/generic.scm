@@ -93,7 +93,7 @@
   (for-each (lambda (specific)
               (jazz.resolve-signature specific)
               (jazz.insert/replace-specific generic specific))
-            (%%get-generic-pending-specifics generic))
+            (reverse (%%get-generic-pending-specifics generic)))
   (%%set-generic-pending-specifics generic '()))
 
 

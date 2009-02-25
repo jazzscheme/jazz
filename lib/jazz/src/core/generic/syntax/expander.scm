@@ -148,19 +148,21 @@
 ;;;
 
 
-(define (jazz.expand-define-specific signature . body)
-  (let* ((generic-method-locator (%%car signature))
+(define (jazz.expand-define-specific signature modifier . body)
+  (let* ((root? (%%eq? modifier 'root))
+         (generic-method-locator (%%car signature))
          (parameters (%%cdr signature))
          (dynamic-signature (jazz.dynamic-parameter-types parameters))
          (formal-signature (jazz.specific-parameters parameters))
          (specific-implementation-locator (jazz.implementation-locator generic-method-locator dynamic-signature))
          (generic-locator (jazz.generic-object-locator generic-method-locator))
          (gensym-specific (jazz.generate-symbol "specific"))
-         (gensym-lambda (jazz.generate-symbol "lambda")))
+         (gensym-lambda (jazz.generate-symbol "lambda"))
+         (nextmethod-bindings (if root? (list) (list `(nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific))))))))
     `(define ,specific-implementation-locator
        (let* ((,gensym-specific (jazz.new-specific (lambda () (%%list ,@dynamic-signature)) #f))
               (,gensym-lambda (lambda ,formal-signature
-                                (let ((nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific)))))
+                                (let (,@nextmethod-bindings)
                                   ,@body))))
          (%%set-specific-implementation ,gensym-specific ,gensym-lambda)
          (jazz.register-specific ,generic-locator ,gensym-specific)

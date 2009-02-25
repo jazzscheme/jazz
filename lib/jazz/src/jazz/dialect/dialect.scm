@@ -211,8 +211,8 @@
 (jazz.define-class-runtime jazz.Specific-Declaration)
 
 
-(define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature)
-  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type access compatibility attributes #f parent #f #f generic signature #f)))
+(define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature root?)
+  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type access compatibility attributes #f parent #f #f generic signature #f root?)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -225,10 +225,11 @@
          (body (%%get-specific-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (cons frame environment))
+              (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
           (jazz.sourcify-if
-            `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
-                                   ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
+            `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment)) ,modifier
+                       ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
             (%%get-declaration-source declaration)))))))
 
 
@@ -1594,14 +1595,40 @@
           (let ((generic-declaration (jazz.lookup-declaration declaration name #f)))
             (if (%%class-is? generic-declaration jazz.Generic-Declaration)
                 (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-                  (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
+                  (let* ((root? (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration signature name parameters))
+                         (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
+                         (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
                     (%%set-specific-declaration-body new-declaration
-                      (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
+                      (jazz.walk-body walker resume declaration body-environment body))
                     (%%set-declaration-source new-declaration form-src)
                     new-declaration))
-              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" name)))
+              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" (cons name parameters))))
         (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name)))))
 
+
+(define (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration specific-signature name parameters)
+  (let iter ((generic-parameters (%%get-signature-positional (%%get-generic-declaration-signature generic-declaration)))
+             (specific-parameters (%%get-signature-positional specific-signature))
+             (root? #t))
+       (let ((generic-parameter (and (%%pair? generic-parameters) (car generic-parameters)))
+             (specific-parameter (and (%%pair? specific-parameters) (car specific-parameters))))
+         (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
+               (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
+           (cond ((and generic-dynamic? specific-dynamic?)
+                  (let ((generic-class (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter)))
+                        (specific-class (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter))))
+                    (if (jazz.of-subtype? generic-class specific-class)
+                        (iter (cdr generic-parameters)
+                              (cdr specific-parameters)
+                              (%%eq? generic-class specific-class))
+                      (jazz.walk-error walker resume declaration "Dynamic parameter {a} is not a subtype of {a}: {s}."
+                        (%%get-lexical-binding-name specific-parameter)
+                        (%%get-declaration-locator generic-class)
+                        (cons name parameters)))))
+                 ((or generic-dynamic? specific-dynamic?)
+                  (jazz.walk-error walker resume declaration "Specific {s} must dispatch on the same number of dynamic parameters." (cons name parameters)))
+                 (else
+                  root?))))))
 
 ;;;
 ;;;; Class

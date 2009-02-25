@@ -168,19 +168,23 @@
     (catch (Parse-Error err
              (debug (get-message~ err)))
       (when (scan-file? file)
-        (let* ((name (get-base~ file))
-               (time (get-modification-time~ file))
-               (definition (get-unmodified-file-entry name file time)))
-          (if definition
-              (begin
-                (set-marked?~ definition #t)
-                #f)
-            (set-modified? #t)
-            (let ((entry (scan-file file time)))
-              (set-marked?~ entry #t)
-              (update-entry entry)
-              (add-entry name entry))
-            #t)))))
+        (if (exists?~ file)
+            (let* ((name (get-base~ file))
+                   (time (get-modification-time~ file))
+                   (definition (get-unmodified-file-entry name file time)))
+              (if definition
+                  (begin
+                    (set-marked?~ definition #t)
+                    #f)
+                (set-modified? #t)
+                (let ((entry (scan-file file time)))
+                  (set-marked?~ entry #t)
+                  (update-entry entry)
+                  (add-entry name entry))
+                #t))
+          ;; quick solution
+          (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
+          #f))))
   
   
   (method (get-unmodified-file-entry name file time)

@@ -67,8 +67,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety optimize? include-source? interpret? source destination)
-  (vector 'configuration name system platform windowing safety optimize? include-source? interpret? source destination))
+(define (jazz.make-configuration name system platform windowing safety optimize? include-source? interpretable-kernel? source destination)
+  (vector 'configuration name system platform windowing safety optimize? include-source? interpretable-kernel? source destination))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -91,7 +91,7 @@
 (define (jazz.configuration-include-source? configuration)
   (vector-ref configuration 7))
 
-(define (jazz.configuration-interpret? configuration)
+(define (jazz.configuration-interpretable-kernel? configuration)
   (vector-ref configuration 8))
 
 (define (jazz.configuration-source? configuration)
@@ -110,7 +110,7 @@
           (safety #f)
           (optimize? #t)
           (include-source? #f)
-          (interpret? #f)
+          (interpretable-kernel? #f)
           (source #t)
           (destination #f))
   (jazz.make-configuration
@@ -121,7 +121,7 @@
     (jazz.validate-safety safety)
     (jazz.validate-optimize? optimize?)
     (jazz.validate-include-source? include-source?)
-    (jazz.validate-interpret? interpret?)
+    (jazz.validate-interpretable-kernel? interpretable-kernel?)
     (jazz.validate-source source)
     (jazz.validate-destination destination)))
 
@@ -252,7 +252,7 @@
       (jazz.configuration-safety configuration)
       (jazz.configuration-optimize? configuration)
       (jazz.configuration-include-source? configuration)
-      (jazz.configuration-interpret? configuration)
+      (jazz.configuration-interpretable-kernel? configuration)
       (jazz.configuration-source? configuration)
       (jazz.configuration-destination configuration)
       output))
@@ -283,7 +283,7 @@
         (safety (jazz.configuration-safety configuration))
         (optimize? (jazz.configuration-optimize? configuration))
         (include-source? (jazz.configuration-include-source? configuration))
-        (interpret? (jazz.configuration-interpret? configuration))
+        (interpretable-kernel? (jazz.configuration-interpretable-kernel? configuration))
         (source? (jazz.configuration-source? configuration))
         (destination (jazz.configuration-destination configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
@@ -296,8 +296,8 @@
         (jazz.feedback "  optimize?: {s}" optimize?))
     (if include-source?
         (jazz.feedback "  include-source?: {s}" include-source?))
-    (if interpret?
-        (jazz.feedback "  interpret?: {s}" interpret?))
+    (if interpretable-kernel?
+        (jazz.feedback "  interpretable-kernel?: {s}" interpretable-kernel?))
     (if (not (eqv? source? #t))
         (jazz.feedback "  source?: {s}" source?))
     (if destination
@@ -318,7 +318,7 @@
           (safety #f)
           (optimize? #t)
           (include-source? #f)
-          (interpret? #f)
+          (interpretable-kernel? #f)
           (source #t)
           (destination #f))
   (let* ((name (jazz.require-name name))
@@ -328,7 +328,7 @@
          (safety (jazz.require-safety safety))
          (optimize? (jazz.require-optimize? optimize?))
          (include-source? (jazz.require-include-source? include-source?))
-         (interpret? (jazz.require-interpret? interpret?))
+         (interpretable-kernel? (jazz.require-interpretable-kernel? interpretable-kernel?))
          (source (jazz.require-source source))
          (destination (jazz.require-destination destination)))
     (let ((configuration
@@ -340,7 +340,7 @@
               safety: safety
               optimize?: optimize?
               include-source?: include-source?
-              interpret?: interpret?
+              interpretable-kernel?: interpretable-kernel?
               source: source
               destination: destination)))
       (jazz.register-configuration configuration)
@@ -511,23 +511,23 @@
 
 
 ;;;
-;;;; Interpret
+;;;; Interpretable-Kernel
 ;;;
 
 
-(define jazz.valid-interpret
+(define jazz.valid-interpretable-kernel
   '(#f
     #t))
 
 
-(define (jazz.require-interpret? interpret)
-  interpret)
+(define (jazz.require-interpretable-kernel? interpretable-kernel)
+  interpretable-kernel)
 
 
-(define (jazz.validate-interpret? interpret)
-  (if (memq interpret jazz.valid-interpret)
-      interpret
-    (jazz.error "Invalid interpret?: {s}" interpret)))
+(define (jazz.validate-interpretable-kernel? interpretable-kernel)
+  (if (memq interpretable-kernel jazz.valid-interpretable-kernel)
+      interpretable-kernel
+    (jazz.error "Invalid interpretable-kernel?: {s}" interpretable-kernel)))
 
 
 ;;;
@@ -712,7 +712,7 @@
           (safety (jazz.configuration-safety configuration))
           (optimize? (jazz.configuration-optimize? configuration))
           (include-source? (jazz.configuration-include-source? configuration))
-          (interpret? (jazz.configuration-interpret? configuration))
+          (interpretable-kernel? (jazz.configuration-interpretable-kernel? configuration))
           (source "./")
           (source-access? (jazz.configuration-source? configuration))
           (destination (jazz.configuration-destination configuration))
@@ -724,7 +724,7 @@
         safety:                safety
         optimize?:             optimize?
         include-source?:       include-source?
-        interpret?:            interpret?
+        interpretable-kernel?: interpretable-kernel?
         source:                source
         source-access?:        source-access?
         destination:           destination
@@ -1059,7 +1059,7 @@
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
   (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [include-source?:] [interpret?:] [destination:]" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [include-source?:] [interpretable-kernel?:] [destination:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)
   (jazz.print "  quit" output))
@@ -1162,9 +1162,6 @@
   #t)
 
 (define jazz.kernel-include-source?
-  #f)
-
-(define jazz.kernel-interpret?
   #f)
 
 (define jazz.kernel-destination

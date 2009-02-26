@@ -121,7 +121,7 @@
           (safety jazz.kernel-safety)
           (optimize? jazz.kernel-optimize?)
           (include-source? jazz.kernel-include-source?)
-          (interpret? jazz.kernel-interpret?)
+          (interpretable-kernel? #f)
           (source jazz.source)
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
@@ -260,7 +260,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)))
+                    (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)))
                 #t)
             #f)))
       
@@ -466,7 +466,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-configuration #f system platform windowing safety optimize? include-source? interpret? source-access? destination output)))))))
+                    (jazz.print-configuration #f system platform windowing safety optimize? include-source? interpretable-kernel? source-access? destination output)))))))
       
       ;;;
       ;;;; Gambcini
@@ -487,7 +487,7 @@
                     (print ";;;" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)
+                    (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
@@ -513,7 +513,7 @@
       (build-kernel)
       (build-product)
       
-      (if interpret?
+      (if interpretable-kernel?
           (generate-gambcini)))))
 
 
@@ -525,7 +525,7 @@
      "")))
 
 
-(define (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? destination output)
+(define (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-platform platform output)
@@ -537,8 +537,6 @@
   (jazz.print-variable 'jazz.kernel-optimize? optimize? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-include-source? include-source? output)
-  (newline output)
-  (jazz.print-variable 'jazz.kernel-interpret? interpret? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-destination destination output)
   (newline output)

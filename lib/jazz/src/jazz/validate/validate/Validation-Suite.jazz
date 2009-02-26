@@ -40,6 +40,8 @@
 
 (import (jazz.library)
         (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
         (jazz.utilities)
         (jazz.validate))
 
@@ -62,7 +64,6 @@
       Enumeration-Tester
       Error-Tester
       Explorer-Tester
-      Factory-Tester
       Form-Tester
       Format-Tester
       Function-Tester
@@ -109,19 +110,17 @@
     (map autoreload Classes))
   
   
-  (method public (assertion-failed title subtitle form)
-    (put~ failed-assertions (list title subtitle form)))
+  (method public (assertion-failed title section form)
+    (put~ failed-assertions (list title section form)))
   
   
   (method (report-results (report-success?: report-success? #t))
     (let ((failed (get-output~ failed-assertions)))
       (if (null? failed)
           (when report-success?
-            (message-box "Test suite completed successfully."))
-        (let ((printer (open-output-string)))
-          (format printer "The following assertions failed:{%}{%}")
-          (for-each (function (info)
-                      (bind (title subtitle message) info
-                        (format printer "{a}{a} : {a}{%}" title (if subtitle (format ".{a}" subtitle) "") message)))
-                    failed)
-          (message-box (get-output-string printer))))))))
+            (format :terminal "Test suite completed successfully.{%}"))
+        (format :terminal "The following assertions failed:{%}{%}")
+        (for-each (function (info)
+                    (bind (title section message) info
+                      (format :terminal "{a}{a} : {a}{%}" title (if section (format ".{a}" section) "") message)))
+                  failed))))))

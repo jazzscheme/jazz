@@ -45,6 +45,8 @@
                 (standard-bindings)
                 (extended-bindings)
                 
+                (not inline)
+                
                 ,@(if jazz.debug-core?
                       '((not proper-tail-calls))
                     '())
@@ -72,7 +74,6 @@
                  ;; inlining can have a huge impact on compilation time
                  ;; and really bloat the size of the generated .o1 file
                  (not inline)
-                 (inlining-limit 0)
                  
                  ;; those should be removed in a new distribution safety
                  ;; where the code is fully debugged. or even better be

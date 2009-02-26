@@ -724,6 +724,7 @@
         safety:                safety
         optimize?:             optimize?
         include-source?:       include-source?
+        include-compiler?:     #t
         interpretable-kernel?: interpretable-kernel?
         source:                source
         source-access?:        source-access?
@@ -1179,6 +1180,7 @@
   (load "kernel/syntax/features")
   (load "kernel/syntax/declares")
   (load "kernel/syntax/primitives")
+  (load "kernel/runtime/common")
   (load "kernel/runtime/build"))
 
 

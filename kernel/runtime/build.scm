@@ -36,7 +36,7 @@
 
 
 ;;;
-;;;; Versions
+;;;; Version
 ;;;
 
 
@@ -92,20 +92,18 @@
     (values #f #f #f)))
 
 
-(define (jazz.manifest-needs-rebuild? manifest)
+(define (jazz.manifest-needs-rebuild?-impl manifest)
   (let ((name (%%manifest-name manifest))
         (version (%%manifest-version manifest)))
-    ;; test is for backward compatibility and could be removed in the future
-    (or (not version)
-        (let ((rebuild? #f))
-          (jazz.for-each-higher-source-version version
-            (lambda (source-version)
-              (let ((rebuild (jazz.version-rebuild source-version))
-                    (recompile (jazz.version-recompile source-version)))
-                (if (or (eq? rebuild 'all)
-                        (and recompile (memq name recompile)))
-                    (set! rebuild? #t)))))
-          rebuild?))))
+    (let ((rebuild? #f))
+      (jazz.for-each-higher-source-version version
+        (lambda (source-version)
+          (let ((rebuild (jazz.version-rebuild source-version))
+                (recompile (jazz.version-recompile source-version)))
+            (if (or (eq? rebuild 'all)
+                    (and recompile (memq name recompile)))
+                (set! rebuild? #t)))))
+      rebuild?)))
 
 
 ;;;
@@ -113,7 +111,7 @@
 ;;;
 
 
-(define (jazz.build-executable product
+(define (jazz.build-executable-impl product
           #!key
           (system jazz.kernel-system)
           (platform jazz.kernel-platform)
@@ -121,6 +119,7 @@
           (safety jazz.kernel-safety)
           (optimize? jazz.kernel-optimize?)
           (include-source? jazz.kernel-include-source?)
+          (include-compiler? #f)
           (interpretable-kernel? #f)
           (source jazz.source)
           (source-access? jazz.source-access?)
@@ -131,7 +130,8 @@
           (minimum-heap #f)
           (maximum-heap #f)
           (feedback jazz.feedback))
-  (let ((product-name (if (not product) "jazz" (symbol->string product))))
+  (let ((product-name (if (not product) "jazz" (symbol->string product)))
+        (gambit-library (if include-compiler? "gambcgsc" "gambc")))
     (let ((kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
@@ -246,7 +246,9 @@
           (compile-source-file "syntax/" "syntax")
           (compile-source-file "syntax/" "runtime")
           (compile-source-file "runtime/" "base")
-          (compile-source-file "runtime/" "build")
+          (compile-source-file "runtime/" "common")
+          (if include-compiler?
+              (compile-source-file "runtime/" "build"))
           (compile-source-file "runtime/" "settings")
           (compile-source-file "runtime/" "install")
           (compile-source-file "runtime/" "digest")
@@ -300,26 +302,29 @@
                     (touched?))
                 (begin
                   (feedback-message "; linking kernel...")
-                  (link-incremental (list (kernel-file "_architecture")
-                                          (product-file "_product")
-                                          (kernel-file "syntax/header")
-                                          (kernel-file "syntax/macros")
-                                          (kernel-file "syntax/expansion")
-                                          (kernel-file "syntax/features")
-                                          (kernel-file "syntax/declares")
-                                          (kernel-file "syntax/primitives")
-                                          (kernel-file "syntax/syntax")
-                                          (kernel-file "syntax/runtime")
-                                          (kernel-file "runtime/base")
-                                          (kernel-file "runtime/build")
-                                          (kernel-file "runtime/settings")
-                                          (kernel-file "runtime/install")
-                                          (kernel-file "runtime/digest")
-                                          (kernel-file "runtime/kernel")
-                                          (kernel-file "runtime/main")
-                                          (product-file "_main"))
+                  (link-incremental `(,(kernel-file "_architecture")
+                                      ,(product-file "_product")
+                                      ,(kernel-file "syntax/header")
+                                      ,(kernel-file "syntax/macros")
+                                      ,(kernel-file "syntax/expansion")
+                                      ,(kernel-file "syntax/features")
+                                      ,(kernel-file "syntax/declares")
+                                      ,(kernel-file "syntax/primitives")
+                                      ,(kernel-file "syntax/syntax")
+                                      ,(kernel-file "syntax/runtime")
+                                      ,(kernel-file "runtime/base")
+                                      ,(kernel-file "runtime/common")
+                                      ,@(if include-compiler?
+                                            `(,(kernel-file "runtime/build"))
+                                          '())
+                                      ,(kernel-file "runtime/settings")
+                                      ,(kernel-file "runtime/install")
+                                      ,(kernel-file "runtime/digest")
+                                      ,(kernel-file "runtime/kernel")
+                                      ,(kernel-file "runtime/main")
+                                      ,(product-file "_main"))
                                     output: link-file
-                                    base: "~~lib/_gambcgsc"))))
+                                    base: (string-append "~~lib/_" gambit-library)))))
           
           ;;;
           ;;;; Link Executable
@@ -437,7 +442,10 @@
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/syntax.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/runtime.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/base.c") platform)
-            ,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/common.c") platform)
+            ,@(if include-compiler?
+                  `(,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform))
+                '())
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
@@ -448,7 +456,7 @@
             ,@(resource-files)
             ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
             ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
-            "-lgambc" "-lgambcgsc" ,@(link-libraries)
+            "-lgambc" ,(string-append "-l" gambit-library) ,@(link-libraries)
             ,@(link-options)
             "-o" ,(jazz.quote-gcc-pathname (build-file product-name) platform))))
       
@@ -557,146 +565,9 @@
 
 
 ;;;
-;;;; Feedback
+;;;; Setup
 ;;;
 
 
-(define jazz.build-feedback
-  jazz.feedback)
-
-
-;;;
-;;;; List
-;;;
-
-
-(define (jazz.collect-if predicate lst)
-  (let iter ((scan lst))
-    (if (%%not (%%null? scan))
-        (let ((value (%%car scan)))
-          (if (predicate value)
-              (%%cons value (iter (%%cdr scan)))
-            (iter (%%cdr scan))))
-      '())))
-
-
-;;;
-;;;; String
-;;;
-
-
-(define (jazz.string-find str c)
-  (let ((len (%%string-length str)))
-    (let iter ((n 0))
-      (cond ((%%fx>= n len)
-             #f)
-            ((%%char=? (%%string-ref str n) c)
-             n)
-            (else
-             (iter (%%fx+ n 1)))))))
-
-
-(define (jazz.string-replace str old new)
-  (let ((cpy (string-copy str)))
-    (let iter ((n (%%fx- (%%string-length cpy) 1)))
-      (if (%%fx>= n 0)
-          (begin
-            (if (%%eqv? (%%string-ref cpy n) old)
-                (%%string-set! cpy n new))
-            (iter (%%fx- n 1)))))
-    cpy))
-
-
-(define (jazz.string-starts-with? str target)
-  (let ((sl (%%string-length str))
-        (tl (%%string-length target)))
-    (and (%%fx>= sl tl)
-         (%%string=? (%%substring str 0 tl) target))))
-
-
-(define (jazz.string-ends-with? str target)
-  (let ((sl (%%string-length str))
-        (tl (%%string-length target)))
-    (and (%%fx>= sl tl)
-         (%%string=? (%%substring str (%%fx- sl tl) sl) target))))
-
-
-(define (jazz.split-string str separator)
-  (let ((lst '())
-        (end (%%string-length str)))
-    (let iter ((pos (%%fx- end 1)))
-      (if (%%fx> pos 0)
-          (begin
-            (if (%%eqv? (%%string-ref str pos) separator)
-                (begin
-                  (set! lst (%%cons (%%substring str (%%fx+ pos 1) end) lst))
-                  (set! end pos)))
-            (iter (%%fx- pos 1))))
-        (%%cons (%%substring str 0 end) lst))))
-
-
-(define (jazz.join-strings strings separator)
-  (let ((output (open-output-string)))
-    (display (%%car strings) output)
-    (for-each (lambda (string)
-                (display separator output)
-                (display string output))
-              (%%cdr strings))
-    (get-output-string output)))
-
-
-;;;
-;;;; Pathname
-;;;
-
-
-(define jazz.executable-directory
-  #f)
-
-
-(define (jazz.file-modification-time pathname)
-  (time->seconds (file-last-modification-time pathname)))
-
-
-(define (jazz.copy-file src dst #!key (feedback #f))
-  (if (jazz.file-needs-update? src dst)
-      (begin
-        (if feedback
-            (feedback "; copying {a}..." src))
-        (if (file-exists? dst)
-            (delete-file dst))
-        (copy-file src dst))))
-
-
-(define (jazz.file-needs-update? src dst)
-  (or (%%not (file-exists? dst))
-      (> (jazz.file-modification-time src)
-         (jazz.file-modification-time dst))))
-
-
-(define (jazz.relativise-directory dir basedir)
-  (let ((dir (jazz.pathname-normalize dir))
-        (basedir (jazz.pathname-normalize basedir)))
-    (let ((len (%%string-length dir))
-          (baselen (%%string-length basedir)))
-      (if (and (%%fx>= baselen len)
-               (%%string=? (%%substring basedir 0 len) dir))
-          (let ((suffix (%%substring basedir len baselen))
-                (relative-dir ""))
-            (let iter ((n (%%fx- (%%string-length suffix) 1)))
-              (if (%%fx>= n 0)
-                  (begin
-                    (if (%%eqv? (%%string-ref suffix n) #\/)
-                        (set! relative-dir (%%string-append relative-dir "../")))
-                    (iter (%%fx- n 1)))))
-            relative-dir)
-        dir))))
-
-
-(define (jazz.quote-gcc-pathname pathname platform)
-  (case platform
-    ((windows)
-     (string-append "\"" pathname "\""))
-    (else
-     ;; quoting is only necessary on windows as arguments are passed explicitly in unix
-     pathname)))
+(set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
+(set! jazz.build-executable jazz.build-executable-impl)

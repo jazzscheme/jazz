@@ -46,6 +46,7 @@
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
     "kernel/runtime/base"
+    "kernel/runtime/common"
     "kernel/runtime/build"
     "kernel/runtime/settings"
     "kernel/runtime/digest"

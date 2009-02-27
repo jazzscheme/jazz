@@ -44,10 +44,9 @@
 
 
 (define jazz.compile-options
-  (let ((base-options '(debug-location debug-environments)))
-    (if jazz.kernel-include-source?
-        (cons 'debug-source base-options)
-      base-options)))
+  `(,@(if jazz.kernel-debug-environments? '(debug-environments) '())
+    ,@(if jazz.kernel-debug-location? '(debug-location) '())
+    ,@(if jazz.kernel-debug-source? '(debug-source) '())))
 
 
 ;;;

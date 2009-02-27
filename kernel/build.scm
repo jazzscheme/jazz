@@ -67,8 +67,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety optimize? include-source? interpretable-kernel? source destination)
-  (vector 'configuration name system platform windowing safety optimize? include-source? interpretable-kernel? source destination))
+(define (jazz.make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source destination)
+  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source destination))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -88,17 +88,23 @@
 (define (jazz.configuration-optimize? configuration)
   (vector-ref configuration 6))
 
-(define (jazz.configuration-include-source? configuration)
+(define (jazz.configuration-debug-environments? configuration)
   (vector-ref configuration 7))
 
-(define (jazz.configuration-interpretable-kernel? configuration)
+(define (jazz.configuration-debug-location? configuration)
   (vector-ref configuration 8))
 
-(define (jazz.configuration-source? configuration)
+(define (jazz.configuration-debug-source? configuration)
   (vector-ref configuration 9))
 
-(define (jazz.configuration-destination configuration)
+(define (jazz.configuration-interpret-kernel? configuration)
   (vector-ref configuration 10))
+
+(define (jazz.configuration-source? configuration)
+  (vector-ref configuration 11))
+
+(define (jazz.configuration-destination configuration)
+  (vector-ref configuration 12))
 
 
 (define (jazz.new-configuration
@@ -109,8 +115,10 @@
           (windowing #f)
           (safety #f)
           (optimize? #t)
-          (include-source? #f)
-          (interpretable-kernel? #f)
+          (debug-environments? #t)
+          (debug-location? #t)
+          (debug-source? #f)
+          (interpret-kernel? #f)
           (source #t)
           (destination #f))
   (jazz.make-configuration
@@ -120,8 +128,10 @@
     (jazz.validate-windowing windowing)
     (jazz.validate-safety safety)
     (jazz.validate-optimize? optimize?)
-    (jazz.validate-include-source? include-source?)
-    (jazz.validate-interpretable-kernel? interpretable-kernel?)
+    (jazz.validate-debug-environments? debug-environments?)
+    (jazz.validate-debug-location? debug-location?)
+    (jazz.validate-debug-source? debug-source?)
+    (jazz.validate-interpret-kernel? interpret-kernel?)
     (jazz.validate-source source)
     (jazz.validate-destination destination)))
 
@@ -251,8 +261,10 @@
       (jazz.configuration-windowing configuration)
       (jazz.configuration-safety configuration)
       (jazz.configuration-optimize? configuration)
-      (jazz.configuration-include-source? configuration)
-      (jazz.configuration-interpretable-kernel? configuration)
+      (jazz.configuration-debug-environments? configuration)
+      (jazz.configuration-debug-location? configuration)
+      (jazz.configuration-debug-source? configuration)
+      (jazz.configuration-interpret-kernel? configuration)
       (jazz.configuration-source? configuration)
       (jazz.configuration-destination configuration)
       output))
@@ -282,8 +294,10 @@
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (optimize? (jazz.configuration-optimize? configuration))
-        (include-source? (jazz.configuration-include-source? configuration))
-        (interpretable-kernel? (jazz.configuration-interpretable-kernel? configuration))
+        (debug-environments? (jazz.configuration-debug-environments? configuration))
+        (debug-location? (jazz.configuration-debug-location? configuration))
+        (debug-source? (jazz.configuration-debug-source? configuration))
+        (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
         (source? (jazz.configuration-source? configuration))
         (destination (jazz.configuration-destination configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
@@ -294,10 +308,14 @@
     (jazz.feedback "  safety: {s}" safety)
     (if (not optimize?)
         (jazz.feedback "  optimize?: {s}" optimize?))
-    (if include-source?
-        (jazz.feedback "  include-source?: {s}" include-source?))
-    (if interpretable-kernel?
-        (jazz.feedback "  interpretable-kernel?: {s}" interpretable-kernel?))
+    (if debug-environments?
+        (jazz.feedback "  debug-environments?: {s}" debug-environments?))
+    (if debug-location?
+        (jazz.feedback "  debug-location?: {s}" debug-location?))
+    (if debug-source?
+        (jazz.feedback "  debug-source?: {s}" debug-source?))
+    (if interpret-kernel?
+        (jazz.feedback "  interpret-kernel?: {s}" interpret-kernel?))
     (if (not (eqv? source? #t))
         (jazz.feedback "  source?: {s}" source?))
     (if destination
@@ -317,8 +335,10 @@
           (windowing #f)
           (safety #f)
           (optimize? #t)
-          (include-source? #f)
-          (interpretable-kernel? #f)
+          (debug-environments? #f)
+          (debug-location? #f)
+          (debug-source? #f)
+          (interpret-kernel? #f)
           (source #t)
           (destination #f))
   (let* ((name (jazz.require-name name))
@@ -327,8 +347,10 @@
          (windowing (jazz.require-windowing platform windowing))
          (safety (jazz.require-safety safety))
          (optimize? (jazz.require-optimize? optimize?))
-         (include-source? (jazz.require-include-source? include-source?))
-         (interpretable-kernel? (jazz.require-interpretable-kernel? interpretable-kernel?))
+         (debug-environments? (jazz.require-debug-environments? debug-environments?))
+         (debug-location? (jazz.require-debug-location? debug-location?))
+         (debug-source? (jazz.require-debug-source? debug-source?))
+         (interpret-kernel? (jazz.require-interpret-kernel? interpret-kernel?))
          (source (jazz.require-source source))
          (destination (jazz.require-destination destination)))
     (let ((configuration
@@ -339,8 +361,10 @@
               windowing: windowing
               safety: safety
               optimize?: optimize?
-              include-source?: include-source?
-              interpretable-kernel?: interpretable-kernel?
+              debug-environments?: debug-environments?
+              debug-location?: debug-location?
+              debug-source?: debug-source?
+              interpret-kernel?: interpret-kernel?
               source: source
               destination: destination)))
       (jazz.register-configuration configuration)
@@ -491,43 +515,83 @@
 
 
 ;;;
-;;;; Include-Source
+;;;; Debug-Environments
 ;;;
 
 
-(define jazz.valid-include-source
+(define jazz.valid-debug-environments
   '(#f
     #t))
 
 
-(define (jazz.require-include-source? include-source)
-  include-source)
+(define (jazz.require-debug-environments? debug-environments)
+  debug-environments)
 
 
-(define (jazz.validate-include-source? include-source)
-  (if (memq include-source jazz.valid-include-source)
-      include-source
-    (jazz.error "Invalid include-source?: {s}" include-source)))
+(define (jazz.validate-debug-environments? debug-environments)
+  (if (memq debug-environments jazz.valid-debug-environments)
+      debug-environments
+    (jazz.error "Invalid debug-environments?: {s}" debug-environments)))
 
 
 ;;;
-;;;; Interpretable-Kernel
+;;;; Debug-Location
 ;;;
 
 
-(define jazz.valid-interpretable-kernel
+(define jazz.valid-debug-location
   '(#f
     #t))
 
 
-(define (jazz.require-interpretable-kernel? interpretable-kernel)
-  interpretable-kernel)
+(define (jazz.require-debug-location? debug-location)
+  debug-location)
 
 
-(define (jazz.validate-interpretable-kernel? interpretable-kernel)
-  (if (memq interpretable-kernel jazz.valid-interpretable-kernel)
-      interpretable-kernel
-    (jazz.error "Invalid interpretable-kernel?: {s}" interpretable-kernel)))
+(define (jazz.validate-debug-location? debug-location)
+  (if (memq debug-location jazz.valid-debug-location)
+      debug-location
+    (jazz.error "Invalid debug-location?: {s}" debug-location)))
+
+
+;;;
+;;;; Debug-Source
+;;;
+
+
+(define jazz.valid-debug-source
+  '(#f
+    #t))
+
+
+(define (jazz.require-debug-source? debug-source)
+  debug-source)
+
+
+(define (jazz.validate-debug-source? debug-source)
+  (if (memq debug-source jazz.valid-debug-source)
+      debug-source
+    (jazz.error "Invalid debug-source?: {s}" debug-source)))
+
+
+;;;
+;;;; Interpret-Kernel
+;;;
+
+
+(define jazz.valid-interpret-kernel
+  '(#f
+    #t))
+
+
+(define (jazz.require-interpret-kernel? interpret-kernel)
+  interpret-kernel)
+
+
+(define (jazz.validate-interpret-kernel? interpret-kernel)
+  (if (memq interpret-kernel jazz.valid-interpret-kernel)
+      interpret-kernel
+    (jazz.error "Invalid interpret-kernel?: {s}" interpret-kernel)))
 
 
 ;;;
@@ -711,8 +775,10 @@
           (windowing (jazz.configuration-windowing configuration))
           (safety (jazz.configuration-safety configuration))
           (optimize? (jazz.configuration-optimize? configuration))
-          (include-source? (jazz.configuration-include-source? configuration))
-          (interpretable-kernel? (jazz.configuration-interpretable-kernel? configuration))
+          (debug-environments? (jazz.configuration-debug-environments? configuration))
+          (debug-location? (jazz.configuration-debug-location? configuration))
+          (debug-source? (jazz.configuration-debug-source? configuration))
+          (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
           (source "./")
           (source-access? (jazz.configuration-source? configuration))
           (destination (jazz.configuration-destination configuration))
@@ -723,9 +789,11 @@
         windowing:             windowing
         safety:                safety
         optimize?:             optimize?
-        include-source?:       include-source?
+        debug-environments?:   debug-environments?
+        debug-location?:       debug-location?
+        debug-source?:         debug-source?
         include-compiler?:     #t
-        interpretable-kernel?: interpretable-kernel?
+        interpret-kernel?:     interpret-kernel?
         source:                source
         source-access?:        source-access?
         destination:           destination
@@ -1060,7 +1128,7 @@
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
   (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [include-source?:] [interpretable-kernel?:] [destination:]" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)
   (jazz.print "  quit" output))
@@ -1162,7 +1230,13 @@
 (define jazz.kernel-optimize?
   #t)
 
-(define jazz.kernel-include-source?
+(define jazz.kernel-debug-environments?
+  #f)
+
+(define jazz.kernel-debug-location?
+  #f)
+
+(define jazz.kernel-debug-source?
   #f)
 
 (define jazz.kernel-destination

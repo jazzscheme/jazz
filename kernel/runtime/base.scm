@@ -195,7 +195,7 @@
 ;;;
 
 
-(define (jazz.print-configuration name system platform windowing safety optimize? include-source? interpretable-kernel? source? destination output)
+(define (jazz.print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source? destination output)
   (define first?
     #t)
   
@@ -217,10 +217,14 @@
   (print-property safety: safety)
   (if (not optimize?)
       (print-property optimize?: optimize?))
-  (if include-source?
-      (print-property include-source?: include-source?))
-  (if interpretable-kernel?
-      (print-property interpretable-kernel?: interpretable-kernel?))
+  (if (not debug-environments?)
+      (print-property debug-environments?: debug-environments?))
+  (if (not debug-location?)
+      (print-property debug-location?: debug-location?))
+  (if debug-source?
+      (print-property debug-source?: debug-source?))
+  (if interpret-kernel?
+      (print-property interpret-kernel?: interpret-kernel?))
   (if (not (eqv? source? #t))
       (print-property source?: source?))
   (if destination

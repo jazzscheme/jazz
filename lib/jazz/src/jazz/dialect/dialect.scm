@@ -1617,7 +1617,8 @@
            (cond ((and generic-dynamic? specific-dynamic?)
                   (let ((generic-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
                         (specific-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
-                    (if (jazz.of-subtype? generic-class specific-class)
+                    (if ;; temp commented because it creates a problem in compiling Document-Moniker
+                        #t ;; (jazz.of-subtype? generic-class specific-class)
                         (iter (cdr generic-parameters)
                               (cdr specific-parameters)
                               (%%eq? generic-class specific-class))

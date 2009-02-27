@@ -118,9 +118,11 @@
           (windowing jazz.kernel-windowing)
           (safety jazz.kernel-safety)
           (optimize? jazz.kernel-optimize?)
-          (include-source? jazz.kernel-include-source?)
+          (debug-environments? jazz.kernel-debug-environments?)
+          (debug-location? jazz.kernel-debug-location?)
+          (debug-source? jazz.kernel-debug-source?)
           (include-compiler? #f)
-          (interpretable-kernel? #f)
+          (interpret-kernel? #f)
           (source jazz.source)
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
@@ -159,7 +161,9 @@
               (dst (string-append output name ".c")))
           (if (or rebuild? (jazz.file-needs-update? src dst))
               (let ((path (string-append dir name))
-                    (options '(debug-location debug-environments)))
+                    (options `(,@(if debug-environments? '(debug-environments) '())
+                               ,@(if debug-location? '(debug-location) '())
+                               ,@(if debug-source? '(debug-source) '()))))
                 ;; standardize path as it will be the path stored in debugging information
                 (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
                   (feedback-message "; compiling {a}..." path)
@@ -262,7 +266,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)))
+                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)))
                 #t)
             #f)))
       
@@ -474,7 +478,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-configuration #f system platform windowing safety optimize? include-source? interpretable-kernel? source-access? destination output)))))))
+                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination output)))))))
       
       ;;;
       ;;;; Gambcini
@@ -495,7 +499,7 @@
                     (print ";;;" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)
+                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
@@ -521,7 +525,7 @@
       (build-kernel)
       (build-product)
       
-      (if interpretable-kernel?
+      (if interpret-kernel?
           (generate-gambcini)))))
 
 
@@ -533,7 +537,7 @@
      "")))
 
 
-(define (jazz.print-architecture system platform windowing safety optimize? include-source? destination output)
+(define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-platform platform output)
@@ -544,7 +548,11 @@
   (newline output)
   (jazz.print-variable 'jazz.kernel-optimize? optimize? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-include-source? include-source? output)
+  (jazz.print-variable 'jazz.kernel-debug-environments? debug-environments? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-debug-location? debug-location? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-debug-source? debug-source? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-destination destination output)
   (newline output)

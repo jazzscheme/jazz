@@ -308,9 +308,9 @@
     (jazz.feedback "  safety: {s}" safety)
     (if (not optimize?)
         (jazz.feedback "  optimize?: {s}" optimize?))
-    (if debug-environments?
+    (if (not debug-environments?)
         (jazz.feedback "  debug-environments?: {s}" debug-environments?))
-    (if debug-location?
+    (if (not debug-location?)
         (jazz.feedback "  debug-location?: {s}" debug-location?))
     (if debug-source?
         (jazz.feedback "  debug-source?: {s}" debug-source?))

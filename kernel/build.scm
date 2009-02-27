@@ -1073,11 +1073,13 @@
   (let ((console (console-port)))
     (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
     (force-output console)
-    (let loop ()
-      (newline console)
+    (let loop ((newline? #t))
+      (if newline?
+          (newline console))
       (display jazz.prompt console)
       (force-output console)
-      (let ((command (read-line console)))
+      (let ((command (read-line console))
+            (processed? #f))
         (continuation-capture
           (lambda (stop)
             (with-exception-handler
@@ -1085,8 +1087,8 @@
                 (jazz.debug-exception exc console jazz.display-exception? jazz.display-backtrace?)
                 (continuation-return stop #f))
               (lambda ()
-                (jazz.process-command command console)))))
-        (loop)))))
+                (set! processed? (jazz.process-command command console))))))
+        (loop processed?)))))
 
 
 (define (jazz.process-command command output)
@@ -1094,16 +1096,20 @@
       (jazz.quit-command '() output)
     (call-with-input-string command
       (lambda (input)
-        (let ((command (read input))
-              (arguments (read-all input read)))
-          (case command
-            ((list) (jazz.list-command arguments output))
-            ((delete) (jazz.delete-command arguments output))
-            ((configure) (jazz.configure-command arguments output))
-            ((make) (jazz.make-command arguments output))
-            ((help ?) (jazz.help-command arguments output))
-            ((quit) (jazz.quit-command arguments output))
-            (else (jazz.error "Unknown command: {s}" command))))))))
+        (let ((command (read input)))
+          (if (eof-object? command)
+              #f
+            (begin
+              (let ((arguments (read-all input read)))
+                (case command
+                  ((list) (jazz.list-command arguments output))
+                  ((delete) (jazz.delete-command arguments output))
+                  ((configure) (jazz.configure-command arguments output))
+                  ((make) (jazz.make-command arguments output))
+                  ((help ?) (jazz.help-command arguments output))
+                  ((quit) (jazz.quit-command arguments output))
+                  (else (jazz.error "Unknown command: {s}" command))))
+              #t)))))))
 
 
 (define (jazz.list-command arguments output)

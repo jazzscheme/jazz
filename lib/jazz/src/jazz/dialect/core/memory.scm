@@ -39,4 +39,8 @@
 
 
 (define (jazz.gc)
-  (%%gc)))
+  (%%gc))
+
+
+(define (jazz.process-statistics)
+  (##process-statistics)))

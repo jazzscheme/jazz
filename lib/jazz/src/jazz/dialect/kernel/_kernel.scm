@@ -99,14 +99,6 @@
 
 
 ;;;
-;;;; Collector
-;;;
-
-
-(native jazz.gc)
-
-
-;;;
 ;;;; Continuation
 ;;;
 
@@ -455,6 +447,15 @@
 (native jazz.list-copy)
 (native jazz.last-pair)
 (native jazz.proper-list)
+
+
+;;;
+;;;; Memory
+;;;
+
+
+(native jazz.gc)
+(native jazz.process-statistics)
 
 
 ;;;

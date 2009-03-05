@@ -129,6 +129,7 @@
     jazz.xml
     irregex.implementation.irregex
     statprof
+    time
     time.implementation))
 
 

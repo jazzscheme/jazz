@@ -134,12 +134,7 @@
 
 
 (define (jazz.build-all)
-  (define (compile module-name)
-    (jazz.for-each-submodule module-name
-      (lambda (module-name declaration phase)
-        (jazz.compile-module module-name))))
-  
-  (for-each compile jazz.All-Modules))
+  (for-each jazz.build-module jazz.All-Modules))
 
 
 ;;;

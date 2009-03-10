@@ -45,9 +45,6 @@
 
 (define jazz.All-Modules
   '(jazz
-    jazz.builder
-    jazz.builder.development
-    jazz.builder.workbench
     jazz.catalog
     jazz.console
     ;jazz.database

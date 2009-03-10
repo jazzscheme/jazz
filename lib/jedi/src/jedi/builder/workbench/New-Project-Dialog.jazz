@@ -1,0 +1,288 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; New Project Dialog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.builder.workbench.New-Project-Dialog jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.runtime)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities)
+        (jedi))
+
+
+(class New-Project-Dialog extends View
+  
+  
+  (property repository initialize {} accessors generate)
+  
+  
+  (form
+    (<install>                                              size: {Dimension 500 261}
+      (<Label-View>               name: title               title: "New Project" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Caption})
+      (<Label-View>               name: description         title: "Please specify project kind, name and repository" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Label})
+      (<Horizontal-Line>                                    position: {Point 0 50} size: {Dimension 500 8})
+      (<Border-View>              name: kind-border         position: {Point 13 64} size: {Dimension 140 137} border-type: edge style: entry
+        (<Scroller-View>                                    vscroll?: #t style: document
+          (<!>                    name: content             layout-type: fill
+            (<Tree-View>          name: kinds               portfolio: :icons show-header?: #f font: {Font name: Label} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "Project kind" selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>                           title: "User" width: 176 toplevel-controls?: #f controls?: #f display-images?: #f)))))
+      (<Label-View>               name: name-label          title: "Name:" position: {Point 182 111} size: {Dimension 33 16} font: {Font name: Label})
+      (<Border-View>              name: name-border         position: {Point 247 109} size: {Dimension 218 19} border-type: edge style: entry
+        (<Scroller-View>                                    hscroll?: #f vscroll?: #f
+          (<!>                    name: content             layout-type: fill
+            (<Name-Text-View>     name: name-text           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Fully qualified name of the project" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
+      (<Label-View>               name: repository-label    title: "Repository:" position: {Point 182 143} size: {Dimension 64 16} font: {Font name: Label})
+      (<Border-View>              name: repository-border   position: {Point 245 139} size: {Dimension 222 22} border-insets: {Rect 2 2 2 1} border-color: {Color name: Medium}
+        (<Border-View>                                      border-color: {Color name: Entry-Border}
+          (<Combo-Box>            name: repository
+            (<!>                  name: scroller
+              (<!>                name: content
+                (<!>              name: body                left-padding: 2 top-padding: 2 tooltip?: #t tooltip-text: "Repository where the project will be created"))))))
+      (<Horizontal-Line>                                    position: {Point 0 213} size: {Dimension 500 8})
+      (<Push-Button>              name: ok                  title: "OK" position: {Point 167 227} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>              name: cancel              title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+    
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-kinds)
+    (setup-name)
+    (setup-repositories))
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (acquire-focus~ (locate 'kinds)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (definition Kinds
+    '(<kinds>
+       (<kind>   name: "Empty"       kind: project template: "empty")
+       (<kind>   name: "Gambit"      kind: project template: "gambit")
+       (<kind>   name: "Jazz"
+         (<kind> name: "Empty"       kind: project template: "jazz/empty")
+         (<kind> name: "Process"     kind: project template: "jazz/process")
+         (<kind> name: "Application"
+         (<kind> name: "Empty"       kind: project template: "jazz/application/empty")
+         (<kind> name: "Standard"    kind: project template: "jazz/application/standard")))))
+  
+  
+  (method (setup-kinds)
+    (let ((tree (locate 'kinds))
+          (text (locate 'name-text))
+          (root (parse-jml Kinds)))
+      (remove-every-row~ tree)
+      (letrec ((insert
+                (function (node father)
+                  (let* ((title (get-property~ node 'name))
+                         (icon (get-property~ node 'icon))
+                         (row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: icon)) user-data: node)))
+                    (for-each (function (child)
+                                (insert child row))
+                              (get-children~ node))))))
+        (for-each (function (node)
+                    (insert node {}))
+                  (get-children~ root)))
+      (set-single-selection~ tree 0)
+      (ensure-displayed~ tree))
+    (update-ok))
+  
+  
+  (method (setup-name)
+    (set-string-content~ (locate 'name-text) "new"))
+  
+  
+  (method (setup-repositories)
+    (let ((combo (locate 'repository))
+          (repositories (get-repositories)))
+      (set-choices~ combo (map (function (repository)
+                                 (list repository (->string (repository-name repository))))
+                               repositories))
+      (set-value~ combo (either (find-repository 'User)
+                                (car repositories)))))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta (host-title)
+    "New")
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (validate-dialog)
+    (receive (kind template repository name) (get-modal-result)
+      (let* ((directory (new Directory (tokenise-filename (repository-directory repository))))
+             (destination (new-directory~ directory name))
+             (message (validate-name kind name destination)))
+        (when message
+          (message-box message)
+          (throw-cancel)))))
+  
+  
+  (method (get-modal-result)
+    (let ((node (selected-kind)))
+      (values (get-property~ node 'kind) (get-property~ node 'template) (get-value~ (locate 'repository)) (get-string-content~ (locate 'name-text)))))
+  
+  
+  (method (selected-kind)
+    (let* ((tree (locate 'kinds))
+           (rank (get-single-selection~ tree))
+           (row (get-row~ tree rank))
+           (node (get-user-data~ row)))
+      node))
+  
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (get-tab-stops)
+    (list
+      (locate 'kinds)
+      (locate 'name-text)
+      (get-body~ (locate 'repository))))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-selection-change evt)
+    (update-ok))
+  
+  
+  (method (on-content-change evt)
+    (update-ok))
+  
+  
+  (method (on-moniker-update evt)
+    (update-ok))
+  
+  
+  (method (on-double-click evt)
+    (when (get-enabled?~ (locate 'ok))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (when (get-enabled?~ (locate 'ok))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-ok)
+    (set-enabled?~ (locate 'ok) (and (get-property~ (selected-kind) 'kind) (not (empty-string? (get-string-content~ (locate 'name-text)))))))
+  
+  
+  (method (validate-name kind name destination)
+    (cond ((exists?~ destination)
+           (format "Project {a} already exists" name))
+          ((let ((first (first name)))
+             (not (or (eqv? first #\_)
+                      (alphabetic? first))))
+           "Name must start with a letter or an underscore")
+          ((not (every? (function (char)
+                          (or (alphabetic? char)
+                              (numeric? char)
+                              (memv? char '(#\minus #\_ #\.))))
+                        name))
+           "Name can only contain letters, digits, dashes, underscores and periods")
+          (else
+           {})))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Header-Color
+    (new Color red: 120 green: 120 blue: 255))
+
+  
+  (method (draw surface context lh lv)
+    (let ((size (get-size)))
+      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color name: White}) (list 1 Header-Color))))))
+
+
+;;;
+;;;; Name-Text-View
+;;;
+
+
+(class Name-Text-View extends Plain-Text-View
+  
+  
+  (method (get-context-menu)
+    (new-text-context-menu)))
+
+
+(register-autoclass Name-Text-View))

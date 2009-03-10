@@ -50,9 +50,9 @@
     jazz.builder.workbench
     jazz.catalog
     jazz.console
-    jazz.database
-    jazz.database.ado
-    jazz.database.sqlserver
+    ;jazz.database
+    ;jazz.database.ado
+    ;jazz.database.sqlserver
     jazz.debuggee
     jazz.debugger
     jazz.debugger.debuggers.gambit
@@ -85,7 +85,7 @@
     jazz.language.properties
     jazz.language.python
     jazz.language.scheme
-    jazz.language.sql
+    ;jazz.language.sql
     jazz.language.xml
     jazz.library
     jazz.library.component
@@ -100,7 +100,7 @@
     jazz.profile
     jazz.recorder
     jazz.runtime
-    jazz.schema
+    ;jazz.schema
     jazz.snow
     jazz.system
     jazz.system.application

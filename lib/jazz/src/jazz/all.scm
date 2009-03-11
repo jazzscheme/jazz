@@ -112,7 +112,6 @@
     jazz.ui.literals.colors
     jazz.ui.literals.fonts
     jazz.ui.literals.pens
-    jazz.ui.login
     jazz.ui.look
     jazz.ui.menu
     jazz.ui.offscreen

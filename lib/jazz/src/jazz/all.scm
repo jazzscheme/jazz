@@ -56,7 +56,6 @@
     jazz.debugger.debuggers.jazz
     jazz.depot
     jazz.designer
-    jazz.development
     jazz.doc
     jazz.dialect
     jazz.groupware

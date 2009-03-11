@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.product.platform
+(module jazz.platform.product
 
 
 ;;;

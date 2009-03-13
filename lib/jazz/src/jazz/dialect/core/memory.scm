@@ -42,11 +42,20 @@
   (%%gc))
 
 
-(define (jazz.process-statistics)
-  (##process-statistics))
+(define (jazz.process-memory)
+  (let ((vec (##process-statistics)))
+    (let ((heap       (f64vector-ref vec 15))
+          (alloc      (f64vector-ref vec 16))
+          (live       (f64vector-ref vec 17))
+          (movable    (f64vector-ref vec 18))
+          (nonmovable (f64vector-ref vec 19)))
+      (values (inexact->exact heap)
+              (inexact->exact live)
+              (inexact->exact movable)
+              (inexact->exact nonmovable)))))
 
 
-(define (jazz.symbols-statistics)
+(define (jazz.symbols-memory)
   (let ((count 0)
         (chars 0))
     (for-each (lambda (lst)
@@ -60,7 +69,7 @@
                               (loop (##vector-ref s 2) (cons s lst))
                             (reverse lst))))
                    (vector->list (##symbol-table))))
-    (list count chars)))
+    (values count chars)))
 
 
 (define (jazz.classes-statistics)

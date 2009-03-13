@@ -455,8 +455,8 @@
 
 
 (native jazz.gc)
-(native jazz.process-statistics)
-(native jazz.symbols-statistics)
+(native jazz.process-memory)
+(native jazz.symbols-memory)
 (native jazz.classes-statistics)
 (native jazz.instances-statistics)
 

@@ -1,0 +1,206 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Color
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.graphic.Color jazz
+
+
+(import (jazz.graphic)
+        (jazz.library)
+        (jazz.literals))
+
+
+(class Color extends Object
+  
+  
+  (slot name  getter generate)
+  (slot red   getter generate)
+  (slot green getter generate)
+  (slot blue  getter generate)
+  (slot alpha accessors generate)
+  
+  
+  (method (initialize (name: name {})
+                      (red: red {})
+                      (green: green {})
+                      (blue: blue {})
+                      (alpha: alpha {}))
+    (nextmethod)
+    (set! name~self name)
+    (set! red~self red)
+    (set! green~self green)
+    (set! blue~self blue)
+    (set! alpha~self alpha))
+  
+  
+  (method (copy-object deep?)
+    (new Color
+      name: name
+      red: red
+      green: green
+      blue: blue
+      alpha: alpha))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Color)
+           :incompatible)
+          ((if name
+               (= name (get-name~ target))
+             (and (= red (get-ref~ red))
+                  (= green (get-ref~ green))
+                  (= blue (get-ref~ blue))
+                  (= alpha (get-ref~ alpha))))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    (if name
+        `(registered-color ',name ',alpha)
+      `(new Color red: ',red green: ',green blue: ',blue alpha: ',alpha)))
+  
+  
+  (method (print printer readably)
+    (if name
+        (format printer "~{{a} name: {s}{? alpha: {a}~}}"
+                (identifier-name (type-name (class-of self)))
+                name
+                alpha)
+      (format printer "~{{a} red: {a} green: {a} blue: {a} alpha: {a}}"
+              (identifier-name (type-name (class-of self)))
+              red
+              green
+              blue
+              alpha)))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (white?)
+    (and (= red 255)
+         (= green 255)
+         (= blue 255)
+         (not alpha)))
+
+
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
+  @to-convert
+  (method meta public (parse-string string)
+    (if (empty-string? string)
+        {}
+      (let* ((lst (read-string-content string))
+             (len (length lst))
+             (err (function () (signal (new Convertion-Error object: string type: self)))))
+        (if (and (= len 1) (symbol? (car lst)) (memq? (car lst) Constants))
+            (dispatch self (car lst))
+          (if (= len 3)
+              (bind (red green blue) lst
+                (if (and (integer? red)
+                         (integer? green)
+                         (integer? blue))
+                    (new self red: red green: green blue: blue)
+                  (err)))
+            (err))))))
+  
+  
+  (method public (present)
+    (if name
+        (->string name)
+      (format "{a} {a} {a} {a}"
+        red
+        green
+        blue
+        alpha)))
+
+
+  ;;;
+  ;;;; Conversions
+  ;;;
+  
+  
+  (method public (determine-color enabled? selected?)
+    (cond
+     ((not enabled?) (registered-color 'Light-Gray))
+     (selected? (get-opposite))
+     (else self)))
+  
+  
+  (method public (get-opposite)
+    (case name
+      ((Dark-Red) (registered-color 'Yellow))
+      ((Dark-Gray) (registered-color 'Gray))
+      (else {})))
+  
+  
+  @To-be-redone
+  (method public (rgb->hls)
+    (receive (hue lightness saturation) (ColorRGBToHLS ref)
+      (new Color colorref: (rgb hue lightness saturation))))
+  
+  @To-be-redone
+  (method public (hls->rgb)
+    (let ((ref (ColorHLSToRGB (red-part ref) (green-part ref) (blue-part ref))))
+      (new Color colorref: ref)))
+
+
+  ;;;
+  ;;;; Cycles
+  ;;;
+  
+  
+  @To-be-redone
+  (method meta public (color-cycle base cycle subcycle)
+    (let* ((seq (cycle-naturals cycle subcycle))
+           (cardinality (* cycle subcycle))
+           (inc (/ 240 cardinality))
+           (ref (get-colorref~ (rgb->hls~ base)))
+           (hue (red-part ref))
+           (lig (green-part ref))
+           (sat (blue-part ref)))
+      (map (function (n)
+             (let* ((hue (+ hue (round (* inc n))))
+                    (hls (new Color red: (round hue) green: lig blue: sat)))
+               (hls->rgb~ hls)))
+           seq)))))

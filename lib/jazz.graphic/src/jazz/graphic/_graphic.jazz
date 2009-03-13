@@ -1,0 +1,118 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Graphic
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.graphic jazz
+
+
+(export (jazz.graphic.autoload))
+(import (jazz.graphic.autoload))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(definition (registered-object table name)
+  (let ((procedure/object (table-ref table name #f)))
+    (if (procedure? procedure/object)
+        (let ((object (procedure/object)))
+          (table-set! table name object)
+          object)
+      procedure/object)))
+
+
+;;;
+;;;; Color
+;;;
+
+
+(definition Colors
+  (make-table test: eq?))
+
+
+(definition (register-color name color)
+  (table-set! Colors name color))
+
+
+(definition (registered-color name (alpha {}))
+  (load-module 'jazz.graphic.literals.colors)
+  (let ((color (either (registered-object Colors name)
+                       (error "Unknown color: {s}" name))))
+    (if alpha
+        (let ((color (copy (registered-color name))))
+          (set-alpha~ color alpha)
+          color)
+      color)))
+
+
+;;;
+;;;; Font
+;;;
+
+
+(definition Fonts
+  (make-table test: eq?))
+
+
+(definition (register-font name font)
+  (table-set! Fonts name font))
+
+
+(definition (registered-font name)
+  (load-module 'jazz.graphic.literals.fonts)
+  (either (registered-object Fonts name)
+          (error "Unknown font: {s}" name)))
+
+
+;;;
+;;;; Pen
+;;;
+
+
+(definition Pens
+  (make-table test: eq?))
+
+
+(definition (register-pen name pen)
+  (table-set! Pens name pen))
+
+
+(definition (registered-pen name)
+  (load-module 'jazz.graphic.literals.pens)
+  (either (registered-object Pens name)
+          (error "Unknown pen: {s}" name))))

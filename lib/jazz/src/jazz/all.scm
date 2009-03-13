@@ -54,6 +54,11 @@
     jazz.designer
     jazz.doc
     jazz.dialect
+    jazz.graphic
+    jazz.graphic.font
+    jazz.graphic.literals.colors
+    jazz.graphic.literals.fonts
+    jazz.graphic.literals.pens
     jazz.groupware
     jazz.ide
     jazz.install
@@ -97,12 +102,8 @@
     jazz.ui.clipboard
     jazz.ui.development
     jazz.ui.dialog
-    jazz.ui.graphic.font
     jazz.ui.history
     jazz.ui.image
-    jazz.ui.literals.colors
-    jazz.ui.literals.fonts
-    jazz.ui.literals.pens
     jazz.ui.look
     jazz.ui.menu
     jazz.ui.offscreen

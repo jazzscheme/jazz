@@ -544,21 +544,6 @@
                            (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
                      (%%get-library-declaration-imports declaration))
            (jazz.queue-list queue))
-       ,@(case (jazz.walk-for)
-           ((compile)
-            `((define (__final-dispatch object field ignore type)
-                (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-                  (%%final-dispatch object (%%get-method-implementation field))))
-              (define (__class-dispatch object class-level implementation-rank type)
-                (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
-                  (%%class-dispatch object class-level implementation-rank)))
-              (define (__interface-dispatch object interface-rank implementation-rank type)
-                (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
-                  (%%interface-dispatch object interface-rank implementation-rank)))
-              (define __dispatchers
-                (%%vector __final-dispatch __class-dispatch __interface-dispatch))))
-           (else
-            '()))
        ,@references-expansion
        ,@autoloads-expansion
        ,@literals-expansion

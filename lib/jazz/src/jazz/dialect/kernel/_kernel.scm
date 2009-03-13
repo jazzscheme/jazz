@@ -456,6 +456,8 @@
 
 (native jazz.gc)
 (native jazz.process-statistics)
+(native jazz.classes-statistics)
+(native jazz.instances-statistics)
 
 
 ;;;

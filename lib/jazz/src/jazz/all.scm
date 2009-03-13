@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.product.all
+(module jazz.all
 
 
 ;;;
@@ -47,14 +47,10 @@
   '(jazz
     jazz.catalog
     jazz.console
-    ;jazz.database
-    ;jazz.database.ado
-    ;jazz.database.sqlserver
     jazz.debuggee
     jazz.debugger
     jazz.debugger.debuggers.gambit
     jazz.debugger.debuggers.jazz
-    jazz.depot
     jazz.designer
     jazz.doc
     jazz.dialect
@@ -81,13 +77,10 @@
     jazz.language.properties
     jazz.language.python
     jazz.language.scheme
-    ;jazz.language.sql
-    jazz.language.xml
     jazz.library
     jazz.library.component
     jazz.library.listener
     jazz.library.node
-    jazz.license
     jazz.literals
     jazz.media
     jazz.network
@@ -96,8 +89,6 @@
     jazz.profile
     jazz.recorder
     jazz.runtime
-    ;jazz.schema
-    jazz.snow
     jazz.system
     jazz.system.application
     jazz.system.process
@@ -121,7 +112,6 @@
     jazz.ui.window
     jazz.ui.workspace
     jazz.utilities
-    jazz.xml
     irregex.implementation.irregex
     statprof
     time

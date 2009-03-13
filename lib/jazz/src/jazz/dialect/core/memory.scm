@@ -43,4 +43,94 @@
 
 
 (define (jazz.process-statistics)
-  (##process-statistics)))
+  (##process-statistics))
+
+
+(define (jazz.symbols-statistics)
+  (let ((count 0)
+        (chars 0))
+    (for-each (lambda (lst)
+                (set! count (+ count (length lst)))
+                (for-each (lambda (s)
+                            (set! chars (+ chars (string-length (symbol->string s)))))
+                          lst))
+              (map (lambda (s)
+                     (let loop ((s s) (lst '()))
+                          (if (symbol? s)
+                              (loop (##vector-ref s 2) (cons s lst))
+                            (reverse lst))))
+                   (vector->list (##symbol-table))))
+    (list count chars)))
+
+
+(define (jazz.classes-statistics)
+  (let ((word-bytes 4)
+        (f64-bytes 8)
+        (pair-bytes 12)
+        (table-bytes 32)
+        (nb-classes 0) (sz-classes 0)
+        (nb-interfaces 0) (sz-interfaces 0)
+        (nb-slots 0) (sz-slots 0)
+        (nb-methods 0) (sz-methods 0))
+    (define (vector-size v)
+      (+ word-bytes (* word-bytes (##vector-length v))))
+    
+    (define (safe-vector-size v)
+      (if (vector? v)
+          (vector-size v)
+        0))
+    
+    (define (f64vector-size v)
+      (+ word-bytes (* f64-bytes (f64vector-length v))))
+    
+    (define (vector-vector-size v)
+      (if (not v)
+          0
+        (+ (vector-size v)
+           (let iter ((n 0) (size 0))
+                (if (< n (vector-length v))
+                    (let ((v (vector-ref v n)))
+                      (iter (+ n 1) (+ size (if v (vector-size v) 0))))
+                  size)))))
+    
+    (define (list-size l)
+      (* pair-bytes (length l)))
+    
+    (define (table-size t)
+      (+ table-bytes
+         (safe-vector-size (##vector-ref t 3))
+         (f64vector-size (##vector-ref t 4))
+         (safe-vector-size (##vector-ref t 5))))
+    
+    (define (process-class class)
+      (set! nb-classes (+ nb-classes 1))
+      (set! sz-classes (+ sz-classes (+ (vector-size class)
+                                        (table-size (%%get-category-fields class))
+                                        (vector-size (%%get-category-ancestors class))
+                                        (list-size (%%get-category-descendants class))
+                                        (list-size (%%get-class-interfaces class))
+                                        (list-size (%%get-class-slots class))
+                                        (vector-size (%%get-class-core-vtable class))
+                                        (vector-vector-size (%%get-class-class-table class))
+                                        (vector-vector-size (%%get-class-interface-table class)))))
+      (%%iterate-table (%%get-category-fields class)
+        (lambda (name field)
+          (cond ((jazz.is? field jazz.Slot) (process-slot field))
+                ((jazz.is? field jazz.Method) (process-method field)))))
+      (for-each process-class (%%get-category-descendants class)))
+    
+    (define (process-slot slot)
+      (set! nb-slots (+ nb-slots 1))
+      (set! sz-slots (+ sz-slots (vector-size slot))))
+    
+    (define (process-method method)
+      (set! nb-methods (+ nb-methods 1))
+      (set! sz-methods (+ sz-methods (vector-size method))))
+    
+    (process-class jazz.Object)
+    
+    (values
+      nb-classes sz-classes
+      nb-interfaces sz-interfaces
+      nb-slots sz-slots
+      nb-methods sz-methods))))

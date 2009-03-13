@@ -1183,6 +1183,8 @@
                 (let ((quiet? (or (%%not src) (%%string=? (%%resource-extension src) "jazz"))))
                   (jazz.load-resource bin quiet?)))
               (src
+                (if (jazz.warn-interpreted?)
+                    (jazz.feedback "Warning: Loading {a} interpreted" module-name))
                 (jazz.with-extension-reader (%%resource-extension src)
                   (lambda ()
                     (jazz.load-resource src))))

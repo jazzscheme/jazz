@@ -46,6 +46,9 @@
 (jazz.define-setting jazz.load-verbose?
   #f)
 
+(jazz.define-setting jazz.warn-interpreted?
+  #f)
+
 (jazz.define-setting jazz.parse-verbose?
   #f)
 

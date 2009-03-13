@@ -118,12 +118,17 @@
   ;;;
   
   
-  (method public (select-mode value)
-    (case value
-      ((search-forward) (select-mode-search-forward))
-      ((search-backward) (select-mode-search-backward))
-      (else (select-mode-execute)))
-    (acquire-focus))
+  (method public (select-mode mode value)
+    (case mode
+      ((search-forward search-backward)
+       (select-mode-search mode)
+       (acquire-focus)
+       (when value
+         (set-text value)
+         (search mode #t)))
+      (else
+       (select-mode-execute)
+       (acquire-focus))))
   
   
   ;;;
@@ -143,26 +148,27 @@
   ;;;
   ;;;; Search
   ;;;
+  
+  
+  (method (next-page evt)
+    (search 'search-forward #t))
+  
+  
+  (method (prior-page evt)
+    (search 'search-backward #t))
     
   
-  (method (select-mode-search-forward)
-    (set! mode 'search-forward)
-    (set! search-pristine? #t))
-  
-  
-  (method (select-mode-search-backward)
-    (set! mode 'search-backward)
+  (method (select-mode-search mode)
+    (set! mode~self mode)
     (set! search-pristine? #t))
   
   
   (method (on-search-forward evt)
-    (search 'search-forward #t)
-    (set-caret (text-ending)))
+    (search 'search-forward #t))
   
   
   (method (on-search-backward evt)
-    (search 'search-backward #t)
-    (set-caret (text-ending)))
+    (search 'search-backward #t))
   
   
   (method (on-search-finish evt)
@@ -185,7 +191,9 @@
                           (search-key key direction))
                         suffix)
               (when again?
-                (search-key {} direction)))))))
+                (search-key {} direction))))))
+    (when again?
+      (set-caret (text-ending))))
   
   
   (method (search-pos range direction)
@@ -228,8 +236,4 @@
   
   (method (search-finish)
     (when client
-      (set-caret~ client
-        (case mode
-          ((search-forward) (get-end~ client))
-          ((search-backward) (get-start~ client))))
       (acquire-focus~ client)))))

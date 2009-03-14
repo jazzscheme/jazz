@@ -174,7 +174,7 @@
    (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
    (proclaims       %%get-library-declaration-proclaims       %%set-library-declaration-proclaims)
    (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
-   (variables       %%get-library-declaration-variables       %%set-library-declaration-variables)
+   (variables       %%get-library-declaration-variables)
    (references      %%get-library-declaration-references      %%set-library-declaration-references)
    (autoloads       %%get-library-declaration-autoloads       %%set-library-declaration-autoloads)))
 

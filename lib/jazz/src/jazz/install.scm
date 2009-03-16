@@ -101,7 +101,6 @@
 (jazz.register-jazz-literal 'Locales                   'jazz.literals 'construct-locales)
 (jazz.register-jazz-literal 'Color                     'jazz.literals 'construct-color)
 (jazz.register-jazz-literal 'Font                      'jazz.literals 'construct-font)
-(jazz.register-jazz-literal 'Pen                       'jazz.literals 'construct-pen)
 (jazz.register-jazz-literal 'File                      'jazz.literals 'construct-file)
 (jazz.register-jazz-literal 'Directory                 'jazz.literals 'construct-directory)
 (jazz.register-jazz-literal 'Directory-Group           'jazz.literals 'construct-directory-group)

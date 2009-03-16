@@ -497,18 +497,15 @@
           (cairo_scale context (exact->inexact (/ 2 w)) (exact->inexact (/ 2 h)))
           (cairo_translate context (- tx) (- ty)))))
     (when outside
-      (set-color (if (is? outside Color)
-                     outside
-                   (get-color-for-object outside)))
-      (set-line-width (if (and (is? outside Pen) (get-width~ outside))
-                          (get-width~ outside)
-                        1)))
+      (if (is? outside Color)
+          (set-color outside)
+        (outside self)))
     (if (not inside)
         (stroke)
       (stroke-preserve)
-      (set-color (if (is? inside Color)
-                     inside
-                   (get-color-for-object inside)))
+      (if (is? inside Color)
+          (set-color inside)
+        (inside self))
       (fill)))
 
   
@@ -679,12 +676,11 @@
     (cairo_set_scaled_font context (get-scaled-font~ font)))
   
   
-  (method public (set-pen pen <Pen>)
-    (if (eq? (get-style~ pen) 'alternate)
-        (cairo_set_alternate context)
-      (cairo_set_solid context))
-    (set-line-width (get-width~ pen))
-    (set-color (get-color~ pen)))
+  (method public (set-style style)
+    (case style
+      ((solid) (cairo_set_solid context))
+      ((alternate) (cairo_set_alternate context))
+      (else (error "Unknown style: {s}" style))))
   
   
   (method public (draw-edge rect <Rect> (edges: edges 'rectangle) (inner: inner {}) (outer: outer {}))
@@ -782,12 +778,12 @@
   
   
   (method public (draw-raised rect <Rect>)
-    (set-pen (new Pen color: {Color name: Light-Background}))
+    (set-color {Color name: Light-Background})
     (move-to (get-left~ rect) (- (get-bottom~ rect) 1))
     (line-to-no-stroke (get-left~ rect) (get-top~ rect))
     (line-to-no-stroke (- (get-right~ rect) 1) (get-top~ rect))
     (stroke)
-    (set-pen (new Pen color: {Color name: Dark}))
+    (set-color {Color name: Dark})
     (move-to (- (get-right~ rect) 1) (get-top~ rect))
     (line-to-no-stroke (- (get-right~ rect) 1) (- (get-bottom~ rect) 1))
     (line-to (get-left~ rect) (- (get-bottom~ rect) 1)))
@@ -859,18 +855,15 @@
   (method (with-outside/inside outside inside outside-proc inside-proc)
     (when inside
       (inside-proc)
-      (set-color (if (is? inside Color)
-                     inside
-                   (get-color-for-object inside)))
+      (if (is? inside Color)
+          (set-color inside)
+        (inside self))
       (fill))
     (when outside
       (outside-proc)
-      (set-color (if (is? outside Color)
-                     outside
-                   (get-color-for-object outside)))
-      (set-line-width (if (and (is? outside Pen) (get-width~ outside))
-                          (get-width~ outside)
-                        1))
+      (if (is? outside Color)
+          (set-color outside)
+        (outside self))
       (stroke-preserve)))
   
   
@@ -892,19 +885,6 @@
         (draw-rectangle (inflate-rect rect -0.5 -0.5)))
       (function ()
         (draw-rectangle rect))))
-  
-  
-  ;;;
-  ;;;; Utilities
-  ;;;
-  
-  
-  (method public (get-color-for-object object)
-    (when (is? object Pen)
-      (let ((color (get-color~ object)))
-        (if (not color)
-            (dispatch Color (get-name~ object))
-          color))))
   
   
   ;;;

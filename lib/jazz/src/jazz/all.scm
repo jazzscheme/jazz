@@ -58,7 +58,6 @@
     jazz.graphic.font
     jazz.graphic.literals.colors
     jazz.graphic.literals.fonts
-    jazz.graphic.literals.pens
     jazz.groupware
     jazz.ide
     jazz.install

@@ -90,27 +90,9 @@
 
 (definition public (find-alias name)
   (either (table-ref (get-aliases) name #f)
-          (get-repository-alias name)
-          (get-package-alias name)
           (let ((process (get-process)))
             (when process
               (resolve-alias~ process name)))))
-
-
-(definition (get-repository-alias name)
-  (let ((repository (find-repository name)))
-    (if repository
-        (list (remove-trailing-char (repository-directory repository) #\/))
-      {})))
-
-
-(definition (get-package-alias name)
-  {}
-  @w
-  (let ((package (find-package name)))
-    (if package
-        (list (repository-packages-directory repository))
-      {})))
 
 
 (definition public (register-alias name path)
@@ -139,7 +121,8 @@
 
 (definition public (initialize-aliases)
   (initialize-platform-aliases)
-  (register-alias 'Home (tokenise-filename (pathname-normalize "~"))))
+  (register-alias 'Home (tokenise-filename (pathname-normalize "~")))
+  (register-repositories-aliases))
 
 
 (cond-expand
@@ -149,6 +132,24 @@
   (else
     (definition (initialize-platform-aliases)
       )))
+
+
+(definition (register-repositories-aliases)
+  (define (register-repository repository)
+    (let ((name (repository-name repository))
+          (directory (remove-trailing-char (repository-directory repository) #\/))
+          (packages-root (repository-packages-root repository)))
+      (register-alias name (tokenise-filename directory))
+      (unless (repository-binary? repository)
+        (for-each (function (package)
+                    (let ((package-name (package-name package)))
+                      (register-alias package-name
+                                      `(,name
+                                         ,@(if packages-root (tokenise-filename packages-root) '())
+                                         ,(symbol->string package-name)))))
+                  (repository-packages repository)))))
+  
+  (for-each register-repository (get-repositories)))
 
 
 (definition (validate-alias name path)

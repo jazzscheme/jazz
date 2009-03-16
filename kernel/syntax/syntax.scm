@@ -87,8 +87,8 @@
 ;; as it defines search precedence.
 
 
-(jazz.define-macro (%%make-repository name directory packages-root packages-directory)
-  `(%%vector 'repository ,name ,directory ,packages-root ,packages-directory #f))
+(jazz.define-macro (%%make-repository name directory packages-root packages-directory binary?)
+  `(%%vector 'repository ,name ,directory ,packages-root ,packages-directory ,binary? #f))
 
 
 (jazz.define-macro (%%repository-name repository)
@@ -103,11 +103,14 @@
 (jazz.define-macro (%%repository-packages-directory repository)
   `(%%vector-ref ,repository 4))
 
-(jazz.define-macro (%%repository-packages-table repository)
+(jazz.define-macro (%%repository-binary? repository)
   `(%%vector-ref ,repository 5))
 
+(jazz.define-macro (%%repository-packages-table repository)
+  `(%%vector-ref ,repository 6))
+
 (jazz.define-macro (%%repository-packages-table-set! repository packages-table)
-  `(%%vector-set! ,repository 5 ,packages-table))
+  `(%%vector-set! ,repository 6 ,packages-table))
 
 
 ;;;

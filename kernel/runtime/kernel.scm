@@ -325,7 +325,7 @@
        (%%eq? (%%vector-ref obj 0) 'repository)))
 
 
-(define (jazz.make-repository name dirname dir subdir packages-root #!key (error? #t))
+(define (jazz.make-repository name dirname dir subdir packages-root #!key (binary? #f) (error? #t))
   (if (and dir (%%not (jazz.directory-exists? dir)))
       (jazz.create-directories dir))
   (if (and dir (jazz.directory-exists? dir))
@@ -344,14 +344,14 @@
                   (display "))" output)
                   (newline output)))))
         (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory packages-root "/"))))
-          (%%make-repository name directory packages-root packages-directory)))
+          (%%make-repository name directory packages-root packages-directory binary?)))
     (if error?
         (jazz.error "{a} directory is inexistant: {a}" dirname dir)
       #f)))
 
 
 (define jazz.Bin-Repository
-  (jazz.make-repository 'Bin "Bin" jazz.kernel-install #f "lib"))
+  (jazz.make-repository 'Bin "Bin" jazz.kernel-install #f "lib" binary?: #t))
 
 (define jazz.Jazz-Repository
   (jazz.make-repository 'Jazz "Jazz" jazz.kernel-source #f "lib" error?: #f))
@@ -391,9 +391,10 @@
           (let ((name (%%cadr form))
                 (alist (%%cddr form)))
             (let ((directory (jazz.pathname-normalize directory))
-                  (packages-root (assq 'root alist)))
-              (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory (%%cadr packages-root) "/"))))
-                (%%make-repository name directory packages-root packages-directory)))))))))
+                  (packages-pair (assq 'root alist)))
+              (let ((packages-root (if packages-pair (%%cadr packages-pair) #f)))
+                (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory packages-root "/"))))
+                (%%make-repository name directory packages-root packages-directory #f))))))))))
 
 
 (define (jazz.install-repository directory)
@@ -415,6 +416,19 @@
         (if (eq? (%%repository-name repository) name)
             repository
           (iter (%%cdr repositories)))))))
+
+
+(define (jazz.find-package package-name)
+  (let iter ((repositories jazz.Repositories))
+    (if (%%null? repositories)
+        #f
+      (let ((repository (%%car repositories)))
+        (if (%%repository-binary? repository)
+            (iter (%%cdr repositories))
+          (let ((package (jazz.repository-find-package repository package-name)))
+            (if package
+                package
+              (iter (%%cdr repositories)))))))))
 
 
 (define (jazz.repository-pathname repository path)

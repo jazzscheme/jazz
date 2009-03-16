@@ -385,16 +385,25 @@
       (if (unspecified? context)
           (let ((new-context
                   (let ((process (get-process)))
-                    (if process
-                        (context-alias (initial-console-context~ process))
-                      {}))))
+                    (context-alias (if process
+                                       (initial-console-context~ process)
+                                     :default)))))
             (set-context~ console new-context)
             new-context)
         context)))
   
   (define (context-alias context)
-    (when (and (enumerator? context) (get-process))
-      (process-alias~ (get-process) context)))
+    (when (enumerator? context)
+      (let ((process (get-process)))
+        (if (not process)
+            (if (and (eq? context :default)
+                     (module-loaded? 'jazz))
+                'jazz
+              {})
+          (if (eq? context :default)
+              (either (process-alias~ process :profile)
+                      (process-alias~ process :process))
+            (process-alias~ process context))))))
   
   (define (parse-unquote-command expr)
     (if (and (pair? expr)

@@ -1267,6 +1267,9 @@
 (define (jazz.get-load-mutex)
   jazz.Load-Mutex)
 
+(define (jazz.get-load-stack)
+  jazz.Load-Stack)
+
 
 (define (jazz.push-load-stack mode module-name)
   (set! jazz.Load-Stack (cons (cons mode module-name) jazz.Load-Stack)))
@@ -1287,6 +1290,10 @@
       (lambda ()
         (set! jazz.Load-Thread #f)
         (mutex-unlock! jazz.Load-Mutex)))))
+
+
+(define (jazz.module-loaded? module-name)
+  (%%eq? (jazz.get-environment-module module-name) jazz.Loaded-State))
 
 
 (define (jazz.load-module module-name)

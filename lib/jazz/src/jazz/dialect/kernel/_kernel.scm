@@ -419,10 +419,12 @@
 (native jazz.module-autoload)
 (native jazz.get-environment)
 (native jazz.get-environment-module)
+(native jazz.module-loaded?)
 (native jazz.load-module)
 (native jazz.reload-module)
 (native jazz.load-all)
 (native jazz.get-load-mutex)
+(native jazz.get-load-stack)
 (native jazz.walk-for)
 (native main)
 

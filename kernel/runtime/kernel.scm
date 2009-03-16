@@ -392,7 +392,7 @@
                 (alist (%%cddr form)))
             (let ((directory (jazz.pathname-normalize directory))
                   (packages-root (assq 'root alist)))
-              (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory packages-root "/"))))
+              (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory (%%cadr packages-root) "/"))))
                 (%%make-repository name directory packages-root packages-directory)))))))))
 
 

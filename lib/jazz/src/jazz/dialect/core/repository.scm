@@ -46,8 +46,8 @@
 (define (jazz.repository-name repository)
   (%%repository-name repository))
 
-(define (jazz.repository-directory repository)
-  (%%repository-directory repository))
+(define (jazz.repository-packages-directory repository)
+  (%%repository-packages-directory repository))
 
 
 ;;;

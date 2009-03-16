@@ -87,8 +87,8 @@
 ;; as it defines search precedence.
 
 
-(jazz.define-macro (%%make-repository name directory)
-  `(%%vector 'repository ,name ,directory #f))
+(jazz.define-macro (%%make-repository name directory packages-root packages-directory)
+  `(%%vector 'repository ,name ,directory ,packages-root ,packages-directory #f))
 
 
 (jazz.define-macro (%%repository-name repository)
@@ -97,11 +97,17 @@
 (jazz.define-macro (%%repository-directory repository)
   `(%%vector-ref ,repository 2))
 
-(jazz.define-macro (%%repository-packages-table repository)
+(jazz.define-macro (%%repository-packages-root repository)
   `(%%vector-ref ,repository 3))
 
+(jazz.define-macro (%%repository-packages-directory repository)
+  `(%%vector-ref ,repository 4))
+
+(jazz.define-macro (%%repository-packages-table repository)
+  `(%%vector-ref ,repository 5))
+
 (jazz.define-macro (%%repository-packages-table-set! repository packages-table)
-  `(%%vector-set! ,repository 3 ,packages-table))
+  `(%%vector-set! ,repository 5 ,packages-table))
 
 
 ;;;
@@ -113,8 +119,8 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name root path install products profiles project)
-  `(%%vector 'package ,repository ,name ,root ,path ,install ,products ,profiles ,project (%%make-table test: eq?)))
+(jazz.define-macro (%%make-package repository name modules-root modules-path install products profiles project)
+  `(%%vector 'package ,repository ,name ,modules-root ,modules-path ,install ,products ,profiles ,project (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -123,10 +129,10 @@
 (jazz.define-macro (%%package-name package)
   `(%%vector-ref ,package 2))
 
-(jazz.define-macro (%%package-root package)
+(jazz.define-macro (%%package-modules-root package)
   `(%%vector-ref ,package 3))
 
-(jazz.define-macro (%%package-path package)
+(jazz.define-macro (%%package-modules-path package)
   `(%%vector-ref ,package 4))
 
 (jazz.define-macro (%%package-install package)

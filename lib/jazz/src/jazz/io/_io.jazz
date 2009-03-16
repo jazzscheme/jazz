@@ -75,8 +75,7 @@
 
 
 (definition public (is-alias? name)
-  (or (table-ref (get-aliases) name #f)
-      @convert (get-manifest-source name)))
+  (boolean (find-alias name)))
 
 
 (definition public (valid-alias? name)
@@ -91,21 +90,27 @@
 
 (definition public (find-alias name)
   (either (table-ref (get-aliases) name #f)
-          @convert
-          (get-manifest-alias name)
-          @convert
-          (get-setting name)
+          (get-repository-alias name)
+          (get-package-alias name)
           (let ((process (get-process)))
             (when process
               (resolve-alias~ process name)))))
 
 
-@convert
-(definition (get-manifest-alias name)
-  (let ((source (get-manifest-source name)))
-    (if (not source)
-        {}
-      (butlast (get-list~ source)))))
+(definition (get-repository-alias name)
+  (let ((repository (find-repository name)))
+    (if repository
+        (list (repository-packages-directory repository))
+      {})))
+
+
+(definition (get-package-alias name)
+  {}
+  @w
+  (let ((package (find-package name)))
+    (if package
+        (list (repository-packages-directory repository))
+      {})))
 
 
 (definition public (register-alias name path)

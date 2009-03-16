@@ -380,7 +380,7 @@
 (native jazz.find-repository)
 (native jazz.repository?)
 (native jazz.repository-name)
-(native jazz.repository-directory)
+(native jazz.repository-packages-directory)
 (native jazz.repository-packages)
 (native jazz.repository-find-package)
 (native jazz.repository-install-packages)

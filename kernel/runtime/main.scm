@@ -149,11 +149,12 @@
           (current-handler exc))
         thunk)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debugger") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "make" "compile" "debugger") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
-            (make (jazz.get-option "make" options))
+            (update (jazz.get-option "update" options))
             (build (jazz.get-option "build" options))
+            (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options)))
         (set! jazz.debugger debugger)
@@ -163,14 +164,18 @@
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))
-              (make
+              (update
                (with-debug-exception-handler
                  (lambda ()
-                   (jazz.make-product (%%string->symbol make)))))
+                   (jazz.update-product (%%string->symbol update)))))
               (build
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.build-product (%%string->symbol build)))))
+              (make
+               (with-debug-exception-handler
+                 (lambda ()
+                   (jazz.make-product (%%string->symbol make)))))
               (compile
                (with-debug-exception-handler
                  (lambda ()

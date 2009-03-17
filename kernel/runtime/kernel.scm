@@ -871,16 +871,46 @@
       #f)))
 
 
+(define (jazz.product-descriptor-title descriptor)
+  (let ((pair (%%assq 'title (%%cadr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
+
+(define (jazz.product-descriptor-icon descriptor)
+  (let ((pair (%%assq 'icon (%%cadr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
+
+(define (jazz.product-descriptor-run descriptor)
+  (let ((pair (%%assq 'run (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
+
+(define (jazz.product-descriptor-update descriptor)
+  (let ((pair (%%assq 'update (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
+
+(define (jazz.product-descriptor-build descriptor)
+  (let ((pair (%%assq 'build (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
+
 (define (jazz.product-descriptor-dependencies descriptor)
   (let ((pair (%%assq 'dependencies (%%cdr descriptor))))
     (if pair
         (%%cdr pair)
       '())))
-
-
-(define (jazz.find-product-module name)
-  (let ((descriptor (jazz.get-product-descriptor name)))
-    (jazz.product-descriptor-module descriptor)))
 
 
 (define jazz.Products-Table
@@ -950,12 +980,31 @@
 
 
 (define (jazz.get-product name)
-  (let ((module (jazz.find-product-module name)))
-    (if module
-        (begin
-          (jazz.load-module module)
-          (jazz.get-registered-product name))
-      (jazz.error "Unable to find product: {s}" name))))
+  (let ((descriptor (jazz.get-product-descriptor name)))
+    (let ((module (jazz.product-descriptor-module descriptor)))
+      (if module
+          (begin
+            (jazz.load-module module)
+            (jazz.get-registered-product name))
+        (let ((title (jazz.product-descriptor-title descriptor))
+              (icon (jazz.product-descriptor-icon descriptor))
+              (run (jazz.product-descriptor-run descriptor))
+              (update (jazz.product-descriptor-update descriptor))
+              (build (jazz.product-descriptor-build descriptor)))
+          (define (runner)
+            (for-each jazz.load-module run))
+          
+          (define (updater)
+            (for-each jazz.build-module update))
+          
+          (define (builder)
+            (updater)
+            (for-each jazz.build-executable build))
+          
+          (%%make-product name title icon
+            (if run runner #f)
+            (if update updater #f)
+            builder))))))
 
 
 (define (jazz.setup-product name)

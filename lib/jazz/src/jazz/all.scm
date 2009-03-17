@@ -54,10 +54,6 @@
     jazz.designer
     jazz.doc
     jazz.dialect
-    jazz.graphic
-    jazz.graphic.font
-    jazz.graphic.literals.colors
-    jazz.graphic.literals.fonts
     jazz.groupware
     jazz.ide
     jazz.install

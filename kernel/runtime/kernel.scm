@@ -851,14 +851,17 @@
   (let iter-repo ((repositories jazz.Repositories))
     (if (%%null? repositories)
         #f
-      (let iter ((packages (jazz.repository-packages (%%car repositories))))
-        (if (%%null? packages)
+      (let ((repository (%%car repositories)))
+        (if (%%repository-binary? repository)
             (iter-repo (%%cdr repositories))
-          (let ((package (%%car packages)))
-            (let ((pair (%%assq name (%%package-products package))))
-              (if pair
-                  pair
-                (iter (%%cdr packages))))))))))
+          (let iter ((packages (jazz.repository-packages (%%car repositories))))
+            (if (%%null? packages)
+                (iter-repo (%%cdr repositories))
+              (let ((package (%%car packages)))
+                (let ((pair (%%assq name (%%package-products package))))
+                  (if pair
+                      pair
+                    (iter (%%cdr packages))))))))))))
 
 
 (define (jazz.product-descriptor-module descriptor)
@@ -876,17 +879,8 @@
 
 
 (define (jazz.find-product-module name)
-  (let ((descriptor (jazz.find-product-descriptor name)))
-    (if (%%not descriptor)
-        #f
-      (jazz.product-descriptor-module descriptor))))
-
-
-(define (jazz.find-product-dependencies name)
-  (let ((descriptor (jazz.find-product-descriptor name)))
-    (if (%%not descriptor)
-        #f
-      (jazz.product-descriptor-dependencies descriptor))))
+  (let ((descriptor (jazz.get-product-descriptor name)))
+    (jazz.product-descriptor-module descriptor)))
 
 
 (define jazz.Products-Table

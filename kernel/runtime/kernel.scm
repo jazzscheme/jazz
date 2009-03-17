@@ -999,7 +999,11 @@
           
           (define (builder)
             (updater)
-            (for-each jazz.build-executable build))
+            (for-each (lambda (obj)
+                        (if (%%symbol? obj)
+                            (jazz.build-executable obj)
+                          (apply jazz.build-executable obj)))
+                      build))
           
           (%%make-product name title icon
             (if run runner #f)

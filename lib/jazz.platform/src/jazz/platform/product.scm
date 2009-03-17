@@ -234,5 +234,5 @@
 ;;;
 
 
-(jazz.register-product 'platform
+(jazz.register-product 'jazz.platform
   build: jazz.build-platform))

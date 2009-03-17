@@ -60,5 +60,5 @@
 ;;;
 
 
-(jazz.register-product 'opengl
+(jazz.register-product 'jazz.graphic.opengl
   build: jazz.build-opengl))

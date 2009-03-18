@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit
+;;;; Gambit Dialect
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,70 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit scheme
+(module gambit.dialect.dialect
 
 
-(export (scheme)
-        
-        (gambit.dialect)
-        (gambit.dialect (phase syntax))))
+;;;
+;;;; Dialect
+;;;
+
+
+(jazz.define-class-runtime jazz.Gambit-Dialect)
+
+
+(define (jazz.new-gambit-dialect)
+  (jazz.allocate-gambit-dialect jazz.Gambit-Dialect))
+
+
+(jazz.define-method (jazz.dialect-name (jazz.Gambit-Dialect dialect))
+  'gambit)
+
+
+(jazz.define-method (jazz.dialect-walker (jazz.Gambit-Dialect dialect))
+  (jazz.new-gambit-walker))
+
+
+(jazz.encapsulate-class jazz.Gambit-Dialect)
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(jazz.define-class-runtime jazz.Gambit-Walker)
+
+
+(define (jazz.new-gambit-walker)
+  (jazz.allocate-gambit-walker jazz.Gambit-Walker '() '()))
+
+
+(jazz.encapsulate-class jazz.Gambit-Walker)
+
+
+;;;
+;;;; Environment
+;;;
+
+
+(define (jazz.gambit-bindings)
+  (%%list))
+
+
+(define jazz.gambit-environment
+  #f)
+
+
+(jazz.define-method (jazz.walker-environment (jazz.Gambit-Walker walker))
+  (or jazz.gambit-environment
+      (begin
+        (set! jazz.gambit-environment (%%list (jazz.new-walk-frame (append (jazz.core-bindings) (jazz.scheme-bindings) (jazz.gambit-bindings)))))
+        jazz.gambit-environment)))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz.register-dialect 'gambit (jazz.new-gambit-dialect)))

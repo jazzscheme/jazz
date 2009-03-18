@@ -4697,6 +4697,8 @@
                    (%%keyword? expr)
                    (%%number? expr)
                    (%%symbol? expr)
+                   ;; will need to scan vectors when we want jazz literals inside vectors
+                   (%%vector? expr)
                    (and (%%pair? expr) (scheme-data? (%%car expr)) (scheme-data? (%%cdr expr)))))))
     (and (%%pair? form)
          (scheme-data? form))))

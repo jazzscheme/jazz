@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit.kernel scheme
+(library gambit.dialect.kernel scheme
 
 
 (native default-random-source)

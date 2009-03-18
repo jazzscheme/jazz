@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit
+;;;; Gambit Dialect
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit scheme
+(library gambit.dialect core
 
 
-(export (scheme)
-        
-        (gambit.dialect)
-        (gambit.dialect (phase syntax))))
+(require (core.library)
+         (scheme (phase syntax))
+         (gambit.dialect.classes (phase syntax))
+         (gambit.dialect.dialect))
+
+
+(export (gambit.dialect.kernel)))

@@ -106,7 +106,7 @@
     (%%append (%%get-class-core-virtual-names class)
               (%%list method-name)))
   (%%fx- (%%length (%%get-class-core-virtual-names class))
-             1))
+         1))
 
 
 (define (jazz.register-method class method-name method-implementation)

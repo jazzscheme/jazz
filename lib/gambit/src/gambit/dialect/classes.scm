@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit
+;;;; Gambit Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit scheme
+(module gambit.dialect.classes
 
 
-(export (scheme)
-        
-        (gambit.dialect)
-        (gambit.dialect (phase syntax))))
+;;;
+;;;; Dialect
+;;;
+
+
+(jazz.define-class jazz.Gambit-Dialect jazz.Scheme-Dialect () jazz.Object-Class jazz.allocate-gambit-dialect
+  ())
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(jazz.define-class jazz.Gambit-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-gambit-walker
+  ()))

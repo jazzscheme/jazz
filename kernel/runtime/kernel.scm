@@ -803,6 +803,12 @@
         (proc src bin bin-uptodate?)))))
 
 
+(define (jazz.module-uptodate-binary? module-name)
+  (jazz.with-module-src/bin module-name #f
+    (lambda (src bin bin-uptodate?)
+      bin-uptodate?)))
+
+
 (define (jazz.validate-repository-unicity repository module-name proc)
   (if (%%not (jazz.repository-unique? repository proc))
       (jazz.error "Found duplicate resource in {a} repository: {s}"

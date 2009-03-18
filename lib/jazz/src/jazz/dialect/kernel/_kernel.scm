@@ -435,6 +435,7 @@
 (native jazz.get-environment)
 (native jazz.get-environment-module)
 (native jazz.module-loaded?)
+(native jazz.module-uptodate-binary?)
 (native jazz.load-module)
 (native jazz.reload-module)
 (native jazz.load-all)

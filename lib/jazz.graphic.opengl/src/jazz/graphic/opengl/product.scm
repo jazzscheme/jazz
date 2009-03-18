@@ -43,7 +43,7 @@
 ;;;
 
 
-(define (jazz.build-opengl)
+(define (jazz.build-opengl descriptor)
   (jazz.load-module 'core.module.builder)
   (jazz.compile-module 'jazz.graphic.opengl.foreign.gl-header)
   (jazz.compile-module 'jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")

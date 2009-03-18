@@ -864,6 +864,10 @@
                     (iter (%%cdr packages))))))))))))
 
 
+(define (jazz.product-descriptor-name descriptor)
+  (%%car descriptor))
+
+
 (define (jazz.product-descriptor-module descriptor)
   (let ((pair (%%assq 'module (%%cdr descriptor))))
     (if pair
@@ -872,16 +876,16 @@
 
 
 (define (jazz.product-descriptor-title descriptor)
-  (let ((pair (%%assq 'title (%%cadr descriptor))))
+  (let ((pair (%%assq 'title (%%cdr descriptor))))
     (if pair
-        (%%cdr pair)
+        (%%cadr pair)
       #f)))
 
 
 (define (jazz.product-descriptor-icon descriptor)
-  (let ((pair (%%assq 'icon (%%cadr descriptor))))
+  (let ((pair (%%assq 'icon (%%cdr descriptor))))
     (if pair
-        (%%cdr pair)
+        (%%cadr pair)
       #f)))
 
 
@@ -914,6 +918,9 @@
 
 
 (define jazz.Products-Table
+  (make-table test: eq?))
+
+(define jazz.Products-Run-Table
   (make-table test: eq?))
 
 
@@ -964,7 +971,7 @@
 
 
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
-  (table-set! jazz.Products-Table name (%%make-product name title icon run update build)))
+  (table-set! jazz.Products-Table name (%%make-product name title icon run update build (jazz.find-product-descriptor name))))
 
 
 (define (jazz.get-registered-product name)
@@ -987,28 +994,12 @@
             (jazz.load-module module)
             (jazz.get-registered-product name))
         (let ((title (jazz.product-descriptor-title descriptor))
-              (icon (jazz.product-descriptor-icon descriptor))
-              (run (jazz.product-descriptor-run descriptor))
-              (update (jazz.product-descriptor-update descriptor))
-              (build (jazz.product-descriptor-build descriptor)))
-          (define (runner)
-            (for-each jazz.load-module run))
-          
-          (define (updater)
-            (for-each jazz.build-module update))
-          
-          (define (builder)
-            (updater)
-            (for-each (lambda (obj)
-                        (if (%%symbol? obj)
-                            (jazz.build-executable obj)
-                          (apply jazz.build-executable obj)))
-                      build))
-          
+              (icon (jazz.product-descriptor-icon descriptor)))
           (%%make-product name title icon
-            (if run runner #f)
-            (if update updater #f)
-            builder))))))
+            #f
+            jazz.update-product-descriptor
+            jazz.build-product-descriptor
+            descriptor))))))
 
 
 (define (jazz.setup-product name)
@@ -1018,36 +1009,80 @@
       (set! jazz.process-name name)
       (jazz.setup-debuggee)
       (let ((product (jazz.get-product name)))
-        (set! jazz.process-name name)
-        (set! jazz.process-title (%%product-title product))
-        (set! jazz.process-icon (%%product-icon product))
-        (jazz.load-module 'jazz.debuggee.update)
-        product))))
+        (let ((descriptor (%%product-descriptor product)))
+          (set! jazz.process-name name)
+          (set! jazz.process-title (or (%%product-title product) (jazz.product-descriptor-title descriptor)))
+          (set! jazz.process-icon (or (%%product-icon product) (jazz.product-descriptor-icon descriptor)))
+          (jazz.load-module 'jazz.debuggee.update)
+          product)))))
+
+
+(define (jazz.register-run name proc)
+  (table-set! jazz.Products-Run-Table name proc))
+
+
+(define (jazz.get-registered-run name)
+  (or (table-ref jazz.Products-Run-Table name #f)
+      (jazz.error "Unable to find registered run: {s}" name)))
 
 
 (define (jazz.run-product name)
-  (let ((run (%%product-run (jazz.setup-product name))))
+  (let ((product (jazz.setup-product name)))
+    (let ((run (%%product-run product))
+          (descriptor (%%product-descriptor product)))
+      (if run
+          (run descriptor)
+        (jazz.run-product-descriptor descriptor)))))
+
+
+(define (jazz.run-product-descriptor descriptor)
+  (let ((name (jazz.product-descriptor-name descriptor))
+        (run (jazz.product-descriptor-run descriptor)))
     (if run
-        (run)
+        (begin
+          (for-each jazz.load-module run)
+          (let ((proc (jazz.get-registered-run name)))
+            (proc)))
       (jazz.error "Product is not runnable: {s}" name))))
 
 
 (define (jazz.update-product name)
-  (let ((update (%%product-update (jazz.setup-product name))))
+  (let ((product (jazz.setup-product name)))
+    (let ((update (%%product-update product))
+          (descriptor (%%product-descriptor product)))
+      (if update
+          (update descriptor)
+        (jazz.update-product-descriptor descriptor)))))
+
+
+(define (jazz.update-product-descriptor descriptor)
+  (let ((update (jazz.product-descriptor-update descriptor)))
     (if update
-        (update)
-      (jazz.error "Product is not updateable: {s}" name))))
+        (for-each jazz.build-module update)
+      (jazz.error "Product is not updateable: {s}" (jazz.product-descriptor-name descriptor)))))
 
 
 (define (jazz.build-product name)
-  (let ((build (%%product-build (jazz.setup-product name))))
+  (let ((product (jazz.setup-product name)))
+    (let ((build (%%product-build product))
+          (descriptor (%%product-descriptor product)))
+      (jazz.feedback "make {a}" name)
+      (jazz.load-module 'core.library)
+      (jazz.load-module 'core.module.builder)
+      (if build
+          (build descriptor)
+        (jazz.build-product-descriptor descriptor)))))
+
+
+(define (jazz.build-product-descriptor descriptor)
+  (jazz.update-product-descriptor descriptor)
+  (let ((build (jazz.product-descriptor-build descriptor)))
     (if build
-        (begin
-          (jazz.feedback "make {a}" name)
-          (jazz.load-module 'core.library)
-          (jazz.load-module 'core.module.builder)
-          (build))
-      (jazz.error "Product is not buildable: {s}" name))))
+        (for-each (lambda (obj)
+                    (if (%%symbol? obj)
+                        (jazz.build-executable obj)
+                      (apply jazz.build-executable obj)))
+                  build))))
 
 
 (define (jazz.make-product name)

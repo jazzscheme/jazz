@@ -153,14 +153,14 @@
 
 (cond-expand
   (carbon
-    (define (jazz.build-platform)
+    (define (jazz.build-platform descriptor)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
       (jazz.build-carbon)
       (jazz.build-clipboard)))
   (windows
-    (define (jazz.build-platform)
+    (define (jazz.build-platform descriptor)
       (let ((install jazz.kernel-install)
             (source jazz.source))
         (define (install-file path)
@@ -182,7 +182,7 @@
         (jazz.build-windows)
         (jazz.build-com))))
   (x11
-    (define (jazz.build-platform)
+    (define (jazz.build-platform descriptor)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

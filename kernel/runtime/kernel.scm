@@ -1048,7 +1048,7 @@
         (begin
           (for-each jazz.load-module run)
           (let ((proc (jazz.get-registered-run name)))
-            (proc)))
+            (proc descriptor)))
       (jazz.error "Product is not runnable: {s}" name))))
 
 

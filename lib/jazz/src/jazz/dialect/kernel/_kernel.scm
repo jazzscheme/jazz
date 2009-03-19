@@ -398,7 +398,7 @@
 (native jazz.present-version)
 (native jazz.load-package)
 (native jazz.register-product)
-(native jazz.register-run)
+(native jazz.register-product-run)
 (native jazz.product-descriptor-name)
 (native jazz.product-descriptor-module)
 (native jazz.product-descriptor-title)

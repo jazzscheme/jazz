@@ -1023,7 +1023,7 @@
           product)))))
 
 
-(define (jazz.register-run name proc)
+(define (jazz.register-product-run name proc)
   (table-set! jazz.Products-Run-Table name proc))
 
 

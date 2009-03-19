@@ -118,8 +118,11 @@
 (define jazz.debugger
   #f)
 
-(define jazz.initialization-file
+(define jazz.jazzini-file
   "~/.jazz/.jazzini")
+
+(define jazz.buildini-file
+  "~/.jazz/.buildini")
 
 (define jazz.warnings
   #f)
@@ -137,9 +140,13 @@
             #t))
     (jazz.repl-main))
   
-  (define (process-initialization-file)
-    (if (file-exists? jazz.initialization-file)
-        (jazz.load jazz.initialization-file)))
+  (define (process-jazzini-file)
+    (if (file-exists? jazz.jazzini-file)
+        (jazz.load jazz.jazzini-file)))
+  
+  (define (process-buildini-file)
+    (if (file-exists? jazz.buildini-file)
+        (jazz.load jazz.buildini-file)))
   
   (define (with-debug-exception-handler thunk)
     (let ((current-handler (current-exception-handler)))
@@ -158,25 +165,29 @@
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options)))
         (set! jazz.debugger debugger)
-        (process-initialization-file)
+        (process-jazzini-file)
         (jazz.setup-repositories)
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))
               (update
+               (process-buildini-file)
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.update-product (%%string->symbol update)))))
               (build
+               (process-buildini-file)
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.build-product (%%string->symbol build)))))
               (make
+               (process-buildini-file)
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.make-product (%%string->symbol make)))))
               (compile
+               (process-buildini-file)
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.compile (%%string->symbol compile)))))

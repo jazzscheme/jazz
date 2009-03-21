@@ -94,7 +94,7 @@
 (jazz.define-setting jazz.debug-build?
   #f)
 
-(jazz.define-setting jazz.parallel-build-processes?
+(jazz.define-setting jazz.parallel-build-processes
   1)
 
 

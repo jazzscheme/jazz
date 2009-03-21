@@ -1118,27 +1118,27 @@
               (set! made (%%cons name made))))))
     
     (define (make-parallel names)
-      (for-each make names)
-      #; ;; wait buggy
-      (let ((port (open-vector))
-            (parallel (jazz.parallel-build-processes?))
-            (running 0))
-        (for-each (lambda (name)
-                    (if (%%not (%%memq name made))
-                        (begin
+      (let ((port (open-vector)))
+        (define (start-threads count)
+          (if (%%fx<= count 0)
+              '()
+            (%%cons (thread-start!
+                      (make-thread
+                        (lambda ()
                           (let iter ()
-                            (if (%%fx>= running parallel)
-                                (begin
-                                  (read port)
-                                  (set! running (%%fx- running 1))
-                                  (iter))))
-                          (set! running (%%fx+ running 1))
-                          (thread-start!
-                            (make-thread
-                              (lambda ()
-                                (make name)
-                                (write name port)))))))
-                  names)))
+                            (let ((name (read port)))
+                              (if (%%not (%%eof-object? name))
+                                  (begin
+                                    (make name)
+                                    (iter))))))))
+                    (start-threads (%%fx- count 1)))))
+      
+        (input-port-timeout-set! port 0)
+        (for-each (lambda (name)
+                    (write name port))
+                  names)
+        (let ((threads (start-threads (jazz.parallel-build-processes))))
+          (for-each thread-join! threads))))
     
     (define (make-dependencies name)
       (let ((descriptor (jazz.get-product-descriptor name)))

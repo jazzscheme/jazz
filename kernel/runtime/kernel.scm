@@ -325,7 +325,7 @@
        (%%eq? (%%vector-ref obj 0) 'repository)))
 
 
-(define (jazz.make-repository name dirname dir subdir packages-root #!key (binary? #f) (error? #t))
+(define (jazz.make-repository name dirname dir subdir library-root #!key (binary? #f) (error? #t))
   (if (and dir (%%not (jazz.directory-exists? dir)))
       (jazz.create-directories dir))
   (if (and dir (jazz.directory-exists? dir))
@@ -340,11 +340,11 @@
                   (newline output)
                   (newline output)
                   (display "  (root " output)
-                  (write packages-root output)
+                  (write library-root output)
                   (display "))" output)
                   (newline output)))))
-        (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory packages-root "/"))))
-          (%%make-repository name directory packages-root packages-directory binary?)))
+        (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
+          (%%make-repository name directory library-root library-directory binary?)))
     (if error?
         (jazz.error "{a} directory is inexistant: {a}" dirname dir)
       #f)))
@@ -391,10 +391,10 @@
           (let ((name (%%cadr form))
                 (alist (%%cddr form)))
             (let ((directory (jazz.pathname-normalize directory))
-                  (packages-pair (assq 'root alist)))
-              (let ((packages-root (if packages-pair (%%cadr packages-pair) #f)))
-                (let ((packages-directory (if (%%not packages-root) directory (%%string-append directory packages-root "/"))))
-                (%%make-repository name directory packages-root packages-directory #f))))))))))
+                  (library-pair (assq 'library alist)))
+              (let ((library-root (if library-pair (%%cadr library-pair) #f)))
+                (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
+                  (%%make-repository name directory library-root library-directory #f))))))))))
 
 
 (define (jazz.install-repository directory)
@@ -432,7 +432,7 @@
 
 
 (define (jazz.repository-pathname repository path)
-  (%%string-append (%%repository-packages-directory repository)
+  (%%string-append (%%repository-library-directory repository)
                    path))
 
 
@@ -479,14 +479,14 @@
 
 (define (jazz.repository-discover-packages repository)
   (let ((table (%%repository-packages-table repository))
-        (repository-packages-directory (%%repository-packages-directory repository)))
-    (if (jazz.directory-exists? repository-packages-directory)
-        (let iter ((dirnames (jazz.directory-directories repository-packages-directory))
+        (repository-library-directory (%%repository-library-directory repository)))
+    (if (jazz.directory-exists? repository-library-directory)
+        (let iter ((dirnames (jazz.directory-directories repository-library-directory))
                    (packages '()))
           (if (%%null? dirnames)
               packages
             (let ((dirname (%%car dirnames)))
-              (let ((directory (%%string-append repository-packages-directory dirname "/")))
+              (let ((directory (%%string-append repository-library-directory dirname "/")))
                 (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
                   (if (jazz.file-exists? package-pathname)
                       (let ((package-name (%%string->symbol dirname)))
@@ -541,7 +541,7 @@
   (define (inspect-repository repository)
     `(:repository
       ,(%%repository-name repository)
-      ,(%%repository-packages-directory repository)
+      ,(%%repository-library-directory repository)
       ,@(map inspect-package (jazz.repository-packages repository))))
   
   (define (inspect-package package)

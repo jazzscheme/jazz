@@ -49,11 +49,11 @@
 (define (jazz.repository-directory repository)
   (%%repository-directory repository))
 
-(define (jazz.repository-packages-root repository)
-  (%%repository-packages-root repository))
+(define (jazz.repository-library-root repository)
+  (%%repository-library-root repository))
 
-(define (jazz.repository-packages-directory repository)
-  (%%repository-packages-directory repository))
+(define (jazz.repository-library-directory repository)
+  (%%repository-library-directory repository))
 
 (define (jazz.repository-binary? repository)
   (%%repository-binary? repository))

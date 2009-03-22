@@ -478,23 +478,30 @@
 
 
 (define (jazz.repository-discover-packages repository)
-  (let ((table (%%repository-packages-table repository))
-        (repository-library-directory (%%repository-library-directory repository)))
-    (if (jazz.directory-exists? repository-library-directory)
-        (let iter ((dirnames (jazz.directory-directories repository-library-directory))
-                   (packages '()))
-          (if (%%null? dirnames)
-              packages
-            (let ((dirname (%%car dirnames)))
-              (let ((directory (%%string-append repository-library-directory dirname "/")))
-                (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
-                  (if (jazz.file-exists? package-pathname)
-                      (let ((package-name (%%string->symbol dirname)))
-                        (if (%%table-ref table package-name #f)
-                            (iter (%%cdr dirnames) packages)
-                          (iter (%%cdr dirnames) (cons (jazz.load-package repository package-name package-pathname) packages))))
-                    (iter (%%cdr dirnames) packages)))))))
-      '())))
+  (let ((table (%%repository-packages-table repository)))
+    (define (discover-packages parent library-directory packages)
+      (if (jazz.directory-exists? library-directory)
+          (let iter ((dirnames (jazz.directory-directories library-directory))
+                     (packages packages))
+            (if (%%null? dirnames)
+                packages
+              (let ((dirname (%%car dirnames)))
+                (let ((directory (%%string-append library-directory dirname "/")))
+                  (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
+                    (if (jazz.file-exists? package-pathname)
+                        (let ((package-name (%%string->symbol dirname)))
+                          (if (%%table-ref table package-name #f)
+                              (iter (%%cdr dirnames) packages)
+                            (let ((package (jazz.load-package repository parent package-name package-pathname)))
+                              (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%package-library-path package)))
+                                                                       (if library-path
+                                                                           (let ((library-directory (jazz.repository-pathname (%%package-repository package) (%%string-append library-path "/"))))
+                                                                             (discover-packages package library-directory packages))
+                                                                         packages)))))))
+                      (iter (%%cdr dirnames) packages)))))))
+        packages))
+    
+    (discover-packages #f (%%repository-library-directory repository) '())))
 
 
 (define (jazz.repository-add-package repository package)
@@ -507,19 +514,21 @@
     (%%table-clear table (%%package-name package))))
 
 
-(define (jazz.load-package repository package-name package-pathname)
+(define (jazz.load-package repository parent package-name package-pathname)
   (call-with-input-file (list path: package-pathname eol-encoding: 'cr-lf)
     (lambda (input)
       (let ((form (read input)))
         (let ((name (%%cadr form))
               (alist (%%cddr form)))
           (if (%%eq? name package-name)
-              (let ((root (assq 'root alist))
+              (let ((library (assq 'library alist))
+                    (root (assq 'root alist))
                     (install (assq 'install alist))
                     (products (assq 'products alist))
                     (profiles (assq 'profiles alist))
                     (project (assq 'project alist)))
-                (jazz.make-package repository name
+                (jazz.make-package repository name parent
+                  (if library (%%cadr library) #f)
                   (if root (%%cadr root) #f)
                   (if install (%%cadr install) #f)
                   (if products (%%cdr products) '())
@@ -570,18 +579,23 @@
        (%%eq? (%%vector-ref obj 0) 'package)))
 
 
-(define (jazz.make-package repository name root install products profiles project)
-  (let ((path (if (%%not root)
-                  (%%symbol->string name)
-                (%%string-append (%%symbol->string name) "/" root))))
-    (%%make-package repository name root path install products profiles project)))
+(define (jazz.make-package repository name parent library-root modules-root install products profiles project)
+  (let ((library-path (if (%%not library-root)
+                          #f
+                        (%%string-append (%%symbol->string name) "/" library-root)))
+        (modules-path (if (%%not modules-root)
+                          (%%symbol->string name)
+                        (%%string-append (%%symbol->string name) "/" modules-root))))
+    (%%make-package repository name parent library-root library-path modules-root modules-path install products profiles project)))
 
 
 (define (jazz.package-pathname package path)
-  (jazz.repository-pathname (%%package-repository package)
-    (%%string-append (%%package-modules-path package)
-                     "/"
-                     path)))
+  (let ((parent (%%package-parent package)))
+    (jazz.repository-pathname (%%package-repository package)
+      (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
+                       (%%package-modules-path package)
+                       "/"
+                       path))))
 
 
 (define (jazz.iterate-resources module-name proc)
@@ -1338,12 +1352,14 @@
 
 
 (define (jazz.resource-build-dir resource)
+  ;; cannot use jazz.package-pathname as this comes before bin package creation
   (let ((package (%%resource-package resource))
         (dir (jazz.pathname-dir (%%resource-path resource))))
-    (jazz.repository-pathname jazz.Bin-Repository
-      (if dir
-          (%%string-append (%%package-modules-path package) "/" dir)
-        (%%package-modules-path package)))))
+    (let ((parent (%%package-parent package)))
+      (jazz.repository-pathname jazz.Bin-Repository
+        (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
+                         (%%package-modules-path package)
+                         (if dir (%%string-append "/" dir) ""))))))
 
 
 ;;;

@@ -58,9 +58,6 @@
 (jazz.define-setting jazz.done-verbose?
   #f)
 
-(jazz.define-setting jazz.compile-verbose?
-  #f)
-
 
 ;;;
 ;;;; Walker

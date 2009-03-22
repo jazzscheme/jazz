@@ -1108,6 +1108,7 @@
 (define (jazz.make-product name)
   (let ((install jazz.kernel-install)
         (platform jazz.kernel-platform)
+        (made-mutex (make-mutex 'make-product))
         (made '()))
     (define (install-file path)
       (%%string-append install path))
@@ -1119,17 +1120,33 @@
         (else
          "./jazz")))
     
+    (define (with-made-mutex proc)
+      (mutex-lock! made-mutex)
+      (let ((result (proc)))
+        (mutex-unlock! made-mutex)
+        result))
+    
+    (define (get-made)
+      (with-made-mutex
+        (lambda ()
+          made)))
+    
+    (define (set-made lst)
+      (with-made-mutex
+        (lambda ()
+          (set! made lst))))
+    
     (define (build name)
       (jazz.call-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))
     
     (define (make name)
-      (if (%%not (%%memq name made))
+      (if (%%not (%%memq name (get-made)))
           (let ((descriptor (jazz.get-product-descriptor name)))
             (let ((dependencies (jazz.product-descriptor-dependencies descriptor)))
               (for-each make-dependencies dependencies)
               (make-parallel dependencies)
               (build name)
-              (set! made (%%cons name made))))))
+              (set-made (%%cons name (get-made)))))))
     
     (define (make-parallel names)
       (let ((port (open-vector)))

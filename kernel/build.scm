@@ -814,9 +814,18 @@
 ;;;
 
 
+(define jazz.time-make-product?
+  #f)
+
+
 (define (jazz.make-product product configuration)
-  (jazz.make-kernel configuration)
-  (jazz.product-make product configuration))
+  (define (make)
+    (jazz.make-kernel configuration)
+    (jazz.product-make product configuration))
+  
+  (if jazz.time-make-product?
+      (time (make))
+    (make)))
 
 
 (define (jazz.product-make product configuration)

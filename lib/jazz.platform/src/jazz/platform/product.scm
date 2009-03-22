@@ -44,6 +44,7 @@
   
 
 (define (jazz.build-types)
+  (jazz.compile-module 'jazz.platform.types-syntax)
   (jazz.compile-module 'jazz.platform.types))
 
 
@@ -109,6 +110,7 @@
         (windows-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     (jazz.load-module 'core.module.builder)
+    (jazz.compile-module 'jazz.platform.windows)
     (jazz.compile-module 'jazz.platform.windows.WinDef      cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinTypes    cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinBase     cc-options: base-windows-cc-options ld-options: "-mwindows")
@@ -154,6 +156,7 @@
 (cond-expand
   (carbon
     (define (jazz.build-platform descriptor)
+      (jazz.compile-module 'jazz.platform)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -176,6 +179,8 @@
           (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (copy-platform-files)
+        (jazz.compile-module 'jazz.platform)
+        (jazz.compile-module 'jazz.platform.crash)
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
@@ -183,6 +188,7 @@
         (jazz.build-com))))
   (x11
     (define (jazz.build-platform descriptor)
+      (jazz.compile-module 'jazz.platform)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

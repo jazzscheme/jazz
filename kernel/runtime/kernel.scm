@@ -887,13 +887,11 @@
 (define (jazz.product-descriptor-name descriptor)
   (%%car descriptor))
 
-
 (define (jazz.product-descriptor-module descriptor)
   (let ((pair (%%assq 'module (%%cdr descriptor))))
     (if pair
         (%%cadr pair)
       #f)))
-
 
 (define (jazz.product-descriptor-title descriptor)
   (let ((pair (%%assq 'title (%%cdr descriptor))))
@@ -901,13 +899,11 @@
         (%%cadr pair)
       #f)))
 
-
 (define (jazz.product-descriptor-icon descriptor)
   (let ((pair (%%assq 'icon (%%cdr descriptor))))
     (if pair
         (%%cadr pair)
       #f)))
-
 
 (define (jazz.product-descriptor-run descriptor)
   (let ((pair (%%assq 'run (%%cdr descriptor))))
@@ -915,20 +911,17 @@
         (%%cdr pair)
       #f)))
 
-
 (define (jazz.product-descriptor-update descriptor)
   (let ((pair (%%assq 'update (%%cdr descriptor))))
     (if pair
         (%%cdr pair)
       #f)))
 
-
 (define (jazz.product-descriptor-build descriptor)
   (let ((pair (%%assq 'build (%%cdr descriptor))))
     (if pair
         (%%cdr pair)
       #f)))
-
 
 (define (jazz.product-descriptor-dependencies descriptor)
   (let ((pair (%%assq 'dependencies (%%cdr descriptor))))

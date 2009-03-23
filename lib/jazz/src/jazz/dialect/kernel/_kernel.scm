@@ -393,6 +393,7 @@
 (native jazz.package?)
 (native jazz.package-repository)
 (native jazz.package-name)
+(native jazz.package-products)
 (native jazz.package-project)
 (native jazz.split-version)
 (native jazz.present-version)

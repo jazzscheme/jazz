@@ -70,5 +70,8 @@
 (define (jazz.package-name package)
   (%%package-name package))
 
+(define (jazz.package-products package)
+  (%%package-products package))
+
 (define (jazz.package-project package)
   (%%package-project package)))

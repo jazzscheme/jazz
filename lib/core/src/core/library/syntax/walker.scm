@@ -406,8 +406,8 @@
 (jazz.define-class-runtime jazz.Library-Declaration)
 
 
-(define (jazz.new-library-declaration name parent dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
+(define (jazz.new-library-declaration name access parent dialect-name dialect-invoice)
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2580,13 +2580,19 @@
 
 
 (define (jazz.parse-module-declaration partial-form)
-  (let ((name (%%car partial-form))
-        (rest (%%cdr partial-form)))
-    (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
-        (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-      (jazz.parse-module rest
-        (lambda (requires body)
-          (jazz.new-module-declaration name #f requires))))))
+  (define (parse rest proc)
+    (let ((first (jazz.source-code (%%car rest))))
+      (if (%%memq first '(protected public))
+          (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
+        (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
+  
+  (parse partial-form
+    (lambda (name access rest)
+      (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
+          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+        (jazz.parse-module rest
+          (lambda (requires body)
+            (jazz.new-module-declaration name #f requires)))))))
 
 
 ;;;
@@ -2595,12 +2601,20 @@
 
 
 (define (jazz.parse-library partial-form)
-  (let ((name (jazz.source-code (%%car partial-form)))
-        (dialect-name (jazz.source-code (%%cadr partial-form)))
-        (body (%%cddr partial-form)))
-    (values name
-            dialect-name
-            body)))
+  (define (parse-modifiers rest)
+    (let ((first (jazz.source-code (%%car rest))))
+      (if (%%memq first '(protected public))
+          (values first (%%cdr rest))
+        (values 'public rest))))
+  
+  (receive (access rest) (parse-modifiers partial-form)
+    (let ((name (jazz.source-code (%%car rest)))
+          (dialect-name (jazz.source-code (%%cadr rest)))
+          (body (%%cddr rest)))
+      (values name
+              access
+              dialect-name
+              body))))
 
 
 (define (jazz.parse-library-invoice specification)
@@ -2644,18 +2658,18 @@
 
 
 (define (jazz.parse-library-declaration partial-form)
-  (receive (name dialect-name body) (jazz.parse-library partial-form)
+  (receive (name access dialect-name body) (jazz.parse-library partial-form)
     (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
                (dialect (jazz.require-dialect dialect-name))
                (walker (jazz.dialect-walker dialect)))
-          (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice body))))))
+          (jazz.walk-library-declaration walker #f name access dialect-name dialect-invoice body))))))
 
 
-(define (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice body)
-  (let ((declaration (or actual (jazz.new-library-declaration name #f dialect-name dialect-invoice))))
+(define (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice body)
+  (let ((declaration (or actual (jazz.new-library-declaration name access #f dialect-name dialect-invoice))))
     (%%when dialect-invoice
       (jazz.add-library-import declaration dialect-invoice #f))
     (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
@@ -2718,7 +2732,7 @@
 
 
 (define (jazz.walk-library partial-form)
-  (receive (name dialect-name body) (jazz.parse-library partial-form)
+  (receive (name access dialect-name body) (jazz.parse-library partial-form)
     (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
@@ -2729,7 +2743,7 @@
                (actual (jazz.get-catalog-entry name))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice (jazz.desourcify-list body))))
+                                (let ((declaration (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice (jazz.desourcify-list body))))
                                   (jazz.set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz.walker-environment walker)))

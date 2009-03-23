@@ -272,8 +272,14 @@
 
 (jazz.define-syntax module
   (lambda (form-src)
-    (let ((name (jazz.source-code (%%cadr (jazz.source-code form-src))))
-          (rest (%%cddr (jazz.source-code form-src))))
-      (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
-          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-        (jazz.expand-module name rest)))))
+    (define (parse rest proc)
+      (let ((first (jazz.source-code (%%car rest))))
+        (if (%%memq first '(protected public))
+            (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
+          (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
+    
+    (parse (%%cdr (jazz.source-code form-src))
+      (lambda (name access rest)
+        (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
+            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+          (jazz.expand-module name rest))))))

@@ -44,7 +44,14 @@
 
 
 (define (jazz.expand-module name rest)
-  (jazz.parse-module rest
+  (define (parse rest proc)
+    (if (and (%%pair? rest)
+             (%%pair? (jazz.source-code (%%car rest)))
+             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
+        (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
+      (proc '() rest)))
+  
+  (parse rest
     (lambda (requires body)
       `(begin
          ,@(jazz.declares 'module)
@@ -57,14 +64,6 @@
                       `(jazz.load-module ',module-name))))
                 requires)
          ,@body))))
-
-
-(define (jazz.parse-module rest proc)
-  (if (and (%%pair? rest)
-           (%%pair? (jazz.source-code (%%car rest)))
-           (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
-      (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
-    (proc '() rest)))
 
 
 (define (jazz.parse-require require proc)

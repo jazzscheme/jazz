@@ -51,7 +51,7 @@
 
 
   (definition Modifiers
-    '())
+    '(protected public))
   
   
   (method (get-modifiers)
@@ -165,6 +165,23 @@
           #t))))
   
   
+  (method (walk-modifiers context declaration keyword expression doc line)
+    (let ((old (copy end)))
+      (let (iterate)
+        (forward-whites)
+        (set-start end)
+        (let ((c0 (char-forward 0)))
+          (when (and c0
+                     (scheme-constituent? c0)
+                     (or (not line) (= (get-row~ end) line)))
+            (forward-constituent)
+            (when (memq? (find-marked-symbol) (get-modifiers))
+              (keyword context start end)
+              (set! old (copy end))
+              (iterate)))))
+      (set! end old)))
+  
+  
   (method (walk-cond-expand context declaration keyword expression doc walk-expressions?)
     (let ((done? #f))
       (while (not done?)
@@ -181,6 +198,7 @@
   (method (walk-module context declaration keyword expression doc line walk-expressions?)
     (let ((entry context))
       (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
         (set! entry (declaration context start end (get-marked) #f))
         (walk-declarations entry declaration keyword expression doc walk-expressions?))

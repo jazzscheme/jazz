@@ -1101,6 +1101,7 @@
 (define (jazz.make-product name)
   (let ((install jazz.kernel-install)
         (platform jazz.kernel-platform)
+        (jobs (or jazz.jobs (jazz.build-jobs)))
         (made-mutex (make-mutex 'make-product))
         (made '()))
     (define (install-file path)
@@ -1130,7 +1131,7 @@
           (set! made lst))))
     
     (define (build name)
-      (jazz.call-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))
+      (jazz.call-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name) "-jobs" (%%number->string jobs)) install))
     
     (define (make name)
       (if (%%not (%%memq name (get-made)))
@@ -1161,7 +1162,7 @@
         (for-each (lambda (name)
                     (write name port))
                   names)
-        (let ((threads (start-threads (jazz.build-jobs))))
+        (let ((threads (start-threads jobs)))
           (for-each thread-join! threads))))
     
     (define (make-dependencies name)

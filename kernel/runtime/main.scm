@@ -118,6 +118,9 @@
 (define jazz.debugger
   #f)
 
+(define jazz.jobs
+  #f)
+
 (define jazz.jazzini-file
   "~/.jazz/.jazzini")
 
@@ -140,6 +143,12 @@
             #t))
     (jazz.repl-main))
   
+  (define (read-argument arg)
+    (if (%%string? arg)
+        (call-with-input-string (%%list init: arg)
+          read)
+      arg))
+  
   (define (process-jazzini-file)
     (if (file-exists? jazz.jazzini-file)
         (jazz.load jazz.jazzini-file)))
@@ -156,15 +165,17 @@
           (current-handler exc))
         thunk)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "make" "compile" "debugger") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
             (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
-            (debugger (jazz.get-option "debugger" options)))
+            (debugger (jazz.get-option "debugger" options))
+            (jobs (read-argument (jazz.get-option "jobs" options))))
         (set! jazz.debugger debugger)
+        (set! jazz.jobs jobs)
         (process-jazzini-file)
         (jazz.setup-repositories)
         (cond (run

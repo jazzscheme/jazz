@@ -677,30 +677,44 @@
 
 
 (define (jazz.make symbols local?)
-  (define (make-symbol symbol)
+  (define (parse-symbols proc)
+    (let iter ((scan symbols)
+               (syms '())
+               (jobs 1))
+      (if (null? scan)
+          (proc syms jobs)
+        (let ((obj (car scan)))
+          (if (eqv? obj jobs:)
+              (iter (cddr scan) syms (cadr scan))
+            (iter (cdr scan) (cons obj syms) jobs))))))
+  
+  (define (make-symbol symbol jobs)
     (let ((name (symbol->string symbol)))
       (receive (target configuration) (jazz.parse-target/configuration name)
-        (jazz.make-target target configuration local?))))
+        (jazz.make-target target configuration jobs local?))))
   
-  (let iter ((scan (if (null? symbols)
-                       (list jazz.default-target)
-                     symbols)))
-    (if (not (null? scan))
-        (let ((symbol (car scan)))
-          (make-symbol symbol)
-          (let ((tail (cdr scan)))
-            (if (not (null? tail))
-                (newline (console-port)))
-            (iter tail))))))
+  (parse-symbols
+    (lambda (syms jobs)
+      (let ((symbols (reverse syms)))
+        (let iter ((scan (if (null? symbols)
+                             (list jazz.default-target)
+                           symbols)))
+          (if (not (null? scan))
+              (let ((symbol (car scan)))
+                (make-symbol symbol jobs)
+                (let ((tail (cdr scan)))
+                  (if (not (null? tail))
+                      (newline (console-port)))
+                  (iter tail)))))))))
 
 
-(define (jazz.make-target target configuration local?)
+(define (jazz.make-target target configuration jobs local?)
   (case target
     ((clean) (jazz.make-clean configuration))
     ((cleankernel) (jazz.make-cleankernel configuration))
     ((kernel) (jazz.make-kernel configuration local?))
     ((install) (jazz.make-install configuration))
-    (else (jazz.make-product target configuration))))
+    (else (jazz.make-product target configuration jobs))))
 
 
 ;;;
@@ -807,17 +821,17 @@
   #f)
 
 
-(define (jazz.make-product product configuration)
+(define (jazz.make-product product configuration jobs)
   (define (make)
     (jazz.make-kernel configuration #f)
-    (jazz.product-make product configuration))
+    (jazz.product-make product configuration jobs))
   
   (if jazz.time-make-product?
       (time (make))
     (make)))
 
 
-(define (jazz.product-make product configuration)
+(define (jazz.product-make product configuration jobs)
   (let ((destdir (jazz.configuration-directory configuration))
         (platform (jazz.configuration-platform configuration)))
     (define (build-file path)
@@ -830,7 +844,7 @@
         (else
          "./jazz")))
     
-    (jazz.call-process (jazz-path) (list "-:dq-" "-make" (symbol->string product)) destdir)))
+    (jazz.call-process (jazz-path) (list "-:dq-" "-make" (symbol->string product) "-jobs" (number->string jobs)) destdir)))
 
 
 ;;;

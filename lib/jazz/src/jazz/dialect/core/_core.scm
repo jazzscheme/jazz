@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.core scheme
+(library protected jazz.dialect.core scheme
 
 
 (require (jazz.dialect.core.continuation)

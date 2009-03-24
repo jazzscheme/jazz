@@ -1499,9 +1499,6 @@
   (jazz.load-module module-name))
 
 
-(jazz.define-variable jazz.for-each-submodule)
-
-
 ;;;
 ;;;; Reader
 ;;;

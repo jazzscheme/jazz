@@ -59,17 +59,6 @@
 
 
 ;;;
-;;;; Compile
-;;;
-
-
-(define (jazz.compile name)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.builder)
-  (jazz.compile-module name))
-
-
-;;;
 ;;;; Hooks
 ;;;
 
@@ -201,7 +190,7 @@
                (process-buildini-file)
                (with-debug-exception-handler
                  (lambda ()
-                   (jazz.compile (%%string->symbol compile)))))
+                   (jazz.compile-module (%%string->symbol compile)))))
               (else
                (jazz.repl-main)))))))
 

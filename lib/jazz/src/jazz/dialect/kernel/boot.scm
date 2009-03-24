@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.kernel.boot scheme
+(library protected jazz.dialect.kernel.boot scheme
 
 
 (export (jazz.dialect.kernel))

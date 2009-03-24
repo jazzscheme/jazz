@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.dialect
+(module protected jazz.dialect.dialect
 
 
 ;;;

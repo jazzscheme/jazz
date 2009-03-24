@@ -2904,7 +2904,7 @@
             (if (or (eof-object? c)
                     (eqv? c formatted-start-delimiter)
                     (eqv? c formatted-end-delimiter))
-                (insert-styled (get-output-string output) 'Default)
+                (insert-styled (get-output-string output) 'Output)
               (write-char (read-char input) output)
               (iterate))))))
     
@@ -2923,16 +2923,17 @@
     (process))
   
   
+  (method (with-formatted-range input proc)
+    (let ((start (get-start)))
+      (process-formatted input)
+      (let ((end-char (read-char input)))
+        (if (eof-object? end-char)
+            (error "Incomplete formatted input, EOF reached")
+          (let ((end (get-start)))
+            (proc (new Range$Cell$ start end)))))))
+  
+  
   (method protected virtual (process-formatted-directive directive input)
-    (define (with-processed-range proc)
-      (let ((start (get-start)))
-        (process-formatted input)
-        (let ((end-char (read-char input)))
-          (if (eof-object? end-char)
-              (error "Incomplete formatted input, EOF reached")
-            (let ((end (get-start)))
-              (proc (new Range$Cell$ start end)))))))
-    
     (case directive
       ((%)
        (insert-newline))
@@ -2940,25 +2941,25 @@
        (unless (at-line-start?)
          (insert-newline)))
       ((bold)
-       (with-processed-range
+       (with-formatted-range input
          (function (range)
            (toggle-bold range))))
       ((italic)
-       (with-processed-range
+       (with-formatted-range input
          (function (range)
            (toggle-italic range))))
       ((underline)
-       (with-processed-range
+       (with-formatted-range input
          (function (range)
            (toggle-underline range))))
       ((color)
        (let ((color (read-formatted-parameter input)))
-         (with-processed-range
+         (with-formatted-range input
            (function (range)
              (set-text-color range (registered-color color))))))
       ((font)
        (let ((font (read-formatted-parameter input)))
-         (with-processed-range
+         (with-formatted-range input
            (function (range)
              (set-text-font range (registered-font font))))))
       (else

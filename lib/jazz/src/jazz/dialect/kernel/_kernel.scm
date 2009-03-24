@@ -73,10 +73,11 @@
 ;;;
 
 
+(native jazz.compile-module)
 (native jazz.build-module)
 (native jazz.build-executable)
-(native jazz.compile-module)
 (native jazz.for-each-submodule)
+(native jazz.for-each-submodule2)
 
 
 ;;;

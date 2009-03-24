@@ -680,7 +680,7 @@
   (define (parse-symbols proc)
     (let iter ((scan symbols)
                (syms '())
-               (jobs 1))
+               (jobs #f))
       (if (null? scan)
           (proc syms jobs)
         (let ((obj (car scan)))
@@ -844,7 +844,7 @@
         (else
          "./jazz")))
     
-    (jazz.call-process (jazz-path) (list "-:dq-" "-make" (symbol->string product) "-jobs" (number->string jobs)) destdir)))
+    (jazz.call-process (jazz-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
 
 
 ;;;

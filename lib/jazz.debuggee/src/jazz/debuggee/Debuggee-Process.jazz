@@ -168,7 +168,7 @@
                                    (read-source-all port container line col)))))))
           (for-each (function (expr)
                       (if (module/library-form? expr)
-                          (let ((module-name (source-code (cadr (source-code expr)))))
+                          (receive (module-name access) (parse-module/library (cdr (source-code expr)))
                             (load-module module-name)
                             (locate-library-declaration module-name)
                             (parameterize ((requested-module-name module-name)
@@ -176,6 +176,13 @@
                               (->string (eval expr) :reader)))
                         (->string (eval expr) :reader)))
                     expressions)))))
+  
+  
+  (definition (parse-module/library expr)
+    (let ((first (source-code (car expr))))
+      (if (memq? first '(protected public))
+          (values (source-code (cadr expr)) first)
+        (values first 'public))))
   
   
   ;;;

@@ -676,11 +676,11 @@
         (values target configuration)))))
 
 
-(define (jazz.make symbols)
+(define (jazz.make symbols local?)
   (define (make-symbol symbol)
     (let ((name (symbol->string symbol)))
       (receive (target configuration) (jazz.parse-target/configuration name)
-        (jazz.make-target target configuration))))
+        (jazz.make-target target configuration local?))))
   
   (let iter ((scan (if (null? symbols)
                        (list jazz.default-target)
@@ -694,20 +694,11 @@
             (iter tail))))))
 
 
-(define (jazz.make-target target configuration)
+(define (jazz.make-target target configuration local?)
   (case target
     ((clean) (jazz.make-clean configuration))
     ((cleankernel) (jazz.make-cleankernel configuration))
-    ((kernel) (jazz.make-kernel configuration))
-    ((install) (jazz.make-install configuration))
-    (else (jazz.make-product target configuration))))
-
-
-(define (jazz.make-local target configuration)
-  (case target
-    ((clean) (jazz.make-clean configuration))
-    ((cleankernel) (jazz.make-cleankernel configuration))
-    ((kernel) (jazz.make-kernel-local configuration))
+    ((kernel) (jazz.make-kernel configuration local?))
     ((install) (jazz.make-install configuration))
     (else (jazz.make-product target configuration))))
 
@@ -759,12 +750,10 @@
 ;;;
 
 
-(define (jazz.make-kernel configuration)
-  (jazz.build-recursive 'kernel configuration))
-
-
-(define (jazz.make-kernel-local configuration)
-  (jazz.build-kernel configuration))
+(define (jazz.make-kernel configuration local?)
+  (if local?
+      (jazz.build-kernel configuration)
+    (jazz.build-recursive 'kernel configuration)))
 
 
 (define (jazz.build-kernel #!optional (configuration #f))
@@ -820,7 +809,7 @@
 
 (define (jazz.make-product product configuration)
   (define (make)
-    (jazz.make-kernel configuration)
+    (jazz.make-kernel configuration #f)
     (jazz.product-make product configuration))
   
   (if jazz.time-make-product?
@@ -1136,7 +1125,7 @@
 
 
 (define (jazz.make-command arguments output)
-  (jazz.make arguments))
+  (jazz.make arguments #f))
 
 
 (define (jazz.help-command arguments output)
@@ -1171,6 +1160,10 @@
   (define (missing-argument-for-option opt)
     (fatal (jazz.format "Missing argument for option: {a}" opt)))
   
+  (define (read-argument arg)
+    (call-with-input-string (list init: arg)
+      read))
+  
   (let ((command-arguments (cdr (command-line))))
     (if (null? command-arguments)
         (jazz.build-system-repl)
@@ -1193,21 +1186,9 @@
                          (exit))
                      (unknown-option (car remaining))))))
               ((equal? action "make")
-               (let ((arguments (cdr command-arguments)))
-                 (define (make target configuration)
-                   (jazz.load-kernel-build)
-                   (jazz.make-local target configuration)
-                   (exit))
-                 
-                 (case (length arguments)
-                   ((0)
-                    (make jazz.default-target (jazz.require-default-configuration)))
-                   ((1)
-                    (let ((argument (car arguments)))
-                      (receive (target configuration) (jazz.parse-target/configuration argument)
-                        (make target configuration))))
-                   (else
-                    (fatal (jazz.format "Ill-formed make command: {a}" (jazz.join-strings command-arguments " ")))))))
+               (jazz.load-kernel-build)
+               (jazz.make (map read-argument (cdr command-arguments)) #t)
+               (exit))
               ((jazz.option=? action "debug")
                (jazz.load-kernel-build)
                (##repl-debug-main))

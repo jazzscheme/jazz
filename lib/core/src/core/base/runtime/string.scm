@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.string
+(module protected core.base.runtime.string
 
 
 (define (jazz.memstring char string)

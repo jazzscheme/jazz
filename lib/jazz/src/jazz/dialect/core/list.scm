@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.list
+(module protected jazz.dialect.core.list
 
 
 (define (jazz.proper-list lst)

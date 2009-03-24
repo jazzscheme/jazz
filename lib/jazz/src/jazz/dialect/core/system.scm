@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.system
+(module protected jazz.dialect.core.system
 
 
 (cond-expand

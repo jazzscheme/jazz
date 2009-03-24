@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.exception.syntax.classes
+(module protected core.exception.syntax.classes
 
 
 ;;;

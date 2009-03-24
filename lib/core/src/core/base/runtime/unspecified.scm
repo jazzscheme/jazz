@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.unspecified
+(module protected core.base.runtime.unspecified
 
 
 (define (jazz.unspecified)

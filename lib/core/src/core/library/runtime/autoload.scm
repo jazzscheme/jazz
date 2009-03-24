@@ -39,7 +39,7 @@
 ;; to classes by name for forms. This problem has to be well thought out...
 
 
-(module core.library.runtime.autoload
+(module protected core.library.runtime.autoload
 
 
 (define jazz.Autoloads

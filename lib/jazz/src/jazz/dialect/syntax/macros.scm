@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.macros scheme
+(library protected jazz.dialect.syntax.macros scheme
 
 
 (import (jazz.dialect.kernel.boot))

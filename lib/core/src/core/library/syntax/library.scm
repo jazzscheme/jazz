@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.library.syntax.library
+(module protected core.library.syntax.library
 
 
 (jazz.define-syntax library

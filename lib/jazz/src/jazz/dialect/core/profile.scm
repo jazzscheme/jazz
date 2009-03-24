@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.profile
+(module protected jazz.dialect.core.profile
 
 
 (jazz.define-variable active-profile)

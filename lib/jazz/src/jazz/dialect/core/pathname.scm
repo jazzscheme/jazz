@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.pathname
+(module protected jazz.dialect.core.pathname
 
 
 (cond-expand

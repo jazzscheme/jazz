@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.syntax.class
+(module protected core.class.syntax.class
 
 
 (define jazz.category-name

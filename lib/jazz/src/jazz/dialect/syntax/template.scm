@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.template scheme
+(library protected jazz.dialect.syntax.template scheme
 
 
 @w

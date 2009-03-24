@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.exception
+(module protected core.base.runtime.exception
 
 
 (cond-expand

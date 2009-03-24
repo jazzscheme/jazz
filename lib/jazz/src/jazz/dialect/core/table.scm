@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.table
+(module protected jazz.dialect.core.table
 
 
 (define (jazz.table-clear table key)

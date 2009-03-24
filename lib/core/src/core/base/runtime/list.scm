@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.list
+(module protected core.base.runtime.list
 
 
 (define (jazz.find-in proc lst)

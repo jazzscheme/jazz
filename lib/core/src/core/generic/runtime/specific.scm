@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.generic.runtime.specific
+(module protected core.generic.runtime.specific
 
 
 (define (jazz.new-specific signature-proc implementation)

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.keyword
+(module protected core.base.runtime.keyword
 
 
 (cond-expand

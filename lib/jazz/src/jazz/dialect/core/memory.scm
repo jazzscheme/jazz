@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.memory
+(module protected jazz.dialect.core.memory
 
 
 (define (jazz.gc)

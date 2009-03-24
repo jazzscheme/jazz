@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.runtime.runtime
+(module protected core.class.runtime.runtime
 
 
 (define jazz.new-interface-rank

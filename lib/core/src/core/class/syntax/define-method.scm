@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.syntax.define-method
+(module protected core.class.syntax.define-method
 
 
 (jazz.define-macro (jazz.define-virtual signature . rest)

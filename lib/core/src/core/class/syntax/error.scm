@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.syntax.error
+(module protected core.class.syntax.error
 
 
 (jazz.define-variable jazz.object-of-class?)

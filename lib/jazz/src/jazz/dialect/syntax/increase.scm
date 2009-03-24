@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.increase scheme
+(library protected jazz.dialect.syntax.increase scheme
 
 
 ;; @macro (increase! x) @expansion (set! x (+ x 1))

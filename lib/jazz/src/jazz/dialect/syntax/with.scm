@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.with scheme
+(library protected jazz.dialect.syntax.with scheme
 
 
 (import (jazz.dialect.kernel.boot))

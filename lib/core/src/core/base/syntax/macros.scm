@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.syntax.macros
+(module protected core.base.syntax.macros
 
 
 (jazz.define-syntax %%boolean

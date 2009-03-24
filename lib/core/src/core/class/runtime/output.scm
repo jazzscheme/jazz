@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.runtime.output
+(module protected core.class.runtime.output
 
 
 (define jazz.output-mode

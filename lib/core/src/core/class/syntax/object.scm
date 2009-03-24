@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.syntax.object
+(module protected core.class.syntax.object
 
 
 ;; should be turned automatically of in production level

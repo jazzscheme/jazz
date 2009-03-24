@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.bind-optionals scheme
+(library protected jazz.dialect.syntax.bind-optionals scheme
 
 
 (import (jazz.dialect.kernel.boot))

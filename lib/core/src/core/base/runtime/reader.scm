@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.reader
+(module protected core.base.runtime.reader
 
 
 (define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))

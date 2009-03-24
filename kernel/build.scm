@@ -1207,7 +1207,7 @@
                       (receive (target configuration) (jazz.parse-target/configuration argument)
                         (make target configuration))))
                    (else
-                    (fatal (jazz.format "Ill-formed make command: {a}" command-arguments))))))
+                    (fatal (jazz.format "Ill-formed make command: {a}" (jazz.join-strings command-arguments " ")))))))
               ((jazz.option=? action "debug")
                (jazz.load-kernel-build)
                (##repl-debug-main))

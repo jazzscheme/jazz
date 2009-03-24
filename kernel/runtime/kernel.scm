@@ -1161,7 +1161,7 @@
         (for-each (lambda (name)
                     (write name port))
                   names)
-        (let ((threads (start-threads (jazz.parallel-build-processes))))
+        (let ((threads (start-threads (jazz.build-jobs))))
           (for-each thread-join! threads))))
     
     (define (make-dependencies name)

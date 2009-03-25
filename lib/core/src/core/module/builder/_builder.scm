@@ -119,30 +119,7 @@
 ;;;
 
 
-(define (jazz.for-each-submodule module-name proc)
-  (let iter ((module-name module-name)
-             (feature-requirement #f)
-             (phase #f))
-    (let ((declaration (jazz.locate-toplevel-declaration module-name)))
-      (proc module-name declaration phase)
-      (if (jazz.is? declaration jazz.Module-Declaration)
-          (for-each (lambda (require)
-                      (jazz.parse-require require iter))
-                    (%%get-module-declaration-requires declaration))
-        (begin
-          (for-each (lambda (require)
-                      (jazz.parse-require require iter))
-                    (%%get-library-declaration-requires declaration))
-          (for-each (lambda (export)
-                      (let ((reference (%%get-library-invoice-library export)))
-                        (if reference
-                            (let ((name (%%get-declaration-reference-name reference))
-                                  (phase (%%get-library-invoice-phase export)))
-                              (iter name #f phase)))))
-                    (%%get-library-declaration-exports declaration)))))))
-
-
-(define (jazz.for-each-submodule2 parent-name proc)
+(define (jazz.for-each-submodule parent-name proc)
   ;; temporary solution to the fact that exports can be present multiple times
   ;; if the module is loaded interpreted or if dynamic evaluations where done
   (let ((submodules '()))

@@ -680,6 +680,16 @@
                   (iter (%%cdr packages)))))))))))
 
 
+(define (jazz.descendant-module? module-name descendant-name)
+  (let ((module (%%symbol->string module-name))
+        (descendant (%%symbol->string descendant-name)))
+    (let ((module-length (%%string-length module))
+          (descendant-length (%%string-length descendant)))
+      (and (%%fx> descendant-length module-length)
+           (%%string=? (%%substring descendant 0 module-length) module)
+           (%%eqv? (%%string-ref descendant module-length) #\.)))))
+
+
 (define (jazz.find-pathname-module pathname)
   (let ((resource (jazz.find-resource pathname)))
     (if resource

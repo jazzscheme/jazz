@@ -70,6 +70,9 @@
 (define (jazz.package-name package)
   (%%package-name package))
 
+(define (jazz.package-directory package)
+  (jazz.package-pathname package ""))
+
 (define (jazz.package-products package)
   (%%package-products package))
 

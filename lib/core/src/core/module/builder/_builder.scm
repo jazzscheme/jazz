@@ -142,8 +142,8 @@
                     (%%get-library-declaration-exports declaration)))))))
 
 
-(define (jazz.for-each-submodule2 module-name proc)
-  (let iter ((module-name module-name) (phase #f) (toplevel? #t))
+(define (jazz.for-each-submodule2 parent-name proc)
+  (let iter ((module-name parent-name) (phase #f) (toplevel? #t))
     (define (process-require require)
       (jazz.parse-require require
         (lambda (module-name feature-requirement phase)
@@ -152,6 +152,8 @@
     (let ((declaration (jazz.locate-toplevel-declaration module-name)))
       (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
           (begin
+            (if (and (not toplevel?) (not (jazz.descendant-module? parent-name module-name)))
+                (jazz.error "Illegal access from {a} to protected module {a}" parent-name module-name))
             (proc module-name declaration phase)
             (if (jazz.is? declaration jazz.Module-Declaration)
                 (for-each process-require (%%get-module-declaration-requires declaration))

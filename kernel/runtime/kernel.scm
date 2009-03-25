@@ -867,8 +867,8 @@
   (jazz.load-module 'jazz.debuggee.Debuggee-Stop)
   (jazz.load-module 'jazz.debuggee.Debuggee-Thread)
   (jazz.load-module 'jazz.debuggee.stub)
-  (jazz.load-module 'jazz.debugger.debuggers.jazz.stub)
-  (jazz.load-module 'jazz.debugger.debuggers.jazz.stub-autoload)
+  (jazz.load-module 'jazz.debugger.jazz.stub)
+  (jazz.load-module 'jazz.debugger.jazz.stub-autoload)
   (jazz.load-module 'jazz.debuggee.setup))
 
 

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Debugger
+;;;; Gambit Projects
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,8 +35,80 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.debugger.debuggers.jazz jazz
+(library protected jazz.debugger.gambit.Gambit-Project jazz
 
 
-(export (jazz.debugger.debuggers.jazz.autoload))
-(import (jazz.debugger.debuggers.jazz.autoload)))
+(import (jazz.debugger)
+        (jazz.debugger.gambit)
+        (jazz.debugger.jazz)
+        (jazz.io)
+        (jazz.jrm)
+        (jazz.library)
+        (jazz.utilities)
+        (jedi)
+        (jedi.builder)
+        (jedi.builder.workbench))
+
+
+(class Gambit-Project extends Jazz-Project
+
+
+  ;;;
+  ;;;; Concrete
+  ;;;
+  
+  
+  (method (concrete?)
+    #t)
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  @wait
+  (definition started?
+    #f)
+  
+  
+  @wait
+  (method (start-debugger)
+    (when (not started?)
+      (let ((debugger (new Gambit-Debugger)))
+        (start-debugger~ debugger)
+        (register-debugger debugger))
+      (set! started? #t)))
+
+
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  @wait
+  (method (project-debug . rest)
+    (start-debugger)
+    (open-process
+      (list
+        path: "gsi"
+        arguments: (list "-:dar" "-debug")
+        stdin-redirection: #f
+        stdout-redirection: #f
+        stderr-redirection: #f
+        show-console: #f)))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method meta (get-class-image)
+    {Bitmap-Resource "ConcreteProject"})
+  
+  
+  (method (get-categorized-properties)
+    '(title
+      include-extensions
+      catalog? catalog-extensions catalog-heuristics))))

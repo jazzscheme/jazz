@@ -38,6 +38,9 @@
 (library protected jazz.dialect.syntax.template scheme
 
 
+#; (
+
+
 @w
 (import (jazz.dialect.kernel.boot))
 
@@ -73,4 +76,4 @@
 @w
 (macro (instantiate-butlast type)
   `(specialize inline (butlast seq ,type) ,type
-     (subseq seq 0 (- (length seq) 1)))))
+     (subseq seq 0 (- (length seq) 1))))))

@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.kernel scheme
+(library protected jazz.dialect.kernel scheme
 
 
 ;;;

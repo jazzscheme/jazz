@@ -35,7 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(in ?)
+(library protected jazz.dialect.syntax.enumeration scheme
+
+
+#; (
 
 
 (class Enumeration-Expander extends Object
@@ -127,4 +130,4 @@
                         (list item rank)
                       item)
                (increase! rank)))
-           items))))
+           items))))))

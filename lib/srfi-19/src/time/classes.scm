@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module time.classes
+(module protected time.classes
 
 
 ;;;

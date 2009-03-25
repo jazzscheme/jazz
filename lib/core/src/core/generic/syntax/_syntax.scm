@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.generic.syntax
+(module protected core.generic.syntax
 
 
 (require (core.generic.syntax.expander)

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.runtime
+(module protected core.class.runtime
 
 
 (require (core.class.runtime.runtime)

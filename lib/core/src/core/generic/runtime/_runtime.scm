@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.generic.runtime
+(module protected core.generic.runtime
 
 
 (require (core.generic.runtime.specific)

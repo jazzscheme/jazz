@@ -374,8 +374,8 @@
 (jazz.define-class-runtime jazz.Module-Declaration)
 
 
-(define (jazz.new-module-declaration name parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent #f #f requires)))
+(define (jazz.new-module-declaration name access parent requires)
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f access 'uptodate '() #f parent #f #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2592,7 +2592,7 @@
           (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
         (jazz.parse-module rest
           (lambda (requires body)
-            (jazz.new-module-declaration name #f requires)))))))
+            (jazz.new-module-declaration name access #f requires)))))))
 
 
 ;;;

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.library.runtime
+(module protected core.library.runtime
 
 
 (require (core.library.runtime.autoload))

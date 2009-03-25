@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit.dialect core
+(library protected gambit.dialect core
 
 
 (require (core.library)

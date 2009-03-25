@@ -59,7 +59,7 @@
 ;;   things working
 
 
-(module core.library.syntax.walker
+(module protected core.library.syntax.walker
 
 
 ;;;

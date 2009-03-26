@@ -118,7 +118,6 @@
     (jazz.compile-module 'jazz.platform.windows.WinKernel   cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinGDI      cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinMM       cc-options: base-windows-cc-options ld-options: "-mwindows -lwinmm")
-    (jazz.compile-module 'jazz.platform.windows.WinOpenGL   cc-options: base-windows-cc-options ld-options: "-mwindows -lopengl32")
     (jazz.compile-module 'jazz.platform.windows.WinUser     cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinShell    cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinCtrl     cc-options: base-windows-cc-options ld-options: "-mwindows")

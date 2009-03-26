@@ -44,15 +44,17 @@
 
 
 (define (jazz.build-opengl descriptor)
-  (jazz.load-module 'core.module.builder)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.gl-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glext-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glext)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glu-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glut-header)
-  (jazz.compile-module 'jazz.graphic.opengl.foreign.glut ld-options: "-lopengl32 -lglu32 -lglut32"))
+  (let ((base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
+    (jazz.load-module 'core.module.builder)
+    (jazz.compile-module 'jazz.graphic.opengl.platform.WinOpenGL cc-options: base-windows-cc-options ld-options: "-mwindows -lopengl32")
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.gl-header)
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glext-header)
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glext)
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glu-header)
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glut-header)
+    (jazz.compile-module 'jazz.graphic.opengl.foreign.glut ld-options: "-lopengl32 -lglu32 -lglut32")))
 
 
 ;;;

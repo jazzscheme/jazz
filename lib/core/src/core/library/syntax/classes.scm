@@ -90,7 +90,7 @@
 (jazz.define-virtual (jazz.resolve-declaration (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
 (jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
-(jazz.define-virtual (jazz.get-declaration-references (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.get-declaration-inclusions (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
 (jazz.define-virtual (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.fold-declaration (jazz.Declaration declaration) f k s))
@@ -175,7 +175,7 @@
    (proclaims       %%get-library-declaration-proclaims       %%set-library-declaration-proclaims)
    (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
    (variables       %%get-library-declaration-variables       %%set-library-declaration-variables)
-   (references      %%get-library-declaration-references      %%set-library-declaration-references)
+   (inclusions      %%get-library-declaration-inclusions      %%set-library-declaration-inclusions)
    (autoloads       %%get-library-declaration-autoloads       %%set-library-declaration-autoloads)))
 
 
@@ -395,7 +395,7 @@
    (expansion     %%get-c-type-declaration-expansion     ())
    (base-type     %%get-c-type-declaration-base-type     ())
    (pointer-types %%get-c-type-declaration-pointer-types %%set-c-type-declaration-pointer-types)
-   (references    %%get-c-type-declaration-references    ())
+   (inclusions    %%get-c-type-declaration-inclusions    ())
    (c-to-scheme   %%get-c-type-declaration-c-to-scheme   ())
    (scheme-to-c   %%get-c-type-declaration-scheme-to-c   ())
    (declare       %%get-c-type-declaration-declare       ())))

@@ -239,10 +239,10 @@
   #f)
 
 
-(jazz.define-virtual-runtime (jazz.get-declaration-references (jazz.Declaration declaration)))
+(jazz.define-virtual-runtime (jazz.get-declaration-inclusions (jazz.Declaration declaration)))
 
 
-(jazz.define-method (jazz.get-declaration-references (jazz.Declaration declaration))
+(jazz.define-method (jazz.get-declaration-inclusions (jazz.Declaration declaration))
   '())
 
 
@@ -498,7 +498,7 @@
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
   (let ((body-expansion (jazz.emit-namespace-statements (%%get-namespace-declaration-body declaration) declaration environment))
-        (references-expansion (jazz.emit-library-references declaration))
+        (inclusions-expansion (jazz.emit-library-inclusions declaration))
         (literals-expansion (jazz.emit-library-literals declaration))
         (variables-expansion (jazz.emit-library-variables declaration))
         (autoloads-expansion (jazz.emit-library-autoloads declaration environment)))
@@ -544,7 +544,7 @@
                            (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
                      (%%get-library-declaration-imports declaration))
            (jazz.queue-list queue))
-       ,@references-expansion
+       ,@inclusions-expansion
        ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
@@ -1516,14 +1516,14 @@
 (jazz.define-class-runtime jazz.C-Type-Declaration)
 
 
-(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion base-type references c-to-scheme scheme-to-c declare)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f #f kind expansion base-type '() references c-to-scheme scheme-to-c declare)))
+(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion base-type inclusions c-to-scheme scheme-to-c declare)
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f #f kind expansion base-type '() inclusions c-to-scheme scheme-to-c declare)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.get-declaration-references (jazz.C-Type-Declaration declaration))
-  (%%get-c-type-declaration-references declaration))
+(jazz.define-method (jazz.get-declaration-inclusions (jazz.C-Type-Declaration declaration))
+  (%%get-c-type-declaration-inclusions declaration))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.C-Type-Declaration declaration) environment)
@@ -2806,7 +2806,7 @@
         #f))))
 
 
-(define (jazz.emit-library-references library-declaration)
+(define (jazz.emit-library-inclusions library-declaration)
   (define (find-name name lst)
     (if (%%null? lst)
         #f
@@ -2817,14 +2817,14 @@
   (let ((queue (jazz.new-queue)))
     (letrec ((collect-declarations
               (lambda (declaration)
-                (for-each collect-declarations (jazz.get-declaration-references declaration))
+                (for-each collect-declarations (jazz.get-declaration-inclusions declaration))
                 ;; This name based test if a quick solution to the complex problem of a declaration
                 ;; replacing another one where there are references to the old one. Should we then just
                 ;; replace or destructively modify the old one and what if the type of the one replacing
                 ;; is incompatible...
                 (%%when (%%not (find-name (%%get-lexical-binding-name declaration) (jazz.queue-list queue)))
                   (jazz.enqueue queue declaration)))))
-      (for-each collect-declarations (%%get-library-declaration-references library-declaration))
+      (for-each collect-declarations (%%get-library-declaration-inclusions library-declaration))
       (map (lambda (declaration)
              (jazz.expand-referenced-declaration declaration))
            (jazz.queue-list queue)))))

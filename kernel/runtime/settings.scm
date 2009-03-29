@@ -68,7 +68,7 @@
 (jazz.define-setting jazz.warnings?
   #f)
 
-;; Set to #f to debug the walker itself
+;; set to #f to debug the walker itself
 (jazz.define-setting jazz.delay-reporting?
   #t)
 
@@ -78,7 +78,7 @@
 ;;;
 
 
-;; Print Jazz objects by calling their print method?
+;; print Jazz objects by calling their print method?
 (jazz.define-setting jazz.use-print?
   #t)
 

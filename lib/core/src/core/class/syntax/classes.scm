@@ -47,6 +47,7 @@
   ())
 
 
+(jazz.define-virtual (jazz.print-object? (jazz.Object object)))
 (jazz.define-virtual (jazz.print-object (jazz.Object object) output detail))
 
 

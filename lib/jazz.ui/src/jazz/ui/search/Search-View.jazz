@@ -520,23 +520,6 @@
           (put~ factory (list file info targets))))))
   
   
-  (method (search-in-zip targets file extensions expression? factory reporter)
-    (with-closed ((unzip (new Unzip-File file)))
-      (iterate-files~ unzip
-        (function (filename size)
-          (let ((extension (extract-extension filename)))
-            (when (member? extension extensions test: ci=?)
-              (unless (and reporter (cancel-requested?~ reporter))
-                (when reporter
-                  (user-message~ reporter "Searching {a}" filename)
-                  (step-it~ reporter))
-                (let* ((zipped (new Zipped file filename))
-                       (content (coerce (read-content~ zipped) String))
-                       (info (search-content content targets expression?)))
-                  (when info
-                    (put~ factory (list (new Zipped file filename) info targets)))))))))))
-  
-  
   (method protected (search-in-directories targets directories extensions expression? factory reporter)
     (for-each (function (directory)
                 (search-in-directory targets directory extensions expression? factory reporter))
@@ -552,10 +535,7 @@
              ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
               (search-in-file targets file expression? factory reporter))
              ((member? ext extensions test: ci=?)
-              (search-in-file targets file expression? factory reporter))
-             @i-dont-really-like-auto-searching-zips-there-should-be-a-user-option
-             ((member? ext '("zip" "jar") test: ci=?)
-              (search-in-zip targets file extensions expression? factory reporter)))))
+              (search-in-file targets file expression? factory reporter)))))
         ignored-directories: '(".git" ".hg" "bin" "build"))))
 
 

@@ -178,6 +178,16 @@
 (jazz.define-class-runtime jazz.Lexical-Binding)
 
 
+(jazz.define-method (jazz.print-object? (jazz.Lexical-Binding binding))
+  #t)
+
+(jazz.define-method (jazz.print-object (jazz.Lexical-Binding binding) output detail)
+  (jazz.format output "#<{a} {a} #{a}>"
+               (%%get-category-name (%%get-object-class binding))
+               (%%get-lexical-binding-name binding)
+               (jazz.object->serial binding)))
+
+
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Lexical-Binding binding) symbol)
   (if (%%eq? (%%get-lexical-binding-name binding) symbol)
       binding
@@ -407,7 +417,7 @@
 
 
 (define (jazz.new-library-declaration name access parent dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -4907,6 +4917,13 @@
     (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((library (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration library referenced-declaration)))
+    #; ;; wait
+    (let ((library-declaration (%%get-declaration-toplevel declaration)))
+      (if (%%neq? (%%get-declaration-toplevel referenced-declaration) library-declaration)
+          (let ((table (%%get-library-declaration-references library-declaration)))
+            (let ((references (%%table-ref table referenced-declaration '())))
+              (if (%%not (%%memq declaration references))
+                  (%%table-set! table referenced-declaration (%%cons declaration references)))))))
     referenced-declaration))
 
 

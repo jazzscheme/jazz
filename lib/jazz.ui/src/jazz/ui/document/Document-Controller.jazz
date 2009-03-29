@@ -160,7 +160,7 @@
   (method public virtual (save)
     (if (not moniker)
         (save-as)
-      (when (and (write-allowed?) (safe-zipped?))
+      (when (write-allowed?)
         (save-content moniker))))
   
   
@@ -312,10 +312,7 @@
   (method public (update-state)
     (if (or (not moniker) (not (exists?~ moniker)))
         (set! read-only? #f)
-      ;; ultra quick and dirty patch for in zip source edition
-      (if (is? moniker Zipped)
-          (set! read-only? #f)
-        (set! read-only? (read-only?~ moniker)))))
+      (set! read-only? (read-only?~ moniker))))
   
   
   (method public virtual (update-moniker-time moniker)
@@ -379,37 +376,6 @@
          (update-status)
          #t)
         ((no))
-        ((cancel)
-         (throw-cancel)))))
-  
-
-  ;;;
-  ;;;; Zipped
-  ;;;
-  
-  
-  (definition Safe-Zipped
-    64)
-  
-  
-  (method public (safe-zipped?)
-    (or (is-not? moniker Zipped)
-        (let* ((file (get-file~ moniker))
-               (size (quotient (get-size~ file) 1024)))
-          (or (<= size Safe-Zipped)
-              (safe-zipped-confirmed? file size)))))
-  
-  
-  (method (safe-zipped-confirmed? file size)
-    (let ((code (message-box
-                  (format "Save to large zip file {a} ({a}K)?" (get-name~ file) size)
-                  title: "Zip Confirmation"
-                  type: 'confirmation)))
-      (case code
-        ((yes)
-         #t)
-        ((no)
-         #f)
         ((cancel)
          (throw-cancel)))))
 

@@ -298,6 +298,13 @@
 ;;;
 
 
+(definition default-context
+  :not-set)
+
+(definition (set-default-context ctx)
+  (set! default-context ctx))
+
+
 (definition current-repl-level
   (make-parameter 0))
 
@@ -395,16 +402,19 @@
   
   (define (context-alias context)
     (when (enumerator? context)
-      (let ((process (get-process)))
-        (if (not process)
-            (if (and (eq? context :default)
-                     (module-loaded? 'jazz))
-                'jazz
-              {})
-          (if (eq? context :default)
-              (either (process-alias~ process :profile)
-                      (process-alias~ process :process))
-            (process-alias~ process context))))))
+      (if (and (eq? context :default)
+               (neq? default-context :not-set))
+          default-context
+        (let ((process (get-process)))
+          (if (not process)
+              (if (and (eq? context :default)
+                       (module-loaded? 'jazz))
+                  'jazz
+                {})
+            (if (eq? context :default)
+                (either (process-alias~ process :profile)
+                        (process-alias~ process :process))
+              (process-alias~ process context)))))))
   
   (define (parse-unquote-command expr)
     (if (and (pair? expr)

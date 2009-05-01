@@ -313,11 +313,12 @@
 
 
 (definition (with-repl-thread thread reason port level thunk)
-  (let ((thread (start-repl-thread thread reason port level)))
-    (unwind-protect
-        (thunk)
-      (thread-interrupt! thread
-        thread-exit))))
+  (parameterize ((current-repl-level level))
+    (let ((thread (start-repl-thread thread reason port level)))
+      (unwind-protect
+          (thunk)
+        (thread-interrupt! thread
+          thread-exit)))))
 
 
 (definition (start-repl-thread thread reason port (level 0))
@@ -337,9 +338,11 @@
 
 
 (definition (display-banner port)
-  (format port #"\(banner {a} v{a}{%}{%}> \)"#
-          (current-process-title)
-          (current-process-version))
+  (let ((title (current-process-title))
+        (version (current-process-version)))
+    (if (not version)
+        (format port #"\(banner {a}{%}{%}> \)"# title)
+      (format port #"\(banner {a} v{a}{%}{%}> \)"# title version)))
   (force-output port))
 
 
@@ -511,9 +514,30 @@
       (invoke-debugger 'break reason {} continuation))))
 
 
+(definition (start-repl (reason {}))
+  (continuation-capture
+    (function (continuation)
+      (invoke-repl reason {} continuation))))
+
+
 ;;;
 ;;;; Debugger
 ;;;
+
+
+(definition (invoke-repl reason detail continuation)
+  (let ((thread (current-thread))
+        (port (get-console-port))
+        (level (if (not (current-loop)) 0 (+ (current-repl-level) 1))))
+    (with-repl-thread thread reason port level
+      (function ()
+        (parameterize ((current-repl-frame (box {})))
+          (with-current-loop
+            (function ()
+              (let ((process (get-process)))
+                (if (not process)
+                    (debuggee-loop)
+                  (process-debuggee-loop~ process))))))))))
 
 
 (definition (invoke-debugger kind reason detail continuation)
@@ -529,17 +553,16 @@
       (function ()
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-          (parameterize ((current-repl-level level))
-            (with-repl-thread thread reason port level
-              (function ()
-                (parameterize ((current-repl-frame (box {})))
-                  (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
-                  (with-current-loop
-                    (function ()
-                      (let ((process (get-process)))
-                        (if (not process)
-                            (debuggee-loop)
-                          (process-debuggee-loop~ process)))))))))))
+          (with-repl-thread thread reason port level
+            (function ()
+              (parameterize ((current-repl-frame (box {})))
+                (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
+                (with-current-loop
+                  (function ()
+                    (let ((process (get-process)))
+                      (if (not process)
+                          (debuggee-loop)
+                        (process-debuggee-loop~ process))))))))))
       (function ()
         (unregister-stop stop)))))
 
@@ -563,12 +586,22 @@
 
 (definition (debuggee-loop)
   (let (loop)
-    (with-restart-catcher 'resume-loop "Resume loop" {}
+    (with-restart-catcher 'resume-loop (present-loop-restart) {}
       (function ()
         (let ((thunk (thread-read)))
           (with-jazz-exception-debugger
             thunk))))
     (loop)))
+
+
+(definition (present-loop-restart)
+  (let ((loop (current-loop)))
+    (when loop
+      (let ((level (get-level~ loop)))
+        (format "Resume loop{a}"
+                (if (= level 0)
+                    ""
+                  (format " {a}" level)))))))
 
 
 ;;;

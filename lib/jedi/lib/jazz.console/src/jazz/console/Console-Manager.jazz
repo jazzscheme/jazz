@@ -44,6 +44,7 @@
         (jazz.library)
         (jazz.literals)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -136,9 +137,19 @@
   
   
   (method (unregister-console console)
-    (let ((console (get-parent~ (get-parent~ console))))
-      (remove-tool~ (get-host) (get-button~ console))
-      (remove-view~ (get-pad) console))
+    (let ((host (get-host))
+          (pad (get-pad))
+          (view (get-parent~ (get-parent~ console))))
+      (let ((focused? (or (eq? console (get-focus)) (eq? console (get-focused~ host))))
+            (next (next-child~ pad view)))
+        (remove-tool~ host (get-button~ view))
+        (remove-view~ pad view)
+        (when (and focused? next)
+          (set-selection~ pad next)
+          (set-selected?~ (get-button~ next) #t)
+          (if (eq? host (get-focused-host))
+              (acquire-focus~ next)
+            (set-focused~ host (get-text~ next))))))
     (post-event
       (function ()
         (invalidate-window~ (get-player)))))

@@ -86,7 +86,9 @@
 
   (method (definition-name? name)
     (or (memq? name Scheme-Toplevels)
-        (memq? name Gambit-Toplevels)))
+        (memq? name Gambit-Toplevels)
+        (let ((form (get-lisp-form name)))
+          (and form (get-declaration?~ form)))))
 
 
   ;;;
@@ -159,7 +161,13 @@
                 ((native)
                  (walk-native context declaration keyword expression doc line walk-expressions?))
                 (else
-                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))))
+                 (let ((form (get-lisp-form symbol)))
+                   (if form
+                       (let ((walk (get-walk~ form)))
+                         (if walk
+                             (walk self context declaration keyword expression doc line walk-expressions?)
+                           (walk-unknown context declaration keyword expression doc line walk-expressions?)))
+                     (walk-unknown context declaration keyword expression doc line walk-expressions?)))))))
           (unless line
             (exit-list))
           #t))))

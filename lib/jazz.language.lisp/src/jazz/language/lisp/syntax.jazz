@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Lisp Language
+;;;; Lisp Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.language.lisp jazz
+(library protected jazz.language.lisp.syntax jazz
 
 
-(export (jazz.language.lisp.autoload)
-        (jazz.language.lisp.syntax (phase syntax)))
-
-
-;;;
-;;;; Lisp Form
-;;;
-
-
-(definition *lisp-forms*
-  (make-table test: eq?))
-
-
-(definition (get-lisp-form name)
-  (table-ref *lisp-forms* name {}))
-
-
-(definition (register-lisp-form form)
-  (table-set! *lisp-forms* (get-name~ form) form))
-
-
-(class Lisp-Form extends Object
-  
-  
-  (slot name         getter generate)
-  (slot declaration? getter generate)
-  (slot tabulate     getter generate)
-  (slot walk         getter generate)
-  
-  
-  (method (initialize name
-                      (declaration?: declaration? #f)
-                      (tabulate: tabulate {})
-                      (walk: walk {}))
-    (nextmethod)
-    (set! name~self name)
-    (set! declaration?~self declaration?)
-    (set! tabulate~self tabulate)
-    (set! walk~self walk))))
+(macro (define-form name . rest)
+  (bind-keywords ((declaration? #f) (tabulate {}) (walk {})) rest
+    `(register-lisp-form
+       (new Lisp-Form ',name
+            declaration?: ,declaration?
+            tabulate: ,tabulate
+            walk: ,walk)))))

@@ -106,71 +106,77 @@
               #t)
           (when (and (forward-expr) (eq? kind 'symbol))
             (let ((symbol (find-marked-symbol)))
-              (case symbol
-                ((begin)
-                 (walk-declarations context declaration keyword expression doc walk-expressions?))
-                ((cond-expand)
-                 (walk-cond-expand context declaration keyword expression doc walk-expressions?))
-                ((library module)
-                 (walk-module context declaration keyword expression doc line walk-expressions?))
-                ((require import export)
-                 (walk-import context declaration keyword expression doc line walk-expressions?))
-                ((define
-                  jazz.define-feature
-                  jazz.define
-                  jazz.define-remote
-                  ;; Gambit
-                  define-prim
-                  define-library-type
-                  define-library-type-of-exception
-                  define-check-type
-                  define-fail-check-type
-                  define-type
-                  define-type-of-port)
-                 (walk-define context declaration keyword expression doc line walk-expressions?))
-                ((jazz.define-generic
-                  jazz.define-specific
-                  jazz.define-virtual-syntax
-                  jazz.define-virtual-runtime
-                  jazz.define-method)
-                 (walk-define-generic/specific context declaration keyword expression doc line walk-expressions?))
-                ((define-macro
-                  define-syntax
-                  jazz.define-macro
-                  jazz.define-check-macro
-                  jazz.define-syntax
-                  jazz.define-special
-                  jazz.define-setting
-                  jazz.define-variable
-                  jazz.define-global
-                  ;; Gambit
-                  ##define-macro
-                  define-runtime-macro
-                  define-runtime-syntax
-                  macro
-                  syntax
-                  template
-                  instantiate
-                  specialize)
-                 (walk-define-macro context declaration keyword expression doc line walk-expressions?))
-                ((jazz.define-class jazz.define-class-runtime jazz.define-virtual)
-                 (walk-define-class context declaration keyword expression doc line walk-expressions?))
-                ((;; Gambit
-                  c-define-type)
-                 (walk-type context declaration keyword expression doc line walk-expressions?))
-                ((native)
-                 (walk-native context declaration keyword expression doc line walk-expressions?))
-                (else
-                 (let ((form (get-lisp-form symbol)))
-                   (if form
-                       (let ((walk (get-walk~ form)))
-                         (if walk
-                             (walk self context declaration keyword expression doc line walk-expressions?)
-                           (walk-unknown context declaration keyword expression doc line walk-expressions?)))
-                     (walk-unknown context declaration keyword expression doc line walk-expressions?)))))))
+              (walk-named-declaration context symbol declaration keyword expression doc line walk-expressions?)))
           (unless line
             (exit-list))
           #t))))
+  
+  
+  (method (walk-named-declaration context symbol declaration keyword expression doc line walk-expressions?)
+    (case symbol
+      ((begin)
+       (walk-declarations context declaration keyword expression doc walk-expressions?))
+      ((cond-expand)
+       (walk-cond-expand context declaration keyword expression doc walk-expressions?))
+      ((library module)
+       (walk-module context declaration keyword expression doc line walk-expressions?))
+      ((require import export)
+       (walk-import context declaration keyword expression doc line walk-expressions?))
+      ((define
+           jazz.define-feature
+         jazz.define
+         jazz.define-remote
+         ;; Gambit
+         define-prim
+         define-library-type
+         define-library-type-of-exception
+         define-check-type
+         define-fail-check-type
+         define-type
+         define-type-of-port)
+       (walk-define context declaration keyword expression doc line walk-expressions?))
+      ((jazz.define-generic
+         jazz.define-specific
+         jazz.define-virtual-syntax
+         jazz.define-virtual-runtime
+         jazz.define-method)
+       (walk-define-generic/specific context declaration keyword expression doc line walk-expressions?))
+      ((define-macro
+         define-syntax
+         jazz.define-macro
+         jazz.define-check-macro
+         jazz.define-syntax
+         jazz.define-special
+         jazz.define-setting
+         jazz.define-variable
+         jazz.define-global
+         ;; Gambit
+         ##define-macro
+         define-runtime-macro
+         define-runtime-syntax
+         macro
+         syntax
+         template
+         instantiate
+         specialize)
+       (walk-define-macro context declaration keyword expression doc line walk-expressions?))
+      ((jazz.define-class jazz.define-class-runtime jazz.define-virtual)
+       (walk-define-class context declaration keyword expression doc line walk-expressions?))
+      ((;; Gambit
+        c-define-type)
+       (walk-type context declaration keyword expression doc line walk-expressions?))
+      ((native)
+       (walk-native context declaration keyword expression doc line walk-expressions?))
+      (else
+       (let ((form (get-lisp-form symbol)))
+         (if form
+             (let ((walk (get-walk~ form)))
+               (if walk
+                   (if (symbol? walk)
+                       (walk-named-declaration context walk declaration keyword expression doc line walk-expressions?)
+                     (walk self context declaration keyword expression doc line walk-expressions?))
+                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))
+           (walk-unknown context declaration keyword expression doc line walk-expressions?))))))
   
   
   (method (walk-modifiers context declaration keyword expression doc line)

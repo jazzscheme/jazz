@@ -219,13 +219,13 @@
         (mutex-unlock! mutex)))))
 
 
-(definition (thread-console thread)
+(definition (thread-console thread (select? #f))
   (if (not controller-debugger)
       {}
     (with-consoles-mutex
       (function ()
         (either (table-ref *consoles* thread #f)
-                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))))
+                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
                   (table-set! *consoles* thread console)
                   console))))))
 
@@ -244,11 +244,15 @@
   (get-context~ (current-console)))
 
 
-(definition (make-debuggee-console thread-proxy)
+(definition (make-debuggee-console thread-proxy select?)
   (receive (head tail) (open-string-pipe (list permanent-close: #f readtable: jazz-readtable))
-    (let ((console (register-console~ controller-debugger local-process thread-proxy)))
+    (let ((console (register-console~ controller-debugger local-process thread-proxy select?)))
       (let ((pump (start-debuggee-console-pump console tail)))
         (new Console console pump tail head)))))
+
+
+(definition (select-console)
+  (select-console~ controller-debugger (get-remote~ (thread-console (current-thread) #t))))
 
 
 (definition (console-port-getter)
@@ -508,15 +512,17 @@
     thunk))
 
 
-(definition (break (reason {}))
+(definition (break (reason: reason {}))
   (continuation-capture
     (function (continuation)
       (invoke-debugger 'break reason {} continuation))))
 
 
-(definition (start-repl (reason {}))
+(definition (start-repl (reason: reason {}) (select?: select? #t))
   (continuation-capture
     (function (continuation)
+      (when select?
+        (select-console))
       (invoke-repl reason {} continuation))))
 
 

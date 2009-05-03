@@ -115,13 +115,13 @@
   ;;;
   
   
-  (method (register-console title)
+  (method (register-console title select?)
     (let ((tool (new Console-Button title: title auto-size?: #t location: 'head image-name: {Bitmap-Resource "Process"} portfolio: :icons)))
       (add-tool~ (get-host) tool)
       (let ((pad (get-pad))
             (view (new Console-View button: tool)))
         (let ((text (get-text~ view))
-              (select? (not (get-selection~ pad))))
+              (select? (or select? (not (get-selection~ pad)))))
           (add-view~ pad view)
           (when select?
             (set-selection~ pad view))
@@ -139,20 +139,27 @@
   (method (unregister-console console)
     (let ((host (get-host))
           (pad (get-pad))
-          (view (get-parent~ (get-parent~ console))))
+          (view (get-console~ console)))
       (let ((focused? (or (eq? console (get-focus)) (eq? console (get-focused~ host))))
             (next (next-child~ pad view)))
         (remove-tool~ host (get-button~ view))
         (remove-view~ pad view)
         (when (and focused? next)
-          (set-selection~ pad next)
-          (set-selected?~ (get-button~ next) #t)
-          (if (eq? host (get-focused-host))
-              (acquire-focus~ next)
-            (set-focused~ host (get-text~ next))))))
+          (select-console next))))
     (post-event
       (function ()
         (invalidate-window~ (get-player)))))
+  
+  
+  (method (select-console console)
+    (let ((host (get-host))
+          (pad (get-pad)))
+      (set-selection~ pad console)
+      (set-selected?~ (get-button~ console) #t)
+      (let ((text (get-text~ console)))
+        (if (eq? host (get-focused-host))
+            (acquire-focus~ text)
+          (set-focused~ host text)))))
   
   
   ;;;

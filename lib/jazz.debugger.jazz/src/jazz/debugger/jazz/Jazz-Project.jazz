@@ -97,10 +97,11 @@
   ;;;
   
   
-  (method (project-debug (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method (project-debug (interactive?: interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (if product
         (launch
           debugger?: #t
+          interactive?: interactive?
           profile: profile
           command-action: command-action
           command-arguments: command-arguments
@@ -114,20 +115,21 @@
   ;;;
   
   
-  (method (launch (executable: executable {}) (debugger?: debugger? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method (launch (executable: executable {}) (debugger?: debugger? #f) (interactive?: interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (let ((ide (get-process)))
       (when debugger?
         (start-remote-listener)
         (start-jazz-debugger~ ide))
-      (let* ((executable    (either executable (project-kernel)))
-             (runtime-arg   (list @wait "-:m250000,h1000000"))
-             (product-arg   (list "-run" (->string product)))
-             (debugger-arg  (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-             (profile       (either profile (project-profile)))
-             (profile-arg   (if profile (list "-profile" (->string profile)) '()))
-             (action-arg    (if command-action (list command-action) '()))
-             (arguments-arg (if command-arguments command-arguments '()))
-             (arguments     (append runtime-arg action-arg product-arg debugger-arg profile-arg arguments-arg)))
+      (let* ((executable      (either executable (project-kernel)))
+             (runtime-arg     (list @wait "-:m250000,h1000000"))
+             (product-arg     (list "-run" (->string product)))
+             (debugger-arg    (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
+             (interactive-arg (if interactive? (list "-interactive" "true") '()))
+             (profile         (either profile (project-profile)))
+             (profile-arg     (if profile (list "-profile" (->string profile)) '()))
+             (action-arg      (if command-action (list command-action) '()))
+             (arguments-arg   (if command-arguments command-arguments '()))
+             (arguments       (append runtime-arg action-arg product-arg debugger-arg interactive-arg profile-arg arguments-arg)))
         (save-all~ ide)
         (launch-executable executable
           arguments: arguments

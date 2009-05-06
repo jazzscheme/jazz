@@ -158,26 +158,35 @@
          (memq? (source-code (car (source-code expr))) '(module library))))
   
   
-  (method (evaluate-expressions syntax string container line col)
+  (method (evaluate-expressions expressions)
     (thread-call (primordial-thread) 'evaluate-expressions
       (function ()
-        (let ((expressions (with-readtable (case syntax
-                                             ((scheme) scheme-readtable)
-                                             ((jazz) jazz-readtable))
-                             (function ()
-                               (call-with-input-string string
-                                 (function (port)
-                                   (read-source-all port container line col)))))))
-          (for-each (function (expr)
-                      (if (module/library-form? expr)
-                          (receive (module-name access) (parse-module/library (cdr (source-code expr)))
-                            (load-module module-name)
-                            (locate-library-declaration module-name)
-                            (parameterize ((requested-module-name module-name)
-                                           (jazz.walk-for 'eval))
-                              (->string (eval expr) :reader)))
-                        (->string (eval expr) :reader)))
-                    expressions)))))
+        (let ((expressions (map (function (expr)
+                                  (bind (syntax name str container line col) expr
+                                    (with-readtable (case syntax
+                                                      ((scheme) scheme-readtable)
+                                                      ((jazz) jazz-readtable))
+                                      (function ()
+                                        (call-with-input-string str
+                                          (function (port)
+                                            (list name (read-source-first port container line col))))))))
+                                expressions)))
+          (define (present name result)
+            (format :console #"\($\)\(color Debug {s}\){%}"# (or name result)))
+          
+          (for-each (function (info)
+                      (bind (name expr) info
+                        (if (module/library-form? expr)
+                            (receive (module-name access) (parse-module/library (cdr (source-code expr)))
+                              (load-module module-name)
+                              (locate-library-declaration module-name)
+                              (parameterize ((requested-module-name module-name)
+                                             (jazz.walk-for 'eval))
+                                (present name (eval expr))))
+                          (present name (eval expr)))))
+                    expressions)
+          (display-prompt (get-console-port) (current-repl-level))
+          (force-output (get-console-port))))))
   
   
   (definition (parse-module/library expr)

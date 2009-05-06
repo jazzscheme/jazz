@@ -341,42 +341,28 @@
   
   
   ;;;
+  ;;;; Reading
+  ;;;
+  
+  
+  (method (get-readtable)
+    jazz-readtable)
+  
+  
+  ;;;
   ;;;; Evaluation
   ;;;
   
   
-  (method (evaluate-selection)
-    (with-safe-explore
-      (function ()
-        (let ((range (current-definition-range)))
-          (when range
-            (with-cursor :wait
-              (function ()
-                (sleep .1)
-                (evaluate-range range))))))))
-  
-  
-  (method (evaluate-buffer)
-    (with-cursor :wait
-      (function ()
-        (sleep .1)
-        (evaluate-range (buffer-selection)))))
-  
-  
-  (method (evaluate-range range)
-    (let ((debugged (get-focused-process)))
-      (if (not debugged)
-          (bell)
-        (let ((declarations (collect-declarations range))
-              (expressions (get-string range))
-              (container (get-locat-container)))
-          (let ((names (collect-names range expressions)))
-            (receive (str line col) (package-expressions declarations range expressions)
-              (evaluate-expressions~ debugged 'jazz str container line col)
-              (user-message "Evaluated: {l detail: :human}"
-                            (map (function (name)
-                                   (either name '<expr>))
-                                 names))))))))
+  (method (prepare-expressions range)
+    (let ((container (get-locat-container)))
+      (map (function (expr)
+             (bind (name . range) expr
+               (let ((declarations (collect-declarations range))
+                     (string (get-string range)))
+                 (receive (str line col) (package-expressions declarations range string)
+                   (list 'jazz name str container line col)))))
+           (collect-expressions range))))
   
   
   (method (collect-declarations range)
@@ -387,13 +373,6 @@
           (let ((declaration (jazz-declaration~ expl)))
             (set! declarations (cons declaration declarations)))))
       declarations))
-  
-  
-  (method (collect-names range expressions)
-    (let ((expl <Text-Explorer> (new (explorer-class) self)))
-      (map (function (form)
-             (form-name~ expl form))
-           (read-text-forms range string: expressions readtable: jazz-readtable))))
   
   
   (method (package-expressions declarations range expressions)
@@ -867,7 +846,7 @@
     (let ((range (with-safe-explore (function () (current-definition-range)))))
       (when range
         (let ((info (current-toplevel-info))
-              (forms (read-text-forms range readtable: jazz-readtable)))
+              (forms (read-text-forms range)))
           (when (= (length forms) 1)
             (let ((form (car forms)))
               (when (and (= (length form) 4)

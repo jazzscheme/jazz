@@ -38,11 +38,13 @@
 (library protected jazz.language.lisp.text.Lisp-Text-View jazz
 
 
-(import (jazz.language.lisp)
+(import (jazz.debugger)
+        (jazz.language.lisp)
         (jazz.library)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
@@ -608,6 +610,65 @@
         (set! first (car reversed))
         (set! reversed (cdr reversed)))
       first))
+  
+  
+  ;;;
+  ;;;; Evaluation
+  ;;;
+  
+  
+  (method (evaluate-selection)
+    (with-safe-explore
+      (function ()
+        (let ((range (current-definition-range)))
+          (when range
+            (with-cursor :wait
+              (function ()
+                (sleep .1)
+                (evaluate-range range))))))))
+  
+  
+  (method (evaluate-buffer)
+    (with-cursor :wait
+      (function ()
+        (sleep .1)
+        (evaluate-range (buffer-selection)))))
+  
+  
+  (method (evaluate-range range)
+    (let ((debugged (get-focused-process)))
+      (if (not debugged)
+          (bell)
+        (let ((expressions (prepare-expressions range)))
+          (evaluate-expressions~ debugged expressions)
+          (user-message "Evaluated: {l detail: :human}"
+                        (map (function (expr)
+                               (let ((name (second expr)))
+                                 (either name '<expr>)))
+                             expressions))))))
+  
+  
+  (method protected virtual (prepare-expressions range)
+    )
+  
+  
+  (method (collect-expressions range)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
+      (let ((expl (new (explorer-class) self start: start end: start))
+            (queue (new-queue)))
+        (when (forward-expr~ expl)
+          (let (iterate)
+            (let ((s (get-start~ expl))
+                  (e (get-end~ expl)))
+              (cond ((nu<=? e end)
+                     (let ((form (read-text-form (get-range~ expl))))
+                       (enqueue queue (cons (form-name~ expl form) (get-range~ expl))))
+                     (when (forward-expr~ expl)
+                       (iterate)))
+                    ((nu<? s end)
+                     (explore-error~ expl "Ill-balanced expressions" start end))))))
+        (queue-list queue))))
   
   
   ;;;

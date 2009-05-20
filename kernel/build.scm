@@ -67,8 +67,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source destination)
-  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source destination))
+(define (jazz.make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination)
+  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -100,7 +100,7 @@
 (define (jazz.configuration-interpret-kernel? configuration)
   (vector-ref configuration 10))
 
-(define (jazz.configuration-source? configuration)
+(define (jazz.configuration-source-access? configuration)
   (vector-ref configuration 11))
 
 (define (jazz.configuration-destination configuration)
@@ -119,7 +119,7 @@
           (debug-location? #t)
           (debug-source? #f)
           (interpret-kernel? #f)
-          (source #t)
+          (source-access? #t)
           (destination #f))
   (jazz.make-configuration
     (jazz.validate-name name)
@@ -132,7 +132,7 @@
     (jazz.validate-debug-location? debug-location?)
     (jazz.validate-debug-source? debug-source?)
     (jazz.validate-interpret-kernel? interpret-kernel?)
-    (jazz.validate-source source)
+    (jazz.validate-source-access? source-access?)
     (jazz.validate-destination destination)))
 
 
@@ -265,7 +265,7 @@
       (jazz.configuration-debug-location? configuration)
       (jazz.configuration-debug-source? configuration)
       (jazz.configuration-interpret-kernel? configuration)
-      (jazz.configuration-source? configuration)
+      (jazz.configuration-source-access? configuration)
       (jazz.configuration-destination configuration)
       output))
   
@@ -298,7 +298,7 @@
         (debug-location? (jazz.configuration-debug-location? configuration))
         (debug-source? (jazz.configuration-debug-source? configuration))
         (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
-        (source? (jazz.configuration-source? configuration))
+        (source-access? (jazz.configuration-source-access? configuration))
         (destination (jazz.configuration-destination configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
     (jazz.feedback "  system: {s}" system)
@@ -316,8 +316,8 @@
         (jazz.feedback "  debug-source?: {s}" debug-source?))
     (if interpret-kernel?
         (jazz.feedback "  interpret-kernel?: {s}" interpret-kernel?))
-    (if (not (eqv? source? #t))
-        (jazz.feedback "  source?: {s}" source?))
+    (if (not (eqv? source-access? #t))
+        (jazz.feedback "  source-access?: {s}" source-access?))
     (if destination
         (jazz.feedback "  destination: {s}" destination))))
 
@@ -339,7 +339,7 @@
           (debug-location? #t)
           (debug-source? #f)
           (interpret-kernel? #f)
-          (source #t)
+          (source-access? #t)
           (destination #f))
   (let* ((name (jazz.require-name name))
          (system (jazz.require-system system))
@@ -351,7 +351,7 @@
          (debug-location? (jazz.require-debug-location? debug-location?))
          (debug-source? (jazz.require-debug-source? debug-source?))
          (interpret-kernel? (jazz.require-interpret-kernel? interpret-kernel?))
-         (source (jazz.require-source source))
+         (source-access? (jazz.require-source-access? source-access?))
          (destination (jazz.require-destination destination)))
     (let ((configuration
             (jazz.new-configuration
@@ -365,7 +365,7 @@
               debug-location?: debug-location?
               debug-source?: debug-source?
               interpret-kernel?: interpret-kernel?
-              source: source
+              source-access?: source-access?
               destination: destination)))
       (jazz.register-configuration configuration)
       (jazz.describe-configuration configuration))))
@@ -595,19 +595,19 @@
 
 
 ;;;
-;;;; Source
+;;;; Source Access
 ;;;
 
 
-(define (jazz.require-source source)
-  source)
+(define (jazz.require-source-access? source-access)
+  source-access)
 
 
-(define (jazz.validate-source source)
-  (if (or (eqv? source #f)
-          (eqv? source #t))
-      source
-    (jazz.error "Invalid source: {s}" source)))
+(define (jazz.validate-source-access? source-access)
+  (if (or (eqv? source-access #f)
+          (eqv? source-access #t))
+      source-access
+    (jazz.error "Invalid source-access?: {s}" source-access)))
 
 
 ;;;
@@ -783,7 +783,7 @@
           (debug-source? (jazz.configuration-debug-source? configuration))
           (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
           (source "./")
-          (source-access? (jazz.configuration-source? configuration))
+          (source-access? (jazz.configuration-source-access? configuration))
           (destination (jazz.configuration-destination configuration))
           (destination-directory (jazz.configuration-directory configuration)))
       (jazz.build-executable #f

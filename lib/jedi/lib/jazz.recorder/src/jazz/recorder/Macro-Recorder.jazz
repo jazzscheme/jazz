@@ -57,6 +57,10 @@
 
 
 (class Macro-Recorder extends Object
+  
+  
+  (slot recording? initialize #f getter generate)
+  (slot playing?   initialize #f getter generate)
     
   
   ;;;
@@ -65,28 +69,28 @@
 
   
   (method (on-start-recording evt)
-    (when (not Recording?)
+    (when (not recording?)
       (user-message "Recording...")
-      (set-macro-recording? #t)
+      (set! recording? #t)
       (set! Recording-Factory (new List-Factory))))
   
   
   (method (on-stop-recording evt)
-    (when Recording?
+    (when recording?
       (user-message "Stopped")
-      (set-macro-recording? #f)
+      (set! recording? #f)
       (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
       (set! Active-Recording {})))
 
   
   (method (on-resume-recording evt)
-    (when (not Recording?)
+    (when (not recording?)
       (user-message "Recording...")
-      (set-macro-recording? #t)))
+      (set! recording? #t)))
   
   
   (method (on-play-recording evt)
-    (if (not Recording?)
+    (if (not recording?)
         (begin
           (user-message "Playing...")
           (let ((no (get-property~ evt no:)))
@@ -253,17 +257,17 @@
 
 
   (method public (play-recording recording)
-    (let ((old Recording-Playing?))
+    (let ((old playing?))
       (unwind-protect
           (begin
-            (set-macro-playing? #t)
+            (set! playing? #t)
             (let ((focus (get-focus)))
               (if (is? focus Text-View)
                   (with-atomic-undo~ (get-undoer~ focus)
                     (function ()
                       (for-each play-action recording)))
                 (for-each play-action recording))))
-        (set-macro-playing? old))))
+        (set! playing? old))))
   
   
   (method public (play-action action)

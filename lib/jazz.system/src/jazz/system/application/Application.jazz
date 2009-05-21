@@ -40,14 +40,11 @@
 
 (import (jazz.console)
         (jazz.debuggee)
-        (jazz.debugger)
         (jazz.designer)
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
         (jazz.jrm)
-        (jazz.language.jazz)
-        (jazz.language.jazz.debuggee)
         (jazz.library)
         (jazz.library.component)
         (jazz.library.listener)
@@ -63,14 +60,11 @@
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
         (jazz.ui.look)
+        (jazz.ui.picker)
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.ui.workspace)
         (jazz.utilities)
-        (jedi)
-        (jedi.builder)
-        (jedi.builder.workbench)
-        (jedi.login)
         (time))
 
 
@@ -429,6 +423,16 @@
   
   (method public virtual (get-recorder)
     {})
+  
+  
+  (method public (macro-recording?)
+    (let ((recorder (get-recorder)))
+      (and recorder (get-recording?~ recorder))))
+  
+  
+  (method public (macro-playing?)
+    (let ((recorder (get-recorder)))
+      (and recorder (get-playing?~ recorder))))
 
 
   ;;;
@@ -476,7 +480,7 @@
 
   
   (method (login-profile)
-    (receive (name module bindings always-use?) (choose-login)
+    (receive (name module bindings always-use?) ((require-service 'choose-login))
       (set! profile-bindings bindings)
       (when settings
         (set-setting~ settings 'profile (if always-use? name #f))
@@ -1653,13 +1657,13 @@
   
   
   (method public (on-console evt)
-    (let ((had-focus? (is? (get-focus) Console-Text-View)))
+    (let ((had-focus? (is? (get-focus) (autoload-class 'Console-Text-View))))
       (show-console)
       (when had-focus?
         (fresh-prompt))))
   
   
-  (method public (show-console (class: class Console-Manager)
+  (method public (show-console (class: class (autoload-class 'Console-Manager))
                                (workspace: workspace 'home)
                                (focus?: focus? #t))
     (let ((manager (select-palette class workspace: workspace)))
@@ -2008,8 +2012,8 @@
         (let ((dir (car pathnames)))
           (set-current-directory dir)
           (user-message "Current directory set to {a}" (parse~ dir)))
-      (let ((class (cond ((alt-down?) Jazz-Plain-Text-View)
-                         ((shift-down?) Jazz-Text-View)
+      (let ((class (cond ((alt-down?) (autoload-class 'Jazz-Plain-Text-View))
+                         ((shift-down?) (autoload-class 'Jazz-Text-View))
                          (else {}))))
         (for-each (function (pathname)
                     (when (file? pathname)
@@ -2090,8 +2094,8 @@
   
   
   (method public (edit-filename filename)
-    (let* ((workbench (get-workbench))
-           (project-file (find-filename~ workbench filename)))
+    (let* ((workbench (get-service 'workbench))
+           (project-file (essay workbench (find-filename~ workbench filename))))
       (if (not project-file)
           (error "Unable to locate filename: {t}" filename)
         (let* ((frame (edit-document (get-source~ project-file)))

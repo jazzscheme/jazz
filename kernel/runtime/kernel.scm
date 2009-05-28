@@ -1510,6 +1510,35 @@
 
 
 ;;;
+;;;; Service
+;;;
+
+
+(define jazz.Services
+  (%%make-table test: eq?))
+
+
+(define (jazz.register-service name thunk)
+  (%%table-set! jazz.Services name thunk))
+
+
+(define (jazz.get-service name)
+  (let ((symbol/proc (%%table-ref jazz.Services name #f)))
+    (if (%%symbol? symbol/proc)
+        (begin
+          (jazz.load-module symbol/proc)
+          (set! symbol/proc (%%table-ref jazz.Services name #f))))
+    (if symbol/proc
+        (symbol/proc)
+      #f)))
+
+
+(define (jazz.require-service name)
+  (or (jazz.get-service name)
+      (error "Unknown service: {s}" name)))
+
+
+;;;
 ;;;; Reader
 ;;;
 

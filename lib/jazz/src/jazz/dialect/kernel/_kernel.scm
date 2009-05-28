@@ -445,6 +445,9 @@
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)
 (native jazz.walk-for)
+(native jazz.register-service)
+(native jazz.get-service)
+(native jazz.require-service)
 (native main)
 
 

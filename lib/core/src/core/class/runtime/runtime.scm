@@ -225,7 +225,7 @@
                                                          (%%when (%%is? field jazz.Method)
                                                            (%%vector-set! category-vtable
                                                                           (%%get-method-implementation-rank field)
-                                                                          (lambda rest (jazz.call-into-abstract class-name field-name))))))
+                                                                          (lambda (object . rest) (jazz.call-into-abstract (%%get-category-name (%%class-of object)) field-name))))))
                                       (%%vector-set! vtable rank category-vtable))))))
                             (%%get-category-ancestors class))
       (%%set-class-interface-table class vtable))))
@@ -2064,7 +2064,7 @@
 
 
 (define (jazz.call-into-abstract class method)
-  (jazz.error "Cannot call abstract method {s} in {s}" method class))
+  (jazz.error "Cannot call abstract method {s} on a {s}" method class))
 
 
 (jazz.encapsulate-class jazz.Method-Node)

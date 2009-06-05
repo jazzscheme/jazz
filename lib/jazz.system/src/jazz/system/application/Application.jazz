@@ -1646,18 +1646,19 @@
   (method public (fresh-prompt (text: text {}))
     (let ((text (either text (get-console-text))))
       (when text
-        (fresh-prompt~ text)
-        (ensure-displayed~ text))))
+        (fresh-prompt~ text))))
   
   
   (method public (on-console evt)
-    (let ((had-focus? (is? (get-focus) (autoload-class 'Console-Text-View))))
-      (show-console)
-      (when had-focus?
-        (fresh-prompt))))
+    (let ((focus (get-focus))
+          (text (show-console)))
+      (when (eq? text focus)
+        (if (at-end?~ text)
+            (select-next-console~ (get-console-manager))
+          (fresh-prompt~ text)))))
   
   
-  (method public (show-console (class: class (autoload-class 'Console-Manager))
+  (method public (show-console (class: class Console-Manager)
                                (workspace: workspace 'home)
                                (focus?: focus? #t))
     (let ((manager (select-palette class workspace: workspace)))
@@ -1665,7 +1666,8 @@
         (let ((text (get-text~ manager)))
           (if (not text)
               (bell)
-            (acquire-focus~ text))))))
+            (acquire-focus~ text))
+          text))))
   
   
   @wait

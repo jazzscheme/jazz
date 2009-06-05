@@ -66,6 +66,9 @@
 (definition Highlighted-View
   {})
 
+(definition Highlighted-Position
+  {})
+
 (definition Highlighted-Root-Rect
   {})
 
@@ -115,7 +118,6 @@
 
 (definition (setup-pick)
   (inhibit-view-cursor #t)
-  (set-key-hook key-hook)
   (set-shortcut-hook~ (get-application) shortcut-hook))
 
 
@@ -165,22 +167,53 @@
         (receive (player view root-rect view-rect row-rect) (highlight-info view pos)
           (set! Highlighted-Player player)
           (set! Highlighted-View view)
+          (set! Highlighted-Position pos)
           (set! Highlighted-Root-Rect root-rect)
           (set! Highlighted-View-Rect view-rect)
           (set! Highlighted-Row-Rect row-rect))))))
 
 
-(definition (key-hook key)
-  (case key
-    (else #f)))
-
-
 (definition (shortcut-hook shortcut)
-  (when (shortcut=? shortcut {Shortcut Escape})
-    (with-locked-update
-      (function ()
-        (end-pick))))
-  #f)
+  (define (setup-view view)
+    (let ((pos (acquire~ view Highlighted-View Highlighted-Position)))
+      (setup-highlight view pos)
+      (user-message "{s}" view)))
+  
+  (cond ((shortcut=? shortcut {Shortcut Escape})
+         (with-locked-update
+           (function ()
+             (end-pick)))
+         #f)
+        ((shortcut=? shortcut {Shortcut Up})
+         (when Highlighted-View
+           (let ((parent (get-parent~ Highlighted-View)))
+             (if (not parent)
+                 (bell)
+               (setup-view parent))))
+         #t)
+        ((shortcut=? shortcut {Shortcut Down})
+         (when Highlighted-View
+           (let ((first (first-view~ Highlighted-View)))
+             (if (not first)
+                 (bell)
+               (setup-view first))))
+         #t)
+        ((shortcut=? shortcut {Shortcut Right})
+         (when Highlighted-View
+           (let ((brother (next-brother~ Highlighted-View)))
+             (if (eq? brother Highlighted-View)
+                 (bell)
+               (setup-view brother))))
+         #t)
+        ((shortcut=? shortcut {Shortcut Left})
+         (when Highlighted-View
+           (let ((brother (previous-brother~ Highlighted-View)))
+             (if (eq? brother Highlighted-View)
+                 (bell)
+               (setup-view brother))))
+         #t)
+        (else
+         #f)))
 
 
 (definition (find-picker overlapped)
@@ -193,7 +226,6 @@
   (set! In-Pick? #f)
   (inhibit-view-cursor #f)
   (setup-highlight {} {})
-  (set-key-hook {})
   (set-shortcut-hook~ (get-application) {})
   (close-pickers))
 
@@ -223,6 +255,7 @@
       (let ((old-player Highlighted-Player))
         (set! Highlighted-Player player)
         (set! Highlighted-View view)
+        (set! Highlighted-Position pos)
         (set! Highlighted-Root-Rect root-rect)
         (set! Highlighted-View-Rect view-rect)
         (set! Highlighted-Row-Rect row-rect)

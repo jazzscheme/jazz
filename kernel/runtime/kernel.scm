@@ -878,19 +878,22 @@
 
 
 (define (jazz.find-product-descriptor name)
-  (let iter-repo ((repositories jazz.Repositories))
-    (if (%%null? repositories)
-        #f
-      (let ((repository (%%car repositories)))
-        (if (%%repository-binary? repository)
-            (iter-repo (%%cdr repositories))
+  (let ((binary-descriptor #f))
+    (let iter-repo ((repositories jazz.Repositories))
+      (if (%%null? repositories)
+          binary-descriptor
+        (let ((repository (%%car repositories)))
           (let iter ((packages (jazz.repository-packages (%%car repositories))))
             (if (%%null? packages)
                 (iter-repo (%%cdr repositories))
               (let ((package (%%car packages)))
                 (let ((pair (%%assq name (%%package-products package))))
                   (if pair
-                      pair
+                      (if (%%repository-binary? repository)
+                          (begin
+                            (set! binary-descriptor pair)
+                            (iter (%%cdr packages)))
+                        pair)
                     (iter (%%cdr packages))))))))))))
 
 

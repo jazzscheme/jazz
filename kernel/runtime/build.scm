@@ -366,7 +366,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (display "#!gsi -:dar,t8,f8,-8" output)
+                    (display "#!gsi -:darR,t8,f8,-8" output)
                     (if minimum-heap
                         (begin
                           (display ",m" output)

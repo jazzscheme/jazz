@@ -1,0 +1,139 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Data Container
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Marcel Cote
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.schema.data.Data-Container jazz
+
+
+(import (jazz.library)
+        (jazz.schema)
+        (jazz.utilities)
+        (time))
+
+
+(class Data-Container extends Object
+  
+  
+  (slot table)
+  (slot state accessors generate)
+  
+  
+  (method (initialize table state)
+    (nextmethod)
+    (set! state~self state)
+    (set! table~self table))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-table)
+    table)
+  
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method public virtual (get-values))
+  (method public virtual (get identifier))
+  
+  
+  (method public (save connection (user: user {}))
+    (let ((statement (save-statement user)))
+      (if statement
+          (execute~ connection statement)
+        #t)))
+  
+  
+  (method (save-statement user)
+    (case state
+      ((update) (update-statement user))
+      ((insert) (insert-statement user))
+      ((delete) (delete-statement user))
+      (else #f)))
+
+
+  (method virtual (insert-statement user)
+    (let* ((columns (collect (function (column) (essay (not (auto-generate?~ column)) (get-name~ column))) (get-columns~ table)))
+           (values (map (function (name) (format-value (get name))) columns)))
+      (let ((name (get-name~ table))
+            (columns (join (map format-column columns) ", "))
+            (values (join values ", "))
+            (user (if user (format "{a}." user) "")))
+        (tie "insert into {user}[{name}]({columns}) values ({values})"))))
+  
+  
+  (method virtual (update-statement user)
+    (let* ((primary-key (get-name~ (get-primary-key~ table)))
+           (primary-value (format-value (get primary-key)))
+           (columns (collect (function (column)
+                               (let ((name (get-name~ column)))
+                                 (essay (not (auto-generate?~ column))
+                                        (not (equal? name primary-key))
+                                        name)))
+                             (get-columns~ table)))
+           (values (map (function (name) (get name)) columns)))
+      (let ((name (get-name~ table))
+            (primary-key (format-column primary-key))
+            (columns+values (join (map (function (column value) (string-append (format-column column) "=" (format-value value))) columns values) ", "))
+            (user (if user (format "{a}." user) "")))
+        (tie "update {user}[{name}] set {columns+values} where ({primary-key}={primary-value})"))))
+  
+  
+  (method virtual (delete-statement user)
+    (let ((name (get-name~ table))
+          (primary-key (get-name~ (get-primary-key~ table))))
+      (let ((primary-value (format-value (get primary-key)))
+            (primary-key (format-column primary-key)))
+        (tie "delete from [{name}] where ({primary-key}={primary-value})"))))
+  
+  
+  (method (format-column name)
+    (string-append "[" name "]"))
+  
+  
+  (method (format-value value)
+    (cond ((nil? value) "NULL")
+          ((string? value) (string-append "'" (sql-sanitize-string value) "'"))
+          ((boolean? value) (if value "1" "0"))
+          ((date? value) (string-append "'" (present-date-day value) "'"))
+          ((number? value) (number->string value))
+          (else (error "Unsupported type"))))))

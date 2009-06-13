@@ -1,0 +1,114 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; LDAP FFI
+;;;
+
+
+(library ldap.ffi jazz
+
+
+(import (jazz.platform.types))
+
+
+;;;
+;;;; FFI
+;;;
+
+
+;(c-include "<ldap.h>")
+
+
+;(c-constant LDAP_PORT 389)
+
+
+;(c-enumeration LDAP_SYNC
+;  (LDAP_SYNC_PRESENT 0)
+;  (LDAP_SYNC_ADD     1)
+;  (LDAP_SYNC_MODIFY  2)
+;  (LDAP_SYNC_DELETE  3))
+
+
+;(c-type LDAP* (pointer (struct "LDAP")))
+;(c-type LDAPSearch* (pointer (struct "LDAPSearch")))
+;(c-type LDAPEntry* (pointer (struct "LDAPEntry")))
+
+
+;(c-external LDAP* (ldap_open char* int))
+;(c-external (ldap_add LDAP* char* char*))
+;(c-external (ldap_delete LDAP* char*))
+;(c-external LDAPSearch* (ldap_search LDAP* char*))
+;(c-external int (ldap_count_entries LDAP* LDAPSearch*))
+;(c-external LDAPEntry* (ldap_get_entry LDAP* LDAPSearch* int))
+;(c-external char* (ldap_entry_name LDAP* LDAPEntry*))
+;(c-external char* (ldap_entry_value LDAP* LDAPEntry*))
+
+
+;;;
+;;;; Simulation
+;;;
+
+
+(definition public LDAP_PORT
+  389)
+
+
+(definition public (ldap_open host port)
+  (make-connection))
+
+
+(definition public (ldap_add connection name value)
+  (table-set! (connection-table connection) name value))
+
+(definition public (ldap_delete connection name)
+  (table-clear (connection-table connection) name))
+
+
+(definition public (ldap_search connection target)
+  (let ((entries '()))
+    (iterate-table (connection-table connection)
+      (function (name value)
+        (when (search value target whole-words?: #t ignore-case?: #t)
+          (let ((entry (make-entry name)))
+            (set! entries (cons entry entries))))))
+    (make-search entries)))
+
+(definition public (ldap_count_entries connection search)
+  (length (search-entries search)))
+
+(definition public (ldap_get_entry connection search rank)
+  (element (search-entries search) rank))
+
+
+(definition public (ldap_entry_name connection entry)
+  (entry-name entry))
+
+(definition public (ldap_entry_value connection entry)
+  (table-ref (connection-table connection) (entry-name entry)))
+
+
+;;;
+;;;; Private
+;;;
+
+
+(define (make-connection)
+  (vector 'ldap-connection (make-table test: equal?)))
+
+(define (connection-table connection)
+  (element connection 1))
+
+
+(define (make-search entries)
+  (vector 'ldap-search entries))
+
+(define (search-entries search)
+  (element search 1))
+
+
+(define (make-entry name)
+  (vector 'ldap-entry name))
+
+(define (entry-name entry)
+  (element entry 1)))

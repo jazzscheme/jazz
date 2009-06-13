@@ -1,0 +1,483 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Git
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.git jazz
+
+
+(import (jazz.io)
+        (jazz.utilities))
+
+
+(definition *depot*
+  {})
+
+
+(definition public (git-depot)
+  *depot*)
+
+
+(definition public (git-depot-set! repo)
+  (set! *depot* repo))
+
+
+;;;
+;;;; Commands
+;;;
+
+
+(definition public (git-clone directory address)
+  (let ((parent (get-parent~ directory))
+        (name (get-name~ directory)))
+    (create-directories~ parent)
+    (git-command (list "clone" address name) parent)
+    (new Git-Depot directory)))
+
+
+(definition public (git-add)
+  (git-add~ (git-depot)))
+
+
+(definition public (git-remove)
+  (git-remove~ (git-depot)))
+
+
+(definition public (git-rename)
+  (git-rename~ (git-depot)))
+
+
+(definition public (git-export)
+  (git-export~ (git-depot)))
+
+
+(definition public (git-import)
+  (git-import~ (git-depot)))
+
+
+(definition public (git-branch)
+  (git-branch~ (git-depot)))
+
+
+(definition public (git-checkout)
+  (git-checkout~ (git-depot)))
+
+
+(definition public (git-commit)
+  (git-commit~ (git-depot)))
+
+
+(definition public (git-diff)
+  (git-diff~ (git-depot)))
+
+
+(definition public (git-log)
+  (git-log~ (git-depot)))
+
+
+(definition public (git-status)
+  (git-status~ (git-depot)))
+
+
+(definition public (git-rollback)
+  (git-rollback~ (git-depot)))
+
+
+(definition public (git-tag)
+  (git-tag~ (git-depot)))
+
+
+(definition public (git-merge)
+  (git-merge~ (git-depot)))
+
+
+(definition public (git-pull)
+  (git-pull~ (git-depot)))
+
+
+(definition public (git-push)
+  (git-push~ (git-depot)))
+
+
+(definition public (git-history path)
+  (git-history~ (git-depot) path))
+
+
+;; to think about how to nicely do this
+(definition public (git-extract path)
+  (git-extract~ (git-depot) path))
+
+
+(definition public (git-show object (output (current-output-port)))
+  (git-show~ (git-depot) output))
+
+
+(definition (git-command arguments directory (output (current-output-port)))
+  (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))))
+    (if (not output)
+        port
+      (pipe port output)
+      (close-port port))))
+
+
+;;;
+;;;; Patch File
+;;;
+
+
+(definition public (parse-patch-file patch-file proc)
+  (call-with-input-file (list path: (parse~ patch-file) eol-encoding: 'cr-lf)
+    (function (reader)
+      (define (read-diff line)
+        (let (iter (line line))
+          (unless (not line)
+            (if (starts-with? line "diff ")
+                (parse-diff line)
+              (iter (read-line reader))))))
+      
+      (define (parse-diff line)
+        (let ((line (read-line reader)))
+          (receive (a-index b-index) (parse-index line)
+            (let ((a-name (parse-name (read-line reader)))
+                  (b-name (parse-name (read-line reader))))
+              (if (and a-name b-name (not (equal? a-name b-name)))
+                  (parse-error line)
+                (let ((deltas (new-queue)))
+                  (let iter-delta ()
+                       (let ((range (read-line reader)))
+                         (if (not (starts-with? range "@@ "))
+                             (read-diff range)
+                           (receive (a-line a-count b-line b-count) (parse-range range)
+                             (let ((a-cnt 0)
+                                   (b-cnt 0)
+                                   (lines (new-queue)))
+                               (let iter-line ()
+                                    (let ((c (read-char reader))
+                                          (l (read-line reader)))
+                                      (case c
+                                        ((#\-)
+                                         (enqueue lines (cons 'a l))
+                                         (increase! a-cnt))
+                                        ((#\+)
+                                         (enqueue lines (cons 'b l))
+                                         (increase! b-cnt))
+                                        ((#\space)
+                                         (enqueue lines (cons 'both l))
+                                         (increase! a-cnt)
+                                         (increase! b-cnt))))
+                                    (when (or (< a-cnt a-count) (< b-cnt b-count))
+                                      (iter-line)))
+                               (let ((delta (list a-line a-count b-line b-count (queue-list lines))))
+                                 (enqueue deltas delta))))
+                           (iter-delta))))
+                  (proc a-name a-index b-name b-index (queue-list deltas))))))))
+      
+      (define (parse-index line)
+        (let ((line (if (starts-with? line "index ") line (read-line reader))))
+          (let* ((start 6)
+                 (dotdot (search line ".." start: start))
+                 (end (find line #\space start: (+ dotdot 2))))
+            (values (substring line start dotdot)
+                    (substring line (+ dotdot 2) (either end (length line)))))))
+      
+      (define (parse-name line)
+        (let ((str (substring line 4 (length line))))
+          (if (equal? str "/dev/null")
+              {}
+            (substring str 2 (cardinality str)))))
+      
+      (define (parse-range line)
+        (let* ((a-start 4)
+               (a-comma (find line #\comma start: a-start))
+               (a-end   (find line #\space start: (+ a-comma 1)))
+               (a-line  (parse-integer (substring line a-start a-comma)))
+               (a-count (parse-integer (substring line (+ a-comma 1) a-end)))
+               (b-start (+ a-end 2))
+               (b-comma (find line #\comma start: b-start))
+               (b-end   (find line #\space start: (+ b-comma 1)))
+               (b-line  (parse-integer (substring line b-start b-comma)))
+               (b-count (parse-integer (substring line (+ b-comma 1) b-end))))
+          (values a-line a-count b-line b-count)))
+      
+      (define (parse-error line)
+        (error "Invalid patch file: {s} at line: {a}" patch-file line))
+      
+      (read-diff (read-line reader)))))
+
+
+;;;
+;;;; Depot
+;;;
+
+
+(class Git-Depot extends Object
+  
+  
+  (slot directory getter generate)
+  
+  
+  (method (initialize dir)
+    (nextmethod)
+    (set! directory dir))
+  
+  
+  ;;;
+  ;;;; Commands
+  ;;;
+  
+  
+  (method (git arguments (output (current-output-port)))
+    (git-command arguments directory output))
+  
+  
+  ;;;
+  ;;;; Commit
+  ;;;
+  
+  
+  (method public (git-add)
+    (git (list "add")))
+  
+  
+  (method public (git-remove)
+    #f)
+  
+  
+  (method public (git-rename)
+    #f)
+  
+  
+  (method public (git-commit)
+    #f)
+  
+  
+  (method public (git-rollback)
+    (git (list "reset" "--hard" "HEAD~1")))
+  
+  
+  (method public (git-tag)
+    (git (list "tag")))
+  
+  
+  (method public (git-log)
+    (git (list "log" "--decorate")))
+  
+  
+  (method public (git-status)
+    (git (list "status")))
+  
+  
+  ;;;
+  ;;;; Branch
+  ;;;
+  
+  
+  (method public (git-branch)
+    #f)
+  
+  
+  (method public (git-checkout)
+    #f)
+  
+  
+  ;;;
+  ;;;; Merge
+  ;;;
+  
+  
+  (method public (git-import)
+    (git (list "am")))
+  
+  
+  (method public (git-export)
+    (git (list "format-patch")))
+  
+  
+  (method public (git-diff)
+    #f)
+  
+  
+  (method public (git-merge)
+    #f)
+  
+  
+  (method public (git-history path)
+    (let ((output (open-output-string)))
+      (git (list "rev-list" "HEAD" path) output)
+      (let ((commits (get-output-string output)))
+        (collect-if (function (str)
+                      (not (empty-string? str)))
+                    (split-lines commits)))))
+  
+  
+  (method public (git-extract path)
+    (let ((history (git-history path))
+          (version 1))
+      (for-each (function (commit)
+                  (user-message "Extracting {a}..." commit)
+                  (let ((filename (extract-name path)))
+                    (let ((base (extract-base filename))
+                          (extension (extract-extension filename)))
+                      (let ((file (new File (list "C:" "Merge" (string-append base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)))))
+                        (create-directories~ file)
+                        (call-with-output-file (parse~ file)
+                          (function (output)
+                            (git-show (string-append commit ":" path) output))))))
+                  (increase! version))
+                (reverse history))
+      (user-message "Done")))
+  
+  
+  (method public (git-show object (output (current-output-port)))
+    (git (list "show" object) output))
+  
+  
+  (method public (prepare-merge merge-dir)
+    (iterate-directory~ merge-dir
+      (function (file)
+        (let ((ext (get-extension~ file)))
+          (when (ci=? ext "patch")
+            (parse-patch-file file
+              (function (base-name base-index right-name right-index deltas)
+                (let ((name (either base-name right-name)))
+                  (let ((name-path (split name "/")))
+                    (define (setup-base)
+                      (when base-name
+                        (let ((base-file (new-file~ merge-dir (cons "base" name-path))))
+                          (unless (exists?~ base-file)
+                            (user-message "Extracting base/{a}..." base-name)
+                            (create-directories~ base-file)
+                            (call-with-output-file (parse~ base-file)
+                              (function (printer)
+                                (git-show base-index printer)))))))
+                    
+                    (define (setup-left)
+                      (let ((working-file (new-file~ directory name-path)))
+                        (if (not (exists?~ working-file))
+                            (debug (format "Unable to find working file: {a}" name-path))
+                          (let ((left-file (new-file~ merge-dir (cons "left" name-path))))
+                            (unless (exists?~ left-file)
+                              (user-message "Copying left/{a}..." name)
+                              (create-directories~ left-file)
+                              (copy-file~ working-file left-file))))))
+                    
+                    (define (setup-right)
+                      (let ((right-file (new-file~ merge-dir (cons "right" name-path))))
+                        (cond ;; deleted
+                              ((not right-name)
+                               (when (exists?~ right-file)
+                                 (user-message "Deleting right/{a}..." name)
+                                 (delete-file~ right-file)))
+                              ;; new
+                              ((not base-name)
+                               (user-message "Adding right/{a}..." name)
+                               (create-directories~ right-file)
+                               (call-with-output-file (parse~ right-file)
+                                 (function (printer)
+                                   (let ((lines (fifth (car deltas))))
+                                     (for-each (function (info)
+                                                 (bind (what . line) info
+                                                   (write-line line printer)))
+                                               lines)))))
+                              ;; modified
+                              (else
+                               (user-message "Modifying right/{a}..." name)
+                               (create-directories~ right-file)
+                               (let ((base-file (new-file~ merge-dir (cons "base" name-path))))
+                                 ;; first time
+                                 (when (not (exists?~ right-file))
+                                   (copy-file~ base-file right-file))
+                                 ;; apply diff
+                                 (apply-diff right-file deltas))))))
+                    
+                    (define (apply-diff target-file deltas)
+                      (let ((merged-file (new-brother~ target-file (let ((base (get-base~ target-file))
+                                                                         (ext (get-extension~ target-file)))
+                                                                     (format "{a}_merged.{a}" base ext)))))
+                        (call-with-input-file (list path: (parse~ target-file) eol-encoding: 'cr-lf)
+                          (function (target-input)
+                            (call-with-output-file (parse~ merged-file)
+                              (function (merged-output)
+                                (let ((target-rank 1))
+                                  (for-each (function (delta)
+                                              (bind (target-line target-count result-line result-count lines) delta
+                                                ;; output target common lines
+                                                (loop (repeat (- target-line target-rank))
+                                                      (do (write-line (read-line target-input) merged-output)
+                                                          (increase! target-rank)))
+                                                ;; skip replaced target lines
+                                                (loop (repeat target-count)
+                                                      (do (read-line target-input)
+                                                          (increase! target-rank)))
+                                                ;; output new lines
+                                                (for-each (function (info)
+                                                            (bind (what . line) info
+                                                              (when (or (eq? what 'b) (eq? what 'both))
+                                                                (write-line line merged-output))))
+                                                          lines)))
+                                            deltas))
+                                ;; output remaining
+                                (let (iterate)
+                                  (let ((line (read-line target-input)))
+                                    (when line
+                                      (write-line line merged-output)
+                                      (iterate))))))
+                            (delete-file~ target-file)
+                            (move-pathname~ merged-file target-file)))))
+                    
+                    (setup-base)
+                    (setup-left)
+                    (setup-right))))))))
+      files?: #t
+      directories?: #f
+      recursive?: #f
+      sort?: #t))
+  
+  
+  (method public (complete-merge merge-dir)
+    )
+  
+  
+  ;;;
+  ;;;; Manage
+  ;;;
+  
+  
+  (method public (git-pull)
+    #f)
+  
+  
+  (method public (git-push)
+    #f)))

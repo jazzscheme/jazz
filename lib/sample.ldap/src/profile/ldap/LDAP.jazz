@@ -1,0 +1,170 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; LDAP
+;;;
+
+
+(library profile.ldap.LDAP jazz
+
+
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.profile)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities)
+        (jedi)
+        (jedi.development)
+        (profile.ldap.test.ldap0)
+        (profile.ldap.test.ldap1)
+        (profile.ldap.test.ldap2)
+        (profile.ldap.test.ldap3))
+
+
+(class LDAP extends Jedi-Profile
+  
+  
+  (method (test)
+    (new-frame LDAP-Search)))
+
+
+(register-profile-class LDAP)
+
+
+;;;
+;;;; Search
+;;;
+
+
+(class LDAP-Search extends View
+  
+  
+  (form
+    (<install>                                              size: {Dimension 553 608}
+      (<Border-View>                                        position: {Point 0 7} size: {Dimension 112 22} border-insets: {Rect 2 2 2 1} border-color: {Color name: Medium}
+        (<Border-View>                                      border-color: {Color name: Entry-Border}
+          (<Combo-Box>                 name: strategy       content-change-handler: {Event-Handler :form on-content-change}
+            (<!>                       name: scroller
+              (<!>                     name: content
+                (<!>                   name: body           left-padding: 2 top-padding: 2))))))
+      (<Border-View>                   name: target-border  position: {Point 285 9} size: {Dimension 150 19} border-type: edge style: entry
+        (<Scroller-View>                                    hscroll?: #f vscroll?: #f
+          (<!>                         name: content        layout-type: fill
+            (<IDE-Text-View>           name: target         left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
+      (<Push-Button>                   name: search         title: "Search" position: {Point 449 7} size: {Dimension 100 22} action-handler: {Event-Handler :form on-search} default?: #t)
+      (<Border-View>                   name: entries-border position: {Point 2 35} size: {Dimension 549 571} border-type: edge style: entry
+        (<Scroller-View>                                    vscroll?: #t
+          (<!>                         name: content        layout-type: fill
+            (<Tree-Header>                                  style: document
+              (<!>                     name: content
+                (<Tree-View>           name: entries        filled-column: value multiple-selection?: #t
+                  (<Tree-Node-Column>  name: name           title: "Name" width: 150 toplevel-controls?: #f display-images?: #f)
+                  (<Tree-Label-Column> name: value          title: "Value" width: 100)))))))))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-strategies))
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (acquire-focus~ (locate 'target)))
+    
+  
+  ;;;
+  ;;;; Host
+  ;;;
+    
+  
+  (method meta (host-icon)
+    {Bitmap-Resource "AnalysisManager"})
+  
+  
+  (method meta (host-title)
+    "LDAP")
+  
+  
+  (method meta (host-position)
+    {Point 90 70})
+  
+  
+  (method meta (host-size)
+    {Dimension 600 320})
+  
+  
+  (method (host-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (definition Entries
+    '(("feeley" "gambit scheme c compiler interpreter")
+      ("jeremie" "gambit scheme c haskell ui x11")
+      ("gcartier" "commonlisp gambit scheme ui")
+      ("jomirez" "gambit scheme haskell")))
+  
+  
+  (method (setup-strategies)
+    (define (new-test class)
+      (let ((test (new class)))
+        (setup~ test "org.programmers" Entries)))
+    
+    (let ((combo (locate 'strategy))
+          (ldap0 (new-test LDAP0-Test))
+          (ldap1 (new-test LDAP1-Test))
+          (ldap2 (new-test LDAP2-Test))
+          (ldap3 (new-test LDAP3-Test)))
+      (set-choices~ combo (list (list ldap0 "LDAP0")
+                                (list ldap1 "LDAP1")
+                                (list ldap2 "LDAP2")
+                                (list ldap3 "LDAP3")))
+      (set-value~ combo ldap0)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'search) dh 0)
+    (size-figure~ (locate 'target-border) dh 0)
+    (size-figure~ (locate 'entries-border) dh dv))
+  
+  
+  (method (on-content-change evt)
+    (remove-every-row~ (locate 'entries)))
+  
+  
+  (method (on-return-press evt)
+    (search-target))
+  
+  
+  (method (on-search evt)
+    (search-target))
+  
+  
+  ;;;
+  ;;;; Search
+  ;;;
+
+
+  (method public (search-target)
+    (let ((test (get-value~ (locate 'strategy)))
+          (target (get-string-content~ (locate 'target)))
+          (tree (locate 'entries)))
+      (remove-every-row~ tree)
+      (search~ test target
+        (function (name value)
+          (let ((c0 (new Tree-Node title: name))
+                (c1 (new Tree-Label title: value)))
+            (add-row~ tree children: (list c0 c1)))))))))

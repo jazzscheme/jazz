@@ -1,0 +1,36 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; LDAP0 Test
+;;;
+
+
+(library profile.ldap.test.ldap0 jazz
+
+
+(import (ldap.ldap0)
+        (profile.ldap.test))
+
+
+(class LDAP0-Test extends LDAP-Test
+  
+  
+  (slot connection)
+
+
+  (method (setup host entries)
+    (let ((conn (ldap_open host LDAP_PORT)))
+      (for-each (function (entry)
+                  (bind (name value) entry
+                    (ldap_add conn name value)))
+                entries)
+      (set! connection conn)))
+  
+  
+  (method (search target proc)
+    (let ((search (ldap_search connection target)))
+      (loop (for n from 0 below (ldap_count_entries connection search))
+            (do (let ((entry (ldap_get_entry connection search n)))
+                  (proc (ldap_entry_name connection entry)
+                        (ldap_entry_value connection entry)))))))))

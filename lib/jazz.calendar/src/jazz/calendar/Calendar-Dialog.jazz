@@ -1,0 +1,125 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Calendar Dialog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.calendar.Calendar-Dialog jazz
+
+
+(import (jazz.calendar)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Calendar-Dialog extends Layout-View
+
+
+  (property host-title          initialize {} accessors generate)
+  (property initial-date        initialize {} accessors generate)
+  (property multiple-selection? initialize #f accessors generate)
+  
+  
+  (form
+    (<install>
+      (<Calendar-Navigator> name: navigator       position: {Point 9 5} size: {Dimension 391 247}
+        (<!>                name: calendar-border
+          (<!>              name: calendar        return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press})))
+      (<Push-Button>        name: ok              title: "OK" position: {Point 138 262} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>        name: cancel          title: "Cancel" position: {Point 222 262} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((calendar (get-calendar~ (locate 'navigator))))
+      (set-multiple-selection?~ calendar multiple-selection?)
+      (set-date~ calendar initial-date)
+      (let ((day (find-calendar-day~ calendar initial-date)))
+        (set-selection~ calendar day))))
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (when host-title
+      (set-title~ host host-title))
+    (acquire-focus~ (get-calendar~ (locate 'navigator))))
+    
+  
+  ;;;
+  ;;;; Host
+  ;;;
+
+  
+  (method meta (host-title)
+    "Choose Date")
+  
+  
+  (method meta (host-size)
+    {Dimension 408 297})
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method public (double-click-day day)
+    (end-modal~ (get-host) (get-modal-result)))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (let* ((navigator (locate 'navigator))
+           (calendar (get-calendar~ navigator)))
+      (get-date~ (get-selection~ calendar))))))

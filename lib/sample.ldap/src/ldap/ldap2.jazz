@@ -1,0 +1,64 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; LDAP2
+;;;
+
+
+(library ldap.ldap2 jazz
+
+
+(import (ldap.ffi))
+
+
+;;;
+;;;; Connection
+;;;
+
+
+(class LDAP-Connection extends Object
+  
+  
+  (slot connection getter generate)
+  
+  
+  (method (initialize host (port: port LDAP_PORT))
+    (set! connection (ldap_open host port))))
+
+
+(generic (connection-add (<LDAP-Connection> connection) name value)
+  (ldap_add (get-connection~ connection) name value))
+
+(generic (connection-delete (<LDAP-Connection> connection) name)
+  (ldap_delete (get-connection~ connection) name))
+
+
+(generic (connection-search (<LDAP-Connection> connection) target)
+  (let ((search (ldap_search (get-connection~ connection) target)))
+    (loop (for n from 0 below (ldap_count_entries (get-connection~ connection) search))
+          (collect (new LDAP-Entry (get-connection~ connection) (ldap_get_entry (get-connection~ connection) search n))))))
+
+
+;;;
+;;;; Entry
+;;;
+
+
+(class LDAP-Entry extends Object
+  
+  
+  (slot connection getter generate)
+  (slot entry      getter generate)
+  
+  
+  (method (initialize connection entry)
+    (set! connection~self connection)
+    (set! entry~self entry)))
+
+
+(generic (entry-name-get (<LDAP-Entry> entry))
+  (ldap_entry_name (get-connection~ entry) (get-entry~ entry)))
+
+(generic (entry-value-get (<LDAP-Entry> entry))
+  (ldap_entry_value (get-connection~ entry) (get-entry~ entry))))

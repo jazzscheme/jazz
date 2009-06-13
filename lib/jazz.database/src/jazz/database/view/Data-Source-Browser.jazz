@@ -1,0 +1,189 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Data-Source Browser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.database.view.Data-Source-Browser jazz
+
+
+(import (jazz.database)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Data-Source-Browser extends View
+
+
+  (property provider initialize {} getter get-provider setter set-provider)
+  
+
+  (form
+    (<install>                             size: {Dimension 500 206}
+      (<Label-View>  name: provider-label  title: "Provider:" position: {Point 0 0} size: {Dimension 50 20})
+      (<Border-View> name: provider-border position: {Point 67 1} size: {Dimension 146 19} border-type: edge
+        (<Combo-Box> name: provider        content-change-handler: {Event-Handler :form on-provider-change}
+          (<!>       name: scroller
+            (<!>     name: content
+              (<!>   name: body            left-padding: 2 top-padding: 2)))))
+      (<Layout-View> name: source          position: {Point 0 33} size: {Dimension 450 160})))
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (setup-providers))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-provider)
+    provider)
+
+
+  (method public (set-provider value)
+    (set! provider value)
+    (provider-update))
+  
+  
+  (method public (get-data-source)
+    (let ((browser (get-data-source-browser)))
+      (when browser
+        (get-data-source~ browser))))
+  
+  
+  (method public (set-data-source source)
+    (let ((combo (locate 'provider)))
+      (if (null? source)
+          (set-entry~ combo {})
+        (set! provider (external-name~ (get-provider~ source)))
+        (set-value~ combo provider)
+        (provider-update)
+        (set-data-source~ (get-data-source-browser) source))))
+  
+  
+  (method public (setup-username/password-mode)
+    (let ((browser (get-data-source-browser)))
+      (when browser
+        (setup-username/password-mode~ browser))))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method public (set-default-focus)
+    )
+  
+  
+  (method (on-provider-change evt)
+    (let ((combo (locate 'provider)))
+      (set! provider (get-value~ combo))
+      (provider-update)))
+  
+  
+  (method (on-return-press evt)
+    (when return-press-handler
+      (invoke~ return-press-handler self evt)))
+
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (if (null? provider)
+        (begin
+          (set-visible?~ (locate 'provider-label) #t)
+          (set-visible?~ (locate 'provider-border) #t)
+          (set-position~ (locate 'source) {Point 0 33})
+          (set-size~ (locate 'source) (- (get-size) {Point 0 33})))
+      (set-visible?~ (locate 'provider-label) #f)
+      (set-visible?~ (locate 'provider-border) #f)
+      (set-position~ (locate 'source) {Point 0 0})
+      (set-size~ (locate 'source) (get-size))))
+
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (validate-content)
+    (validate-content~ (locate 'provider))
+    (let ((browser (get-data-source-browser)))
+      (when browser
+        (validate-content~ browser))))
+  
+
+  ;;;
+  ;;;; Provider
+  ;;;
+
+
+  (method (setup-providers)
+    (let ((combo (locate 'provider))
+          (choices
+           (sort < (map (function (provider)
+                          (list (external-name~ provider) (present~ provider)))
+                        (get-providers~ Provider))
+                 key: second)))
+      (set-choices~ combo choices)
+      @not-sure
+      (set-entry~ combo "<Select provider>")))
+  
+
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  (method (get-data-source-browser)
+    (first-child~ (locate 'source)))
+
+
+  (method (provider-update)
+    (let ((source (locate 'source)))
+      (close-children~ source)
+      (when provider
+        (new (browser-class~ (get-provider~ Provider provider)) parent: source))
+      (layout-view~ source)
+      (layout-view)))))

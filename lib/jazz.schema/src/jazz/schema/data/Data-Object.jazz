@@ -1,0 +1,138 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Data Objects
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.schema.data.Data-Object jazz
+
+
+(import (jazz.library)
+        (jazz.schema)
+        (jazz.utilities))
+
+
+(class Data-Object extends Object
+  
+  
+  (slot name       initialize {})
+  (slot parent     initialize {})
+  (slot properties initialize '())
+  
+  
+  (method (initialize (name: name {}) (parent: parent {}) (properties: properties '()))
+    (nextmethod)
+    (set! name~self name)
+    (set! parent~self parent)
+    (set! properties~self properties))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{a}" (either name "")))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (set-name value)
+    (set! name value))
+  
+  
+  (method public (get-parent)
+    parent)
+  
+  
+  (method public (set-parent value)
+    (set! parent value))
+  
+  
+  (method public virtual (get-kind)
+    )
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (definition Error
+    (cons {} {}))
+  
+  (definition Inexistant
+    (cons {} {}))
+  
+  
+  (method public virtual (property-names)
+    '())
+  
+  
+  (method public virtual (present-property property value)
+    (if (null? value)
+        {}
+      (typecase value
+        ((Datatype) (present~ value))
+        (else value))))
+  
+  
+  (method public (get-properties)
+    properties)
+  
+  
+  (method public (has-property? property)
+    (let ((not-found {Box}))
+      (neq? (get-property property not-found) not-found)))
+  
+  
+  (method public virtual (get-property keyword (not-found Error))
+    (let ((value (getf properties keyword not-found: Inexistant)))
+      (if (neq? value Inexistant)
+          value
+        (if (neq? not-found Error)
+            not-found
+          (error "Inexistant property: {t}" keyword)))))
+  
+  
+  (method public virtual (set-property keyword value)
+    (let ((pair (getprop properties keyword)))
+      (if pair
+          (set-car! (cdr pair) value)
+        (set! properties (append! properties (list keyword value))))))))

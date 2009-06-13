@@ -1,0 +1,1243 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Inventory Updater
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.database.inventory.Inventory-Updater jazz
+
+
+(import (jazz.database)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Inventory-Updater extends Object)
+
+
+@convert
+
+
+(class Inventory-Updater extends Object
+  
+  
+  (slot connection)
+  (slot inventory)
+  (slot pending-properties       initialize '())
+  (slot pending-deletes          initialize '())
+  (slot pending-triggers/indexes initialize '())
+  (slot ugly-patch               initialize {})
+  
+  
+  (method (initialize connection)
+    (nextmethod)
+    (set! connection~self connection)
+    (set! inventory~self (get-inventory~ connection)))
+  
+  
+  ;;;
+  ;;;; Update General
+  ;;;
+  
+  
+  (definition Actions
+    '((left   . remove)
+      (right  . add)
+      (modify . modify)
+      (()     . no-action)))
+  
+  
+  (method public (update-inventory delta reporter)
+    (with-execution-context
+      (function ()
+        (set! pending-properties '())
+        (set! pending-deletes '())
+        (set! pending-triggers/indexes '())
+        (process-children delta inventory reporter)
+        (when (is? inventory SQLServer-Inventory)
+          (process-table-triggers delta))
+        (process-pending-properties)
+        (process-pending-triggers/indexes)
+        (process-pending-deletes)
+        (for-each (function (proxy)
+                    (close~ proxy))
+                  ugly-patch)
+        ;; pas necessaire quand ugly-patch devient une slot
+        (set! ugly-patch {}))
+      title: "Update database"
+      reporter: reporter))
+  
+  
+  (method (process-children entity parent-proxy reporter)
+    (for-each (function (object)
+                (if (is? parent-proxy SQLServer-Inventory)
+                    (create-sql object parent-proxy reporter)
+                  (process-entity object parent-proxy reporter)))
+              (sort < (get-children~ entity) key: (function (x)
+                                                     (let ((name (get-name~ x)))
+                                                       (case (get-kind~ x)
+                                                         ((table) (list 0 name))
+                                                         ((view) (list 1 name))
+                                                         ((procedure) (list 2 name))
+                                                         ((relation) (list 3 name))
+                                                         ((column) (list 4 (either (third (get-property~ x ordinal-position:)) -1)))
+                                                         ((primary-key) (list 5 name))
+                                                         ((index) (list 6 name))
+                                                         ((trigger) (list 7 name))
+                                                         ((constraint) (list 8 name))))))))
+  
+ 
+  ;;;
+  ;;;; Update by SQL Command
+  ;;;
+  
+  
+  (method (create-sql object parent-proxy reporter)
+    (with-continue
+      (function ()
+        (case (get-kind~ object)
+          ((relation) (generate-sql-relation object))
+          (else
+           (let ((has-differences? (get-property~ object has-differences?: #f)))
+             (when has-differences?
+               (case (get-kind~ object)
+                 ((table)     (generate-sql-table object reporter))
+                 ((procedure) (generate-sql-procedure object reporter))
+                 ((view)      (generate-sql-procedure object reporter))))))))))
+  
+  
+  (method (process-object object recreate-table? create-proc drop-proc)
+    (let ((action (get-property~ object difference:)))
+      (if recreate-table?
+          (unless (eq? action 'left)
+            (create-proc object))
+        (case action
+          ((right)  (create-proc object))
+          ((left)   (drop-proc object))
+          ((modify) (drop-proc object)
+                    (create-proc object))))))
+
+
+  (method (find-action-on-process-property action old-value new-value recreate-table?)
+    (if recreate-table?
+        (when (and new-value (/= new-value ""))
+          'right) ;Ajout
+      (when (eq? action 'modify)
+        (if (and new-value (/= new-value ""))
+            (if (and old-value (/= old-value ""))
+                'modify
+              'right)
+          (when (and old-value (/= old-value ""))
+            'left)))))
+          
+    
+  (method (drop-object object)
+    (let* ((object-name (get-name~ object))
+           (object-kind (get-kind~ object))
+           (script (tie "DROP {object-kind} [{object-name}]~{%}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (generate-sql-header-script)
+    (tie "SET QUOTED_IDENTIFIER ON~{%}"
+         "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE~{%}"
+         "SET ARITHABORT ON~{%}"
+         "SET NUMERIC_ROUNDABORT OFF~{%}"
+         "SET CONCAT_NULL_YIELDS_NULL ON~{%}"
+         "SET ANSI_NULLS ON~{%}"
+         "SET ANSI_PADDING ON~{%}"
+         "SET ANSI_WARNINGS ON~{%}"))
+  
+  
+  ;;;
+  ;;;; Table by SQL Command
+  ;;;
+  
+  
+  (constant Table-Not-Found
+    #x80045510)
+  
+  
+  (method (set-table-tempo-name object)
+    (let ((table-name (get-name~ object))
+           (suffix -1)
+           (table-tempo-name {})
+           (looking #t))
+      (with-closed ((tables (get-Tables~ (get-database~ inventory))))
+        (while looking
+          (increase! suffix)
+          (set! table-tempo-name (format "tmp_{a}_{a}" table-name suffix))
+          (cotry (Item~ tables table-tempo-name #f) (Table-Not-Found (set! looking #f)))))
+      table-tempo-name))
+  
+
+  (method (generate-sql-table table reporter)
+    (let ((action (get-property~ table difference:)))
+      (if (null? action)
+          (if (regenerate-full-table? table)
+                      (generate-sql-full-table table reporter)
+                    (generate-sql-partial-table table reporter))
+        (case action
+          ((right)  (generate-sql-full-table table reporter))
+          ((left)   (drop-table table))
+          ((modify) (if (regenerate-full-table? table)
+                      (generate-sql-full-table table reporter)
+                    (generate-sql-partial-table table reporter)))))))
+
+
+  (method (regenerate-full-table? table)
+    (let ((action (get-property~ table difference:)))
+      (if (null? action)
+          (modify-column? table)
+        (case action
+          ((modify) (modify-column? table))
+          ((right) #t)      ;; create table
+          ((left) #f)))))  ;; drop table
+          
+  
+  (method (modify-column? table)
+    (let ((column-pos 0))
+      (some? (function (column)
+               (let ((action (get-property~ column difference:)))
+                 (or (= (first (get-property~ column ordinal-position:)) 'modify)
+                     (= (first (get-property~ column datatype:)) 'modify)
+                     (= (first (get-property~ column nullable?:)) 'modify))
+                 @wait (case action
+                         ((right) (increase! column-pos))
+                         ((left) (decrease! column-pos))
+                         ((modify))
+                         (else))
+                 @wait (when (or (null? action)
+                                 (= action 'modify))
+                         ;; il faut tenir compte des trous que laisse SQLServer avec les DROP COLUMN
+                         (when (/= (+ (second (get-property~ column ordinal-position:)) column-pos)
+                                   (third (get-property~ column ordinal-position:)))
+                           #t))))
+             (sort < (get-columns~ table) key: (function (column)
+                                                  (either (third (get-property~ column ordinal-position:)) -1))))))
+        
+  (method (generate-sql-full-table table reporter)
+    (let* ((table-name (get-name~ table))
+           (action (get-property~ table difference:))
+           (new-table? (= action 'right))
+           (table-tempo-name (when (not new-table?) (set-table-tempo-name table)))
+           (table-current-name (if new-table? table-name table-tempo-name))
+           (identity-column? (some? (function (column)
+                                      (third (get-property~ column identity?:)))
+                                    (get-columns~ table))))
+      (when reporter
+        (user-message~ reporter "Updating full table {a}..." table-name))
+      (execute-sql-commit-preserve (generate-sql-header-script))
+      (drop-table-relation table)
+      (drop-default-values table)
+      (execute-sql-commit-preserve (generate-sql-create-table table table-current-name))
+      (let ((temp-table-created table-current-name))
+        (unwind-protect
+            (begin
+              (process-description-table table table-current-name #t)
+              (process-description-columns table table-current-name #t)
+              (process-default-values table table-current-name #t)
+              (check-default-values table table-current-name)
+              (when (not new-table?)
+                (when identity-column?
+                  (execute-sql-commit-preserve (generate-sql-identity-start table-current-name)))
+                (process-copy-data table table-tempo-name table-name))
+              (set! temp-table-created {}))
+          (when temp-table-created
+            (undo-create-table table-current-name)))
+        (when (not new-table?)
+          (set-property~ table recreate-table?: #t)
+          (when identity-column?
+            (execute-sql-commit-preserve (generate-sql-identity-end table-name)))))
+      (process-primary-key table #t)
+      (process-indexes table #t)
+      (process-constraints table #t)
+      ;Les FK et les trigger sont differes
+      @remove(process-triggers table #t)
+      @wait(generate-sql-access-right)))
+
+
+  (method (undo-create-table table-name)
+    (let ((script (tie "DROP TABLE [{table-name}]~{%}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (generate-sql-partial-table table reporter)
+    (let ((table-name (get-name~ table)))
+      (when reporter
+        (user-message~ reporter "Updating partial table {a}..." table-name))
+      (process-description-table table table-name #f)
+      (process-description-columns table table-name #f)
+      (process-default-values table table-name #f)
+      (process-primary-key table #f)
+      (process-indexes table #f)
+      (process-constraints table #f)
+      @remove
+      (process-triggers table #f)))
+
+
+  (method (create-fields-list list)
+    (collect (function (field)
+           (when (/= (get-property~ field difference:) 'left)
+             (let ((field-name (get-name~ field))
+                    (datatype (get-native~ (third (get-datatype~ field))))
+                    (ordinal-position (third (get-property~ field ordinal-position:)))
+                    (nullable-string (if (third (get-property~ field nullable?:))
+                                         "NULL"
+                                       "NOT NULL"))
+                    (identity-string (if (third (get-property~ field identity?:))
+                                         (let ((id-seed (third (get-property~ field identity-seed:)))
+                                                (id-inc (third (get-property~ field identity-increment:)))
+                                                (id-repl (if (third (get-property~ field identity-replication?:))
+                                                             ""
+                                                           "NOT FOR REPLICATION")))
+                                           (tie "IDENTITY ({id-seed}, {id-inc}) {id-repl}"))
+                                       "")))
+               (when (>= ordinal-position 0)
+                 (tie "~{%}~{&}[{field-name}] {datatype} {nullable-string} {identity-string}")))))
+         list))
+      
+  
+  (method (generate-sql-create-table object table-name)
+    (let* ((fields-list (join (create-fields-list (sort < (get-columns~ object)
+                                                        key: (function (column)
+                                                               (either (third (get-property~ column ordinal-position:)) -1)))) ", "))
+           (def-table (tie "CREATE TABLE [{table-name}]~{%}~{&}("
+                           "{fields-list}~{%}~{&}"
+                           ")~{%}")))
+      def-table))
+  
+  
+  (method (get-added-columns-without-default-value table)
+    (collect-if (function (column)
+                  (let ((ordinal-position (get-property~ column ordinal-position:))
+                         (new-default-value (third (get-property~ column default-value:)))
+                         (new-default-value-action (first (get-property~ column default-value:)))
+                         (new-nullable? (third (get-property~ column nullable?:)))
+                         (new-datatype (third (get-property~ column datatype:))))
+                    (and (null? (second ordinal-position))
+                         (third ordinal-position)
+                         (not new-nullable?)
+                         (or (null? new-default-value)
+                             (= new-default-value ""))
+                         (get-defaultable?~ new-datatype)
+                         (null? new-default-value-action))))
+                (get-columns~ table)))
+
+
+  (method (process-copy-data object new-table old-table)
+    (let* ((new-columns (sort < (collect-if (function (column)
+                                              (not-null? (object-new-property column ordinal-position:)))
+                                            (get-columns~ object))
+                              key: (function (column)
+                                     (object-new-property column ordinal-position:))))
+           (new-names (map (function (column)
+                             (encapsulate-name (get-name~ column)))
+                           new-columns))
+           (new-values (map (function (column)
+                              (let* ((new-column? (null? (object-old-property column ordinal-position:)))
+                                     (nullable? (object-new-property column nullable?:))
+                                     (datatype (object-new-property column datatype:))
+                                     (default-value (get-native-with-value~ datatype (object-new-property column default-value:) indirect?: #t))
+                                     (read-only? (= default-value 'read-only)))
+                                (cond (read-only?
+                                       "{}")
+                                      (new-column?
+                                       (if nullable? "{}" default-value))
+                                      (else
+                                       (let ((safe-name (encapsulate-name (get-name~ column)))
+                                             (must-convert? (eq? (action-for-property column datatype:) 'modify))
+                                             (need-default? (and (not nullable?)
+                                                                 (eq? (action-for-property column nullable?:) 'modify))))
+                                         (cond ((and must-convert? need-default?)
+                                                (format "isnull(convert({a},{a}),{a})" (get-native~ datatype) safe-name default-value))
+                                               (must-convert?
+                                                (format "convert({a},{a})" (get-native~ datatype) safe-name))
+                                               (need-default?
+                                                (format "isnull({a},{a})" safe-name default-value))
+                                               (else
+                                                safe-name)))))))
+                            new-columns))
+           (script-copy (tie "IF EXISTS(SELECT * FROM [{old-table}])~{%}"
+                             "~{&}EXEC('INSERT INTO [{new-table}] ({new-names l detail: :human separator: \", \"})~{%}"
+                             "~{&}~{&}SELECT {new-values l detail: :human separator: \", \"} FROM [{old-table}] TABLOCKX')~{%}"
+                             "~{%}"))
+           (script-drop-rename-table (tie "DROP TABLE [{old-table}]~{%}"
+                                          "~{%}"
+                                          "EXECUTE sp_rename N'{new-table}', N'{old-table}', 'OBJECT'~{%}")))
+      (execute-sql-commit-preserve script-copy)
+      ;Warning don't execute the next statement if the last statement don't execute with success
+      (execute-sql-commit-preserve script-drop-rename-table)))
+
+  
+  (method (drop-table table)
+    (drop-table-relation table)
+    (drop-default-values table)
+    (drop-object table))
+  
+  
+  (method (process-description-table table table-name recreate-table?)
+    (bind (action old-value new-value) (get-property~ table description:)
+      (set! action (find-action-on-process-property action old-value new-value recreate-table?))
+      (when action
+        (execute-sql-commit-preserve
+         (case action
+           ((right) (generate-sql-add-description-table table-name new-value))
+           ((left)  (generate-sql-drop-description-table table-name))
+           ((modify) (generate-sql-update-description-table table-name new-value)))))))
+  
+  
+  (method (generate-sql-add-description-table table-name description)
+    (let* ((user "dbo")
+           (description (substitute-alist '((#\' . "''")) description))
+           (script (tie "DECLARE @v SQL_variant~{%}"
+                        "SET @v = N'{description}'~{%}"
+                        "EXECUTE sp_addextendedproperty N'MS_Description', @v, N'user', N'{user}', N'table', N'{table-name}', NULL, NULL~{%}")))
+      script))
+  
+  
+  (method (generate-sql-drop-description-table table-name)
+    (let* ((user "dbo")
+           (script (tie "EXECUTE sp_dropextendedproperty N'MS_Description', N'user', N'{user}', N'table', N'{table-name}', NULL, NULL~{%}")))
+      script))
+  
+  
+  (method (generate-sql-update-description-table table-name description)
+    (let* ((user "dbo")
+           (description (substitute-alist '((#\' . "''")) description))
+           (script (tie "DECLARE @v SQL_variant~{%}"
+                        "SET @v = N'{description}'~{%}"
+                        "EXECUTE sp_updateextendedproperty N'MS_Description', @v, N'user', N'{user}', N'table', N'{table-name}', NULL, NULL~{%}")))
+      script))
+  
+  
+  ;;;
+  ;;;; Column by SQL Command
+  ;;;
+
+  
+  @w
+  (method (generate-sql-drop-columns object table-name)
+    (let* ((columns-list (join (list "[FieldA]" "[FieldB]") ", "))
+           (script (tie "ALTER TABLE [{table-name}]~{%}"
+                        "~{&}DROP COLUMN [{columns-list}]~{%}")))
+      script))
+  
+  
+  (method (generate-sql-add-default-value table-name column-name constraint-name default-value)
+    (let ((script (tie "ALTER TABLE [{table-name}] ADD CONSTRAINT~{%}"
+                       "~{&}[{constraint-name}] DEFAULT {default-value} FOR [{column-name}]~{%}")))
+      script))
+  
+ 
+  (method (process-default-values table table-name recreate-table?)
+    (let ((constraint-table-name (get-name~ table)))
+      (for-each (function (column)
+                  (bind (action old-value new-value) (get-property~ column default-value:)
+                    (set! action (find-action-on-process-property action old-value new-value recreate-table?))
+                    (when action
+                      (let* ((column-name (get-name~ column))
+                             (new-constraint-name (tie "DF_{constraint-table-name}_{column-name}")))
+                        (case action
+                          ((right)  (with-execution-node
+                                    (function ()
+                                      (execute-sql-commit-preserve
+                                       (generate-sql-add-default-value table-name column-name new-constraint-name new-value)))
+                                    title: (format "Create default value {a} in table {a}" new-constraint-name constraint-table-name)))
+                          ((left)   (with-execution-node
+                                    (function ()
+                                      (execute-sql-commit-preserve
+                                       (let ((old-constraint-name (find-constraint-name constraint-table-name column-name)))
+                                         (generate-sql-drop-constraint table-name old-constraint-name))))
+                                    title: (format "Drop default value {a} in table {a}" new-constraint-name constraint-table-name)))
+                          ((modify) (with-execution-node
+                                    (function ()
+                                      (execute-sql-commit-preserve
+                                       (let* ((old-constraint-name (find-constraint-name constraint-table-name column-name))
+                                              (script-drop-default-value (generate-sql-drop-constraint table-name old-constraint-name))
+                                              (script-add-default-value  (generate-sql-add-default-value table-name column-name new-constraint-name new-value)))
+                                         (tie "{script-drop-default-value} {script-add-default-value}"))))
+                                    title: (format "Modify default value {a} in table {a}" new-constraint-name constraint-table-name))))))))
+                (get-columns~ table))))
+  
+  
+  (method (check-default-values table table-name)
+    (let ((constraint-table-name (get-name~ table)))
+      (for-each (function (column)
+                  (bind (action old-value new-value) (get-property~ column default-value:)
+                    (set! action (find-action-on-process-property action old-value new-value #f))
+                    (when action
+                      (let* ((column-name (get-name~ column))
+                             (new-constraint-name (tie "DF_{constraint-table-name}_{column-name}")))
+                        (case action
+                          ((right modify) (when (/= (find-default-value new-constraint-name) new-value)
+                                            (error "syntax error in default value \"{a}\" in table \"{a}\" column \"{a}\"" new-value constraint-table-name column-name))))))))
+                (get-columns~ table))))
+
+
+  (method (drop-default-values table)
+    (let ((table-name (get-name~ table)))
+      (for-each (function (column)
+                  (when (second (get-property~ column default-value:))
+                    (let* ((column-name (get-name~ column))
+                           (constraint-name (find-constraint-name table-name column-name))
+                           (script-header (generate-sql-header-script))
+                           (script-drop-constraint (generate-sql-drop-constraint table-name constraint-name)))
+                      (execute-sql-commit-preserve script-header)
+                      (execute-sql-commit-preserve script-drop-constraint))))
+                (get-columns~ table))))
+                  
+  
+  (method (find-constraint-name table-name column-name)
+    (with-closed ((tables (get-Tables~ (get-database~ inventory)))
+                  (table (Item~ tables table-name {}))
+                  (columns (get-Columns~ table))
+                  (column (Item~ columns column-name))
+                  (default (get-DRIDefault~ column)))
+      (get-Name~ default)))
+  
+  
+  (method (find-default-value constraint-name)
+    (let ((script (tie "exec sp_helptext [{constraint-name}]~{%}")))
+      (load-value~ connection script 0)))
+  
+  
+  (method (generate-sql-identity-start table-name)
+    (let ((script (tie "SET IDENTITY_INSERT [{table-name}] ON~{%}")))
+      script))
+  
+  
+  (method (generate-sql-identity-end table-name)
+    (let ((script (tie "SET IDENTITY_INSERT [{table-name}] OFF~{%}")))
+      script))
+  
+        
+  (method (process-description-columns table table-name recreate-table?)
+    (for-each (function (column)
+                (bind (action old-value new-value) (get-property~ column description:)
+                  (set! action (find-action-on-process-property action old-value new-value recreate-table?))
+                  (let ((column-name (get-name~ column)))
+                    (when action
+                      (execute-sql-commit-preserve
+                       (case action
+                         ((right) (generate-sql-add-description-column table-name column-name new-value))
+                         ((left)  (generate-sql-drop-description-column table-name column-name))
+                         ((modify) (generate-sql-update-description-column table-name column-name new-value))))))))
+              (get-columns~ table)))
+  
+  
+  (method (generate-sql-add-description-column table-name column-name description)
+    (let* ((user "dbo")
+           (description (substitute-alist '((#\' . "''")) description))
+           (script (tie "DECLARE @v SQL_variant~{%}"
+                        "SET @v = N'{description}'~{%}"
+                        "EXECUTE sp_addextendedproperty N'MS_Description', @v, N'user', N'{user}', N'table', N'{table-name}', N'column', N'{column-name}'~{%}")))
+      script))
+  
+  
+  (method (generate-sql-drop-description-column table-name column-name)
+    (let* ((user "dbo")
+           (script (tie "EXECUTE sp_dropextendedproperty N'MS_Description', N'user', N'{user}', N'table', N'{table-name}', N'column', N'{column-name}'~{%}")))
+      script))
+  
+  
+  (method (generate-sql-update-description-column table-name column-name description)
+    (let* ((user "dbo")
+           (description (substitute-alist '((#\' . "''")) description))
+           (script (tie "DECLARE @v SQL_variant~{%}"
+                        "SET @v = N'{description}'~{%}"
+                        "EXECUTE sp_updateextendedproperty N'MS_Description', @v, N'user', N'{user}', N'table', N'{table-name}', N'column', N'{column-name}'~{%}")))
+      script))
+  
+  
+  ;;;
+  ;;;; Primary Key by SQL Command
+  ;;;
+  
+  
+  (method (process-primary-key table recreate-table?)
+    (let ((primary-key (get-primary-key~ table)))
+      (when primary-key
+        (process-object primary-key recreate-table? add-primary-key drop-primary-key))))
+  
+  
+  (method (add-primary-key object)
+    (let ((script-header (generate-sql-header-script))
+           (script-create-primary-key (generate-sql-primary-key object)))
+      (execute-sql-commit-preserve script-header)
+      (execute-sql-commit-preserve script-create-primary-key)))
+  
+  
+  (method (drop-primary-key primary-key)
+    (let* ((constraint-name (get-name~ primary-key))
+           (table (get-parent~ primary-key))
+           (table-name (get-name~ table))
+           (script-header (generate-sql-header-script))
+           (script-drop-constraint (generate-sql-drop-constraint table-name constraint-name)))
+      (drop-table-relation table)
+      (execute-sql-commit-preserve script-header)
+      (execute-sql-commit-preserve script-drop-constraint)))
+  
+  
+  (method (generate-sql-primary-key primary-key)
+    (let* ((table-name (get-name~ (get-parent~ primary-key)))
+           (pk-name (get-name~ primary-key))
+           (fields/orders (create-fields/orders-list (third (get-property~ primary-key fields/orders:))))
+           (clustered (if (third (get-property~ primary-key clustered?:)) "CLUSTERED" "NONCLUSTERED"))
+           (fill-factor (third (get-property~ primary-key fill-factor:)))
+           (fill-factor-text (if (> fill-factor 0) (tie "WITH FILLFACTOR = {fill-factor}") ""))
+           (script (tie "ALTER TABLE [{table-name}] ADD CONSTRAINT~{%}"
+                        "~{&}[{pk-name}] PRIMARY KEY {clustered}~{%}"
+                        "~{&}(~{%}"
+                        "{fields/orders}~{%}"
+                        "~{&}) {fill-factor-text}~{%}")))
+      script))
+    
+  
+  (method (create-fields/orders-list list)
+    (join
+     (map (function (field/order)
+            (let* ((field (encapsulate-name (first field/order)))
+                   (order (second field/order))
+                   (order-string (if (= order 'ascending) "" "DESC")))
+              (tie "~{&}{field} {order-string}")))
+          list)
+     ",\n"))
+  
+  
+  ;;;
+  ;;;; Index by SQL Command
+  ;;;
+  
+  
+  (method (process-indexes object recreate-table?)
+    (for-each (function (index)
+                (process-object index recreate-table? add-index drop-index))
+              (get-indexes~ object)))
+  
+  
+  (method (add-index index)
+    (let ((script-header (generate-sql-header-script))
+           (script-create-index (generate-sql-index index)))
+        (execute-sql-commit-preserve script-header)
+        (execute-sql-commit-preserve script-create-index)))
+  
+  
+  (method (drop-index index)
+    (let* ((index-name (get-name~ index))
+           (table-name (get-name~ (get-parent~ index)))
+           (script (tie "DROP INDEX [{table-name}].[{index-name}]~{%}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (generate-sql-index index)
+    (let* ((table-name (get-name~ (get-parent~ index)))
+           (index-name (get-name~ index))
+           (fields/orders (create-fields/orders-list (third (get-property~ index fields/orders:))))
+           (unique (if (third (get-property~ index unique?:))
+                       "UNIQUE"
+                     ""))
+           (clustered (if (third (get-property~ index clustered?:)) "CLUSTERED" "NONCLUSTERED"))
+           (pad-index (if (third (get-property~ index pad-index?:)) "PAD_INDEX" {}))
+           (fill-factor (third (get-property~ index fill-factor:)))
+           (fill-factor-text (if (> fill-factor 0) (tie "FILLFACTOR = {fill-factor}") {}))
+           (ignore-dup-key (if (third (get-property~ index ignore-duplicates?:)) "IGNORE_DUP_KEY" {}))
+           (statistics-norecompute (if (third (get-property~ index recompute-statistics?:)) {} "STATISTICS_NORECOMPUTE"))
+           (options-list (remove-nils (list pad-index fill-factor-text ignore-dup-key statistics-norecompute)))
+           (options (if options-list
+                        (tie "WITH {options-list l detail: :human separator: \", \"}")
+                      ""))
+           (script (tie "CREATE {unique} {clustered} INDEX {index-name} ON [{table-name}]~{%}"
+                        "~{&}(~{%}"
+                        "{fields/orders}~{%}"
+                        "~{&}) {options}~{%}")))
+      script))
+  
+  
+  ;;;
+  ;;;; Trigger by SQL Command
+  ;;;
+  
+
+  (method (process-triggers object recreate-table?)
+    (for-each (function (trigger)
+                (with-continue
+                  (function ()
+                    (process-object trigger recreate-table? create-procedure drop-object))))
+              (get-triggers~ object)))
+  
+  
+  (method (process-table-triggers objects)
+    (for-each (function (table)
+                (let ((recreate-table? (get-property~ table recreate-table?: #f))
+                       (action (get-property~ table difference:)))
+                  (unless (= action 'left) ; Drop table
+                    (process-triggers table recreate-table?))))
+              (get-tables~ objects)))
+  
+  
+  ;;;
+  ;;;; Constraint by SQL Command
+  ;;;
+  
+  
+  (method (process-constraints table recreate-table?)
+    (for-each (function (constraint)
+                (process-object constraint recreate-table? create-constraint drop-constraint))
+              (get-constraints~ table)))
+  
+  
+  (method (create-constraint constraint)
+    (let* ((table-name (get-name~ (get-parent~ constraint)))
+           (constraint-name (get-name~ constraint))
+           (text (third (get-property~ constraint text:)))
+           (check? #t) ;not implement now always #t
+           (check-text (if check? "" "WITH NOCHECK"))
+           (replication-text (if (third (get-property~ constraint exclude-replication?:)) "NOT FOR REPLICATION" ""))
+           (checked-text (if (not (third (get-property~ constraint checked?:)))
+                             (tie  "ALTER TABLE [{table-name}]~{%}"
+                                   "~{&}NOCHECK CONSTRAINT [{constraint-name}]~{%}")
+                           ""))
+           (script (tie "ALTER TABLE [{table-name}] {check-text} ADD CONSTRAINT~{%}"
+                        "~{&}[{constraint-name}] CHECK {replication-text} ({text})~{%}"
+                        "{checked-text}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (drop-constraint constraint)
+    (let* ((table-name (get-name~ (get-parent~ constraint)))
+           (constraint-name (get-name~ constraint))
+           (script (tie "ALTER TABLE [{table-name}]~{%}"
+                        "~{&}DROP CONSTRAINT [{constraint-name}]~{%}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (generate-sql-drop-constraint table-name constraint-name)
+    (let ((script (tie "ALTER TABLE [{table-name}]~{%}"
+                       "~{&}DROP CONSTRAINT [{constraint-name}]~{%}")))
+      script))
+
+
+  ;;;
+  ;;;; Relation by SQL Command
+  ;;;
+  
+  
+  (method (generate-sql-relation relation)
+    (let ((recreate-table? (get-property~ relation recreate-table?: #f)))
+      (process-object relation recreate-table? create-relation drop-relation)))
+
+
+  (method (create-relation relation)
+    (let* ((relation-name (get-name~ relation))
+           (primary-table (third (get-primary-table~ relation)))
+           (primary-fields (third (get-primary-columns~ relation)))
+           (foreign-table (third (get-foreign-table~ relation)))
+           (foreign-fields (third (get-foreign-columns~ relation)))
+           (on-update-cascade (if (third (get-property~ relation update-cascade?:)) "ON UPDATE CASCADE" ""))
+           (on-delete-cascade (if (third (get-property~ relation delete-cascade?:)) "ON DELETE CASCADE" ""))
+           (replication-text (if (third (get-property~ relation exclude-replication?:)) "NOT FOR REPLICATION" ""))
+           (check? #t) ;not implement now always #t
+           (check-text (if check? "" "WITH NOCHECK"))
+           (checked-text (if (not (third (get-property~ relation checked?:)))
+                             (tie  "ALTER TABLE [{foreign-table}]~{%}"
+                                   "~{&}NOCHECK CONSTRAINT [{relation-name}]~{%}")
+                           ""))
+           (script (tie "ALTER TABLE [{foreign-table}] {check-text} ADD CONSTRAINT~{%}"
+                        "~{&}{relation-name} FOREIGN KEY~{%}"
+                        "~{&}(~{%}"
+                        "~{&}{foreign-fields l detail: :human separator: \", \"}~{%}"
+                        "~{&}) REFERENCES {primary-table}~{%}"
+                        "~{&}(~{%}"
+                        "~{&}{primary-fields l detail: :human separator: \", \"}~{%}"
+                        "~{&}) {on-update-cascade} {on-delete-cascade} {replication-text}~{%}"
+                        "{checked-text}")))
+      (execute-sql-commit-preserve script)))
+  
+
+  (method (drop-relation relation)
+    (let* ((relation-name (get-name~ relation))
+           (foreign-table (second (get-foreign-table~ relation)))
+           (script (tie "ALTER TABLE [{foreign-table}]~{%}"
+                        "~{&}DROP CONSTRAINT [{relation-name}]~{%}")))
+      (execute-sql-commit-preserve script)))
+  
+  
+  (method (drop-table-relation table)
+    (let ((table-name (get-name~ table)))
+      (for-each (function (relation)
+                  (unless (get-property~ relation recreate-table?: #f)
+                    (let ((foreign-table (second (get-foreign-table~ relation)))
+                           (primary-table (second (get-primary-table~ relation))))
+                      (when (or (= foreign-table table-name)
+                                (= primary-table table-name))
+                        (drop-relation relation)
+                        (set-property~ relation recreate-table?: #t)))))
+                (get-relations~ (get-parent~ table)))))
+    
+  
+  ;;;
+  ;;;; Stored Procedure by SQL Command
+  ;;;
+  
+  
+  (method (generate-sql-procedure object reporter)
+    (let ((action (get-property~ object difference:))
+          (name (get-name~ object)))
+      (when reporter
+        (user-message~ reporter "Updating procedure {a}..." name))
+      (case action
+        ((right)  (create-procedure object))
+        ((left)   (drop-object object))
+        ((modify) (drop-object object)
+                (create-procedure object)))))
+
+
+  (method (create-procedure object)
+    (let ((script-header (generate-sql-header-script))
+          (script-create-procedure (third (get-property~ object text:))))
+      (execute~ connection script-header)
+      (execute~ connection script-create-procedure)))
+  
+  
+  ;;;
+  ;;;; Access Right By SQL Command
+  ;;;
+  
+  
+  @w
+  (method (generate-sql-access-right)
+    (let* ((user "dbo")
+           (script (tie "GRANT REFERENCES ON Table1 TO public  AS {user}~{%}"
+                        "GRANT SELECT ON Table1(FieldA) TO public  AS {user}~{%}"
+                        "GRANT DELETE ON Table1 TO public  AS {user}~{%}"
+                        "GRANT UPDATE ON Table1(FieldA) TO public  AS {user}~{%}"
+                        "DENY SELECT ON Table1(FieldB) TO public~{%}"
+                        "DENY INSERT ON Table1 TO public~{%}"
+                        "DENY UPDATE ON Table1(FieldB) TO public~{%}")))
+      script))
+  
+  
+  ;;;
+  ;;;; Misc
+  ;;;
+  
+  
+  (method (object-new-property object property)
+    (third (get-property~ object property)))
+  
+  
+  (method (object-old-property object property)
+    (second (get-property~ object property)))
+  
+  
+  (method (action-for-property object property)
+    (first (get-property~ object property)))
+  
+  
+  (method (encapsulate-name name)
+    (format "[{a}]" name))
+  
+  
+  (method (execute-sql-commit-preserve script)
+    (let* (@wait(script (tie "BEGIN TRANSACTION~{%}"
+                             "{script}"))
+           (commit (tie "COMMIT~{%}")))
+      (execute~ connection script)
+      @wait(execute~ connection commit)))
+  
+    
+  ;;;
+  ;;;; Update via DAO and SQLDMO API
+  ;;;
+ 
+  
+  (method (process-entity object parent-proxy reporter)
+    (with-continue
+      (function ()
+        (let ((action (cdr (assq (get-property~ object difference:) Actions)))
+              (kind (get-kind~ object))
+              (name (get-name~ object)))
+          (case action
+            ((add) (process-new object parent-proxy kind name reporter))
+            ((remove) (process-delete object parent-proxy kind name reporter))
+            ((modify no-action) (process-modify object parent-proxy kind name reporter)))))))
+  
+  
+  (method (process-new object parent-proxy kind name reporter)
+    (with-execution-node
+      (function ()
+        (let ((proxy (new-proxy parent-proxy kind name object)))
+          (set! ugly-patch (cons proxy ugly-patch))
+          (process-proxy object parent-proxy proxy reporter)))
+      title: (format "Create {a} {a}" kind name)))
+  
+  
+  (method (process-delete object parent-proxy kind name reporter)
+    (with-execution-node
+      (function ()
+        (process-proxy object parent-proxy {} reporter))
+      title: (format "Delete {a} {a}" kind name)))
+  
+  
+  (method (process-modify object parent-proxy kind name reporter)
+    (with-execution-node
+      (function ()
+        (let ((proxy (get-proxy parent-proxy kind name)))
+          (set! ugly-patch (cons proxy ugly-patch))
+          (process-proxy object parent-proxy proxy reporter)))
+      title: (format "Modify {a} {a}" kind name)))
+  
+  
+  (definition Recreate
+    '(primary-key index trigger constraint view relation procedure))
+  
+  
+  (method (process-proxy object parent-proxy proxy reporter)
+    (let* ((action (cdr (assq (get-property~ object difference:) Actions)))
+           (kind (get-kind~ object))
+           (name (get-name~ object))
+           (entity? (is? object Data-Entity))
+           (new? (= action 'add)))
+      (when reporter
+        (user-message~ reporter "Updating {a}..." name))
+      (if (= action 'remove)
+          (add-pending-delete (list kind parent-proxy name object))
+        (when (eq? kind 'relation)
+          (process-pending-triggers/indexes))
+        (when (or (= action 'no-action) (= action 'modify))
+          (when (and (get-property~ object has-differences?: #f)
+                     (or (memq? kind Recreate)
+                         (and (= kind 'table)
+                              (get-property~ object linked?: #f))))
+            (delete-proxy kind parent-proxy name object)
+            (set! proxy (new-proxy parent-proxy kind name object))
+            (set! ugly-patch (cons proxy ugly-patch))
+            (set! new? #t)))
+        (modify-proxy object proxy kind new?)
+        (when entity?
+          (process-children object proxy reporter))
+        (when new?
+          (if entity?
+              (unless (is? proxy SQLServer-Inventory-Relation)
+                (complete-append kind parent-proxy proxy))
+            (if (memq? kind '(trigger index))
+                (add-pending-trigger/index (list kind parent-proxy proxy))
+              (complete-append kind parent-proxy proxy)))))))
+  
+  
+  ;;;
+  ;;;; New by API
+  ;;;
+
+
+  (method (new-proxy parent kind name object)
+    (case kind
+      ((table)       (create-table~ parent name))
+      ((primary-key) (let ((fields/orders (third (get-property~ object fields/orders:))))
+                     (create-primary-key~ parent name fields/orders)))
+      ((column)      (create-column~ parent name))
+      ((index)       (create-index~ parent name))
+      ((trigger)     (create-trigger~ parent name))
+      ((constraint)  (create-constraint~ parent name))
+      ((view)        (create-view~ parent name))
+      ((relation)    (if (is-not? parent SQLServer-Inventory)
+                       (create-relation~ parent name)
+                     (let ((primary-table (third (get-property~ object primary-table:)))
+                            (primary-fields (third (get-property~ object primary-columns:)))
+                            (foreign-table (third (get-property~ object foreign-table:)))
+                            (foreign-fields (third (get-property~ object foreign-columns:))))
+                       (create-relation-complete~ parent name primary-table primary-fields foreign-table foreign-fields))))
+      ((procedure)   (create-procedure~ parent name))
+      (else (error "Unknown component kind:" kind))))
+  
+  
+  ;;;
+  ;;;; Get by API
+  ;;;
+  
+  
+  (method (get-proxy parent kind name)
+    (case kind
+      ((table)       (get-table~ parent name))
+      ((primary-key) (get-primary-key~ parent))
+      ((column)      (get-column~ parent name))
+      ((index)       (get-index~ parent name))
+      ((trigger)     (get-trigger~ parent name))
+      ((constraint)  (get-constraint~ parent name))
+      ((view)        (get-view~ parent name))
+      ((relation)    (get-relation~ parent name))
+      ((procedure)   (get-procedure~ parent name))
+      (else (error "Unknown component kind:" kind))))
+  
+  
+  ;;;
+  ;;;; Modify by API
+  ;;;
+
+    
+  (method (modify-proxy object physical kind force?)
+    (for-each (function (symbol)
+                (let* ((property (symbol->keyword symbol))
+                       (composite (get-property~ object property)))
+                  (bind (action old-value new-value) composite
+                    (when (or force? (= action 'modify))
+                      (if (memq? symbol '(description display-format @w allow-zero-length?))
+                          (add-pending-property (list object physical kind symbol new-value))
+                        (modify-proxy-property object physical kind symbol new-value force?))))))
+              (property-names~ object)))
+  
+
+  (method (modify-proxy-property object physical kind property value force?)
+    (with-execution-node
+      (function ()
+        (case kind
+          ((table)       (modify-table-property physical property value))
+          ((primary-key) (modify-primary-key-property physical property value))
+          ((column)      (modify-column-property object physical property value force?))
+          ((index)       (modify-index-property physical property value))
+          ((trigger)     (modify-trigger-property physical property value))
+          ((constraint)  (modify-constraint-property physical property value))
+          ((view)        (modify-view-property physical property value))
+          ((procedure)   (modify-procedure-property physical property value))
+          ((relation)    (modify-relation-property physical property value))
+          (else (error "Unknown component kind:" kind))))
+      title: (format "Modify {a} {a} : {a}" kind property value)))
+  
+
+  (method (modify-table-property physical property value)
+    (case property
+     ((connect)           (set-connect~ physical value))
+     ((source-table-name) (set-source-table-name~ physical value))
+     ((description)       (set-description~ physical value))
+     ((validation-rule)   (set-validation-rule~ physical value))
+     ((validation-text)   (set-validation-text~ physical value))
+     (else (error "Unknown table property: {t}" property))))
+
+
+  (method (modify-primary-key-property physical property value)
+    (case property
+      ((fields/orders clustered? fill-factor))
+      (else (error "Unknown primary key property: {t}" property))))
+  
+  
+  (method (create-field-by-sql physical value)
+    (let* ((table-name (get-title~ (get-table~ physical)))
+           (field-name (get-title~ physical))
+           @optional
+           (nullable? (get-nullable?~ physical))
+           (type-name (get-name~ value))
+           (size (get-size~ value))
+           (sizeable? (has-size?~ value))
+           (size-label (if sizeable?
+                           (format "({a})" size)
+                         ""))
+           (request (tie "ALTER TABLE [{table-name}] ~{%}"
+                         "~{&}ALTER COLUMN [{field-name}] ~{%}"
+                         "~{&}~{&}{type-name}{size-label}")))
+      (execute~ connection request)))
+  
+
+  (method (modify-column-property object physical property value force?)
+    (when (column-supports-property?~ inventory object property)
+      (case property
+        ((default-value)         (set-default-value~ physical value))
+        ((description)           (set-description~ physical value))
+        ((datatype)              (if force?
+                                   (set-datatype~ physical value)
+                                 (typecase value
+                                   ((Access-Datatype)
+                                    (create-field-by-sql physical value))
+                                   (else
+                                    (let ((nullable? (get-nullable?~ physical))
+                                          (type (get-type~ physical))
+                                          (new-type (get-name~ value)))
+                                      (if (= type new-type)
+                                          (begin
+                                            (set-size~ physical (get-size~ value))
+                                            (set-nullable?~ physical nullable?))
+                                        {}
+                                        @wait
+                                        (create-field-by-sql physical value)))))))
+        ((nullable?)             (set-nullable?~ physical value))
+        ((validation-rule)       (set-validation-rule~ physical value))
+        ((validation-text)       (set-validation-text~ physical value))
+        ((allow-zero-length?)    (set-allow-zero-length?~ physical value))
+        ((display-format)        (set-display-format~ physical value))
+        ((ordinal-position)      (set-ordinal-position~ physical value))
+        ((auto-increment?)       (set-auto-increment?~ physical value))
+        ((identity?)             (set-identity?~ physical value))
+        ((identity-replication?))
+        ((identity-increment)    (set-identity-increment~ physical value))
+        ((identity-seed)         (set-identity-seed~ physical value))
+        (else (error "Unknown column property: {t}" property)))))
+
+
+  (method (modify-index-property physical property value)
+    (case property
+      ((fields/orders) (set-fields/orders~ physical value))
+      ((unique?) (unless (is? physical SQLServer-Inventory-Index) (set-unique?~ physical value)))
+      ((ignore-duplicates? clustered? pad-index? recompute-statistics? fill-factor checked? exclude-replication?))
+      (else (error "Unknown index property: {t}" property))))
+
+
+  (method (modify-trigger-property physical property value)
+    (case property
+      ((text) (set-text~ physical value))
+      (else (error "Unknown trigger property: {t}" property))))
+
+
+  (method (modify-constraint-property physical property value)
+    (case property
+      ((text exclude-replication? checked?))
+      (else (error "Unknown constraint property: {t}" property))))
+  
+  
+  (method (modify-procedure-property physical property value)
+    (case property
+      ((text) (set-text~ physical value))
+      (else (error "Unknown procedure property: {t}" property))))
+
+
+  (method (modify-view-property physical property value)
+    (case property
+      ((text) (set-text~ physical value))
+      (else (error "Unknown view property: {t}" property))))
+
+
+  (method (modify-relation-property physical property value)
+    (unless (is? physical SQLServer-Inventory-Relation)
+      (case property
+        ((primary-columns) (set-primary-field-names~ physical value))
+        ((primary-table)   (set-primary-table~ physical value))
+        ((foreign-columns) (set-foreign-field-names~ physical value))
+        ((foreign-table)   (set-foreign-table~ physical value))
+        ((right?)          (set-right?~ physical value))
+        ((left?)           (set-left?~ physical value))
+        ((unique?)         (set-unique?~ physical value))
+        ((delete-cascade?) (set-delete-cascade?~ physical value))
+        ((update-cascade?) (set-update-cascade?~ physical value))
+        ((exclude-replication? checked?))
+        (else (error "Unknown relation property: {t}" property)))))
+  
+  
+  ;;;
+  ;;;; Append by API
+  ;;;
+
+
+  (method (complete-append kind parent child)
+    (with-continue
+      (function ()
+        (case kind
+          ((table)       (append-table~ parent child))
+          ((primary-key) (append-primary-key~ parent child))
+          ((column)      (append-column~ parent child))
+          ((index)       (append-index~ parent child))
+          ((trigger)     (append-trigger~ parent child))
+          ((constraint)  (append-constraint~ parent child))
+          ((view)        (append-view~ parent child))
+          ((relation)    (append-relation~ parent child))
+          ((procedure)   (append-procedure~ parent child))
+          (else (error "Unknown component kind:" kind))))))
+  
+  
+  ;;;
+  ;;;; Delete by API
+  ;;;
+  
+  
+  (method (delete-proxy kind parent child-name object)
+    (case kind
+      ((table)       (remove-table~ parent child-name))
+      ((primary-key) (remove-primary-key~ parent child-name))
+      ((column)      (remove-column~ parent child-name))
+      ((index)       (remove-index~ parent child-name))
+      ((trigger)     (remove-trigger~ parent child-name))
+      ((constraint)  (remove-constraint~ parent child-name))
+      ((view)        (remove-view~ parent child-name))
+      ((relation)    (if (is-not? parent SQLServer-Inventory)
+                       (remove-relation~ parent child-name)
+                     (let ((foreign-table (second (get-property~ object foreign-table:))))
+                       (remove-relation~ parent child-name foreign-table))))
+      ((procedure)   (remove-procedure~ parent child-name))
+      (else (error "Unknown component kind:" kind))))
+  
+  
+  ;;;
+  ;;;; Pending by API
+  ;;;
+  
+  
+  (method (add-pending-property info)
+    (set! pending-properties (cons info pending-properties)))
+  
+  
+  (method (add-pending-delete info)
+    (set! pending-deletes (cons info pending-deletes)))
+  
+  
+  (method (add-pending-trigger/index info)
+    (set! pending-triggers/indexes (cons info pending-triggers/indexes)))
+  
+  
+  (method (process-pending-properties)
+    (for-each (function (element)
+                (bind (object physical kind symbol new-value) element
+                  (with-continue
+                    (function ()
+                      (modify-proxy-property object physical kind symbol new-value #t)))))
+              pending-properties))
+  
+  
+  (definition Entities-Delete
+    '(relation procedure view table trigger constraint index primary-key column))
+  
+    
+  (method (process-pending-deletes)
+    (for-each (function (element)
+                (bind (kind physical name object) element
+                  (with-continue
+                    (function ()
+                      (delete-proxy kind physical name object)))))
+              (sort < pending-deletes key: (function (lst)
+                                             (find Entities-Delete (first lst))))))
+  
+  
+  (method (process-pending-triggers/indexes)
+    (for-each (function (element)
+                (bind (kind entity subentity) element
+                  (complete-append kind entity subentity)))
+              pending-triggers/indexes)
+    (set! pending-triggers/indexes '()))))

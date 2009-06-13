@@ -1,0 +1,143 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Logical Datatypes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.schema.data.Logical-Datatype jazz
+
+
+(import (jazz.library)
+        (jazz.schema)
+        (jazz.utilities))
+
+
+(class Logical-Datatype extends Object
+  
+  
+  (slot name)
+  (slot size)
+  (slot precision)
+  (slot scale)
+  
+  
+  @convert-literal
+  (method meta (construct-literal context name size (precision {}) (scale {}))
+    (assert (or (integer? size) (null? size)))
+    (assert (or (integer? precision) (null? precision)))
+    (assert (or (integer? scale) (null? scale)))
+    (new self name size precision scale))
+    
+    
+  (method (initialize name size (precision {}) (scale {}))
+    (nextmethod)
+    (set! name~self name)
+    (set! size~self size)
+    (set! precision~self precision)
+    (set! scale~self scale))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Logical-Datatype)
+           :incompatible)
+          ((and (= name (get-name~ target))
+                (= size (get-size~ target))
+                (= precision (get-precision~ target))
+                (= scale (get-scale~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  @convert-fold
+  (method (foldable?)
+    #t)
+
+
+  @convert-fold
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler name)
+    (fold-more~ compiler size)
+    (fold-more~ compiler precision)
+    (fold-more~ compiler scale)
+    (output~ compiler ")"))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}{? {s}~}{? {s}~}}"
+            (identifier-name (type-name (class-of self)))
+            name
+            size
+            precision
+            scale))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (get-size)
+    size)
+  
+  
+  (method public (has-size?)
+    (not-null? size))
+  
+  
+  (method public (has-precision?)
+    (not-null? precision))
+  
+  
+  (method public (has-scale?)
+    (not-null? scale))
+ 
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public virtual (present)
+    (if (null? size)
+        (if (null? precision)
+            (format "{a}" name)
+          (format "{a} {a} {a}" name precision scale))
+      (format "{a} {a}" name size)))))

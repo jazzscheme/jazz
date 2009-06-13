@@ -1,0 +1,64 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; LDAP3
+;;;
+
+
+(library ldap.ldap3 jazz
+
+
+(import (ldap.ffi))
+
+
+;;;
+;;;; Connection
+;;;
+
+
+(class LDAP-Connection extends Object
+  
+  
+  (slot connection)
+  
+  
+  (method (initialize host (port: port LDAP_PORT))
+    (set! connection (ldap_open host port)))
+  
+  
+  (method public (add name value)
+    (ldap_add connection name value))
+  
+  (method public (delete name)
+    (ldap_delete connection name))
+  
+  
+  (method public (search target)
+    (let ((search (ldap_search connection target)))
+      (loop (for n from 0 below (ldap_count_entries connection search))
+            (collect (new LDAP-Entry connection (ldap_get_entry connection search n)))))))
+
+
+;;;
+;;;; Entry
+;;;
+
+
+(class LDAP-Entry extends Object
+  
+  
+  (slot connection)
+  (slot entry)
+  
+  
+  (method (initialize connection entry)
+    (set! connection~self connection)
+    (set! entry~self entry))
+  
+  
+  (method public (get-name)
+    (ldap_entry_name connection entry))
+  
+  (method public (get-value)
+    (ldap_entry_value connection entry))))

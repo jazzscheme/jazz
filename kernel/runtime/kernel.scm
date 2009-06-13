@@ -356,9 +356,6 @@
 (define jazz.Jazz-Repository
   (jazz.make-repository 'Jazz "Jazz" jazz.kernel-source #f "lib" error?: #f))
 
-(define jazz.Opt-Repository
-  (jazz.make-repository 'Opt "Opt" "~/" "jazz_opt/" "lib"))
-
 (define jazz.User-Repository
   (jazz.make-repository 'User "User" "~/" "jazz_user/" "lib"))
 
@@ -371,7 +368,6 @@
   
   `(,@(listify jazz.Bin-Repository)
     ,@(listify jazz.Jazz-Repository)
-    ,@(listify jazz.Opt-Repository)
     ,@(listify jazz.User-Repository)))
 
 

@@ -1,0 +1,103 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Data Rows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Marcel Cote
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.schema.data.Data-Row jazz
+
+
+(import (jazz.library)
+        (jazz.schema)
+        (jazz.utilities))
+
+
+(class Data-Row extends Data-Container
+  
+  
+  (slot values)
+  
+  
+  (method (initialize table state values)
+    (nextmethod table state)
+    (set! values~self (either values (map (function (column) nil) (get-columns~ table)))))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{s}" values))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-values)
+    values)
+  
+  
+  ;;;
+  ;;;; Get/Set
+  ;;;
+  
+  
+  (method (get name/rank)
+    (cond ((integer? name/rank)
+           (element values name/rank))
+          ((string? name/rank)
+           (continuation-capture
+             (function (return)
+               (let ((columns (get-columns~ table)))
+                 (for-each (function (column value)
+                             (when (ci=? (get-name~ column) name/rank)
+                               (continuation-return return value)))
+                           columns
+                           values))
+               (error "Unknown column: {t}" name/rank))))
+          (else
+           (map get name/rank))))
+  
+  
+  (method public (set name value)
+    (let (iterate (columns (get-columns~ table))
+                  (scan values))
+      (if (or (null? columns) (null? scan))
+          (error "Unknown column: {t}" name)
+        (let ((column (car columns)))
+          (if (ci=? (get-name~ column) name)
+              (set-car! scan value)
+            (iterate (cdr columns) (cdr scan)))))))))

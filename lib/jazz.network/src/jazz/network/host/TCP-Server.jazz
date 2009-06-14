@@ -50,18 +50,21 @@
   (slot socket-info)
   (slot server-thread)
   (slot started-condition)
-  (slot state initialize 'stopped)
+  (slot state             initialize 'stopped)
+  (slot hits              initialize 0)
+  (slot debug?)
   
   
   (method (initialize . rest)
-    (bind-keywords ((name {}) (host {}) (service {})) rest
+    (bind-keywords ((name {}) (host {}) (service {}) (debug? #f)) rest
       (nextmethod)
       (set! name~self name)
       (set! host~self host)
       (set! service~self service)
       (set! socket-info~self {})
       (set! server-thread~self {})
-      (set! started-condition~self (make-condition))))
+      (set! started-condition~self (make-condition))
+      (set! debug?~self debug?)))
 
   
   ;;;
@@ -91,6 +94,18 @@
   
   (method (set-state value)
     (set! state value))
+  
+  
+  (method public (get-hits)
+    hits)
+  
+  
+  (method public (get-debug?)
+    debug?)
+  
+  
+  (method public (set-debug? value)
+    (set! debug? value))
   
   
   ;;;
@@ -155,12 +170,20 @@
             'tcp-server))
   
   
+  (method protected virtual (server-version)
+    "1.0")
+  
+  
   (method protected virtual (server-host)
     (get-host))
   
   
   (method protected virtual (server-service)
     (get-service))
+  
+  
+  (method protected virtual (server-hit)
+    (increase! hits))
   
   
   (method protected virtual (connection-name)
@@ -203,4 +226,11 @@
   
   
   (method protected virtual (accept-connection port)
+    (server-hit)
+    (unwind-protect
+        (process-connection port)
+      (close-port port)))
+  
+  
+  (method protected virtual (process-connection port)
     )))

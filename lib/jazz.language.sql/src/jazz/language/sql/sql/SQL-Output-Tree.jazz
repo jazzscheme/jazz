@@ -57,11 +57,13 @@
   
   (method (double-click pos)
     (nextmethod pos)
+    @wait
     (let ((profile (get-profile~ (get-application)))
           (cell (view->tree pos)))
       (sql-output-action~ profile self cell)))
 
   
+  @wait
   (method (context-menu pos)
     (with-context-click pos
       (function ()
@@ -104,6 +106,8 @@
   
   
   (method (get-cell-tooltip cell)
+    {}
+    @wait
     (let* ((appl (get-application))
            (profile (get-profile~ appl))
            (column (get-column (get-col~ cell)))
@@ -114,4 +118,61 @@
   
   (method (get-tooltip-position text rect h v)
     (+ (rect-position rect)
-       (center (new Dimension (+ (text-width~ font text) 6) 16) (rect-size rect))))))
+       (center (new Dimension (+ (text-width~ font text) 6) 16) (rect-size rect))))
+  
+
+  ;;;
+  ;;;; Display
+  ;;;
+  
+  
+  (definition Header-Font
+    {Font name: Code})
+  
+  
+  (method (display-table table)
+    (let* ((columns (get-columns~ table))
+           (rows (get-rows~ table))
+           (affected (length rows))
+           (text-max-char (get-max-char-width~ (get-metrics~ {Font name: Code})))
+           (text-widths (compute-widths columns Header-Font text-max-char))
+           (tree-font (get-font))
+           (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
+           (tree-widths (compute-widths columns tree-font tree-max-char))
+           (max-display 100)
+           (not-displayed 0))
+      (display-tree columns rows affected max-display not-displayed tree-widths)))
+  
+  
+  (method (compute-widths columns font max-char)
+    (map (function (column)
+           (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
+         columns))
+  
+  
+  (method (present-value value)
+    (if (nil? value)
+        "NULL"
+      (->string value)))
+  
+  
+  (method (display-tree columns rows affected max-display not-displayed widths)
+    (with-update-locked
+      (function ()
+        (remove-columns)
+        (let ((first-column (car columns)))
+          (for-each (function (column width)
+                      (let* ((node? (eq? column first-column))
+                             (column (if node?
+                                         (add-column class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
+                                       (add-column class: Tree-Label-Column title: (get-name~ column) width: width))))
+                        (when node?
+                          (set-display-images?~ column #f))))
+                    columns
+                    widths))
+        (for-each (function (row)
+                    (let* ((values (get-values~ row))
+                           (first (car values))
+                           (rest (cdr values)))
+                      (add-row children: (cons (new Tree-Node title: (present-value first)) (map (function (value) (new Tree-Label title: (present-value value))) rest)))))
+                  (if (> affected max-display) (subseq rows 0 max-display) rows)))))))

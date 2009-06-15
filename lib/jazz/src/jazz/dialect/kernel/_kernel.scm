@@ -926,6 +926,8 @@
 (native u8vector?)
 (native u8vector->list)
 (native list->u8vector)
+(native u8vector->object)
+(native object->u8vector)
 (native u16vector)
 (native make-u16vector)
 (native u16vector-length)

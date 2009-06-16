@@ -1113,6 +1113,8 @@
   (let ((install jazz.kernel-install)
         (platform jazz.kernel-platform)
         (jobs (or jazz.jobs (jazz.build-jobs)))
+        (module-table (make-table))
+        (module-table-mutex (make-mutex 'module-table))
         (made-mutex (make-mutex 'make-product))
         (made '()))
     (define (install-file path)
@@ -1124,6 +1126,50 @@
          (install-file "jazz"))
         (else
          "./jazz")))
+    
+    (define (with-module-table-mutex proc)
+      (mutex-lock! module-table-mutex)
+      (let ((result (proc)))
+        (mutex-unlock! module-table-mutex)
+        result))
+    
+    (define (get-module-thread name)
+      (with-module-table-mutex
+        (lambda ()
+          (table-ref module-table name #f))))
+    
+    (define (set-module-thread name thread)
+      (with-module-table-mutex
+        (lambda ()
+          (table-set! module-table name thread))))
+    
+    (define (make-parallel2 names)
+      (for-each thread-join!
+                (map (lambda (name)
+                       (or (get-module-thread name)
+                           (let ((thread (thread-start!
+                                           (make-thread
+                                             (lambda ()
+                                               (make2 name))))))
+                             (set-module-thread name thread)
+                             thread)))
+                     names)))
+    
+    (define (make2 name)
+      (let ((descriptor (jazz.get-product-descriptor name)))
+        (let ((dependencies (jazz.product-descriptor-dependencies descriptor)))
+          (write name)
+          (write dependencies)
+          (newline)
+          (make-parallel2 dependencies)
+          (build2 name))))
+    
+    (define (build2 name)
+      (with-module-table-mutex
+        (lambda ()
+          (display name)
+          (newline))))
+      
     
     (define (with-made-mutex proc)
       (mutex-lock! made-mutex)

@@ -197,12 +197,10 @@
                 (with-debug-exception-handler
                   (lambda ()
                     (let iter ()
-                         (let ((module (read-line)))
-                           (if (> (string-length module) 0)
+                         (let ((module (read)))
+                           (if module
                                (begin
-                                 (display module)
-                                 (newline)
-                                 (jazz.compile-module (%%string->symbol module))
+                                 (jazz.compile-module module)
                                  (newline)
                                  (iter))))))))
               (else

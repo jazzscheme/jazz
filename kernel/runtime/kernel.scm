@@ -795,32 +795,34 @@
     (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
-          (lambda (package path)
-            (if (%%not bin)
-                (set! bin (jazz.package-find-bin package path)))
-            (if (%%not src)
-                (set! src (jazz.package-find-src package path extensions)))
-            (if src
-                (continuation-return return #f))))))
-    #; ;; test
-    (if bin
-        (jazz.validate-repository-unicity (%%package-repository (%%resource-package bin))
-                                          (jazz.path->name (%%resource-path bin))
-                                          (lambda (package)
-                                            (jazz.package-find-bin package (%%resource-path bin)))))
-    #; ;; test
-    (if src
-        (jazz.validate-repository-unicity (%%package-repository (%%resource-package src))
-                                          (jazz.path->name (%%resource-path src))
-                                          (lambda (package)
-                                            (jazz.package-find-src package (%%resource-path src) extensions))))
-    (let ((manifest (and bin (jazz.load-manifest bin))))
-      (let ((bin-uptodate?
-              (and bin (or (%%not src)
-                           (and manifest
-                                (not (jazz.manifest-needs-rebuild? manifest))
-                                (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
-        (proc src bin bin-uptodate?)))))
+                                (lambda (package path)
+                                  (if (%%not bin)
+                                      (set! bin (jazz.package-find-bin package path)))
+                                  (if (%%not src)
+                                      (set! src (jazz.package-find-src package path extensions)))
+                                  (if src
+                                      (continuation-return return #f))))))
+    (if (%%not src)
+        (jazz.error "Unable to find source for module: {s}" module-name)
+      #; ;; test
+      (if bin
+          (jazz.validate-repository-unicity (%%package-repository (%%resource-package bin))
+                                            (jazz.path->name (%%resource-path bin))
+                                            (lambda (package)
+                                              (jazz.package-find-bin package (%%resource-path bin)))))
+      #; ;; test
+      (if src
+          (jazz.validate-repository-unicity (%%package-repository (%%resource-package src))
+                                            (jazz.path->name (%%resource-path src))
+                                            (lambda (package)
+                                              (jazz.package-find-src package (%%resource-path src) extensions))))
+      (let ((manifest (and bin (jazz.load-manifest bin))))
+        (let ((bin-uptodate?
+                (and bin (or (%%not src)
+                             (and manifest
+                                  (not (jazz.manifest-needs-rebuild? manifest))
+                                  (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
+          (proc src bin bin-uptodate?))))))
 
 
 (define (jazz.module-uptodate-binary? module-name)

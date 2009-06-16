@@ -154,11 +154,12 @@
           (current-handler exc))
         thunk)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "build2" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
             (build (jazz.get-option "build" options))
+            (build2 (jazz.get-option "build2" options))
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options))
@@ -191,6 +192,19 @@
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.compile-module (%%string->symbol compile)))))
+              (build2
+                (process-buildini-file)
+                (with-debug-exception-handler
+                  (lambda ()
+                    (let iter ()
+                         (let ((module (read-line)))
+                           (if (> (string-length module) 0)
+                               (begin
+                                 (display module)
+                                 (newline)
+                                 (jazz.compile-module (%%string->symbol module))
+                                 (newline)
+                                 (iter))))))))
               (else
                (jazz.repl-main)))))))
 

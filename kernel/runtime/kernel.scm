@@ -1204,7 +1204,6 @@
                       (count (string-length line)))
                  (if (> count 0)
                      (let ((compiling? (and (>= count 11) (string=? (substring line 0 11) "; compiling"))))
-                       (if (and compiling? (not modified?))
                        (display line)
                        (newline)
                        (force-output)

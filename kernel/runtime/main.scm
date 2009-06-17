@@ -197,11 +197,12 @@
                 (with-debug-exception-handler
                   (lambda ()
                     (let iter ()
-                         (let ((module (read)))
-                           (if module
+                         (let ((product (read)))
+                           (if product
                                (begin
-                                 (jazz.compile-module module)
+                                 (jazz.build-product product)
                                  (newline)
+                                 (force-output)
                                  (iter))))))))
               (else
                (jazz.repl-main)))))))

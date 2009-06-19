@@ -51,40 +51,17 @@
         (jazz.utilities))
 
 
+;; Lexicon
+;; - picker : view added to the root to override mouse events
+
+
 (definition In-Pick?
   #f)
 
 (definition All-Pickers
   '())
 
-(definition Highlight-Figure?
-  #f)
-
-(definition Highlighted-Player
-  {})
-
-(definition Highlighted-View
-  {})
-
-(definition Highlighted-Position
-  {})
-
-(definition Highlighted-Root-Rect
-  {})
-
-(definition Highlighted-View-Rect
-  {})
-
-(definition Highlighted-Row-Rect
-  {})
-
-(definition Report-Figure?
-  #f)
-
-(definition Obscure-Unhighlighted?
-  #f)
-
-(definition Picker-Action
+(definition Highlighted-Picker
   {})
 
 
@@ -93,219 +70,95 @@
                                 (click: click {})
                                 (menu: menu {})
                                 (highlight: highlight {})
-                                (highlight-figure?: highlight-figure? #t)
+                                (highlight-root-only?: highlight-root-only? #f)
                                 (report-figure?: report-figure? #t)
                                 (obscure-unhighlighted?: obscure-unhighlighted? #t)
                                 (tooltips?: tooltips? #t))
   (unless In-Pick?
     (with-locked-update
       (function ()
-        (let ((windows (process-windows))
-              (toplevel (get-toplevel)))
+        (let ((windows (process-windows)))
           (when (not-null? windows)
             (setup-pick)
             (set! All-Pickers '())
-            (set! Highlight-Figure? highlight-figure?)
-            (set! Report-Figure? report-figure?)
-            (set! Obscure-Unhighlighted? obscure-unhighlighted?)
-            (set! Picker-Action click)
             (for-each (function (overlapped)
                         (when (and (or (not include) (memq? overlapped include))
                                    (or (not exclude) (not (memq? overlapped exclude))))
-                          (install-overlays overlapped click menu highlight tooltips?)
-                          (invalidate-window~ overlapped)
-                          (set! All-Pickers (cons overlapped All-Pickers))))
+                          (let ((picker (install-picker overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)))
+                            (invalidate-view~ picker)
+                            (set! All-Pickers (cons picker All-Pickers)))))
                       windows)
-            (simulate-mouse-move)
             (set! In-Pick? #t)))))))
 
 
-(definition (setup-pick)
-  (inhibit-view-cursor #t)
-  (set-shortcut-hook~ (get-application) shortcut-hook))
+(definition (install-picker overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)
+  (let ((root (get-root~ overlapped)))
+    (new Picker-Overlay
+      parent: root
+      position: {Point 0 0}
+      size: (get-size~ root)
+      click: click
+      menu: menu
+      highlight: highlight
+      highlight-root-only?: highlight-root-only?
+      report-figure?: report-figure?
+      obscure-unhighlighted?: obscure-unhighlighted?
+      tooltips?: tooltips?)))
 
 
-(definition (install-overlays overlapped click menu highlight tooltips?)
-  (for-each-window overlapped
-    (function (window)
-      (let ((root (get-root~ window)))
-        (new Picker-Overlay
-          parent: root
-          position: {Point 0 0}
-          size: (get-size~ root)
-          click: click
-          menu: menu
-          highlight: highlight
-          tooltips?: tooltips?)))))
-
-
-(definition (remove-overlays overlapped)
-  (for-each-window overlapped
-    (function (window)
-      (let ((root (get-root~ window)))
-        (when root
-          (let ((overlay (find-type~ root Picker-Overlay)))
-            (when overlay
-              (close~ overlay))))))))
-
-
-(definition (for-each-window overlapped proc)
-  (for-each-descendant~ overlapped
-    (function (window level)
-      (when (and ;; because on windows overlapped can be descendants of the toplevel
-                 ;; this test is necessary to not process those overlapped twice
-                 (or (eq? window overlapped) (is-not? window Overlapped))
-                 (is? window View-Player) (get-visible?~ window))
-        (proc window)))))
-
-
-(definition (simulate-mouse-move)
-  (let ((view (mouse-view)))
-    (when view
-      (let* ((player (get-player~ view))
-             (display (get-display~ view))
-             (root (get-root~ view))
-             (overlapped (get-overlapped~ view))
-             (picker (find-picker overlapped))
-             (pos (mouse-position~ view)))
-        (receive (player view root-rect view-rect row-rect) (highlight-info view pos)
-          (set! Highlighted-Player player)
-          (set! Highlighted-View view)
-          (set! Highlighted-Position pos)
-          (set! Highlighted-Root-Rect root-rect)
-          (set! Highlighted-View-Rect view-rect)
-          (set! Highlighted-Row-Rect row-rect))))))
+(definition (remove-picker picker)
+  (close~ picker))
 
 
 (definition (shortcut-hook shortcut)
-  (define (setup-view view)
-    (let ((pos (acquire~ view Highlighted-View Highlighted-Position)))
-      (setup-highlight view pos)
-      (update-tooltip~ view (display-description (view-describe view pos)))
-      (user-message "{a}" view)))
-  
   (cond ((shortcut=? shortcut {Shortcut Escape})
          (with-locked-update
            (function ()
              (end-pick)
              (clear-user-message)))
          #f)
-        ((shortcut=? shortcut {Shortcut Up})
-         (when Highlighted-View
-           (let ((parent (get-parent~ Highlighted-View)))
-             (if (not parent)
-                 (bell)
-               (setup-view parent))))
-         #t)
-        ((shortcut=? shortcut {Shortcut Down})
-         (when Highlighted-View
-           (let ((first (first-view~ Highlighted-View)))
-             (if (not first)
-                 (bell)
-               (setup-view first))))
-         #t)
-        ((shortcut=? shortcut {Shortcut Right})
-         (when Highlighted-View
-           (let ((brother (next-brother~ Highlighted-View type: View)))
-             (if (eq? brother Highlighted-View)
-                 (bell)
-               (setup-view brother))))
-         #t)
-        ((shortcut=? shortcut {Shortcut Left})
-         (when Highlighted-View
-           (let ((brother (previous-brother~ Highlighted-View type: View)))
-             (if (eq? brother Highlighted-View)
-                 (bell)
-               (setup-view brother))))
-         #t)
-        ((shortcut=? shortcut {Shortcut Return})
-         (let ((view Highlighted-View)
-               (pos Highlighted-Position))
-           (end-pick)
-           (Picker-Action view pos))
+        ((not Highlighted-Picker)
          #f)
         (else
-         #f)))
-
-
-(definition (find-picker overlapped)
-  (find-if (function (picker)
-             (eq? picker overlapped))
-           All-Pickers))
-
-
-(definition (end-pick)
-  (set! In-Pick? #f)
-  (inhibit-view-cursor #f)
-  (setup-highlight {} {})
-  (set-shortcut-hook~ (get-application) {})
-  (close-pickers))
-
-
-(definition (close-pickers)
-  (for-each remove-overlays All-Pickers)
-  (set! All-Pickers '()))
-
-
-;;;
-;;;; Highlight
-;;;
-
-
-(definition (setup-highlight view pos)
-  ;; necessary because some windows can have been closed by
-  ;; someone else calling close-popups like menus for instance
-  (define (redraw-window window)
-    (when (get-handle~ window)
-      (redraw-window~ window)))
-  
-  (receive (player view root-rect view-rect row-rect) (highlight-info view pos)
-    (when (or (neq? player Highlighted-Player)
-              (neq? view Highlighted-View)
-              (nu/=? view-rect Highlighted-View-Rect)
-              (nu/=? row-rect Highlighted-Row-Rect))
-      (let ((old-player Highlighted-Player)
-            (old-view Highlighted-View))
-        (set! Highlighted-Player player)
-        (set! Highlighted-View view)
-        (set! Highlighted-Position pos)
-        (set! Highlighted-Root-Rect root-rect)
-        (set! Highlighted-View-Rect view-rect)
-        (set! Highlighted-Row-Rect row-rect)
-        (cond ((neq? player old-player)
-               (when old-player
-                 (redraw-window old-player))
-               (when player
-                 (redraw-window player)))
-              (else
-               (let ((redraw
-                       (function (view)
-                         (when view
-                           (let ((player (get-player~ view))
-                                 (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
-                             (redraw-window~ player rect: rect))))))
-                 (redraw old-view)
-                 (redraw view))))))))
-
-
-(definition (highlight-info view pos)
-  (if (not view)
-      (values {} {} {} {} {})
-    (let* ((player (get-player~ view))
-           (display (get-display~ view))
-           (root (get-root~ view))
-           (root-rect (get-bounds~ root))
-           (view-rect (acquire~ root display (get-bounds~ display)))
-           (view-row-rect (determine-row-rect view pos))
-           (row-rect (essay view-row-rect (acquire~ root view view-row-rect))))
-      (values player view root-rect view-rect row-rect))))
-
-
-(definition (determine-row-rect view pos)
-  (when (is? view Tree-View)
-    (let ((cell (view->tree~ view pos)))
-      (when cell
-        (cell-rect~ view cell)))))
+         (let ((highlighted-view (get-highlighted-view~ Highlighted-Picker))
+               (highlighted-position (get-highlighted-position~ Highlighted-Picker)))
+           (define (setup-view view)
+             (let ((pos (acquire~ view highlighted-view highlighted-position)))
+               (default-highlight~ Highlighted-Picker view pos)
+               (update-tooltip~ view (display-description (view-describe view pos)))
+               (user-message "{a}" view)))
+           
+           (cond ((shortcut=? shortcut {Shortcut Up})
+                  (let ((parent (get-parent~ highlighted-view)))
+                    (if (not parent)
+                        (bell)
+                      (setup-view parent)))
+                  #t)
+                 ((shortcut=? shortcut {Shortcut Down})
+                  (let ((first (first-view~ highlighted-view)))
+                    (if (not first)
+                        (bell)
+                      (setup-view first)))
+                  #t)
+                 ((shortcut=? shortcut {Shortcut Right})
+                  (let ((brother (next-brother~ highlighted-view type: View)))
+                    (if (eq? brother highlighted-view)
+                        (bell)
+                      (setup-view brother)))
+                  #t)
+                 ((shortcut=? shortcut {Shortcut Left})
+                  (let ((brother (previous-brother~ highlighted-view type: View)))
+                    (if (eq? brother highlighted-view)
+                        (bell)
+                      (setup-view brother)))
+                  #t)
+                 ((shortcut=? shortcut {Shortcut Return})
+                  (end-pick)
+                  (let ((click (get-click~ Highlighted-Picker)))
+                    (click highlighted-view highlighted-position))
+                  #f)
+                 (else
+                  #f))))))
 
 
 (definition (display-description description)
@@ -316,19 +169,48 @@
              description)))
 
 
+(definition (find-picker view)
+  (find-type~ view Picker-Overlay))
+
+
+(definition (setup-pick)
+  (set-shortcut-hook~ (get-application) shortcut-hook))
+
+
+(definition (end-pick)
+  (set! In-Pick? #f)
+  (set-shortcut-hook~ (get-application) {})
+  (close-pickers))
+
+
+(definition (close-pickers)
+  (for-each remove-picker All-Pickers)
+  (set! All-Pickers '()))
+
+
 ;;;
-;;;; Overlay
+;;;; Picker
 ;;;
 
 
 (class Picker-Overlay extends View
   
   
-  (property click     accessors generate)
-  (property menu      accessors generate)
-  (property highlight accessors generate)
-  (property tooltips? accessors generate)
+  (property click                  accessors generate)
+  (property menu                   accessors generate)
+  (property highlight              accessors generate)
+  (property highlight-root-only?   accessors generate)
+  (property report-figure?         accessors generate)
+  (property obscure-unhighlighted? accessors generate)
+  (property tooltips?              accessors generate)
   
+  
+  (slot highlighted-view      initialize {} getter generate)
+  (slot highlighted-position  initialize {} getter generate)
+  (slot highlighted-root-rect initialize {} getter generate)
+  (slot highlighted-view-rect initialize {} getter generate)
+  (slot highlighted-row-rect  initialize {} getter generate)
+
   
   ;;;
   ;;;; Cursor
@@ -379,10 +261,10 @@
     (receive (view pos) (find-view-info pos)
       (when highlight
         (let ((proc (if (eq? highlight #t)
-                        setup-highlight
+                        default-highlight
                       highlight)))
           (proc view pos)))
-      (when Report-Figure?
+      (when report-figure?
         (if (not view)
             (user-message "{a}" self)
           (user-message "{a}" view)))))
@@ -403,6 +285,67 @@
            (view (find-drawing~ root root-pos ignore: (list self)))
            (view-pos (essay view (acquire~ view root root-pos))))
       (values view view-pos)))
+  
+  
+  ;;;
+  ;;;; Highlight
+  ;;;
+  
+  
+  (method (default-highlight view pos)
+    ;; necessary because some windows can have been closed by
+    ;; someone else calling close-popups like menus for instance
+    (define (redraw-window window)
+      (when (get-handle~ window)
+        (redraw-window~ window)))
+    
+    (receive (picker view root-rect view-rect row-rect) (highlight-info view pos)
+      (when (or (neq? picker Highlighted-Picker)
+                (neq? view highlighted-view)
+                (nu/=? view-rect highlighted-view-rect)
+                (nu/=? row-rect highlighted-row-rect))
+        (let ((old-picker Highlighted-Picker)
+              (old-view highlighted-view))
+          (set! Highlighted-Picker picker)
+          (set! highlighted-view view)
+          (set! highlighted-position pos)
+          (set! highlighted-root-rect root-rect)
+          (set! highlighted-view-rect view-rect)
+          (set! highlighted-row-rect row-rect)
+          (cond ((neq? picker old-picker)
+                 (when old-picker
+                   (redraw-view~ old-picker))
+                 (when picker
+                   (redraw-view~ picker)))
+                (else
+                 (let ((redraw
+                         (function (view)
+                           (when view
+                             (let ((player (get-player~ view))
+                                   (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
+                               (redraw-window~ player rect: rect))))))
+                   (redraw old-view)
+                   (redraw view))))))))
+  
+  
+  (method (highlight-info view pos)
+    (if (not view)
+        (values {} {} {} {} {})
+      (let* ((picker (find-picker (get-root~ (get-player~ view))))
+             (display (get-display~ view))
+             (root (get-root~ view))
+             (root-rect (get-bounds~ root))
+             (view-rect (acquire~ root display (get-bounds~ display)))
+             (view-row-rect (determine-row-rect view pos))
+             (row-rect (essay view-row-rect (acquire~ root view view-row-rect))))
+        (values picker view root-rect view-rect row-rect))))
+  
+  
+  (method (determine-row-rect view pos)
+    (when (is? view Tree-View)
+      (let ((cell (view->tree~ view pos)))
+        (when cell
+          (cell-rect~ view cell)))))
   
   
   ;;;
@@ -443,24 +386,22 @@
   (definition Overlay-Color
     {Color name: Black alpha: 0.25})
   
-  
   (definition Highlight-Color
     {Color red: 109 green: 109 blue: 177})
-  
-  (definition Highlight-Proc
-    (function (surface)
-      (set-style~ surface 'solid)
-      (set-line-width~ surface 2)
-      (set-color~ surface Highlight-Color)))
-  
+    
   
   (method (draw surface context lh lv)
-    (if (or (not Highlighted-Player) (neq? (get-root) (get-root~ Highlighted-Player)))
-        (when Obscure-Unhighlighted?
-          (fill-rect~ surface (get-bounds) Overlay-Color))
-      (if (not Highlight-Figure?)
-          (rectangle~ surface Highlighted-Root-Rect Highlight-Proc {})
-        (if Highlighted-Row-Rect
-            (rectangle~ surface Highlighted-Row-Rect Highlight-Proc {})
-          (when (and Highlighted-View-Rect (nu/=? Highlighted-View-Rect Highlighted-Root-Rect))
-            (rectangle~ surface Highlighted-View-Rect Highlight-Proc {}))))))))
+    (define (highlighter surface)
+      (set-style~ surface 'solid)
+      (set-line-width~ surface 2)
+      (set-color~ surface Highlight-Color))
+    
+    (cond ((or (not Highlighted-Picker) (neq? (get-root) (get-root~ Highlighted-Picker)))
+           (when obscure-unhighlighted?
+             (fill-rect~ surface (get-bounds) Overlay-Color)))
+          (highlight-root-only?
+           (rectangle~ surface highlighted-root-rect highlighter {}))
+          (highlighted-row-rect
+           (rectangle~ surface highlighted-row-rect highlighter {}))
+          (highlighted-view-rect
+           (rectangle~ surface highlighted-view-rect highlighter {}))))))

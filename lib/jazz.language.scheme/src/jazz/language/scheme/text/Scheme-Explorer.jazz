@@ -50,12 +50,8 @@
 (class Scheme-Explorer extends Lisp-Explorer
 
 
-  (definition Modifiers
-    '(protected public))
-  
-  
   (method (get-modifiers)
-    Modifiers)
+    '(protected public))
   
   
   (method (get-syntax)
@@ -101,8 +97,12 @@
       (when (or (not line) (= (get-row~ end) line))
         (if (not list?)
             (when (forward-expr)
-              (when (or (not line) (= (get-row~ end) line))
-                (expression context start end 'code kind))
+              (if (and (eq? kind 'symbol)
+                       (memq? (find-marked-symbol) (get-keywords))
+                       (or (not line) (= (get-row~ end) line)))
+                  (keyword context start end)
+                (when (or (not line) (= (get-row~ end) line))
+                  (expression context start end 'code kind)))
               #t)
           (when (and (forward-expr) (eq? kind 'symbol))
             (let ((symbol (find-marked-symbol)))
@@ -112,53 +112,53 @@
           #t))))
   
   
-  (method (walk-named-declaration context symbol declaration keyword expression doc line walk-expressions?)
+  (method protected virtual (walk-named-declaration context symbol declaration keyword expression doc line walk-expressions?)
     (case symbol
       ((begin)
-       (walk-declarations context declaration keyword expression doc walk-expressions?))
+       (walk-begin context declaration keyword expression doc line walk-expressions?))
       ((cond-expand)
        (walk-cond-expand context declaration keyword expression doc walk-expressions?))
       ((library module)
-       (walk-module context declaration keyword expression doc line walk-expressions?))
+       (walk-category context declaration keyword expression doc line walk-expressions?))
       ((require import export)
        (walk-import context declaration keyword expression doc line walk-expressions?))
       ((define
-           jazz.define-feature
-         jazz.define
-         jazz.define-remote
-         ;; Gambit
-         define-prim
-         define-library-type
-         define-library-type-of-exception
-         define-check-type
-         define-fail-check-type
-         define-type
-         define-type-of-port)
+        jazz.define-feature
+        jazz.define
+        jazz.define-remote
+        ;; Gambit
+        define-prim
+        define-library-type
+        define-library-type-of-exception
+        define-check-type
+        define-fail-check-type
+        define-type
+        define-type-of-port)
        (walk-define context declaration keyword expression doc line walk-expressions?))
       ((jazz.define-generic
-         jazz.define-specific
-         jazz.define-virtual-syntax
-         jazz.define-virtual-runtime
-         jazz.define-method)
+        jazz.define-specific
+        jazz.define-virtual-syntax
+        jazz.define-virtual-runtime
+        jazz.define-method)
        (walk-define-generic/specific context declaration keyword expression doc line walk-expressions?))
       ((define-macro
-         define-syntax
-         jazz.define-macro
-         jazz.define-check-macro
-         jazz.define-syntax
-         jazz.define-special
-         jazz.define-setting
-         jazz.define-variable
-         jazz.define-global
-         ;; Gambit
-         ##define-macro
-         define-runtime-macro
-         define-runtime-syntax
-         macro
-         syntax
-         template
-         instantiate
-         specialize)
+        define-syntax
+        jazz.define-macro
+        jazz.define-check-macro
+        jazz.define-syntax
+        jazz.define-special
+        jazz.define-setting
+        jazz.define-variable
+        jazz.define-global
+        ;; Gambit
+        ##define-macro
+        define-runtime-macro
+        define-runtime-syntax
+        macro
+        syntax
+        template
+        instantiate
+        specialize)
        (walk-define-macro context declaration keyword expression doc line walk-expressions?))
       ((jazz.define-class jazz.define-class-runtime jazz.define-virtual)
        (walk-define-class context declaration keyword expression doc line walk-expressions?))
@@ -186,7 +186,7 @@
         (set-start end)
         (let ((c0 (char-forward 0)))
           (when (and c0
-                     (scheme-constituent? c0)
+                     (text-constituent? c0)
                      (or (not line) (= (get-row~ end) line)))
             (forward-constituent)
             (when (memq? (find-marked-symbol) (get-modifiers))
@@ -194,7 +194,11 @@
               (set! old (copy end))
               (iterate)))))
       (set! end old)))
+    
   
+  (method (walk-begin context declaration keyword expression doc line walk-expressions?)
+    (walk-declarations context declaration keyword expression doc walk-expressions?))
+
   
   (method (walk-cond-expand context declaration keyword expression doc walk-expressions?)
     (let ((done? #f))
@@ -209,12 +213,12 @@
             (exit-list))))))
   
   
-  (method (walk-module context declaration keyword expression doc line walk-expressions?)
+  (method (walk-category context declaration keyword expression doc line walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (set! entry (declaration context start end (get-marked) #f))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
         (walk-declarations entry declaration keyword expression doc walk-expressions?))
       entry))
   
@@ -301,10 +305,13 @@
     
     (let ((entry context))
       (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
       (forward-whites)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
         (let ((name (parse-identifier (get-marked))))
-          (set! entry (declaration context start end name #f))))
+          (set! entry (declaration context start end name (symbol-documented? name doc)))))
+      (when walk-expressions?
+        (walk-expressions entry expression))
       entry))
   
   
@@ -322,4 +329,13 @@
     (when walk-expressions?
       (walk-expression context expression 'code #t)
       (walk-expressions context expression))
-    context)))
+    context)
+  
+  
+  (method (symbol-documentation symbol doc)
+    (when (and symbol doc)
+      (get-definition~ doc symbol)))
+  
+  
+  (method (symbol-documented? symbol doc)
+    (symbol-documentation symbol doc))))

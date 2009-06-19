@@ -39,7 +39,7 @@
 
 
 (import (jazz.language.jazz)
-        (jazz.language.lisp)
+        (jazz.language.scheme)
         (jazz.library)
         (jazz.utilities))
 
@@ -47,16 +47,15 @@
 (proclaim (warn optimizations))
 
 
-(class Jazz-Explorer extends Lisp-Explorer
+(class Jazz-Explorer extends Scheme-Explorer
   
-  
-  ;; todo make so modifiers are per walked expression
-  (definition Modifiers
-    '(dialect meta private package protected public primitive final virtual chained abstract inline synchronized unimplemented deprecated post exec call @temp value))
-
   
   (method (get-modifiers)
-    Modifiers)
+    '(dialect meta private package protected public primitive final virtual chained abstract inline synchronized unimplemented deprecated post exec call @temp value))
+  
+  
+  (method (get-keywords)
+    '(metaclass extends implements has on library module dialect imports exports includes attributes))
   
   
   (method (get-syntax)
@@ -318,7 +317,7 @@
   
   
   (definition Jazz-Toplevels
-    '(module library class interface remotable-stub require import export definition macro syntax method inline slot property form constant enumeration global c-constant c-enumeration c-include c-type structure c-structure c-definition generic specific intrinsic external c-external com-class com-interface com-external com-method java-external java-method attributes datacontainer define-form pattern))
+    '(module library class interface remotable-stub require import export definition macro syntax method inline slot property form constant enumeration global c-constant c-enumeration c-include c-type structure c-structure c-definition c-external generic specific attributes datacontainer define-form pattern))
 
 
   (method (definition-name? name)
@@ -328,122 +327,61 @@
   ;;;
   ;;;; Declarations
   ;;;
+
   
-  
-  (method (walk-declaration context declaration keyword expression doc line walk-expressions?)
-    (let ((list? (enter-list)))
-      (when (or (not line) (= (get-row~ end) line))
-        (if (not list?)
-            (when (forward-expr)
-              (if (and (eq? kind 'symbol)
-                       (memq? (find-marked-symbol) '(metaclass extends implements has on library module dialect imports exports includes attributes))
-                       (or (not line) (= (get-row~ end) line)))
-                  (keyword context start end)
-                (when (or (not line) (= (get-row~ end) line))
-                  (expression context start end 'code kind)))
-              #t)
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (let ((symbol (find-marked-symbol)))
-              (case symbol
-                ((begin)           (walk-begin           context declaration keyword expression doc line walk-expressions?))
-                ((module)          (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((library)         (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((class)           (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((interface)       (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((remotable-stub)  (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((repository)      (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((package)         (walk-category        context declaration keyword expression doc line walk-expressions?))
-                ((root)            (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((install)         (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((project)         (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((products)        (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((profiles)        (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((require)         (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((export)          (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((import)          (walk-import          context declaration keyword expression doc line walk-expressions?))
-                ((declare)         (walk-declare         context declaration keyword expression doc line walk-expressions?))
-                ((proclaim)        (walk-proclaim        context declaration keyword expression doc line walk-expressions?))
-                ((properties)      (walk-properties      context declaration keyword expression doc line walk-expressions?))
-                ((native)          (walk-native          context declaration keyword expression doc line walk-expressions?))
-                ((attributes)      (walk-attributes      context declaration keyword expression doc line walk-expressions?))
-                ((define)          (walk-define          context declaration keyword expression doc line walk-expressions?))
-                ((definition)      (walk-definition      context declaration keyword expression doc line walk-expressions?))
-                ((define-form)     (walk-define          context declaration keyword expression doc line walk-expressions?))
-                ((specialize)      (walk-specialize      context declaration keyword expression doc line walk-expressions?))
-                ((define-macro)    (walk-define-macro    context declaration keyword expression doc line walk-expressions?))
-                ((%macro)          (walk-macro           context declaration keyword expression doc line walk-expressions?))
-                ((macro)           (walk-macro           context declaration keyword expression doc line walk-expressions?))
-                ((syntax)          (walk-macro           context declaration keyword expression doc line walk-expressions?))
-                ((method)          (walk-method          context declaration keyword expression doc line walk-expressions?))
-                ((pattern)         (walk-method          context declaration keyword expression doc line walk-expressions?))
-                ((c-method)        (walk-method          context declaration keyword expression doc line walk-expressions?))
-                ((inline)          (walk-method          context declaration keyword expression doc line walk-expressions?))
-                ((slot signal)     (walk-slot            context declaration keyword expression doc line walk-expressions?))
-                ((c-slot)          (walk-slot            context declaration keyword expression doc line walk-expressions?))
-                ((property)        (walk-property        context declaration keyword expression doc line walk-expressions?))
-                ((form)            (walk-form            context declaration keyword expression doc line walk-expressions?))
-                ((global)          (walk-global          context declaration keyword expression doc line walk-expressions?))
-                ((c-constant)      (walk-c-constant      context declaration keyword expression doc line walk-expressions?))
-                ((c-enumeration)   (walk-c-enumeration   context declaration keyword expression doc line walk-expressions?))
-                ((c-initialize)    (walk-c-initialize    context declaration keyword expression doc line walk-expressions?))
-                ((c-declare)       (walk-c-declare       context declaration keyword expression doc line walk-expressions?))
-                ((c-named-declare) (walk-c-named-declare context declaration keyword expression doc line walk-expressions?))
-                ((c-include)       (walk-c-include       context declaration keyword expression doc line walk-expressions?))
-                ((constant)        (walk-constant        context declaration keyword expression doc line walk-expressions?))
-                ((enumeration)     (walk-enumeration     context declaration keyword expression doc line walk-expressions?))
-                ((c-type)          (walk-type            context declaration keyword expression doc line walk-expressions?))
-                ((structure)       (walk-structure       context declaration keyword expression doc line walk-expressions?))
-                ((c-structure)     (walk-c-structure     context declaration keyword expression doc line walk-expressions?))
-                ((c-definition)    (walk-c-definition    context declaration keyword expression doc line walk-expressions?))
-                ((generic)         (walk-generic         context declaration keyword expression doc line walk-expressions?))
-                ((specific)        (walk-specific        context declaration keyword expression doc line walk-expressions?))
-                ((intrinsic)       (walk-intrinsic       context declaration keyword expression doc line walk-expressions?))
-                ((external)        (walk-external        context declaration keyword expression doc line walk-expressions?))
-                ((c-external)      (walk-external        context declaration keyword expression doc line walk-expressions?))
-                ((com-external)    (walk-com-external    context declaration keyword expression doc line walk-expressions?))
-                ((java-external)   (walk-java-external   context declaration keyword expression doc line walk-expressions?))
-                ((java-method)     (walk-java-method     context declaration keyword expression doc line walk-expressions?))
-                ((datacontainer)   (walk-datacontainer   context declaration keyword expression doc line walk-expressions?))
-                (else
-                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))))
-          (unless line
-            (exit-list))
-          #t))))
-  
-  
-  (method (walk-modifiers context declaration keyword expression doc line)
-    (let ((old (copy end)))
-      (let (iterate)
-        (forward-whites)
-        (set-start end)
-        (let ((c0 (char-forward 0)))
-          (when (and c0
-                     (jazz-constituent? c0)
-                     (or (not line) (= (get-row~ end) line)))
-            (forward-constituent)
-            (when (memq? (find-marked-symbol) (get-modifiers))
-              (keyword context start end)
-              (set! old (copy end))
-              (iterate)))))
-      (set! end old)))
-  
-  
-  (method (walk-begin context declaration keyword expression doc line walk-expressions?)
-    (walk-declarations context declaration keyword expression doc walk-expressions?))
-  
-  
-  (method public (walk-category context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
-      entry))
-    
-  
-  (method (walk-import context declaration keyword expression doc line walk-expressions?)
-    (keyword context start end))
+  (method (walk-named-declaration context symbol declaration keyword expression doc line walk-expressions?)
+    (case symbol
+      ((module)          (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((library)         (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((class)           (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((interface)       (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((remotable-stub)  (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((repository)      (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((package)         (walk-category        context declaration keyword expression doc line walk-expressions?))
+      ((root)            (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((install)         (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((project)         (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((products)        (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((profiles)        (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((require)         (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((export)          (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((import)          (walk-import          context declaration keyword expression doc line walk-expressions?))
+      ((declare)         (walk-declare         context declaration keyword expression doc line walk-expressions?))
+      ((proclaim)        (walk-proclaim        context declaration keyword expression doc line walk-expressions?))
+      ((properties)      (walk-properties      context declaration keyword expression doc line walk-expressions?))
+      ((native)          (walk-native          context declaration keyword expression doc line walk-expressions?))
+      ((attributes)      (walk-attributes      context declaration keyword expression doc line walk-expressions?))
+      ((define)          (walk-define          context declaration keyword expression doc line walk-expressions?))
+      ((definition)      (walk-definition      context declaration keyword expression doc line walk-expressions?))
+      ((define-form)     (walk-define          context declaration keyword expression doc line walk-expressions?))
+      ((specialize)      (walk-specialize      context declaration keyword expression doc line walk-expressions?))
+      ((%macro)          (walk-macro           context declaration keyword expression doc line walk-expressions?))
+      ((macro)           (walk-macro           context declaration keyword expression doc line walk-expressions?))
+      ((syntax)          (walk-macro           context declaration keyword expression doc line walk-expressions?))
+      ((method)          (walk-method          context declaration keyword expression doc line walk-expressions?))
+      ((pattern)         (walk-method          context declaration keyword expression doc line walk-expressions?))
+      ((inline)          (walk-method          context declaration keyword expression doc line walk-expressions?))
+      ((slot)            (walk-slot            context declaration keyword expression doc line walk-expressions?))
+      ((property)        (walk-property        context declaration keyword expression doc line walk-expressions?))
+      ((form)            (walk-form            context declaration keyword expression doc line walk-expressions?))
+      ((global)          (walk-global          context declaration keyword expression doc line walk-expressions?))
+      ((constant)        (walk-constant        context declaration keyword expression doc line walk-expressions?))
+      ((enumeration)     (walk-enumeration     context declaration keyword expression doc line walk-expressions?))
+      ((c-constant)      (walk-c-constant      context declaration keyword expression doc line walk-expressions?))
+      ((c-enumeration)   (walk-c-enumeration   context declaration keyword expression doc line walk-expressions?))
+      ((c-initialize)    (walk-c-initialize    context declaration keyword expression doc line walk-expressions?))
+      ((c-declare)       (walk-c-declare       context declaration keyword expression doc line walk-expressions?))
+      ((c-named-declare) (walk-c-named-declare context declaration keyword expression doc line walk-expressions?))
+      ((c-include)       (walk-c-include       context declaration keyword expression doc line walk-expressions?))
+      ((c-type)          (walk-c-type          context declaration keyword expression doc line walk-expressions?))
+      ((c-structure)     (walk-c-structure     context declaration keyword expression doc line walk-expressions?))
+      ((c-definition)    (walk-c-definition    context declaration keyword expression doc line walk-expressions?))
+      ((c-external)      (walk-external        context declaration keyword expression doc line walk-expressions?))
+      ((generic)         (walk-generic         context declaration keyword expression doc line walk-expressions?))
+      ((specific)        (walk-specific        context declaration keyword expression doc line walk-expressions?))
+      ((datacontainer)   (walk-datacontainer   context declaration keyword expression doc line walk-expressions?))
+      (else
+       (nextmethod context symbol declaration keyword expression doc line walk-expressions?))))
       
   
   (method (walk-declare context declaration keyword expression doc line walk-expressions?)
@@ -460,47 +398,10 @@
       (walk-expressions context expression)))
   
   
-  (method (walk-native context declaration keyword expression doc line walk-expressions?)
-    (define (parse-identifier str)
-      (let ((pos (find str #\. reversed?: #t)))
-        (if (not pos)
-            str
-          (substring str (+ pos 1) (string-length str)))))
-    
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (forward-whites)
-      (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (let ((name (parse-identifier (get-marked))))
-          (set! entry (declaration context start end name (symbol-documented? name doc)))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
   (method (walk-attributes context declaration keyword expression doc line walk-expressions?)
     (keyword context start end)
     (when walk-expressions?
       (walk-expressions context expression)))
-  
-  
-  (method (walk-define context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-          (set! entry (declaration context start end (get-marked) #f)))
-        (when list?
-          (walk-parameters entry declaration keyword expression doc line))
-        (when list?
-          (exit-list)))
-      (when walk-expressions?
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
-      entry))
 
   
   (method (walk-definition context declaration keyword expression doc line walk-expressions?)
@@ -550,24 +451,6 @@
                    (exit-list))))
           (when walk-expressions?
             (walk-expressions entry expression 'code #f))))
-      entry))
-  
-  
-  (method (walk-define-macro context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-          (set! entry (declaration context start end (get-marked) #f)))
-        (when list?
-          (walk-expressions entry expression 'code #f))
-        (when list?
-          (exit-list)))
-      (when walk-expressions?
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
       entry))
 
   
@@ -648,7 +531,29 @@
       (when (and (forward-expr) (eq? kind 'symbol))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       entry))
+    
   
+  (method (walk-constant context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
+      (when (and (forward-expr) (eq? kind 'symbol))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+  
+  
+  (method (walk-enumeration context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
+      (when (and (forward-expr) (eq? kind 'symbol))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+
   
   (method (walk-c-constant context declaration keyword expression doc line walk-expressions?)
     (let ((entry context))
@@ -696,40 +601,7 @@
       (walk-expressions context expression)))
   
   
-  (method (walk-constant context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
-  (method (walk-enumeration context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
-  (method (walk-type context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
-  (method (walk-structure context declaration keyword expression doc line walk-expressions?)
+  (method (walk-c-type context declaration keyword expression doc line walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
@@ -842,57 +714,6 @@
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
-
-  
-  (method (walk-com-external context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (forward-expr)) ; skip vtable offset
-        (let ((entered? (enter-list)))
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-          (when entered?
-            (walk-parameters entry declaration keyword expression doc line))
-          (when entered?
-            (exit-list))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
-  (method (walk-java-external context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (forward-expr)
-        (let ((entered? (enter-list)))
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-          (when entered?
-            (walk-parameters entry declaration keyword expression doc line))
-          (when entered?
-            (exit-list))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
-  
-  
-  (method (walk-java-method context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (keyword context start end)
-      (walk-modifiers context declaration keyword expression doc line)
-      (when (forward-expr)
-        (let ((entered? (enter-list)))
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-          (when entered?
-            (walk-parameters entry declaration keyword expression doc line))
-          (when entered?
-            (exit-list))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
-      entry))
   
   
   (method (walk-datacontainer context declaration keyword expression doc line walk-expressions?)
@@ -903,21 +724,6 @@
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
-  
-  
-  (method (walk-unknown context declaration keyword expression doc line walk-expressions?)
-    (when walk-expressions?
-      (walk-expression context expression 'code #t)
-      (walk-expressions context expression)))
-  
-  
-  (method (symbol-documentation symbol doc)
-    (when (and symbol doc)
-      (get-definition~ doc symbol)))
-  
-  
-  (method (symbol-documented? symbol doc)
-    (symbol-documentation symbol doc))
   
   
   ;;;

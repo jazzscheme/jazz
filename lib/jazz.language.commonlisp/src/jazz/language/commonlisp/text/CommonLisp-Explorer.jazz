@@ -73,47 +73,44 @@
   ;;;
   
   
-  (method (walk-declaration context declaration keyword expression doc line walk-expressions?)
+  (method (walk-declaration context declaration keyword expression doc walk-expressions?)
     (let ((list? (enter-list)))
-      (when (or (not line) (= (get-row~ end) line))
-        (if (not list?)
-            (when (forward-expr)
-              (when (or (not line) (= (get-row~ end) line))
-                (expression context start end 'code kind))
-              #t)
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (let ((symbol (find-marked-symbol)))
-              (case symbol
-                ((eval-when)
-                 (walk-eval-when context declaration keyword expression doc line walk-expressions?))
-                ((defun defmethod defgeneric)
-                 (walk-define context declaration keyword expression doc line walk-expressions?))
-                ((defmacro)
-                 (walk-define-macro context declaration keyword expression doc line walk-expressions?))
-                ((defvar defparameter defstruct defclass defpackage define-condition define-modify-macro)
-                 (walk-define-variable context declaration keyword expression doc line walk-expressions?))
-                (else
-                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))))
-          (unless line
-            (exit-list))
-          #t))))
+      (if (not list?)
+          (when (forward-expr)
+            (expression context start end 'code kind)
+            #t)
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (let ((symbol (find-marked-symbol)))
+            (case symbol
+              ((eval-when)
+               (walk-eval-when context declaration keyword expression doc walk-expressions?))
+              ((defun defmethod defgeneric)
+               (walk-define context declaration keyword expression doc walk-expressions?))
+              ((defmacro)
+               (walk-define-macro context declaration keyword expression doc walk-expressions?))
+              ((defvar defparameter defstruct defclass defpackage define-condition define-modify-macro)
+               (walk-define-variable context declaration keyword expression doc walk-expressions?))
+              (else
+               (walk-unknown context declaration keyword expression doc walk-expressions?)))))
+        (exit-list)
+        #t)))
     
   
-  (method (walk-eval-when context declaration keyword expression doc line walk-expressions?)
+  (method (walk-eval-when context declaration keyword expression doc walk-expressions?)
     (walk-declarations context declaration keyword expression doc walk-expressions?))
 
   
-  (method (walk-define context declaration keyword expression doc line walk-expressions?)
+  (method (walk-define context declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?
           (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
+        (when (and (forward-expr) (eq? kind 'symbol))
           (set! entry (declaration context start end (get-marked) #f)))
         (when list?
-          (walk-parameters entry declaration keyword expression doc line))
+          (walk-parameters entry declaration keyword expression doc))
         (when list?
           (exit-list)))
       (when walk-expressions?
@@ -121,14 +118,14 @@
       entry))
   
   
-  (method (walk-define-macro context declaration keyword expression doc line walk-expressions?)
+  (method (walk-define-macro context declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?
           (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
+        (when (and (forward-expr) (eq? kind 'symbol))
           (set! entry (declaration context start end (get-marked) #f)))
         (when list?
           (walk-expressions entry expression 'code #f))
@@ -139,17 +136,17 @@
       entry))
     
   
-  (method (walk-define-variable context declaration keyword expression doc line walk-expressions?)
+  (method (walk-define-variable context declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?
           (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
+        (when (and (forward-expr) (eq? kind 'symbol))
           (set! entry (declaration context start end (get-marked) #f)))
         (when list?
-          (walk-parameters entry declaration keyword expression doc line))
+          (walk-parameters entry declaration keyword expression doc))
         (when list?
           (exit-list)))
       (when walk-expressions?
@@ -157,7 +154,7 @@
       entry))
 
   
-  (method (walk-unknown context declaration keyword expression doc line walk-expressions?)
+  (method (walk-unknown context declaration keyword expression doc walk-expressions?)
     (when walk-expressions?
       (walk-expression context expression 'code #t)
       (walk-expressions context expression))

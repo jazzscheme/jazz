@@ -269,30 +269,35 @@
       (let* ((line (paragraph-string row))
              (col (skip-whitespace line)))
         (when (and (< col (cardinality line)) (<= col Max-Declaration-Col) (eqv? (element line col) #\open-parenthesis))
-          (let* ((pos (new Cell row col))
-                 (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
-            (walk-declaration~ expl
-              {}
-              (function (context start end marked documented?)
-                (when marked
-                  (apply-style (declaration-style documented?) start end)))
-              (function (context start end)
-                (apply-style 'Declaration-Keyword start end))
-              (function (context start end mode kind)
-                (case kind
-                  ((tag)
-                   (apply-style 'Tag start end))
-                  ((specifier)
-                   (apply-style 'Specifier start end))
-                  ((string)
-                   (apply-style 'String start end))
-                  ((expr-comment)
-                   (apply-style 'Expr-Comment start end))
-                  ((named-comment)
-                   (apply-style 'Named-Comment start end))))
-              {} @need-better-handling-of-error-cases (get-documentation-cataloguer~ (get-application))
-              row
-              #f))))))
+          (continuation-capture
+            (function (exit)
+              (let* ((pos (new Cell row col))
+                     (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+                (set-line-hook~ expl
+                  (function (expl)
+                    (when (/= (get-row~ (get-end~ expl)) row)
+                      (continuation-return exit))))
+                (walk-declaration~ expl
+                  {}
+                  (function (context start end marked documented?)
+                    (when marked
+                      (apply-style (declaration-style documented?) start end)))
+                  (function (context start end)
+                    (apply-style 'Declaration-Keyword start end))
+                  (function (context start end mode kind)
+                    (case kind
+                      ((tag)
+                       (apply-style 'Tag start end))
+                      ((specifier)
+                       (apply-style 'Specifier start end))
+                      ((string)
+                       (apply-style 'String start end))
+                      ((expr-comment)
+                       (apply-style 'Expr-Comment start end))
+                      ((named-comment)
+                       (apply-style 'Named-Comment start end))))
+                  {} @need-better-handling-of-error-cases (get-documentation-cataloguer~ (get-application))
+                  #f))))))))
   
   
   (method (recolorize-comments row)

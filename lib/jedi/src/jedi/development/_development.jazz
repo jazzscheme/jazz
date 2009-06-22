@@ -57,28 +57,11 @@
 
 
 ;;;
-;;;; Console
-;;;
-
-
-(definition public Interactive-Object
-  {})
-
-
-(definition public (in (object {}))
-  (set! Interactive-Object object))
-
-
-(definition public (hex n)
-  (format "#x{x}" n))
-
-
-;;;
 ;;;; Fold
 ;;;
 
 
-;; fun and experimenting
+;; fun and experimental
 
 
 (definition (iter-list lst proc)
@@ -385,27 +368,6 @@
 
 
 ;;;
-;;;; Projects
-;;;
-
-
-(definition public (compile-classes class-names . rest)
-  (unimplemented 'compile-classes)
-  @convert
-  (let* ((compiled 0)
-         (appl (get-application))
-         (workbench-manager (get-workbench-manager~ appl)))
-    (for-each (function (class-name)
-                (let ((file (get-manifest-source class-name)))
-                  (compile-moniker~ workbench-manager file)
-                  (increase! compiled)))
-              class-names)
-    (message-box (format "{a} file{a} compiled"
-                   compiled
-                   (format-plural compiled)))))
-
-
-;;;
 ;;;; Files
 ;;;
 
@@ -513,59 +475,6 @@
 
 
 ;;;
-;;;; Allocations
-;;;
-
-
-@convert
-(definition public (class-instances class)
-  (list all: (class-all-instances class) live: (class-live-instances class)))
-
-
-@convert
-(definition public (reporting-allocations zone result-proc proc (return: return 'name))
-  (let* ((classes (map car (zone-statistics zone)))
-         (before (map class-all-instances classes)))
-    (proc)
-    (let* ((after (map class-all-instances classes))
-           (all (map list (map (case return ((name) type-name) ((class) identity)) classes) (map - after before))))
-      (result-proc
-        (collect-if (function (info)
-                      (bind (class all) info
-                        (/= all 0)))
-                    all)))))
-
-
-;;;
-;;;; Frames
-;;;
-
-
-@convert
-(definition public (icf frame)
-  (let* ((thread (get-thread~ frame))
-         (address (get-address~ frame))
-         (last-eval (binder-last-eval address))
-         (last-call (binder-last-call address))
-         (last-break (binder-last-break address))
-         (object (either last-call last-break))
-         (closure (frame-procedure address))
-         (function (closure-function closure))
-         (container (function-container function))
-         (toplevel (tlf function))
-         (location (object-location object toplevel)))
-    (list last-eval: last-eval last-call: last-call last-break: last-break location: location)))
-
-
-@convert
-(definition (tlf function)
-  (let ((container (function-container function)))
-    (if (null? container)
-        function
-      (tlf container))))
-
-
-;;;
 ;;;; Data
 ;;;
 
@@ -574,4 +483,13 @@
   (let ((text (get-sql-console-text)))
     @convert (set-current-request~ text name)
     (display-table~ text table max-display 0)
-    table)))
+    table))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition public (hex n)
+  (format "#x{x}" n)))

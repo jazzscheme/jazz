@@ -1194,9 +1194,9 @@
                       ((final)
                        (jazz.final-dispatch field category))
                       ((class)
-                       (jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field) category))
+                       (jazz.class-dispatch field category))
                       ((interface)
-                       (jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field) category)))))
+                       (jazz.interface-dispatch field category)))))
                 (setter proc)
                 (proc object))))))))
 
@@ -1207,16 +1207,20 @@
       (%%final-dispatch object (%%get-method-implementation field)))))
 
 
-(define (jazz.class-dispatch class-level implementation-rank type)
-  (lambda (object)
-    (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
-      (%%class-dispatch object class-level implementation-rank))))
+(define (jazz.class-dispatch field type)
+  (let ((class-level (%%get-method-category-rank field))
+        (implementation-rank (%%get-method-implementation-rank field)))
+    (lambda (object)
+      (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
+        (%%class-dispatch object class-level implementation-rank)))))
 
 
-(define (jazz.interface-dispatch interface-rank implementation-rank type)
-  (lambda (object)
-    (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
-      (%%interface-dispatch object interface-rank implementation-rank))))
+(define (jazz.interface-dispatch field type)
+  (let ((interface-rank (%%get-method-category-rank field))
+        (implementation-rank (%%get-method-implementation-rank field)))
+    (lambda (object)
+      (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
+        (%%interface-dispatch object interface-rank implementation-rank)))))
 
 
 (define (jazz.dispatch object name)

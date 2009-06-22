@@ -2053,7 +2053,7 @@
             (set-mouse-in view)
             (when (get-mouse-in)
               (call-mouse-enter~ (get-mouse-in))))
-          (unless (or Current-Tooltip-Context (current-drag-drop))
+          (unless (or *current-tooltip-context* (current-drag-drop))
             (track-tooltip~ (get-mouse-in)))
           (if mouse-down?
               (let ((acquired (acquire~ mouse-down-view self pos)))
@@ -2065,7 +2065,7 @@
 
   
   (method (process-mouse-move pos)
-    (if Current-Tooltip-Context
+    (if *current-tooltip-context*
         (process-tooltip pos)
       (call-mouse-move pos)))
   
@@ -2356,23 +2356,24 @@
   ;;;
   
   
-  (definition Current-Tooltip-Context
+  (definition *current-tooltip-context*
     {})
   
-  (definition Last-Tooltip-Time
+  (definition *recent-tooltip-close*
     {})
   
-  (definition Last-Tooltip-Context-Pos
+  (definition *last-tooltip-position*
     {})
   
   
   (method (track-tooltip)
-    (when (get-tooltip?)
-      (let ((player (get-player)))
-        (when player
-          (if (and Last-Tooltip-Time (< (- (time->seconds (current-time)) Last-Tooltip-Time) 0.5))
-              (track-hovering time: 0.1)
-            (track-hovering))))))
+    (define (recently-closed?)
+      (and *recent-tooltip-close* (< (time->seconds (current-time)) *recent-tooltip-close*)))
+    
+    (when (and (get-tooltip?) (get-player))
+      (if (recently-closed?)
+          (track-hovering time: 0.1)
+        (track-hovering))))
   
   
   (method (cancel-tooltip-tracking)
@@ -2385,32 +2386,35 @@
   
   
   (method (in-tooltip? pos)
-    (when Current-Tooltip-Context
-      (let ((view (get-view~ Current-Tooltip-Context))
-            (rect (get-bounds~ Current-Tooltip-Context)))
+    (when *current-tooltip-context*
+      (let ((view (get-view~ *current-tooltip-context*))
+            (rect (get-bounds~ *current-tooltip-context*)))
         (when rect
           (in-rect? (acquire~ view self pos) rect)))))
   
   
   (method (process-tooltip pos)
     (unless (is? (get-overlapped) Tooltip)
-      (let ((view (get-view~ Current-Tooltip-Context))
-            (rect (get-bounds~ Current-Tooltip-Context)))
+      (let ((view (get-view~ *current-tooltip-context*))
+            (rect (get-bounds~ *current-tooltip-context*)))
         (when (and rect (not (in-rect? (acquire~ view self pos) rect)))
           (reset-tooltip)))))
   
   
   (method (popup-tooltip pos)
+    (define (same-position?)
+      (and *last-tooltip-position* (nu=? pos *last-tooltip-position*)))
+    
     (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
       (close-tooltip)
-      (let ((context (essay (or (not Last-Tooltip-Context-Pos) (nu/=? pos Last-Tooltip-Context-Pos)) (get-tooltip-context pos))))
-        (set! Current-Tooltip-Context context)
-        (if (not context)
-            (begin
-              (set! Last-Tooltip-Context-Pos pos)
-              (reset-tooltip))
-          (let ((text (get-text~ context)))
-            (popup-text pos context text))))))
+      (unless (same-position?)
+        (let ((context (get-tooltip-context pos)))
+          (if context
+              (let ((text (get-text~ context)))
+                (set! *current-tooltip-context* context)
+                (popup-text pos context text))
+            (set! *last-tooltip-position* pos)
+            (reset-tooltip))))))
     
   
   (method (popup-text pos context text)
@@ -2422,7 +2426,7 @@
       (set-preferred-size~ view)
       (let* ((height (get-cursor-height))
              (tooltip (popup view (either (get-position~ context) pos) padding: (new Dimension 0 height) class: Tooltip border: border)))
-        (set-tooltip~ Current-Tooltip-Context tooltip))))
+        (set-tooltip~ *current-tooltip-context* tooltip))))
   
   
   (method (new-tooltip-view text)
@@ -2437,7 +2441,7 @@
   
   ;; only works for rich tooltips for now
   (method public (update-tooltip text)
-    (let* ((tooltip (get-tooltip~ Current-Tooltip-Context))
+    (let* ((tooltip (get-tooltip~ *current-tooltip-context*))
            (border (first-child~ (get-root~ tooltip)))
            (view (first-child~ border))
            (text-view (get-text~ view)))
@@ -2449,17 +2453,17 @@
   
   
   (method (close-self-tooltip)
-    (when (and Current-Tooltip-Context (eq? self (get-view~ Current-Tooltip-Context)))
+    (when (and *current-tooltip-context* (eq? self (get-view~ *current-tooltip-context*)))
       (close-tooltip)))
   
   
   (method (close-tooltip)
-    (when Current-Tooltip-Context
-      (let ((tooltip (get-tooltip~ Current-Tooltip-Context)))
+    (when *current-tooltip-context*
+      (let ((tooltip (get-tooltip~ *current-tooltip-context*)))
         (when (and tooltip (opened?~ tooltip))
           (close-popup tooltip)))
-      (set! Current-Tooltip-Context {})
-      (set! Last-Tooltip-Time (time->seconds (current-time)))))
+      (set! *current-tooltip-context* {})
+      (set! *recent-tooltip-close* (+ (time->seconds (current-time)) 0.5))))
   
   
   (method (get-cursor-height)

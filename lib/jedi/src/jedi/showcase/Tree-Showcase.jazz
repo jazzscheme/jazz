@@ -43,13 +43,8 @@
         (jazz.library)
         (jazz.literals)
         (jazz.ui)
+        (jazz.utilities)
         (jedi))
-
-
-(class Tree-Showcase extends View)
-
-
-@convert
 
 
 (class Tree-Showcase extends View
@@ -130,7 +125,6 @@
 
   
   (method (setup-tree)
-    @debug
     (let ((tree (locate 'tree)))
       (add-row tree {} "Hello0" {Bitmap-Resource "Document"} {} "There" "How do you do?")
       (add-row tree {} "Hello1" {Bitmap-Resource "ClosedFolder"} {Bitmap-Resource "OpenedFolder"} "There" "How do you do?")
@@ -149,7 +143,7 @@
       (add-row tree {} "Hello3" {Bitmap-Resource "ClosedFolder"} {Bitmap-Resource "OpenedFolder"} "There" "How do you do?")))
   
   
-  (method (add-row tree father title image middle right (visible?: visible? #t))
+  (method (add-row tree father title image image2 middle right (visible?: visible? #t))
     (add-row~ tree father: father @w row-height: @w (random-height) children: (list (new Tree-Node title: title image: image) (new Tree-Label title: middle) (new Tree-Label title: right)) visible?: visible?))
   
   
@@ -247,13 +241,9 @@
   
   (method (update-fields)
     (let ((tree (locate 'tree)))
-      (receive (visible-count visible-height first-displayed first-displayed-rank first-displayed-offset) (internal-fields~ tree)
-        (set-title~ (locate 'visible-count) (format "Visible Count: {a}" visible-count))
-        (set-title~ (locate 'visible-height) (format "Visible Height: {a}" visible-height))
-        (set-title~ (locate 'first-displayed) (format "First Displayed: {a}" (let ((row first-displayed)) (essay row (get-title~ (car (get-children~ row)))))))
-        (set-title~ (locate 'first-displayed-rank) (format "First Displayed Rank: {a}" first-displayed-rank))
-        (set-title~ (locate 'first-displayed-offset) (format "First Displayed Offset: {a}" first-displayed-offset))
-        (set-title~ (locate 'selection) (format "Selection: {l separator: \", \"}" (get-selection~ tree))))))
+      (set-title~ (locate 'visible-count) (format "Visible Count: {a}" (get-visible-count~ tree)))
+      (set-title~ (locate 'visible-height) (format "Visible Height: {a}" (get-visible-height~ tree)))
+      (set-title~ (locate 'selection) (format "Selection: {l separator: \", \"}" (get-selection~ tree)))))
   
   
   (method (display-tree)
@@ -300,48 +290,57 @@
                        (increase! rank)
                        (iterate (get-sons~ subrow) proc)))))
           (proc (get-root-row~ tree))
-          (error "Unable to locate row: {t}" row)))))
+          (error "Unable to locate row: {t}" row))))))
 
-  
-  ;;;
-  ;;;; Node-Column
-  ;;;
-  
-  
-  (class Node-Column extends Tree-Node-Column
-    
-    
-    (method (draw-cell surface context row cell width height)
-      (nextmethod surface context row cell width height)
-      (let ((rect (text-rect row cell width height #f))
-            (selected? (getf context selected?:)))
-        (fill-rect~ surface rect (if selected? {Color name: Red} {Color name: Dark-Red})))
-      (draw-title surface context row cell 0 0 width height)))
+
+;;;
+;;;; Node-Column
+;;;
+
+
+(class Node-Column extends Tree-Node-Column
   
   
-  ;;;
-  ;;;; Middle-Column
-  ;;;
+  (method (draw-cell surface context row cell width height)
+    (nextmethod surface context row cell width height)
+    (let ((rect (text-rect row cell width height #f))
+          (selected? (getf context selected?:)))
+      (fill-rect~ surface rect (if selected? {Color name: Red} {Color name: Dark-Red})))
+    (draw-title surface context row cell 0 0 width height)))
+
+
+(register-autoclass Node-Column)
+
+
+;;;
+;;;; Middle-Column
+;;;
+
+
+(class Middle-Column extends Tree-Column
   
   
-  (class Middle-Column extends Tree-Column
-    
-    
-    (method (draw-cell surface context row cell width height)
-      (let ((rect (new Rect 0 0 width height))
-            (selected? (getf context selected?:)))
-        (fill-rect~ surface rect (if selected? {Color name: Blue} {Color name: Dark-Blue})))))
+  (method (draw-cell surface context row cell width height)
+    (let ((rect (new Rect 0 0 width height))
+          (selected? (getf context selected?:)))
+      (fill-rect~ surface rect (if selected? {Color name: Blue} {Color name: Dark-Blue})))))
+
+
+(register-autoclass Middle-Column)
+
+
+;;;
+;;;; Right-Column
+;;;
+
+
+(class Right-Column extends Tree-Column
   
   
-  ;;;
-  ;;;; Right-Column
-  ;;;
-  
-  
-  (class Right-Column extends Tree-Column
-    
-    
-    (method (draw-cell surface context row cell width height)
-      (let ((rect (new Rect 0 0 width height))
-            (selected? (getf context selected?:)))
-        (fill-rect~ surface rect (if selected? {Color name: Green} {Color name: Dark-Green})))))))
+  (method (draw-cell surface context row cell width height)
+    (let ((rect (new Rect 0 0 width height))
+          (selected? (getf context selected?:)))
+      (fill-rect~ surface rect (if selected? {Color name: Green} {Color name: Dark-Green})))))
+
+
+(register-autoclass Right-Column))

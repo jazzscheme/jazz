@@ -42,14 +42,10 @@
         (jazz.library)
         (jazz.literals)
         (jazz.ui)
+        (jazz.ui.window)
+        (jazz.utilities)
         (jedi)
         (time))
-
-
-(class Threads-Showcase extends View)
-
-
-@convert
 
 
 (class Threads-Showcase extends View
@@ -67,8 +63,7 @@
       (<Push-Button> name: add-threads     title: "Add Threads" position: {Point 4 4} size: {Dimension 100 22} action-handler: {Event-Handler :form on-add-threads})
       (<Push-Button> name: suspend-threads title: "Suspend" position: {Point 114 4} size: {Dimension 100 22} action-handler: {Event-Handler :form on-suspend-threads})
       (<Push-Button> name: resume-threads  title: "Resume" position: {Point 224 4} size: {Dimension 100 22} action-handler: {Event-Handler :form on-resume-threads})
-      (<View>        name: area            position: {Point 2 32} size: {Dimension 776 470})
-      (<Portfolio>   name: portfolio       width: 32 height: 32 icons: ({Bitmap-Resource "Jedi"}))))
+      (<View>        name: area            position: {Point 2 32} size: {Dimension 776 470})))
   
   
   (method (destroy-component)
@@ -85,12 +80,7 @@
 
   (method (stop-showcase)
     (set! done? #t)
-    (wait-while
-      (function ()
-        (some? (function (thread)
-                 (and (running?~ thread)
-                      (alive?~ thread)))
-               threads)))
+    (for-each thread-join! threads)
     (set! threads '()))
   
   
@@ -98,25 +88,25 @@
     (let* ((area (locate 'area))
            (size (get-size~ area)))
       (new Showcase-Icon
-        image-name: 0
-        portfolio: (locate 'portfolio)
+        image-name: {Bitmap-Resource "Jedi"}
         parent: area
         position: (new Point (random (- (get-width~ size) 42)) (random (- (get-height~ size) 42)))
         size: {Dimension 32 32})))
   
   
   (method public (add-threaded-icon n)
-    (let* ((icon   (add-icon n))
-           (thread (new Thread
-                     name: "Showcase Icon"
-                     information: n
-                     context: self
-                     execute: (function (thread)
-                                (while (not done?)
-                                  (sleep slowdown)
-                                  (animate-icon~ icon))))))
+    (let* ((icon (add-icon n))
+           (thread (thread-start!
+                     (new-thread
+                       (function ()
+                         (while (not done?)
+                           (sleep slowdown)
+                           (execute-event
+                             (function ()
+                               (animate-icon~ icon)))))
+                       'showcase))))
       (set! threads (cons thread threads))
-      (set! slowdown (* (length threads) (if (category-compiled? Language) 5 10)))
+      (set! slowdown (* (length threads) .005))
       icon))
   
   
@@ -152,41 +142,41 @@
     (print-unreadable self printer
       (function (printer)
         (format printer "{s}"
-                (object->serial self)))))
+                (object->serial self))))))
 
 
-  ;;;
-  ;;;; Showcase-Icon
-  ;;;
+;;;
+;;;; Showcase-Icon
+;;;
+
+
+(class Showcase-Icon extends Action-Icon
   
   
-  (class Showcase-Icon extends Image-View
-    
-    
-    (slot direction-h)
-    (slot direction-v)
-    
-    
-    (method (prepare rest)
-      (nextmethod rest)
-      (set! direction-h (- (random 11) 5))
-      (set! direction-v (- (random 11) 5)))
-    
-    
-    (method public (animate-icon)
-      (move-icon)
-      (rebound-icon))
-    
-    
-    (method (move-icon)
-      (let ((pos (get-position)))
-        (set-position (new Point (+ (get-h~ pos) direction-h) (+ (get-v~ pos) direction-v)))))
-    
-    
-    (method (rebound-icon)
-      (let ((rect (get-rect))
-            (area (get-size~ parent)))
-        (when (or (< (get-left~ rect) 0) (> (get-right~ rect) (get-width~ area)))
-          (set! direction-h (- direction-h)))
-        (when (or (< (get-top~ rect) 0) (> (get-bottom~ rect) (get-height~ area)))
-          (set! direction-v (- direction-v))))))))
+  (slot direction-h)
+  (slot direction-v)
+  
+  
+  (method (prepare rest)
+    (nextmethod rest)
+    (set! direction-h (- (random 11) 5))
+    (set! direction-v (- (random 11) 5)))
+  
+  
+  (method public (animate-icon)
+    (move-icon)
+    (rebound-icon))
+  
+  
+  (method (move-icon)
+    (let ((pos (get-position)))
+      (set-position (new Point (+ (get-h~ pos) direction-h) (+ (get-v~ pos) direction-v)))))
+  
+  
+  (method (rebound-icon)
+    (let ((rect (get-rect))
+          (area (get-size~ parent)))
+      (when (or (< (get-left~ rect) 0) (> (get-right~ rect) (get-width~ area)))
+        (set! direction-h (- direction-h)))
+      (when (or (< (get-top~ rect) 0) (> (get-bottom~ rect) (get-height~ area)))
+        (set! direction-v (- direction-v)))))))

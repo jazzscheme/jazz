@@ -41,6 +41,7 @@
 (import (jazz.console)
         (jazz.debugger)
         (jazz.designer)
+        (jazz.doc)
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
@@ -679,44 +680,23 @@
 
   
   (method (present-documentation symbol)
-    (unimplemented 'present-documentation)
-    @convert
-    (if (not symbol)
-        (bell)
-      (let* ((appl (get-application))
-             (doc (get-documentation~ appl symbol)))
-        (if (not doc)
-            (let ((classname (symbol->string symbol)))
-              (if #f @wait (class-exists?~ JVM classname)
-                  (open-java-documentation classname)
-                (bell)))
-          (let ((jml (present-text~ doc)))
-            (if (not jml)
-                (bell)
-              (let* ((view (new Documentation-View size: {Dimension 600 300}))
-                     (text (locate~ view 'text))
-                     (pos {Point 100 100})
-                     (alternate {Point 100 100})
-                     (border (new Border-View border-insets: {Rect 5 5 5 5} border-type: 'solid) @w (new Border-View border-type: 'edge style: 'entry))
-                     (display (get-display)))
-                (set-text~ text (transform-jml (parse-jml jml) (new DocToText-Transformation)))
-                (popup~ display view pos alternate-position: alternate border: border))))))))
-  
-  
-  (method (open-java-documentation classname)
-    (unimplemented 'open-java-documentation)
-    @convert
-    (let* ((appl (get-application))
-           (profile (get-profile~ appl))
-           (apidocs (java-apidocs~ profile)))
-      (receive (package name) (parse-classname~ Java classname)
-        (for-each (function (dir)
-                    (let ((file (new-file~ dir (append package (list (format "{a}.html" name))))))
-                      (when (exists?~ file)
-                        (shell-execute file)
-                        (return))))
-                  apidocs)
-        (bell))))
+    (define (doc-jml)
+      (when symbol
+        (let ((doc (get-documentation~ (get-application) symbol)))
+          (when doc
+            (present-text~ doc)))))
+    
+    (let ((jml (doc-jml)))
+      (if (not jml)
+          (bell)
+        (let* ((view (new Documentation-View size: {Dimension 600 300}))
+               (text (locate~ view 'text))
+               (pos {Point 100 100})
+               (alternate {Point 100 100})
+               (border (new Border-View border-type: 'solid))
+               (display (get-display)))
+          (set-text~ text (transform-jml (parse-jml jml) (new DocToText-Transformation)))
+          (popup~ display view pos alternate-position: alternate border: border)))))
   
   
   ;;;
@@ -944,12 +924,6 @@
       (<Label-Item>     name: add-break            title: "Add Break" icon: {Bitmap-Resource "AddBreak"} action: {Action jazz-text add-break})
       @waiting
       (<Label-Item>     name: remove-break         title: "Remove Break" icon: {Bitmap-Resource "RemoveBreak"} action: {Action jazz-text remove-break})
-      @waiting
-      (<Separator-Item>)
-      @waiting
-      (<Label-Item>     name: show-history         title: "Show History..." icon: {Bitmap-Resource "ShowHistory"} action: {Action text show-history})
-      @waiting
-      (<Label-Item>     name: show-changes         title: "Show Changes..." icon: {Bitmap-Resource "ShowChanges"} action: {Action text show-changes})
       @waiting
       (<Separator-Item>)
       @waiting

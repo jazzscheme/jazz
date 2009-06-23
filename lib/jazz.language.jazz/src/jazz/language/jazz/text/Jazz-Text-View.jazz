@@ -642,39 +642,6 @@
           (edit-documentation~ appl symbol)))))
   
   
-  @old-doc-editor
-  (method (on-edit-documentation evt)
-    (edit-documentation (current-location)))
-  
-  
-  @old-doc-editor
-  (method (edit-documentation location)
-    (if (null? location)
-        (bell)
-      (autoload (car location))
-      (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter location)
-        (if (and resolved? in-context? object (is? object Field-Reference))
-            (edit-field-reference-documentation (field-reference-form~ Interpreter object))
-          (edit-field-documentation location)))))
-  
-  
-  @old-doc-editor
-  (method (edit-field-reference-documentation field)
-    (let ((appl (get-application))
-          (location (list (type-name (field-creator field)) (field-name field))))
-      (edit-documentation~ appl location field {} {})))
-  
-  
-  @old-doc-editor
-  (method (edit-field-documentation location)
-    (let ((appl (get-application)))
-      (receive (field-location internal-location) (split-location location)
-        (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter field-location)
-          (if (and resolved? in-context? (definition-name-location? object internal-location))
-              (edit-documentation~ appl field-location object self location)
-            (bell))))))
-  
-  
   (method (on-present-documentation evt)
     (present-documentation (current-symbol)))
 
@@ -817,27 +784,6 @@
 
   
   ;;;
-  ;;;; Form
-  ;;;
-  
-  
-  (method public (current-class-form)
-    @convert
-    (let ((range (with-safe-explore (function () (current-definition-range)))))
-      (when range
-        (let ((info (current-toplevel-info))
-              (forms (read-text-forms range)))
-          (when (= (length forms) 1)
-            (let ((form (car forms)))
-              (when (and (= (length form) 4)
-                         (eq? (first form) 'definition)
-                         (eq? (second form) 'meta)
-                         (eq? (third form) 'class-form)
-                         (is? (fourth form) Form))
-                (values range (fourth form)))))))))
-
-  
-  ;;;
   ;;;; Category
   ;;;
   
@@ -916,8 +862,6 @@
       (<Label-Item>     name: edit-references      title: "Find References" action: {Action code-text edit-references})
       @waiting
       (<Label-Item>     name: edit-documentation   title: "Edit Documentation" action: {Action jazz-text edit-documentation})
-      @waiting
-      (<Label-Item>     name: add-to-favorites     title: "Add To Favorites..." icon: {Bitmap-Resource "Favorites"} action: {Action jazz-text add-to-favorites})
       @waiting
       (<Separator-Item>)
       @waiting

@@ -335,7 +335,6 @@
   ;; for designer events that could be sent when the context is changed.
   (method protected virtual (context-update)
     (modify-preferences)
-    (modify-favorites)
     (modify-connections)
     (modify-toolbox))
   
@@ -345,12 +344,6 @@
            (designer (get-preferences-designer))
            (branch (find-component~ pref context)))
       (set-active-branch~ pref branch)))
-  
-  
-  (method (modify-favorites)
-    @wait
-    (when (in-manifest? 'Favorites-Manager)
-      (modify-editor (get-guest~ (singleton-docked Favorites-Manager {})))))
   
   
   (method (modify-connections)
@@ -657,68 +650,5 @@
     :process)
   
   
-  ;;;
-  ;;;; Launch
-  ;;;
-  
-  
-  (method public (launch-process (app: app {})
-                                 (homedir: homedir {})
-                                 (profile: profile {})
-                                 (command-action: command-action {})
-                                 (command-arguments: command-arguments '())
-                                 (debugger?: debugger? #f)
-                                 (wait-ready: wait-ready {})
-                                 (wait-ready-timeout: wait-ready-timeout 5000))
-    @convert
-    (let* ((root          (parse~ {Directory Jazz}))
-           (launcher      (parse~ {File Bin "Launcher.exe"}))
-           (homedir-arg   (if homedir (format " /homedir \"{a}/{a}\"" root homedir) ""))
-           (rootdir-arg   (format " /rootdir \"{a}\"" root))
-           (app-arg       (format " /app {a}" app))
-           (profile-arg   (format " /profile {a}" profile))
-           (action-arg    (if command-action (format " {a}" command-action) ""))
-           (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
-           (command       (format "\"{a}\"{a}{a}{a}{a}{a}{a}" launcher action-arg homedir-arg rootdir-arg app-arg profile-arg arguments-arg)))
-      (create-process command wait-ready: wait-ready wait-ready-timeout: wait-ready-timeout wait?: #f)))
-
-
-  ;;;
-  ;;;; Debug
-  ;;;
-  
-  
   (method protected virtual (process-debuggee-loop)
-    (debuggee-loop))
-  
-  
-  (method (process-exception exception frame accountable)
-    @convert (
-    (exception-reported)
-    (log-execution-context exception)
-    (cond ((not loop-running?)
-           (dump-stack exception: exception)
-           (present-exception exception type: 'message)
-           (exit-process))
-          (else
-           (log-exception exception)
-           (report-exception exception frame accountable)))))
-  
-  
-  (method protected virtual (exception-reported)
-    )
-  
-  
-  (method protected virtual (log-exception exception)
-    )
-  
-  
-  (method (log-execution-context exception)
-    @convert
-    (let ((context (get-execution-context)))
-      (when context
-        (let ((stack (get-execution-stack))
-              (reporter (get-reporter~ context)))
-          (when reporter
-            (let ((message (present-message~ exception prefix?: prefix?)))
-              (report-execution-context message stack reporter)))))))))
+    (debuggee-loop))))

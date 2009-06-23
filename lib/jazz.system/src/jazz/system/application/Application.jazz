@@ -90,7 +90,6 @@
   (slot selected-listeners       initialize '())
   (slot event-consumer           initialize self)
   (slot history-manager          initialize (new History-Manager self))
-  (slot depots-preferences       initialize {})
   (slot active?                  initialize #f)
   (slot application-actions      initialize '())
   (slot profile-actions          initialize '())
@@ -176,8 +175,6 @@
     (setup-bindings)
     (initialize-toplevel)
     (initialize-stage)
-    @unimplemented
-    (setup-depots)
     (initialize-clipboard)
     (register-clipboard-formats))
 
@@ -895,37 +892,6 @@
   
   (method (set-application-listeners category listeners)
     (table-set! application-listeners category listeners))
-
-  
-  ;;;
-  ;;;; Depot
-  ;;;
-  
-  
-  (method public (get-depots-preferences)
-    depots-preferences)
-  
-  
-  (method (setup-depots)
-    (load-depots-preferences))
-  
-  
-  (method (depots-file)
-    {File Profile "settings" "Depots.jml"})
-  
-  
-  (method (load-depots-preferences)
-    (with-safe-execution "loading the depots"
-      (function ()
-        (let ((file (depots-file)))
-          (when (and (is-alias? 'Profile) (exists?~ file))
-            (let ((preferences (instantiate~ (read-from-file file))))
-              (install-context preferences)
-              (set! depots-preferences preferences)))))))
-  
-  
-  (method public virtual (get-depot-classes)
-    '())
 
   
   ;;;
@@ -2209,19 +2175,6 @@
       (init~ profile))
     (when profile
       (finalize~ profile)))
-  
-
-  ;;;
-  ;;;; Favorites
-  ;;;
-
-  
-  @wait
-  (method (on-add-to-favorites evt)
-    (let ((guest (current-document)))
-      (if (not guest)
-          (bell)
-        (add-to-favorites~ guest))))
 
   
   ;;;
@@ -2430,10 +2383,6 @@
           (set-action-enabled? {Action application next-frame}        (and (>= count 2) (not in-modal?)))
           (set-action-enabled? {Action application previous-frame}    (and (>= count 2) (not in-modal?)))
           (set-action-enabled? {Action application current-frame}     (and (>= count 1) (not in-modal?)))
-          @wait
-          (set-action-enabled? {Action application toggle-frame}      (and (>= count 1) (not in-modal?)))
-          @wait
-          (set-action-enabled? {Action application cascade}           (and (>= count 1) (not in-modal?)))
           (set-action-enabled? {Action application tile-horizontally} (and (>= count 2) (not in-modal?)))
           (set-action-enabled? {Action application tile-vertically}   (and (>= count 2) (not in-modal?)))))))
   
@@ -2456,36 +2405,6 @@
     (let* ((stage (get-stage))
            (first (first-view~ stage)))
       (focus-host~ first)))
-  
-  
-  (method public virtual (on-toggle-frame evt)
-    (let ((text (current-document)))
-      (if (is? text Text-View)
-          (toggle-text text)
-        (bell))))
-
-
-  (method (toggle-text text)
-    (let ((file (get-moniker~ (get-controller~ text))))
-      (if (not file)
-          (bell)
-        (let ((ext (get-extension~ file)))
-          (cond ((member? ext C-Extensions test: ci=?) (toggle-c-text file))
-                (else (bell)))))))
-  
-  
-  (method (toggle-c-text file)
-    (let* ((base (get-base~ file))
-           (ext (get-extension~ file))
-           (toggled (if (ci=? ext "h") "cpp" "h"))
-           (filename (format "{a}.{a}" base toggled)))
-      (edit-filename filename)))
-  
-  
-  (method public virtual (on-cascade evt)
-    (let* ((stage (get-stage))
-           (frames (get-views~ stage)))
-      (unimplemented 'on-cascade)))
   
   
   (method public virtual (on-tile-horizontally evt)

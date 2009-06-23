@@ -1747,15 +1747,16 @@
   (%%class-is? object jazz.Slot))
 
 
-(define (jazz.add-slot class slot-name slot-initialize)
+(define (jazz.add-slot class slot-name slot-initialize slot-allocate?)
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
       (let* ((instance-size (%%get-class-instance-size class))
-             (slot-offset instance-size)
+             (slot-offset (and slot-allocate? instance-size))
              (slot (jazz.new-slot slot-name slot-offset slot-initialize)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-size class (%%fx+ instance-size 1))
+        (%%when slot-allocate?
+          (%%set-class-instance-size class (%%fx+ instance-size 1)))
         slot)))
 
 
@@ -1788,7 +1789,8 @@
     (for-each (lambda (slot)
                 (let ((offset (%%get-slot-offset slot))
                       (initialize (%%get-slot-initialize slot)))
-                  (%%set-object-slot object offset (initialize object))))
+                  (%%when initialize
+                    (%%set-object-slot object offset (initialize object)))))
               slots)))
 
 
@@ -1826,15 +1828,16 @@
            (else (iter (%%cdr slots))))))
 
 
-(define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)
+(define (jazz.add-property class slot-name slot-initialize slot-allocate? slot-getter slot-setter)
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
       (let* ((instance-size (%%get-class-instance-size class))
-             (slot-offset instance-size)
+             (slot-offset (and slot-allocate? instance-size))
              (slot (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-size class (%%fx+ instance-size 1))
+        (%%when slot-allocate?
+          (%%set-class-instance-size class (%%fx+ instance-size 1)))
         slot)))
 
 

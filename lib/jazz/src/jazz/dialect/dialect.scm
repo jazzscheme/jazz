@@ -540,16 +540,19 @@
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
+         (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
          (initialize (%%get-slot-declaration-initialize declaration))
-         (initialize-locator (jazz.compose-helper locator 'initialize))
+         (initialize-locator (and allocate? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset)))
     (jazz.sourcify-if
       `(begin
-         (define (,initialize-locator self)
-           ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
+         ,@(if allocate?
+               `((define (,initialize-locator self)
+                   ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment))))
+             '())
          (define ,slot-locator
-           (jazz.add-slot ,class-locator ',name ,initialize-locator))
+           (jazz.add-slot ,class-locator ',name ,initialize-locator ,allocate?))
          (define ,offset-locator
            (%%get-slot-offset ,slot-locator))
          ,@(jazz.declaration-result))
@@ -604,18 +607,21 @@
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
+         (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
          (initialize (%%get-slot-declaration-initialize declaration))
-         (initialize-locator (jazz.compose-helper locator 'initialize))
+         (initialize-locator (and allocate? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset))
          (getter (%%get-property-declaration-getter declaration))
          (setter (%%get-property-declaration-setter declaration)))
     (jazz.sourcify-if
       `(begin
-         (define (,initialize-locator self)
-           ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment)))
+         ,@(if allocate?
+               `((define (,initialize-locator self)
+                   ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment))))
+             '())
          (define ,slot-locator
-           (jazz.add-property ,class-locator ',name ,initialize-locator
+           (jazz.add-property ,class-locator ',name ,initialize-locator ,allocate?
              ,(jazz.sourcified-form (jazz.emit-expression getter declaration environment))
              ,(jazz.sourcified-form (jazz.emit-expression setter declaration environment))))
          (define ,offset-locator
@@ -1868,20 +1874,10 @@
                    (,(if (%%eq? (%%car form) 'property) '%property '%slot) ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                    ,@(if generate-getter?
                          `((method ,getter-access ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
-                             ;poor man's type check until we have a real one
-                             ;(let* ((xxxxx <any> ,name)
-                             ;       (yyyyy ,specifier xxxxx))
-                             ;  xxxxx
-                             ;  yyyyy)
                              ,name))
                        '())
                    ,@(if generate-setter?
                          `((method ,setter-access ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name ,value ,@specifier-list) <void>
-                             ;poor man's type check until we have a real one
-                             ;(let* ((xxxxx <any> ,value)
-                             ;       (yyyyy ,specifier xxxxx))
-                             ;  xxxxx
-                             ;  yyyyy)
                              (set! ,name ,value)))
                        '()))))))))))
 

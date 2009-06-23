@@ -38,7 +38,7 @@
 (module protected core.class.syntax.object
 
 
-;; should be turned automatically of in production level
+;; should be turned automatically off in production level
 (define jazz.instances-statistics?
   #t)
 

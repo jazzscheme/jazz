@@ -38,9 +38,14 @@
 (module jazz.database.ado.product
 
 
-(define (jazz.build-ado descriptor)
-  (jazz.compile-module 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
-  (jazz.update-product-descriptor descriptor))
+(cond-expand
+  (windows
+    (define (jazz.build-ado descriptor)
+      (jazz.compile-module 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+      (jazz.update-product-descriptor descriptor)))
+  (else
+    (define (jazz.build-ado descriptor)
+      )))
 
 
 ;;;

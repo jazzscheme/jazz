@@ -226,6 +226,11 @@
   ;;;
   
   
+  (method (close-self-tooltip)
+    (when *current-tooltip-context*
+      (close-tooltip)))
+  
+  
   (method (get-tooltip?)
     tooltips?)
   
@@ -234,21 +239,24 @@
     #t)
   
   
+  (method (calculate-tooltip-bounds view pos)
+    (when view
+      (or (get-tooltip-bounds~ view pos) (get-bounds~ view))))
+  
+  
+  (method (get-tooltip-bounds pos)
+    (receive (view pos) (find-view-info pos)
+      (calculate-tooltip-bounds view pos)))
+  
+  
   (method (get-tooltip-context pos)
     (receive (view pos) (find-view-info pos)
       (when view
-        (let* ((view-player (get-player~ view))
-               (view-root (get-root~ view))
-               (view-bounds (get-bounds~ view))
-               (root (get-root))
-               (row-rect (determine-row-rect view pos))
-               (rect (acquire~ view-root view (either row-rect view-bounds)))
-               (bounds (acquire~ player view-player rect)))
-          (new Tooltip-Context
-            view: self
-            text: (display-description (view-describe view pos))
-            bounds: bounds
-            font: {Font name: Label})))))
+        (new Tooltip-Context
+          view: view
+          text: (display-description (view-describe view pos))
+          bounds: (calculate-tooltip-bounds view pos)
+          font: {Font name: Label}))))
   
   
   ;;;

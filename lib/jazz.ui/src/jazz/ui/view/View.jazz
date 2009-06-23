@@ -2056,9 +2056,9 @@
 
   
   (method (process-mouse-move pos)
-    (if *current-tooltip-context*
-        (process-tooltip pos)
-      (call-mouse-move pos)))
+    (when *current-tooltip-context*
+      (process-tooltip pos))
+    (call-mouse-move pos))
   
   
   (method (call-mouse-move pos)
@@ -2385,49 +2385,50 @@
   
   
   (method (process-tooltip pos)
-    (unless (is? (get-overlapped) Tooltip)
-      (let ((view (get-view~ *current-tooltip-context*))
-            (rect (get-bounds~ *current-tooltip-context*)))
-        (when (and rect (not (in-rect? (acquire~ view self pos) rect)))
-          (reset-tooltip)))))
+    (let ((overlapped (get-overlapped)))
+      (unless (is? overlapped Tooltip)
+        (let ((view (get-view~ *current-tooltip-context*))
+              (bounds (get-bounds~ *current-tooltip-context*))
+              (new-bounds (get-tooltip-bounds pos)))
+          (unless (and (eq? overlapped (get-overlapped~ view))
+                       (nu=? bounds new-bounds))
+            (reset-tooltip))))))
   
   
   (method (popup-tooltip pos)
     (define (same-position?)
       (and *last-tooltip-position* (nu=? pos *last-tooltip-position*)))
     
+    (define (new-tooltip-view text)
+      (if (and (get-formatted-tooltip?) (pair? text))
+          (let* ((view (new Tooltip-Text size: {Dimension 4000 100}))
+                 (text-view (get-text~ view)))
+            (set-text~ text-view text)
+            (set-size~ view (nu+ (scrollee-content-size~ text-view) {Dimension 2 2}))
+            view)
+        (new Tooltip-Label title: text)))
+    
+    (define (new-tooltip text font position)
+      (let ((view (new-tooltip-view text))
+            (border (new Border-View border-type: 'solid)))
+        (when font
+          (set-font~ view font))
+        (set-preferred-size~ view)
+        (let ((padding (new Dimension 0 (get-cursor-height)))
+              (position (either position pos)))
+          (popup view position padding: padding class: Tooltip border: border))))
+    
     (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
       (close-tooltip)
       (unless (same-position?)
-        (let ((context (get-tooltip-context pos)))
-          (if context
-              (let ((text (get-text~ context)))
-                (set! *current-tooltip-context* context)
-                (popup-text pos context text))
-            (set! *last-tooltip-position* pos)
-            (reset-tooltip))))))
-    
-  
-  (method (popup-text pos context text)
-    (let ((view (new-tooltip-view text))
-          (border (new Border-View border-type: 'solid))
-          (font (get-font~ context)))
-      (when font
-        (set-font~ view font))
-      (set-preferred-size~ view)
-      (let* ((height (get-cursor-height))
-             (tooltip (popup view (either (get-position~ context) pos) padding: (new Dimension 0 height) class: Tooltip border: border)))
-        (set-tooltip~ *current-tooltip-context* tooltip))))
-  
-  
-  (method (new-tooltip-view text)
-    (if (and (get-formatted-tooltip?) (pair? text))
-        (let* ((view (new Tooltip-Text size: {Dimension 4000 100}))
-               (text-view (get-text~ view)))
-          (set-text~ text-view text)
-          (set-size~ view (nu+ (scrollee-content-size~ text-view) {Dimension 2 2}))
-          view)
-      (new Tooltip-Label title: text)))
+        (set! *current-tooltip-context* (get-tooltip-context pos))
+        (if *current-tooltip-context*
+            (let ((text (get-text~ *current-tooltip-context*))
+                  (font (get-font~ *current-tooltip-context*))
+                  (position (get-position~ *current-tooltip-context*)))
+              (set-tooltip~ *current-tooltip-context* (new-tooltip text font position)))
+          (set! *last-tooltip-position* pos)
+          (reset-tooltip)))))
   
   
   ;; only works for rich tooltips for now
@@ -2443,7 +2444,7 @@
       (layout-view~ border)))
   
   
-  (method (close-self-tooltip)
+  (method virtual (close-self-tooltip)
     (when (and *current-tooltip-context* (eq? self (get-view~ *current-tooltip-context*)))
       (close-tooltip)))
   
@@ -3239,10 +3240,15 @@
     #f)
   
   
+  (method public virtual (get-tooltip-bounds pos)
+    {})
+  
+  
   (method public virtual (get-tooltip-context pos)
-    (let ((text (get-tooltip-text)))
+    (let ((text (get-tooltip-text))
+          (bounds (get-tooltip-bounds pos)))
       (when text
-        (new Tooltip-Context view: self text: text))))
+        (new Tooltip-Context view: self text: text bounds: bounds))))
 
   
   ;;;

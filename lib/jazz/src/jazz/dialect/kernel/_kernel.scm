@@ -125,6 +125,7 @@
 (native jazz.log-string)
 (native jazz.log-newline)
 (native jazz.close-log)
+(native jazz.inspect-object)
 (native generate-proper-tail-calls)
 
 
@@ -482,7 +483,13 @@
 (native jazz.process-memory)
 (native jazz.symbols-memory)
 (native jazz.classes-statistics)
+(native jazz.class-instances-count)
+(native jazz.class-instances-size)
 (native jazz.instances-statistics)
+(native jazz.vector-size)
+(native jazz.f64vector-size)
+(native jazz.list-size)
+(native jazz.table-size)
 
 
 ;;;

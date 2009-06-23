@@ -774,13 +774,17 @@
   
   
   (method (update-catalog)
+    (define (update object)
+      (typecase object
+        ((Project)
+         (update-project-catalog object))
+        ((Project-Group)
+         (for-each update (get-children~ object)))))
+    
     (with-cursor :wait
       (function ()
         (let ((objects (selected-objects)))
-          (for-each (function (object)
-                      (when (is? object Project)
-                        (update-project-catalog object)))
-                    objects)))))
+          (for-each update objects)))))
   
   
   (method (update-project-catalog project)
@@ -1185,6 +1189,8 @@
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
       @wait-complete
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
+      (<Separator-Item>                           before: cut)
+      (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Bitmap-Resource "Catalog"} action: {Action workbench-manager update-catalog})
       (<Separator-Item>                           before: cut)
       (<!>              name: delete-selection    title: "Remove"))))
 

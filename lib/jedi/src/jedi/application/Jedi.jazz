@@ -129,8 +129,25 @@
     (register-provider (new SQLServer-Provider))
     @convert/wait
     (register-provider (new JDBC-Provider))
-    (register-console~ (get-sql-console) "SQL Console" #f view-class: SQL-Console-View)
     (add-application-listener 'workspace (new Event-Handler target: self method-name: 'on-workspace)))
+  
+  
+  (method (finish-process)
+    (nextmethod)
+    (if (eq? kernel-platform 'windows)
+        (register-console~ (get-sql-console) "SQL Console" #f view-class: SQL-Console-View)
+      (let ((menubar (find-menubar)))
+        (let ((workspace-menu (get-content~ (child~ menubar 'workspace))))
+          (set-visible?~ (child~ workspace-menu 'sql) #f)
+          (layout-menu~ workspace-menu))
+        (let ((view-menu (get-content~ (child~ menubar 'view))))
+          (set-visible?~ (child~ view-menu 'sql) #f)
+          (layout-menu~ view-menu)))
+      (let ((toolbar (find-toolbar)))
+        (set-visible?~ (locate~ toolbar 'sql-separator) #f)
+        (set-visible?~ (locate~ toolbar 'sql) #f))
+      (let ((workspaces (get-preferences 'workspaces)))
+        (set-visible?~ (find-type~ workspaces SQL-Workspace) #f))))
   
   
   ;;;

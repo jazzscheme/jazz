@@ -61,7 +61,7 @@
 (definition All-Pickers
   '())
 
-(definition Highlighted-Picker
+(definition *highlighted-picker*
   {})
 
 
@@ -117,14 +117,14 @@
              (end-pick)
              (clear-user-message)))
          #f)
-        ((not Highlighted-Picker)
+        ((not *highlighted-picker*)
          #f)
         (else
-         (let ((highlighted-view (get-highlighted-view~ Highlighted-Picker))
-               (highlighted-position (get-highlighted-position~ Highlighted-Picker)))
+         (let ((highlighted-view (get-highlighted-view~ *highlighted-picker*))
+               (highlighted-position (get-highlighted-position~ *highlighted-picker*)))
            (define (setup-view view)
              (let ((pos (acquire~ view highlighted-view highlighted-position)))
-               (default-highlight~ Highlighted-Picker view pos)
+               (default-highlight~ *highlighted-picker* view pos)
                (update-tooltip~ view (display-description (view-describe view pos)))
                (user-message "{a}" view)))
            
@@ -154,7 +154,7 @@
                   #t)
                  ((shortcut=? shortcut {Shortcut Return})
                   (end-pick)
-                  (let ((click (get-click~ Highlighted-Picker)))
+                  (let ((click (get-click~ *highlighted-picker*)))
                     (click highlighted-view highlighted-position))
                   #f)
                  (else
@@ -206,10 +206,8 @@
   
   
   (slot highlighted-view      initialize {} getter generate)
+  (slot highlighted-rect      initialize {} getter generate)
   (slot highlighted-position  initialize {} getter generate)
-  (slot highlighted-root-rect initialize {} getter generate)
-  (slot highlighted-view-rect initialize {} getter generate)
-  (slot highlighted-row-rect  initialize {} getter generate)
 
   
   ;;;
@@ -241,7 +239,9 @@
   
   (method (calculate-tooltip-bounds view pos)
     (when view
-      (or (get-tooltip-bounds~ view pos) (get-bounds~ view))))
+      (or (get-tooltip-bounds~ view pos)
+          (let ((display (get-display~ view)))
+            (acquire~ view display (get-bounds~ display))))))
   
   
   (method (get-tooltip-bounds pos)
@@ -267,11 +267,10 @@
   (method (mouse-move pos)
     (nextmethod pos)
     (receive (view pos) (find-view-info pos)
-      (when highlight
-        (let ((proc (if (eq? highlight #t)
-                        default-highlight
-                      highlight)))
-          (proc view pos)))
+      (case highlight
+        ((#f))
+        ((#t) (default-highlight view pos))
+        (else (highlight view pos)))
       (when report-figure?
         (if (not view)
             (user-message "{a}" self)
@@ -301,59 +300,41 @@
   
   
   (method (default-highlight view pos)
-    ;; necessary because some windows can have been closed by
-    ;; someone else calling close-popups like menus for instance
-    (define (redraw-window window)
-      (when (get-handle~ window)
-        (redraw-window~ window)))
+    (define (highlight-info view pos)
+      (let ((root (get-root~ (get-player~ view))))
+        (let ((picker (find-picker root))
+              (rect (if highlight-root-only?
+                        (get-bounds~ root)
+                      (acquire~ root view (calculate-tooltip-bounds view pos)))))
+          (values picker view rect))))
     
-    (receive (picker view root-rect view-rect row-rect) (highlight-info view pos)
-      (when (or (neq? picker Highlighted-Picker)
-                (neq? view highlighted-view)
-                (nu/=? view-rect highlighted-view-rect)
-                (nu/=? row-rect highlighted-row-rect))
-        (let ((old-picker Highlighted-Picker)
+    (define (redraw same-picker? picker view)
+      (when view (redraw-window~ (get-player~ view)))
+      @w
+      (when picker (redraw-view~ picker))
+      @w
+      (if same-picker?
+          (when view
+            (let ((player (get-player~ view))
+                  (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
+              (redraw-window~ player rect: rect)))
+        (when picker
+          (redraw-view~ picker))))
+    
+    
+    (receive (picker view rect) (highlight-info view pos)
+      (unless (and (eq? *highlighted-picker* picker)
+                   (eq? highlighted-view view)
+                   (nu=? highlighted-rect rect))
+        (let ((same-picker? (eq? picker *highlighted-picker*))
+              (old-picker *highlighted-picker*)
               (old-view highlighted-view))
-          (set! Highlighted-Picker picker)
+          (set! *highlighted-picker* picker)
           (set! highlighted-view view)
+          (set! highlighted-rect rect)
           (set! highlighted-position pos)
-          (set! highlighted-root-rect root-rect)
-          (set! highlighted-view-rect view-rect)
-          (set! highlighted-row-rect row-rect)
-          (cond ((neq? picker old-picker)
-                 (when old-picker
-                   (redraw-view~ old-picker))
-                 (when picker
-                   (redraw-view~ picker)))
-                (else
-                 (let ((redraw
-                         (function (view)
-                           (when view
-                             (let ((player (get-player~ view))
-                                   (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
-                               (redraw-window~ player rect: rect))))))
-                   (redraw old-view)
-                   (redraw view))))))))
-  
-  
-  (method (highlight-info view pos)
-    (if (not view)
-        (values {} {} {} {} {})
-      (let* ((picker (find-picker (get-root~ (get-player~ view))))
-             (display (get-display~ view))
-             (root (get-root~ view))
-             (root-rect (get-bounds~ root))
-             (view-rect (acquire~ root display (get-bounds~ display)))
-             (view-row-rect (determine-row-rect view pos))
-             (row-rect (essay view-row-rect (acquire~ root view view-row-rect))))
-        (values picker view root-rect view-rect row-rect))))
-  
-  
-  (method (determine-row-rect view pos)
-    (when (is? view Tree-View)
-      (let ((cell (view->tree~ view pos)))
-        (when cell
-          (cell-rect~ view cell)))))
+          (redraw same-picker? old-picker old-view)
+          (redraw same-picker? *highlighted-picker* highlighted-view)))))
   
   
   ;;;
@@ -404,12 +385,8 @@
       (set-line-width~ surface 2)
       (set-color~ surface Highlight-Color))
     
-    (cond ((or (not Highlighted-Picker) (neq? (get-root) (get-root~ Highlighted-Picker)))
+    (cond ((or (not *highlighted-picker*) (neq? (get-root) (get-root~ *highlighted-picker*)))
            (when obscure-unhighlighted?
              (fill-rect~ surface (get-bounds) Overlay-Color)))
-          (highlight-root-only?
-           (rectangle~ surface highlighted-root-rect highlighter {}))
-          (highlighted-row-rect
-           (rectangle~ surface highlighted-row-rect highlighter {}))
-          (highlighted-view-rect
-           (rectangle~ surface highlighted-view-rect highlighter {}))))))
+          (highlighted-rect
+           (rectangle~ surface highlighted-rect highlighter {}))))))

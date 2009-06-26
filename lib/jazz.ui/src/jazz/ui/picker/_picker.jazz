@@ -208,6 +208,7 @@
   (slot highlighted-view      initialize {} getter generate)
   (slot highlighted-rect      initialize {} getter generate)
   (slot highlighted-position  initialize {} getter generate)
+  (slot last-mouse-position   initialize {} getter generate)
 
   
   ;;;
@@ -266,15 +267,17 @@
   
   (method (mouse-move pos)
     (nextmethod pos)
-    (receive (view pos) (find-view-info pos)
-      (case highlight
-        ((#f))
-        ((#t) (default-highlight view pos))
-        (else (highlight view pos)))
-      (when report-figure?
-        (if (not view)
-            (user-message "{a}" self)
-          (user-message "{a}" view)))))
+    (unless (and last-mouse-position (nu=? last-mouse-position pos))
+      (set! last-mouse-position pos)
+      (receive (view pos) (find-view-info pos)
+        (case highlight
+          ((#f))
+          ((#t) (default-highlight view pos))
+          (else (highlight view pos)))
+        (when report-figure?
+          (if (not view)
+              (user-message "{a}" self)
+            (user-message "{a}" view))))))
   
   
   (method (mouse-up pos)
@@ -309,10 +312,6 @@
           (values picker view rect))))
     
     (define (redraw same-picker? picker view)
-      (when view (redraw-window~ (get-player~ view)))
-      @w
-      (when picker (redraw-view~ picker))
-      @w
       (if same-picker?
           (when view
             (let ((player (get-player~ view))
@@ -320,7 +319,6 @@
               (redraw-window~ player rect: rect)))
         (when picker
           (redraw-view~ picker))))
-    
     
     (receive (picker view rect) (highlight-info view pos)
       (unless (and (eq? *highlighted-picker* picker)

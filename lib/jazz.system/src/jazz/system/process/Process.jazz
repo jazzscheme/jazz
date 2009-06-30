@@ -62,6 +62,7 @@
   (slot preferences-root     initialize {})
   (slot preferences-designer initialize {})
   (slot context              initialize {})
+  (slot exit-continuation    initialize {})
 
   
   ;;;
@@ -298,10 +299,10 @@
       (close-environment)
       (terminate-process)
       (set-process {})
-      (let ((restart (find-restart 'exit-process)))
-        (if restart
-            (invoke-restart restart status)
-          (exit status)))))
+      (if exit-continuation
+          (continuation-return exit-continuation status)
+        (exit status))))
+  
 
   ;;;
   ;;;; Alias
@@ -479,15 +480,14 @@
   
   
   (method public virtual (run-loop)
-    (with-restart-catcher 'exit-process "Exit Process" {}
-      (function ()
-        (continuation-capture
-          (function (cont)
-            (with-repl-context cont
+    (continuation-capture
+      (function (cont)
+        (set! exit-continuation cont)
+        (with-repl-context cont
+          (function ()
+            (with-current-loop
               (function ()
-                (with-current-loop
-                  (function ()
-                    (start-loop))))))))))
+                (start-loop))))))))
   
   
   (method public (resume-loop)

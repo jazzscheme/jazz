@@ -2531,11 +2531,13 @@
 
 
 (define (jazz.expand-assert walker resume declaration environment form-src)
-  (jazz.expand-assert-test jazz.debug-user? form-src))
+  ;; we really want assertions in release and not in a new distribution safety
+  (jazz.expand-assert-test #t form-src))
 
 
 (define (jazz.expand-assertion walker resume declaration environment form-src)
-  (jazz.expand-assertion-test jazz.debug-user? form-src))
+  ;; we really want assertions in release and not in a new distribution safety
+  (jazz.expand-assertion-test #t form-src))
 
 
 (define (jazz.expand-assert-test test? src)

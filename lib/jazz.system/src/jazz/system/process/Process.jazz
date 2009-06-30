@@ -270,8 +270,9 @@
   
   (method public virtual (close-environment)
     (close-preferences)
-    (detach-from-controller)
-    (stop-servers))
+    (unless (reloading-process?)
+      (detach-from-controller)
+      (stop-servers)))
   
   
   (method (close-preferences)
@@ -300,13 +301,14 @@
       (exit status)))
   
 
-  (method public (restart-process)
-    (unload-process)
+  (method public (reload-process)
+    (parameterize ((*reloading-process?* #t))
+      (unload-process))
     (continuation-graft exit-continuation boot-environment))
   
   
   (method (unload-process)
-    (parameterize ((exiting? #t))
+    (parameterize ((*exiting-process?* #t))
       (preserve-environment)
       (close-environment)
       (terminate-process)

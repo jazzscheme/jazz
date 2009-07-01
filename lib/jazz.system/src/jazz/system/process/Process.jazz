@@ -302,9 +302,11 @@
   
 
   (method public (reload-process)
-    (parameterize ((*reloading-process?* #t))
-      (unload-process))
-    (continuation-graft exit-continuation boot-environment))
+    (thread-execute (primordial-thread) 'reload-process
+      (function ()
+        (parameterize ((*reloading-process?* #t))
+          (unload-process))
+        (continuation-graft exit-continuation boot-environment))))
   
   
   (method (unload-process)
@@ -514,8 +516,11 @@
 
   (method public virtual (start-loop)
     (let (loop)
-      (relinquish-process)
-      (loop)))
+      (let ((thunk (thread-read-non-blocking)))
+        (when (not (eof-object? thunk))
+          (with-exception-debugger (get-exception-debugger)
+            thunk)
+          (loop)))))
 
 
   ;;;

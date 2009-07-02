@@ -193,3 +193,99 @@
     (else
      ;; quoting is only necessary on windows as arguments are passed explicitly in unix
      pathname)))
+
+
+(cond-expand
+  (gambit
+    (define jazz.file-exists?
+      file-exists?))
+  
+  (else))
+
+
+;;;
+;;;; Digest
+;;;
+
+
+(define (jazz.updated-digest-source? digest src-filepath)
+  (let ((time (jazz.file-modification-time src-filepath)))
+    (if (= time (%%digest-source-time digest))
+        #f
+      (begin
+        (%%digest-source-time-set! digest time)
+        (%%digest-source-hash-set! digest (digest-file src-filepath 'sha-1))
+        #t))))
+
+
+;;;
+;;;; Manifest
+;;;
+
+
+(define jazz.Manifest-Extension
+  "mnf")
+
+
+(define (jazz.load-manifest filepath)
+  (let ((pathname filepath))
+    (if (jazz.file-exists? filepath)
+        (call-with-input-file (list path: filepath eol-encoding: 'cr-lf)
+          (lambda (input)
+            (let ((form (read input)))
+              (let ((name (%%cadr form))
+                    (version-form (%%assq 'version (%%cddr form)))
+                    (digest-form (%%assq 'digest (%%cddr form))))
+                (let (;; test is for backward compatibility and could be removed in the future
+                      (version (if version-form (%%cadr version-form) #f))
+                      (compile-time-hash (%%cadr digest-form))
+                      (source-hash (%%car (%%cddr digest-form)))
+                      (source-time (%%cadr (%%cddr digest-form))))
+                  (if (boolean? source-time)
+                      #f
+                    (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time))))))))
+      #f)))
+
+
+(define (jazz.save-manifest filepath manifest)
+  (let ((name (%%manifest-name manifest))
+        (version (%%manifest-version manifest))
+        (digest (%%manifest-digest manifest)))
+    (call-with-output-file filepath
+      (lambda (output)
+        (display "(manifest " output)
+        (display name output)
+        (newline output)
+        (newline output)
+        (display "  (version " output)
+        (write version output)
+        (display ")" output)
+        (newline output)
+        (display "  (digest " output)
+        (write (%%digest-compile-time-hash digest) output)
+        (display " " output)
+        (write (%%digest-source-hash digest) output)
+        (display " " output)
+        (write (%%digest-source-time digest) output)
+        (display " " output)
+        (write (string=? (%%digest-compile-time-hash digest) (%%digest-source-hash digest)) output)
+        (display "))" output)
+        (newline output)))))
+
+
+(define (jazz.cache-manifest-uptodate? name manifest-filepath src-filepath)
+  (let ((manifest (or (jazz.load-manifest manifest-filepath)
+                      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0)))))
+    (let ((digest (%%manifest-digest manifest)))
+      (if (jazz.updated-digest-source? digest src-filepath)
+          (jazz.save-manifest manifest-filepath manifest))
+      (string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest)))))
+
+
+(define (jazz.update-manifest-compile-time name manifest-filepath src-filepath)
+  (let ((manifest (or (jazz.load-manifest manifest-filepath)
+                      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0)))))
+    (let ((digest (%%manifest-digest manifest)))
+      (jazz.updated-digest-source? digest src-filepath)
+      (%%digest-compile-time-hash-set! digest (%%digest-source-hash digest))
+      (jazz.save-manifest manifest-filepath manifest))))

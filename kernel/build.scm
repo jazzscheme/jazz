@@ -1264,7 +1264,9 @@
   (load "kernel/syntax/features")
   (load "kernel/syntax/declares")
   (load "kernel/syntax/primitives")
+  (load "kernel/syntax/syntax")
   (load "kernel/runtime/common")
+  (load "kernel/runtime/digest")
   (load "kernel/runtime/build"))
 
 

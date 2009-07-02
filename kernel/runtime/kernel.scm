@@ -248,9 +248,6 @@
 
 (cond-expand
   (gambit
-    (define jazz.file-exists?
-      file-exists?)
-    
     (define jazz.file-delete
       delete-file)
     
@@ -817,13 +814,15 @@
                                             (jazz.path->name (%%resource-path src))
                                             (lambda (package)
                                               (jazz.package-find-src package (%%resource-path src) extensions))))
-      (let ((manifest (and bin (jazz.load-manifest bin))))
-        (let ((bin-uptodate?
-                (and bin (or (%%not src)
-                             (and manifest
-                                  (not (jazz.manifest-needs-rebuild? manifest))
-                                  (jazz.bin-determine/cache-uptodate? src manifest (%%resource-package bin)))))))
-          (proc src bin bin-uptodate?))))))
+      (let ((bin-uptodate?
+              (if src
+                  (and bin
+                       (let ((manifest-filepath (and bin (jazz.manifest-pathname (%%resource-package bin) bin)))
+                             (src-filepath (and src (jazz.resource-pathname src))))
+                         (and (jazz.cache-manifest-uptodate? module-name manifest-filepath src-filepath)
+                              (not (jazz.manifest-needs-rebuild? (jazz.load-manifest manifest-filepath))))))
+                bin)))
+        (proc src bin bin-uptodate?)))))
 
 
 (define (jazz.module-uptodate-binary? module-name)
@@ -1325,84 +1324,15 @@
 
 
 ;;;
-;;;; Digest
-;;;
-
-
-(define (jazz.resource-digest src)
-  (let ((pathname (jazz.resource-pathname src)))
-    (%%make-digest (digest-file pathname 'sha-1)
-                   (jazz.file-modification-time pathname)
-                   #t)))
-
-
-(define (jazz.bin-determine/cache-uptodate? src manifest manifest-package)
-  (let ((pathname (jazz.resource-pathname src))
-        (digest (%%manifest-digest manifest)))
-    (let ((hash (%%digest-hash digest))
-          (cached-time (%%digest-cached-time digest))
-          (cached-identical? (%%digest-cached-identical? digest))
-          (time (jazz.file-modification-time pathname)))
-      (if (= time cached-time)
-          cached-identical?
-        (let ((identical? (%%string=? hash (digest-file pathname 'sha-1))))
-          (%%digest-cached-time-set! digest time)
-          (%%digest-cached-identical?-set! digest identical?)
-          (jazz.save-manifest (%%make-resource manifest-package (%%resource-path src) jazz.Manifest-Extension) manifest)
-          identical?)))))
-
-
-;;;
 ;;;; Manifest
 ;;;
 
 
-(define jazz.Manifest-Extension
-  "mnf")
-
-
-(define (jazz.load-manifest bin)
-  (let ((resource (%%make-resource (%%resource-package bin) (%%resource-path bin) jazz.Manifest-Extension)))
-    (let ((pathname (jazz.resource-pathname resource)))
-      (if (jazz.file-exists? pathname)
-          (call-with-input-file (list path: pathname eol-encoding: 'cr-lf)
-            (lambda (input)
-              (let ((form (read input)))
-                (let ((name (%%cadr form))
-                      (version-form (%%assq 'version (%%cddr form)))
-                      (digest-form (%%assq 'digest (%%cddr form))))
-                  (let (;; test is for backward compatibility and could be removed in the future
-                        (version (if version-form (%%cadr version-form) #f))
-                        (hash (%%cadr digest-form))
-                        (cached-time (%%car (%%cddr digest-form)))
-                        (cached-identical? (%%cadr (%%cddr digest-form))))
-                    (%%make-manifest name version (%%make-digest hash cached-time cached-identical?)))))))
-        #f))))
-
-
-(define (jazz.save-manifest resource manifest)
-  (let ((name (%%manifest-name manifest))
-        (version (%%manifest-version manifest))
-        (digest (%%manifest-digest manifest)))
-    (call-with-output-file (jazz.resource-pathname resource)
-      (lambda (output)
-        (display "(manifest " output)
-        (display name output)
-        (newline output)
-        (newline output)
-        (display "  (version " output)
-        (write version output)
-        (display ")" output)
-        (newline output)
-        (display "  (digest " output)
-        (write (%%digest-hash digest) output)
-        (display " " output)
-        (write (%%digest-cached-time digest) output)
-        (display " " output)
-        (write (%%digest-cached-identical? digest) output)
-        (display "))" output)
-        (newline output)))))
-
+(define (jazz.manifest-pathname package resource)
+  (jazz.package-pathname package
+                         (%%string-append (%%resource-path resource)
+                                          "."
+                                          jazz.Manifest-Extension)))
 
 ;;;
 ;;;; Load

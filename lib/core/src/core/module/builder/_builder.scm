@@ -76,9 +76,9 @@
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
                   (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
-            (let ((manifest-resource (%%make-resource build-package path jazz.Manifest-Extension))
-                  (manifest-digest (jazz.resource-digest src)))
-              (jazz.save-manifest manifest-resource (%%make-manifest manifest-name jazz.kernel-version manifest-digest))))))))
+            (let ((manifest-filepath (jazz.manifest-pathname build-package src))
+                  (src-filepath (jazz.resource-pathname src)))
+              (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath)))))))
 
 
 (define (jazz.copy-package package)

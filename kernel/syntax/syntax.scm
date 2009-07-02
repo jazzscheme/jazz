@@ -226,24 +226,27 @@
 ;;;
 
 
-(jazz.define-macro (%%make-digest hash time identical?)
-  `(%%vector 'digest ,hash ,time ,identical?))
+(jazz.define-macro (%%make-digest compile-time-hash source-hash source-time)
+  `(%%vector 'digest ,compile-time-hash ,source-hash ,source-time))
 
 
-(jazz.define-macro (%%digest-hash digest)
+(jazz.define-macro (%%digest-compile-time-hash digest)
   `(%%vector-ref ,digest 1))
 
-(jazz.define-macro (%%digest-cached-time digest)
+(jazz.define-macro (%%digest-compile-time-hash-set! digest compile-time-hash)
+  `(%%vector-set! ,digest 1 ,compile-time-hash))
+
+(jazz.define-macro (%%digest-source-hash digest)
   `(%%vector-ref ,digest 2))
 
-(jazz.define-macro (%%digest-cached-time-set! digest time)
-  `(%%vector-set! ,digest 2 ,time))
+(jazz.define-macro (%%digest-source-hash-set! digest source-hash)
+  `(%%vector-set! ,digest 2 ,source-hash))
 
-(jazz.define-macro (%%digest-cached-identical? digest)
+(jazz.define-macro (%%digest-source-time digest)
   `(%%vector-ref ,digest 3))
 
-(jazz.define-macro (%%digest-cached-identical?-set! digest identical?)
-  `(%%vector-set! ,digest 3 ,identical?))
+(jazz.define-macro (%%digest-source-time-set! digest source-time)
+  `(%%vector-set! ,digest 3 ,source-time))
 
 
 ;;;

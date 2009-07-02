@@ -675,9 +675,6 @@
 ;;;
 
 
-(native jazz.get-catalog)
-(native jazz.get-catalog-entry)
-(native jazz.locate-library-declaration)
 (native jazz.get-object-slot)
 (native jazz.set-object-slot)
 (native jazz.dispatch)
@@ -972,4 +969,7 @@
 (native jazz.binding-specifier)
 (native jazz.parse-specifier)
 (native jazz.requested-module-name)
-(native jazz.requested-module-resource))
+(native jazz.requested-module-resource)
+(native jazz.get-catalog)
+(native jazz.get-catalog-entry)
+(native jazz.locate-toplevel-declaration))

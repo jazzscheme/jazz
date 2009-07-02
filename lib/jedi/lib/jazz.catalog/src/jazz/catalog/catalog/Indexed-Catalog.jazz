@@ -389,11 +389,6 @@
   
   (method (get-references name)
     (table-ref references-index (canonicalize-name name) '()))
-
-
-  (method (get-completions name)
-    (either (table-complete definitions-index name)
-            (table-complete references-index name)))
   
   
   (method protected virtual (canonicalize-name name)
@@ -422,13 +417,15 @@
   ;;;
   ;;;; Completions
   ;;;
-  
-  
-  (method (table-complete table string)
-    (let ((length (cardinality string))
-          (result '()))
-      (iterate-table table
-        (function (name value)
-          (when (compare-n name string length)
-            (set! result (cons name result)))))
-      result))))
+
+
+  (method (add-completions dest target)
+    (let ((len (cardinality target)))
+      (define (add-table table)
+        (iterate-table table
+          (function (name value)
+            (when (compare-n name target len)
+              (table-set! dest name #t)))))
+      
+      (add-table definitions-index)
+      (add-table references-index)))))

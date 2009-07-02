@@ -736,14 +736,21 @@
       (let ((cataloguer (get-cataloguer~ (get-application))))
         (if (not cataloguer)
             '()
-          (let ((completions (get-completions~ cataloguer name context: (get-context)))
+          (let ((table (make-table test: equal?))
                 (len (string-length name)))
+            (add-completions~ cataloguer table name context: (get-context))
+            @not-sure-why-this-is-necessary
             (for-each (function (pair)
-                        (let ((favorite (cdr pair)))
-                          (when (compare-n (->string favorite) name len)
-                            (set! completions (cons favorite completions)))))
+                        (let ((favorite (->string (cdr pair))))
+                          (when (compare-n favorite name len)
+                            (table-set! table favorite #t))))
                       favorites)
-            completions)))))
+            (iterate-table (get-aliases)
+                           (function (symbol ignore)
+                             (let ((alias (->string symbol)))
+                               (when (compare-n alias name len)
+                                 (table-set! table alias #t)))))
+            (table-keys table))))))
     
   
   ;;;

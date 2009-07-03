@@ -34,15 +34,17 @@
 
   
   ;;;
-  ;;;; Website
+  ;;;; Doc
   ;;;
   
   
-  (definition JazzWebsite-Site
-    {File jazz.website "site" "JazzWebsite.jml"})
+  (method (test)
+    (extract-doc))
+
   
-  (definition JazzWebsite-Content
-    {Directory jazz.website "content"})
+  ;;;
+  ;;;; Website
+  ;;;
   
   
   (method (test0)
@@ -51,145 +53,7 @@
         (let ((guest (get-guest~ frame)))
           (when (is? guest Jazz-Text-View)
             (save~ guest)))))
-    (regenerate-jazzwebsite))
-  
-  
-  (method (regenerate-jazzwebsite)
-    (reload-documentation~ (get-application))
-    (generate-jazzwebsite))
-  
-  
-  (method (generate-jazzwebsite)
-    (let* ((site (load-jml JazzWebsite-Site))
-           (site (transform-jml site (new JazzWebsite-Transformation)))
-           (pages (get-children~ site)))
-      (for-each (function (page)
-                  (user-message "Rendering {a}..." (get-property~ page 'path))
-                  (render-jazzwebsite-page page))
-                pages)
-      (user-message "Website generated")))
-  
-  
-  (method (render-jazzwebsite-page page)
-    (let* ((content JazzWebsite-Content)
-           (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
-           (preferences (new JML-Preferences))
-           (renderer (new XHTML-Renderer preferences))
-           (html (first-child~ page)))
-      ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
-      (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: (get-eol-encoding))
-        (function (printer)
-          (render~ renderer html printer)))))
-  
-  
-  (method (export-latest-news)
-    (let* ((site (load-jml JazzWebsite-Site))
-           (news (second (get-children~ (find-name~ site 'news))))
-           (latest (first (get-children~ news))))
-      (let ((output (open-output-string))
-            (left-margin 0)
-            (right-margin 70)
-            (column 0))
-        (define (render node)
-          (typecase node
-            ((JML-Text)
-             (render-text (get-text~ node)))
-            (else
-             (let ((tag (get-tag~ node)))
-               (case tag
-                 ((division) (render-division node))
-                 ((p) (render-paragraph node))
-                 ((b) (render-bold node))
-                 ((br) (render-break node))
-                 ((node) (render-node node))
-                 ((span) (render-span node))
-                 ((cite) (render-cite node))
-                 ((a) (render-anchor node))
-                 (else (error "Unable to render tag: {s}" tag)))))))
-        
-        (define (render-children node)
-          (for-each render (get-children~ node)))
-        
-        (define (render-text text)
-          (let ((words (remove-empty-strings (split text " "))))
-            (for-each (function (word)
-                        (let ((right (+ column (cardinality word))))
-                          (cond ((>= right right-margin)
-                                 (break))
-                                ((> column 0)
-                                 (print " ")))
-                          (print word)))
-                      words)))
-        
-        (define (render-division node)
-          (let ((title (get-property~ node 'title)))
-            (paragraph)
-            (print (upcase title))
-            (paragraph)
-            (with-margins left-margin #f
-              (function ()
-                (render-children node)))))
-        
-        (define (render-paragraph node)
-          (paragraph))
-        
-        (define (render-bold node)
-          (render-text (upcase (get-text~ (first-child~ node)))))
-        
-        (define (render-break node)
-          (break))
-        
-        (define (render-node node)
-          (for-each (function (subnode)
-                      (print "-")
-                      (with-margins (+ left-margin 2) #f
-                        (function ()
-                          (render subnode)
-                          (break))))
-                    (get-children~ node)))
-        
-        (define (render-span node)
-          (render-children node))
-        
-        (define (render-cite node)
-          (render-children node))
-        
-        (define (render-anchor node)
-          (let ((href (get-property~ node 'href))
-                (text (get-text~ (first-child~ node))))
-            (if (equal? href text)
-                (print href)
-              (print (format "{a}: {a}" text href)))))
-        
-        (define (with-margins left right thunk)
-          (let ((old-left left-margin)
-                (old-right right-margin))
-            (when left
-              (set! left-margin left))
-            (when right
-              (set! right-margin left))
-            (thunk)
-            (set! left-margin old-left)
-            (set! right-margin old-right)))
-        
-        (define (print str)
-          (when (and (= column 0) (> left-margin 0))
-            (format output "{a}" (make-string left-margin #\space)))
-          (display str output)
-          (increase! column (cardinality str)))
-        
-        (define (break)
-          (format output "{%}")
-          (set! column 0))
-        
-        (define (paragraph)
-          (when (> column 0)
-            (break))
-          (break))
-        
-        (render-children latest)
-        (set-clipboard-text (get-output-string output))
-        (user-message "Latest news rendered to clipboard")))))
+    (regenerate-jazzwebsite)))
 
 
 (register-profile-class Website))

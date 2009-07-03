@@ -56,6 +56,8 @@
         (jazz.ui.picker)
         (jazz.ui.view)
         (jazz.utilities)
+        (jazz.walker)
+        (jazz.website)
         (jedi)
         (time))
 
@@ -260,6 +262,397 @@
                     (debug count line (map char->integer (coerce line List))))
                   (increase! count))
                 (get-content~ text))))
+    
+  
+  ;;;
+  ;;;; Modules
+  ;;;
+  
+  
+  (method (package-modules package)
+    (let ((fact (new List-Factory)))
+      (let ((product (package-product package)))
+        (if product
+            (let ((pair (assq 'update (cdr product))))
+              (if (not pair)
+                  '()
+                (cdr pair)))
+          (debug "Unable to find package product for" (package-name package))
+          '()))))
+  
+  
+  (method (package-product package)
+    (assq (package-name package) (package-products package)))
+  
+  
+  (method (module-submodules module-name)
+    (load-module 'core.module.builder)
+    (let ((submodules '()))
+      (for-each-submodule module-name
+        (function (submodule-name declaration phase)
+          (set! submodules (cons submodule-name submodules))))
+      submodules))
+    
+  
+  ;;;
+  ;;;; Doc
+  ;;;
+  
+  
+  (definition Documented-Modules
+    '(contrib.irregex
+      contrib.statprof
+      jazz
+      jazz.catalog
+      jazz.console
+      jazz.database
+      jazz.database.ado
+      jazz.database.sqlserver
+      jazz.debuggee
+      jazz.debugger
+      jazz.designer
+      jazz.doc
+      jazz.git
+      jazz.graphic
+      jazz.graphic.opengl
+      jazz.groupware
+      jazz.help
+      jazz.ide
+      jazz.io
+      jazz.jml
+      jazz.jrm
+      jazz.language.c
+      jazz.language.clike
+      jazz.language.commonlisp
+      jazz.language.diff
+      jazz.language.jazz
+      ;jazz.language.jazz.inspector
+      jazz.language.lisp
+      jazz.language.scheme
+      jazz.language.sql
+      jazz.library
+      ;jazz.library.component
+      ;jazz.library.exemplar
+      ;jazz.library.listener
+      ;jazz.library.node
+      ;jazz.library.template
+      ;jazz.literals
+      jazz.media
+      jazz.network
+      ;jazz.network.http
+      jazz.platform
+      ;jazz.platform.cairo
+      ;jazz.platform.types
+      ;jazz.platform.types-syntax
+      jazz.profile
+      jazz.recorder
+      ;jazz.runtime
+      jazz.schema
+      jazz.system
+      ;jazz.system.application
+      ;jazz.system.log
+      ;jazz.system.performance
+      ;jazz.system.process
+      ;jazz.system.service
+      jazz.ui
+      ;jazz.ui.activity
+      ;jazz.ui.clipboard
+      ;jazz.ui.development
+      ;jazz.ui.dialog
+      ;jazz.ui.history
+      ;jazz.ui.image
+      ;jazz.ui.look
+      ;jazz.ui.menu
+      ;jazz.ui.offscreen
+      ;jazz.ui.picker
+      ;jazz.ui.print
+      ;jazz.ui.resizer
+      ;jazz.ui.view
+      ;jazz.ui.window
+      ;jazz.ui.workspace
+      ;jazz.utilities
+      ;jazz.walker
+      jazz.website
+      scheme
+      srfi-19))
+  
+  
+  (method (extract-doc)
+    (for-each extract-package-doc Documented-Modules)
+    (user-message "Done"))
+  
+  
+  (method (extract-package-doc name)
+    (user-message "Extracting {a}..." name)
+    (call-with-output-file (list path: (parse~ (new-file~ {Directory jazz.website "reference"} (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
+      (function (port)
+        (let ((package (find-package name)))
+          (assert package)
+          (let* ((module-names (package-modules package))
+                 (jml `(<Package-Doc> name: ,name
+                         ,@(map extract-module/library-doc module-names)))
+                 (node (parse-jml jml)))
+            (pretty-print~ node port)
+            (newline port))))))
+  
+  
+  (method (extract-module/library-doc module-name)
+    (load-module 'core.module.builder)
+    (let ((module (locate-toplevel-declaration module-name))
+          (fact (new List-Factory)))
+      (for-each-submodule module-name
+        (function (submodule-name declaration phase)
+          (let ((submodule (locate-toplevel-declaration submodule-name)))
+            (typecase submodule
+              ((Module-Declaration))
+              ((Library-Declaration) (put-sequence~ fact (filter-public-declarations (get-children~ submodule))))))))
+      (let ((all-children (sort string<? (get-output~ fact) key: (function (decl) (symbol->string (get-name~ decl))))))
+        (typecase module
+          ((Module-Declaration) (extract-module-doc module all-children))
+          ((Library-Declaration) (extract-library-doc module all-children))))))
+  
+  
+  (method (extract-module-doc declaration all-children)
+    `(<Module-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
+       ,@(map extract-declaration-doc all-children)))
+  
+  
+  (method (extract-library-doc declaration all-children)
+    `(<Library-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
+       ,@(map extract-declaration-doc all-children)))
+  
+  
+  (method (extract-declaration-doc declaration)
+    (typecase declaration
+      ((Export-Declaration) (extract-export-doc declaration))
+      ((Define-Declaration) (extract-define-doc declaration))
+      ((Define-Macro-Declaration) (extract-define-macro-doc declaration))
+      ((Definition-Declaration) (extract-definition-doc declaration))
+      ((Generic-Declaration) (extract-generic-doc declaration))
+      ((Macro-Declaration) (extract-macro-doc declaration))
+      ((Syntax-Declaration) (extract-syntax-doc declaration))
+      ((Class-Declaration) (extract-class-doc declaration))
+      ((Interface-Declaration) (extract-interface-doc declaration))
+      ((Property-Declaration) (extract-property-doc declaration))
+      ((Slot-Declaration) (extract-slot-doc declaration))
+      ((Method-Declaration) (extract-method-doc declaration))
+      ((C-Type-Declaration) (extract-c-type-doc declaration))
+      ((C-Definition-Declaration) (extract-c-definition-doc declaration))
+      (else (debug 'Unknown (type-name (class-of declaration))) `(<Doc> name: ,(get-name~ declaration)))))
+  
+  
+  (method (extract-export-doc declaration)
+    `(<Export-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-define-doc declaration)
+    `(<Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-define-macro-doc declaration)
+    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-definition-doc declaration)
+    `(<Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-generic-doc declaration)
+    `(<Generic-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-macro-doc declaration)
+    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-syntax-doc declaration)
+    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-class-doc declaration)
+    `(<Class-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
+         ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration)))))
+  
+  
+  (method (extract-interface-doc declaration)
+    `(<Interface-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
+       ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration)))))
+  
+  
+  (method (extract-slot-doc declaration)
+    `(<Slot-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-property-doc declaration)
+    `(<Property-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-method-doc declaration)
+    `(<Method-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-c-type-doc declaration)
+    `(<C-Type-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (method (extract-c-definition-doc declaration)
+    `(<C-Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (definition (filter-public-declarations declarations)
+    (collect-if (function (decl)
+                  (eq? (get-access~ decl) 'public))
+                declarations))
+
+  
+  ;;;
+  ;;;; Website
+  ;;;
+  
+  
+  (definition JazzWebsite-Site
+    {File jazz.website "site" "JazzWebsite.jml"})
+  
+  (definition JazzWebsite-Content
+    {Directory jazz.website "content"})
+  
+  
+  (method (regenerate-jazzwebsite)
+    (reload-documentation~ (get-application))
+    (generate-jazzwebsite))
+  
+  
+  (method (generate-jazzwebsite)
+    (let* ((site (load-jml JazzWebsite-Site))
+           (site (transform-jml site (new JazzWebsite-Transformation)))
+           (pages (get-children~ site)))
+      (for-each (function (page)
+                  (user-message "Rendering {a}..." (get-property~ page 'path))
+                  (render-jazzwebsite-page page))
+                pages)
+      (user-message "Website generated")))
+  
+  
+  (method (render-jazzwebsite-page page)
+    (let* ((content JazzWebsite-Content)
+           (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
+           (preferences (new JML-Preferences))
+           (renderer (new XHTML-Renderer preferences))
+           (html (first-child~ page)))
+      ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
+      (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: (get-eol-encoding))
+        (function (printer)
+          (render~ renderer html printer)))))
+  
+  
+  (method (export-latest-news)
+    (let* ((site (load-jml JazzWebsite-Site))
+           (news (second (get-children~ (find-name~ site 'news))))
+           (latest (first (get-children~ news))))
+      (let ((output (open-output-string))
+            (left-margin 0)
+            (right-margin 70)
+            (column 0))
+        (define (render node)
+          (typecase node
+            ((JML-Text)
+             (render-text (get-text~ node)))
+            (else
+             (let ((tag (get-tag~ node)))
+               (case tag
+                 ((division) (render-division node))
+                 ((p) (render-paragraph node))
+                 ((b) (render-bold node))
+                 ((br) (render-break node))
+                 ((node) (render-node node))
+                 ((span) (render-span node))
+                 ((cite) (render-cite node))
+                 ((a) (render-anchor node))
+                 (else (error "Unable to render tag: {s}" tag)))))))
+        
+        (define (render-children node)
+          (for-each render (get-children~ node)))
+        
+        (define (render-text text)
+          (let ((words (remove-empty-strings (split text " "))))
+            (for-each (function (word)
+                        (let ((right (+ column (cardinality word))))
+                          (cond ((>= right right-margin)
+                                 (break))
+                                ((> column 0)
+                                 (print " ")))
+                          (print word)))
+                      words)))
+        
+        (define (render-division node)
+          (let ((title (get-property~ node 'title)))
+            (paragraph)
+            (print (upcase title))
+            (paragraph)
+            (with-margins left-margin #f
+              (function ()
+                (render-children node)))))
+        
+        (define (render-paragraph node)
+          (paragraph))
+        
+        (define (render-bold node)
+          (render-text (upcase (get-text~ (first-child~ node)))))
+        
+        (define (render-break node)
+          (break))
+        
+        (define (render-node node)
+          (for-each (function (subnode)
+                      (print "-")
+                      (with-margins (+ left-margin 2) #f
+                        (function ()
+                          (render subnode)
+                          (break))))
+                    (get-children~ node)))
+        
+        (define (render-span node)
+          (render-children node))
+        
+        (define (render-cite node)
+          (render-children node))
+        
+        (define (render-anchor node)
+          (let ((href (get-property~ node 'href))
+                (text (get-text~ (first-child~ node))))
+            (if (equal? href text)
+                (print href)
+              (print (format "{a}: {a}" text href)))))
+        
+        (define (with-margins left right thunk)
+          (let ((old-left left-margin)
+                (old-right right-margin))
+            (when left
+              (set! left-margin left))
+            (when right
+              (set! right-margin left))
+            (thunk)
+            (set! left-margin old-left)
+            (set! right-margin old-right)))
+        
+        (define (print str)
+          (when (and (= column 0) (> left-margin 0))
+            (format output "{a}" (make-string left-margin #\space)))
+          (display str output)
+          (increase! column (cardinality str)))
+        
+        (define (break)
+          (format output "{%}")
+          (set! column 0))
+        
+        (define (paragraph)
+          (when (> column 0)
+            (break))
+          (break))
+        
+        (render-children latest)
+        (set-clipboard-text (get-output-string output))
+        (user-message "Latest news rendered to clipboard"))))
     
   
   ;;;

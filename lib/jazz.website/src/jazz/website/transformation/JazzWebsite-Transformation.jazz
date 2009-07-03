@@ -39,7 +39,11 @@
 
 
 (import (jazz.doc)
+        (jazz.io)
         (jazz.jml)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.literals)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.utilities))
@@ -403,17 +407,23 @@
            (cataloguer (get-documentation-cataloguer~ appl))
            (docs (new List-Factory)))
       (bind (name . rest) (if (symbol? path) (list path) path)
-        (let ((catalog (find-catalog~ cataloguer name)))
-          (cond ((null? rest)
-                 (put~ docs (get-client~ catalog)))
-                ((equal? rest '(*))
-                 (let ((parent (get-project~ catalog)))
-                   (for-each (function (catalog)
-                               (when (eq? (get-parent-project~ (get-project~ catalog)) parent)
-                                 (put~ docs (get-client~ catalog))))
-                             (get-catalogs~ cataloguer))))
-                (else
-                 (unimplemented 'find-docs)))))
+        (if (eq? name :reference)
+            (iterate-directory~ {Directory jazz.website "reference"}
+              (function (file)
+                (when (ci=? (get-extension~ file) "jml")
+                  (put~ docs (instantiate~ (read-from-file file))))))
+          (let ((catalog (find-catalog~ cataloguer name)))
+            (assert catalog)
+            (cond ((null? rest)
+                   (put~ docs (get-client~ catalog)))
+                  ((equal? rest '(*))
+                   (let ((parent (get-project~ catalog)))
+                     (for-each (function (catalog)
+                                 (when (eq? (get-parent-project~ (get-project~ catalog)) parent)
+                                   (put~ docs (get-client~ catalog))))
+                               (get-catalogs~ cataloguer))))
+                  (else
+                   (unimplemented 'find-docs))))))
       (get-output~ docs)))
   
   

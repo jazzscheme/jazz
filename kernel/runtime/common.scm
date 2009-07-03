@@ -241,7 +241,9 @@
                       (compile-time-hash (%%cadr digest-form))
                       (source-hash (%%car (%%cddr digest-form)))
                       (source-time (%%cadr (%%cddr digest-form))))
-                  (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time)))))))
+                  (if (boolean? source-time)
+                      #f
+                    (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time))))))))
       #f)))
 
 

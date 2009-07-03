@@ -46,7 +46,7 @@
 ;; @syntax (either code result) @expansion (if code code result)
 ;; @syntax (either (f) (g) (h)) @expansion (let ((sym15 (f))) (if sym15 sym15 (let ((sym16 (g))) (if sym16 sym16 (h)))))
 
-(syntax (either form-src)
+(syntax public (either form-src)
   (let ((expressions (cdr (source-code form-src))))
     (if (null? expressions)
         (error "Not enough arguments for either")

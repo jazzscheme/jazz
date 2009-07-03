@@ -59,7 +59,7 @@
 ;   (list a b))
 
 
-(syntax (bind-optionals form-src)
+(syntax public (bind-optionals form-src)
   (let ((bindings (source-code (cadr (source-code form-src))))
         (rest (car (cddr (source-code form-src))))
         (body (cdr (cddr (source-code form-src))))

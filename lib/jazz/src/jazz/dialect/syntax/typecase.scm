@@ -49,7 +49,7 @@
 ;                    (else 3)))
 
 
-(syntax (typecase form-src)
+(syntax public (typecase form-src)
   (let ((target (cadr (source-code form-src)))
         (clauses (cddr (source-code form-src))))
     (sourcify-if

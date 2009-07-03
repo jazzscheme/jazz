@@ -44,7 +44,7 @@
 
 ;; @syntax (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))
 
-(syntax (essay form-src)
+(syntax public (essay form-src)
   (let ((expressions (cdr (source-code form-src))))
     (if (null? expressions)
         (error "Not enough arguments for essay")

@@ -79,7 +79,7 @@
 ;       (set-property criteria: value))))
 
 
-(macro (attributes . form)
+(macro public (attributes . form)
   (define unspecified
     (cons #f #f))
   

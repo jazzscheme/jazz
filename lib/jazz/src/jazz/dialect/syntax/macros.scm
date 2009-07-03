@@ -41,7 +41,7 @@
 (import (jazz.dialect.kernel.boot))
 
 
-(syntax (constant form-src)
+(syntax public (constant form-src)
   (let ((name (cadr (source-code form-src)))
         (value (caddr (source-code form-src))))
     (sourcify-if
@@ -49,7 +49,7 @@
       form-src)))
 
 
-(syntax (enumeration form-src)
+(syntax public (enumeration form-src)
   (let ((name (cadr (source-code form-src)))
         (declarations (cddr (source-code form-src))))
     (sourcify-if
@@ -58,7 +58,7 @@
       form-src)))
 
 
-(syntax (when form-src)
+(syntax public (when form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
     (sourcify-if
@@ -71,7 +71,7 @@
       form-src)))
 
 
-(syntax (unless form-src)
+(syntax public (unless form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
     (sourcify-if
@@ -81,7 +81,7 @@
       form-src)))
 
 
-(syntax (prog1 form-src)
+(syntax public (prog1 form-src)
   (let ((returned (cadr (source-code form-src)))
         (body (cddr (source-code form-src)))
         (value (generate-symbol)))
@@ -92,7 +92,7 @@
       form-src)))
 
 
-(syntax (while form-src)
+(syntax public (while form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src)))
         (iter (generate-symbol "iter")))
@@ -105,7 +105,7 @@
       form-src)))
 
 
-(syntax (unwind-protect form-src)
+(syntax public (unwind-protect form-src)
   (let ((body (cadr (source-code form-src)))
         (protection (cddr (source-code form-src))))
     (sourcify-if
@@ -118,7 +118,7 @@
 ;; @syntax (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
 ;; @syntax (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
-(syntax (catch form-src)
+(syntax public (catch form-src)
   (let ((type (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
     (sourcify-if
@@ -135,7 +135,7 @@
       form-src)))
 
 
-(syntax (~ form-src)
+(syntax public (~ form-src)
   (let ((name (source-code (cadr (source-code form-src))))
         (object (car (cddr (source-code form-src)))))
     (sourcify-if
@@ -146,7 +146,7 @@
       form-src)))
 
 
-(macro (form>> form)
+(macro public (form>> form)
   `(jml->form ',form))
 
 
@@ -194,7 +194,7 @@
 ;;;
 
 
-(syntax (c-constant form-src)
+(syntax public (c-constant form-src)
   (let ((name (cadr (source-code form-src)))
         (value (caddr (source-code form-src))))
     (sourcify-if
@@ -202,7 +202,7 @@
       form-src)))
 
 
-(syntax (c-enumeration form-src)
+(syntax public (c-enumeration form-src)
   (let ((name (cadr (source-code form-src)))
         (declarations (cddr (source-code form-src))))
     (sourcify-if

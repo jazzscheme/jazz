@@ -46,7 +46,7 @@
 
 
 @w
-(macro (template type)
+(macro public (template type)
   `(specialize inline (butlast seq ,type) ,type
      (subseq seq 0 (- (length seq) 1))))
 
@@ -74,6 +74,6 @@
 
 
 @w
-(macro (instantiate-butlast type)
+(macro public (instantiate-butlast type)
   `(specialize inline (butlast seq ,type) ,type
      (subseq seq 0 (- (length seq) 1))))))

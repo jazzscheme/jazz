@@ -52,7 +52,7 @@
 ;     (list b: 5)))
 
 
-(syntax (bind-keywords form-src)
+(syntax public (bind-keywords form-src)
   (let ((bindings (source-code (cadr (source-code form-src))))
         (rest (car (cddr (source-code form-src))))
         (body (cdr (cddr (source-code form-src)))))

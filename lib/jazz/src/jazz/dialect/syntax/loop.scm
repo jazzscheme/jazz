@@ -129,7 +129,7 @@
       (finally (list even odd)))
 
 
-(syntax (loop form-src)
+(syntax public (loop form-src)
   (let ((clauses (cdr (source-code form-src))))
     (sourcify-if
       (expand-loop clauses)

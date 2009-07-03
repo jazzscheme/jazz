@@ -48,7 +48,7 @@
 ;;               (else 3)))
 
 
-(syntax (ecase form-src)
+(syntax public (ecase form-src)
   (let ((target (cadr (source-code form-src)))
         (clauses (cddr (source-code form-src))))
     (sourcify-if

@@ -150,12 +150,14 @@
         ##define-macro
         define-runtime-macro
         define-runtime-syntax
-        macro
-        syntax
         template
         instantiate
         specialize)
        (walk-define-macro context declaration keyword expression doc walk-expressions?))
+      ((%macro
+        macro
+        syntax)
+       (walk-macro context declaration keyword expression doc walk-expressions?))
       ((jazz.define-class jazz.define-class-runtime jazz.define-virtual)
        (walk-define-class context declaration keyword expression doc walk-expressions?))
       ((;; Gambit
@@ -258,6 +260,20 @@
       (exit-list)
       (when walk-expressions?
         (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+
+  
+  (method (walk-macro context declaration keyword expression doc walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc)
+      (enter-list)
+      (when (and (forward-expr) (eq? kind 'symbol))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (walk-parameters entry declaration keyword expression doc)
+        (exit-list)
+        (when walk-expressions?
+          (walk-expressions entry expression)))
       entry))
   
   

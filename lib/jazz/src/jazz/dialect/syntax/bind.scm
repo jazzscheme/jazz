@@ -54,7 +54,7 @@
 ;         (list a b c r)))))
 
 
-(syntax (bind form-src)
+(syntax public (bind form-src)
   (let ((bindings (desourcify (cadr (source-code form-src))))
         (tree (car (cddr (source-code form-src))))
         (body (cdr (cddr (source-code form-src)))))

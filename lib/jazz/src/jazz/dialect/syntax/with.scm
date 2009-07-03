@@ -42,7 +42,7 @@
 
 
 ;; should prolly expand into a let to be consistant with the naming
-(syntax (with form-src)
+(syntax public (with form-src)
   (let ((bindings (source-code (cadr (source-code form-src))))
         (body (cddr (source-code form-src))))
     (sourcify-if
@@ -56,7 +56,7 @@
 
 ;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
 ;; the second rect will incorrectly refer to the first rect
-(syntax (with-closed form-src)
+(syntax public (with-closed form-src)
   (let ((bindings (source-code (cadr (source-code form-src))))
         (body (cddr (source-code form-src))))
     (sourcify-if

@@ -927,7 +927,7 @@
       (let ((first (%%car form)))
         (case first
           ((definition)        (jazz.walk-definition-declaration        walker resume declaration environment form))
-          ((%specialize)       (jazz.walk-specialize-declaration        walker resume declaration environment form))
+          ((%specialize)       (jazz.walk-%specialize-declaration       walker resume declaration environment form))
           ((generic)           (jazz.walk-generic-declaration           walker resume declaration environment form))
           ((specific)          #f)
           ((%class)            (jazz.walk-%class-declaration            walker resume declaration environment form))
@@ -1469,7 +1469,7 @@
             (parameters (%%cdr signature)))
         (let ((name (or as (jazz.compose-specializer-name operator parameters))))
           `(begin
-             (definition ,expansion (,name ,@parameters) ,@rest)
+             (definition public ,expansion (,name ,@parameters) ,@rest)
              (%specialize ,operator ,name)))))))
 
 
@@ -1488,7 +1488,7 @@
 ;;;
 
 
-(define (jazz.walk-specialize-declaration walker resume declaration environment form)
+(define (jazz.walk-%specialize-declaration walker resume declaration environment form)
   (let ((specialized (%%cadr form))
         (specializer (%%car (%%cddr form))))
     (let ((specialized-declaration (jazz.lookup-reference walker resume declaration environment specialized))
@@ -2322,7 +2322,7 @@
         (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
-               (definition ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
+               (definition public ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
 
 
 (define (jazz.emit-com-function offset resolved-result resolved-params)
@@ -2885,10 +2885,10 @@
                              (size type*)
                              ((%%memq kind '(type struct union)) type*)
                              (else type))))
-            (let ((getter `(definition ,(jazz.build-method-symbol struct id '-ref)
+            (let ((getter `(definition public ,(jazz.build-method-symbol struct id '-ref)
                                        (c-function (,struct*) ,type ,getter-string)))
                   (setter (and setter-string
-                               `(definition ,(jazz.build-method-symbol struct id '-set!)
+                               `(definition public ,(jazz.build-method-symbol struct id '-set!)
                                             (c-function (,struct* ,type) (native void) ,setter-string)))))
               (values getter setter))))))))
 
@@ -2906,11 +2906,11 @@
       `(begin
          (c-type ,struct (type ,c-struct-string ,@tag-rest))
          (c-type ,struct* (pointer ,struct ,@tag*-rest))
-         (definition ,(jazz.build-method-symbol struct 'make)
+         (definition public ,(jazz.build-method-symbol struct 'make)
                      (c-function () ,struct* ,(%%string-append "___result_voidstar = calloc(1," sizeof ");")))
-         (definition ,(jazz.build-method-symbol struct 'free)
+         (definition public ,(jazz.build-method-symbol struct 'free)
                      (c-function (,struct*) (native void) "free(___arg1);"))
-         (definition ,(jazz.build-method-symbol struct 'sizeof)
+         (definition public ,(jazz.build-method-symbol struct 'sizeof)
                      (c-function () (native unsigned-int) ,(%%string-append "___result = " sizeof ";")))
          ,@(apply append (map expand-accessor clauses))))))
 
@@ -2924,9 +2924,9 @@
          (struct* (jazz.build-pointer-symbol struct))
          (c-struct-string (if (%%not (%%null? rest)) (%%car rest) (%%symbol->string struct))))
     `(begin
-       (definition ,(jazz.build-method-symbol struct 'array-make)
+       (definition public ,(jazz.build-method-symbol struct 'array-make)
          (c-function (int) ,struct* ,(%%string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
-       (definition ,(jazz.build-method-symbol struct 'array-element)
+       (definition public ,(jazz.build-method-symbol struct 'array-element)
          (c-function (,struct* int) ,struct* ,(%%string-append "___result = ___arg1+___arg2;"))))))
 
 
@@ -2943,7 +2943,7 @@
   (let* ((s-name (%%car signature))
          (params (%%cdr signature))
          (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
-    `(definition ,s-name
+    `(definition public ,s-name
        (c-function ,params ,type ,c-name))))
 
 
@@ -2957,7 +2957,7 @@
          (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
     `(begin
        (c-external ,type ,(%%cons ext-s-name params) ,c-name)
-       (definition (,s-name ,@new-params)
+       (definition public (,s-name ,@new-params)
          (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
            (WCHAR-copy pt ,string-param (string-length ,string-param))
            (let* ((,string-param pt)

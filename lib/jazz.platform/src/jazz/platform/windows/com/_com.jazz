@@ -51,7 +51,7 @@
 ;;;
 
 
-(definition initialize-com
+(definition public initialize-com
   (let ((initialized? #f))
     (function ()
       (unless initialized?
@@ -61,7 +61,7 @@
 
 
 (definition COINIT_APARTMENTTHREADED 2)
-(definition CLSCTX_SERVER (+ 1 4 16))
+(definition public CLSCTX_SERVER (+ 1 4 16))
 
 
 (definition (CoInitializeEx n/a flags)
@@ -110,7 +110,7 @@
 (c-type HRESULT (native unsigned-long))
 
 
-(definition (validate-hresult hresult)
+(definition public (validate-hresult hresult)
   (case hresult
     ((0 1) ; S_OK or S_FALSE
      hresult)
@@ -128,7 +128,7 @@
      (throw (new COM-Exception hresult {})))))
 
 
-(definition (validate-hresult2 hresult iunknown refiid)
+(definition public (validate-hresult2 hresult iunknown refiid)
   (case hresult
     ((0 1) ; S_OK or S_FALSE
      hresult)
@@ -162,23 +162,23 @@
 (c-type BSTR* (pointer BSTR))
 
 
-(definition BSTR*-make
+(definition public BSTR*-make
   (c-function () BSTR*
     "___result_voidstar = malloc(sizeof(BSTR));"))
 
 
-(definition BSTR*-ref
+(definition public BSTR*-ref
   (let ((ref (c-function (BSTR*) BSTR "___result_voidstar = *___arg1;")))
     (function (BSTR*)
       (BSTR-decode (ref BSTR*)))))
 
 
-(definition BSTR*-free
+(definition public BSTR*-free
   (c-function (BSTR*) void
     "free(___arg1);"))
 
 
-(definition BSTR*-set!
+(definition public BSTR*-set!
   (c-function (BSTR* BSTR) void
     "*___arg1 = ___arg2;"))
 
@@ -190,7 +190,7 @@
     (BSTR-decode bstr)))
 
 
-(definition (BSTR*-enref bstr)
+(definition public (BSTR*-enref bstr)
   (let ((ptr (BSTR*-make)))
     (BSTR*-set! ptr (BSTR-encode bstr))
     ptr))
@@ -198,25 +198,25 @@
   
 ;; BSTR-set! undefined
 
-(definition BSTR-free
+(definition public BSTR-free
   (let ((SysFreeString (c-function (BSTR) void "SysFreeString")))
     (function (bstr)
       (SysFreeString bstr))))
 
 
-(definition BSTR-ref
+(definition public BSTR-ref
   (let ((cast (c-function (BSTR) wchar_t-string "___result = (wchar_t*)___arg1;")))
     (function (bstr)
       (cast bstr))))
 
 
-(definition BSTR-encode
+(definition public BSTR-encode
   (let ((SysAllocString (c-function (wchar_t-string) BSTR "SysAllocString")))
     (function (str)
       (SysAllocString str))))
 
 
-(definition (BSTR-decode bstr)
+(definition public (BSTR-decode bstr)
   (let ((str (BSTR-ref bstr)))
     (BSTR-free bstr)
     str))
@@ -227,7 +227,7 @@
 ;;;
 
 
-(definition (zero-fill str n)
+(definition public (zero-fill str n)
   (let ((len (string-length str)))
     (if (> n len)
         (string-append (make-string (- n len) #\0) str)
@@ -241,7 +241,7 @@
   (byte Data4 8))
 
 
-(definition (GUID-set! guid str)
+(definition public (GUID-set! guid str)
   (GUID-Data1-set! guid (string->number (substring str 0 8) 16))
   (GUID-Data2-set! guid (string->number (substring str 9 13) 16))
   (GUID-Data3-set! guid (string->number (substring str 14 18) 16))
@@ -253,7 +253,7 @@
               (map string->byte '(19 21 24 26 28 30 32 34)))))
 
 
-(definition (GUID-ref guid)
+(definition public (GUID-ref guid)
   (let* ((proc (function (i n)
                  (zero-fill (number->string i 16) n)))
          (data4+ (GUID-Data4-ref guid))
@@ -266,13 +266,13 @@
            (map proc4 (naturals 2 8)))))
 
 
-(definition (GUID-encode str)
+(definition public (GUID-encode str)
   (let ((guid (GUID-make)))
     (GUID-set! guid str)
     guid))
 
 
-(definition (GUID-decode guid)
+(definition public (GUID-decode guid)
   (let ((str (GUID-ref guid)))
     (GUID-free guid)
     str))
@@ -287,33 +287,33 @@
 (c-type INT* (pointer INT))
 
 
-(definition INT*-make
+(definition public INT*-make
   (c-function () INT*
     "___result = (INT*) malloc(sizeof(INT));"))
 
 
-(definition INT*-free
+(definition public INT*-free
   (c-function (INT*) void
     "free(___arg1);"))
 
 
-(definition INT*-ref
+(definition public INT*-ref
   (c-function (INT*) INT
     "___result = *___arg1;"))
 
 
-(definition INT*-set!
+(definition public INT*-set!
   (c-function (INT* INT) void
     "*___arg1 = ___arg2;"))
 
 
-(definition (INT-enref int)
+(definition public (INT-enref int)
   (let ((ptr (INT*-make)))
     (INT*-set! ptr int)
     ptr))
 
 
-(definition (INT-deref int*)
+(definition public (INT-deref int*)
   (let ((int (INT*-ref int*)))
     (INT*-free int*)
     int))
@@ -328,33 +328,33 @@
 (c-type LONG* (pointer LONG))
 
 
-(definition LONG*-make
+(definition public LONG*-make
   (c-function () LONG*
     "___result = (LONG*) malloc(sizeof(LONG));"))
 
 
-(definition LONG*-free
+(definition public LONG*-free
   (c-function (LONG*) void
     "free(___arg1);"))
 
 
-(definition LONG*-ref
+(definition public LONG*-ref
   (c-function (LONG*) LONG
     "___result = *___arg1;"))
 
 
-(definition LONG*-set!
+(definition public LONG*-set!
   (c-function (LONG* LONG) void
     "*___arg1 = ___arg2;"))
 
 
-(definition (LONG-enref long)
+(definition public (LONG-enref long)
   (let ((ptr (LONG*-make)))
     (LONG*-set! ptr long)
     ptr))
 
 
-(definition (LONG-deref long*)
+(definition public (LONG-deref long*)
   (let ((long (LONG*-ref long*)))
     (LONG*-free long*)
     long))
@@ -371,33 +371,33 @@
 (c-type LPVOID* IUnknown**)
 
 
-(definition IUnknown**-make
+(definition public IUnknown**-make
   (c-function () LPVOID*
     "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
 
 
-(definition IUnknown**-free
+(definition public IUnknown**-free
   (c-function (LPVOID*) void
     "free(___arg1);"))
 
 
-(definition IUnknown**-ref
+(definition public IUnknown**-ref
   (c-function (LPVOID*) IUnknown*
     "___result = *___arg1;"))
 
 
-(definition IUnknown**-set!
+(definition public IUnknown**-set!
   (c-function (LPVOID* IUnknown*) void
     "*___arg1 = ___arg2;"))
 
 
-(definition (IUnknown*-enref coptr)
+(definition public (IUnknown*-enref coptr)
   (let ((ptr (IUnknown**-make)))
     (IUnknown**-set! ptr coptr)
     ptr))
 
 
-(definition (IUnknown*-deref coptr*)
+(definition public (IUnknown*-deref coptr*)
   (let ((coptr (IUnknown**-ref coptr*)))
     (IUnknown**-free coptr*)
     coptr))
@@ -409,7 +409,7 @@
 (com-external 2 ULONG (CoRelease))
 
 
-(definition (CoCreateInstance class interface)
+(definition public (CoCreateInstance class interface)
   (let ((class-guid (GUID-encode class))
         (interface-guid (GUID-encode interface))
         (coptr* (IUnknown*-enref #f))
@@ -420,14 +420,14 @@
     (IUnknown*-deref coptr*)))
 
 
-(definition (com-interface guid)
+(definition public (com-interface guid)
   guid)
 
-(definition (com-interface-guid coint)
+(definition public (com-interface-guid coint)
   coint)
 
 
-(definition (com-class guid coint)
+(definition public (com-class guid coint)
   (cons guid coint))
 
 (definition (com-class-guid com-class)
@@ -457,7 +457,7 @@
   (long Hi))
 
 
-(definition CY-ref
+(definition public CY-ref
   (c-function (CY*) (native int64)
     "___result = *(___S64*)___arg1;"))
 
@@ -481,7 +481,7 @@
 
 
 
-(definition VARIANT*->ULONG
+(definition public VARIANT*->ULONG
   (c-function (VARIANT*) ulong
     "ULONG temp;
      VarUI4FromDec((DECIMAL*)___arg1, &temp);
@@ -505,17 +505,17 @@
 (c-type VARIANT_BOOL* (pointer VARIANT_BOOL))
 
 
-(definition VARIANT_BOOL*-make
+(definition public VARIANT_BOOL*-make
   (c-function () VARIANT_BOOL*
     "___result = (VARIANT_BOOL*) malloc(sizeof(VARIANT_BOOL));"))
 
 
-(definition VARIANT_BOOL*-free
+(definition public VARIANT_BOOL*-free
   (c-function (VARIANT_BOOL*) void
     "free(___arg1);"))
 
 
-(definition VARIANT_BOOL*-ref
+(definition public VARIANT_BOOL*-ref
   (function (vtbool*)
     (VARIANT_BOOL-decode
       ((c-function (VARIANT_BOOL*) VARIANT_BOOL
@@ -523,26 +523,26 @@
        vtbool*))))
 
 
-(definition VARIANT_BOOL*-set!
+(definition public VARIANT_BOOL*-set!
   (c-function (VARIANT_BOOL* VARIANT_BOOL) void
     "*___arg1 = ___arg2;"))
 
 
-(definition (VARIANT_BOOL-encode boolean)
+(definition public (VARIANT_BOOL-encode boolean)
   (if boolean -1 0))
 
 
-(definition (VARIANT_BOOL-decode vtbool)
+(definition public (VARIANT_BOOL-decode vtbool)
   (/= 0 vtbool))
 
 
-(definition (VARIANT_BOOL-enref boolean)
+(definition public (VARIANT_BOOL-enref boolean)
   (let ((ptr (VARIANT_BOOL*-make)))
     (VARIANT_BOOL*-set! ptr (VARIANT_BOOL-encode boolean))
     ptr))
 
 
-(definition (VARIANT_BOOL-deref vtbool*)
+(definition public (VARIANT_BOOL-deref vtbool*)
   (let ((bool (VARIANT_BOOL*-ref vtbool*)))
     (VARIANT_BOOL*-free vtbool*)
     bool))
@@ -598,15 +598,15 @@
   (INT intVal))
 
 
-(definition VariantInit
+(definition public VariantInit
   (c-function (VARIANT*) void "VariantInit"))
 
 
-(definition VariantClear
+(definition public VariantClear
   (c-function (VARIANT*) HRESULT "VariantClear"))
 
 
-(definition (VARIANT-set! variant value)
+(definition public (VARIANT-set! variant value)
   (cond
     ((null? value)
      (VARIANT-vt-set! variant 10)
@@ -629,7 +629,7 @@
      (VARIANT-punkVal-set! variant value))))
 
 
-(definition (VARIANT-ref variant)
+(definition public (VARIANT-ref variant)
   (case (VARIANT-vt-ref variant)
     ((0) ; VT_EMPTY
      #f)
@@ -676,21 +676,21 @@
      (error "Unknown variant type: {s}" (VARIANT-vt-ref variant)))))
 
 
-(definition (VARIANT-encode data)
+(definition public (VARIANT-encode data)
   (let ((variant (VARIANT-make)))
     (VariantInit variant)
     (VARIANT-set! variant data)
     variant))
 
 
-(definition (VARIANT-decode variant)
+(definition public (VARIANT-decode variant)
   (let ((data (VARIANT-ref variant)))
     (VariantClear variant)
     (VARIANT-free variant)
     data))
 
 
-(definition (SystemTimeToVariantTime date)
+(definition public (SystemTimeToVariantTime date)
   (let ((system-time (SYSTEMTIME-make))
         (buffer (make-f64vector 1))
         (fun (c-function (SYSTEMTIME* F64PTR) void "SystemTimeToVariantTime")))
@@ -707,7 +707,7 @@
     (f64vector-ref buffer 0)))
 
 
-(definition (VariantTimeToSystemTime variant-time)
+(definition public (VariantTimeToSystemTime variant-time)
   (let ((system-time (SYSTEMTIME-make))
         (fun (c-function (double SYSTEMTIME*) void "VariantTimeToSystemTime")))
     (fun variant-time system-time)
@@ -728,7 +728,7 @@
 ;;;
 
 
-(definition IErrorInfo
+(definition public IErrorInfo
   (com-interface "1CF2B120-547D-101B-8E65-08002B2BD119"))
 
 
@@ -739,7 +739,7 @@
 (com-external 7 ULONG (IErrorInfo$GetHelpContext (out DWORD*)))
 
 
-(definition (GetErrorInfo)
+(definition public (GetErrorInfo)
   (let* ((ptr (IUnknown**-make))
          (result ((c-function (IUnknown**) HRESULT
                     "___result = GetErrorInfo(0,(IErrorInfo**)___arg1);")
@@ -754,7 +754,7 @@
 ;;;
 
 
-(definition ISupportErrorInfo
+(definition public ISupportErrorInfo
   (com-interface "DF0B3D60-548F-101B-8E65-08002B2BD119"))
   
   

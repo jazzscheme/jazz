@@ -38,9 +38,117 @@
 (library protected jazz.doc.doc.Definition-Doc jazz
 
 
-(import (jazz.doc)
+(import (jazz.designer)
+        (jazz.doc)
+        (jazz.jml)
         (jazz.library)
         (jazz.utilities))
 
 
-(class Definition-Doc extends Element-Doc))
+(class Definition-Doc extends Element-Doc
+  
+  
+  (property parameters initialize '() accessors generate)
+  
+  
+  ;;;
+  ;;;; Catalog
+  ;;;
+  
+  
+  @convert
+  (method (print-catalog level printer)
+    (format printer "{%}{_ :v}~{{s} {s} {s} {s}}"
+            (* level 2)
+            (identifier-name (type-name (class-of self)))
+            name parameters doc))
+
+
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present)
+    (format "{a}" (cons name parameters)))
+
+
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method (present-text)
+    `(<pre>
+       "("
+       (<span> class: "definition" ,(get-effective-title))
+       (<span> class: "parameter" ,(present-parameters parameters))
+       ")")
+    @wait
+    (when description
+      (bind (tag . paragraphs) (->jml~ (form->node description))
+        `(<span>
+           (<p> ,(->string (cons name parameters)))
+           (<p>)
+           ,@paragraphs
+           ,@(if (null? examples)
+                 {}
+               `((<p>)
+                 "Examples"
+                 ,@(map (function (example)
+                          (bind (tag . paragraphs) (->jml~ (form->node example))
+                            `(<node> ,@paragraphs)))
+                        (get-children~ examples))))
+           ,@(if (not package-name)
+                 {}
+               `((<p>)
+                 (<p> "Defined In: " (<a> ,(->string package-name)))))))))
+  
+  
+  (method (present-parameters parameters)
+    (cond ((null? parameters)
+           "")
+          ((string? parameters)
+           parameters)
+          (else
+           (let ((positional (getf parameters positional:))
+                 (optional (getf parameters optional:))
+                 (named (getf parameters named:))
+                 (rest (getf parameters rest:)))
+             (let ((all
+                     (append (map (function (parameter)
+                                    (->string parameter))
+                                  positional)
+                             (map (function (parameter)
+                                    (format "[{a}]" parameter))
+                                  optional)
+                             (map (function (parameter)
+                                    (format "({a}: {a})" parameter parameter))
+                                  named)
+                             (if rest
+                                 (list (format ". {a}" rest))
+                               '()))))
+               (if (null? all)
+                   ""
+                 (concatenate " " (join all " "))))))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((parameters) "Parameters")
+      (else (nextmethod property))))
+
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((parameters) (new String-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(package-name parameters))))

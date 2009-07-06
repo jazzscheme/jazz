@@ -1795,7 +1795,7 @@
 
 
 (define jazz.slot-accessors-modifiers
-  '(((private protected public) . public)
+  '(((private protected public) . private)
     ((virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
@@ -2136,7 +2136,7 @@
 
 
 (define jazz.remotable-stub-modifiers
-  '(((private protected public) . public)))
+  '(((private protected public) . private)))
 
 (define jazz.remotable-stub-keywords
   '(extends))

@@ -246,26 +246,35 @@
   (method (manual-content-output projects)
     (let ((output (new List-Factory)))
       (for-each (function (project)
-                  (output-manual-doc-children project 0 '() output))
+                  ;; quicky
+                  (if (or (is? project Module-Doc)
+                          (is? project Library-Doc))
+                      (output-manual-doc project 0 '() output)
+                    (output-manual-doc-children project 0 '() output)))
                 projects)
       (get-output~ output)))
   
   
   (method (output-manual-doc doc level path output)
     (typecase doc
-      ((Project-Doc)   (output-manual-project   doc level path output))
-      ((Section-Doc)   (output-manual-section   doc level path output))
-      ((Package-Doc)   (output-manual-package   doc level path output))
-      ((Interface-Doc) (output-manual-interface doc level path output))
-      ((Class-Doc)     (output-manual-class     doc level path output))
-      ((Form-Doc)      (output-manual-form      doc level path output))
-      ((Concept-Doc)   (output-manual-concept   doc level path output))
-      ((Syntax-Doc)    (output-manual-syntax    doc level path output))
-      ((Primitive-Doc) (output-manual-primitive doc level path output))
-      ((Constant-Doc)  (output-manual-constant  doc level path output))
-      ((Slot-Doc)      (output-manual-slot      doc level path output))
-      ((Property-Doc)  (output-manual-property  doc level path output))
-      ((Method-Doc)    (output-manual-method    doc level path output)))
+      ((Project-Doc)    (output-manual-project    doc level path output))
+      ((Section-Doc)    (output-manual-section    doc level path output))
+      ((Package-Doc)    (output-manual-package    doc level path output))
+      ((Module-Doc)     (output-manual-module     doc level path output))
+      ((Library-Doc)    (output-manual-library    doc level path output))
+      ((Interface-Doc)  (output-manual-interface  doc level path output))
+      ((Class-Doc)      (output-manual-class      doc level path output))
+      ((Form-Doc)       (output-manual-form       doc level path output))
+      ((Concept-Doc)    (output-manual-concept    doc level path output))
+      ((Syntax-Doc)     (output-manual-syntax     doc level path output))
+      ((Primitive-Doc)  (output-manual-primitive  doc level path output))
+      ((Constant-Doc)   (output-manual-constant   doc level path output))
+      ((Slot-Doc)       (output-manual-slot       doc level path output))
+      ((Property-Doc)   (output-manual-property   doc level path output))
+      ((Method-Doc)     (output-manual-method     doc level path output))
+      ((Export-Doc)     (output-manual-export     doc level path output))
+      ((Definition-Doc) (output-manual-definition doc level path output))
+      (else             (error "Unable to output doc for: {s}" doc)))
     (output-manual-doc-children doc level path output))
   
   
@@ -291,6 +300,32 @@
     (output-doc-description doc output))
   
   
+  (method (output-manual-module doc level path output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-library doc level path output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-export doc level path output)
+    (output-anchor doc output)
+    (put~ output `(<docterm> "native" (<span> class: "definition" ,(get-effective-title~ doc))))
+    (output-doc-description doc output)
+    (output-doc-examples doc output))
+  
+  
+  (method (output-manual-definition doc level path output)
+    (output-anchor doc output)
+    (put~ output `(<docterm> "definition" ,(present-text~ doc)))
+    (output-doc-description doc output)
+    (output-doc-examples doc output))
+  
+  
   (method (output-manual-interface doc level path output)
     (output-anchor doc output)
     (put~ output `(<h4> class: "interface" ,(get-effective-title~ doc)))
@@ -300,13 +335,16 @@
   (method (output-manual-class doc level path output)
     (output-anchor doc output)
     (put~ output `(<h4> class: "class" ,(get-effective-title~ doc)))
+    (let ((ascendant (get-ascendant~ doc)))
+      (when ascendant
+        (put~ output `(<p>))
+        (put~ output `(<a> name: ,(get-title~ ascendant) href: (get-name~ ascendant)))))
     (output-doc-description doc output))
   
   
   (method (output-manual-form doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
-    (put~ output `(<p>))
     (output-doc-description doc output))
   
   
@@ -318,45 +356,49 @@
   
   (method (output-manual-syntax doc level path output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
-    (put~ output `(<p>))
+    (put~ output `(<docterm> "syntax" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
   (method (output-manual-primitive doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
-    (put~ output `(<p>))
     (output-doc-description doc output))
   
   
   (method (output-manual-constant doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
-    (put~ output `(<p>))
     (output-doc-description doc output))
   
   
   (method (output-manual-slot doc level path output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
-    (put~ output `(<p>))
+    (put~ output `(<docterm> "slot" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
   (method (output-manual-property doc level path output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
-    (put~ output `(<p>))
+    (put~ output `(<docterm> "property" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
   (method (output-manual-method doc level path output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
-    (put~ output `(<p>))
+    (put~ output `(<docterm> "method" ,(present-text~ doc)))
     (output-doc-description doc output)
     (output-doc-examples doc output))
+  
+  
+  (method (<docterm> node)
+    (let ((children (get-children~ node)))
+      (let ((term (first children))
+            (body (second children)))
+        `(<table> width: "100%"
+           (<tr>
+             (<td> ,body)
+             (<td> align: "right" ,term))))))
   
   
   (method (output-doc-description doc output)
@@ -545,6 +587,8 @@
                     (or (is? child Project-Doc)
                         (is? child Section-Doc)
                         (is? child Package-Doc)
+                        (is? child Module-Doc)
+                        (is? child Library-Doc)
                         (is? child Category-Doc)))
                   (if sort?
                       (sort < children key: (function (child) (get-name~ child)))

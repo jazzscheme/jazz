@@ -132,7 +132,7 @@
       (if (%%not (%%memq module-name submodules))
           (begin
             (set! submodules (%%cons module-name submodules))
-            (let ((declaration (jazz.locate-toplevel-declaration module-name)))
+            (let ((declaration (jazz.outline-module module-name)))
               (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
                   (begin
                     (if (and (not toplevel?) (not (jazz.descendant-module? parent-name module-name)))

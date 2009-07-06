@@ -314,7 +314,7 @@
 
 (jazz.define-method (jazz.resolve-reference (jazz.Library-Reference declaration-reference) library-declaration)
   (or (%%get-declaration-reference-declaration declaration-reference)
-      (let ((declaration (jazz.locate-library-declaration (%%get-declaration-reference-name declaration-reference))))
+      (let ((declaration (jazz.outline-library (%%get-declaration-reference-name declaration-reference))))
         (%%set-declaration-reference-declaration declaration-reference declaration)
         declaration)))
 
@@ -406,6 +406,17 @@
 
 
 (jazz.encapsulate-class jazz.Namespace-Declaration)
+
+
+(define (jazz.get-private-lookup namespace-declaration)
+  (%%get-access-lookup namespace-declaration jazz.private-access))
+
+(define (jazz.get-public-lookup namespace-declaration)
+  (%%get-access-lookup namespace-declaration jazz.public-access))
+
+(define (jazz.get-protected-lookup namespace-declaration)
+  (%%get-access-lookup namespace-declaration jazz.protected-access))
+
 
 
 ;;;
@@ -2810,7 +2821,7 @@
     (if (%%eq? dialect-name 'core)
         #f
       (jazz.new-import-invoice
-        (jazz.locate-library-declaration dialect-name)
+        (jazz.outline-library dialect-name)
         'syntax
         #f
         #f))))
@@ -2990,7 +3001,7 @@
 
 
 (define (jazz.lookup-library walker resume declaration environment name)
-  (or (jazz.locate-library-declaration name #f)
+  (or (jazz.outline-library name #f)
       (jazz.walk-unresolved walker resume declaration name)))
 
 
@@ -4893,7 +4904,7 @@
 
 (define (jazz.lookup-composite walker environment symbol)
   (receive (library-name name) (jazz.split-composite symbol)
-    (let ((library-decl (jazz.locate-library-declaration library-name #f)))
+    (let ((library-decl (jazz.outline-library library-name #f)))
       (if library-decl
           (jazz.lookup-subpath library-decl (%%list name))
         #f))))
@@ -5424,7 +5435,7 @@
               (jazz.set-catalog-entry module-name #f)))))))
 
 
-(define (jazz.locate-toplevel-declaration module-name #!optional (error? #t))
+(define (jazz.outline-module module-name #!optional (error? #t))
   (let ((entry (jazz.get-catalog-entry module-name)))
     (case entry
       ((:loading)
@@ -5442,8 +5453,8 @@
        entry))))
 
 
-(define (jazz.locate-library-declaration module-name #!optional (error? #t))
-  (let ((declaration (jazz.locate-toplevel-declaration module-name error?)))
+(define (jazz.outline-library module-name #!optional (error? #t))
+  (let ((declaration (jazz.outline-module module-name error?)))
     (%%assert (%%class-is? declaration jazz.Library-Declaration)
       declaration)))
 

@@ -47,7 +47,7 @@
 
 
 (define (jazz.new-define-declaration name type parent signature)
-  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'private 'uptodate '() #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -105,7 +105,7 @@
 
 
 (define (jazz.new-define-macro-declaration name type parent signature)
-  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'private 'uptodate '() #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

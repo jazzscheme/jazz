@@ -300,6 +300,14 @@
   
   
   (definition Documented-Modules
+    '(irregex
+      statprof
+      jazz.catalog
+      jazz.console
+      time))
+  
+  @wait
+  (definition Documented-Modules
     '(contrib.irregex
       contrib.statprof
       jazz
@@ -378,52 +386,41 @@
   
   
   (method (extract-doc)
-    (for-each extract-package-doc Documented-Modules)
+    (for-each extract-toplevel-doc Documented-Modules)
     (user-message "Done"))
   
   
-  (method (extract-package-doc name)
+  (method (extract-toplevel-doc name)
     (user-message "Extracting {a}..." name)
     (call-with-output-file (list path: (parse~ (new-file~ {Directory jazz.website "reference"} (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
       (function (port)
-        (let ((package (find-package name)))
-          (assert package)
-          (let* ((module-names (package-modules package))
-                 (jml `(<Package-Doc> name: ,name
-                         ,@(map extract-module/library-doc module-names)))
-                 (node (parse-jml jml)))
-            (pretty-print~ node port)
-            (newline port))))))
+        (let ((node (parse-jml (extract-module/library-doc name))))
+          (pretty-print~ node port)
+          (newline port)))))
   
   
   (method (extract-module/library-doc module-name)
     (load-module 'core.module.builder)
-    (let ((module (locate-toplevel-declaration module-name))
-          (fact (new List-Factory)))
-      (for-each-submodule module-name
-        (function (submodule-name declaration phase)
-          (let ((submodule (locate-toplevel-declaration submodule-name)))
-            (typecase submodule
-              ((Module-Declaration))
-              ((Library-Declaration) (put-sequence~ fact (filter-public-declarations (get-children~ submodule))))))))
-      (let ((all-children (sort string<? (get-output~ fact) key: (function (decl) (symbol->string (get-name~ decl))))))
-        (typecase module
-          ((Module-Declaration) (extract-module-doc module all-children))
-          ((Library-Declaration) (extract-library-doc module all-children))))))
+    (let ((module (outline-module module-name)))
+      (typecase module
+        ((Module-Declaration) (extract-module-doc module))
+        ((Library-Declaration) (extract-library-doc module)))))
   
   
-  (method (extract-module-doc declaration all-children)
-    `(<Module-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
-       ,@(map extract-declaration-doc all-children)))
+  (method (extract-module-doc declaration)
+    `(<Module-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
-  (method (extract-library-doc declaration all-children)
-    `(<Library-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
-       ,@(map extract-declaration-doc all-children)))
+  (method (extract-library-doc declaration)
+    (let ((declarations (table-values (get-public-lookup declaration))))
+      (let ((sorted (sort string<? declarations key: (function (decl) (symbol->string (get-name~ decl))))))
+        `(<Library-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+           ,@(collect extract-declaration-doc sorted)))))
   
   
   (method (extract-declaration-doc declaration)
     (typecase declaration
+      ((Autoload-Declaration) (extract-declaration-doc (resolve-declaration declaration)))
       ((Export-Declaration) (extract-export-doc declaration))
       ((Define-Declaration) (extract-define-doc declaration))
       ((Define-Macro-Declaration) (extract-define-macro-doc declaration))
@@ -442,61 +439,87 @@
   
   
   (method (extract-export-doc declaration)
-    `(<Export-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Export-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-define-doc declaration)
-    `(<Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-define-macro-doc declaration)
-    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-definition-doc declaration)
-    `(<Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-generic-doc declaration)
-    `(<Generic-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Generic-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-macro-doc declaration)
-    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-syntax-doc declaration)
-    `(<Syntax-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-class-doc declaration)
-    `(<Class-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
-         ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration)))))
+    (unless (subtype? declaration Class-Declaration)
+      `(<Class-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+         ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration))))))
   
   
   (method (extract-interface-doc declaration)
-    `(<Interface-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))
+    `(<Interface-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
        ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration)))))
   
   
   (method (extract-slot-doc declaration)
-    `(<Slot-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Slot-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-property-doc declaration)
-    `(<Property-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<Property-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-method-doc declaration)
-    `(<Method-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    (define (extract-name parameter)
+      (get-name~ parameter))
+    
+    (let ((signature (get-signature~ declaration)))
+      (let ((positional (get-positional~ signature))
+            (optional (get-optional~ signature))
+            (named (get-named~ signature))
+            (rest (get-rest~ signature)))
+        `(<Method-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+           parameters: (positional: ,(map extract-name positional)
+                        optional: ,(map extract-name optional)
+                        named: ,(map extract-name named)
+                        rest: ,(if rest (extract-name rest) {}))))))
   
   
   (method (extract-c-type-doc declaration)
-    `(<C-Type-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<C-Type-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   
   (method (extract-c-definition-doc declaration)
-    `(<C-Definition-Doc> name: ,(get-locator~ declaration) title: ,(symbol->string (get-name~ declaration))))
+    `(<C-Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  ;; temp hack to obtain the same format as when sub-libraries are well integrated
+  (definition (extract-locator declaration)
+    (let ((locator (get-locator~ declaration)))
+      (let ((names (reverse! (split-identifier locator))))
+        (let ((len (length names)))
+          (cond ((and (>= len 2) (eq? (first names) (second names)))
+                 (apply compose-name (reverse! (cons (first names) (cddr names)))))
+                ((and (>= len 3) (eq? (second names) (third names)))
+                 (apply compose-name (reverse! (cons (first names) (cons (second names) (cdddr names))))))
+                (else
+                 locator))))))
   
   
   (definition (filter-public-declarations declarations)

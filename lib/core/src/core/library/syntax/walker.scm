@@ -2956,6 +2956,9 @@
     (%%table-set! (%%get-namespace-declaration-children-lookup namespace-declaration) name child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child)
+    #;
+    (%%when (%%eq? 'public (%%get-declaration-access child))
+      (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child))
     child))
 
 

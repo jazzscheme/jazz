@@ -1,0 +1,178 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQL-Output Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.sql.sql.SQL-Output-Tree jazz
+
+
+(import (jazz.editor.sql)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.utilities))
+
+
+(class SQL-Output-Tree extends Tree-View
+
+
+  (form
+    (<install> background-filler: {Color name: White}))
+  
+  
+  (method (double-click pos)
+    (nextmethod pos)
+    @wait
+    (let ((profile (get-profile~ (get-application)))
+          (cell (view->tree pos)))
+      (sql-output-action~ profile self cell)))
+
+  
+  @wait
+  (method (context-menu pos)
+    (with-context-click pos
+      (function ()
+        (let ((profile (get-profile~ (get-application)))
+              (cell (view->tree pos)))
+          (when cell
+            (let ((menu (either (sql-output-menu~ profile self cell) (default-sql-menu cell))))
+              (track-popup-menu menu pos)))))))
+  
+  
+  (method (default-sql-menu cell)
+    (let ((menu (new Context-Menu)))
+      (new Label-Item parent: menu title: "Copy" icon: {Bitmap-Resource "Copy"} action-handler: (new Event-Handler target: self method-name: 'on-copy-data))
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (on-copy-data evt)
+    (let ((cell-title
+           (function (cell)
+             (get-title~ (get-cell-data cell))))
+          (copy
+           (function (string)
+             (add-clipboard~ (get-application))
+             (set-clipboard-text string))))
+      (case (length selection)
+        ((0))
+        ((1) (copy (cell-title (car selection))))
+        (else
+         (copy (join (map cell-title selection) ", "))))))
+  
+
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method (cell-tooltips?)
+    #t)
+  
+  
+  (method (get-cell-tooltip cell)
+    {}
+    @wait
+    (let* ((appl (get-application))
+           (profile (get-profile~ appl))
+           (column (get-column (get-col~ cell)))
+           (data (get-cell-data cell)))
+      (essay (> (get-row~ cell) 0)
+             (sql-output-tooltip~ profile self cell data))))
+  
+  
+  (method (get-tooltip-position text rect h v)
+    (+ (rect-position rect)
+       (center (new Dimension (+ (text-width~ font text) 6) 16) (rect-size rect))))
+  
+
+  ;;;
+  ;;;; Display
+  ;;;
+  
+  
+  (definition Header-Font
+    {Font name: Code})
+  
+  
+  (method (display-table table)
+    (let* ((columns (get-columns~ table))
+           (rows (get-rows~ table))
+           (affected (length rows))
+           (text-max-char (get-max-char-width~ (get-metrics~ {Font name: Code})))
+           (text-widths (compute-widths columns Header-Font text-max-char))
+           (tree-font (get-font))
+           (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
+           (tree-widths (compute-widths columns tree-font tree-max-char))
+           (max-display 100)
+           (not-displayed 0))
+      (display-tree columns rows affected max-display not-displayed tree-widths)))
+  
+  
+  (method (compute-widths columns font max-char)
+    (map (function (column)
+           (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
+         columns))
+  
+  
+  (method (present-value value)
+    (if (nil? value)
+        "NULL"
+      (->string value)))
+  
+  
+  (method (display-tree columns rows affected max-display not-displayed widths)
+    (with-update-locked
+      (function ()
+        (remove-columns)
+        (let ((first-column (car columns)))
+          (for-each (function (column width)
+                      (let* ((node? (eq? column first-column))
+                             (column (if node?
+                                         (add-column class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
+                                       (add-column class: Tree-Label-Column title: (get-name~ column) width: width))))
+                        (when node?
+                          (set-display-images?~ column #f))))
+                    columns
+                    widths))
+        (for-each (function (row)
+                    (let* ((values (get-values~ row))
+                           (first (car values))
+                           (rest (cdr values)))
+                      (add-row children: (cons (new Tree-Node title: (present-value first)) (map (function (value) (new Tree-Label title: (present-value value))) rest)))))
+                  (if (> affected max-display) (subseq rows 0 max-display) rows)))))))

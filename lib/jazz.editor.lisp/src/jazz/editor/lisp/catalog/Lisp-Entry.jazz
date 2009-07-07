@@ -1,0 +1,161 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Lisp Entry
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.lisp.catalog.Lisp-Entry jazz
+
+
+(import (jazz.catalog)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Lisp-Entry extends Indexed-Entry
+  
+  
+  (slot end-line)
+  (slot end-column)
+  (slot signature)
+  
+  
+  ;; Will of course want to replace the line and column by a rank that could be either
+  ;; the declaration name or it's rank (for begin) so that we would get locations...
+  (method (initialize n s l c el ec d r)
+    (nextmethod n l c d r)
+    (set! end-line~self el)
+    (set! end-column~self ec)
+    (set! signature~self s))
+  
+  
+  (method (print-catalog level printer)
+    (format printer "{%}{_ :v}~{{s} {s} {s} {s} {s} {s} {s} {s}"
+            (* level 2)
+            (identifier-name (type-name (class-of self)))
+            name signature line column end-line end-column
+            references)
+    (print-definitions level printer)
+    (format printer "}"))
+  
+  
+  (method (get-image)
+    {Bitmap-Resource "Method"})
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-end-line)
+    end-line)
+  
+  
+  (method public (get-end-column)
+    end-column)
+  
+  
+  (method public (get-signature)
+    signature)
+
+
+  ;;;
+  ;;;; Present
+  ;;;
+
+
+  (method (present)
+    (present-identifier))
+
+
+  (method (present-name)
+    (let ((name (get-name)))
+      (if (not name)
+          (present-noname)
+        name)))
+
+
+  (method (present-identifier)
+    (let ((name (get-name)))
+      (if (not name)
+          (present-noname)
+        (if signature
+            (format :string "{a} {a}" name signature)
+          (compose-name name)))))
+  
+  
+  (method (compose-name name)
+    (if (and (is? parent Lisp-Entry) (get-name~ parent))
+        (let ((parent-name (present-name~ parent)))
+          (format :string "{a}.{a}" parent-name name))
+      name))
+  
+  
+  (method (present-noname)
+    "<toplevel>")
+
+
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (entry-range)
+    (new Range$Cell$ (new Cell line column) (new Cell end-line end-column)))
+
+
+  (method (edit-reference target . rest)
+    (let* ((frame (apply edit rest))
+           (text (get-guest~ frame))
+           (range (definition-range~ text (get-start~ text))))
+      (when range
+        (let ((reference-range (find-expression~ text range target)))
+          (when reference-range
+            (set-selection~ text reference-range ensure-displayed?: 'center-caret))))))
+  
+  
+  ;;;
+  ;;;; Indexes
+  ;;;
+  
+  
+  (method (update-indexes definitions-index references-index)
+    (update-index definitions-index name)
+    (for-each (function (key)
+                (update-index references-index key))
+              references)
+    (for-each (function (definition)
+                (update-indexes~ definition definitions-index references-index))
+              definitions))))

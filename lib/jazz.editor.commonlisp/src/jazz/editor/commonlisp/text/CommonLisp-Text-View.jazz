@@ -1,0 +1,171 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; CommonLisp Text-View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.commonlisp.text.CommonLisp-Text-View jazz
+
+
+(import (jazz.editor.commonlisp)
+        (jazz.editor.lisp)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class CommonLisp-Text-View extends Lisp-Text-View
+
+  
+  (form
+    (<install> tooltip?: #t))
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style name: 'Title               base: 'Default color: (get-title-color~ pref)))
+      (add-style (new Text-Style name: 'Comment             base: 'Default color: (get-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Expr-Comment        base: 'Default color: (get-expr-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Declaration-Keyword base: 'Default color: (get-declaration-keyword-color~ pref)))
+      (add-style (new Text-Style name: 'Declaration         base: 'Default color: (get-declaration-color~ pref)))
+      (add-style (new Text-Style name: 'Keyword             base: 'Default color: (get-keyword-color~ pref)))
+      (add-style (new Text-Style name: 'Char                base: 'Default color: (get-char-color~ pref)))
+      (add-style (new Text-Style name: 'Boolean             base: 'Default color: (get-boolean-color~ pref)))
+      (add-style (new Text-Style name: 'String              base: 'Default color: (get-string-color~ pref)))
+      (add-style (new Text-Style name: 'Delimited-String    base: 'Default color: (get-delimited-string-color~ pref)))
+      (add-style (new Text-Style name: 'Named-String        base: 'Default color: (get-named-string-color~ pref)))
+      (add-style (new Text-Style name: 'Quotation           base: 'Default color: (get-quotation-color~ pref)))
+      (add-style (new Text-Style name: 'Reference           base: 'Default frame: {Color name: Red}))))
+  
+  
+  (method meta (external-name . rest)
+    'commonlisp-text)
+  
+  
+  (method (default-extension)
+    "lisp")
+  
+  
+  (method (extensions)
+    '(("CommonLisp Texts" . "cl")))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (new CommonLisp-Text-Menu))
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+    
+  
+  (definition default-preferences
+    (form>>
+      (<CommonLisp-Text-Preferences> title-color: {Color name: Dark-Red} comment-color: {Color name: Purple} expr-comment-color: {Color name: Dark-Orange} declaration-color: {Color name: Dark-Green} keyword-color: {Color name: Dark-Blue} completions: ())))
+
+  
+  (method (preferences)
+    (get-preferences '(documents commonlisp-text)))
+  
+  
+  (method (declaration-style documented?)
+    'Declaration)
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+  
+  
+  (constant Specials
+    '((begin                            #f 0)
+      (call/cc                          #f 0)
+      (case                             #f 1)
+      (cond                             #f 0)
+      (define                           #f 1)
+      (define-macro                     #f 1)
+      (do                               #f 2)
+      (if                               #f 2)
+      (lambda                           #f 1)
+      (let                              #f 1)
+      (let*                             #f 1)
+      (letrec                           #f 1)
+      (parameterize                     #f 1)
+      (prog1                            #f 1)
+      (receive                          #f 0)))
+  
+  
+  (method (get-specials)
+    Specials)
+   
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method (explorer-class)
+    CommonLisp-Explorer))
+
+
+;;;
+;;;; CommonLisp-Text-Menu
+;;;
+
+
+(class CommonLisp-Text-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: edit-definitions  title: "Find Definitions" icon: {Bitmap-Resource "Edit"} action: {Action code-text edit-definitions})
+      (<Label-Item>     name: edit-references   title: "Find References" action: {Action code-text edit-references})
+      (<Separator-Item>)
+      (<Label-Item>     name: cut               title: {Locales english: "Cut" french: "Couper"} icon: {Bitmap-Resource "Cut"} action: {Action view cut})
+      (<Label-Item>     name: copy              title: {Locales english: "Copy" french: "Copier"} icon: {Bitmap-Resource "Copy"} action: {Action view copy})
+      (<Label-Item>     name: paste             title: {Locales english: "Paste" french: "Coller"} icon: {Bitmap-Resource "Paste"} action: {Action view paste})
+      (<Separator-Item>)
+      (<Label-Item>                             title: "Column"
+        (<Column-Menu>))
+      (<Label-Item>                             title: "Format"
+        (<Format-Menu>))))))

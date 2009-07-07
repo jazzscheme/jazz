@@ -1,0 +1,1045 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exploring Lisp Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.lisp.text.Lisp-Explorer jazz
+
+
+(import (jazz.editor.lisp)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(proclaim (warn optimizations))
+
+
+;; KINDS
+;; - number
+;; - boolean
+;; - char
+;; - sharp
+;; - string
+;; - delimited-string
+;; - named-string
+;; - symbol
+;; - keyword
+;; - expr-comment
+;; - named-comment
+;; - list
+;; - reference
+;; - literal
+
+
+(class Lisp-Explorer extends Code-Explorer
+  
+  
+  ;; simple cache to speed up getting many times
+  ;; in a row the comment column for the same row
+  (slot find-comment-last-row <fx+> initialize {})
+  (slot find-comment-last-col <fx+> initialize {})
+  
+  
+  (constant Composites
+    '((#\open-parenthesis #\close-parenthesis list)
+      (#\open-bracket     #\close-bracket     reference)
+      (#\open-brace       #\close-brace       literal)))
+  
+  
+  (constant Open-Composites
+    '(#\open-parenthesis
+      #\open-bracket
+      #\open-brace))
+  
+  
+  (constant Close-Composites
+    '(#\close-parenthesis
+      #\close-bracket
+      #\close-brace))
+  
+  
+  ;; todo make so modifiers are per walked expression
+  (method public virtual (get-modifiers)
+    '())
+  
+  
+  (method public virtual (get-keywords)
+    '())
+  
+  
+  (method (explore-error message start end)
+    (signal (new Explore-Error message: message start: start end: end)))
+  
+  
+  (method (present-char c)
+    (cond ((not c)
+           "EOF")
+          ((memv? c '(#\space #\tab #\return #\linefeed))
+           (char-symbol c))
+          (else
+           (string c))))
+  
+  
+  (method public (current-expr)
+    (when (and (backward-expr) (eq? kind 'symbol))
+      (get-marked)))
+
+  
+  (method (forward-expr)
+    (forward-whites)
+    (set-start end)
+    (let ((c (char-forward 0))
+          (start (get-start)))
+      (let ((quotation? (memv? c '(#\quote #\backquote #\comma))))
+        (when quotation?
+          (forward)
+          (let ((next (char-forward 0)))
+            (when (or (and (eqv? c #\comma) (eqv? next #\at))
+                      (and (eqv? c #\quote) (eqv? next #\comma)))
+              (forward))))
+        (let ((found (if quotation?
+                         (forward-expr)
+                       (forward-simple-expr))))
+          (when found
+            (set-start start)
+            found)))))
+
+  
+  (method (backward-expr)
+    (backward-whites)
+    (set-end start)
+    (let ((c0 (char-backward 0))
+          (c1 (char-backward 1)))
+      (if (and (eqv? c0 #\sharp) (eqv? c1 #\|))
+          (backward-delimited-string)
+        (if (and (eqv? c1 #\\) (eqv? (char-backward 2) #\#))
+            (backward-scheme-char)
+          (let ((found (backward-simple-expr)))
+            (when found
+              (let ((prev (char-backward 0)))
+                (case prev
+                  ((#\quote #\backquote)
+                   (backward)
+                   found)
+                  ((#\comma)
+                   (backward)
+                   (let ((prev (char-backward 0)))
+                     (when (eqv? prev #\quote)
+                       (backward)))
+                   found)
+                  ((#\at)
+                   (backward)
+                   (let ((prev (char-backward 0)))
+                     (if (and (eq? (get-syntax) 'jazz) (not (eqv? prev #\comma)))
+                         'name-comment
+                       (backward)
+                       found)))
+                  (else
+                   found)))))))))
+
+
+  (method private (forward-simple-expr)
+    (let ((c (char-forward 0)))
+      (when c
+        (cond ((eqv? c #\sharp)            (forward-sharp))
+              ((string-delimiter? c)       (forward-string))
+              ((eqv? c #\|)                (forward-escaped-symbol))
+              ((text-constituent? c)       (forward-constituent))
+              ((eqv? c #\at)               (forward-named-comment))
+              ((eqv? c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
+              ((eqv? c #\open-bracket)     (forward-composite 'reference #\close-bracket))
+              ((eqv? c #\open-brace)       (forward-composite 'literal   #\close-brace))
+              (else #f)))))
+
+  
+  (method private (backward-simple-expr)
+    (let ((c (char-backward 0)))
+      (when c
+        (cond ((string-delimiter? c)        (backward-string))
+              ((eqv? c #\|)                 (backward-escaped-symbol))
+              ((text-constituent? c)        (backward-constituent))
+              ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
+              ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
+              ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
+              (else #f)))))
+
+  
+  (method public (forward-all-expr)
+    (let ((initial-end (copy end)))
+      (while (forward-expr)
+        )
+      (set! start initial-end)))
+
+  
+  (method public (backward-all-expr)
+    (let ((initial-start (copy start)))
+      (while (backward-expr)
+        )
+      (set! end initial-start)))
+
+  
+  (method private (forward-constituent)
+    (let ((keyword? (eqv? (char-forward 0) #\colon))
+          (last {}))
+      (let (iterate)
+        (let ((c (char-forward 0)))
+          (cond ((eqv? c #\backslash)
+                 (forward)
+                 (forward)
+                 (set! last c)
+                 (iterate))
+                ((or (not c) (not (text-constituent? c)))
+                 (set! kind (if (or keyword? (and last (eqv? last #\colon))) 'keyword 'symbol))
+                 kind)
+                (else
+                 (forward)
+                 (set! last c)
+                 (iterate)))))))
+
+  
+  (method private (backward-constituent)
+    (let ((keyword? (eqv? (char-backward 0) #\colon))
+          (last (unspecified)))
+      (let (iterate)
+        (let ((c (char-backward 0)))
+          (cond ((eqv? (char-backward 1) #\backslash)
+                 (backward)
+                 (backward)
+                 (set! last c)
+                 (iterate))
+                ((or (not c) (not (text-constituent? c)))
+                 (set! kind (if (or keyword? (eqv? last #\colon)) 'keyword 'symbol))
+                 kind)
+                (else
+                 (backward)
+                 (set! last c)
+                 (iterate)))))))
+  
+  
+  (method private (backward-escaped-symbol)
+    (backward)
+    (let (iterate)
+      (let ((c (char-backward 0)))
+        (if (not c)
+            #f
+          (cond ((eqv? (char-backward 1) #\backslash)
+                 (backward)
+                 (backward)
+                 (iterate))
+                ((eqv? c #\|)
+                 (backward)
+                 (set! kind 'symbol)
+                 kind)
+                (else
+                 (backward)
+                 (iterate)))))))
+  
+  
+  (method private (backward-scheme-char)
+    (backward)
+    (backward)
+    (backward)
+    (set! kind 'char)
+    kind)
+  
+  
+  (method private (forward-expr-comment)
+    (forward)
+    (forward-expr)
+    (set! kind 'expr-comment)
+    kind)
+  
+  
+  (method private (forward-named-comment)
+    (if (neq? (get-syntax) 'jazz)
+        (forward-constituent)
+      (forward)
+      (forward-expr)
+      (set! kind 'named-comment)
+      kind))
+  
+  
+  (method private (forward-sharp)
+    (forward)
+    (let ((c0 (char-forward 0)))
+      (cond ((memq? c0 '(#\t #\f))
+             (forward)
+             (set! kind 'boolean)
+             kind)
+            ((eqv? c0 #\")
+             (forward-delimited-string))
+            ((and (eqv? c0 #\<) (eqv? (char-forward 1) #\<))
+             (forward-named-string))
+            ((eqv? c0 #\\)
+             (forward-scheme-char))
+            ((eqv? c0 #\;)
+             (forward-expr-comment))
+            (else
+             (forward-constituent)))))
+  
+  
+  (method private (forward-escaped-symbol)
+    (forward)
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (if (not c)
+            #f
+          (cond ((eqv? c #\\)
+                 (forward)
+                 (forward)
+                 (iterate))
+                ((eqv? c #\|)
+                 (forward)
+                 (set! kind 'symbol)
+                 kind)
+                (else
+                 (forward)
+                 (iterate)))))))
+  
+  
+  (method private (forward-delimited-string)
+    (forward)
+    (let (iterate)
+      (let ((c0 (char-forward 0))
+            (c1 (char-forward 1)))
+        (cond ((or (not c0) (not c1))
+               #f)
+              ((and (eqv? c0 #\") (eqv? c1 #\sharp))
+               (forward)
+               (forward)
+               (set! kind 'delimited-string)
+               kind)
+              (else
+               (forward)
+               (iterate))))))
+  
+  
+  (method private (forward-named-string)
+    (forward)
+    (forward)
+    (continuation-capture
+      (function (return)
+        (let ((name (subseq (paragraph-string (get-row~ end)) (get-col~ end))))
+          (set-end (new Cell (+ (get-row~ end) 1) 0))
+          (while (< (get-row~ end) limit)
+            (if (nu=? (subseq (paragraph-string (get-row~ end)) (get-col~ end)) name)
+                (begin
+                  (set-end (new Cell (+ (get-row~ end) 1) 0))
+                  (continuation-return return 'named-string))
+              (set-end (new Cell (+ (get-row~ end) 1) 0)))))
+        #f)))
+
+  
+  (method private (forward-scheme-char)
+    (forward)
+    (let ((c (char-forward 0)))
+      (if (not (alphanumeric? c))
+          (begin
+            (forward)
+            (set! kind 'char)
+            kind)
+        (let (iterate)
+          (let ((c (char-forward 0)))
+            (cond ((not c)
+                   #f)
+                  ((not (text-constituent? c))
+                   (set! kind 'char)
+                   kind)
+                  (else
+                   (forward)
+                   (iterate))))))))
+  
+  
+  (method private (forward-string)
+    (forward)
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (cond ((not c)
+               #f)
+              ((eqv? c #\backslash)
+               (forward)
+               (forward)
+               (iterate))
+              ((string-delimiter? c)
+               (forward)
+               (set! kind 'string)
+               kind)
+              (else
+               (forward)
+               (iterate))))))
+  
+  
+  (method private (backward-delimited-string)
+    (backward)
+    (backward)
+    (let (iterate)
+      (let ((c0 (char-backward 0))
+            (c1 (char-backward 1)))
+        (cond ((or (not c0) (not c1))
+               #f)
+              ((and (eqv? c0 #\|) (eqv? c1 #\sharp))
+               (backward)
+               (backward)
+               (set! kind 'delimited-string)
+               kind)
+              (else
+               (backward)
+               (iterate))))))
+  
+  
+  (method private (backward-string)
+    (backward)
+    (let (iterate)
+      (let ((c (char-backward 0)))
+        (cond ((not c)
+               #f)
+              ((eqv? (char-backward 1) #\backslash)
+               (backward)
+               (backward)
+               (iterate))
+              ((string-delimiter? c)
+               (backward)
+               (set! kind 'string)
+               kind)
+              (else
+               (backward)
+               (iterate))))))
+  
+  
+  (method private (forward-composite knd <Object> delimiter)
+    (set-start end)
+    (forward)
+    (forward-all-expr)
+    (forward-whites)
+    (let ((c (char-forward 0)))
+      (if (not (eqv? c delimiter))
+          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char c)) end (next-pos end 1))
+        (forward)
+        (set! kind knd)
+        kind)))
+  
+  
+  (method private (backward-composite knd <Object> delimiter)
+    (let ((initial-start (copy start)))
+      (backward)
+      (backward-all-expr)
+      (backward-whites)
+      (let ((c (char-backward 0)))
+        (if (not (eqv? c delimiter))
+            (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char c)) (previous-pos start 1) start)
+          (backward)
+          (set! end initial-start)
+          (set! kind knd)
+          kind))))
+
+  
+  (method public (enter-list)
+    (forward-whites)
+    (when (eqv? (char-forward 0) #\open-parenthesis)
+      (forward)
+      #t))
+  
+  
+  (method public (exit-list)
+    (forward-all-expr)
+    (forward-whites)
+    (when (eqv? (char-forward 0) #\close-parenthesis)
+      (forward)
+      #t))
+  
+  
+  (method public (enter-composite)
+    (let ((end (get-end)))
+      (set-end (get-start))
+      (forward-whites)
+      (let ((c0 (char-forward 0)))
+        (cond ((and (eqv? c0 #\comma) (eqv? (char-forward 1) #\at))
+               (forward)
+               (forward)
+               (set! kind 'unquote-splicing)
+               #t)
+              ((eqv? c0 #\comma)
+               (forward)
+               (set! kind 'unquote)
+               #t)
+              ((eqv? c0 #\quote)
+               (forward)
+               (set! kind 'quote)
+               #t)
+              ((eqv? c0 #\backquote)
+               (forward)
+               (set! kind 'quasiquote)
+               #t)
+              ((eqv? c0 #\open-parenthesis)
+               (forward)
+               (set! kind 'list)
+               #t)
+              ((eqv? c0 #\open-bracket)
+               (forward)
+               (set! kind 'reference)
+               #t)
+              ((eqv? c0 #\open-brace)
+               (forward)
+               (set! kind 'literal)
+               #t)
+              (else
+               (set-end end)
+               #f)))))
+  
+  
+  (method public (exit-composite)
+    (forward-all-expr)
+    (forward-whites)
+    (when (memv? (char-forward 0) Close-Composites)
+      (forward)
+      #t))
+  
+  
+  (method public (skip-forward name <string>)
+    (and (forward-expr) (= (get-marked) name)))
+  
+  
+  (method public (skip-backward name <string>)
+    (and (backward-expr) (= (get-marked) name)))
+  
+  
+  (method public (forward-modifiers)
+    (let ((old (copy end))
+          (meta? #f)
+          (symbol {}))
+      (let (iterate)
+        (when (and (forward-expr) (eq? kind 'symbol))
+           (set! symbol (find-marked-symbol))
+           (when (memq? symbol (get-modifiers))
+             (set! old (copy end))
+             (when (eq? symbol 'meta)
+               (set! meta? #t))
+             (iterate))))
+      (set! end old)
+      meta?))
+  
+  
+  (method (forward-comments)
+    (next-paragraph))
+  
+  
+  (method (backward-comments)
+    )
+
+  
+  (method public (forward-whites) <void>
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (when (and c (or (whitespace? c) (eqv? c #\semi-colon)))
+          (if (eqv? c #\semi-colon)
+              (begin
+                (forward-comments)
+                (iterate))
+            (when (forward)
+              (iterate))))))
+    (when line-hook
+      (line-hook self)))
+
+  
+  (method public (backward-whites) <void>
+    (let (iterate)
+      (let (iterate)
+        (let ((c (char-backward 0)))
+          (when (and c (whitespace? c) (backward))
+            (iterate))))
+      (when (backward-lisp-comment)
+        (iterate))))
+
+  
+  (method (backward-lisp-comment) <bool>
+    (let ((start-row (get-row~ start))
+          (start-col (get-col~ start)))
+      (let ((col (if (eqv? start-row find-comment-last-row)
+                     find-comment-last-col
+                   (let ((col (find-lisp-comment start-row)))
+                     (set! find-comment-last-row start-row)
+                     (set! find-comment-last-col col)
+                     col))))
+        (when (and col (< col start-col))
+          (set-col~ start col)
+          #t))))
+  
+  
+  (method (find-lisp-comment row <fx>) <fx+>
+    (let ((max-col (paragraph-length row))
+          (preserved-end (copy end))
+          (result #f))
+      (set-end (new Cell row 0))
+      (let ((result
+              (let (iterate)
+                (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
+                  (let ((c0 (char-forward 0)))
+                    (cond ((eqv? c0 #\")
+                           (forward-string)
+                           (iterate))
+                          ((eqv? c0 #\#)
+                           (let ((c1 (char-forward 1)))
+                             (cond ((eqv? c1 #\|)
+                                    (forward)
+                                    (forward-delimited-string)
+                                    (iterate))
+                                   ((eqv? c1 #\\)
+                                    (forward)
+                                    (forward-scheme-char)
+                                    (iterate))
+                                   (else
+                                    (forward)
+                                    (iterate)))))
+                          ((eqv? c0 #\;)
+                           (get-col~ end))
+                          (else
+                           (forward)
+                           (iterate))))))))
+        (set-end preserved-end)
+        result)))
+
+
+  ;;;
+  ;;;; Level
+  ;;;
+  
+  
+  ;; == explorer problem:
+  ;; many exploration modes are free-form (_ = terminal/white-space)
+  ;; - _/* ... */_
+  ;; - _#" ... "#_
+  ;; - multiline commented code like:
+  ;;   ;; [ ...
+  ;;   ;; ... ]
+  ;; We want normal behavior until we hit one of the end token,
+  ;;  but complete the expr by correcting the other end
+  ;;  forex.: ... ( ... "# ...
+  ;;   where "backward found (", then "forward found "#", we must go backward again
+  ;;
+  ;; Strings are free-form too, but you don't know the open/close direction
+  ;;  ... " ... ( .... " .... ) ...
+  ;;  correction can be heavy/impossible if we guess wrong
+  ;;
+  ;; Proper exploration of free-forms demand the same special knowledge as syntax coloring
+  ;;
+  ;; We usually have 2 possible explorations: left or right
+  ;; We take inner over outer, and left over right
+  ;; We may want to limit exploration to symbols only and refuse composite expressions
+
+
+  (method (outer-expr (composite?: composite? #t) (outer-composite?: outer-composite? #t))
+    (let ((s <Cell> (copy start))
+          (e <Cell> (copy end))
+          (prv (previous-char start 0))
+          (nxt (next-char end 0)))
+      (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (text-constituent? nxt))))))
+             (backward-expr))
+            ((and prv (= s e) (text-constituent? prv))
+             (forward-constituent)
+             (backward-constituent))
+            ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (text-constituent? prv)))))
+             (forward-expr))
+            ((and nxt (text-constituent? nxt))
+             (forward-constituent)
+             (backward-constituent))
+            ((and (memv? prv '(#\quote #\backquote #\comma #\at))
+                  (let* ((s (get-char s))
+                         @see-further-comment
+                         (e (get-char e)))
+                    (or (text-constituent? s)
+                        (and (eqv? prv #\comma) (eqv? s #\at))
+                        (and (eqv? prv #\quote) (eqv? s #\comma))
+                        (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
+             (set-start (previous-pos start 1))
+             #t)
+            ((and composite? (eqv? prv #\double-quote) (eqv? nxt #\double-quote))
+             (set-start (previous-pos start 1))
+             (set-end (next-pos end 1))
+             #t)
+            (else
+             (when outer-composite?
+               (forward-all-expr)
+               (let ((ender (char-forward 0)))
+                 (set! e (copy end))
+                 (set-start s)
+                 (let ((skipped (backward-all-expr))
+                       (starter (char-backward 0)))
+                   (cond ((or (and ender (not (close-composite? ender)))
+                              (and (not starter) ender)
+                              (and starter ender (not (composites-match? starter ender))))
+                          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
+                         ((or (and starter (not (open-composite? starter)))
+                              (and starter (not ender)))
+                          (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
+                         (else
+                          (set-end e)
+                          (let ((pc (previous-char start 0))
+                                (nc (next-char end 0)))
+                            (when (open-composite? pc)
+                              (let ((info (assq pc Composites)))
+                                (when info
+                                  (bind (open close knd) info
+                                    (when (eqv? nc close)
+                                      (backward)
+                                      (forward)
+                                      (set! kind knd)
+                                      skipped)))))))))))))))
+
+
+  (method public (form-expr)
+    (let ((s (copy start))
+          (e (copy end)))
+      (set-end start)
+      (prog1
+          (when (eqv? (next-char end 0) #\open-parenthesis)
+            (enter-list)
+            (forward-expr)
+            (when (eq? kind 'symbol)
+              (find-marked-symbol)))
+        (set-start s)
+        (set-end e))))
+
+
+  (method public (form-expr? symbols)
+    (memq? (form-expr) symbols))
+  
+  
+  (method public (form-name form)
+    (when (and (pair? form)
+               (definition-name? (car form)))
+      (let ((scan (cdr form))
+            (modifiers (get-modifiers)))
+        (while (and (not-null? scan) (memq? (car scan) modifiers))
+          (set! scan (cdr scan)))
+        (when scan
+          (let ((expr (car scan)))
+            (if (symbol? expr)
+                expr
+              (when (pair? expr)
+                (car expr))))))))
+
+
+  (method public (category-expr?)
+    (form-expr? '(class interface package remotable-stub com-class com-interface)))
+
+
+  (method public virtual (definition-expr?)
+    (definition-name? (form-expr)))
+  
+  
+  (method public virtual (definition-name? name)
+    (memq? name '(class interface package remotable-stub com-class com-interface)))
+
+
+  (method public (definition-name)
+    (let ((s (copy start))
+          (e (copy end)))
+      (set-end start)
+      (enter-list)
+      (forward-expr)
+      (let* ((type (find-marked-symbol))
+             (package? (eq? type 'package))
+             (meta? (forward-modifiers)))
+        (cond ((memq? type '(generic specific))
+               (forward-expr)))
+        (forward-whites)
+        (if (eqv? (char-forward 0) #\open-parenthesis)
+            (begin
+              (enter-list)
+              (forward-expr))
+          (forward-expr))
+        (prog1 (values package? meta? (find-marked-symbol))
+          (set-start s)
+          (set-end e)))))
+  
+  
+  (method (definition-only-name)
+    (receive (package? meta? name) (definition-name)
+      name))
+
+
+  ;;;
+  ;;;; Comments
+  ;;;
+  
+  
+  (method public (for-each-comment proc <procedure>)
+    (let ((previous-row {}))
+      (for-each (function (pos <Cell>)
+                  (let ((row (get-row~ pos))
+                        (col (get-col~ pos)))
+                    (when (or (not previous-row) (/= row previous-row))
+                      (let ((string (paragraph-string row))
+                            (style (get-style-at~ text pos))
+                            (start pos))
+                        (unless (or (memq? (get-name~ style) '(Expr-Comment Named-Comment)) (string-style?~ text style))
+                          (set! previous-row (get-row~ pos))
+                          (set-end pos)
+                          (paragraph-end)
+                          (proc start end (and (< (+ col 4) (cast <fx> (cardinality string))) (string=? (subseq string col (+ col 4)) (title-comment-string~ (get-syntax~ text))))))))))
+                (text-search-all~ text (comment-string~ (get-syntax~ text))))))
+
+
+  ;;;
+  ;;;; Declarations
+  ;;;
+  
+  
+  (method public virtual (walk-declarations context declaration keyword expression doc walk-expressions?)
+    (while (walk-declaration context declaration keyword expression doc walk-expressions?)
+      ))
+  
+  
+  (method public virtual (walk-declaration context declaration keyword expression doc walk-expressions?)
+    )
+  
+  
+  (method protected (walk-parameters context declaration keyword expression doc)
+    (let (iterate)
+      (when (forward-expr)
+        (walk-expression context expression 'code #f)
+        (iterate))))
+
+
+  ;;;
+  ;;;; Expressions
+  ;;;
+  
+  
+  (method public (iterate-expressions proc (mode: mode 'code) (recursive?: recursive? #t))
+    (for-each-expressions proc mode))
+  
+  
+  (method public (iterate-expression proc (mode: mode 'code) (recursive?: recursive? #t))
+    (for-each-expression proc mode))
+  
+  
+  (method (for-each-expressions proc mode)
+    (while (forward-expr)
+      (for-each-expression proc mode)))
+  
+  
+  (method (for-each-expression proc mode)
+    (proc mode)
+    (when (enter-composite)
+      (cond ((eq? kind 'list)
+             (for-each-forms proc mode)
+             (exit-list))
+            ((composite-kind? kind)
+             (let ((mode (if (eq? kind 'literal) 'quotation mode)))
+               (for-each-expressions proc mode))
+             (exit-composite))
+            (else
+             (let ((mode (if (memq? kind '(quote quasiquote)) 'quotation 'code)))
+               (forward-expr)
+               (for-each-expression proc mode))))))
+  
+  
+  (definition Quotation-Forms
+    '(quote quasiquote form form>> jml>> external intrinsic))
+  
+  
+  (method (for-each-forms proc mode)
+    (forward-expr)
+    (when kind
+      (let ((mode (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
+                           ;; a patch until the explorer has better code understanding
+                           (or (neq? (intern-marked-symbol) 'form)
+                               (eqv? (char-forward 0) #\newline)))
+                      'quotation
+                    mode)))
+        (for-each-expression proc mode)
+        (for-each-expressions proc mode))))
+  
+  
+  (method public (walk-expressions context expression (mode 'code) (first? #t))
+    (while (forward-expr)
+      (walk-expression context expression mode first?)
+      (set! first? #f)))
+  
+  
+  (method (walk-expression context expression mode first?)
+    (expression context start end mode
+      (if (and (eq? kind 'symbol) (specifier-marked?))
+          (if first?
+              'tag
+            'specifier)
+        kind))
+    (when (enter-composite)
+      (cond ((composite-kind? kind)
+             (walk-expressions context expression mode)
+             (exit-composite))
+            (else
+             (let ((mode (if (memq? kind '(quote quasiquote)) kind 'code)))
+               (forward-expr)
+               (walk-expression context expression mode #f))))))
+  
+  
+  (method (specifier-marked?)
+    (and (eq? kind 'symbol)
+         (eqv? (get-char start) #\<)
+         (eqv? (get-char (- end 1)) #\>)))
+  
+
+  ;;;
+  ;;;; Constants
+  ;;;
+  
+  
+  (method public (constant?)
+    (memq? kind '(number boolean char symbol keyword)))
+  
+  
+  (method public (get-constant)
+    (case kind
+      ((symbol) (intern-marked-symbol))
+      (else (with-jazz-readtable
+              (function ()
+                (read-string-element (get-marked)))))))
+  
+
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  ;; PATTERNS
+  ;; - ?x    : matches exactly one expression
+  ;; - *x    : matches any number of expressions inside a composite expression (todo)
+  ;; - num   : matches a number
+  ;; - #f    : matches the #f boolean
+  ;; - #t    : matches the #t boolean
+  ;; - #\x   : matches a character
+  ;; - " "   : matches a string
+  ;; - sym   : matches a symbol
+  ;; - ( )   : matches a list that can contain patterns (todo)
+  ;; - { }   : matches a literal that can contain patterns (todo)
+  ;; - 'expr : matches expr only if within quoted text
+  
+  ;; VARIABLES
+  ;; - Generalized variable syntax is ?name:kind
+  ;; - The name is optional (not used at the moment)
+  ;; - The kind is optional and can be : number boolean char string delimited-string named-string symbol keyword expr-comment named-comment list reference literal
+  
+  ;; REPLACEMENT
+  ;; - A good approach I think would be to generalize the backquote construct to non-code generation
+  ;;   where the pattern variable names would be used to generate something like a template expander...
+  
+  ;; TODO
+  ;; - For other tools like the highlighting done by edit-reference, it would be really nice to have an option
+  ;;   for search-expressions to search a range and return all found matches
+  
+  
+  (method public (search-expressions mode targets position whole-words? ignore-case?)
+    (let ((all (map (function (target-string)
+                      (let ((target (read-string-element target-string)))
+                        (cons target target-string)))
+                    targets)))
+      (continuation-capture
+        (function (return)
+          (iterate-expressions
+            (function (mode)
+              (for-each (function (info)
+                          (bind (target . target-string) info
+                            (when (and (>= start position) (match? mode target))
+                              (continuation-return return (list (get-range) target-string)))))
+                        all))
+            mode: mode)
+          {}))))
+  
+  
+  (method (match? expl-mode target)
+    (receive (mode expression) (parse-expression target)
+      (let ((expl-kind (get-kind)))
+        (if (pattern-variable? expression)
+            (receive (name kind) (parse-pattern-variable expression)
+              (and (or (not mode) (eq? mode expl-mode))
+                   (or (not kind) (eq? kind expl-kind))))
+          (let ((kind (expression-kind expression)))
+            (and (or (not mode) (eq? mode expl-mode))
+                 (eq? kind expl-kind)
+                 (equal? expression (read-string-element (get-marked)))))))))
+  
+  
+  (method (expression-kind expression)
+    (cond ((number? expression) 'number)
+          ((boolean? expression) 'boolean)
+          ((char? expression) 'char)
+          ((string? expression) 'string)
+          ((symbol? expression) 'symbol)
+          (else (unimplemented 'expression-kind))))
+  
+  
+  (method (parse-expression expression)
+    (if (and (pair? expression) (eq? (car expression) 'quote))
+        (values 'quotation (cadr expression))
+      (values {} expression)))
+  
+  
+  (method (pattern-variable? expression)
+    (and (symbol? expression)
+         (eqv? #\? (element (symbol->string expression) 0))))
+  
+  
+  (method (parse-pattern-variable variable)
+    (let ((elements (parse-strings (subseq (symbol->string variable) 1) separator: ":")))
+      (bind-optionals ((name "") (kind "") (mode "")) elements
+        (values (if (empty-string? name) {} (string->symbol name))
+                (if (empty-string? kind) {} (string->symbol kind))
+                (if (empty-string? mode) {} (string->symbol mode))))))
+  
+
+  ;;;
+  ;;;; Utilities
+  ;;;
+
+
+  (method (open-composite? char)
+    (memv? char Open-Composites))
+
+
+  (method (close-composite? char)
+    (memv? char Close-Composites))
+  
+  
+  (method (composite-kind? kind)
+    (memq? kind '(list reference literal)))
+
+
+  (method (composites-match? start end)
+    (or (and (eqv? start #\open-parenthesis) (eqv? end #\close-parenthesis))
+        (and (eqv? start #\open-bracket)     (eqv? end #\close-bracket))
+        (and (eqv? start #\open-brace)       (eqv? end #\close-brace))))))

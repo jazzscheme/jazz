@@ -1,0 +1,137 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Object Inspector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.jazz.inspector.Inspector jazz
+
+
+(import (jazz.editor.jazz)
+        (jazz.editor.jazz.inspector)
+        (jazz.debuggee)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Inspector extends Tree-View
+  
+  
+  (property process initialize {} getter get-process setter set-process)
+  (property client  initialize {} getter get-client  setter set-client)
+  (property sort?   initialize #t getter get-sort?   setter set-sort?)
+
+
+  (form
+    (<install>                         filled-column: value multiple-selection?: #f selection-mode: row portfolio: :icons
+      (<Tree-Node-Column>  name: name  title: "Name")
+      (<Tree-Label-Column> name: value title: "Value")))
+    
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-process)
+    process)
+
+
+  (method public (set-process value)
+    (set! process value))
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (present-client client)))
+
+
+  (method public (get-sort?)
+    sort?)
+
+
+  (method public (set-sort? value)
+    (set! sort? value))
+
+
+  ;;;
+  ;;;; Tree
+  ;;;
+  
+  
+  (method (update-row row)
+    (bind (serial . kind) (get-user-data~ row)
+      (let ((process (either process (get-local-process))))
+        (present row (inspect (serial->object serial) kind) @wait-remote-debuggee (inspect~ debuggee address kind)))))
+
+
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
+  (method (present-client client)
+    (with-update-locked
+      (function ()
+        (remove-every-row)
+        (when client
+          (bind (data . kind) client
+            (present root-row (inspect data kind)))))))
+  
+  
+  (method (present row values)
+    (with-update-locked
+      (function ()
+        (for-each (function (info)
+                    (bind-optionals ((name {}) (address {}) (presented {}) (more? {}) (kind {})) info
+                      (let ((state (if more? 'dynamic 'collapsed)))
+                        (add-row father: row state: state children: (list (new Tree-Node title: name image: {Bitmap-Resource "Variable"}) (new Tree-Label title: presented)) user-data: (cons address kind)))))
+                  values))))
+
+
+  ;;;
+  ;;;; Inspect
+  ;;;
+
+
+  (method public virtual (inspect data kind)
+    (case kind
+      ((:value) (inspect-value data))))))

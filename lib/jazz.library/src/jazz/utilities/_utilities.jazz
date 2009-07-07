@@ -453,7 +453,7 @@
 ;;;
 
 
-(definition (form-name form)
+(definition public (form-name form)
   (get-name~ form))
 
 
@@ -777,7 +777,7 @@
           Textual-Include-Extensions))
 
 
-(definition (effective-include-extensions extensions)
+(definition public (effective-include-extensions extensions)
   (case extensions
     ((:scheme) Scheme-Include-Extensions)
     ((:commonlisp) CommonLisp-Include-Extensions)
@@ -1719,12 +1719,16 @@
   2)
 
 
-(definition (different-times? time1 time2 (tolerance: tolerance 2-Seconds-Tolerance))
+(definition public (different-times? time1 time2 (tolerance: tolerance 2-Seconds-Tolerance))
   (> (abs (- (time->seconds time1) (time->seconds time2)))
      tolerance))
 
 
-(definition (different-file-content? file1 file2)
+(definition public (different-file-content? file1 file2)
+  (define (different-text-file-content? file1 file2)
+    (not (equal? (load-lines~ file1 char-encoding-errors: #f)
+                 (load-lines~ file2 char-encoding-errors: #f))))
+  
   (if (and (member? (get-extension~ file1) Text-Extensions test: ci=?)
            (member? (get-extension~ file2) Text-Extensions test: ci=?))
       (different-text-file-content? file1 file2)
@@ -1747,12 +1751,7 @@
                            #t)))))))))))
 
 
-(definition (different-text-file-content? file1 file2)
-  (not (equal? (load-lines~ file1 char-encoding-errors: #f)
-               (load-lines~ file2 char-encoding-errors: #f))))
-
-
-(definition (different-file-content-no-whitespace? file1 file2)
+(definition public (different-file-content-no-whitespace? file1 file2)
   (call-with-input-file (list path: (parse~ file1) char-encoding: 'UTF char-encoding-errors: #f)
     (function (input1)
       (call-with-input-file (list path: (parse~ file2) char-encoding: 'UTF char-encoding-errors: #f)

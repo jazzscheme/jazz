@@ -2955,9 +2955,7 @@
     (%%set-namespace-declaration-children namespace-declaration (%%append (%%get-namespace-declaration-children namespace-declaration) (%%list child)))
     (%%table-set! (%%get-namespace-declaration-children-lookup namespace-declaration) name child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
-    (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child)
     ;; for now everything not private is considered public
-    #;
     (%%when (%%neq? (%%get-declaration-access child) 'private)
       (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child))
     child))

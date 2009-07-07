@@ -1508,7 +1508,7 @@
 
 
 (define jazz.generic-modifiers
-  '(((private protected public) . private)
+  '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 

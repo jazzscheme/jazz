@@ -118,7 +118,7 @@
   (GetClassLong handle GCL_HBRBACKGROUND))
 
 
-(definition (platform-erase-background handle)
+(definition package (platform-erase-background handle)
   unprocessed)
 
 
@@ -333,43 +333,40 @@
 ;;;
 
 
-(definition (prime-message-pump)
-  (new-thread (function ()
-                (process-messages))
-              'message-pump))
+(definition package (process-messages)
+  (define (process)
+    (define (process-message msg)
+      (execute-event
+        (function ()
+          (unless (translate-shortcut msg)
+            (TranslateMessage msg)
+            (DispatchMessage msg)))))
+    
+    (declare (proper-tail-calls))
+    
+    ;; put back here to see if moving it before the read was the cause of many
+    ;; intermittent bugs
+    
+    ;; because MsgWaitForMultipleObjects will *not* remove messages already present
+    ;; in the message queue, we need to process those before the blocking call to read
+    (let ((msg (MSG-make)))
+      (while (PeekMessage msg NULL 0 0 PM_REMOVE)
+        (process-message msg))
+      (MSG-free msg))
+    
+    (let ((port (open-event-queue QS_ALLINPUT))
+          (thread (current-thread)))
+      (let (loop)
+        (let ((msg (read port)))
+          (process-message msg)
+          (MSG-free msg))
+        (when (thread-loop? thread)
+          (loop)))))
+  
+  (new-thread process 'message-pump))
 
 
-(definition (process-messages)
-  (define (process-message msg)
-    (execute-event
-      (function ()
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg)))))
-  
-  (declare (proper-tail-calls))
-  
-  ;; put back here to see if moving it before the read was the cause of many
-  ;; intermittent bugs
-  
-  ;; because MsgWaitForMultipleObjects will *not* remove messages already present
-  ;; in the message queue, we need to process those before the blocking call to read
-  (let ((msg (MSG-make)))
-    (while (PeekMessage msg NULL 0 0 PM_REMOVE)
-      (process-message msg))
-    (MSG-free msg))
-  
-  (let ((port (open-event-queue QS_ALLINPUT))
-        (thread (current-thread)))
-    (let (loop)
-      (let ((msg (read port)))
-        (process-message msg)
-        (MSG-free msg))
-      (when (thread-loop? thread)
-        (loop)))))
-
-
-(definition (process-messages-single-threaded thunk)
+(definition package (process-messages-single-threaded thunk)
   (define (process-message msg)
     (unless (translate-shortcut msg)
       (TranslateMessage msg)
@@ -710,7 +707,7 @@
 ;;;
 
 
-(definition (platform-set-parent handle parent)
+(definition package (platform-set-parent handle parent)
   (SetParent handle (if parent (get-handle~ parent) NULL)))
 
 
@@ -722,11 +719,11 @@
   (GetWindow handle GW_OWNER))
 
 
-(definition (platform-get-first-child handle)
+(definition package (platform-get-first-child handle)
   (GetWindow handle GW_CHILD))
 
 
-(definition (platform-get-first-visible-child handle)
+(definition package (platform-get-first-visible-child handle)
   (let loop ((child-handle (platform-get-first-child handle)))
     (if child-handle
         (if (platform-is-window-visible? child-handle)
@@ -735,11 +732,11 @@
         #f)))
 
 
-(definition (platform-get-next-window-handle handle)
+(definition package (platform-get-next-window-handle handle)
   (GetWindow handle GW_HWNDNEXT))
 
 
-(definition (platform-is-window-visible? handle)
+(definition package (platform-is-window-visible? handle)
   (IsWindowVisible handle))
 
 
@@ -763,14 +760,14 @@
       (RECT-free acquired))))
 
 
-(definition (platform-translate-to-root handle pt)
+(definition package (platform-translate-to-root handle pt)
   (with ((pos (point->POINT pt)))
     (MapWindowPoints handle NULL pos 1)
     (prog1 (new Point (POINT-x-ref pos) (POINT-y-ref pos))
       (POINT-free pos))))
 
 
-(definition (platform-get-position handle parent-handle) <Point>
+(definition package (platform-get-position handle parent-handle) <Point>
   (with ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (when (and parent-handle (child-window? handle))
@@ -779,18 +776,18 @@
       (RECT-free rect))))
 
 
-(definition (platform-set-position handle pos)
+(definition package (platform-set-position handle pos)
   (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bitwise-ior SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition (platform-get-size handle) <Dimension>
+(definition package (platform-get-size handle) <Dimension>
   (with ((rect (RECT-make)))
     (GetClientRect handle rect)
     (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
       (RECT-free rect))))
 
 
-(definition (platform-get-window-size handle) <Dimension>
+(definition package (platform-get-window-size handle) <Dimension>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (prog1 (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
@@ -798,15 +795,15 @@
       (RECT-free rect))))
 
 
-(definition (platform-set-window-size handle size)
+(definition package (platform-set-window-size handle size)
   (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition (platform-set-bounds handle rect)
+(definition package (platform-set-bounds handle rect)
   (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition (platform-get-rect handle parent-handle) <Rect>
+(definition package (platform-get-rect handle parent-handle) <Rect>
   (with ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (when parent-handle
@@ -815,7 +812,7 @@
       (RECT-free rect))))
 
 
-(definition (platform-get-bounds handle) <Rect>
+(definition package (platform-get-bounds handle) <Rect>
   (with ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (MapWindowPoints NULL handle rect 2)
@@ -823,14 +820,14 @@
       (RECT-free rect))))
 
 
-(definition (platform-mouse-position) <Point>
+(definition package (platform-mouse-position) <Point>
   (with ((point (POINT-make)))
     (GetCursorPos point)
     (prog1 (new Point (POINT-x-ref point) (POINT-y-ref point))
       (POINT-free point))))
 
 
-(definition (platform-window-from-point point)
+(definition package (platform-window-from-point point)
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
@@ -838,7 +835,7 @@
       (POINT-free pt))))
 
 
-(definition (platform-child-window-from-point handle point)
+(definition package (platform-child-window-from-point handle point)
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
@@ -846,30 +843,30 @@
       (POINT-free pt))))
 
 
-(definition (platform-move-window handle x y cx cy)
+(definition package (platform-move-window handle x y cx cy)
   (MoveWindow handle x y cx cy #t))
 
 
-(definition (platform-window-enabled? handle)
+(definition package (platform-window-enabled? handle)
   (IsWindowEnabled handle))
 
 
-(definition (platform-enable-window handle)
+(definition package (platform-enable-window handle)
   (EnableWindow handle #t))
 
 
-(definition (platform-disable-window handle)
+(definition package (platform-disable-window handle)
   (EnableWindow handle #f))
 
 
-(definition (platform-get-client-rect handle)
+(definition package (platform-get-client-rect handle)
   (with ((rect (RECT-make)))
     (GetClientRect handle rect)
     (prog1 (RECT->rect rect)
       (RECT-free rect))))
 
 
-(definition (platform-scroll-window handle dh dv rect clip-rect)
+(definition package (platform-scroll-window handle dh dv rect clip-rect)
   (let ((flags SW_INVALIDATE))
     (with ((rect (rect->RECT rect))
            (clip-rect (rect->RECT clip-rect)))
@@ -878,7 +875,7 @@
         (RECT-free clip-rect)))))
 
 
-(definition (platform-invalidate-rect handle rect)
+(definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (with ((rect (rect->RECT rect)))
@@ -886,19 +883,19 @@
         (RECT-free rect)))))
 
 
-(definition (platform-invalidate-region handle region)
+(definition package (platform-invalidate-region handle region)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (InvalidateRgn handle (get-handle~ region) #f)))
 
 
-(definition (platform-invalidate-window handle)
+(definition package (platform-invalidate-window handle)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (InvalidateRect handle NULL #f)))
 
 
-(definition (platform-redraw-window handle rect region)
+(definition package (platform-redraw-window handle rect region)
   ;; is this test correct or was it a patch made during the port
   (when handle
     ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
@@ -910,51 +907,51 @@
             (RECT-free rect)))))))
 
 
-(definition (platform-get-update-rect handle)
+(definition package (platform-get-update-rect handle)
   (with ((rect (RECT-make)))
     (GetUpdateRect handle rect #f)
     (prog1 (RECT->rect rect)
       (RECT-free rect))))
 
 
-(definition (platform-get-update-region handle)
+(definition package (platform-get-update-region handle)
   (let ((region (new Region)))
     (GetUpdateRgn handle (get-handle~ region) #f)
     region))
 
 
-(definition (platform-update-window handle)
+(definition package (platform-update-window handle)
   (UpdateWindow handle))
   
   
-(definition (platform-show-noactivate handle)
+(definition package (platform-show-noactivate handle)
   (SetWindowPos handle HWND_TOP 0 0 0 0 (bitwise-ior SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
   
   
-(definition (platform-hide-noactivate handle)
+(definition package (platform-hide-noactivate handle)
   (SetWindowPos handle 0 0 0 0 0 (bitwise-ior SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
 
 
-(definition (platform-bring-window-to-front handle)
+(definition package (platform-bring-window-to-front handle)
   (BringWindowToTop handle))
 
 
-(definition (platform-send-window-to-back handle)
+(definition package (platform-send-window-to-back handle)
   (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bitwise-ior SWP_NOMOVE SWP_NOSIZE)))
 
 
-(definition (platform-select-foreground-window handle)
+(definition package (platform-select-foreground-window handle)
   (SetForegroundWindow handle))
 
 
-(definition (platform-get-window-handle-title handle)
+(definition package (platform-get-window-handle-title handle)
   (let* ((size (GetWindowTextLength handle))
          (string (make-string size #\space)))
     (receive (ret str) (GetWindowText handle string (+ size 1))
       str)))
 
 
-(definition (platform-lock-window-update handle)
+(definition package (platform-lock-window-update handle)
   (LockWindowUpdate handle))
 
 
@@ -963,11 +960,11 @@
 ;;;
 
 
-(definition (platform-get-focus)
+(definition package (platform-get-focus)
   (GetFocus))
 
 
-(definition (platform-set-focus handle)
+(definition package (platform-set-focus handle)
   (SetFocus handle))
 
 
@@ -1045,7 +1042,7 @@
 ;;;
 
 
-(definition (platform-redraw-view-only view hwnd)
+(definition package (platform-redraw-view-only view hwnd)
   (with ((hrgn (CreateRectRgn 0 0 0 0)))
     ;; preserve the current update region
     (GetUpdateRgn hwnd hrgn #f)
@@ -1058,7 +1055,7 @@
     (DeleteObject hrgn)))
 
 
-(definition (platform-get-desktop)
+(definition package (platform-get-desktop)
   (GetDesktopWindow))
 
 
@@ -1111,7 +1108,7 @@
 ;;;
 
 
-(definition (platform-drop-files window wparam)
+(definition package (platform-drop-files window wparam)
   (let ((hdrop (WPARAM->HDROP wparam)))
     (let ((files (received-files hdrop))
           (pt (POINT-make)))

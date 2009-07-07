@@ -177,17 +177,14 @@
 ;;;
 
 
-(definition (prime-message-pump)
-  (new-thread (function ()
-                (process-messages))
-              'message-pump))
+(definition package (process-messages)
+  (define (process)
+    (RunApplicationEventLoop))
+  
+  (new-thread process 'message-pump))
 
 
-(definition (process-messages)
-  (RunApplicationEventLoop))
-
-
-(definition (process-messages-single-threaded thunk)
+(definition package (process-messages-single-threaded thunk)
   (RunApplicationEventLoop))
   
 
@@ -231,7 +228,7 @@
   (unimplemented 'restore-window))
 
 
-(definition (platform-erase-background handle)
+(definition package (platform-erase-background handle)
   (unimplemented 'platform-erase-background))
 
 
@@ -424,13 +421,13 @@
 ;;;
 
 
-(definition (platform-set-parent handle parent)
+(definition package (platform-set-parent handle parent)
   (when (HIViewGetSuperview handle)
 (HIViewRemoveFromSuperview handle))
   (HIViewAddSubview (get-handle~ parent) handle))
 
 
-(definition (platform-get-first-child handle)
+(definition package (platform-get-first-child handle)
   (unimplemented 'platform-get-first-child)
   @lala
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
@@ -439,7 +436,7 @@
       (XGetChildHandle default-x11-display handle 0))))
 
 
-(definition (platform-get-first-visible-child handle)
+(definition package (platform-get-first-visible-child handle)
   (unimplemented 'platform-get-first-visible-child)
   @lala
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
@@ -454,7 +451,7 @@
               (loop (+ n 1)))))))))
 
 
-(definition (platform-is-window-visible? handle)
+(definition package (platform-is-window-visible? handle)
   (unimplemented 'platform-is-window-visible?)
   @lala
   (let ((infos (XWindowAttributes-make)))
@@ -483,23 +480,23 @@
     (RECT->rect acquired)))
 
 
-(definition (platform-translate-to-root handle pt)
+(definition package (platform-translate-to-root handle pt)
   (unimplemented 'platform-translate-to-root))
 
 
-(definition (platform-get-position-in-root handle)
+(definition package (platform-get-position-in-root handle)
   (let* ((window (HIViewGetWindow handle))
          (root   (HIViewGetRoot window)))
     (receive (x y) (convertCoordinates handle root 0.0 0.0)
        (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
           (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
 
-(definition (platform-get-position handle parent-handle)
+(definition package (platform-get-position handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
     (new Point (inexact->exact left) (inexact->exact top))))
 
 
-(definition (platform-set-position handle pos)
+(definition package (platform-set-position handle pos)
   (receive (left top width height) (platform-get-system-rect handle)
      (let ((left (get-h~ pos))
 	   (top (get-v~ pos)))
@@ -508,23 +505,23 @@
 	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
   
 
-(definition (platform-get-size handle)
+(definition package (platform-get-size handle)
   (receive (left top width height) (platform-get-system-rect handle)
     (new Dimension (inexact->exact width) (inexact->exact height))))
 
 
-(definition (platform-get-window-size handle)
+(definition package (platform-get-window-size handle)
   (platform-get-size handle))
 
 
-(definition (platform-get-system-rect handle)
+(definition package (platform-get-system-rect handle)
   (cond ((is-window-HIView? (get-window handle))
 	 (HIViewGetFrame handle))
 	(else
 	 (WindowGetBounds (HIViewGetWindow handle) kWindowContentRgn))))
 
 
-(definition (platform-set-window-size handle size)
+(definition package (platform-set-window-size handle size)
   (receive (left top width height) (platform-get-system-rect handle)
      (let ((width (get-width~ size))
 	   (height (get-height~ size)))
@@ -533,24 +530,24 @@
 	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
 
 
-(definition (platform-set-position-size handle pos size)
+(definition package (platform-set-position-size handle pos size)
   (unimplemented 'platform-set-position-size)
   @lala
   (XMoveResizeWindow default-x11-display handle (get-h~ pos) (get-v~ pos) (get-width~ size) (get-height~ size)))
 
 
-(definition (platform-set-bounds handle rect)
+(definition package (platform-set-bounds handle rect)
   (unimplemented 'platform-set-bounds)
   @windows
   (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition (platform-get-rect handle parent-handle)
+(definition package (platform-get-rect handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
     (new Rect left top (+ left width) (+ top height))))
 
 
-(definition (platform-get-bounds handle)
+(definition package (platform-get-bounds handle)
   (unimplemented 'platform-get-bounds)
   @windows
   (with ((rect (RECT-make)))
@@ -559,11 +556,11 @@
     (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
 
 
-(definition (platform-mouse-position)
+(definition package (platform-mouse-position)
   (new Point current-mouse-x current-mouse-y))
 
 
-(definition (platform-window-from-point point)
+(definition package (platform-window-from-point point)
   {}
   @windows
   (with ((pt (POINT-make)))
@@ -572,7 +569,7 @@
     (WindowFromPoint pt)))
 
 
-(definition (platform-child-window-from-point handle point)
+(definition package (platform-child-window-from-point handle point)
   {}
   @windows
   (with ((pt (POINT-make)))
@@ -581,38 +578,38 @@
     (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
 
 
-(definition (platform-move-window handle x y cx cy)
+(definition package (platform-move-window handle x y cx cy)
   (unimplemented 'platform-move-window)
   @windows
   (MoveWindow handle x y cx cy #t))
 
 
-(definition (platform-window-enabled? handle)
+(definition package (platform-window-enabled? handle)
   (unimplemented 'platform-window-enabled?)
   @windows
   (IsWindowEnabled handle))
 
 
-(definition (platform-enable-window handle)
+(definition package (platform-enable-window handle)
   (warn-unimplemented 'platform-enable-window))
 
 
-(definition (platform-disable-window handle)
+(definition package (platform-disable-window handle)
   (warn-unimplemented 'platform-disable-window))
 
 
-(definition (platform-get-client-rect handle)
+(definition package (platform-get-client-rect handle)
   (let ((size (platform-get-size handle)))
     (new Rect 0 0 (get-width~ size) (get-height~ size))))
 
 
-(definition (platform-scroll-window handle dh dv rect clip-rect)
+(definition package (platform-scroll-window handle dh dv rect clip-rect)
   (platform-invalidate-rect handle clip-rect)
   @w(platform-update-window handle))
 
 
 ;; Correct this to really invalidate the Rect
-(definition (platform-invalidate-rect handle rect)
+(definition package (platform-invalidate-rect handle rect)
   (if rect
   (let ((left (exact->inexact (get-left~ rect)))
 	(top (exact->inexact (get-top~ rect)))
@@ -623,17 +620,17 @@
 
 
 ;; Correct this to really invalidate the Region
-(definition (platform-invalidate-region handle region)
+(definition package (platform-invalidate-region handle region)
   (for-each (function (rect)
                (platform-invalidate-rect handle rect))
 	    (get-rectangles~ region)))
 
 
-(definition (platform-invalidate-window handle)
+(definition package (platform-invalidate-window handle)
   (platform-invalidate-rect handle #f))
 
 
-(definition (platform-redraw-window handle rect region)
+(definition package (platform-redraw-window handle rect region)
   (if rect
       (platform-invalidate-rect handle rect)
     (platform-invalidate-region handle region))
@@ -643,7 +640,7 @@
   (platform-update-window handle))
 
 
-(definition (platform-get-update-rect handle)
+(definition package (platform-get-update-rect handle)
   (unimplemented 'platform-get-update-rect)
   @windows
   (with ((rect (RECT-make)))
@@ -651,7 +648,7 @@
     (RECT->rect rect)))
 
 
-(definition (platform-get-update-region handle)
+(definition package (platform-get-update-region handle)
   (unimplemented 'platform-get-update-region)
   @windows
   (let ((region (new Region)))
@@ -659,13 +656,13 @@
     region))
 
 
-(definition (platform-redraw-view-only view handle)
+(definition package (platform-redraw-view-only view handle)
   (let* ((size (platform-get-size handle))
          (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
     (platform-invalidate-rect handle rct)))
 
 
-(definition (platform-update-window handle)
+(definition package (platform-update-window handle)
   (HIViewSetNeedsDisplay handle #t)
   (HIViewRender handle)
   (HIWindowFlush (HIViewGetWindow handle))
@@ -676,27 +673,27 @@
       (platform-invalidate-rect handle rct))))
   
   
-(definition (platform-show-noactivate handle)
+(definition package (platform-show-noactivate handle)
   (show-window handle))
 
 
-(definition (platform-hide-noactivate handle)
+(definition package (platform-hide-noactivate handle)
   (hide-window handle))
 
 
-(definition (platform-bring-window-to-front handle)
+(definition package (platform-bring-window-to-front handle)
   (if (is-window-HIView? (get-window handle))
       (HIViewSetZOrder handle kHIViewZOrderAbove #f)
     (SelectWindow (HIViewGetWindow handle))))
 
 
-(definition (platform-send-window-to-back handle)
+(definition package (platform-send-window-to-back handle)
   (if (is-window-HIView? (get-window handle))
       (HIViewSetZOrder handle kHIViewZOrderBelow #f)
     (SendBehind (HIViewGetWindow handle) #f)))
 
 
-(definition public (platform-select-foreground-window handle)
+(definition package (platform-select-foreground-window handle)
   (makeFrontProcess)
   (SelectWindow (HIViewGetWindow handle)))
 
@@ -719,7 +716,7 @@
     (table-set! actions-store window (cons (and action (car action)) size))))
 
 
-(definition (platform-lock-window-update handle)
+(definition package (platform-lock-window-update handle)
   #f
   @lala
   (if handle
@@ -750,7 +747,7 @@
 ;;;
 
 
-(definition (platform-get-focus)
+(definition package (platform-get-focus)
   (unimplemented 'platform-get-focus)
   @lala
   (receive (win state) (XGetInputFocus default-x11-display)
@@ -764,7 +761,7 @@
     (set! current-focus (get-toplevel)))
   current-focus)
 
-(definition (platform-set-focus handle)
+(definition package (platform-set-focus handle)
   (set! current-focus (get-window handle))
   (SetUserFocusWindow (HIViewGetWindow handle)))
 
@@ -840,7 +837,7 @@
 ;;;
 
 
-(definition (platform-get-desktop)
+(definition package (platform-get-desktop)
   (unimplemented 'platform-get-desktop)
   @lala
   (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
@@ -856,5 +853,5 @@
 ;;;
 
 
-(definition (platform-drop-files temp)
+(definition package (platform-drop-files temp)
   (unimplemented 'platform-drop-files)))

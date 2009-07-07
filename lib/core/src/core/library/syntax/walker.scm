@@ -2956,8 +2956,9 @@
     (%%table-set! (%%get-namespace-declaration-children-lookup namespace-declaration) name child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child)
+    ;; for now everything not private is considered public
     #;
-    (%%when (%%eq? 'public (%%get-declaration-access child))
+    (%%when (%%neq? (%%get-declaration-access child) 'private)
       (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child))
     child))
 
@@ -5152,7 +5153,7 @@
 
 
 (define jazz.native-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.native-keywords
@@ -5190,7 +5191,7 @@
 
 
 (define jazz.macro-modifiers
-  '(((private protected public) . private)
+  '(((private protected package public) . private)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -5229,7 +5230,7 @@
 
 
 (define jazz.syntax-modifiers
-  '(((private protected public) . private)
+  '(((private protected package public) . private)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -5501,6 +5502,17 @@
             form
           (jazz.error "Found extraneous expressions after {a} definition in: {a}" (%%car form) source))
       (jazz.error "Invalid module declaration in {a}: {s}" source form))))
+
+
+(define (jazz.walk-module module-name)
+  (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
+    (let ((source (jazz.resource-pathname src)))
+      (let ((form (jazz.read-toplevel-form source)))
+        (case (%%car form)
+          ((module)
+           #f)
+          ((library)
+           (jazz.walk-library (%%cdr form))))))))
 
 
 ;;;

@@ -53,4 +53,55 @@
   (let ((src (find-module-src module-name #f #f)))
     (if (not src)
         #f
-      (anchorize~ (new File (tokenise-filename (resource-pathname src))))))))
+      (anchorize~ (new File (tokenise-filename (resource-pathname src)))))))
+
+
+(definition public (repository-modules repository)
+  (load-module 'core.module.builder)
+  (let ((table (make-table test: eq?)))
+    (iterate-packages repository
+      (function (package)
+        (for-each (function (product)
+                    (let ((pair (assq 'update (cdr product))))
+                      (when pair
+                        (let ((updated-names (cdr pair)))
+                          (for-each (function (updated-name)
+                                      (for-each-submodule updated-name
+                                                          (function (module-name declaration phase)
+                                                            (let ((actual-package (table-ref table module-name {})))
+                                                              (cond (actual-package (debug 'duplicate (package-name actual-package) (package-name package) updated-name module-name))
+                                                                    (else (table-set! table module-name package)))))))
+                                    updated-names)))))
+                  (package-products package))))
+    (sort string<? (table-keys table) key: symbol->string)))
+
+
+(definition public (iterate-packages repository proc)
+  (for-each proc (repository-packages repository)))
+
+
+(definition public (iterate-modules proc (feedback: feedback {}))
+  (let ((count 0))
+    (for-each (function (repository)
+                (unless (repository-binary? repository)
+                  (for-each (function (module-name)
+                              (when feedback
+                                (feedback module-name))
+                              (proc module-name)
+                              (increase! count))
+                            (repository-modules repository))))
+              (get-repositories))
+    (when feedback
+      (feedback {}))))
+
+
+(definition public (load-all (feedback: feedback {}))
+  (iterate-modules load-module feedback: feedback))
+
+
+(definition public (walk-all (feedback: feedback {}))
+  (iterate-modules walk-module feedback: feedback))
+
+
+(definition public (outline-all (feedback: feedback {}))
+  (iterate-modules outline-module feedback: feedback)))

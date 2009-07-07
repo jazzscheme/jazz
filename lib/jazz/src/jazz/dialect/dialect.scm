@@ -1381,7 +1381,7 @@
 
 
 (define jazz.definition-modifiers
-  '(((private protected public) . private)
+  '(((private protected package public) . private)
     ((deprecated uptodate) . uptodate)
     ((inline onsite) . onsite)))
 
@@ -1508,7 +1508,7 @@
 
 
 (define jazz.generic-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -1616,7 +1616,7 @@
 
 
 (define jazz.class-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((abstract concrete) . concrete)
     ((deprecated uptodate) . uptodate)
     ((primitive native) . native)))
@@ -1739,7 +1739,7 @@
 
 
 (define jazz.interface-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)
     ((primitive native) . native)))
 
@@ -1787,7 +1787,7 @@
 
 
 (define jazz.slot-modifiers
-  '(((private protected public) . protected)
+  '(((private protected package public) . protected)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.slot-keywords
@@ -1795,7 +1795,7 @@
 
 
 (define jazz.slot-accessors-modifiers
-  '(((private protected public) . private)
+  '(((private protected package public) . private)
     ((virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
@@ -1803,7 +1803,7 @@
 
 
 (define jazz.slot-accessor-modifiers
-  '(((private protected public) . #f)
+  '(((private protected package public) . #f)
     ((virtual chained inherited) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
@@ -1933,7 +1933,7 @@
 
 
 (define jazz.method-modifiers
-  '(((private protected public) . protected)
+  '(((private protected package public) . protected)
     ((deprecated uptodate) . uptodate)
     ((final virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
@@ -2136,7 +2136,7 @@
 
 
 (define jazz.remotable-stub-modifiers
-  '(((private protected public) . private)))
+  '(((private protected package public) . public)))
 
 (define jazz.remotable-stub-keywords
   '(extends))
@@ -2151,7 +2151,7 @@
 
 
 (define jazz.method-stub-modifiers
-  '(((private protected public) . private)
+  '(((private protected package public) . private)
     ((post exec call) . call)
     ((reference value) . reference)))
 
@@ -2166,7 +2166,7 @@
 
 
 (define (jazz.expand-remotable-stub walker resume declaration environment . rest)
-  (receive (name type access ascendant-name body) (jazz.parse-remotable-stub walker resume declaration rest)
+  (receive (name type stub-access ascendant-name body) (jazz.parse-remotable-stub walker resume declaration rest)
     (define (add name suffix)
       (%%string->symbol (%%string-append (%%symbol->string name) suffix)))
     
@@ -2237,19 +2237,19 @@
                      (append (list ,@values-list)
                              (nextmethod)))))))
         `(begin
-           (class private ,interface-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub-Interface") 'Stub-Interface)
+           (class package ,interface-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub-Interface") 'Stub-Interface)
              (method (local-class)
                ,local-class)
              (method (remote-class)
                ,remote-class))
-           (interface ,access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
+           (interface ,stub-access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
              ,@(jazz.queue-list proxies))
-           (class private ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
+           (class package ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
              (method (stub-interface)
                ,stub-interface)
              ,@values-method
              ,@(jazz.queue-list locals))
-           (class private ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
+           (class package ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
              (method (stub-interface)
                ,stub-interface)
              ,@(jazz.queue-list remotes)))))))
@@ -2608,7 +2608,7 @@
 
 
 (define jazz.c-named-declare-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -2657,7 +2657,7 @@
 
 
 (define jazz.c-type-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -2768,7 +2768,7 @@
 
 
 (define jazz.c-definition-modifiers
-  '(((private protected public) . public)
+  '(((private protected package public) . public)
     ((deprecated uptodate) . uptodate)))
 
 

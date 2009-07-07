@@ -960,4 +960,5 @@
 (native jazz.get-protected-lookup)
 (native jazz.get-catalog)
 (native jazz.get-catalog-entry)
-(native jazz.outline-module))
+(native jazz.outline-module)
+(native jazz.walk-module))

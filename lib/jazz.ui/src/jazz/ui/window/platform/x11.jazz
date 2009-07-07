@@ -250,7 +250,7 @@
   (table-set! XIC-Table handle))
 
 
-(definition public (platform-get-window-handle-title handle)
+(definition package (platform-get-window-handle-title handle)
   (table-ref Window-Title-Table handle #f))
 
 
@@ -399,7 +399,7 @@
   (unimplemented 'restore-window))
 
 
-(definition (platform-erase-background handle)
+(definition package (platform-erase-background handle)
   (unimplemented 'platform-erase-background))
 
 
@@ -435,25 +435,22 @@
             (paint~ win region)))))))
 
 
-(definition (prime-message-pump)
-  (new-thread (function ()
-                (process-messages))
-              'message-pump))
+(definition package (process-messages)
+  (define (process)
+    (declare (proper-tail-calls))
+    (with ((msg (XEvent-make)))
+      (let (loop)
+        (XNextEvent default-x11-display msg)
+        (process-message msg)
+        (when (= 0 (XPending default-x11-display))
+          (process-expose))
+        (when (thread-loop? (current-thread))
+          (loop)))))
+  
+  (new-thread process 'message-pump))
 
 
-(definition (process-messages)
-  (declare (proper-tail-calls))
-  (with ((msg (XEvent-make)))
-    (let (loop)
-      (XNextEvent default-x11-display msg)
-      (process-message msg)
-      (when (= 0 (XPending default-x11-display))
-        (process-expose))
-      (when (thread-loop? (current-thread))
-        (loop)))))
-
-
-(definition (process-messages-single-threaded thunk)
+(definition package (process-messages-single-threaded thunk)
   (declare (proper-tail-calls))
   (with ((msg (XEvent-make))
          (display-fd (ConnectionNumber (get-default-x11-display)))
@@ -820,18 +817,18 @@
 ;;;
 
 
-(definition (platform-set-parent handle parent)
+(definition package (platform-set-parent handle parent)
   (XReparentWindow default-x11-display handle (get-handle~ parent) 0 0))
 
 
-(definition (platform-get-first-child handle)
+(definition package (platform-get-first-child handle)
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
     (if (= 0 num-of-children)
         #f
       (XGetChildHandle default-x11-display handle 0))))
 
 
-(definition (platform-get-first-visible-child handle)
+(definition package (platform-get-first-visible-child handle)
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
     (if (= 0 num-of-children)
         #f
@@ -844,7 +841,7 @@
                  (loop (+ n 1)))))))))
 
 
-(definition (platform-is-window-visible? handle)
+(definition package (platform-is-window-visible? handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (prog1 (= (XWindowAttributes-map_state-ref infos) IsViewable)
@@ -862,17 +859,17 @@
     (corners->rect left-top right-bottom)))
 
 
-(definition (platform-translate-to-root handle pt)
+(definition package (platform-translate-to-root handle pt)
   (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) (get-h~ pt) (get-v~ pt))
     (new Point x y)))
 
 
-(definition (platform-get-position-in-root handle)
+(definition package (platform-get-position-in-root handle)
   (let ((pt (platform-get-position handle #f)))
     (platform-translate-to-root handle pt)))
 
 
-(definition (platform-get-position handle parent-handle)
+(definition package (platform-get-position handle parent-handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (let* ((x (XWindowAttributes-x-ref infos))
@@ -881,7 +878,7 @@
       (new Point x y))))
 
 
-(definition (platform-set-position handle pos)
+(definition package (platform-set-position handle pos)
   (let ((event (XEvent-make)))
     (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
     (XWindowEvent default-x11-display handle StructureNotifyMask event)
@@ -889,7 +886,7 @@
     (XEvent-free event)))
   
 
-(definition (platform-get-size handle)
+(definition package (platform-get-size handle)
   (with ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (let ((width (XWindowAttributes-width-ref infos))
@@ -898,11 +895,11 @@
       (new Dimension width height))))
 
 
-(definition (platform-get-window-size handle)
+(definition package (platform-get-window-size handle)
   (platform-get-size handle))
 
 
-(definition (platform-set-window-size handle size)
+(definition package (platform-set-window-size handle size)
   (let ((event (XEvent-make)))
     (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
     (XWindowEvent default-x11-display handle StructureNotifyMask event)
@@ -910,13 +907,13 @@
     (XEvent-free event)))
 
 
-(definition (platform-set-bounds handle rect)
+(definition package (platform-set-bounds handle rect)
   (unimplemented 'platform-set-bounds)
   @windows
   (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition (platform-get-rect handle parent-handle)
+(definition package (platform-get-rect handle parent-handle)
   (let ((position (platform-get-position handle parent-handle))
         (size     (platform-get-size handle)))
     (let* ((l (get-h~ position))
@@ -926,7 +923,7 @@
       (new Rect l t r b))))
 
 
-(definition (platform-get-bounds handle)
+(definition package (platform-get-bounds handle)
   (unimplemented 'platform-get-bounds)
   @windows
   (with ((rect (RECT-make)))
@@ -935,38 +932,38 @@
     (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
 
 
-(definition (platform-mouse-position)
+(definition package (platform-mouse-position)
   (receive (x y) (XMousePosition default-x11-display (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
     (new Point x y)))
 
 
-(definition (platform-window-from-point point)
+(definition package (platform-window-from-point point)
   (get-window (XMouseWindow default-x11-display (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
 
 
-(definition (platform-move-window handle x y cx cy)
+(definition package (platform-move-window handle x y cx cy)
   (unimplemented 'platform-move-window)
   @windows
   (MoveWindow handle x y cx cy #t))
 
 
-(definition (platform-window-enabled? handle)
+(definition package (platform-window-enabled? handle)
   (unimplemented 'platform-window-enabled?)
   @windows
   (IsWindowEnabled handle))
 
 
-(definition (platform-enable-window handle)
+(definition package (platform-enable-window handle)
   ;; todo
   )
 
 
-(definition (platform-disable-window handle)
+(definition package (platform-disable-window handle)
   ;; todo
   )
 
 
-(definition (platform-get-client-rect handle)
+(definition package (platform-get-client-rect handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (let ((width (XWindowAttributes-width-ref infos))
@@ -994,7 +991,7 @@
         (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect ml mt mr (+ mt dv))))))))
 
 
-(definition (platform-scroll-window handle dh dv rect clip-rect)
+(definition package (platform-scroll-window handle dh dv rect clip-rect)
   (platform-invalidate-rect handle clip-rect)
   @buggy
   (let ((gc (XCreateGC default-x11-display handle 0 #f))
@@ -1048,7 +1045,7 @@
               (XInvalidateRect default-x11-display handle l t w h))))))))
 
 
-(definition (platform-invalidate-rect handle rect)
+(definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
       (let ((old-rect (table-ref inval-rects handle #f))
@@ -1062,25 +1059,25 @@
                                                  new-rect)))))))
 
 
-(definition (platform-invalidate-region handle region)
+(definition package (platform-invalidate-region handle region)
   (for-each (function (rect)
               (platform-invalidate-rect handle rect))
             (get-rectangles~ region)))
 
 
-(definition (platform-invalidate-window handle)
+(definition package (platform-invalidate-window handle)
   (let ((size (platform-get-size handle)))
     (platform-invalidate-rect handle (new Rect 0 0 (get-width~ size) (get-height~ size)))))
 
 
-(definition (platform-redraw-window handle rect region)
+(definition package (platform-redraw-window handle rect region)
   (if region
       (for-each (function (rect) (paint~ (get-window handle) rect))
                 (get-rectangles~ region))
     (paint~ (get-window handle) rect)))
 
 
-(definition (platform-get-update-rect handle)
+(definition package (platform-get-update-rect handle)
   (unimplemented 'platform-get-update-rect)
   @windows
   (with ((rect (RECT-make)))
@@ -1088,7 +1085,7 @@
     (RECT->rect rect)))
 
 
-(definition (platform-get-update-region handle)
+(definition package (platform-get-update-region handle)
   (unimplemented 'platform-get-update-region)
   @windows
   (let ((region (new Region)))
@@ -1096,7 +1093,7 @@
     region))
 
 
-(definition (platform-redraw-view-only view handle)
+(definition package (platform-redraw-view-only view handle)
   (redraw-view~ view)
   @w
   (let* ((size (platform-get-size handle))
@@ -1104,30 +1101,30 @@
     (platform-invalidate-rect handle rct)))
 
 
-(definition (platform-update-window handle)
+(definition package (platform-update-window handle)
   (let ((rect (table-ref inval-rects handle #f)))
     (when rect
       (table-set! inval-rects handle)
       (paint~ (get-window handle) rect))))
   
   
-(definition (platform-show-noactivate handle)
+(definition package (platform-show-noactivate handle)
   (show-window handle))
 
 
-(definition (platform-hide-noactivate handle)
+(definition package (platform-hide-noactivate handle)
   (hide-window handle))
 
 
-(definition (platform-bring-window-to-front handle)
+(definition package (platform-bring-window-to-front handle)
   (XRaiseWindow default-x11-display handle))
 
 
-(definition (platform-send-window-to-back handle)
+(definition package (platform-send-window-to-back handle)
   (XLowerWindow default-x11-display handle))
 
 
-(definition (platform-select-foreground-window handle)
+(definition package (platform-select-foreground-window handle)
   (XRaiseWindow default-x11-display handle))
 
 
@@ -1136,7 +1133,7 @@
 ;;;
 
 
-(definition (platform-lock-window-update handle))
+(definition package (platform-lock-window-update handle))
 
 
 ;;;
@@ -1144,12 +1141,12 @@
 ;;;
 
 
-(definition (platform-get-focus)
+(definition package (platform-get-focus)
   (receive (win state) (XGetInputFocus default-x11-display)
     win))
 
 
-(definition (platform-set-focus handle)
+(definition package (platform-set-focus handle)
   (XFlush default-x11-display)
   (when (and handle (platform-is-window-visible? handle))
     (XSetInputFocus default-x11-display handle RevertToNone CurrentTime)))
@@ -1202,7 +1199,7 @@
 ;;;
 
 
-(definition (platform-get-desktop)
+(definition package (platform-get-desktop)
   (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
 
 
@@ -1226,5 +1223,5 @@
 ;;;
 
 
-(definition (platform-drop-files temp)
+(definition package (platform-drop-files temp)
   (unimplemented 'platform-drop-files)))

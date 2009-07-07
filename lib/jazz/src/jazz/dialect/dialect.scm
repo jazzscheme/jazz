@@ -286,7 +286,9 @@
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
-          (%%table-merge! private (%%get-access-lookup ascendant jazz.public-access) #t))
+          (let ((same-library? (%%eq? (%%get-declaration-toplevel class-declaration)
+                                      (%%get-declaration-toplevel ascendant))))
+            (%%table-merge! private (%%get-access-lookup ascendant (if same-library? jazz.private-access jazz.public-access)) #t)))
       (for-each (lambda (interface)
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))

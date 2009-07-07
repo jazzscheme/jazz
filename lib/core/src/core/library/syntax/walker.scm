@@ -5508,11 +5508,13 @@
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (let ((source (jazz.resource-pathname src)))
       (let ((form (jazz.read-toplevel-form source)))
-        (case (%%car form)
-          ((module)
-           #f)
-          ((library)
-           (jazz.walk-library (%%cdr form))))))))
+        (parameterize ((jazz.requested-module-name module-name)
+                       (jazz.requested-module-resource src))
+          (case (%%car form)
+            ((module)
+             #f)
+            ((library)
+             (jazz.walk-library (%%cdr form)))))))))
 
 
 ;;;

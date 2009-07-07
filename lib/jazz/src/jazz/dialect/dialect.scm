@@ -291,18 +291,16 @@
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
-    ;; a quick test
-    (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
-      (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.public-access private)
-      (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.protected-access private))
-    
-    #;
     (let ((public (%%get-access-lookup class-declaration jazz.public-access)))
       (if ascendant
           (%%table-merge! public (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
                   (%%table-merge! public (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
+    
+    ;; jazz.add-declaration-child does not set jazz.protected-access
+    (let ((not-private (%%get-access-lookup class-declaration jazz.public-access)))
+      (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.protected-access not-private))
     
     #;
     (let ((protected (%%get-access-lookup class-declaration jazz.protected-access)))
@@ -1787,7 +1785,7 @@
 
 
 (define jazz.slot-modifiers
-  '(((private protected package public) . protected)
+  '(((private protected package public) . #f)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.slot-keywords
@@ -1795,8 +1793,8 @@
 
 
 (define jazz.slot-accessors-modifiers
-  '(((private protected package public) . private)
-    ((virtual chained inherited) . inherited)
+  '(((private protected package public) . #f)
+    ((final virtual chained inherited) . final)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
     ((generate handcode) . handcode)))
@@ -1804,7 +1802,7 @@
 
 (define jazz.slot-accessor-modifiers
   '(((private protected package public) . #f)
-    ((virtual chained inherited) . #f)
+    ((final virtual chained inherited) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
     ((generate handcode) . #f)))
@@ -1825,11 +1823,11 @@
   (jazz.expand-slot-form walker resume declaration (%%cons 'slot rest)))
 
 
-(define (jazz.parse-slot-accessors walker resume declaration form)
+(define (jazz.parse-slot-accessors walker resume declaration form slot-access)
   (receive (access propagation abstraction expansion generation rest) (jazz.parse-modifiers walker resume declaration jazz.slot-accessors-modifiers form)
     (if (%%not-null? rest)
         (jazz.walk-error walker resume declaration "Invalid slot accessors definition: {s}" form)
-      (values access propagation abstraction expansion generation))))
+      (values (or access slot-access) propagation abstraction expansion generation))))
 
 
 (define (jazz.parse-slot-accessor walker resume declaration slot-name default-access default-propagation default-abstraction default-expansion default-generation form prefix)
@@ -1853,17 +1851,17 @@
 (define (jazz.expand-slot-form walker resume declaration form)
   (receive (name specifier access compatibility initialize accessors getter setter) (jazz.parse-slot walker resume declaration (%%cdr form))
     (let ((standardize
-           (lambda (info)
-             (cond ((jazz.unspecified? info)
-                    '())
-                   ((%%symbol? info)
-                    (%%list info))
-                   (else
-                    info)))))
+            (lambda (info)
+              (cond ((jazz.unspecified? info)
+                     '())
+                    ((%%symbol? info)
+                     (%%list info))
+                    (else
+                     info)))))
       (let ((accessors (standardize accessors))
             (getter (standardize getter))
             (setter (standardize setter)))
-        (receive (default-access default-propagation default-abstraction default-expansion default-generation) (jazz.parse-slot-accessors walker resume declaration accessors)
+        (receive (default-access default-propagation default-abstraction default-expansion default-generation) (jazz.parse-slot-accessors walker resume declaration accessors access)
           (receive (getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name) (jazz.parse-slot-accessor walker resume declaration name default-access default-propagation default-abstraction default-expansion default-generation getter "get-")
             (receive (setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name) (jazz.parse-slot-accessor walker resume declaration name default-access default-propagation default-abstraction default-expansion default-generation setter "set-")
               (let* ((value (jazz.generate-symbol "value"))
@@ -1873,11 +1871,11 @@
                 `(begin
                    (,(if (%%eq? (%%car form) 'property) '%property '%slot) ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                    ,@(if generate-getter?
-                         `((method ,getter-access ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
+                         `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
                              ,name))
                        '())
                    ,@(if generate-setter?
-                         `((method ,setter-access ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name ,value ,@specifier-list) <void>
+                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name ,value ,@specifier-list) <void>
                              (set! ,name ,value)))
                        '()))))))))))
 

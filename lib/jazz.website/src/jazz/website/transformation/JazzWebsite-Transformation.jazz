@@ -113,6 +113,7 @@
   
   
   (method (validate-anchor-names)
+    @wait
     (let ((fact (new List-Factory)))
       (iterate-table anchor-names
         (function (name lst)
@@ -273,14 +274,15 @@
       ((Method-Doc)     (output-manual-method     doc level path output))
       ((Export-Doc)     (output-manual-export     doc level path output))
       ((Definition-Doc) (output-manual-definition doc level path output))
-      (else             (error "Unable to output doc for: {s}" doc)))
-    (output-manual-doc-children doc level path output))
+      ((Generic-Doc)    (output-manual-generic    doc level path output))
+      (else             (error "Unable to output doc for: {s}" doc))))
   
   
   (method (output-manual-project doc level path output)
     (output-anchor doc output)
     (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
-    (output-doc-description doc output))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output))
   
   
   (method (output-manual-section doc level path output)
@@ -290,19 +292,22 @@
         ((1) (put~ output `(<h3> class: "section1" ,title)))
         ((2) (put~ output `(<h4> class: "section2" ,title)))
         (else (put~ output `(<h4> class: "section3" ,title)))))
-    (output-doc-description doc output))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output))
   
   
   (method (output-manual-package doc level path output)
     (output-anchor doc output)
-    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
-    (output-doc-description doc output))
+    (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output))
   
   
   (method (output-manual-module doc level path output)
     (output-anchor doc output)
-    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
-    (output-doc-description doc output))
+    (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output))
   
   
   (method (output-manual-library doc level path output)
@@ -328,6 +333,13 @@
   (method (output-manual-definition doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "definition" ,(present-text~ doc)))
+    (output-doc-description doc output)
+    (output-doc-examples doc output))
+  
+  
+  (method (output-manual-generic doc level path output)
+    (output-anchor doc output)
+    (put~ output `(<docterm> "generic" ,(present-text~ doc)))
     (output-doc-description doc output)
     (output-doc-examples doc output))
   
@@ -428,8 +440,8 @@
                               (get-children~ examples)))))))
   
   
-  (method (output-manual-doc-children doc level path output)
-    (let* ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
+  (method (output-manual-doc-children doc level path output (sort?: sort? #f) (key: key {}))
+    (let* ((sort? (or sort? (and (is? doc Section-Doc) (get-sort?~ doc))))
            (children (effective-manual-doc-children doc))
            (sorted (if sort?
                        (sort nu<? children key: (either key present-doc-title))

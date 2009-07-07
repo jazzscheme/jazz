@@ -41,11 +41,25 @@
 (import (jazz.runtime))
 
 
-(walk-all feedback:
-  (function (module-name)
-    (if module-name
-        (terminal 'walking module-name)
-      (terminal 'done))))
+(let ((unresolved (make-table test: eq?)))
+  (define (walk module-name)
+    (catch (Walk-Problems exc
+             (let ((problems (append (get-warnings~ exc) (get-errors~ exc))))
+               (for-each (function (problem)
+                           (when (is? problem Unresolved-Error)
+                             (table-set! unresolved (get-symbol~ problem) #t)))
+                         problems)))
+      (walk-module module-name)))
+  
+  (iterate-modules walk feedback:
+    (function (module-name)
+      (if module-name
+          (terminal 'walking module-name)
+        (terminal 'done))))
+  
+  (let ((unresolved (table-keys unresolved)))
+    (when (not-null? unresolved)
+      (pp unresolved))))
 
 
 ;;;

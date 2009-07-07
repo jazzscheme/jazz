@@ -130,19 +130,12 @@
   (method (parse-new-node parent expr)
     (bind (model . rest) expr
       (let ((class (autoload model)))
-        (receive (properties-list children-list) (parse-jml-properties/children rest keywords?: #t)
+        (receive (properties-list children-list) (parse-jml-properties/children rest)
           (let* ((node (apply new class properties-list))
                  (children (parse-children node children-list)))
             (when children
               (set-children~ node children))
             node)))))
-  
-  
-  (method (parse-jml-expr expr)
-    (bind (first . rest) expr
-      (let ((tag (tag->name first)))
-        (receive (properties-list children-list) (parse-jml-properties/children rest)
-          (values tag properties-list children-list)))))
   
   
   (method (parse-jml-node parent expr)
@@ -157,36 +150,28 @@
   
   
   (method (parse-properties properties)
-    (let ((fact (new List-Factory)))
+    (let ((queue (new-queue)))
       (for-each-property (function (property value)
-                           (let ((name (symbol->string property)))
-                             (if (or (starts-with? name "<") (ends-with? name "="))
-                                 (error "Invalid property: {s}" property)
-                               (let ((value (parse-property value)))
-                                 (validate-property property value)
-                                 (put~ fact property)
-                                 (put~ fact value)))))
+                           (enqueue queue (keyword->symbol property))
+                           (enqueue queue (parse-property value)))
                          properties)
-      (get-output~ fact)))
+      (queue-list queue)))
   
   
   (method (parse-children parent children)
-    (let ((fact (new List-Factory)))
+    (let ((queue (new-queue)))
+      (define (add-nodes nodes)
+        (if (null/pair? nodes)
+            (for-each add-nodes nodes)
+          (enqueue queue nodes)))
+      
       (for-each (function (element)
                   (if (string? element)
-                      (put~ fact (new JML-Text parent element))
+                      (enqueue queue (new JML-Text parent element))
                     (let ((jml (parse-expr parent element)))
-                      (add-nodes fact jml))))
+                      (add-nodes jml))))
                 children)
-      (get-output~ fact)))
-  
-  
-  (method (add-nodes fact nodes)
-    (if (null/pair? nodes)
-        (for-each (function (node)
-                    (add-nodes fact node))
-                  nodes)
-      (put~ fact nodes)))
+      (queue-list queue)))
   
   
   (method (parse-property value)
@@ -215,25 +200,14 @@
       (error "Unknown tag: {a}" tag)))
   
   
-  (method protected virtual (validate-property property value)
-    )
-  
-  
   ;;;
   ;;;; Utilities
   ;;;
   
   
-  (method (parse-result expr)
-    (parse-noexpand
-      {}
-      expr))
-  
-  
   (method (tagged-expr? expr)
     (and (pair? expr)
-         (let ((first (car expr)))
-           (tag? first))))
+         (tag? (car expr))))
   
   
   (method (pattern-expr? expr)

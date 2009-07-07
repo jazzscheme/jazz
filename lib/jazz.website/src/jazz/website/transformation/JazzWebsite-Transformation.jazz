@@ -210,7 +210,6 @@
                           (path (format "{a}.htm" (section-path sec)))
                           (title (get-property~ sec 'title))
                           (selected? (eq? sec section)))
-                      (unless (nu=? title "ClosedBeta")
                       (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
                       (when (or (eq? sec section) (memq? section subsecs))
                         (for-each (function (subsec)
@@ -219,7 +218,7 @@
                                           (title (get-property~ subsec 'title))
                                           (selected? (eq? subsec section)))
                                       (put~ output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
-                                  subsecs))))))
+                                  subsecs)))))
                 sections)
       (get-output~ output)))
   
@@ -232,7 +231,7 @@
   (method (manual-output section)
     (let* ((title (get-property~ section 'title))
            (project-paths (get-property~ section 'projects '()))
-           (projects (apply append (map find-docs project-paths)))
+           (projects (sort string<? (apply append (map find-docs project-paths)) key: present-doc-title))
            (content (manual-content-output projects))
            (index (if (get-property~ section 'index? #t) (index-output) '()))
            (toc (toc-output projects))
@@ -308,8 +307,15 @@
   
   (method (output-manual-library doc level path output)
     (output-anchor doc output)
-    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
-    (output-doc-description doc output))
+    (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output
+      sort?: #t
+      key: (function (child)
+             (cons (if (is? child Category-Doc)
+                       2
+                     1)
+                   (get-effective-title~ child)))))
   
   
   (method (output-manual-export doc level path output)
@@ -329,7 +335,8 @@
   (method (output-manual-interface doc level path output)
     (output-anchor doc output)
     (put~ output `(<h4> class: "interface" ,(get-effective-title~ doc)))
-    (output-doc-description doc output))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output sort?: #t))
   
   
   (method (output-manual-class doc level path output)
@@ -338,8 +345,9 @@
     (let ((ascendant (get-ascendant~ doc)))
       (when ascendant
         (put~ output `(<p>))
-        (put~ output `(<a> name: ,(get-title~ ascendant) href: (get-name~ ascendant)))))
-    (output-doc-description doc output))
+        (put~ output `(<a> name: ,(get-effective-title~ ascendant) href: (get-name~ ascendant)))))
+    (output-doc-description doc output)
+    (output-manual-doc-children doc level path output sort?: #t))
   
   
   (method (output-manual-form doc level path output)
@@ -424,7 +432,7 @@
     (let* ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
            (children (effective-manual-doc-children doc))
            (sorted (if sort?
-                       (sort < children key: (function (child) (get-name~ child)))
+                       (sort nu<? children key: (either key present-doc-title))
                      children)))
       (for-each (function (doc rank)
                   (output-manual-doc doc (+ level 1) (cons (+ rank 1) path) output))
@@ -520,12 +528,9 @@
   
   
   (method (collect-summary-children doc)
-    (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
-          (children (effective-manual-doc-children doc)))
+    (let ((children (effective-manual-doc-children doc)))
       (collect-if has-project-descendant?
-                  (if sort?
-                      (sort < children key: (function (child) (get-name~ child)))
-                    children))))
+                  (sort string<? children key: present-doc-title))))
   
   
   (method (has-project-descendant? doc)
@@ -581,8 +586,7 @@
   
   
   (method (collect-toc-children doc)
-    (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
-          (children (effective-manual-doc-children doc)))
+    (let ((children (effective-manual-doc-children doc)))
       (collect-if (function (child)
                     (or (is? child Project-Doc)
                         (is? child Section-Doc)
@@ -590,9 +594,7 @@
                         (is? child Module-Doc)
                         (is? child Library-Doc)
                         (is? child Category-Doc)))
-                  (if sort?
-                      (sort < children key: (function (child) (get-name~ child)))
-                    children))))
+                  (sort string<? children key: present-doc-title))))
   
   
   ;;;

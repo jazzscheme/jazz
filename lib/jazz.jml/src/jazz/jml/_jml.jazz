@@ -114,36 +114,25 @@
 ;;;
 
 
-(definition public (parse-jml-properties/children list (keywords?: keywords? #f) (proper?: proper? #t))
-  (let ((scan list)
-        (properties (new List-Factory))
+(definition public (parse-jml-properties/children list)
+  (let ((properties {})
         (content {}))
-    (while (not-null? scan)
-      (let ((element (car scan)))
-        (if (and (not content) (keyword? element) (or (not proper?) (jml-keyword? element)))
-            (let ((put
-                    (function (property value)
-                      (put~ properties property)
-                      (put~ properties value))))
-              (if (jml-keyword? element)
-                  (begin
-                    (put (extract-jml-property element keywords?) (cadr scan))
-                    (set! scan (cddr scan)))
-                (put element {})
-                (set! scan (cdr scan))))
-          (when (not content)
-            (set! content (new List-Factory)))
-          (put~ content element)
-          (set! scan (cdr scan)))))
-    (values (get-output~ properties)
-            (if content (get-output~ content) '()))))
-
-
-(definition (extract-jml-property keyword keywords?)
-  (let ((symbol (string->symbol (keyword->string keyword))))
-    (if (not keywords?)
-        symbol
-      (symbol->keyword symbol))))
+    (let (iterate (scan list))
+      (if (null? scan)
+          (values (if properties (queue-list properties) '())
+                  (if content (queue-list content) '()))
+        (let ((element (car scan)))
+          (if (and (not content) (keyword? element))
+              (begin
+                (when (not properties)
+                  (set! properties (new-queue)))
+                (enqueue properties element)
+                (enqueue properties (cadr scan))
+                (iterate (cddr scan)))
+            (when (not content)
+              (set! content (new-queue)))
+            (enqueue content element)
+            (iterate (cdr scan))))))))
 
 
 (definition public (get-jml-property list property (not-found: not-found '()))

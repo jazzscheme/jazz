@@ -300,89 +300,53 @@
   
   
   (definition Documented-Modules
-    '(irregex
-      statprof
-      jazz.catalog
-      jazz.console
-      time))
-  
-  @wait
-  (definition Documented-Modules
-    '(contrib.irregex
-      contrib.statprof
-      jazz
-      jazz.catalog
-      jazz.console
-      jazz.database
-      jazz.database.ado
-      jazz.database.sqlserver
-      jazz.debuggee
-      jazz.debugger
-      jazz.designer
-      jazz.doc
-      jazz.git
-      jazz.graphic
-      jazz.graphic.opengl
-      jazz.groupware
-      jazz.help
-      jazz.ide
-      jazz.io
-      jazz.jml
-      jazz.jrm
-      jazz.language.c
-      jazz.language.clike
-      jazz.language.commonlisp
-      jazz.language.diff
-      jazz.language.jazz
-      ;jazz.language.jazz.inspector
-      jazz.language.lisp
-      jazz.language.scheme
-      jazz.language.sql
-      jazz.library
-      ;jazz.library.component
-      ;jazz.library.exemplar
-      ;jazz.library.listener
-      ;jazz.library.node
-      ;jazz.library.template
-      ;jazz.literals
-      jazz.media
-      jazz.network
-      ;jazz.network.http
-      jazz.platform
-      ;jazz.platform.cairo
-      ;jazz.platform.types
-      ;jazz.platform.types-syntax
-      jazz.profile
-      jazz.recorder
-      ;jazz.runtime
-      jazz.schema
-      jazz.system
-      ;jazz.system.application
-      ;jazz.system.log
-      ;jazz.system.performance
-      ;jazz.system.process
-      ;jazz.system.service
-      jazz.ui
-      ;jazz.ui.activity
-      ;jazz.ui.clipboard
-      ;jazz.ui.development
-      ;jazz.ui.dialog
-      ;jazz.ui.history
-      ;jazz.ui.image
-      ;jazz.ui.look
-      ;jazz.ui.menu
-      ;jazz.ui.offscreen
-      ;jazz.ui.picker
-      ;jazz.ui.print
-      ;jazz.ui.resizer
-      ;jazz.ui.view
-      ;jazz.ui.window
-      ;jazz.ui.workspace
-      ;jazz.utilities
-      ;jazz.walker
-      jazz.website
-      scheme
-      srfi-19))
+    '((irregex)
+      (statprof)
+      (scheme)
+      (kernel jazz.dialect.kernel)
+      (jazz jazz.dialect.language)
+      ;(jazz.catalog)
+      ;(jazz.console)
+      (jazz.database)
+      (jazz.database.sqlserver)
+      ;(jazz.debuggee)
+      ;(jazz.debugger)
+      ;(jazz.designer)
+      (jazz.graphic)
+      (jazz.io)
+      (jazz.jml)
+      (jazz.jrm)
+      (jazz.library)
+      ;(jazz.library.component)
+      ;(jazz.library.exemplar)
+      ;(jazz.library.listener)
+      ;(jazz.library.node)
+      ;(jazz.library.template)
+      (jazz.media)
+      (jazz.network)
+      ;(jazz.platform)
+      (jazz.runtime)
+      (jazz.schema)
+      (jazz.system)
+      (jazz.system.application)
+      (jazz.system.process)
+      (jazz.ui)
+      ;(jazz.ui.activity)
+      (jazz.ui.clipboard)
+      (jazz.ui.dialog)
+      ;(jazz.ui.history)
+      ;(jazz.ui.image)
+      ;(jazz.ui.look)
+      ;(jazz.ui.menu)
+      ;(jazz.ui.offscreen)
+      ;(jazz.ui.picker)
+      ;(jazz.ui.print)
+      ;(jazz.ui.resizer)
+      (jazz.ui.view)
+      (jazz.ui.window)
+      ;(jazz.ui.workspace)
+      (jazz.utilities)
+      (time)))
   
   
   (method (extract-doc)
@@ -390,31 +354,32 @@
     (user-message "Done"))
   
   
-  (method (extract-toplevel-doc name)
-    (user-message "Extracting {a}..." name)
-    (call-with-output-file (list path: (parse~ (new-file~ {Directory jazz.website "reference"} (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
-      (function (port)
-        (let ((node (parse-jml (extract-module/library-doc name))))
-          (pretty-print~ node port)
-          (newline port)))))
+  (method (extract-toplevel-doc info)
+    (bind (name . modules) info
+      (user-message "Extracting {a}..." name)
+      (call-with-output-file (list path: (parse~ (new-file~ {Directory jazz.website "reference"} (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
+        (function (port)
+          (let ((node (parse-jml (extract-module/library-doc name modules))))
+            (pretty-print~ node port)
+            (newline port))))))
   
   
-  (method (extract-module/library-doc module-name)
+  (method (extract-module/library-doc name modules)
     (load-module 'core.module.builder)
-    (let ((module (outline-module module-name)))
+    (let ((module (outline-module (if (null? modules) name (car modules)))))
       (typecase module
-        ((Module-Declaration) (extract-module-doc module))
-        ((Library-Declaration) (extract-library-doc module)))))
+        ((Module-Declaration) (extract-module-doc name module))
+        ((Library-Declaration) (extract-library-doc name module)))))
   
   
-  (method (extract-module-doc declaration)
-    `(<Module-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
+  (method (extract-module-doc name declaration)
+    `(<Module-Doc> name: ,name title: ,(symbol->string name)))
   
   
-  (method (extract-library-doc declaration)
+  (method (extract-library-doc name declaration)
     (let ((declarations (table-values (get-public-lookup declaration))))
       (let ((sorted (sort string<? declarations key: (function (decl) (symbol->string (get-name~ decl))))))
-        `(<Library-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+        `(<Library-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
   
   
@@ -435,6 +400,7 @@
       ((Method-Declaration) (extract-method-doc declaration))
       ((C-Type-Declaration) (extract-c-type-doc declaration))
       ((C-Definition-Declaration) (extract-c-definition-doc declaration))
+      ((C-Named-Declare-Declaration) {})
       (else (debug 'Unknown (type-name (class-of declaration))) `(<Doc> name: ,(get-name~ declaration)))))
   
   
@@ -467,9 +433,11 @@
   
   
   (method (extract-class-doc declaration)
-    (unless (subtype? declaration Class-Declaration)
-      `(<Class-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-         ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration))))))
+    (let ((name (symbol->string (get-name~ declaration))))
+      (unless (or (ends-with? name "-Class")
+                  (ends-with? name "~Class"))
+        `(<Class-Doc> name: ,(extract-locator declaration) title: ,name
+           ,@(map extract-declaration-doc (filter-public-declarations (get-children~ declaration)))))))
   
   
   (method (extract-interface-doc declaration)
@@ -507,6 +475,23 @@
   
   (method (extract-c-definition-doc declaration)
     `(<C-Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
+  
+  
+  (definition (extract-signature signature)
+    (define (extract-name parameter)
+      (get-name~ parameter))
+    
+    (if (not signature)
+        {}
+      (let ((positional (get-positional~ signature))
+            (optional (get-optional~ signature))
+            (named (get-named~ signature))
+            (rest (get-rest~ signature)))
+        (list
+          positional: (map extract-name positional)
+          optional: (map extract-name optional)
+          named: (map extract-name named)
+          rest: (if rest (extract-name rest) {})))))
   
   
   ;; temp hack to obtain the same format as when sub-libraries are well integrated

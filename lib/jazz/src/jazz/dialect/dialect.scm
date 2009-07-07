@@ -1618,7 +1618,7 @@
 (define jazz.class-modifiers
   '(((private protected package public) . public)
     ((abstract concrete) . concrete)
-    ((deprecated uptodate) . uptodate)
+    ((deprecated undocumented uptodate) . uptodate)
     ((primitive native) . native)))
 
 (define jazz.class-keywords
@@ -1646,7 +1646,7 @@
                `(begin
                   (%class ,metaclass-name extends (:class ,ascendant-name)
                     ,@metaclass-body)
-                  (%class ,access ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
+                  (%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
                     ,@class-body))))))))
 
 

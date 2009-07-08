@@ -333,18 +333,13 @@
   
   
   (definition Documented-Modules
-    '((jazz.database)
-      (jazz.schema)))
-  
-  @w
-  (definition Documented-Modules
     '((irregex)
       (statprof)
       (scheme)
       (kernel jazz.dialect.kernel)
       (jazz jazz.dialect.language)
-      ;(jazz.catalog)
-      ;(jazz.console)
+      (jazz.catalog)
+      (jazz.console)
       (jazz.database)
       (jazz.database.sqlserver)
       ;(jazz.debuggee)
@@ -476,16 +471,22 @@
   
   
   (method (extract-class-doc declaration)
-    (let ((name (symbol->string (get-name~ declaration))))
+    (let ((name (symbol->string (get-name~ declaration)))
+          (ascendant (get-ascendant~ declaration))
+          (interfaces (get-interfaces~ declaration)))
       (unless (or (ends-with? name "-Class")
                   (ends-with? name "~Class"))
         `(<Class-Doc> name: ,(extract-locator declaration) title: ,name
+           ascendant: ,(if ascendant (extract-locator (resolve-declaration ascendant)) {})
+           interfaces: ,(map extract-locator (resolve-declarations interfaces))
            ,@(map extract-declaration-doc (filter-access/compatibility-declarations (get-children~ declaration)))))))
   
   
   (method (extract-interface-doc declaration)
-    `(<Interface-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       ,@(map extract-declaration-doc (filter-access/compatibility-declarations (get-children~ declaration)))))
+    (let ((ascendants (get-ascendants~ declaration)))
+      `(<Interface-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+         ascendants: ,(map extract-locator (resolve-declarations ascendants))
+         ,@(map extract-declaration-doc (filter-access/compatibility-declarations (get-children~ declaration))))))
   
   
   (method (extract-slot-doc declaration)
@@ -497,9 +498,15 @@
   
   
   (method (extract-method-doc declaration)
+    (define (extract-propagation-list)
+      (let ((propagation (get-propagation~ declaration)))
+        (if (eq? propagation 'inherited)
+            '()
+          (list propagation: propagation))))
+    
     `(<Method-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
        access: ,(get-access~ declaration)
-       propagation: ,(get-propagation~ declaration)
+       ,@(extract-propagation-list)
        parameters: ,(extract-signature (get-signature~ declaration))))
   
   

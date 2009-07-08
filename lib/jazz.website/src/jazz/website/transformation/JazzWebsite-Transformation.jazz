@@ -38,7 +38,8 @@
 (library protected jazz.website.transformation.JazzWebsite-Transformation jazz
 
 
-(import (jazz.doc)
+(import (jazz.catalog)
+        (jazz.doc)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -230,10 +231,20 @@
   
   
   (method (manual-output section)
+    (define (new-projects-cataloguer projects)
+      (let ((cataloguer (new Cataloguer)))
+        (for-each (function (project)
+                    (let ((name (get-name~ project)))
+                      (let ((catalog (new Component-Catalog name project)))
+                        (add-catalog~ cataloguer catalog))))
+                  projects)
+        cataloguer))
+    
     (let* ((title (get-property~ section 'title))
            (project-paths (get-property~ section 'projects '()))
            (projects (sort string<? (apply append (map find-docs project-paths)) key: present-doc-title))
-           (content (manual-content-output projects))
+           (cataloguer (new-projects-cataloguer projects))
+           (content (manual-content-output cataloguer projects))
            (index (if (get-property~ section 'index? #t) (index-output) '()))
            (toc (toc-output projects))
            (summary (summary-output title section projects)))
@@ -243,49 +254,49 @@
               index)))
   
   
-  (method (manual-content-output projects)
+  (method (manual-content-output cataloguer projects)
     (let ((output (new List-Factory)))
       (for-each (function (project)
                   ;; quicky
                   (if (or (is? project Module-Doc)
                           (is? project Library-Doc))
-                      (output-manual-doc project 0 '() output)
-                    (output-manual-doc-children project 0 '() output)))
+                      (output-manual-doc cataloguer project 0 '() output)
+                    (output-manual-doc-children cataloguer project 0 '() output)))
                 projects)
       (get-output~ output)))
   
   
-  (method (output-manual-doc doc level path output)
+  (method (output-manual-doc cataloguer doc level path output)
     (typecase doc
-      ((Project-Doc)    (output-manual-project    doc level path output))
-      ((Section-Doc)    (output-manual-section    doc level path output))
-      ((Package-Doc)    (output-manual-package    doc level path output))
-      ((Module-Doc)     (output-manual-module     doc level path output))
-      ((Library-Doc)    (output-manual-library    doc level path output))
-      ((Interface-Doc)  (output-manual-interface  doc level path output))
-      ((Class-Doc)      (output-manual-class      doc level path output))
-      ((Form-Doc)       (output-manual-form       doc level path output))
-      ((Concept-Doc)    (output-manual-concept    doc level path output))
-      ((Syntax-Doc)     (output-manual-syntax     doc level path output))
-      ((Primitive-Doc)  (output-manual-primitive  doc level path output))
-      ((Constant-Doc)   (output-manual-constant   doc level path output))
-      ((Slot-Doc)       (output-manual-slot       doc level path output))
-      ((Property-Doc)   (output-manual-property   doc level path output))
-      ((Method-Doc)     (output-manual-method     doc level path output))
-      ((Export-Doc)     (output-manual-export     doc level path output))
-      ((Definition-Doc) (output-manual-definition doc level path output))
-      ((Generic-Doc)    (output-manual-generic    doc level path output))
+      ((Project-Doc)    (output-manual-project    cataloguer doc level path output))
+      ((Section-Doc)    (output-manual-section    cataloguer doc level path output))
+      ((Package-Doc)    (output-manual-package    cataloguer doc level path output))
+      ((Module-Doc)     (output-manual-module     cataloguer doc level path output))
+      ((Library-Doc)    (output-manual-library    cataloguer doc level path output))
+      ((Interface-Doc)  (output-manual-interface  cataloguer doc level path output))
+      ((Class-Doc)      (output-manual-class      cataloguer doc level path output))
+      ((Form-Doc)       (output-manual-form       cataloguer doc level path output))
+      ((Concept-Doc)    (output-manual-concept    cataloguer doc level path output))
+      ((Syntax-Doc)     (output-manual-syntax     cataloguer doc level path output))
+      ((Primitive-Doc)  (output-manual-primitive  cataloguer doc level path output))
+      ((Constant-Doc)   (output-manual-constant   cataloguer doc level path output))
+      ((Slot-Doc)       (output-manual-slot       cataloguer doc level path output))
+      ((Property-Doc)   (output-manual-property   cataloguer doc level path output))
+      ((Method-Doc)     (output-manual-method     cataloguer doc level path output))
+      ((Export-Doc)     (output-manual-export     cataloguer doc level path output))
+      ((Definition-Doc) (output-manual-definition cataloguer doc level path output))
+      ((Generic-Doc)    (output-manual-generic    cataloguer doc level path output))
       (else             (error "Unable to output doc for: {s}" doc))))
   
   
-  (method (output-manual-project doc level path output)
+  (method (output-manual-project cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output))
+    (output-manual-doc-children cataloguer doc level path output))
   
   
-  (method (output-manual-section doc level path output)
+  (method (output-manual-section cataloguer doc level path output)
     (output-anchor doc output)
     (let ((title (format "{a}. {a}" (present-toc-path path) (get-effective-title~ doc))))
       (case level
@@ -293,28 +304,28 @@
         ((2) (put~ output `(<h4> class: "section2" ,title)))
         (else (put~ output `(<h4> class: "section3" ,title)))))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output))
+    (output-manual-doc-children cataloguer doc level path output))
   
   
-  (method (output-manual-package doc level path output)
+  (method (output-manual-package cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output))
+    (output-manual-doc-children cataloguer doc level path output))
   
   
-  (method (output-manual-module doc level path output)
+  (method (output-manual-module cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output))
+    (output-manual-doc-children cataloguer doc level path output))
   
   
-  (method (output-manual-library doc level path output)
+  (method (output-manual-library cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<h3> class: "section1" ,(get-effective-title~ doc)))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output
+    (output-manual-doc-children cataloguer doc level path output
       sort?: #t
       key: (function (child)
              (cons (if (is? child Category-Doc)
@@ -323,88 +334,122 @@
                    (get-effective-title~ child)))))
   
   
-  (method (output-manual-export doc level path output)
+  (method (output-manual-export cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "native" (<span> class: "definition" ,(get-effective-title~ doc))))
     (output-doc-description doc output)
     (output-doc-examples doc output))
   
   
-  (method (output-manual-definition doc level path output)
+  (method (output-manual-definition cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "definition" ,(present-text~ doc)))
     (output-doc-description doc output)
     (output-doc-examples doc output))
   
   
-  (method (output-manual-generic doc level path output)
+  (method (output-manual-generic cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "generic" ,(present-text~ doc)))
     (output-doc-description doc output)
     (output-doc-examples doc output))
   
   
-  (method (output-manual-interface doc level path output)
+  (method (output-manual-interface cataloguer doc level path output)
+    (define (get-definition doc)
+      (get-definition~ cataloguer doc))
+    
     (output-anchor doc output)
     (put~ output `(<h4> class: "interface" ,(get-effective-title~ doc)))
+    (let ((ascendants (collect get-definition (get-ascendants~ doc))))
+      (when (not-null? ascendants)
+        (put~ output `(<p>))
+        (put~ output "extends")
+        (let ((first? #t))
+          (for-each (function (ascendant-doc)
+                      (if first?
+                          (set! first? #f)
+                        (put~ output ", "))
+                      (put~ output `(<a> href: ,(format "#{a}" (get-name~ ascendant-doc)) ,(get-effective-title~ ascendant-doc))))
+                    ascendants))
+        (put~ output `(<p>))))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output sort?: #t))
+    (output-manual-doc-children cataloguer doc level path output sort?: #t))
   
   
-  (method (output-manual-class doc level path output)
+  (method (output-manual-class cataloguer doc level path output)
+    (define (get-definition doc)
+      (get-definition~ cataloguer doc))
+    
     (output-anchor doc output)
     (put~ output `(<h4> class: "class" ,(get-effective-title~ doc)))
     (let ((ascendant (get-ascendant~ doc)))
       (when ascendant
+        (let ((ascendant-doc (get-definition ascendant)))
+          (when ascendant-doc
+            (put~ output `(<p>))
+            (put~ output "extends")
+            (put~ output `(<a> href: ,(format "#{a}" ascendant) ,(get-effective-title~ ascendant-doc)))
+            (put~ output `(<p>))))))
+    (let ((interfaces (collect get-definition (get-interfaces~ doc))))
+      (when (not-null? interfaces)
         (put~ output `(<p>))
-        (put~ output `(<a> name: ,(get-effective-title~ ascendant) href: (get-name~ ascendant)))))
+        (put~ output "implements")
+        (let ((first? #t))
+          (for-each (function (interface-doc)
+                      (if first?
+                          (set! first? #f)
+                        (put~ output ", "))
+                      (put~ output `(<a> href: ,(format "#{a}" (get-name~ interface-doc)) ,(get-effective-title~ interface-doc))))
+                    interfaces))
+        (put~ output `(<p>))))
     (output-doc-description doc output)
-    (output-manual-doc-children doc level path output sort?: #t))
+    (output-manual-doc-children cataloguer doc level path output sort?: #t))
   
   
-  (method (output-manual-form doc level path output)
+  (method (output-manual-form cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
     (output-doc-description doc output))
   
   
-  (method (output-manual-concept doc level path output)
+  (method (output-manual-concept cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
     (output-doc-description doc output))
   
   
-  (method (output-manual-syntax doc level path output)
+  (method (output-manual-syntax cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "syntax" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
-  (method (output-manual-primitive doc level path output)
+  (method (output-manual-primitive cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
     (output-doc-description doc output))
   
   
-  (method (output-manual-constant doc level path output)
+  (method (output-manual-constant cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
     (output-doc-description doc output))
   
   
-  (method (output-manual-slot doc level path output)
+  (method (output-manual-slot cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "slot" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
-  (method (output-manual-property doc level path output)
+  (method (output-manual-property cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> "property" ,(present-text~ doc)))
     (output-doc-description doc output))
   
   
-  (method (output-manual-method doc level path output)
+  (method (output-manual-method cataloguer doc level path output)
     (output-anchor doc output)
     (put~ output `(<docterm> ,(if (eq? (get-propagation~ doc) 'virtual)
                                   "virtual method"
@@ -443,14 +488,14 @@
                               (get-children~ examples)))))))
   
   
-  (method (output-manual-doc-children doc level path output (sort?: sort? #f) (key: key {}))
+  (method (output-manual-doc-children cataloguer doc level path output (sort?: sort? #f) (key: key {}))
     (let* ((sort? (or sort? (and (is? doc Section-Doc) (get-sort?~ doc))))
            (children (effective-manual-doc-children doc))
            (sorted (if sort?
                        (sort nu<? children key: (either key present-doc-title))
                      children)))
       (for-each (function (doc rank)
-                  (output-manual-doc doc (+ level 1) (cons (+ rank 1) path) output))
+                  (output-manual-doc cataloguer doc (+ level 1) (cons (+ rank 1) path) output))
                 sorted
                 (naturals 0 (length sorted)))))
   

@@ -1382,7 +1382,7 @@
 
 (define jazz.definition-modifiers
   '(((private protected package public) . private)
-    ((deprecated uptodate) . uptodate)
+    ((deprecated undocumented uptodate) . uptodate)
     ((inline onsite) . onsite)))
 
 
@@ -1469,7 +1469,7 @@
             (parameters (%%cdr signature)))
         (let ((name (or as (jazz.compose-specializer-name operator parameters))))
           `(begin
-             (definition public ,expansion (,name ,@parameters) ,@rest)
+             (definition public undocumented ,expansion (,name ,@parameters) ,@rest)
              (%specialize ,operator ,name)))))))
 
 
@@ -1509,7 +1509,7 @@
 
 (define jazz.generic-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-generic walker resume declaration rest)
@@ -1740,7 +1740,7 @@
 
 (define jazz.interface-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)
+    ((deprecated undocumented uptodate) . uptodate)
     ((primitive native) . native)))
 
 (define jazz.interface-keywords
@@ -1788,7 +1788,7 @@
 
 (define jazz.slot-modifiers
   '(((private protected package public) . #f)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 (define jazz.slot-keywords
   '(initialize accessors getter setter))
@@ -1934,7 +1934,7 @@
 
 (define jazz.method-modifiers
   '(((private protected package public) . protected)
-    ((deprecated uptodate) . uptodate)
+    ((deprecated undocumented uptodate) . uptodate)
     ((final virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
     ((inline onsite) . onsite)
@@ -2609,7 +2609,7 @@
 
 (define jazz.c-named-declare-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-c-named-declare walker resume declaration rest)
@@ -2658,7 +2658,7 @@
 
 (define jazz.c-type-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-c-type walker resume declaration rest)
@@ -2769,7 +2769,7 @@
 
 (define jazz.c-definition-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-c-definition walker resume declaration rest)

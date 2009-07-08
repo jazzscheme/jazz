@@ -279,10 +279,10 @@
 
 ;; until proper call site casting of native calls
 
-(native ##fl+ <fl^fl:fl>)
-(native ##fl- <fl^fl:fl>)
-(native ##fl* <fl^fl:fl>)
-(native ##fl/ <fl^fl:fl>)
+(native undocumented ##fl+ <fl^fl:fl>)
+(native undocumented ##fl- <fl^fl:fl>)
+(native undocumented ##fl* <fl^fl:fl>)
+(native undocumented ##fl/ <fl^fl:fl>)
 
 
 ;;;

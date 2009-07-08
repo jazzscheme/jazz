@@ -333,11 +333,6 @@
   
   
   (definition Documented-Modules
-    '((jazz.io)
-      (jazz.jml)))
-  
-  @w
-  (definition Documented-Modules
     '((irregex)
       (statprof)
       (scheme)
@@ -415,7 +410,7 @@
   
   
   (method (extract-library-doc name declaration)
-    (let ((declarations (filter-public/uptodate-declarations (table-values (get-public-lookup declaration)))))
+    (let ((declarations (filter-public/uptodate-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
       (let ((sorted (sort string<? declarations key: (function (decl) (symbol->string (get-name~ decl))))))
         `(<Library-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
@@ -423,7 +418,6 @@
   
   (method (extract-declaration-doc declaration)
     (typecase declaration
-      ((Autoload-Declaration) (extract-declaration-doc (resolve-declaration declaration)))
       ((Export-Declaration) (extract-export-doc declaration))
       ((Define-Declaration) (extract-define-doc declaration))
       ((Define-Macro-Declaration) (extract-define-macro-doc declaration))
@@ -520,11 +514,10 @@
             (optional (get-optional~ signature))
             (named (get-named~ signature))
             (rest (get-rest~ signature)))
-        (list
-          positional: (map extract-name positional)
-          optional: (map extract-name optional)
-          named: (map extract-name named)
-          rest: (if rest (extract-name rest) {})))))
+        `(,@(if (null? positional) '() (list positional: (map extract-name positional)))
+          ,@(if (null? optional) '() (list optional: (map extract-name optional)))
+          ,@(if (null? named) '() (list named: (map extract-name named)))
+          ,@(if (not rest) '() (list rest: (extract-name rest)))))))
   
   
   ;; temp hack to obtain the same format as when sub-libraries are well integrated
@@ -540,10 +533,14 @@
                  locator))))))
   
   
+  (definition (resolve-declarations declarations)
+    (map (function (decl)
+           (resolve-declaration decl))
+         declarations))
+  
+  
   (definition (filter-public/uptodate-declarations declarations)
     (collect-if (function (decl)
-                  (when (eq? (get-name~ decl) 'XHTML-Parser)
-                    (car 1))
                   (and (eq? (get-access~ decl) 'public)
                        (eq? (get-compatibility~ decl) 'uptodate)))
                 declarations))

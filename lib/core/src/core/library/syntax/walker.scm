@@ -5152,7 +5152,7 @@
 
 (define jazz.native-modifiers
   '(((private protected package public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 (define jazz.native-keywords
   '())
@@ -5190,7 +5190,7 @@
 
 (define jazz.macro-modifiers
   '(((private protected package public) . private)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-macro walker resume declaration rest)
@@ -5229,7 +5229,7 @@
 
 (define jazz.syntax-modifiers
   '(((private protected package public) . private)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated undocumented uptodate) . uptodate)))
 
 
 (define (jazz.parse-syntax walker resume declaration rest)

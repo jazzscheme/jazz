@@ -333,6 +333,11 @@
   
   
   (definition Documented-Modules
+    '((jazz.database)
+      (jazz.schema)))
+  
+  @w
+  (definition Documented-Modules
     '((irregex)
       (statprof)
       (scheme)
@@ -410,7 +415,7 @@
   
   
   (method (extract-library-doc name declaration)
-    (let ((declarations (filter-public/uptodate-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
+    (let ((declarations (filter-access/compatibility-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
       (let ((sorted (sort string<? declarations key: (function (decl) (symbol->string (get-name~ decl))))))
         `(<Library-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
@@ -475,12 +480,12 @@
       (unless (or (ends-with? name "-Class")
                   (ends-with? name "~Class"))
         `(<Class-Doc> name: ,(extract-locator declaration) title: ,name
-           ,@(map extract-declaration-doc (filter-public/uptodate-declarations (get-children~ declaration)))))))
+           ,@(map extract-declaration-doc (filter-access/compatibility-declarations (get-children~ declaration)))))))
   
   
   (method (extract-interface-doc declaration)
     `(<Interface-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       ,@(map extract-declaration-doc (filter-public/uptodate-declarations (get-children~ declaration)))))
+       ,@(map extract-declaration-doc (filter-access/compatibility-declarations (get-children~ declaration)))))
   
   
   (method (extract-slot-doc declaration)
@@ -493,6 +498,8 @@
   
   (method (extract-method-doc declaration)
     `(<Method-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+       access: ,(get-access~ declaration)
+       propagation: ,(get-propagation~ declaration)
        parameters: ,(extract-signature (get-signature~ declaration))))
   
   
@@ -539,9 +546,11 @@
          declarations))
   
   
-  (definition (filter-public/uptodate-declarations declarations)
+  (definition (filter-access/compatibility-declarations declarations)
     (collect-if (function (decl)
-                  (and (eq? (get-access~ decl) 'public)
+                  (and (let ((access (get-access~ decl)))
+                         (or (eq? access 'public)
+                             (and (eq? access 'protected) (memq? (get-propagation~ decl) '(virtual chained)))))
                        (eq? (get-compatibility~ decl) 'uptodate)))
                 declarations))
 

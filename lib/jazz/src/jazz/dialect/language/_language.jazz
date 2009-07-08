@@ -149,7 +149,7 @@
     {})
   
   
-  (method public virtual (redirect-handler handler sender)
+  (method protected virtual (redirect-handler handler sender)
     self)
   
   
@@ -1328,6 +1328,18 @@
     (if (specified? found)
         found
       (default))))
+
+
+;; this is a specialized implementation of the box concept
+;; to enable an optimisation in the find-keyword code above
+
+
+(definition package (box-list lst)
+  (cons '() lst))
+
+
+(definition package (unbox-list box)
+  (cdr box))
 
 
 ;;;
@@ -4743,17 +4755,17 @@
       (->string object :reader))))
 
 
-(definition public (thread-loop? thread)
+(definition package (thread-loop? thread)
   (thread-specific thread))
 
-(definition public (thread-start-loop thread)
+(definition package (thread-start-loop thread)
   (thread-specific-set! thread #t))
 
-(definition public (thread-stop-loop thread)
+(definition package (thread-stop-loop thread)
   (thread-specific-set! thread #f))
 
 
-(definition public (thread-loop)
+(definition package (thread-loop)
   (let (loop)
     (let ((thunk (thread-read)))
       (thunk)
@@ -4767,6 +4779,7 @@
 (definition thread-ports-mutex
   (make-mutex 'thread-ports))
 
+
 (definition (get-thread-port thread)
   (mutex-lock! thread-ports-mutex)
   (prog1 (either (table-ref thread-ports thread #f)
@@ -4775,15 +4788,18 @@
                    port))
     (mutex-unlock! thread-ports-mutex)))
 
+
 (definition package (thread-write thread value)
   (let ((thread-port (get-thread-port thread)))
     (write value thread-port)
     (force-output thread-port)))
 
+
 (definition package (thread-read)
   (let ((thread-port (get-thread-port (current-thread))))
     (input-port-timeout-set! thread-port +infinity)
     (read thread-port)))
+
 
 (definition package (thread-read-non-blocking)
   (let ((thread-port (get-thread-port (current-thread))))
@@ -4814,7 +4830,7 @@
   (list 'thread-call-noresult))
 
 
-(definition public (thread-call-result? result)
+(definition package (thread-call-result? result)
   (neq? result thread-call-noresult))
 
 
@@ -5170,19 +5186,6 @@
 
 
 ;;;
-;;;; Box
-;;;
-
-
-(definition public (box-list lst)
-  (cons '() lst))
-
-
-(definition public (unbox-list box)
-  (cdr box))
-
-
-;;;
 ;;;; Enumeration
 ;;;
 
@@ -5300,20 +5303,20 @@
   1024)
 
 
-(definition public (make-u8-content size content)
+(definition public undocumented (make-u8-content size content)
   (cons size content))
 
-(definition public (u8-content-size content)
+(definition public undocumented (u8-content-size content)
   (car content))
 
-(definition public (iterate-u8-content content proc)
+(definition public undocumented (iterate-u8-content content proc)
   (for-each (function (chunk)
               (bind (u8vector . size) chunk
                 (proc u8vector size)))
             (cdr content)))
 
 
-(definition public (read-u8-content port)
+(definition public undocumented (read-u8-content port)
   (let ((size 0)
         (fact (new List-Factory)))
     (let (loop)
@@ -5326,14 +5329,14 @@
             (loop)))))))
 
 
-(definition public (write-u8-content content port)
+(definition public undocumented (write-u8-content content port)
   (iterate-u8-content content
     (function (u8vector size)
       (write-subu8vector u8vector 0 size port))))
 
 
 ;; this shoud be included in the gambit runtime
-(class package Permanent-Port extends Object
+(class undocumented Permanent-Port extends Object
   
   
   (slot port getter generate)
@@ -5346,7 +5349,7 @@
     (set! eof?~self #f)))
 
 
-(definition public (read-substring-blocking-for-1 str start end permanent-port)
+(definition public undocumented (read-substring-blocking-for-1 str start end permanent-port)
   (cond ((get-eof?~ permanent-port)
          (set-eof?~ permanent-port #f)
          0) ;; reached end-of-file
@@ -5368,7 +5371,7 @@
          0)))
 
 
-(definition public (start-pump permanent-port proc)
+(definition public undocumented (start-pump permanent-port proc)
   (declare (proper-tail-calls))
   (let ((size 1000))
     (let ((buffer (make-string size)))
@@ -6318,7 +6321,7 @@
 ;;;
 
 
-(definition public (build-search-automata targets whole-words? ignore-case? object constituent-test)
+(definition public undocumented (build-search-automata targets whole-words? ignore-case? object constituent-test)
   (unimplemented 'build-search-automata))
 
 

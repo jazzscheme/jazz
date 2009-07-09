@@ -42,6 +42,7 @@
 (jazz.define-variable profile-total)
 (jazz.define-variable profile-unknown)
 (jazz.define-variable profile-calls)
+(jazz.define-variable profile-new)
 (jazz.define-variable profile-reset!)
 (jazz.define-variable profile-start!)
 (jazz.define-variable profile-stop!)

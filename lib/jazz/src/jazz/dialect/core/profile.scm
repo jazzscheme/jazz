@@ -84,6 +84,11 @@
   (profile-calls profile))
 
 
+(define (jazz.new-profile . rest)
+  (jazz.load-statprof)
+  (apply profile-new rest))
+
+
 (define (jazz.reset-profile)
   (jazz.load-statprof)
   (profile-reset!))

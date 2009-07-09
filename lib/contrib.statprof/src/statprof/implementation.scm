@@ -8,7 +8,7 @@
 ;;;   Guillaume Cartier
 
 
-(module statprof.implementation
+(module protected statprof.implementation
 
 
 (declare (proper-tail-calls))
@@ -64,6 +64,10 @@
   *profile*)
 
 
+(define (profile-new #!key (depth #f))
+  (set! *profile* (make-profile (or depth profiler-depth))))
+
+
 (define (profile-reset!)
   (set! *profile* (make-profile (profile-depth *profile*))))
 
@@ -95,11 +99,18 @@
 ;;;
 
 
+(define *in-profile-heartbeat?*
+  (make-parameter #f))
+
+
 (define (profile-heartbeat!)
-  (%%continuation-capture
-    (lambda (cont)
-      (##thread-heartbeat!)
-      (register-continuation cont))))
+  (declare (not interrupts-enabled))
+  (if (%%not (*in-profile-heartbeat?*))
+      (%%continuation-capture
+        (lambda (cont)
+          (parameterize ((*in-profile-heartbeat?* #t))
+            (##thread-heartbeat!)
+            (register-continuation cont))))))
 
 
 (define (register-continuation cont)
@@ -118,15 +129,14 @@
 
 
 (define (identify-stack cont depth)
-  
   (define (identify-location locat)
     (if locat
-        (let ((file (%%container->path (%%locat-container locat))))
-          (if file
+        (let ((container (%%locat-container locat)))
+          (if container
               (let ((filepos (%%position->filepos (%%locat-position locat))))
                 (let ((line (%%filepos-line filepos))
                       (col (%%filepos-col filepos)))
-                  (list file line col)))
+                  (list container line col)))
             #f))
       #f))
   

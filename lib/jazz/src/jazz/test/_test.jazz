@@ -45,18 +45,13 @@
         (statprof))
 
 
-(initialize-aliases)
-(extract-doc~ (new Jedi-Profile))
-
-
-@w
 (let ((unresolved (make-table test: eq?)))
   (define (walk module-name)
     (catch (Walk-Problems exc
              (let ((problems (append (get-warnings~ exc) (get-errors~ exc))))
                (for-each (function (problem)
                            (when (is? problem Unresolved-Error)
-                             (table-set! unresolved (get-symbol~ problem) #t)))
+                             (table-add unresolved (get-symbol~ problem) module-name)))
                          problems)))
       (walk-module module-name)))
   
@@ -66,9 +61,10 @@
           (terminal 'walking module-name)
         (terminal 'done))))
   
-  (let ((unresolved (table-keys unresolved)))
-    (when (not-null? unresolved)
-      (pp unresolved))))
+  (call-with-output-file "~/unresolved.jazz"
+    (function (port)
+      (pp (table-keys unresolved) port)
+      (pp (remove-duplicates (apply append (table-values unresolved))) port))))
 
 
 ;;;

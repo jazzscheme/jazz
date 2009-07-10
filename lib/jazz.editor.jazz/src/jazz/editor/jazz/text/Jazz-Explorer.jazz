@@ -307,6 +307,68 @@
         (done))))
   
   
+  (method (jazz-enter-import)
+    (let (iterate)
+      (when (forward-expr)
+        (let ((pos (copy (get-end))))
+          (if (eq? kind 'list)
+              (let ((s (get-start))
+                    (e (get-end)))
+                (set-end s)
+                (enter-list)
+                (forward-expr)
+                (if (eq? kind 'symbol)
+                    (let ((expr (jazz-symbol)))
+                      (if (eq? expr 'import)
+                          #t
+                        (set-end pos)
+                        (iterate)))
+                  (set-end pos)
+                  (iterate)))
+            (iterate))))))
+  
+  
+  (method (jazz-find-import-invoice module)
+    (let ((target (symbol->string module)))
+      (let (iterate (first? #t))
+        (let ((pos (copy (get-end))))
+          (if (forward-expr)
+              (begin
+                (set-end start)
+                (enter-list)
+                (forward-expr)
+                (let ((name (get-marked)))
+                  (cond ((string=? name target)
+                         (values #t first?))
+                        ((string>? name target)
+                         (set-end pos)
+                         (values #f first?))
+                        (else
+                         (set-end pos)
+                         (forward-expr)
+                         (iterate #f)))))
+            (values #f first?))))))
+  
+  
+  (method (insert-import-invoice module)
+    (jazz-forward-declaration)
+    (if (not (jazz-enter-import))
+        (error "Unable to find import declaration")
+      (receive (found? first?) (jazz-find-import-invoice module)
+        (unless found?
+          (with-atomic-undo~ (get-undoer~ text)
+            (function ()
+              (set-caret~ text (get-end))
+              (cond (first?
+                      (insert-string~ text (format " ({a})" module))
+                      (insert-newline~ text)
+                      (tabulate~ text))
+                    (else
+                     (insert-newline~ text)
+                     (tabulate~ text)
+                     (insert-string~ text (format "({a})" module))))))))))
+  
+  
   (method (jazz-symbol)
     (string->symbol (get-marked)))
 

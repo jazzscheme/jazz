@@ -1,0 +1,649 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Geometry
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.dialect.language.geometry jazz.dialect
+
+
+(proclaim (warn optimizations))
+
+
+(import (jazz.dialect.language)
+        (jazz.dialect.language.format)
+        (jazz.dialect.language.object))
+
+
+;;;
+;;;; Cell
+;;;
+
+
+(class Cell extends Numeric
+  
+  
+  (slot row <fx> accessors generate)
+  (slot col <fx> accessors generate)
+  
+  
+  (method (initialize r <fx> c <fx>)
+    (set! row r)
+    (set! col c))
+  
+  
+  (method (copy-object deep?)
+    (new Cell row col))
+
+
+  (method (compare-object target)
+    (if (is-not? target Cell)
+        :incompatible
+      (let ((compared (compare row (get-row~ target))))
+        (if (not (eq? compared :equal))
+            compared
+          (compare col (get-col~ target))))))
+  
+  
+  (method (fold-literal)
+    `(new Cell ',row ',col))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a}}"
+            (identifier-name (type-name (class-of self)))
+            row
+            col))
+
+
+  (method (numeric-norm)
+    (error "Cannot norm {t}" self))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Cell) (new Cell (+ row (get-row~ n)) (+ col (get-col~ n))))
+          ((integer? n) (new Cell row (+ col n)))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Cell (- row) (- col)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Cell (* row n) (* col n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self))
+  
+  
+  (method public (increase-row (delta <fx> 1))
+    (set! row (+ row delta)))
+  
+  
+  (method public (increase-col (delta <fx> 1))
+    (set! col (+ col delta))))
+
+
+(definition public inline (new-cell row col)
+  (construct Cell row col))
+
+(specialize inline (new class <category<Cell>> row <fx> col <fx>) <Cell>
+  (new-cell row col))
+
+
+(specialize inline as copy-cell (copy c <Cell>) <Cell>
+  (new Cell (get-row~ c) (get-col~ c)))
+
+
+(specialize inline as cell= (= c1 <Cell> c2 <Cell>) <bool>
+  (and (= (get-row~ c1) (get-row~ c2))
+       (= (get-col~ c1) (get-col~ c2))))
+
+
+(specialize as cell< (< c1 <Cell> c2 <Cell>) <bool>
+  (let ((r1 (get-row~ c1))
+        (r2 (get-row~ c2)))
+    (or (< r1 r2)
+        (and (= r1 r2)
+             (< (get-col~ c1) (get-col~ c2))))))
+
+
+(specialize as cell<= (<= c1 <Cell> c2 <Cell>) <bool>
+  (let ((r1 (get-row~ c1))
+        (r2 (get-row~ c2)))
+    (or (< r1 r2)
+        (and (= r1 r2)
+             (<= (get-col~ c1) (get-col~ c2))))))
+
+
+(specialize as cell> (> c1 <Cell> c2 <Cell>) <bool>
+  (let ((r1 (get-row~ c1))
+        (r2 (get-row~ c2)))
+    (or (> r1 r2)
+        (and (= r1 r2)
+             (> (get-col~ c1) (get-col~ c2))))))
+
+
+(specialize as cell>= (>= c1 <Cell> c2 <Cell>) <bool>
+  (let ((r1 (get-row~ c1))
+        (r2 (get-row~ c2)))
+    (or (> r1 r2)
+        (and (= r1 r2)
+             (>= (get-col~ c1) (get-col~ c2))))))
+
+
+(specialize inline as cell+ (+ c1 <Cell> c2 <Cell>) <Cell>
+  (new Cell
+    (+ (get-row~ c1) (get-row~ c2))
+    (+ (get-col~ c1) (get-col~ c2))))
+
+
+(specialize inline (+ c <Cell> n <int>) <Cell>
+  (new Cell
+    (get-row~ c)
+    (+ (get-col~ c) n)))
+
+
+(specialize inline as cell- (- c1 <Cell> c2 <Cell>) <Cell>
+  (new Cell
+    (- (get-row~ c1) (get-row~ c2))
+    (- (get-col~ c1) (get-col~ c2))))
+
+
+(specialize inline (- c <Cell> n <int>) <Cell>
+  (new Cell
+    (get-row~ c)
+    (- (get-col~ c) n)))
+
+
+;;;
+;;;; Range
+;;;
+
+
+(class Range extends Object
+  
+  
+  (slot start)
+  (slot end)
+    
+    
+  (method (initialize s e)
+    (nextmethod)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method (copy-object deep?)
+    (new Range start end))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Range)
+           :incompatible)
+          ((and (= start (get-start~ target)) (= end (get-end~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Range ',start ',end))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            start
+            end))
+  
+  
+  (method public inline (get-start)
+    start)
+  
+  
+  (method public inline (get-end)
+    end)
+  
+  
+  (method public virtual (extent)
+    (- end start))
+  
+  
+  (method public virtual (extended?)
+    (not (= start end)))
+  
+  
+  (method public (inside? n)
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? n)
+    (< n start))
+
+
+  (method public (after? n)
+    (> n end))
+  
+  
+  (method public (intersect? range)
+    (and (< (get-start~ range) end)
+         (>= (get-end~ range) start)))
+
+
+  (method public (intersect range)
+    (when (intersect? range)
+      (new (class-of self) (max start (get-start~ range)) (min end (get-end~ range))))))
+
+
+(definition public inline (new-range start end)
+  (construct Range start end))
+
+(specialize inline (new class <category<Range>> start end) <Range>
+  (new-range start end))
+
+
+(specialize inline as range= (= r1 <Range> r2 <Range>) <bool>
+  (and (= (get-start~ r1) (get-start~ r2))
+       (= (get-end~ r1) (get-end~ r2))))
+
+
+;;;
+;;;; Range$Cell$
+;;;
+
+
+(class Range$Cell$ extends Object
+  
+  
+  (slot start <Cell> getter generate)
+  (slot end   <Cell> getter generate)
+  
+  
+  (method (initialize s <Cell> e <Cell>)
+    (nextmethod)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method (copy-object deep?)
+    (new Range$Cell$ start end))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Range$Cell$)
+           :incompatible)
+          ((and (= start (get-start~ target)) (= end (get-end~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Range$Cell$ ',start ',end))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            start
+            end))
+  
+  
+  (method public virtual (extent) <Cell>
+    (- end start))
+  
+  
+  (method public virtual (extended?)
+    (not (= start end)))
+  
+  
+  (method public (inside? n <Cell>) <bool>
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? n <Cell>) <bool>
+    (< n start))
+
+
+  (method public (after? n <Cell>) <bool>
+    (> n end))
+  
+  
+  (method public (intersect? range <Range$Cell$>) <bool>
+    (and (< (get-start~ range) end)
+         (>= (get-end~ range) start)))
+
+
+  (method public (intersect range <Range$Cell$>)
+    (when (intersect? range)
+      (new (class-of self) (max start (get-start~ range)) (min end (get-end~ range))))))
+
+
+(specialize inline (new class <category<Range$Cell$>> start <Cell> end <Cell>) <Range$Cell$>
+  (construct Range$Cell$ start end))
+
+
+(specialize inline (= r1 <Range$Cell$> r2 <Range$Cell$>) <bool>
+  (and (= (get-start~ r1) (get-start~ r2))
+       (= (get-end~ r1) (get-end~ r2))))
+
+
+;;;
+;;;; Point
+;;;
+
+
+(class Point extends Numeric
+  
+  
+  (slot h <fx> getter generate)
+  (slot v <fx> getter generate)
+    
+    
+  (method (initialize h <fx> v <fx>)
+    (nextmethod)
+    (set! h~self h)
+    (set! v~self v))
+  
+  
+  (method (copy-object deep?)
+    (new Point h v))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Point)
+           :incompatible)
+          ((let ((target-point <Point> target))
+             (and (= h (get-h~ target-point)) (= v (get-v~ target-point))))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Point ',h ',v))
+  
+  
+  (method (print printer readably)
+    (format printer "~{Point {a} {a}}"
+            h
+            v))
+  
+  
+  (method (numeric-norm)
+    (sqrt (+ (expt h 2) (expt v 2))))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Point) (new Point (+ h (get-h~ n)) (+ v (get-v~ n))))
+          ((is? n Dimension) (new Point (+ h (get-width~ n)) (+ v (get-height~ n))))
+          ((integer? n) (new Point (+ h n) v))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Point (- h) (- v)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Point (* h n) (* v n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self)))
+
+
+(definition public inline (new-point h v)
+  (construct Point h v))
+
+(specialize inline (new class <category<Point>> h <fx> v <fx>) <Point>
+  (new-point h v))
+
+
+(specialize inline as point= (= p1 <Point> p2 <Point>) <bool>
+  (and (= (get-h~ p1) (get-h~ p2))
+       (= (get-v~ p1) (get-v~ p2))))
+
+
+(specialize inline as point+ (+ p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (+ (get-h~ p1) (get-h~ p2))
+    (+ (get-v~ p1) (get-v~ p2))))
+
+
+(specialize inline (+ p <Point> n <int>) <Point>
+  (new Point
+    (+ (get-h~ p) n)
+    (get-v~ p)))
+
+
+(specialize inline as point- (- p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (- (get-h~ p1) (get-h~ p2))
+    (- (get-v~ p1) (get-v~ p2))))
+
+
+(specialize inline (- p <Point> n <int>) <Point>
+  (new Point
+    (- (get-h~ p) n)
+    (get-v~ p)))
+
+
+(specialize inline (- p <Point>) <Point>
+  (new Point
+    (- (get-h~ p))
+    (- (get-v~ p))))
+
+
+(specialize inline as point* (* p <Point> n <int>) <Point>
+  (new Point
+    (* (get-h~ p) n)
+    (* (get-v~ p) n)))
+
+
+;;;
+;;;; Dimension
+;;;
+
+
+(class Dimension extends Numeric
+  
+  
+  (slot width  <fx> getter generate)
+  (slot height <fx> getter generate)
+  
+  
+  (method (initialize w <fx> h <fx>)
+    (nextmethod)
+    (set! width w)
+    (set! height h))
+  
+  
+  (method (copy-object deep?)
+    (new Dimension width height))
+
+
+  (method (compare-object target)
+    (if (is-not? target Dimension)
+        :incompatible
+      (let ((compared (compare width (get-width~ target))))
+        (if (neq? compared :equal)
+            compared
+          (compare height (get-height~ target))))))
+  
+  
+  (method (fold-literal)
+    `(new Dimension ',width ',height))
+  
+  
+  (method (print printer readably)
+    (format printer "~{Dimension {a} {a}}"
+            width
+            height))
+
+
+  (method (numeric-norm)
+    (error "Cannot norm {t}" self))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Dimension) (new Dimension (+ width (get-width~ n)) (+ height (get-height~ n))))
+          ((is? n Point) (new Dimension (+ width (get-h~ n)) (+ height (get-v~ n))))
+          ((integer? n) (new Dimension (+ width n) height))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Dimension (- width) (- height)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Dimension (* width n) (* height n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self)))
+
+
+(definition public inline (new-dimension width height)
+  (construct Dimension width height))
+
+(specialize inline (new class <category<Dimension>> width <fx> height <fx>) <Dimension>
+  (new-dimension width height))
+
+
+(specialize inline as dimension= (= d1 <Dimension> d2 <Dimension>) <bool>
+  (and (= (get-width~ d1) (get-width~ d2))
+       (= (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension+ (+ d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (+ (get-width~ d1) (get-width~ d2))
+    (+ (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension- (- d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (- (get-width~ d1) (get-width~ d2))
+    (- (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension* (* d <Dimension> n <int>) <Dimension>
+  (new Dimension
+    (* (get-width~ d) n)
+    (* (get-height~ d) n)))
+
+
+;;;
+;;;; Rect
+;;;
+
+
+(class Rect-Class extends Class
+  
+  
+  (method (coerce-object object)
+    (typecase object
+      ((Point) (new Rect (get-h~ object) (get-v~ object) 0 0))
+      (else (nextmethod object)))))
+
+
+(class Rect metaclass Rect-Class extends Object
+  
+  
+  ;; put types back to fx when we have Rect<fl> templates
+  (slot left   <number> accessors generate)
+  (slot top    <number> accessors generate)
+  (slot right  <number> accessors generate)
+  (slot bottom <number> accessors generate)
+  
+  
+  (method (initialize l <number> t <number> r <number> b <number>)
+    (nextmethod)
+    (set! left l)
+    (set! top t)
+    (set! right r)
+    (set! bottom b))
+  
+  
+  (method (copy-object deep?)
+    (new Rect left top right bottom))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Rect)
+           :incompatible)
+          ((and (= left (get-left~ target)) (= top (get-top~ target)) (= right (get-right~ target)) (= bottom (get-bottom~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Rect ',left ',top ',right ',bottom))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a} {a} {a}}"
+            (identifier-name (type-name (class-of self)))
+            left
+            top
+            right
+            bottom)))
+
+
+(definition public inline (new-rect left top right bottom)
+  (construct Rect left top right bottom))
+
+(specialize inline (new class <category<Rect>> left <number> top <number> right <number> bottom <number>) <Rect>
+  (new-rect left top right bottom))
+
+
+(specialize inline as rect= (= r1 <Rect> r2 <Rect>) <bool>
+  (and (= (get-left~ r1) (get-left~ r2))
+       (= (get-top~ r1) (get-top~ r2))
+       (= (get-right~ r1) (get-right~ r2))
+       (= (get-bottom~ r1) (get-bottom~ r2)))))

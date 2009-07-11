@@ -38,6 +38,20 @@
 (module protected jazz.dialect.core.port
 
 
+;;;
+;;;; Format
+;;;
+
+
+(define jazz.system-format
+  jazz.format)
+
+
+;;;
+;;;; Port
+;;;
+
+
 (cond-expand
   (gambit
     (define jazz.close-port close-port)
@@ -52,13 +66,13 @@
 ;;;
 
 
-(define jazz.dialect.language.get-console-port
+(define jazz.dialect.language.debug.get-console-port
   #f)
 
-(set! jazz.dialect.language.get-console-port #f)
+(set! jazz.dialect.language.debug.get-console-port #f)
 
 
 (define (jazz.get-console-port)
-  (if jazz.dialect.language.get-console-port
-      (jazz.dialect.language.get-console-port)
+  (if jazz.dialect.language.debug.get-console-port
+      (jazz.dialect.language.debug.get-console-port)
     #f)))

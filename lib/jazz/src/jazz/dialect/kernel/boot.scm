@@ -50,7 +50,7 @@
 ;;;
 
 
-(native jazz.format)
+(native jazz.system-format)
 
 
 ;;;

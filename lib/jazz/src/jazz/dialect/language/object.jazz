@@ -1,0 +1,267 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Object
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.dialect.language.object jazz.dialect
+
+
+(proclaim (warn optimizations))
+
+
+;;;
+;;;; Object
+;;;
+
+
+(class primitive Object metaclass Object-Class
+  
+  
+  (method chained (initialize)
+    )
+
+
+  (method chained (destroy)
+    )
+  
+  
+  (method public virtual (print output detail)
+    (if (object? self)
+        (print-unreadable self output
+          (function (output)
+            ))
+      (print-detail output detail)))
+  
+  
+  ;; quick solution that needs to be improved
+  (method protected (print-detail output detail)
+    (if (eq? detail :human)
+        (display self output)
+      (write self output)))
+  
+  
+  (method public virtual (fold-literal)
+    (error "Unable to fold literal: {t}" self))
+  
+  
+  (method public virtual (class-actions)
+    '())
+  
+  
+  (method public virtual (focus-actions)
+    '())
+  
+  
+  (method public virtual (guest-actions)
+    '())
+
+
+  (method public (initialized?)
+    (object-initialized? self))
+  
+  
+  (method public virtual (hash-object)
+    (error "No hashing defined for {t}" self))
+  
+  
+  (method protected virtual (copy-object deep?)
+    (error "Unable to copy {t}" self))
+
+
+  (method protected virtual (compare-object object)
+    :incompatible)
+
+
+  (method protected virtual (ci-compare-object object)
+    :incompatible)
+
+
+  (method protected virtual (describe-object printer)
+    (print printer #t))
+  
+  
+  (method public virtual (release)
+    )
+
+
+  (method public virtual (close)
+    (call-destroy self))
+
+
+  (method protected (destroy-mandatory)
+    (set-must-destroy self))
+
+
+  (method public (destroyed?)
+    (object-destroyed? self))
+  
+  
+  (method public virtual (get-sort-value)
+    {})
+  
+  
+  (method protected virtual (redirect-handler handler sender)
+    self)
+  
+  
+  (method protected virtual (coerce-string)
+    (error "{t} cannot be coerced into a string" self))
+  
+  
+  (method protected virtual (iterate-object)
+    (error "{t} is not an iterable type" self))
+
+
+  ;;;
+  ;;;; Compare
+  ;;;
+
+
+  (method protected virtual (object-similar? object)
+    (eq? self object))
+
+
+  (method protected virtual (object-alphabetic?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-numeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-alphanumeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-whitespace?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-upper-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-lower-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-upcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-downcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-capitalize)
+    (error "{t} is not an alphabetic type" self)))
+
+
+(definition public inline (compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (compare-object~ a b)))
+
+
+(definition public inline (ci-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (ci-compare-object~ a b)))
+
+
+(definition public (copy obj <Object>)
+  (subcopy obj #f))
+
+
+(definition public (subcopy obj <Object> deep? <bool>)
+  (copy-object~ obj deep?))
+
+
+(definition public (print-unreadable object <Object> output proc)
+  (let ((class-name (identifier-name (get-name~ (class-of object))))
+        (string (let ((output (open-output-string)))
+                  (proc output)
+                  (get-output-string output)))
+        (serial (object->serial object)))
+    (display "{@" output)
+    (display class-name output)
+    (unless (string=? string "")
+      (display " " output)
+      (display string output))
+    (display " #" output)
+    (display serial output)
+    (display "}" output)))
+
+
+(definition package (native-class name)
+  (error "Scheme primitives must be used to create {a}" name))
+
+
+(definition (=-hash obj <Object>)
+  (hash-object~ obj))
+
+
+(definition (object-initialized? obj)
+  ;; todo
+  #t)
+
+
+(definition (get-must-destroy obj)
+  ;; todo
+  #f)
+
+(definition (set-must-destroy obj)
+  ;; todo
+  )
+
+
+(definition (set-was-destroyed obj)
+  ;; todo
+  )
+
+
+(definition package (object-destroyed? obj)
+  ;; todo
+  #f)
+
+
+(definition package (destroy-mandatory)
+  ;; to redo
+  #f)
+
+
+(definition package (call-destroy obj <Object>)
+  (destroy~ obj)
+  (set-was-destroyed obj)))

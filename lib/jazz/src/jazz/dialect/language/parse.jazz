@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Parse
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,43 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz scheme
+(library protected jazz.dialect.language.parse jazz.dialect
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.dialect.syntax (phase syntax))
-        (jazz.dialect.language)
-        (jazz.dialect.language.debug)
+(proclaim (warn optimizations))
+
+
+(import (jazz.dialect.language)
         (jazz.dialect.language.exception)
-        (jazz.dialect.language.format)
-        (jazz.dialect.language.geometry)
-        (jazz.dialect.language.object)
-        (jazz.dialect.language.parse)
-        (jazz.dialect.language.walker)
-        (jazz.dialect.walker.jazz)))
+        (jazz.dialect.language.format))
+
+
+(definition public (parse-integer string)
+  (if (and (not (empty-string? string)) (numeric? string))
+      (read-string-element string)
+    (signal (new Convertion-Error object: string type: "integer"))))
+
+
+(definition public (parse-hexadecimal string)
+  (read-string-element (format "#x{a}" string)))
+
+
+(definition public (parse-boolean string)
+  (cond ((not string) #f)
+        ((or (ci=? string "#f") (ci=? string "false")) #f)
+        ((or (ci=? string "#t") (ci=? string "true")) #t)
+        (else (signal (new Convertion-Error object: string type: "boolean")))))
+
+
+(definition public (parse-strings string (separator: separator ","))
+  (if (or (empty-string? string) (= string "{}"))
+      {}
+    (map (function (string)
+           (trim-spaces string))
+         (split string separator))))
+
+
+(definition public (parse-delimited-string string (separator: separator ","))
+  (map (function (string)
+         (parse-strings string separator: " "))
+       (parse-strings string separator: separator))))

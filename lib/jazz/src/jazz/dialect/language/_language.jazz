@@ -41,7 +41,8 @@
 (proclaim (warn optimizations))
 
 
-(import (jazz.dialect.language.object))
+(import (jazz.dialect.kernel.boot)
+        (jazz.dialect.language.object))
 
 
 ;;;
@@ -70,7 +71,7 @@
   (method (print output detail)
     (print-unreadable self output
       (function (output)
-        (format output "{s}" (get-name))))))
+        (system-format output "{s}" (get-name))))))
 
 
 ;;;
@@ -3093,8 +3094,8 @@
   (method (print printer readably)
     (print-unreadable self printer
       (function (printer)
-        (format printer "{a} entries"
-                (table-length self))))))
+        (system-format printer "{a} entries"
+          (table-length self))))))
 
 
 (definition public (table-add table key value)
@@ -3471,15 +3472,6 @@
          rest))
 
 
-(definition public (new-system-thread thunk . rest)
-  (apply new-thread
-         (function ()
-           #t @w
-           (with-system-exception-debugger
-             thunk))
-         rest))
-
-
 (definition public (top-threads)
   (thread-group->thread-list (thread-thread-group (primordial-thread))))
 
@@ -3501,26 +3493,26 @@
       (display "s" port)))
     
     (cond ((thread-state-uninitialized? state)
-           (format port "Uninitialized"))
+           (system-format port "Uninitialized"))
           ((thread-state-initialized? state)
-           (format port "Initialized"))
+           (system-format port "Initialized"))
           ((thread-state-normally-terminated? state)
-           (format port "Normally terminated"))
+           (system-format port "Normally terminated"))
           ((thread-state-abnormally-terminated? state)
-           (format port "Abnormally terminated"))
+           (system-format port "Abnormally terminated"))
           ((thread-state-active? state)
            (let ((wf (thread-state-active-waiting-for state))
                  (to (thread-state-active-timeout state)))
              (cond (wf
-                    (format port "Waiting ")
+                    (system-format port "Waiting ")
                     (write wf port)
                     (when to
                       (write-timeout to)))
                    (to
-                    (format port "Sleeping")
+                    (system-format port "Sleeping")
                     (write-timeout to))
                    (else
-                    (format port "Running")))))
+                    (system-format port "Running")))))
           (else
            (write state port)))
     
@@ -3811,7 +3803,7 @@
   (method (print output detail)
     (print-unreadable self output
       (function (output)
-        (format output "{s} {s}" size content))))
+        (system-format output "{s} {s}" size content))))
   
   
   (method (sequence-element n <fx>) <any>
@@ -4005,7 +3997,7 @@
 
 
   (method (print printer readably)
-    (format printer "~{{a} {a} {a}}"
+    (system-format printer "~{{a} {a} {a}}"
             (type-name (class-of self))
             name
             entries))
@@ -4307,107 +4299,8 @@
 
 
 ;;;
-;;;; Console
-;;;
-
-
-(definition *console-port-getter*
-  {})
-
-
-(definition public (set-console-port-getter getter)
-  (set! *console-port-getter* getter))
-
-
-(definition public (get-console-port)
-  (if (not *console-port-getter*)
-      (terminal-port)
-    (*console-port-getter*)))
-
-
-(definition public (console-input-port)
-  (get-console-port))
-
-(definition public (console-output-port)
-  (get-console-port))
-
-
-(definition public (force-console)
-  (force-output (get-console-port)))
-
-
-;;;
-;;;; Debugging
-;;;
-
-
-(definition public (console . rest)
-  (console-string (format "{l detail: :describe}" rest)))
-
-
-(definition public (console-string string (color: color {}))
-  (let ((output (console-output-port)))
-    (if (not output)
-        (terminal-string string)
-      (format output "{a}{%}" string)
-      @wait-new-console-completion (
-      (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)
-      (format output #"\(prompt\){%}"#)
-      )
-      (force-output output)))
-  {})
-
-
-(definition public debug
-  console)
-
-
-(definition public debug-string
-  console-string)
-
-
-;;;
-;;;; Stack
-;;;
-
-
-(definition public (continuation-stack cont (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
-  (let ((stack (get-continuation-stack cont depth)))
-    (map (function (cont)
-           (let ((name (get-continuation-name cont)))
-             (cond ((and (not dynamic-environment?) (not lexical-environment?))
-                    name)
-                   ((not dynamic-environment?)
-                    (cons name (get-continuation-lexical-environment cont)))
-                   (else
-                    (cons name (append (get-continuation-dynamic-environment cont)
-                                       (get-continuation-lexical-environment cont)))))))
-         stack)))
-
-
-(definition public (execution-stack (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
-  (continuation-capture
-    (function (cont)
-      (continuation-stack cont dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? depth: depth))))
-
-
-;;;
 ;;;; Printer
 ;;;
-
-
-(definition public (with-printer printer proc)
-  (case printer
-    ((:string)
-     (let ((printer (open-output-string)))
-       (proc printer)
-       (get-output-string printer)))
-    ((:terminal)
-     (proc (terminal-port)))
-    ((:console)
-     (proc (get-console-port)))
-    (else
-     (proc printer))))
 
 
 (definition public (textual expr (printer (current-output-port)))
@@ -4504,6 +4397,34 @@
 
 
 ;;;
+;;;; Printers
+;;;
+
+
+(definition *printers*
+  (make-table test: eq?))
+
+
+(definition package (register-printer name proc)
+  (table-set! *printers* name proc))
+
+
+(definition public (with-printer printer proc)
+  (if (eq? printer :string)
+      (let ((printer (open-output-string)))
+        (proc printer)
+        (get-output-string printer))
+    (proc
+      (let ((printer-proc (table-ref *printers* printer {})))
+        (if printer-proc
+            (printer-proc)
+          printer)))))
+
+
+(register-printer :terminal terminal-port)
+
+
+;;;
 ;;;; Output
 ;;;
 
@@ -4517,7 +4438,7 @@
     (if (null? (cdr names))
         (car names)
       (let ((reversed (reverse! names)))
-        (format "{a}.{a}" (element reversed 1) (element reversed 0))))))
+        (system-format "{a}.{a}" (element reversed 1) (element reversed 0))))))
 
 
 (definition public (write-line line . rest)
@@ -4531,497 +4452,6 @@
         (do (display line printer)
             (unless (null? remain)
               (newline printer)))))
-
-
-;;;
-;;;; Format-Processor
-;;;
-
-
-;;;
-;;;; Lexicon
-;;;
-
-
-;; (format "{a width: 10 justify: :right} {l}" 5 lst)
-
-;; In the preceding format :
-;;   directives -> {a} and {l}
-;;   parameters -> width: 10 justify: :right
-;;   arguments  -> 5 and lst
-
-
-(class package Format-Processor extends Object
-  
-  
-  (slot out                <port>)
-  (slot control-string     <string>)
-  (slot control-reader     <port>)
-  (slot arguments          <list>)
-  (slot arguments-iterator <List-Iterator>)
-  (slot formatter)
-  
-  
-  (method (initialize control-string <string> arguments <list>)
-    (nextmethod)
-    (set! control-string~self control-string)
-    (set! control-reader~self (open-input-string control-string))
-    (set! arguments~self arguments)
-    (set! arguments-iterator~self (new List-Iterator arguments))
-    (set! formatter~self {}))
-  
-  
-  ;;;
-  ;;;; Format
-  ;;;
-  
-  
-  (method (process-format destination)
-    (with-printer destination
-      (function (printer)
-        (set! out printer)
-        (process control-reader))))
-  
-  
-  ;;;
-  ;;;; Process
-  ;;;
-  
-  
-  (method (process reader (output? #t))
-    (let ((done? #f))
-      (while (not done?)
-        (let ((c (read-char reader)))
-          (if (eof-object? c)
-              (set! done? #t)
-            (case c
-              ((#\~)
-               (let ((c (require-char reader)))
-                 (when output?
-                   (write-char c out))))
-              ((#\{)
-               (let ((c (peek-char reader)))
-                 (case c
-                   ((#\?)
-                    (if (not output?)
-                        (error "Recursive conditional directive not yet supported")
-                      (read-char reader)
-                      (conditional-directive reader)))
-                   (else
-                    (let ((directive (read reader))
-                          (parameters (read-parameters reader)))
-                      (case directive
-                        ((a) (ascii-directive parameters output?))
-                        ((s) (sexpr-directive parameters output?))
-                        ((t) (text-directive parameters output?))
-                        ((p) (print-directive parameters output?))
-                        ((c) (char-directive parameters output?))
-                        ((u) (unsigned-directive parameters output?))
-                        ((b) (binary-directive parameters output?))
-                        ((x) (hexadecimal-directive parameters output?))
-                        ((r) (real-directive parameters output?))
-                        ((l) (list-directive parameters output?))
-                        ((k) (properties-directive parameters output?))
-                        ((_) (column-directive parameters output?))
-                        ((&) (tab-directive parameters output?))
-                        ((%) (newline-directive parameters output?))
-                        (($) (freshline-directive parameters output?))
-                        ((!) (force-directive parameters output?))
-                        ((z) (localize-directive parameters output?))
-                        (else (error "Unknown format directive ~{{t}}" directive))))))))
-              (else
-               (when output?
-                 (write-char c out))))))))
-    (when (and (toplevel? reader) (not (arguments-empty?)))
-      (error "Too many format arguments")))
-  
-  
-  (method (read-parameters reader)
-    (read-delimited reader "format parameter" #\}))
-  
-  
-  (method (toplevel? reader)
-    (eq? reader control-reader))
-  
-  
-  (method (arguments-empty?)
-    (done?~ arguments-iterator))
-  
-  
-  ;;;
-  ;;;; Conditional
-  ;;;
-  
-  
-  (method (conditional-directive reader)
-    (cond ((eqv? (peek-char reader) #\:)
-           (read-char reader)
-           (process-conditional reader #t))
-          (else
-           (process-conditional reader #f))))
-  
-  
-  (method (read-control-string reader)
-    (let ((printer (open-output-string))
-          (done? #f))
-      (while (not done?)
-        (let ((c (require-char reader)))
-          (if (and (eqv? c #\~) (eqv? (peek-char reader) #\}))
-              (begin
-                (read-char reader)
-                (set! done? #t))
-            (write-char c printer))))
-      (get-output-string printer)))
-  
-  
-  (method (process-conditional reader explicit?)
-    (let ((subreader (open-input-string (read-control-string reader)))
-          (output? (or (and explicit? (next-argument)) (and (not explicit?) (peek-argument)))))
-      (process subreader output?)))
-  
-  
-  ;;;
-  ;;;; Directives
-  ;;;
-  
-  
-  (method (ascii-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (display argument printer))))))
-  
-  
-  (method (sexpr-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (write argument printer))))))
-  
-  
-  (method (text-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (textual argument printer))))))
-  
-  
-  (method (print-directive parameters output?)
-    (let ((argument (next-argument))
-          (detail (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-expr argument detail printer))))))
-  
-  
-  (method (char-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (write-char argument printer))))))
-  
-  
-  (method (unsigned-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-unsigned argument printer))))))
-  
-  
-  (method (binary-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-binary argument printer))))))
-  
-  
-  (method (hexadecimal-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-hexadecimal argument printer))))))
-  
-  
-  (method (real-directive parameters output?)
-    (let ((argument (next-argument))
-          (precision (get-precision parameters)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-real argument precision printer))))))
-  
-  
-  (method (list-directive parameters output?)
-    (let* ((argument (next-argument))
-           (separator (get-separator parameters))
-           (last-separator (get-last-separator parameters separator))
-           (before (get-before parameters))
-           (after (get-after parameters))
-           (detail (get-detail parameters)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-list argument separator last-separator before after detail printer))))))
-
-  
-  (method (properties-directive parameters output?)
-    (let ((argument (next-argument))
-          (properties (get-properties parameters))
-          (empty-value (get-empty-value parameters))
-          (detail (get-detail parameters)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (let ((scan argument))
-              (while (not-null? scan)
-                (let ((key (car scan))
-                      (value (cadr scan)))
-                  (when (and (or (null? properties) (memq? key properties))
-                             (or (not empty-value) (neq? value empty-value)))
-                    (write-char #\space printer)
-                    (print-expr key detail printer)
-                    (write-char #\space printer)
-                    (print-expr value detail printer)))
-                (set! scan (cddr scan)))))))))
-  
-  
-  (method (column-directive parameters output?)
-    (when output?
-      (let ((count (optional-parameter parameters 1)))
-        (loop (repeat count)
-              (do (write-char #\space out))))))
-  
-  
-  (method (tab-directive parameters output?)
-    (when output?
-      (let ((count (optional-parameter parameters 1)))
-        (loop (repeat count)
-              (do (write-char #\tab out))))))
-  
-  
-  (method (newline-directive parameters output?)
-    (when output?
-      (let ((count (optional-parameter parameters 1)))
-        (loop (repeat count)
-              (do (newline out))))))
-  
-  
-  (method (freshline-directive parameters output?)
-    (when output?
-      (let ((count (optional-parameter parameters 1)))
-        (fresh-line out)
-        (loop (repeat (- count 1))
-              (do (newline out))))))
-  
-  
-  (method (force-directive parameters output?)
-    (when output?
-      (force-output out)))
-  
-  
-  (method (localize-directive parameters output?)
-    (unimplemented 'localize-directive)
-    @unimpl
-    (let ((argument (localize (next-argument))))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (display argument printer))))))
-  
-  
-  ;;;
-  ;;;; Justification
-  ;;;
-  
-  
-  (method (with-justification parameters proc)
-    (let ((width (get-width parameters)))
-      (if (not width)
-          (proc out)
-        (let ((justification (get-justify parameters))
-              (padding (get-padding parameters))
-              (printer (open-output-string)))
-          (proc printer)
-          (let ((buffer (get-output-string printer)))
-            (justify buffer width justification padding))))))
-  
-  
-  (method (justify buffer width justification padding)
-    (let ((size (cardinality buffer)))
-      (if (>= size width)
-          (display buffer out)
-        (let ((n (- width size)))
-          (case justification
-            ((:left)
-             (display buffer out)
-             (loop (repeat n)
-                   (do (write-char padding out))))
-            ((:right)
-             (loop (repeat n)
-                   (do (write-char padding out)))
-             (display buffer out)))))))
-  
-  
-  ;;;
-  ;;;; Parameters
-  ;;;
-  
-  
-  (method (optional-parameter parameters default)
-    (if (null? parameters)
-        default
-      (let ((param (car parameters)))
-        (if (eq? param :v)
-            (next-argument)
-          param))))
-  
-  
-  (method (keyword-parameter parameters keyword default)
-    (let ((param (getf parameters keyword not-found: default)))
-      (if (eq? param :v)
-          (next-argument)
-        param)))
-  
-  
-  (method (get-list? parameters)
-    (keyword-parameter parameters list?: #f))
-  
-  
-  (method (get-width parameters)
-    (keyword-parameter parameters width: {}))
-  
-  
-  (method (get-justify parameters)
-    (let ((param (keyword-parameter parameters justify: :left)))
-      (if (not (memq? param '(:left :right)))
-          (error "Unknown justification {t}" param)
-        param)))
-  
-  
-  (method (get-padding parameters)
-    (keyword-parameter parameters padding: #\space))
-  
-  
-  (method (get-separator parameters)
-    (keyword-parameter parameters separator: " "))
-  
-  
-  (method (get-last-separator parameters separator)
-    (keyword-parameter parameters last-separator: separator))
-  
-  
-  (method (get-before parameters)
-    (keyword-parameter parameters before: {}))
-  
-  
-  (method (get-after parameters)
-    (keyword-parameter parameters after: {}))
-  
-  
-  (method (get-precision parameters)
-    (keyword-parameter parameters precision: 3))
-  
-  
-  (method (get-properties parameters)
-    (keyword-parameter parameters properties: '()))
-  
-  
-  (method (get-empty-value parameters)
-    (keyword-parameter parameters empty-value: {}))
-  
-  
-  (method (get-detail parameters)
-    (keyword-parameter parameters detail: :reader))
-  
-  
-  ;;;
-  ;;;; Arguments
-  ;;;
-  
-  
-  (method (peek-argument)
-    (if (done?~ arguments-iterator)
-        (error "Not enough format arguments for {t}" control-string)
-      (peek~ arguments-iterator)))
-  
-  
-  (method (next-argument)
-    (if (done?~ arguments-iterator)
-        (error "Not enough format arguments for {t}" control-string)
-      (get-next~ arguments-iterator))))
-
-
-;;;
-;;;; Format
-;;;
-
-
-(definition (parse-format rest proc)
-  (if (string? (car rest))
-      (proc ':string (car rest) (cdr rest))
-    (proc (car rest) (cadr rest) (cddr rest))))
-
-
-(definition public (format . rest)
-  (parse-format rest
-    (function (destination control-string arguments)
-      (let ((processor (new Format-Processor control-string arguments)))
-        (process-format~ processor destination)))))
-
-
-;;;
-;;;; Formatting
-;;;
-
-
-(definition public (format-cardinality n <fx>)
-  (if (= n 0)
-      "No"
-    (->string n)))
-
-
-(definition public (format-plural n <fx> (plural "s"))
-  (if (= n 1)
-      ""
-    plural))
-
-
-(definition public (format-gender word)
-  (if (vowel? (first word))
-      "an"
-    "a"))
-
-
-(definition public (format-is/are n <fx>)
-  (if (= n 1)
-      "is"
-    "are"))
-
-
-(definition public (format-was/were n <fx>)
-  (if (= n 1)
-      "was"
-    "were"))
-
-
-(definition public (format-y/ies n <fx>)
-  (if (= n 1)
-      "y"
-    "ies"))
-
-
-(definition public (format-following name <Object> n <fx>)
-  (if (= n 1)
-      (format "{a} was" name)
-    (format "{a} {a}s where" n name)))
 
 
 ;;;
@@ -5085,7 +4515,7 @@
               (do (write-char (string-ref sequence n) output)))
       (print-unreadable self output
         (function (output)
-          (format output "{s} {s} {s}" sequence start size)))))
+          (system-format output "{s} {s} {s}" sequence start size)))))
   
   
   (method (coerce-string)

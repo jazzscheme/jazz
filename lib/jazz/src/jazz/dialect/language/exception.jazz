@@ -1,0 +1,354 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Language
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.dialect.language.exception jazz.dialect
+
+
+(proclaim (warn optimizations))
+
+
+(import (jazz.dialect.language)
+        (jazz.dialect.language.format)
+        (jazz.dialect.language.geometry)
+        (jazz.dialect.language.object))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(definition *exception-debugger*
+  {})
+
+
+(definition public (get-exception-debugger)
+  *exception-debugger*)
+
+(definition public (set-exception-debugger exception-debugger)
+  (set! *exception-debugger* exception-debugger))
+
+
+(definition current-exception-debugger
+  (make-parameter {}))
+
+
+(definition package (exception-debugger-hook exc other)
+  (let ((exception-debugger (either (current-exception-debugger) *exception-debugger*)))
+    (if exception-debugger
+        (exception-debugger exc)
+      (system-exception-hook exc other))))
+
+
+(definition public (with-exception-debugger exception-debugger thunk)
+  (parameterize ((current-exception-debugger exception-debugger))
+    (thunk)))
+
+
+(definition public (system-exception-debugger exc)
+  (invoke-exception-hook system-exception-hook exc))
+
+
+(definition public (with-system-exception-debugger thunk)
+  (with-exception-debugger system-exception-debugger
+    thunk))
+
+
+(class Exception extends Object
+  
+  
+  (method public virtual (get-message)
+    {})
+  
+  
+  (method public virtual (present-message . rest)
+    (list (get-message)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{?{s}~}" (get-message))))))
+
+
+(class package Exception-Detail extends Object
+  
+  
+  (slot icon     accessors generate)
+  (slot title    accessors generate)
+  (slot location accessors generate)
+  (slot children accessors generate)
+  
+  
+  (method (initialize icon title location children)
+    (nextmethod)
+    (set-icon icon)
+    (set-title title)
+    (set-location location)
+    (set-children children))
+  
+  
+  (method (fold-literal)
+    `(new Exception-Detail ',icon ',title ',location ',children))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            icon
+            title
+            location
+            children)))
+
+
+(class Continue extends Exception)
+
+
+(class Error extends Exception
+  
+  
+  (slot message setter generate getter (inherited generate))
+  
+  
+  (method (initialize (message: message {}))
+    (nextmethod)
+    (set-message message)))
+
+
+(class package Read-Error extends Error
+  
+  
+  (slot source)
+  (slot start)
+  (slot end)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((source {}) (start {}) (end {}) . others) rest
+      (apply nextmethod others)
+      (set! source~self source)
+      (set! start~self start)
+      (set! end~self end)))
+  
+  
+  (method public (get-source)
+    source)
+  
+  
+  (method public (get-start)
+    start)
+  
+  
+  (method public (get-end)
+    end)
+  
+  
+  (method public (get-range)
+    (new Range start end)))
+
+
+(class package Parse-Error extends Error
+  
+  
+  (slot source)
+  (slot start)
+  (slot end)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((source {}) (start {}) (end {}) . others) rest
+      (apply nextmethod others)
+      (set! source~self source)
+      (set! start~self start)
+      (set! end~self end)))
+  
+  
+  (method public (get-source)
+    source)
+  
+  
+  (method public (get-start)
+    start)
+  
+  
+  (method public (get-end)
+    end))
+
+
+(class package Convertion-Error extends Parse-Error
+  
+  
+  (slot object)
+  (slot type)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((object {}) (type {}) . others) rest
+      (apply nextmethod others)
+      (set! object~self object)
+      (set! type~self type)))
+  
+  
+  (method public (get-object)
+    object)
+  
+  
+  (method public (get-type)
+    type)
+  
+  
+  (method (get-message)
+    (let ((type (if (string? type) type (type-name type))))
+      (format "Unable to convert \"{a}\" into {a} {a}"
+              object
+              (format-gender type)
+              type))))
+
+
+(class Signal extends Exception)
+
+
+(class package Cancel-Signal extends Signal)
+
+
+(definition public (call-with-catch type catcher thunk)
+  (with-exception-filter
+    (function (exception)
+      ;; we have to be very carefull as we can
+      ;; potentially receive system exceptions
+      (and (object? exception)
+           (is? exception type)))
+    catcher
+    thunk))
+
+
+;;;
+;;;; Control
+;;;
+
+
+(definition public (throw exception)
+  (raise exception))
+
+
+(definition public inline (throw-cancel)
+  (throw (new Cancel-Signal)))
+
+
+(definition public signal throw)
+
+
+(definition public (error . rest)
+  (signal (new Error message: (apply format rest))))
+
+
+;;;
+;;;; Restart
+;;;
+
+
+(class Restart extends Object
+  
+  
+  (slot name    getter generate)
+  (slot message getter generate)
+  (slot handler getter generate)
+  
+  
+  (method (initialize name message handler)
+    (nextmethod)
+    (set! name~self name)
+    (set! message~self message)
+    (set! handler~self handler))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{a}"
+                name)))))
+
+
+(definition public current-restarts
+  (make-parameter '()))
+
+
+(definition public (with-restart-handler name message handler thunk)
+  (parameterize ((current-restarts (cons (new Restart name message handler) (current-restarts))))
+    (thunk)))
+
+
+(definition public (with-restart-catcher name message catcher thunk)
+  (continuation-capture
+    (function (catcher-cont)
+      (with-restart-handler name message
+        (function rest
+          (continuation-return catcher-cont
+            (cond ((not (null? rest)) (car rest))
+                  (catcher (catcher))
+                  (else {}))))
+        thunk))))
+
+
+(definition public (find-restart name)
+  (find-if (function (restart)
+             (eq? (get-name~ restart) name))
+           (current-restarts)))
+
+
+(definition public (find-restarts name)
+  (collect-if (function (restart)
+                (eq? (get-name~ restart) name))
+              (current-restarts)))
+
+
+(definition public (invoke-restart restart . rest)
+  (let ((handler (get-handler~ restart)))
+    (apply handler rest)))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(definition public (new-system-thread thunk . rest)
+  (apply new-thread
+         (function ()
+           (with-system-exception-debugger
+             thunk))
+         rest)))

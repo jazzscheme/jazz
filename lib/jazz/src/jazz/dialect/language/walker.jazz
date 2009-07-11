@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Language
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,70 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz scheme
+(library protected jazz.dialect.language.walker jazz.dialect
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.dialect.syntax (phase syntax))
-        (jazz.dialect.language)
-        (jazz.dialect.language.debug)
+(proclaim (warn optimizations))
+
+
+(import (jazz.dialect.language)
         (jazz.dialect.language.exception)
         (jazz.dialect.language.format)
-        (jazz.dialect.language.geometry)
-        (jazz.dialect.language.object)
-        (jazz.dialect.language.parse)
-        (jazz.dialect.language.walker)
-        (jazz.dialect.walker.jazz)))
+        (jazz.dialect.language.object))
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(class package Walk-Location extends Object
+  
+  
+  (slot module-locator      getter generate)
+  (slot declaration-locator getter generate)
+  (slot locat               getter generate)
+  
+  
+  (method (initialize module-locator declaration-locator locat)
+    (nextmethod)
+    (set! module-locator~self module-locator)
+    (set! declaration-locator~self declaration-locator)
+    (set! locat~self locat))
+  
+  
+  (method (fold-literal)
+    `(new Walk-Location ',module-locator ',declaration-locator ',locat))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            module-locator
+            declaration-locator
+            locat)))
+
+
+(class package Walk-Problem extends Error
+  
+  
+  (slot location getter generate))
+
+
+(class package Walk-Problems extends Error
+  
+  
+  (slot warnings getter generate)
+  (slot errors   getter generate))
+
+
+(class package Walk-Warning extends Walk-Problem)
+
+
+(class package Walk-Error extends Walk-Problem)
+
+
+(class package Unresolved-Error extends Walk-Error
+  
+  
+  (slot symbol getter generate)))

@@ -3831,7 +3831,7 @@
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
 (jazz.add-primitive-patterns 'jazz.dialect.language.element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
 (jazz.add-primitive-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
 

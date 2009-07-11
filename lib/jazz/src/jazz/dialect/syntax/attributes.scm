@@ -118,8 +118,8 @@
            (else (nextmethod ,property ,value))))
        ,@(map (lambda (property)
                 (let* ((name (car property))
-                       (getter (string->symbol (format "get-{a}" name)))
-                       (setter (string->symbol (format "set-{a}" name))))
+                       (getter (string->symbol (system-format "get-{a}" name)))
+                       (setter (string->symbol (system-format "set-{a}" name))))
                   `(begin
                      (method public (,getter)
                        ,name)

@@ -45,6 +45,6 @@
 
 ;; resume the IDE message loop
 (define (resume)
-  (let ((get-process (jazz.global-value 'jazz.dialect.language.get-process))
+  (let ((get-process (jazz.global-value 'jazz.system.access.get-process))
         (resume-loop (jazz.global-value 'jazz.system.process.Process.Process.resume-loop)))
     (resume-loop (get-process)))))

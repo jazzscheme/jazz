@@ -83,8 +83,7 @@
                  ;; mainly to the safe declare)
                  ,@(if jazz.kernel-optimize?
                        '()
-                     '((not proper-tail-calls)
-                       (not lambda-lift)))
+                     '((not proper-tail-calls)))
                  
                  ,@(if jazz.debug-user?
                        ;; safe and inlining primitives at the same time

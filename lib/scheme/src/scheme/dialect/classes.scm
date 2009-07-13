@@ -49,6 +49,16 @@
 
 
 ;;;
+;;;; Define Special Form
+;;;
+
+
+(jazz.define-class jazz.Define-Special-Form-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-define-special-form-declaration
+  ((signature %%get-define-special-form-signature %%set-define-special-form-signature)
+   (body      %%get-define-special-form-body      %%set-define-special-form-body)))
+
+
+;;;
 ;;;; Define Macro
 ;;;
 

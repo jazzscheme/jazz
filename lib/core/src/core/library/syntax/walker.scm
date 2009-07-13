@@ -2241,6 +2241,19 @@
 ;;;
 
 
+(define jazz.special-forms
+  '())
+
+
+(define (jazz.add-special-form symbol special-form)
+  (set! jazz.special-forms (%%cons (%%cons symbol special-form) jazz.special-forms)))
+
+
+(define (jazz.find-special-form symbol)
+  (let ((found (assq walk jazz.special-forms)))
+    (if found (cdr found) #f)))
+
+
 (jazz.define-class-runtime jazz.Special-Form)
 
 
@@ -2253,8 +2266,12 @@
 
 
 (jazz.define-method (jazz.walk-binding-walk-form (jazz.Special-Form binding) walker resume declaration environment form-src)
-  (let ((walk (%%get-special-form-walk binding)))
-    (walk walker resume declaration environment form-src)))
+  (let ((walk-proc/symbol (%%get-special-form-walk binding)))
+    (let ((walk (if (%%symbol? walk-proc/symbol)
+                    ;; we should cache it
+                    (jazz.find-special-form walk-proc/symbol)
+                  walk-proc/symbol)))
+      (walk walker resume declaration environment form-src))))
 
 
 (jazz.encapsulate-class jazz.Special-Form)

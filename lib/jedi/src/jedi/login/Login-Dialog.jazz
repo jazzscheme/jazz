@@ -152,7 +152,7 @@
         ((new)
          (let ((content (get-string-content~ (locate 'new-profile))))
            (let ((name (string->symbol (capitalize content)))
-                 (module (string->symbol (format "profile.{a}" (downcase content)))))
+                 (module (string->symbol (profile-module-name content))))
              (values name module bindings always-use?))))
         ((existing)
          (let* ((tree (locate 'profiles))
@@ -161,6 +161,10 @@
                (values {} {} #f)
              (let ((profile (get-user-data~ (get-row~ tree rank))))
                (values (profile-name profile) (profile-module profile) bindings always-use?))))))))
+  
+  
+  (method (profile-module-name name)
+    (format "profile.{a}" (downcase name)))
   
 
   ;;;
@@ -287,21 +291,21 @@
   
   
   (method (validate-new-profile profile-name)
-    (cond ((let ((first (first profile-name)))
-             (not (or (eqv? first #\_)
-                      (alphabetic? first))))
-           "Profile name must start with a letter or an underscore")
-          ((not (every? (function (char)
-                          (or (alphabetic? char)
-                              (numeric? char)
-                              (memv? char '(#\minus #\_))))
-                        profile-name))
-           "Profile name can only contain letters, digits, dashes and underscores")
-          ((let ((dir (new Directory (list 'Profiles profile-name))))
-             (exists?~ dir))
-           (format "The profile name \"{a}\" already exists in your home library" profile-name))
-          (else
-           {})))
+    (let ((module-name (profile-module-name profile-name)))
+      (cond ((let ((first (first profile-name)))
+               (not (or (eqv? first #\_)
+                        (alphabetic? first))))
+             "Profile name must start with a letter or an underscore")
+            ((not (every? (function (char)
+                            (or (alphabetic? char)
+                                (numeric? char)
+                                (memv? char '(#\minus #\_))))
+                          profile-name))
+             "Profile name can only contain letters, digits, dashes and underscores")
+            ((exists?~ (new Directory (list 'User "lib" module-name)))
+             (format "Profile directory already exists: ~~/jazz_user/lib/{a}" module-name))
+            (else
+             {}))))
   
 
   ;;;

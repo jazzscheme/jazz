@@ -162,26 +162,8 @@
 
 
 ;;;
-;;;; Pathname
+;;;; Path
 ;;;
-
-
-(definition package (validate-component object)
-  (let ((original object))
-    (letrec ((validate
-               (function (object)
-                 (cond ((null? object))
-                       ((string? object)
-                        (when (equal? object "..")
-                          (error "Usage of .. syntax is not permitted in jazz pathnames")))
-                       ((symbol? object))
-                       ((pair? object)
-                        (if (pair? (car object))
-                            (error "Bad pathname sub-component {t} of {t}" (car object) original)
-                          (validate (car object))
-                          (validate (cdr object))))
-                       (else (error "Bad pathname sub-component {t} of {t}" object original))))))
-      (validate object))))
 
 
 (definition public (extract-name filename <string>) <string>
@@ -421,6 +403,22 @@
     (nextmethod)
     (validate-component lst)
     (set-list lst))
+  
+  
+  (definition (validate-component object)
+    (let ((original object))
+      (letrec ((validate
+                 (function (object)
+                   (cond ((null? object))
+                         ((string? object))
+                         ((symbol? object))
+                         ((pair? object)
+                          (if (pair? (car object))
+                              (error "Bad pathname component {t} of {t}" (car object) original)
+                            (validate (car object))
+                            (validate (cdr object))))
+                         (else (error "Bad pathname component {t} of {t}" object original))))))
+        (validate object))))
   
   
   (method public (parse . rest)

@@ -405,6 +405,13 @@
   (%%table-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
 
 
+(jazz.define-method (jazz.lookup-declaration (jazz.Namespace-Declaration namespace-declaration) symbol external?)
+  (let ((access (if external? jazz.public-access jazz.private-access)))
+    (%%table-ref (%%get-access-lookup namespace-declaration access)
+                 symbol
+                 #f)))
+
+
 (jazz.encapsulate-class jazz.Namespace-Declaration)
 
 
@@ -508,13 +515,6 @@
           (%%when (%%neq? value actual)
             (set! lst (%%cons (%%list key value actual) lst))))))
     lst))
-
-
-(jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol external?)
-  (let ((access (if external? jazz.public-access jazz.private-access)))
-    (%%table-ref (%%get-access-lookup declaration access)
-                 symbol
-                 #f)))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -5431,7 +5431,7 @@
 
 
 (define (jazz.release-catalog-entries)
-  (jazz.iterate-table
+  (%%iterate-table
     jazz.Catalog
     (lambda (module-name entry)
       (if (%%pair? entry)

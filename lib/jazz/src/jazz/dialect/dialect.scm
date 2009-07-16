@@ -251,13 +251,6 @@
     #f))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Category-Declaration category-declaration) symbol external?)
-  (let ((access (if external? jazz.public-access jazz.private-access)))
-    (%%table-ref (%%get-access-lookup category-declaration access)
-                 symbol
-                 #f)))
-
-
 (jazz.encapsulate-class jazz.Category-Declaration)
 
 

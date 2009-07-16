@@ -1309,13 +1309,13 @@
                        type
                      (begin
                        (readc)
-                       (new-function-type (list type) (parse #t)))))
+                       (new-function-type (%%list type) (parse #t)))))
                   ((#\^)
                    (if atomic?
                        type
                      (begin
                        (readc)
-                       (let ((parameters (cons type (parse-until #\^ #\:))))
+                       (let ((parameters (%%cons type (parse-until #\^ #\:))))
                          (new-function-type parameters (parse #t))))))
                   (else
                    type)))))))
@@ -1462,7 +1462,7 @@
         (body (%%get-macro-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (jazz.sourcify-if
             `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
                ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
@@ -1513,7 +1513,7 @@
         (body (%%get-syntax-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (jazz.sourcify-if
             `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
                ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
@@ -1595,7 +1595,7 @@
         (body (%%get-c-definition-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (jazz.sourcify-if
             `(c-define ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment)) ,parameter-types ,result-type ,c-name ,scope
                ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
@@ -3232,7 +3232,7 @@
         (body (%%get-lambda-body expression)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (let ((signature-output (jazz.emit-signature signature declaration augmented-environment)))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (let ((signature-casts (jazz.emit-signature-casts signature declaration augmented-environment))
@@ -3277,7 +3277,7 @@
     (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
       (lambda (frame)
         (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
+              (augmented-environment (%%cons frame environment)))
           (let ((bindings-output
                   (map (lambda (binding annotated-variable)
                          (let ((variable (%%car binding))
@@ -3320,10 +3320,10 @@
   (let ((variable (%%get-named-let-variable expression))
         (bindings (%%get-let-bindings expression))
         (body (%%get-let-body expression)))
-    (jazz.with-annotated-frame (cons (jazz.new-annotated-variable variable jazz.Any jazz.Any) (jazz.annotate-bindings bindings))
+    (jazz.with-annotated-frame (%%cons (jazz.new-annotated-variable variable jazz.Any jazz.Any) (jazz.annotate-bindings bindings))
       (lambda (frame)
         (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
+              (augmented-environment (%%cons frame environment)))
           (let ((bindings-output
                   (map (lambda (binding annotated-variable)
                          (let ((variable (%%car binding))
@@ -3368,7 +3368,7 @@
     (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
       (lambda (frame)
         (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
+              (augmented-environment (%%cons frame environment)))
           (let ((bindings-output
                   (map (lambda (binding annotated-variable)
                          (let ((variable (%%car binding))
@@ -3413,7 +3413,7 @@
     (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
       (lambda (frame)
         (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
+              (augmented-environment (%%cons frame environment)))
           (let ((bindings-output
                   (map (lambda (binding annotated-variable)
                          (let ((variable (%%car binding))
@@ -3458,7 +3458,7 @@
         (body (%%get-receive-body expression)))
     (jazz.with-annotated-frame (jazz.annotate-receive variables)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (let ((expression-output (jazz.sourcified-form (jazz.emit-expression expr declaration environment))))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
               (jazz.new-code
@@ -3497,7 +3497,7 @@
         (expressions (%%get-body-expressions expression)))
     (jazz.with-annotated-frame (jazz.annotate-internal-defines internal-defines)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (jazz.new-code
             (append (jazz.codes-forms (jazz.emit-expressions internal-defines declaration augmented-environment))
                     (jazz.codes-forms (jazz.emit-expressions expressions declaration augmented-environment)))
@@ -3594,14 +3594,14 @@
     (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
       (lambda (frame)
         (let ((variables (%%get-annotated-frame-variables frame))
-              (augmented-environment (cons frame environment)))
+              (augmented-environment (%%cons frame environment)))
           (let ((bindings-output
                   (map (lambda (binding annotated-variable)
                          (let ((variable (%%car binding))
                                (init (%%cadr binding))
                                (step (%%cddr binding)))
                            (let ((init-code (jazz.sourcified-form (jazz.emit-expression init declaration augmented-environment)))
-                                 (step-code-list (if step (list (jazz.sourcified-form (jazz.emit-expression step declaration augmented-environment))) '())))
+                                 (step-code-list (if step (%%list (jazz.sourcified-form (jazz.emit-expression step declaration augmented-environment))) '())))
                              `(,(%%get-lexical-binding-name variable)
                                ,init-code
                                ,@step-code-list))))
@@ -3778,7 +3778,7 @@
                     (map (lambda (pattern)
                            (let ((name (%%car pattern))
                                  (specifier (%%cadr pattern)))
-                             (list name (jazz.walk-specifier #f #f #f '() specifier))))
+                             (%%list name (jazz.walk-specifier #f #f #f '() specifier))))
                          patterns))))
               jazz.primitive-patterns)
     (set! jazz.primitive-patterns table)))
@@ -4042,11 +4042,11 @@
                       #f)))
               (let ((yes
                       (if yes-type
-                          (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin yes-type)) #f) (%%car env))
+                          (%%cons (jazz.new-annotated-frame (%%list (jazz.new-restricted-binding origin yes-type)) #f) (%%car env))
                         (%%car env)))
                     (no
                       (if no-type
-                          (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin no-type)) #f) (%%cdr env))
+                          (%%cons (jazz.new-annotated-frame (%%list (jazz.new-restricted-binding origin no-type)) #f) (%%cdr env))
                         (%%cdr env))))
                 (%%cons yes no))))
         env)))
@@ -4110,13 +4110,13 @@
            (receive (origin actual-type) (extract-binding expr env)
              (if origin
                  (if (%%class-is? actual-type jazz.Nillable-Type)
-                     (let ((yes (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin (%%get-nillable-type-type actual-type))) #f) (%%car env)))
+                     (let ((yes (%%cons (jazz.new-annotated-frame (%%list (jazz.new-restricted-binding origin (%%get-nillable-type-type actual-type))) #f) (%%car env)))
                            (no (%%cdr env)))
                        (%%cons yes no))
                    env)
                env)))))
   
-  (process-expr test (cons environment environment)))
+  (process-expr test (%%cons environment environment)))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.If expression) declaration environment)
@@ -4160,8 +4160,8 @@
     (jazz.new-code
       `(cond ,@(let recurse ((clauses clauses)
                              (environment environment))
-                    (if (null? clauses) '()
-                      (let ((clause (car clauses)))
+                    (if (%%null? clauses) '()
+                      (let ((clause (%%car clauses)))
                         (let ((test (%%car clause))
                               (body (%%cdr clause)))
                           (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
@@ -4170,7 +4170,7 @@
                                            'else
                                          (jazz.sourcified-form (jazz.emit-expression test declaration environment)))
                                       ,(jazz.sourcified-form (jazz.emit-expression body declaration yes-environment)))))
-                              (cons output (recurse (cdr clauses) no-environment)))))))))
+                              (%%cons output (recurse (%%cdr clauses) no-environment)))))))))
       (jazz.extend-types (map (lambda (clause)
                                 (%%get-code-type
                                   (let ((body (%%cdr clause)))
@@ -4577,9 +4577,9 @@
                            (present-expression sta))
                           (else
                            sta))))
-          (if (null? s)
+          (if (%%null? s)
               info
-            (cons info s))))
+            (%%cons info s))))
       cons
       '())))
 
@@ -4868,7 +4868,7 @@
 (define (jazz.register-variable declaration suffix value)
   (let ((library-declaration (%%get-declaration-toplevel declaration)))
     (let ((symbol (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator library-declaration)) "." suffix))))
-      (let ((variable (cons symbol value)))
+      (let ((variable (%%cons symbol value)))
         (jazz.enqueue (%%get-library-declaration-variables library-declaration) variable)
         variable))))
 
@@ -5334,7 +5334,7 @@
                                  (let ((variable (%%car parameter)))
                                    (jazz.parse-specifier (%%cdr parameter)
                                      (lambda (specifier rest)
-                                       (if (null? (%%cdr rest))
+                                       (if (%%null? (%%cdr rest))
                                            (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
                                                  (default (%%car rest)))
                                              (set! section 'optional)
@@ -5426,8 +5426,10 @@
 
 (define (jazz.set-catalog-entry-status module-name status)
   (let ((declaration (let ((entry (jazz.get-catalog-entry module-name)))
-                       (if (%%pair? entry) (cdr entry) entry))))
-    (jazz.set-catalog-entry module-name (if status (cons status declaration) declaration))))
+                       (if (%%pair? entry)
+                           (%%cdr entry)
+                         entry))))
+    (jazz.set-catalog-entry module-name (if status (%%cons status declaration) declaration))))
 
 
 (define (jazz.release-catalog-entries)
@@ -5435,7 +5437,7 @@
     jazz.Catalog
     (lambda (module-name entry)
       (if (%%pair? entry)
-          (jazz.set-catalog-entry module-name (cdr entry))))))
+          (jazz.set-catalog-entry module-name (%%cdr entry))))))
 
 
 (define (jazz.call-with-catalog-entry-lock module-name thunk)
@@ -5454,8 +5456,8 @@
 
 (define (jazz.outline-module module-name #!optional (error? #t))
   (let ((entry (jazz.get-catalog-entry module-name)))
-    (let ((status (if (%%pair? entry) (car entry) #f))
-          (declaration (if (%%pair? entry) (cdr entry) entry)))
+    (let ((status (if (%%pair? entry) (%%car entry) #f))
+          (declaration (if (%%pair? entry) (%%cdr entry) entry)))
       (if status
           (jazz.error "Circular dependency detected with {s}" module-name)
         (if (not declaration)
@@ -5502,7 +5504,7 @@
   (receive (form extraneous?)
       (jazz.with-extension-reader (jazz.pathname-extension source)
          (lambda ()
-           (call-with-input-file (list path: source eol-encoding: 'cr-lf)
+           (call-with-input-file (%%list path: source eol-encoding: 'cr-lf)
              (lambda (port)
                (parameterize ((jazz.parse-read? parse-read?))
                  (if (not read-source?)

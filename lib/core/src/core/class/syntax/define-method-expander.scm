@@ -47,6 +47,18 @@
          (implementation-name (jazz.method-implementation-name class-name name))
          (rank-name (jazz.method-rank-name implementation-name))
          (is-test (if bootstrap-type? 'jazz.bootstrap-type? '%%class-is?)))
+    #;
+    (let ((proc (lambda (object-parameter object-symbol)
+                  `(%%core-assertion (,is-test ,object-symbol ,class-name) (jazz.error ,(jazz.format "{s} expected in calling {s}: {s}" class-name name object-parameter))
+                     ((%%vector-ref (%%get-class-core-vtable (%%get-object-class ,object-symbol)) ,rank-name)
+                      ,object-symbol
+                      ,@extra-parameters)))))
+      `(jazz.define-macro (,name ,object-parameter ,@extra-parameters)
+         (if (%%symbol? ,object-parameter)
+             ,(proc object-parameter object-parameter)
+           (jazz.with-uniqueness ,object-parameter
+             (lambda (obj)
+               ,(proc object-parameter 'obj))))))
     `(jazz.define-macro (,name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
            (%%list '%%core-assertion (%%list ',is-test ,object-parameter ',class-name) (%%list 'jazz.error (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))

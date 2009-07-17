@@ -398,6 +398,11 @@
     repository))
 
 
+(define (jazz.install-repository-if-exists directory)
+  (if (file-exists? directory)
+      (jazz.install-repository directory)))
+
+
 (define (jazz.uninstall-repository repository)
   (set! jazz.Repositories (%%remove repository jazz.Repositories)))
 

@@ -254,8 +254,8 @@
 ;;;
 
 
-(jazz.define-macro (%%make-manifest name version digest)
-  `(%%vector 'manifest ,name ,version ,digest))
+(jazz.define-macro (%%make-manifest name version digest references)
+  `(%%vector 'manifest ,name ,version ,digest ,references))
 
 
 (jazz.define-macro (%%manifest-name manifest)
@@ -266,6 +266,12 @@
 
 (jazz.define-macro (%%manifest-digest manifest)
   `(%%vector-ref ,manifest 3))
+
+(jazz.define-macro (%%manifest-references manifest)
+  `(%%vector-ref ,manifest 4))
+
+(jazz.define-macro (%%manifest-references-set! manifest references)
+  `(%%vector-set! ,manifest 4 ,references))
 
 
 ;;;

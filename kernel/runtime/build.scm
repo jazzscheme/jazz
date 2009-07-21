@@ -170,7 +170,7 @@
                   (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
                     (feedback-message "; compiling {a}..." path)
                     (compile-file-to-c standardized-path options: options output: output)
-                    (jazz.update-manifest-compile-time name mnf src))
+                    (jazz.update-manifest-compile-time name mnf src #f))
                   #t)
               #f))))
       

@@ -235,22 +235,25 @@
             (let ((form (read input)))
               (let ((name (%%cadr form))
                     (version-form (%%assq 'version (%%cddr form)))
-                    (digest-form (%%assq 'digest (%%cddr form))))
+                    (digest-form (%%assq 'digest (%%cddr form)))
+                    (references-form (%%assq 'references (%%cddr form))))
                 (let (;; test is for backward compatibility and could be removed in the future
                       (version (if version-form (%%cadr version-form) #f))
                       (compile-time-hash (%%cadr digest-form))
                       (source-hash (%%car (%%cddr digest-form)))
-                      (source-time (%%cadr (%%cddr digest-form))))
+                      (source-time (%%cadr (%%cddr digest-form)))
+                      (references (if references-form (%%cadr references-form) #f)))
                   (if (boolean? source-time)
                       #f
-                    (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time))))))))
+                    (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time) references)))))))
       #f)))
 
 
 (define (jazz.save-manifest filepath manifest)
   (let ((name (%%manifest-name manifest))
         (version (%%manifest-version manifest))
-        (digest (%%manifest-digest manifest)))
+        (digest (%%manifest-digest manifest))
+        (references (%%manifest-references manifest)))
     (call-with-output-file filepath
       (lambda (output)
         (display "(manifest " output)
@@ -267,23 +270,39 @@
         (write (%%digest-source-hash digest) output)
         (display " " output)
         (write (%%digest-source-time digest) output)
+        (if (and references (not (null? references)))
+            (begin
+              (display ")" output)
+              (newline output)
+              (display "  (references " output)
+              (display (car references) output)
+              (for-each (lambda (reference)
+                          (newline output)
+                          (display "              " output)
+                          (display reference output))
+                        (cdr references))))
         (display "))" output)
         (newline output)))))
 
 
+(define (jazz.load/create-manifest name manifest-filepath)
+  (or (jazz.load-manifest manifest-filepath)
+      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0) '())))
+
+
 (define (jazz.cache-manifest-uptodate? name manifest-filepath src-filepath)
-  (let ((manifest (or (jazz.load-manifest manifest-filepath)
-                      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0)))))
+  (let ((manifest (jazz.load/create-manifest name manifest-filepath)))
     (let ((digest (%%manifest-digest manifest)))
       (if (jazz.updated-digest-source? digest src-filepath)
           (jazz.save-manifest manifest-filepath manifest))
       (string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest)))))
 
 
-(define (jazz.update-manifest-compile-time name manifest-filepath src-filepath)
-  (let ((manifest (or (jazz.load-manifest manifest-filepath)
-                      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0)))))
+(define (jazz.update-manifest-compile-time name manifest-filepath src-filepath updated-references)
+  (let ((manifest (jazz.load/create-manifest name manifest-filepath)))
     (let ((digest (%%manifest-digest manifest)))
       (jazz.updated-digest-source? digest src-filepath)
+      (if updated-references
+          (%%manifest-references-set! manifest updated-references))
       (%%digest-compile-time-hash-set! digest (%%digest-source-hash digest))
       (jazz.save-manifest manifest-filepath manifest))))

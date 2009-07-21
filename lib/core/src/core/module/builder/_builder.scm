@@ -77,8 +77,13 @@
                 (parameterize ((jazz.walk-for 'compile))
                   (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
-                  (src-filepath (jazz.resource-pathname src)))
-              (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath)))))))
+                  (src-filepath (jazz.resource-pathname src))
+                  (references (let ((library-declaration (jazz.get-catalog-entry manifest-name)))
+                                (cond ((%%is? library-declaration jazz.Library-Declaration)
+                                       (jazz.generate-reference-list library-declaration))
+                                      ((%%is? library-declaration jazz.Module-Declaration)
+                                       #f)))))
+              (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
 (define (jazz.copy-package package)

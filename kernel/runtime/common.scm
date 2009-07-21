@@ -242,7 +242,7 @@
                       (compile-time-hash (%%cadr digest-form))
                       (source-hash (%%car (%%cddr digest-form)))
                       (source-time (%%cadr (%%cddr digest-form)))
-                      (references (if references-form (%%cadr references-form) #f)))
+                      (references (if references-form (%%cdr references-form) #f)))
                   (if (boolean? source-time)
                       #f
                     (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time) references)))))))

@@ -148,7 +148,7 @@
 
 
 (define (jazz.primitive-type-error num type proc args)
-  (error (jazz.format "(Argument {a}) {a} expected :" num type) (cons proc args)))
+  (error (jazz.format "(Argument {a}) {a} expected :" num type) (%%cons proc args)))
 
 
 ;;;
@@ -283,7 +283,7 @@
 
 (define jazz.kernel-source
   ;; kernel always needs source access to build
-  (if (or jazz.source-access? (not jazz.product))
+  (if (or jazz.source-access? (%%not jazz.product))
       ;; when the install directory is a subdirectory of the source use a .. notation
       (if (jazz.string-starts-with? jazz.source "../")
           (jazz.pathname-normalize (%%string-append jazz.kernel-install jazz.source) #f)
@@ -379,7 +379,7 @@
 
 (define (jazz.load-repository directory)
   (let ((repository-file (%%string-append directory jazz.Repository-Filename)))
-    (call-with-input-file (list path: repository-file eol-encoding: 'cr-lf)
+    (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
       (lambda (input)
         (let ((form (read input)))
           (let ((name (%%cadr form))
@@ -514,7 +514,7 @@
 
 
 (define (jazz.load-package repository parent package-name package-pathname)
-  (call-with-input-file (list path: package-pathname eol-encoding: 'cr-lf)
+  (call-with-input-file (%%list path: package-pathname eol-encoding: 'cr-lf)
     (lambda (input)
       (let ((form (read input)))
         (let ((name (%%cadr form))
@@ -825,7 +825,7 @@
                        (let ((manifest-filepath (and bin (jazz.manifest-pathname (%%resource-package bin) bin)))
                              (src-filepath (and src (jazz.resource-pathname src))))
                          (and (jazz.cache-manifest-uptodate? module-name manifest-filepath src-filepath)
-                              (not (jazz.manifest-needs-rebuild? (jazz.load-manifest manifest-filepath))))))
+                              (%%not (jazz.manifest-needs-rebuild? (jazz.load-manifest manifest-filepath))))))
                 bin)))
         (proc src bin bin-uptodate?)))))
 
@@ -1032,7 +1032,7 @@
 
 
 (define (jazz.setup-product name)
-  (if (not jazz.debugger)
+  (if (%%not jazz.debugger)
       (jazz.get-product name)
     (begin
       (set! jazz.process-name name)
@@ -1240,8 +1240,8 @@
     (define (grab-build-process name)
       (mutex-lock! process-mutex)
       (cond ((pair? free-processes)
-             (let ((process (car free-processes)))
-               (set! free-processes (cdr free-processes))
+             (let ((process (%%car free-processes)))
+               (set! free-processes (%%cdr free-processes))
                (mutex-unlock! process-mutex)
                process))
             ((< active-count jobs)
@@ -1266,7 +1266,7 @@
           (begin
             (set! active-count (- active-count 1))
             (send-command process #f))
-        (set! free-processes (cons process free-processes)))
+        (set! free-processes (%%cons process free-processes)))
       (mutex-unlock! process-mutex)
       (condition-variable-signal! process-condition))
     
@@ -1347,7 +1347,7 @@
 (cond-expand
   (gambit
     (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
+      (let ((quiet? (if (null? rest) #f (%%car rest))))
         (%%load pathname (lambda rest #f) #f #t quiet?))
       (void)))
   
@@ -1361,7 +1361,7 @@
 
 
 (define (jazz.load-resource resource . rest)
-  (let ((quiet? (if (null? rest) #f (car rest))))
+  (let ((quiet? (if (null? rest) #f (%%car rest))))
     (jazz.with-verbose (jazz.load-verbose?) "loading" (jazz.resource-package-pathname resource)
       (lambda ()
         (jazz.load (jazz.resource-pathname resource) quiet?)))))
@@ -1502,11 +1502,11 @@
 
 
 (define (jazz.push-load-stack mode module-name)
-  (set! jazz.Load-Stack (cons (cons mode module-name) jazz.Load-Stack)))
+  (set! jazz.Load-Stack (%%cons (%%cons mode module-name) jazz.Load-Stack)))
 
 
 (define (jazz.pop-load-stack)
-  (set! jazz.Load-Stack (cdr jazz.Load-Stack)))
+  (set! jazz.Load-Stack (%%cdr jazz.Load-Stack)))
 
 
 (define (jazz.call-with-load-lock thunk)
@@ -1528,7 +1528,7 @@
 
 (define (jazz.load-module module-name)
   (let ((module-state (jazz.get-environment-module module-name)))
-    (if (not (%%eq? module-state jazz.Loaded-State))
+    (if (%%not (%%eq? module-state jazz.Loaded-State))
         (jazz.call-with-load-lock ; module-state might change while suspended
           (lambda ()
             (let ((module-state (jazz.get-environment-module module-name)))

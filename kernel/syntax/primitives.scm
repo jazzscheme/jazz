@@ -781,6 +781,11 @@
       (if jazz.debug-core?
           `(string-ci=? ,str1 ,str2)
         `(##string-ci=? ,str1 ,str2)))
+    
+    (jazz.define-macro (%%string<? str1 str2)
+      (if jazz.debug-core?
+          `(string<? ,str1 ,str2)
+        `(##string<? ,str1 ,str2)))
    
     (jazz.define-macro (%%string-length str)
       (if jazz.debug-core?

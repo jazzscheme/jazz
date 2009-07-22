@@ -597,16 +597,18 @@
                        path))))
 
 
-(define (jazz.iterate-resources module-name proc)
-  (let ((path (jazz.name->path module-name)))
-    (let iter-repo ((repositories jazz.Repositories))
-      (if (%%not (%%null? repositories))
-          (let iter ((packages (jazz.repository-packages (%%car repositories))))
-            (if (%%null? packages)
-                (iter-repo (%%cdr repositories))
-              (let ((package (%%car packages)))
-                (proc package path)
-                (iter (%%cdr packages)))))))))
+(define (jazz.iterate-packages binary? proc)
+  (let iter-repo ((repositories jazz.Repositories))
+    (if (%%not (%%null? repositories))
+        (let ((repository (%%car repositories)))
+          (if (%%neq? binary? (%%repository-binary? repository))
+              (iter-repo (%%cdr repositories))
+            (let iter ((packages (jazz.repository-packages repository)))
+              (if (%%null? packages)
+                  (iter-repo (%%cdr repositories))
+                (let ((package (%%car packages)))
+                  (proc package)
+                  (iter (%%cdr packages))))))))))
 
 
 (define (jazz.get-package-autoload package name)
@@ -731,92 +733,126 @@
 ;;;
 
 
-(define (jazz.package-find-src package path extensions)
-  (define (try path)
-    (define (try-extension extension)
-      (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension)))
-          (%%make-resource package path extension)
+(define (jazz.find-module-bin module-name)
+  (define (find-bin package path)
+    (define (try path)
+      ;; we only test .o1 and let gambit find the right file by returning no extension when found
+      (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path ".o1")))
+          (%%make-resource package path #f)
         #f))
-    
-    (let iter ((extensions (or extensions '("scm" "jazz"))))
-      (if (%%null? extensions)
-          #f
-        (or (try-extension (%%car extensions))
-            (iter (%%cdr extensions))))))
   
-  (if (jazz.directory-exists? (jazz.package-pathname package path))
-      (try (%%string-append path "/_" (jazz.pathname-name path)))
-    (try path)))
-
-
-(define (jazz.package-find-bin package path)
-  (define (try path)
-    ;; we only test .o1 and let gambit find the right file by returning no extension when found
-    (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path ".o1")))
-        (%%make-resource package path #f)
-      #f))
+    (if (jazz.directory-exists? (jazz.package-pathname package path))
+        (try (%%string-append path "/_" (jazz.pathname-name path)))
+      (try path)))
   
-  (if (jazz.directory-exists? (jazz.package-pathname package path))
-      (try (%%string-append path "/_" (jazz.pathname-name path)))
-    (try path)))
-
-
-(define (jazz.find-module-src module-name extensions . rest)
-  (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (continuation-capture
-      (lambda (return)
-        (jazz.iterate-resources module-name
-          (lambda (package path)
-            (let ((src (jazz.package-find-src package path extensions)))
-              (if src
+  (continuation-capture
+    (lambda (return)
+      (let ((path (jazz.name->path module-name)))
+        (for-each (lambda (package)
+                    (let ((bin (find-bin package path)))
+                      (if bin
+                          (continuation-return return bin))))
+                  (jazz.cached-packages jazz.*binary-packages-cache* module-name))
+        (jazz.iterate-packages #t
+          (lambda (package)
+            (let ((bin (find-bin package path)))
+              (if bin
                   (begin
+                    (jazz.cache-package jazz.*binary-packages-cache* module-name package)
                     #; ;; test
                     (jazz.validate-repository-unicity (%%package-repository package)
                                                       module-name
                                                       (lambda (package)
-                                                        (jazz.package-find-src package path extensions)))
-                    (continuation-return return src))))))
+                                                        (find-bin package path)))
+                    (continuation-return return bin)))))))
+      #f)))
+
+
+(define (jazz.find-module-src module-name extensions . rest)
+  (define (find-src package path)
+    (define (try path)
+      (define (try-extension extension)
+        (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension)))
+            (%%make-resource package path extension)
+          #f))
+      
+      (let iter ((extensions (or extensions '("jazz" "scm"))))
+           (if (%%null? extensions)
+               #f
+             (or (try-extension (%%car extensions))
+                 (iter (%%cdr extensions))))))
+    
+    (if (jazz.directory-exists? (jazz.package-pathname package path))
+        (try (%%string-append path "/_" (jazz.pathname-name path)))
+      (try path)))
+  
+  (let ((error? (if (%%null? rest) #t (%%car rest))))
+    (continuation-capture
+      (lambda (return)
+        (let ((path (jazz.name->path module-name)))
+          (for-each (lambda (package)
+                      (let ((src (find-src package path)))
+                        (if src
+                            (continuation-return return src))))
+                    (jazz.cached-packages jazz.*source-packages-cache* module-name))
+          (jazz.iterate-packages #f
+            (lambda (package)
+              (let ((src (find-src package path)))
+                (if src
+                    (begin
+                      (jazz.cache-package jazz.*source-packages-cache* module-name package)
+                      #; ;; test
+                      (jazz.validate-repository-unicity (%%package-repository package)
+                                                        module-name
+                                                        (lambda (package)
+                                                          (find-src package path)))
+                      (continuation-return return src)))))))
         (if error?
             (jazz.error "Unable to find module: {s}" module-name)
           #f)))))
 
 
+(define jazz.*binary-packages-cache*
+  (%%make-table test: eq?))
+
+(define jazz.*source-packages-cache*
+  (%%make-table test: eq?))
+
+(define (jazz.cache-package cache module-name package)
+  (let ((prefix (jazz.extract-cached-prefix module-name)))
+    (let ((packages (%%table-ref jazz.*binary-packages-cache* prefix '())))
+      (if (%%not (%%memq package packages))
+          (begin
+            ;; (jazz.feedback "++ {a} {a}" (if (eq? cache jazz.*binary-packages-cache*) "bin" "src") prefix)
+            (%%table-set! jazz.*binary-packages-cache* prefix (%%cons package packages)))))))
+
+(define (jazz.cached-packages cache module-name)
+  (let ((prefix (jazz.extract-cached-prefix module-name)))
+    (%%table-ref jazz.*binary-packages-cache* prefix '())))
+
+(define (jazz.extract-cached-prefix module-name)
+  (let ((name (%%symbol->string module-name)))
+    (let ((first-period (jazz.string-find name #\.)))
+      (if first-period
+          (let ((second-period (jazz.string-find name #\. (%%fx+ first-period 1))))
+            (if second-period
+                (%%string->symbol (%%substring name 0 second-period))
+              module-name))
+        module-name))))
+
+
 (define (jazz.with-module-src/bin module-name extensions proc)
-  (let ((bin #f)
-        (src #f))
-    (continuation-capture
-      (lambda (return)
-        (jazz.iterate-resources module-name
-          (lambda (package path)
-            (if (%%not bin)
-                (set! bin (jazz.package-find-bin package path)))
-            (if (%%not src)
-                (set! src (jazz.package-find-src package path extensions)))
+  (let ((bin (jazz.find-module-bin module-name))
+        (src (jazz.find-module-src module-name extensions)))
+    (let ((bin-uptodate?
             (if src
-                (continuation-return return #f))))))
-    (if (%%not src)
-        (jazz.error "Unable to find source for module: {s}" module-name)
-      #; ;; test
-      (if bin
-          (jazz.validate-repository-unicity (%%package-repository (%%resource-package bin))
-                                            (jazz.path->name (%%resource-path bin))
-                                            (lambda (package)
-                                              (jazz.package-find-bin package (%%resource-path bin)))))
-      #; ;; test
-      (if src
-          (jazz.validate-repository-unicity (%%package-repository (%%resource-package src))
-                                            (jazz.path->name (%%resource-path src))
-                                            (lambda (package)
-                                              (jazz.package-find-src package (%%resource-path src) extensions))))
-      (let ((bin-uptodate?
-              (if src
-                  (and bin
-                       (let ((manifest-filepath (and bin (jazz.manifest-pathname (%%resource-package bin) bin)))
-                             (src-filepath (and src (jazz.resource-pathname src))))
-                         (and (jazz.cache-manifest-uptodate? module-name manifest-filepath src-filepath)
-                              (%%not (jazz.manifest-needs-rebuild? (jazz.load-manifest manifest-filepath))))))
-                bin)))
-        (proc src bin bin-uptodate?)))))
+                (and bin
+                     (let ((manifest-filepath (and bin (jazz.manifest-pathname (%%resource-package bin) bin)))
+                           (src-filepath (and src (jazz.resource-pathname src))))
+                       (and (jazz.cache-manifest-uptodate? module-name manifest-filepath src-filepath)
+                            (%%not (jazz.manifest-needs-rebuild? (jazz.load-manifest manifest-filepath))))))
+              bin)))
+      (proc src bin bin-uptodate?))))
 
 
 (define (jazz.module-uptodate-binary? module-name)

@@ -78,9 +78,9 @@
 ;;;
 
 
-(define (jazz.string-find str c)
+(define (jazz.string-find str c #!optional (start 0))
   (let ((len (%%string-length str)))
-    (let iter ((n 0))
+    (let iter ((n start))
       (cond ((%%fx>= n len)
              #f)
             ((%%char=? (%%string-ref str n) c)

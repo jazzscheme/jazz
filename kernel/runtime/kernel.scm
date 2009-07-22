@@ -66,7 +66,7 @@
 
 
 (define (jazz.parse-format rest proc)
-  (if (string? (%%car rest))
+  (if (%%string? (%%car rest))
       (proc ':string (%%car rest) (%%cdr rest))
     (proc (%%car rest) (%%cadr rest) (%%cddr rest))))
 
@@ -135,7 +135,7 @@
 
 
 (define (jazz.kernel-error . rest)
-  (apply error rest))
+  (%%apply error rest))
 
 
 (define (jazz.raise-system-error fmt-string . rest)
@@ -385,7 +385,7 @@
           (let ((name (%%cadr form))
                 (alist (%%cddr form)))
             (let ((directory (jazz.pathname-normalize directory))
-                  (library-pair (assq 'library alist)))
+                  (library-pair (%%assq 'library alist)))
               (let ((library-root (if library-pair (%%cadr library-pair) #f)))
                 (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
                   (%%make-repository name directory library-root library-directory #f))))))))))
@@ -412,7 +412,7 @@
     (if (%%null? repositories)
         #f
       (let ((repository (%%car repositories)))
-        (if (eq? (%%repository-name repository) name)
+        (if (%%eq? (%%repository-name repository) name)
             repository
           (iter (%%cdr repositories)))))))
 
@@ -520,12 +520,12 @@
         (let ((name (%%cadr form))
               (alist (%%cddr form)))
           (if (%%eq? name package-name)
-              (let ((library (assq 'library alist))
-                    (root (assq 'root alist))
-                    (install (assq 'install alist))
-                    (products (assq 'products alist))
-                    (profiles (assq 'profiles alist))
-                    (project (assq 'project alist)))
+              (let ((library (%%assq 'library alist))
+                    (root (%%assq 'root alist))
+                    (install (%%assq 'install alist))
+                    (products (%%assq 'products alist))
+                    (profiles (%%assq 'profiles alist))
+                    (project (%%assq 'project alist)))
                 (jazz.make-package repository name parent
                   (if library (%%cadr library) #f)
                   (if root (%%cadr root) #f)
@@ -720,7 +720,7 @@
   (%%car profile))
 
 (define (jazz.profile-title profile)
-  (symbol->string (jazz.profile-name profile)))
+  (%%symbol->string (jazz.profile-name profile)))
 
 (define (jazz.profile-module profile)
   (%%cadr (%%assq 'module (%%cdr profile))))
@@ -752,7 +752,7 @@
 (define (jazz.package-find-bin package path)
   (define (try path)
     (define (extension n)
-      (%%string-append "o" (number->string n)))
+      (%%string-append "o" (%%number->string n)))
     
     (define (exists? extension)
       (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension))))
@@ -947,10 +947,10 @@
 
 
 (define jazz.Products-Table
-  (make-table test: eq?))
+  (%%make-table test: eq?))
 
 (define jazz.Products-Run-Table
-  (make-table test: eq?))
+  (%%make-table test: eq?))
 
 
 (define jazz.process-name
@@ -995,16 +995,16 @@
   (or (jazz.current-process-title)
       (let ((name (jazz.current-process-name)))
         (if name
-            (symbol->string name)
+            (%%symbol->string name)
           #f))))
 
 
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
-  (table-set! jazz.Products-Table name (%%make-product name title icon run update build (jazz.find-product-descriptor name))))
+  (%%table-set! jazz.Products-Table name (%%make-product name title icon run update build (jazz.find-product-descriptor name))))
 
 
 (define (jazz.get-registered-product name)
-  (or (table-ref jazz.Products-Table name #f)
+  (or (%%table-ref jazz.Products-Table name #f)
       (jazz.error "Unable to find registered product: {s}" name)))
 
 
@@ -1047,11 +1047,11 @@
 
 
 (define (jazz.register-product-run name proc)
-  (table-set! jazz.Products-Run-Table name proc))
+  (%%table-set! jazz.Products-Run-Table name proc))
 
 
 (define (jazz.get-registered-run name)
-  (or (table-ref jazz.Products-Run-Table name #f)
+  (or (%%table-ref jazz.Products-Run-Table name #f)
       (jazz.error "Unable to find registered run: {s}" name)))
 
 
@@ -1110,7 +1110,7 @@
         (for-each (lambda (obj)
                     (if (%%symbol? obj)
                         (jazz.build-executable obj)
-                      (apply jazz.build-executable obj)))
+                      (%%apply jazz.build-executable obj)))
                   build))))
 
 
@@ -1218,12 +1218,12 @@
     (define (get-subproduct-thread name)
       (with-subproduct-table-mutex
         (lambda ()
-          (table-ref subproduct-table name #f))))
+          (%%table-ref subproduct-table name #f))))
     
     (define (set-subproduct-thread name thread)
       (with-subproduct-table-mutex
         (lambda ()
-          (table-set! subproduct-table name thread))))
+          (%%table-set! subproduct-table name thread))))
     
     (define (make-parallel names)
       (for-each thread-join!
@@ -1239,12 +1239,12 @@
     
     (define (grab-build-process name)
       (mutex-lock! process-mutex)
-      (cond ((pair? free-processes)
+      (cond ((%%pair? free-processes)
              (let ((process (%%car free-processes)))
                (set! free-processes (%%cdr free-processes))
                (mutex-unlock! process-mutex)
                process))
-            ((< active-count jobs)
+            ((%%fx< active-count jobs)
              (let ((process (open-process
                               (list
                                 path: (jazz-path)
@@ -1253,7 +1253,7 @@
                                 stdin-redirection: #t
                                 stdout-redirection: #t
                                 stderr-redirection: #f))))
-               (set! active-count (+ active-count 1))
+               (set! active-count (%%fx+ active-count 1))
                (mutex-unlock! process-mutex)
                process))
             (else
@@ -1264,7 +1264,7 @@
       (mutex-lock! process-mutex)
       (if terminate?
           (begin
-            (set! active-count (- active-count 1))
+            (set! active-count (%%fx- active-count 1))
             (send-command process #f))
         (set! free-processes (%%cons process free-processes)))
       (mutex-unlock! process-mutex)
@@ -1280,9 +1280,9 @@
         (define (pass-through)
           (let iter ((modified? #f))
                (let* ((line (read-line process))
-                      (count (string-length line)))
-                 (if (> count 0)
-                     (let ((compiling? (and (>= count 11) (string=? (substring line 0 11) "; compiling"))))
+                      (count (%%string-length line)))
+                 (if (%%fx> count 0)
+                     (let ((compiling? (and (%%fx>= count 11) (%%string=? (%%substring line 0 11) "; compiling"))))
                        (display line)
                        (newline)
                        (force-output)
@@ -1291,7 +1291,7 @@
         
         (send-command process name)
         (let ((terminate? (and (pass-through)
-                               (memq name '(core jazz)))))
+                               (%%memq name '(core jazz)))))
           (release-build-process process terminate? name))))
     
     (define (make name)
@@ -1347,7 +1347,7 @@
 (cond-expand
   (gambit
     (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (%%car rest))))
+      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
         (%%load pathname (lambda rest #f) #f #t quiet?))
       (void)))
   
@@ -1361,7 +1361,7 @@
 
 
 (define (jazz.load-resource resource . rest)
-  (let ((quiet? (if (null? rest) #f (%%car rest))))
+  (let ((quiet? (if (%%null? rest) #f (%%car rest))))
     (jazz.with-verbose (jazz.load-verbose?) "loading" (jazz.resource-package-pathname resource)
       (lambda ()
         (jazz.load (jazz.resource-pathname resource) quiet?)))))
@@ -1389,7 +1389,7 @@
       (begin
         (verbose-load)
         (let ((result
-                (parameterize ((jazz.load-indent (+ (jazz.load-indent) 2)))
+                (parameterize ((jazz.load-indent (%%fx+ (jazz.load-indent) 2)))
                   (proc))))
           (if (jazz.done-verbose?)
               (verbose-done))

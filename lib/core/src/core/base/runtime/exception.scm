@@ -56,7 +56,7 @@
       (let ((location  ((condition-property-accessor 'exc 'location) exc))
             (message   ((condition-property-accessor 'exc 'message) exc))
             (arguments ((condition-property-accessor 'exc 'arguments) exc)))
-        (if (not location)
+        (if (%%not location)
             (jazz.format "{a}: {l}" message arguments)
           (jazz.format "({a}) {a}: {l}" location message arguments)))))
   

@@ -76,7 +76,7 @@
             (let ((filepos (%%position->filepos (%%locat-position locat))))
               (let ((line (%%filepos-line filepos))
                     (col (%%filepos-col filepos)))
-                (list file line col)))
+                (%%list file line col)))
           #f))
     #f))
 

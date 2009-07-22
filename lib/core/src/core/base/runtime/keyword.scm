@@ -51,13 +51,13 @@
   
   (gambit
     (define (jazz.keyword? obj)
-      (keyword? obj))
+      (%%keyword? obj))
     
     (define (jazz.keyword->string keyword)
-      (keyword->string keyword))
+      (%%keyword->string keyword))
     
     (define (jazz.string->keyword string)
-      (string->keyword string)))
+      (%%string->keyword string)))
   
   (else
    (define (jazz.keyword? obj)

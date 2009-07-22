@@ -69,7 +69,7 @@
                   (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
                       (jazz.with-annotated-frame (jazz.annotate-inlined-signature signature arguments)
                         (lambda (frame)
-                          (let ((augmented-environment (cons frame environment)))
+                          (let ((augmented-environment (%%cons frame environment)))
                             (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
                               (jazz.new-code
                                 `(let ,(map (lambda (parameter argument)
@@ -186,7 +186,7 @@
         (body (%%get-generic-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment)))
+        (let ((augmented-environment (%%cons frame environment)))
           (jazz.sourcify-if
             `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
                                   ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
@@ -225,7 +225,7 @@
          (body (%%get-specific-declaration-body declaration)))
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (cons frame environment))
+        (let ((augmented-environment (%%cons frame environment))
               (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
           (jazz.sourcify-if
             `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment)) ,modifier
@@ -691,7 +691,7 @@
         (let ((dispatch-code (jazz.emit-method-dispatch self declaration)))
           (jazz.new-code
             `(lambda rest
-               (apply ,(jazz.sourcified-form dispatch-code) ,(jazz.sourcified-form self) rest))
+               (%%apply ,(jazz.sourcified-form dispatch-code) ,(jazz.sourcified-form self) rest))
             (%%get-code-type dispatch-code)
             #f))
       (jazz.error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
@@ -715,7 +715,7 @@
                  (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
                      (jazz.with-annotated-frame (jazz.annotate-signature signature)
                        (lambda (frame)
-                         (let ((augmented-environment (cons frame environment)))
+                         (let ((augmented-environment (%%cons frame environment)))
                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
                              (jazz.new-code
                                `(let ,(map (lambda (parameter argument)
@@ -768,7 +768,7 @@
                               ((%%class-is? category-declaration jazz.Interface-Declaration)                  'jazz.add-virtual-method)))) ; must be virtual
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
-          (let ((augmented-environment (cons frame environment)))
+          (let ((augmented-environment (%%cons frame environment)))
             (jazz.sourcify-if
               (case method-call
                 ((jazz.add-method-node)
@@ -1332,15 +1332,15 @@
                  (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
                      (jazz.with-annotated-frame (jazz.annotate-signature signature)
                        (lambda (frame)
-                         (let ((augmented-environment (cons frame environment)))
+                         (let ((augmented-environment (%%cons frame environment)))
                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
                              (jazz.new-code
-                               `(let ,(cons `(self ,(jazz.sourcified-form object))
-                                            (map (lambda (parameter argument)
-                                                   `(,(%%get-lexical-binding-name parameter)
-                                                     ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
-                                                 (%%get-signature-positional signature)
-                                                 arguments))
+                               `(let ,(%%cons `(self ,(jazz.sourcified-form object))
+                                              (map (lambda (parameter argument)
+                                                     `(,(%%get-lexical-binding-name parameter)
+                                                       ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                                   (%%get-signature-positional signature)
+                                                   arguments))
                                   ,(jazz.sourcified-form body-code))
                                (jazz.call-return-type (%%get-lexical-binding-type declaration))
                                #f)))))
@@ -1469,11 +1469,11 @@
 (define (jazz.compose-specializer-name operator parameters)
   (%%string->symbol
     (%%string-append (%%symbol->string operator)
-                     (apply string-append (apply append (map (lambda (parameter)
-                                                               (if (jazz.specifier? parameter)
-                                                                   (%%list (%%symbol->string (jazz.specifier->name parameter)))
-                                                                 '()))
-                                                             parameters))))))
+                     (%%apply string-append (%%apply append (map (lambda (parameter)
+                                                                   (if (jazz.specifier? parameter)
+                                                                       (%%list (%%symbol->string (jazz.specifier->name parameter)))
+                                                                     '()))
+                                                                 parameters))))))
 
 
 ;;;
@@ -1574,7 +1574,7 @@
                       (jazz.walk-body walker resume declaration body-environment body))
                     (%%set-declaration-source new-declaration form-src)
                     new-declaration))
-              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" (cons name parameters))))
+              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" (%%cons name parameters))))
         (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name)))))
 
 
@@ -1582,8 +1582,8 @@
   (let iter ((generic-parameters (%%get-signature-positional (%%get-generic-declaration-signature generic-declaration)))
              (specific-parameters (%%get-signature-positional specific-signature))
              (root? #t))
-       (let ((generic-parameter (and (%%pair? generic-parameters) (car generic-parameters)))
-             (specific-parameter (and (%%pair? specific-parameters) (car specific-parameters))))
+       (let ((generic-parameter (and (%%pair? generic-parameters) (%%car generic-parameters)))
+             (specific-parameter (and (%%pair? specific-parameters) (%%car specific-parameters))))
          (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
                (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
            (cond ((and generic-dynamic? specific-dynamic?)
@@ -1591,15 +1591,15 @@
                         (specific-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
                     (if ;; temp commented because it creates a problem in compiling Document-Moniker
                         #t ;; (jazz.of-subtype? generic-class specific-class)
-                        (iter (cdr generic-parameters)
-                              (cdr specific-parameters)
+                        (iter (%%cdr generic-parameters)
+                              (%%cdr specific-parameters)
                               (%%eq? generic-class specific-class))
                       (jazz.walk-error walker resume declaration "Dynamic parameter {a} is not a subtype of {a}: {s}"
                         (%%get-lexical-binding-name specific-parameter)
                         (%%get-declaration-locator generic-class)
-                        (cons name parameters)))))
+                        (%%cons name parameters)))))
                  ((or generic-dynamic? specific-dynamic?)
-                  (jazz.walk-error walker resume declaration "Specific {s} must dispatch on the same number of dynamic parameters" (cons name parameters)))
+                  (jazz.walk-error walker resume declaration "Specific {s} must dispatch on the same number of dynamic parameters" (%%cons name parameters)))
                  (else
                   root?))))))
 
@@ -2172,7 +2172,7 @@
         (let iter ((scan params))
           (cond ((%%null? scan)
                  (values (jazz.queue-list parameters) (jazz.queue-list positional) #f))
-                ((symbol? scan)
+                ((%%symbol? scan)
                  (let ((rest (encode scan)))
                    (jazz.enqueue-list parameters rest)
                    (values (jazz.queue-list parameters) (jazz.queue-list positional) rest)))
@@ -2256,42 +2256,42 @@
 ;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 #;
 (define (jazz.expand-com-external walker resume declaration environment offset result-type signature)
-  (let ((name (car signature))
-        (resolve-declaration (lambda (type) (if (symbol? type)
+  (let ((name (%%car signature))
+        (resolve-declaration (lambda (type) (if (%%symbol? type)
                                                 (jazz.resolve-c-type-reference walker resume declaration environment type)
-                                              (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" (car signature) type))))
-        (fix-locator (lambda (declaration) (if (eq? (%%get-c-type-declaration-kind declaration) 'type)
-                                               (string->symbol (string-append (symbol->string (%%get-declaration-locator declaration)) "*"))
+                                              (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" (%%car signature) type))))
+        (fix-locator (lambda (declaration) (if (%%eq? (%%get-c-type-declaration-kind declaration) 'type)
+                                               (string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator declaration)) "*"))
                                              (%%get-declaration-locator declaration)))))
     ;; we assume coparam-types are symbols that exactly match the c type
     (let ((resolved-result (resolve-declaration result-type))
-          (resolved-params (map resolve-declaration (map cadr (cdr signature))))
+          (resolved-params (map resolve-declaration (map cadr (%%cdr signature))))
           (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
       #; ;; debug
-      (apply jazz.debug name resolved-result resolved-params)
-      (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
+      (%%apply jazz.debug name resolved-result resolved-params)
+      (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (%%cons resolved-result resolved-params))
           `(definition ,lowlevel-name
-             (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+             (c-function ,(%%cons 'IUnknown* (map fix-locator resolved-params))
                          ,(%%get-declaration-locator resolved-result)
                          ,(string-append
                             "{typedef "
                             (jazz.->string (%%get-lexical-binding-name resolved-result))
                             " (*ProcType)(IUnknown*"
-                            (apply string-append (let iter-arg ((resolved-params resolved-params))
-                                                      (if (pair? resolved-params)
-                                                          (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
-                                                                           (iter-arg (cdr resolved-params))))
-                                                        '())))
+                            (%%apply string-append (let iter-arg ((resolved-params resolved-params))
+                                                        (if (%%pair? resolved-params)
+                                                            (%%cons ", " (%%cons (jazz.->string (%%get-lexical-binding-name (%%car resolved-params)))
+                                                                                 (iter-arg (%%cdr resolved-params))))
+                                                          '())))
                             "); ProcType fn = (*(ProcType**)___arg1)["
-                            (number->string offset)
+                            (%%number->string offset)
                             "]; ___result = (*fn)(___arg1"
-                            (apply string-append (let iter-arg ((resolved-params resolved-params)
-                                                                (order 2))
-                                                      (if (pair? resolved-params)
-                                                          (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
-                                                                (cons (number->string order)
-                                                                      (iter-arg (cdr resolved-params) (+ order 1))))
-                                                        '())))
+                            (%%apply string-append (let iter-arg ((resolved-params resolved-params)
+                                                                  (order 2))
+                                                        (if (%%pair? resolved-params)
+                                                            (cons (if (%%eq? (%%get-c-type-declaration-kind (%%car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                                  (%%cons (%%number->string order)
+                                                                          (iter-arg (%%cdr resolved-params) (%%fx+ order 1))))
+                                                          '())))
                             ");}")))))))
 
 
@@ -2302,17 +2302,17 @@
 
 ;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 (define (jazz.expand-com-external walker resume declaration environment offset result-type signature . rest)
-  (let* ((name (car signature))
+  (let* ((name (%%car signature))
          (refiid (if (%%null? rest) #f (%%car rest)))
-         (resolve-declaration (lambda (type) (if (symbol? type)
+         (resolve-declaration (lambda (type) (if (%%symbol? type)
                                                  (jazz.resolve-c-type-reference walker resume declaration environment type)
                                                (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" name type)))))
     (let ((resolved-result (resolve-declaration result-type))
-          (resolved-params (map resolve-declaration (map cadr (cdr signature))))
-          (resolved-directions (map car (cdr signature)))
+          (resolved-params (map resolve-declaration (map cadr (%%cdr signature))))
+          (resolved-directions (map car (%%cdr signature)))
           (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
-      (let ((hresult? (eq? (%%get-declaration-locator resolved-result) 'jazz.platform.windows.com.HRESULT)))
-        (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
+      (let ((hresult? (%%eq? (%%get-declaration-locator resolved-result) 'jazz.platform.windows.com.HRESULT)))
+        (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (%%cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
                (definition public ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
@@ -2320,56 +2320,56 @@
 
 (define (jazz.emit-com-function offset resolved-result resolved-params)
   (define (fix-locator declaration)
-    (if (eq? (%%get-c-type-declaration-kind declaration) 'type)
-        (string->symbol (string-append (symbol->string (%%get-declaration-locator declaration)) "*"))
+    (if (%%eq? (%%get-c-type-declaration-kind declaration) 'type)
+        (%%string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator declaration)) "*"))
       (%%get-declaration-locator declaration)))
   ;; we assume lexical-binding-name exactly matches the c type
-  `(c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+  `(c-function ,(%%cons 'IUnknown* (map fix-locator resolved-params))
                ,(%%get-declaration-locator resolved-result)
                ,(string-append
                   "{typedef "
                   (jazz.->string (%%get-lexical-binding-name resolved-result))
                   " (*ProcType)(IUnknown*"
-                  (apply string-append (let iter ((resolved-params resolved-params))
-                                            (if (pair? resolved-params)
-                                                (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
-                                                                 (iter (cdr resolved-params))))
-                                              '())))
+                  (%%apply string-append (let iter ((resolved-params resolved-params))
+                                              (if (%%pair? resolved-params)
+                                                  (%%cons ", " (%%cons (jazz.->string (%%get-lexical-binding-name (%%car resolved-params)))
+                                                                       (iter (%%cdr resolved-params))))
+                                                '())))
                   "); ProcType fn = (*(ProcType**)___arg1)["
-                  (number->string offset)
+                  (%%number->string offset)
                   "]; ___result = (*fn)(___arg1"
-                  (apply string-append (let iter ((resolved-params resolved-params)
-                                                  (order 2))
-                                            (if (pair? resolved-params)
-                                                (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
-                                                      (cons (number->string order)
-                                                            (iter (cdr resolved-params) (+ order 1))))
-                                              '())))
+                  (%%apply string-append (let iter ((resolved-params resolved-params)
+                                                    (order 2))
+                                              (if (%%pair? resolved-params)
+                                                  (cons (if (%%eq? (%%get-c-type-declaration-kind (%%car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                        (%%cons (%%number->string order)
+                                                                (iter (%%cdr resolved-params) (%%fx+ order 1))))
+                                                '())))
                   ");}")))
 
 
 (define (jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid)
   (define (generate-in resolved-param resolved-direction order)
-    (if (eq? resolved-direction 'out)
+    (if (%%eq? resolved-direction 'out)
         #f
       (%%string->symbol (%%string-append "in$" (%%number->string order)))))
   (define (generate-low resolved-param resolved-direction order)
     (%%string->symbol (%%string-append "low$" (%%number->string order))))
   (define (generate-out resolved-param resolved-direction order)
-    (if (eq? resolved-direction 'in)
+    (if (%%eq? resolved-direction 'in)
         #f
       (%%string->symbol (%%string-append "out$" (%%number->string order)))))
   (define (generate-encode/enref resolved-param resolved-direction order)
     (let ((binding (generate-low resolved-param resolved-direction order))
           (encode/enref (get-cotype-encode/enref resolved-param))
-          (value (if (eq? resolved-direction 'out)
+          (value (if (%%eq? resolved-direction 'out)
                      (get-cotype-default-value resolved-param)
                    (generate-in resolved-param resolved-direction order))))
       (if encode/enref
           `(,binding (,encode/enref ,value))
         `(,binding ,value))))
   (define (generate-ref resolved-param resolved-direction order)
-    (if (eq? resolved-direction 'in)
+    (if (%%eq? resolved-direction 'in)
         #f
       (let ((binding (generate-out resolved-param resolved-direction order))
             (ref (get-cotype-ref resolved-param))
@@ -2387,11 +2387,11 @@
     (let iter ((resolved-params resolved-params)
                (resolved-directions resolved-directions)
                (order 1))
-         (if (pair? resolved-directions)
-             (let ((generated (generator (car resolved-params) (car resolved-directions) order)))
+         (if (%%pair? resolved-directions)
+             (let ((generated (generator (%%car resolved-params) (%%car resolved-directions) order)))
                (if generated
-                   (cons generated (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1)))
-                 (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1))))
+                   (cons generated (iter (%%cdr resolved-params) (%%cdr resolved-directions) (%%fx+ order 1)))
+                 (iter (%%cdr resolved-params) (%%cdr resolved-directions) (%%fx+ order 1))))
            '())))
   (let ((out-list (generate-cotype-transform generate-out)))
     `(function (coptr ,@(generate-cotype-transform generate-in))
@@ -2406,14 +2406,14 @@
                      (begin
                        ,@(generate-cotype-transform generate-free))
                      ,(if hresult?
-                          (case (length out-list)
+                          (case (%%length out-list)
                             ((0)
                              '(unspecified))
                             ((1)
-                             (car out-list))
+                             (%%car out-list))
                             (else
                              `(values ,@out-list)))
-                        (if (= (length out-list) 0)
+                        (if (%%fx= (%%length out-list) 0)
                             'result
                           `(values result ,@out-list)))))))))
 
@@ -2541,7 +2541,7 @@
                      (write (%%desourcify assertion) port)
                      (display " failed" port)
                      (get-output-string port))))
-      (jazz.expand-assertion-body test? assertion (list 'error message) body))))
+      (jazz.expand-assertion-body test? assertion (%%list 'error message) body))))
 
 
 (define (jazz.expand-assertion-test test? src)
@@ -2554,7 +2554,7 @@
 (define (jazz.expand-assertion-body test? assertion action body)
   (let ((body (if (%%not-null? body) body '((unspecified)))))
     (if test?
-        `(if (not ,assertion)
+        `(if (%%not ,assertion)
              ,action
            ,(jazz.simplify-begin
               `(begin
@@ -2675,7 +2675,7 @@
                               inclusions)))
             (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion base-type-declaration inclusions c-to-scheme scheme-to-c declare)))
               (%%when base-type-declaration
-                (%%set-c-type-declaration-pointer-types base-type-declaration (cons new-declaration (%%get-c-type-declaration-pointer-types base-type-declaration))))
+                (%%set-c-type-declaration-pointer-types base-type-declaration (%%cons new-declaration (%%get-c-type-declaration-pointer-types base-type-declaration))))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 effective-declaration))))
       (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name))))
@@ -2748,7 +2748,7 @@
 
 (define (jazz.walk-c-function walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (%%assertion (and (list? form) (= 4 (%%length form))) (jazz.error "Ill-formed c-function")
+    (%%assertion (and (list? form) (%%fx= 4 (%%length form))) (jazz.error "Ill-formed c-function")
       (jazz.bind (types result-type c-name-or-code) (%%cdr form)
         (let ((resolve-access (lambda (type) (jazz.expand-c-type-reference walker resume declaration environment type))))
           (jazz.new-c-function
@@ -2811,7 +2811,7 @@
 
 
 (define (jazz.build-method-symbol struct . rest)
-  (%%string->symbol (apply string-append (symbol->string struct) "-" (map symbol->string rest))))
+  (%%string->symbol (apply string-append (%%symbol->string struct) "-" (map symbol->string rest))))
 
 
 (define (jazz.parse-structure-name name)
@@ -2825,8 +2825,8 @@
        (let ((kind (%%get-c-type-declaration-kind declaration))
              (expansion (%%get-c-type-declaration-expansion declaration))
              (inclusions (%%get-c-type-declaration-inclusions declaration)))
-         (if (eq? kind 'alias)
-             (loop (car inclusions))
+         (if (%%eq? kind 'alias)
+             (loop (%%car inclusions))
            (values kind expansion)))))
 
 
@@ -2856,7 +2856,7 @@
               (setter-string
                 (cond (size
                         (let ((size-string (if (%%integer? size)
-                                               (number->string size)
+                                               (%%number->string size)
                                              (%%symbol->string size))))
                           (cond ((%%eq? expansion 'char)
                                  (%%string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
@@ -2890,7 +2890,7 @@
   (receive (struct c-struct-string tag-rest) (jazz.parse-structure-name name)
     (let ((struct* (jazz.build-pointer-symbol struct))
           (sizeof (%%string-append "sizeof(" c-struct-string ")"))
-          (tag*-rest (if (null? tag-rest) '() (cons (jazz.build-pointer-symbol (car tag-rest)) (cdr tag-rest)))))
+          (tag*-rest (if (%%null? tag-rest) '() (%%cons (jazz.build-pointer-symbol (%%car tag-rest)) (%%cdr tag-rest)))))
       (define (expand-accessor clause)
         (receive (getter setter) (jazz.expand-accessor walker resume declaration environment clause struct)
           (if setter
@@ -2905,7 +2905,7 @@
                      (c-function (,struct*) (native void) "free(___arg1);"))
          (definition public ,(jazz.build-method-symbol struct 'sizeof)
                      (c-function () (native unsigned-int) ,(%%string-append "___result = " sizeof ";")))
-         ,@(apply append (map expand-accessor clauses))))))
+         ,@(%%apply append (map expand-accessor clauses))))))
 
 
 (define (jazz.expand-c-structure walker resume declaration environment name . clauses)
@@ -2951,8 +2951,8 @@
     `(begin
        (c-external ,type ,(%%cons ext-s-name params) ,c-name)
        (definition public (,s-name ,@new-params)
-         (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
-           (WCHAR-copy pt ,string-param (string-length ,string-param))
+         (let ((pt (WCHAR-array-make (%%fx+ (%%string-length ,string-param) 1))))
+           (WCHAR-copy pt ,string-param (%%string-length ,string-param))
            (let* ((,string-param pt)
                   (result (,ext-s-name ,@new-params)))
              (values result (WCHAR-string ,string-param))))))))

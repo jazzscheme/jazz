@@ -243,7 +243,7 @@
                       (source-hash (%%car (%%cddr digest-form)))
                       (source-time (%%cadr (%%cddr digest-form)))
                       (references (if references-form (%%cdr references-form) #f)))
-                  (if (boolean? source-time)
+                  (if (%%boolean? source-time)
                       #f
                     (%%make-manifest name version (%%make-digest compile-time-hash source-hash source-time) references)))))))
       #f)))
@@ -295,7 +295,7 @@
     (let ((digest (%%manifest-digest manifest)))
       (if (jazz.updated-digest-source? digest src-filepath)
           (jazz.save-manifest manifest-filepath manifest))
-      (string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest)))))
+      (%%string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest)))))
 
 
 (define (jazz.update-manifest-compile-time name manifest-filepath src-filepath updated-references)

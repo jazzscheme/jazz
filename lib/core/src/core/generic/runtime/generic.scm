@@ -93,7 +93,7 @@
   (for-each (lambda (specific)
               (jazz.resolve-signature specific)
               (jazz.insert/replace-specific generic specific))
-            (reverse (%%get-generic-pending-specifics generic)))
+            (%%reverse (%%get-generic-pending-specifics generic)))
   (%%set-generic-pending-specifics generic '()))
 
 
@@ -131,10 +131,10 @@
                                                              (let ((descendant-signature (%%get-specific-dynamic-signature descendant)))
                                                                (%%eq? 'ordered (jazz.dynamic-signature-compare descendant-signature dynamic-signature))))
                                                            assv))
-                                (descendant-partition (assq #t partition))
-                                (descendants (if descendant-partition (cdr descendant-partition) '()))
-                                (brother-partition (assq #f partition))
-                                (brothers (if brother-partition (cdr brother-partition) '())))
+                                (descendant-partition (%%assq #t partition))
+                                (descendants (if descendant-partition (%%cdr descendant-partition) '()))
+                                (brother-partition (%%assq #f partition))
+                                (brothers (if brother-partition (%%cdr brother-partition) '())))
                            (for-each (lambda (descendant)
                                        (let ((best (%%car (%%get-specific-ancestor-specifics descendant))))
                                          (cond ((%%eq? ancestor best)
@@ -180,7 +180,7 @@
 
 (define (jazz.gather-dynamic-signature-ancestors generic dynamic-signature)
   (let ((perfect-match #f))
-    (or (let iter ((specifics (list (%%get-generic-root-specific generic)))
+    (or (let iter ((specifics (%%list (%%get-generic-root-specific generic)))
                    (partial-matches '()))
              (if (%%pair? specifics)
                  (let ((specific (%%car specifics)))
@@ -208,8 +208,8 @@
   (let iter ((descendant-signature descendant-signature)
              (ancestor-signature ancestor-signature)
              (match 'equal))
-       (if (or (null? descendant-signature) (null? ancestor-signature))
-           (if (and (null? descendant-signature) (null? ancestor-signature))
+       (if (or (%%null? descendant-signature) (%%null? ancestor-signature))
+           (if (and (%%null? descendant-signature) (%%null? ancestor-signature))
                match
              'unordered)
          (cond ((%%eq? (%%car descendant-signature) (%%car ancestor-signature))
@@ -229,8 +229,8 @@
 (define (jazz.dynamic-signature-equal? dynamic-signature1 dynamic-signature2)
   (let iter ((dynamic-signature1 dynamic-signature1)
              (dynamic-signature2 dynamic-signature2))
-       (if (or (null? dynamic-signature1) (null? dynamic-signature2))
-           (and (null? dynamic-signature1) (null? dynamic-signature2))
+       (if (or (%%null? dynamic-signature1) (%%null? dynamic-signature2))
+           (and (%%null? dynamic-signature1) (%%null? dynamic-signature2))
          (and (%%eq? (%%car dynamic-signature1) (%%car dynamic-signature2))
               (iter (%%cdr dynamic-signature1) (%%cdr dynamic-signature2))))))
 
@@ -238,7 +238,7 @@
 (define (jazz.specific-better? specific1 specific2)
   (let iter ((signature1 (%%get-specific-dynamic-signature specific1))
              (signature2 (%%get-specific-dynamic-signature specific2)))
-       (or (> (%%get-class-level (%%car signature1)) (%%get-class-level (%%car signature2)))
+       (or (%%fx> (%%get-class-level (%%car signature1)) (%%get-class-level (%%car signature2)))
            (iter (%%cdr signature1) (%%cdr signature2)))))
 
 
@@ -250,7 +250,7 @@
 (define (jazz.display-tree generic)
   (%%when (%%not (%%null? (%%get-generic-pending-specifics generic)))
     (jazz.process-pending-specifics generic))
-  (let iterate ((specifics (list (%%get-generic-root-specific generic)))
+  (let iterate ((specifics (%%list (%%get-generic-root-specific generic)))
                 (level 0))
        (for-each (lambda (specific)
                    (write (%%list level
@@ -263,7 +263,7 @@
        (for-each (lambda (specific)
                    (write (%%list level specific))
                    (newline)
-                   (iterate (%%get-specific-descendant-specifics specific) (+ level 1)))
+                   (iterate (%%get-specific-descendant-specifics specific) (%%fx+ level 1)))
                  specifics)))
 
 

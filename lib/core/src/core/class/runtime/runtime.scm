@@ -207,11 +207,11 @@
           (%%when ascendant-interface-table
             (let ((size (%%vector-length ascendant-interface-table)))
               (let iter ((i 0))
-                   (%%when (< i size)
+                   (%%when (%%fx< i size)
                      (let ((ascendant-vtable (%%vector-ref ascendant-interface-table i)))
                        (%%when ascendant-vtable
                          (%%vector-set! vtable i (%%vector-copy ascendant-vtable))))
-                     (iter (+ i 1))))))))
+                     (iter (%%fx+ i 1))))))))
       (jazz.vector-for-each (lambda (category)
                               (%%when (%%class-is? category jazz.Interface)
                                 (let* ((rank (%%get-interface-rank category))
@@ -238,11 +238,11 @@
         (if ascendant
             (let* ((ascendant-class-table (%%get-class-class-table ascendant))
                    (size (%%vector-length ascendant-class-table))
-                   (vtable (%%make-vector (+ size 1) '#())))
+                   (vtable (%%make-vector (%%fx+ size 1) '#())))
               (let iter ((i 0))
-                   (%%when (< i size)
+                   (%%when (%%fx< i size)
                      (%%vector-set! vtable i (%%vector-copy (%%vector-ref ascendant-class-table i)))
-                     (iter (+ i 1))))
+                     (iter (%%fx+ i 1))))
               vtable)
           (%%make-vector 1 '#()))))))
 
@@ -251,7 +251,7 @@
   (let ((virtual-names (%%get-class-core-virtual-names class)))
     (let ((vtable-size (%%length virtual-names)))
       (%%when (%%fx> vtable-size 0)
-        (let ((vtable (make-vector vtable-size #f)))
+        (let ((vtable (%%make-vector vtable-size #f)))
           (let ((ascendant (%%get-class-ascendant class)))
             (%%when ascendant
               (let ((ascendant-vtable (%%get-class-core-vtable ascendant)))
@@ -325,7 +325,7 @@
                                        (%%get-category-descendants class))))))))
               (begin
                 (%%set-method-category-rank field class-rank)
-                (set! added-methods (cons field added-methods)))))))
+                (set! added-methods (%%cons field added-methods)))))))
     added-methods))
 
 
@@ -586,11 +586,11 @@
              (for-each add-interfaces (%%get-class-interfaces category)))
             (else
              (%%when (%%not (%%memq category ancestors))
-               (set! ancestors (cons category ancestors))
+               (set! ancestors (%%cons category ancestors))
                (for-each add-interfaces (%%get-interface-ascendants category))))))
     (let add-classes ((class class))
       (%%when class
-        (set! ancestors (cons class ancestors))
+        (set! ancestors (%%cons class ancestors))
         (add-classes (%%get-class-ascendant class))))
     ancestors))
 
@@ -1553,10 +1553,10 @@
 (cond-expand
   (gambit
     (define jazz.subtypes
-      (make-vector 32 #f))
+      (%%make-vector 32 #f))
     
     (define jazz.specialtypes
-      (make-vector 16 #f))
+      (%%make-vector 16 #f))
     
     ;; quicky until we find a clean solution with Marc
     (define jazz.table-type
@@ -1624,7 +1624,7 @@
 
 (define (jazz.new-interface class name ascendants)
   (let ((interface (jazz.allocate-interface class name (%%make-table test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
-    (set! jazz.new-interface-rank (+ jazz.new-interface-rank 1))
+    (set! jazz.new-interface-rank (%%fx+ jazz.new-interface-rank 1))
     (%%set-category-ancestors interface (%%list->vector (jazz.compute-interface-ancestors interface ascendants)))
     (for-each (lambda (ascendant)
                 (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
@@ -1634,10 +1634,10 @@
 
 (define (jazz.compute-interface-ancestors interface ascendants)
   (jazz.remove-duplicates
-    (%%apply append (cons (map (lambda (ascendant)
-                                 (%%vector->list (%%get-category-ancestors ascendant)))
-                               ascendants)
-                          (%%list (%%list interface))))))
+    (%%apply append (%%cons (map (lambda (ascendant)
+                                   (%%vector->list (%%get-category-ancestors ascendant)))
+                                 ascendants)
+                            (%%list (%%list interface))))))
 
 
 (define (jazz.interface? object)
@@ -1690,7 +1690,7 @@
         (%%when (and (jazz.virtual-method? field)
                      (%%not (%%get-method-category-rank field)))
           (%%set-method-category-rank field interface-rank)
-          (set! added-methods (cons field added-methods)))))
+          (set! added-methods (%%cons field added-methods)))))
     added-methods))
 
 
@@ -1868,7 +1868,7 @@
 
 (define (jazz.locate-method-owner category method-name)
   (let iter ((category category))
-    (cond ((not category)
+    (cond ((%%not category)
            #f)
           ((%%get-category-field category method-name)
            category)
@@ -1893,7 +1893,7 @@
 
 (define (jazz.add-final-method class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
-    (cond ((not owner)
+    (cond ((%%not owner)
            (jazz.create-final-method class method-name method-implementation))
           ((%%eq? owner class)
            (jazz.update-final-method class method-name method-implementation))
@@ -1926,7 +1926,7 @@
 
 (define (jazz.add-virtual-method category method-name method-implementation)
   (let ((owner (jazz.locate-method-owner category method-name)))
-    (cond ((not owner)
+    (cond ((%%not owner)
            (jazz.create-virtual-method category method-name method-implementation))
           ((%%eq? owner category)
            (jazz.update-virtual-method category method-name method-implementation))
@@ -1940,7 +1940,7 @@
          (method (jazz.new-virtual-method method-name dispatch-type node #f #f))
          (virtual-size (%%get-category-virtual-size category)))
     (%%set-method-implementation-rank method virtual-size)
-    (%%set-category-virtual-size category (+ virtual-size 1))
+    (%%set-category-virtual-size category (%%fx+ virtual-size 1))
     (jazz.add-field category method)
     (jazz.update-category category)
     virtual-size))
@@ -1966,7 +1966,7 @@
 
 (define (jazz.add-method-node class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
-    (cond ((not owner)
+    (cond ((%%not owner)
            (jazz.error "Cannot locate root method: {a}" method-implementation))
           ((%%eq? owner class)
            (jazz.error "Cannot remove root method: {a}" method-implementation))
@@ -2004,8 +2004,8 @@
                                       (let ((child-class (%%get-method-node-category child)))
                                         (%%subtype? class child-class)))
                                     assv))
-         (new-children (%%cdr (or (assq #t partition) '(#t))))
-         (old-children (%%cdr (or (assq #f partition) '(#f))))
+         (new-children (%%cdr (or (%%assq #t partition) '(#t))))
+         (old-children (%%cdr (or (%%assq #f partition) '(#f))))
          (new-node (jazz.new-method-node class method-implementation node new-children)))
     (for-each (lambda (child)
                 (%%set-method-node-next-node child new-node)

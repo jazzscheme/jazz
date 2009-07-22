@@ -52,7 +52,7 @@
     
     
     (define (jazz.jazzify-readtable! readtable)
-      (jazz.readtable-named-char-table-set! readtable (append (jazz.readtable-named-char-table readtable) jazz.named-chars))
+      (jazz.readtable-named-char-table-set! readtable (%%append (jazz.readtable-named-char-table readtable) jazz.named-chars))
       (%%readtable-char-class-set! readtable #\{ #t jazz.read-literal)
       (%%readtable-char-class-set! readtable #\@ #t jazz.read-comment)
       (%%readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))

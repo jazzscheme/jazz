@@ -140,7 +140,7 @@
             (let ((declaration (jazz.outline-module module-name)))
               (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
                   (begin
-                    (if (and (not toplevel?) (not (jazz.descendant-module? parent-name module-name)))
+                    (if (and (%%not toplevel?) (%%not (jazz.descendant-module? parent-name module-name)))
                         (jazz.error "Illegal access from {a} to protected module {a}" parent-name module-name))
                     (proc module-name declaration phase)
                     (if (jazz.is? declaration jazz.Module-Declaration)

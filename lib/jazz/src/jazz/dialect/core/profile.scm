@@ -59,7 +59,7 @@
 
 
 (define (jazz.load-statprof)
-  (if (not jazz.statprof-loaded?)
+  (if (%%not jazz.statprof-loaded?)
       (begin
         (jazz.load-module 'statprof)
         (set! jazz.statprof-loaded? #t))))
@@ -87,7 +87,7 @@
 
 (define (jazz.new-profile . rest)
   (jazz.load-statprof)
-  (apply profile-new rest))
+  (%%apply profile-new rest))
 
 
 (define (jazz.reset-profile)

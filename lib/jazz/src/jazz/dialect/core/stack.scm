@@ -55,7 +55,7 @@
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)
                    (cont cont))
-          (if (or (not depth) (%%fx< d depth))
+          (if (or (%%not depth) (%%fx< d depth))
               (and cont
                    (begin
                      (jazz.enqueue queue cont)
@@ -70,10 +70,10 @@
     
     (define (jazz.collect-var-val var val cte queue)
       (jazz.enqueue queue
-                    (cons (##object->string var)
-                          (if (##cte-top? cte)
-                              (##inverse-eval-in-env val cte)
-                            (##inverse-eval-in-env val (##cte-parent-cte cte))))))
+                    (%%cons (##object->string var)
+                            (if (##cte-top? cte)
+                                (##inverse-eval-in-env val cte)
+                              (##inverse-eval-in-env val (##cte-parent-cte cte))))))
     
     
     (define (jazz.get-continuation-dynamic-environment cont)
@@ -219,7 +219,7 @@
                 (lambda ()
                   results)
                 (lambda results
-                  (%%continuation-return-no-winding return (car results)))))))))
+                  (%%continuation-return-no-winding return (%%car results)))))))))
     
     
     (define (jazz.repl-result-history-add result)

@@ -97,16 +97,16 @@
         (%%cadr (%%cadr invoice))
       #f))
   
-  (apply append
-         (map (lambda (invoice)
-                (let ((feature-requirement (extract-feature-requirement invoice)))
-                  (cond ((%%not feature-requirement)
-                         (%%list invoice))
-                        ((jazz.feature-safisfied? feature-requirement)
-                         (%%list (%%cons (%%car invoice) (%%cddr invoice))))
-                        (else
-                         '()))))
-              invoices)))
+  (%%apply append
+           (map (lambda (invoice)
+                  (let ((feature-requirement (extract-feature-requirement invoice)))
+                    (cond ((%%not feature-requirement)
+                           (%%list invoice))
+                          ((jazz.feature-safisfied? feature-requirement)
+                           (%%list (%%cons (%%car invoice) (%%cddr invoice))))
+                          (else
+                           '()))))
+                invoices)))
 
 
 (define (jazz.feature-safisfied? feature-requirement)

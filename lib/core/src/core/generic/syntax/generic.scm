@@ -55,7 +55,7 @@
 
 
 (jazz.define-macro (jazz.define-generic . rest)
-  (apply jazz.expand-define-generic rest))
+  (%%apply jazz.expand-define-generic rest))
 
 
 (jazz.define-macro (%%specific-dispatch generic dynamic-classes)

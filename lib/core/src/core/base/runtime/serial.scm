@@ -48,7 +48,7 @@
     
     ;; for debugging
     (define (jazz.object->serial-symbol obj)
-      (string->symbol (string-append "#" (number->string (jazz.object->serial obj))))))
+      (%%string->symbol (%%string-append "#" (%%number->string (jazz.object->serial obj))))))
   
   (else
    ;; Incorrect implementation that will not let the serialized objects be

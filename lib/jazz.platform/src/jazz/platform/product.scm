@@ -52,7 +52,7 @@
   (carbon
     (define (jazz.build-cairo)
       (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
-        (if (< minor 4)
+        (if (%%fx< minor 4)
             (jazz.error "Cairo 1.4 or higher needed")
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
@@ -67,7 +67,7 @@
   (x11
     (define (jazz.build-cairo)
       (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
-        (if (< minor 4)
+        (if (%%fx< minor 4)
             (jazz.error "Cairo 1.4 or higher needed")
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
@@ -198,15 +198,15 @@
 
 (define (jazz.parse-dot-version version)
   (let ((version (map string->number (jazz.split-string version #\.))))
-    (let ((major (car version))
-          (minor (cadr version))
+    (let ((major (%%car version))
+          (minor (%%cadr version))
           (build (caddr version)))
       (values major minor build))))
 
 
 (define (jazz.pkg-config what libname)
   (let ((string-port (open-output-string))
-        (process-port (open-process (list path: "pkg-config" arguments: (list what libname)))))
+        (process-port (open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
     (if (%%fx= (process-status process-port) 0)
         (begin
           (jazz.pipe-no-return process-port string-port)
@@ -225,7 +225,7 @@
 (define (jazz.pipe-no-return input output)
   (let iterate ()
     (let ((c (read-char input)))
-      (if (not (or (eof-object? c) (eq? #\newline c)))
+      (if (%%not (or (eof-object? c) (%%eq? #\newline c)))
           (begin
             (write-char c output)
             (iterate))))))

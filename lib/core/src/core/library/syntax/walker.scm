@@ -542,19 +542,19 @@
             (%%table-set! partition library
               (merge-sorted (let ((library-locator-length (%%string-length (%%symbol->string (%%get-declaration-locator library))))
                                   (declaration-string (%%symbol->string (%%get-declaration-locator resolved-declaration))))
-                              (substring declaration-string (fx+ library-locator-length 1) (%%string-length declaration-string)))
+                              (%%substring declaration-string (fx+ library-locator-length 1) (%%string-length declaration-string)))
                             (%%table-ref partition library '())
                             ##string<?))))))
     (let iter ((in (%%table->list partition))
                (out '()))
          (if (%%null? in)
              out
-           (let ((library-string (%%symbol->string (%%get-declaration-locator (caar in))))
-                 (declaration-strings (cdar in)))
-             (iter (cdr in) (merge-sorted (%%cons library-string declaration-strings)
-                                          out
-                                          (lambda (lib1 lib2)
-                                            (%%string<? (car lib1) (car lib2))))))))))
+           (let ((library-string (%%symbol->string (%%get-declaration-locator (%%caar in))))
+                 (declaration-strings (%%cdar in)))
+             (iter (%%cdr in) (merge-sorted (%%cons library-string declaration-strings)
+                                            out
+                                            (lambda (lib1 lib2)
+                                              (%%string<? (%%car lib1) (%%car lib2))))))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -1229,7 +1229,7 @@
           (at 0))
       (define (ill-formed message)
         (let ((error-message (jazz.format "Ill-formed specifier {s} : at {a} : {a}" specifier (%%substring string 0 at) message)))
-          (if (not walker)
+          (if (%%not walker)
               (jazz.error "{a}" error-message)
             (jazz.walk-error walker resume declaration error-message))))
       
@@ -1598,7 +1598,7 @@
         (c-to-scheme (%%get-c-type-declaration-c-to-scheme declaration))
         (scheme-to-c (%%get-c-type-declaration-scheme-to-c declaration)))
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
-                                              (list c-to-scheme scheme-to-c #f)
+                                              (%%list c-to-scheme scheme-to-c #f)
                                             '()))))
 
 
@@ -2741,8 +2741,8 @@
 
 (define (jazz.walk-library-exports walker exports)
   (let ((partition (jazz.partition exports symbol? assv)))
-    (let ((symbols-exports (assq #t partition))
-          (library-exports (assq #f partition)))
+    (let ((symbols-exports (%%assq #t partition))
+          (library-exports (%%assq #f partition)))
       (%%append (if symbols-exports
                     (%%list (jazz.new-export-invoice #f #f '() (map (lambda (symbol) (jazz.new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
                   '())
@@ -3539,8 +3539,8 @@
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
           (jazz.new-code
-            (append (jazz.codes-forms (jazz.emit-expressions internal-defines declaration augmented-environment))
-                    (jazz.codes-forms (jazz.emit-expressions expressions declaration augmented-environment)))
+            (%%append (jazz.codes-forms (jazz.emit-expressions internal-defines declaration augmented-environment))
+                      (jazz.codes-forms (jazz.emit-expressions expressions declaration augmented-environment)))
             jazz.Any
             #f))))))
 
@@ -4609,7 +4609,7 @@
            (jazz.identifier-name (%%get-category-name (%%class-of sta))))))
   
   (pp
-    (jazz.fold-statement (if (integer? statement) (jazz.serial->object statement) statement)
+    (jazz.fold-statement (if (%%integer? statement) (jazz.serial->object statement) statement)
       (lambda (sta s)
         (let ((info (cond ((%%class-is? sta jazz.Declaration)
                            (present-declaration sta))
@@ -4822,7 +4822,7 @@
 
 
 (define (jazz.get-registered-literal library-declaration literal)
-  (let ((pair (assq literal (%%get-library-declaration-literals library-declaration))))
+  (let ((pair (%%assq literal (%%get-library-declaration-literals library-declaration))))
     (if pair
         (%%cadr pair)
       #f)))
@@ -4834,7 +4834,7 @@
          (environment (%%cons library-declaration (jazz.walker-environment walker))))
     (jazz.walk walker resume library-declaration environment
       (cond ((%%pair? literal)
-             `(cons ',(car literal) ',(cdr literal)))
+             `(cons ',(%%car literal) ',(%%cdr literal)))
             (else
              ;; the rank of fold-literal is known to be 3 as it is the fourth method of Object
              ((%%class-dispatch literal 0 3) literal))))))
@@ -5407,7 +5407,7 @@
               (if cast
                   (begin
                     ;; optimize the by far more frequent case of signatures having no types
-                    (if (not queue)
+                    (if (%%not queue)
                         (set! queue (jazz.new-queue)))
                     (jazz.enqueue queue cast)))))))
     
@@ -5500,7 +5500,7 @@
           (declaration (if (%%pair? entry) (%%cdr entry) entry)))
       (if status
           (jazz.error "Circular dependency detected with {s}" module-name)
-        (if (not declaration)
+        (if (%%not declaration)
             (jazz.call-with-catalog-entry-lock module-name
               (lambda ()
                 (let ((declaration (jazz.load-toplevel-declaration module-name)))
@@ -5547,7 +5547,7 @@
            (call-with-input-file (%%list path: source eol-encoding: 'cr-lf)
              (lambda (port)
                (parameterize ((jazz.parse-read? parse-read?))
-                 (if (not read-source?)
+                 (if (%%not read-source?)
                      (let ((form (read port))
                            (extraneous? (%%not (%%eof-object? (read port)))))
                        (values form extraneous?))

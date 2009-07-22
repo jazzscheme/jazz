@@ -132,11 +132,11 @@
              (lambda (,@mandatory-parameters . ,gensym-rest)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
                  (jazz.process-pending-specifics ,generic-locator))
-               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (list ,@(map (lambda (parameter) `(%%class-of ,parameter))
-                                                                                          (jazz.dynamic-parameter-names parameters))))))
+               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(%%class-of ,parameter))
+                                                                                            (jazz.dynamic-parameter-names parameters))))))
                  ,(if (%%null? extra-parameters)
                       `(,gensym-specific ,@mandatory-parameters)
-                    `(apply ,gensym-specific ,@mandatory-parameters ,gensym-rest))))))))))
+                    `(%%apply ,gensym-specific ,@mandatory-parameters ,gensym-rest))))))))))
 
 
 (define (jazz.generic-object-locator locator)
@@ -158,7 +158,7 @@
          (generic-locator (jazz.generic-object-locator generic-method-locator))
          (gensym-specific (jazz.generate-symbol "specific"))
          (gensym-lambda (jazz.generate-symbol "lambda"))
-         (nextmethod-bindings (if root? (list) (list `(nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific))))))))
+         (nextmethod-bindings (if root? (%%list) (%%list `(nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific))))))))
     `(define ,specific-implementation-locator
        (let* ((,gensym-specific (jazz.new-specific (lambda () (%%list ,@dynamic-signature)) #f))
               (,gensym-lambda (lambda ,formal-signature
@@ -172,6 +172,6 @@
 (define (jazz.implementation-locator generic-locator dynamic-signature)
   (let ((generic-string (%%symbol->string generic-locator))
         (dynamic-signature-strings (map (lambda (class/call)
-                                          (symbol->string (if (%%pair? class/call) (car class/call) class/call)))
+                                          (%%symbol->string (if (%%pair? class/call) (%%car class/call) class/call)))
                                         dynamic-signature)))
     (%%string->symbol (%%string-append generic-string ":implementation:" (jazz.join-strings dynamic-signature-strings "/"))))))

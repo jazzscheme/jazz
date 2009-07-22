@@ -29,7 +29,7 @@
 
 
 (define (make-profile depth)
-  (%%vector 'profile depth 0 0 (make-table test: equal?)))
+  (%%vector 'profile depth 0 0 (%%make-table test: equal?)))
 
 
 (define (profile-depth profile)
@@ -115,12 +115,12 @@
 
 (define (register-continuation cont)
   (let ((stack (identify-stack cont (profile-depth *profile*))))
-    (if (not stack)
-        (profile-unknown-set! *profile* (+ (profile-unknown *profile*) 1))
+    (if (%%not stack)
+        (profile-unknown-set! *profile* (%%fx+ (profile-unknown *profile*) 1))
       (begin
-        (profile-total-set! *profile* (+ (profile-total *profile*) 1))
-        (let ((actual (table-ref (profile-calls *profile*) stack 0)))
-          (table-set! (profile-calls *profile*) stack (%%fx+ actual 1)))))))
+        (profile-total-set! *profile* (%%fx+ (profile-total *profile*) 1))
+        (let ((actual (%%table-ref (profile-calls *profile*) stack 0)))
+          (%%table-set! (profile-calls *profile*) stack (%%fx+ actual 1)))))))
 
 
 ;;;
@@ -136,7 +136,7 @@
               (let ((filepos (%%position->filepos (%%locat-position locat))))
                 (let ((line (%%filepos-line filepos))
                       (col (%%filepos-col filepos)))
-                  (list container line col)))
+                  (%%list container line col)))
             #f))
       #f))
   
@@ -146,7 +146,7 @@
       (let ((creator (%%continuation-creator cont))
             (location (identify-location (%%continuation-locat cont))))
         (identify (%%continuation-next cont)
-                  (cons (list creator location) stack)
+                  (%%cons (%%list creator location) stack)
                   (%%fx+ count 1)))))
   
   (identify cont '() 0)))

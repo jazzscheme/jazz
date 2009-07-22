@@ -59,8 +59,8 @@
 
 (define (jazz.resize-vector vector size)
   (let ((new-vector (%%make-vector size #f)))
-    (let iter ((offset (- (min size (%%vector-length vector)) 1)))
-      (%%when (>= offset 0)
+    (let iter ((offset (%%fx- (min size (%%vector-length vector)) 1)))
+      (%%when (%%fx>= offset 0)
         (%%vector-set! new-vector offset (%%vector-ref vector offset))
-        (iter (- offset 1))))
+        (iter (%%fx- offset 1))))
     new-vector)))

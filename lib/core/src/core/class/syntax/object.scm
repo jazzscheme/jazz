@@ -60,7 +60,7 @@
                       1)))
             ((list)
              (%%table-set! jazz.instances-statistics name
-               (cons obj (%%table-ref jazz.instances-statistics name '())))))))))
+               (%%cons obj (%%table-ref jazz.instances-statistics name '())))))))))
 
 
 (jazz.define-macro (%%register-instance class obj)

@@ -125,7 +125,7 @@
                      (write (%%desourcify assertion) port)
                      (display " failed" port)
                      (get-output-string port))))
-      (jazz.expand-%%assertion-body test? assertion (list 'error message) body))))
+      (jazz.expand-%%assertion-body test? assertion (%%list 'error message) body))))
 
 
 (define (jazz.expand-%%assertion test? src)

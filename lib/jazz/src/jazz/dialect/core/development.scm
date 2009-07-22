@@ -44,8 +44,8 @@
 
 
 (jazz.define-macro (jazz.define-global name)
-  (let ((getter (string->symbol (string-append "get-" (symbol->string name))))
-        (setter (string->symbol (string-append "set-" (symbol->string name))))
+  (let ((getter (%%string->symbol (%%string-append "get-" (%%symbol->string name))))
+        (setter (%%string->symbol (%%string-append "set-" (%%symbol->string name))))
         (value (jazz.generate-symbol "value")))
     `(begin
        (define ,name

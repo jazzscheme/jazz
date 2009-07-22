@@ -42,9 +42,9 @@
   (if container
       (%%input-port-names-set! port (lambda (port) container)))
   (if line
-      (%%input-port-line-set! port (+ line 1)))
+      (%%input-port-line-set! port (%%fx+ line 1)))
   (if col
-      (%%input-port-column-set! port (+ col 1)))
+      (%%input-port-column-set! port (%%fx+ col 1)))
   
   (let ((begin-vector
           (%%read-all-as-a-begin-expr-from-port

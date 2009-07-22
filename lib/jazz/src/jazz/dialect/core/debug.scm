@@ -43,7 +43,14 @@
   (jazz.inspect-object (if (integer? obj) (jazz.serial->object obj) obj)))
 
 
-;; resume the IDE message loop
+;; run the message loop
+(define (run-loop)
+  (let ((get-process (jazz.global-value 'jazz.system.access.get-process))
+        (run-loop (jazz.global-value 'jazz.system.process.Process.Process.run-loop)))
+    (run-loop (get-process))))
+
+
+;; resume the message loop
 (define (resume)
   (let ((get-process (jazz.global-value 'jazz.system.access.get-process))
         (resume-loop (jazz.global-value 'jazz.system.process.Process.Process.resume-loop)))

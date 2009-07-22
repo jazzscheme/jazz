@@ -2032,11 +2032,11 @@
 (class package Search-Context extends Object
   
   
-  (slot target           <Sequence> accessors generate)
-  (slot whole-words?     <bool>     accessors generate)
-  (slot ignore-case?     <bool>     accessors generate)
-  (slot constituent-test <bool>     accessors generate)
-  (slot user-data        <any>      accessors generate))
+  (slot target           <Sequence>   accessors generate)
+  (slot whole-words?     <bool>       accessors generate)
+  (slot ignore-case?     <bool>       accessors generate)
+  (slot constituent-test <procedure+> accessors generate)
+  (slot user-data        <any>        accessors generate))
 
 
 (definition inline (construct-search-context target whole-words? ignore-case? constituent-test user-data)
@@ -2046,7 +2046,7 @@
 (definition public (make-search-context target
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
-                     (constituent-test: constituent-test word-constituent?)
+                     (constituent-test: constituent-test {})
                      (user-data: user-data #f))
   (construct-search-context target whole-words? ignore-case? constituent-test user-data))
 
@@ -2062,7 +2062,7 @@
     (list (standardize-context obj))))
 
 
-(definition (multisearch-impl seq <Sequence> contexts <list> start <fx+> reverse? <bool>)
+(definition (multisearch-impl seq <Sequence> contexts <list> constituent-test <procedure+> start <fx+> reverse? <bool>)
   (let ((len (cardinality seq)))
     (let ((pos <fx> (either start (if reverse? len 0))))
       (let (iter (scan contexts))
@@ -2072,7 +2072,7 @@
             (let ((target (get-target~ context))
                   (whole-words? (get-whole-words?~ context))
                   (ignore-case? (get-ignore-case?~ context))
-                  (constituent-test (get-constituent-test~ context)))
+                  (constituent-test (or (get-constituent-test~ context) constituent-test word-constituent?)))
               (let ((test (if ignore-case? char-ci=? char=?))
                     (size (cardinality target)))
                 
@@ -2130,18 +2130,20 @@
 
 
 (definition public (multisearch seq <Sequence> contexts <list>
+                     (constituent-test: constituent-test {})
                      (start: start {})
                      (reverse?: reverse? #f))
-  (multisearch-impl seq contexts start reverse?))
+  (multisearch-impl seq contexts constituent-test start reverse?))
 
 
 (definition public (multisearch-all seq <Sequence> contexts <list>
+                     (constituent-test: constituent-test {})
                      (start: start {})
                      (reverse?: reverse? #f))
   (let ((len (cardinality seq))
         (queue (new-queue)))
     (let (iter (pos <fx> (either start (if reverse? len 0))))
-      (let ((found (multisearch-impl seq contexts pos reverse?)))
+      (let ((found (multisearch-impl seq contexts constituent-test pos reverse?)))
         (if found
             (begin
               (enqueue queue found)
@@ -2156,8 +2158,8 @@
                      (reverse?: reverse? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
-                     (constituent-test: constituent-test word-constituent?)) <int+>
-  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f)) start reverse?)))
+                     (constituent-test: constituent-test {})) <int+>
+  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? {} #f)) constituent-test start reverse?)))
     (if found
         (cdr found)
       #f)))
@@ -2168,7 +2170,7 @@
                      (reverse?: reverse? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
-                     (constituent-test: constituent-test word-constituent?)) <list>
+                     (constituent-test: constituent-test {})) <list>
   (map cdr (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f))
              start: start
              reverse?: reverse?)))

@@ -399,7 +399,7 @@
 
 
 (define (jazz.install-repository-if-exists directory)
-  (if (file-exists? directory)
+  (if (jazz.directory-exists? directory)
       (jazz.install-repository directory)))
 
 
@@ -798,13 +798,13 @@
     (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
-                                (lambda (package path)
-                                  (if (%%not bin)
-                                      (set! bin (jazz.package-find-bin package path)))
-                                  (if (%%not src)
-                                      (set! src (jazz.package-find-src package path extensions)))
-                                  (if src
-                                      (continuation-return return #f))))))
+          (lambda (package path)
+            (if (%%not bin)
+                (set! bin (jazz.package-find-bin package path)))
+            (if (%%not src)
+                (set! src (jazz.package-find-src package path extensions)))
+            (if src
+                (continuation-return return #f))))))
     (if (%%not src)
         (jazz.error "Unable to find source for module: {s}" module-name)
       #; ;; test

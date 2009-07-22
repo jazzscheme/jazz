@@ -195,19 +195,13 @@
                       (naturals (length targets) height)))))))
   
   
-  (method protected virtual (get-constituent-test)
-    word-constituent?)
-  
-  
-  (method public (get-find-targets (constituent-test {}))
+  (method public (get-find-targets)
     (let ((whole-words? (get-whole-words?))
-          (ignore-case? (get-ignore-case?))
-          (constituent-test (or constituent-test (get-constituent-test))))
+          (ignore-case? (get-ignore-case?)))
       (map (function (target)
              (make-search-context (first target)
                whole-words?: whole-words?
-               ignore-case?: ignore-case?
-               constituent-test: constituent-test))
+               ignore-case?: ignore-case?))
            (get-search-targets))))
   
   
@@ -542,21 +536,19 @@
 
   (method (search-file file targets expression?)
     (when (exists?~ file)
-      (if (not expression?)
-          (call-with-input-file (list path: (parse~ file) char-encoding-errors: #f eol-encoding: 'cr-lf)
-            (function (reader)
-              (let ((content (read-content-string reader)))
-                (search-content content targets))))
-        (let ((text (new Jazz-Text-View)))
-          (set-moniker~ text file)
-          (let* ((beginning (text-beginning~ text))
-                 (expl (new Jazz-Explorer text start: beginning end: beginning))
-                 (mode (if (ci=? (get-extension~ file) "jazz") 'code 'quotation)))
-            (search-expressions~ expl mode targets beginning))))))
-  
-  
-  (method (search-content content targets)
-    (multisearch content targets))
+      (let ((ext (get-extension~ file)))
+        (if (not expression?)
+            (call-with-input-file (list path: (parse~ file) char-encoding-errors: #f eol-encoding: 'cr-lf)
+              (function (reader)
+                (let ((content (read-content-string reader))
+                      (constituent-test (extension-constituent-test ext)))
+                  (multisearch content targets constituent-test: constituent-test))))
+          (let ((text (new Jazz-Text-View)))
+            (set-moniker~ text file)
+            (let* ((beginning (text-beginning~ text))
+                   (expl (new Jazz-Explorer text start: beginning end: beginning))
+                   (mode (if (ci=? ext "jazz") 'code 'quotation)))
+              (search-expressions~ expl mode targets beginning)))))))
 
 
   ;;;

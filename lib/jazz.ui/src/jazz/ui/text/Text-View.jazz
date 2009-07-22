@@ -4372,7 +4372,7 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((targets (get-find-targets~ appl (get-constituent-test))))
+            (let ((targets (get-find-targets~ appl)))
               (unless (select-next targets)
                 (bell)))
           (on-find-forward~ search evt)))))
@@ -4382,7 +4382,7 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((targets (get-find-targets~ appl (get-constituent-test))))
+            (let ((targets (get-find-targets~ appl)))
               (unless (select-previous targets)
                 (bell)))
           (on-find-backward~ search evt)))))
@@ -4457,28 +4457,29 @@
   
   
   (method public (text-multisearch contexts (start: start {}) (end: end (get-limit)) (reverse?: reverse? #f))
-    ;; Quick solution to multi-line string search
-    (if (some? (function (context)
-                 (search (get-target~ context) "\n"))
-               contexts)
-        (let ((content (get-string-content)))
-          (let ((found (multisearch content contexts start: (position-offset start) reverse?: reverse?)))
-            (when found
-              (bind (context . offset) found
-                (cons context (offset-position offset))))))
-      (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
-            (limit (get-limit)))
-        (let ((row (get-row~ pos))
-              (col (get-col~ pos)))
-          (let (iter (n row) (start col))
-            (if (if reverse? (>= n 0) (<= n limit))
-                (let ((string (paragraph-string n)))
-                  (let ((found (multisearch string contexts start: start reverse?: reverse?)))
-                    (if found
-                        (bind (context . pos) found
-                          (cons context (new Cell n pos)))
-                      (iter (if reverse? (- n 1) (+ n 1)) {}))))
-              #f))))))
+    (let ((constituent-test (get-constituent-test)))
+      ;; Quick solution to multi-line string search
+      (if (some? (function (context)
+                   (search (get-target~ context) "\n"))
+                 contexts)
+          (let ((content (get-string-content)))
+            (let ((found (multisearch content contexts constituent-test: constituent-test start: (position-offset start) reverse?: reverse?)))
+              (when found
+                (bind (context . offset) found
+                  (cons context (offset-position offset))))))
+        (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
+              (limit (get-limit)))
+          (let ((row (get-row~ pos))
+                (col (get-col~ pos)))
+            (let (iter (n row) (start col))
+              (if (if reverse? (>= n 0) (<= n limit))
+                  (let ((string (paragraph-string n)))
+                    (let ((found (multisearch string contexts constituent-test: constituent-test start: start reverse?: reverse?)))
+                      (if found
+                          (bind (context . pos) found
+                            (cons context (new Cell n pos)))
+                        (iter (if reverse? (- n 1) (+ n 1)) {}))))
+                #f)))))))
 
   
   (method public (text-multisearch-all contexts)

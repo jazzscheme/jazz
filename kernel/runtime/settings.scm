@@ -78,7 +78,7 @@
 ;;;
 
 
-;; print Jazz objects by calling their print method?
+;; print Jazz objects by calling their print method
 (jazz.define-setting jazz.use-print?
   #t)
 

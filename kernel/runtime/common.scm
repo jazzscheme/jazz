@@ -270,24 +270,26 @@
         (write (%%digest-source-hash digest) output)
         (display " " output)
         (write (%%digest-source-time digest) output)
-        (if (and references (%%not (%%null? references)))
+        (if references
             (begin
               (display ")" output)
               (newline output)
               (display "  (references " output)
-              (display (%%car references) output)
-              (for-each (lambda (reference)
-                          (newline output)
-                          (display "              " output)
-                          (display reference output))
-                        (%%cdr references))))
+              (if (%%pair? references)
+                  (begin
+                    (display (%%car references) output)
+                    (for-each (lambda (reference)
+                                (newline output)
+                                (display "              " output)
+                                (display reference output))
+                              (%%cdr references))))))
         (display "))" output)
         (newline output)))))
 
 
 (define (jazz.load/create-manifest name manifest-filepath)
   (or (jazz.load-manifest manifest-filepath)
-      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0) '())))
+      (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0) #f)))
 
 
 (define (jazz.cache-manifest-uptodate? name manifest-filepath src-filepath)

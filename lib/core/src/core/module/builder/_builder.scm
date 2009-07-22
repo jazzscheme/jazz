@@ -44,6 +44,40 @@
 
 
 ;;;
+;;;; Manifest
+;;;
+
+
+(define (jazz.manifest-references-valid? bin)
+  (define (get-manifest-references)
+    (let ((manifest-filepath (jazz.manifest-pathname (%%resource-package bin) bin)))
+      (let ((manifest (jazz.load-manifest manifest-filepath)))
+        (and manifest (%%manifest-references manifest)))))
+  (define (library-references-valid? lst)
+    (let ((library-locator (car lst))
+          (library-references (cdr lst)))
+      (let ((library-declaration (jazz.outline-library library-locator)))
+        (jazz.every? (lambda (symbol)
+                       (let ((found (if (jazz.composite-name? symbol)
+                                        (let iter ((symbols (jazz.split-identifier symbol))
+                                                   (declaration library-declaration))
+                                             (cond ((not declaration)
+                                                    #f)
+                                                   ((%%pair? symbols)
+                                                    (iter (cdr symbols) (jazz.find-declaration declaration (car symbols))))
+                                                   (else
+                                                    declaration)))
+                                      (jazz.find-declaration library-declaration symbol))))
+                         (and found (%%neq? (%%get-declaration-access found) 'private))))
+                     library-references))))
+  
+  (let ((references (get-manifest-references)))
+    (if references
+        (jazz.every? library-references-valid? references)
+      #f)))
+
+
+;;;
 ;;;; Compile
 ;;;
 
@@ -60,7 +94,7 @@
   (let ((options (or options jazz.compile-options))
         (cc-options (or cc-options ""))
         (ld-options (or ld-options "")))
-    (if (or force? (%%not bin) (%%not bin-uptodate?))
+    (if (or force? (%%not (and bin bin-uptodate? (jazz.manifest-references-valid? bin))))
         (let ((package (%%resource-package src))
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
@@ -82,7 +116,9 @@
                                 (cond ((%%is? library-declaration jazz.Library-Declaration)
                                        (jazz.generate-reference-list library-declaration))
                                       ((%%is? library-declaration jazz.Module-Declaration)
-                                       #f)))))
+                                       '())
+                                      (else ; pure scheme
+                                       '())))))
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 

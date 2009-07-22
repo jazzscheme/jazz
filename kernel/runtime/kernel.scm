@@ -751,21 +751,10 @@
 
 (define (jazz.package-find-bin package path)
   (define (try path)
-    (define (extension n)
-      (%%string-append "o" (%%number->string n)))
-    
-    (define (exists? extension)
-      (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension))))
-    
-    (let ((o1 (extension 1)))
-      (if (%%not (exists? o1))
-          #f
-        (let iter ((next 2)
-                   (previous-extension o1))
-          (let ((next-extension (extension next)))
-            (if (exists? next-extension)
-                (iter (%%fx+ next 1) next-extension)
-              (%%make-resource package path previous-extension)))))))
+    ;; we only test .o1 and let gambit find the right file by returning no extension when found
+    (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path ".o1")))
+        (%%make-resource package path #f)
+      #f))
   
   (if (jazz.directory-exists? (jazz.package-pathname package path))
       (try (%%string-append path "/_" (jazz.pathname-name path)))
@@ -1315,9 +1304,10 @@
 
 
 (define (jazz.resource-package-pathname resource)
-  (%%string-append (%%resource-path resource)
-                   "."
-                   (%%resource-extension resource)))
+  (let ((ext (%%resource-extension resource)))
+    (if (%%not ext)
+        (%%resource-path resource)
+      (%%string-append (%%resource-path resource) "." ext))))
 
 
 (define (jazz.name->path resource-name)
@@ -1408,7 +1398,8 @@
                      (jazz.requested-module-resource (if bin-uptodate? bin src))
                      (jazz.walk-for 'load))
         (cond (bin-uptodate?
-               (let ((quiet? (or (%%not src) (%%string=? (%%resource-extension src) "jazz"))))
+               (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
+                                               (and ext (%%string=? ext "jazz"))))))
                  (jazz.load-resource bin quiet?)))
               (src
                (if (jazz.warn-interpreted?)

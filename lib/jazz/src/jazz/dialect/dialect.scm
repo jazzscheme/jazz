@@ -691,7 +691,7 @@
         (let ((dispatch-code (jazz.emit-method-dispatch self declaration)))
           (jazz.new-code
             `(lambda rest
-               (%%apply ,(jazz.sourcified-form dispatch-code) ,(jazz.sourcified-form self) rest))
+               (apply ,(jazz.sourcified-form dispatch-code) ,(jazz.sourcified-form self) rest))
             (%%get-code-type dispatch-code)
             #f))
       (jazz.error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
@@ -2554,7 +2554,7 @@
 (define (jazz.expand-assertion-body test? assertion action body)
   (let ((body (if (%%not-null? body) body '((unspecified)))))
     (if test?
-        `(if (%%not ,assertion)
+        `(if (not ,assertion)
              ,action
            ,(jazz.simplify-begin
               `(begin
@@ -2951,8 +2951,8 @@
     `(begin
        (c-external ,type ,(%%cons ext-s-name params) ,c-name)
        (definition public (,s-name ,@new-params)
-         (let ((pt (WCHAR-array-make (%%fx+ (%%string-length ,string-param) 1))))
-           (WCHAR-copy pt ,string-param (%%string-length ,string-param))
+         (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
+           (WCHAR-copy pt ,string-param (string-length ,string-param))
            (let* ((,string-param pt)
                   (result (,ext-s-name ,@new-params)))
              (values result (WCHAR-string ,string-param))))))))

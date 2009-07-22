@@ -136,7 +136,7 @@
                                                                                             (jazz.dynamic-parameter-names parameters))))))
                  ,(if (%%null? extra-parameters)
                       `(,gensym-specific ,@mandatory-parameters)
-                    `(%%apply ,gensym-specific ,@mandatory-parameters ,gensym-rest))))))))))
+                    `(apply ,gensym-specific ,@mandatory-parameters ,gensym-rest))))))))))
 
 
 (define (jazz.generic-object-locator locator)

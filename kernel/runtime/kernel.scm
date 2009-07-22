@@ -526,13 +526,16 @@
                     (products (%%assq 'products alist))
                     (profiles (%%assq 'profiles alist))
                     (project (%%assq 'project alist)))
-                (jazz.make-package repository name parent
-                  (if library (%%cadr library) #f)
-                  (if root (%%cadr root) #f)
-                  (if install (%%cadr install) #f)
-                  (if products (%%cdr products) '())
-                  (if profiles (%%cdr profiles) '())
-                  (if project (%%cadr project) #f)))
+                (let ((package
+                        (jazz.make-package repository name parent
+                          (if library (%%cadr library) #f)
+                          (if root (%%cadr root) #f)
+                          (if install (%%cadr install) #f)
+                          (if products (%%cdr products) '())
+                          (if profiles (%%cdr profiles) '())
+                          (if project (%%cadr project) #f))))
+                  (jazz.cache-package-roots package)
+                  package))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
@@ -812,35 +815,6 @@
           #f)))))
 
 
-(define jazz.*binary-packages-cache*
-  (%%make-table test: eq?))
-
-(define jazz.*source-packages-cache*
-  (%%make-table test: eq?))
-
-(define (jazz.cache-package cache module-name package)
-  (let ((prefix (jazz.extract-cached-prefix module-name)))
-    (let ((packages (%%table-ref jazz.*binary-packages-cache* prefix '())))
-      (if (%%not (%%memq package packages))
-          (begin
-            ;; (jazz.feedback "++ {a} {a}" (if (eq? cache jazz.*binary-packages-cache*) "bin" "src") prefix)
-            (%%table-set! jazz.*binary-packages-cache* prefix (%%cons package packages)))))))
-
-(define (jazz.cached-packages cache module-name)
-  (let ((prefix (jazz.extract-cached-prefix module-name)))
-    (%%table-ref jazz.*binary-packages-cache* prefix '())))
-
-(define (jazz.extract-cached-prefix module-name)
-  (let ((name (%%symbol->string module-name)))
-    (let ((first-period (jazz.string-find name #\.)))
-      (if first-period
-          (let ((second-period (jazz.string-find name #\. (%%fx+ first-period 1))))
-            (if second-period
-                (%%string->symbol (%%substring name 0 second-period))
-              module-name))
-        module-name))))
-
-
 (define (jazz.with-module-src/bin module-name extensions proc)
   (let ((bin (jazz.find-module-bin module-name))
         (src (jazz.find-module-src module-name extensions)))
@@ -879,6 +853,59 @@
                 #f
               (iter (%%cdr packages) #t))
           (iter (%%cdr packages) found?))))))
+
+
+;;;
+;;;; Cache
+;;;
+
+
+(define jazz.*binary-packages-cache*
+  (%%make-table test: eq?))
+
+(define jazz.*source-packages-cache*
+  (%%make-table test: eq?))
+
+
+(define (jazz.cache-package cache module-name package)
+  (let ((prefix (jazz.extract-cached-prefix module-name)))
+    (let ((packages (%%table-ref cache prefix '())))
+      (if (%%not (%%memq package packages))
+          (begin
+            ;; (jazz.feedback "++ {a} {a}" (if (eq? cache jazz.*binary-packages-cache*) "bin" "src") prefix)
+            (%%table-set! cache prefix (%%cons package packages)))))))
+
+
+(define (jazz.cached-packages cache module-name)
+  (let ((prefix (jazz.extract-cached-prefix module-name)))
+    (%%table-ref cache prefix '())))
+
+
+(define (jazz.extract-cached-prefix module-name)
+  (let ((name (%%symbol->string module-name)))
+    (let ((first-period (jazz.string-find name #\.)))
+      (if first-period
+          (let ((second-period (jazz.string-find name #\. (%%fx+ first-period 1))))
+            (if second-period
+                (%%string->symbol (%%substring name 0 second-period))
+              module-name))
+        module-name))))
+
+
+(define (jazz.cache-package-roots package)
+  (let ((cache (if (%%repository-binary? (%%package-repository package))
+                   jazz.*binary-packages-cache*
+                 jazz.*source-packages-cache*))
+        (toplevel-dir (jazz.package-pathname package "")))
+    (if (jazz.directory-exists? toplevel-dir)
+        (for-each (lambda (first-part)
+                    (let ((first-dir (string-append toplevel-dir first-part "/")))
+                      (if (jazz.directory-exists? first-dir)
+                          (for-each (lambda (second-part)
+                                      (let ((module-name (%%string->symbol (string-append first-part "." second-part))))
+                                        (jazz.cache-package cache module-name package)))
+                                    (jazz.directory-directories first-dir)))))
+                  (jazz.directory-directories toplevel-dir)))))
 
 
 ;;;

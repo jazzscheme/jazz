@@ -71,6 +71,11 @@
   
   (method (get-context)
     '(sql))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (display-banner (determine-banner)))
     
 
   ;;;
@@ -87,12 +92,22 @@
   ;;;
 
   
-  (method (display-banner)
-    @convert
-    (let ((start (get-start)))
-      (insert-string (format "SQL Console{%}{%}"))
-      (colorize Banner-Color start)
-      (display-prompt)))
+  (method (determine-banner)
+    (format "SQL Console{%}{%}> "))
+    
+
+  ;;;
+  ;;;; Prompt
+  ;;;
+  
+  
+  (method (display-prompt)
+    (insert-styled "> " 'Output))
+  
+  
+  (method (evaluation-break)
+    (set-caret (text-ending))
+    (insert-newline))
 
 
   ;;;
@@ -117,11 +132,16 @@
   
   (definition Overflow-Style
     {Text-Style font: {Font name: Code} color: {Color name: Dark-Red}})
+
   
-  
-  (method public (evaluate command console?)
-    (let ((tables (eval-command command console?)))
-      (display-evaluation tables console?)))
+  (method (eval-from-prompt)
+    (let ((range (current-command)))
+      (let ((command (get-string range)))
+        (unless (empty-string? command)
+          (set-style range (get-style 'Input))
+          (reset-inserted)
+          (evaluate-statements (list command) #t))))
+    (display-prompt))
   
   
   (method public (evaluate-statements statements console?)
@@ -142,12 +162,14 @@
                                    (increase! affected (get-count~ table)))))
                              statements)))
                (clear-table)
-               @temp-commented-for-console-work
                (when console?
                  (evaluation-break))
-               (display-result (format "{a} row{a} affected ({a} statements)" affected (format-plural affected) length) console?)
-               (when console?
-                 (fresh-prompt)))))))))
+               (display-result (format "{a} row{a} affected ({a} statements)" affected (format-plural affected) length) console?))))))))
+  
+  
+  (method public (evaluate command console?)
+    (let ((tables (eval-command command console?)))
+      (display-evaluation tables console?)))
   
   
   (method (eval-command command console?)
@@ -194,7 +216,6 @@
   
   
   (method (display-evaluation tables console?)
-    @temp-commented-for-console-work
     (when console?
       (evaluation-break))
     (cond ((null? tables)
@@ -212,9 +233,7 @@
                       (displayed (min count max-display))
                       (not-displayed (- count displayed)))
                  (display-tables tables max-display not-displayed)
-                 (display-affected count missing? not-displayed console?))))))
-    (when console?
-      (fresh-prompt)))
+                 (display-affected count missing? not-displayed console?)))))))
   
   
   (method (display-affected count missing? not-displayed console?)
@@ -235,8 +254,8 @@
         (user-message "{a}" string)
       (clear-user-message)
       (let ((start (get-start)))
-        (insert-line string)
-        (colorize Eval-Color start))))
+        (insert-styled string 'Comment)
+        (insert-newline))))
   
   
   (method (present-value value)
@@ -304,10 +323,9 @@
            (tree-font (get-font~ tree))
            (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
            (tree-widths (compute-widths columns tree-font tree-max-char)))
-      @convert-inter-module-assignment (
-      (set! ?t table)
-      (set! ?c columns)
-      (set! ?r rows))
+      (set-?t table)
+      (set-?c columns)
+      (set-?r rows)
       (display-text columns rows affected max-display not-displayed text-widths)
       (display-tree columns rows affected max-display not-displayed tree-widths)))
   

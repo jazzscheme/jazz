@@ -684,7 +684,7 @@
       (if (null? scan)
           (proc syms jobs)
         (let ((obj (car scan)))
-          (if (eqv? obj jobs:)
+          (if (memv obj '(jobs: -j -jobs))
               (iter (cddr scan) syms (cadr scan))
             (iter (cdr scan) (cons obj syms) jobs))))))
   

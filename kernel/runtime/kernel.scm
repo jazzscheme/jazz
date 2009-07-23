@@ -756,7 +756,7 @@
                       (if bin
                           (continuation-return return bin))))
                   (jazz.cached-packages jazz.*binary-packages-cache* module-name))
-        ;; (jazz.feedback "bin {a}" module-name)
+        ;; (jazz.feedback "caching bin {a}" module-name)
         (jazz.iterate-packages #t
           (lambda (package)
             (let ((bin (find-bin package path)))
@@ -799,7 +799,7 @@
                         (if src
                             (continuation-return return src))))
                     (jazz.cached-packages jazz.*source-packages-cache* module-name))
-          ;; (jazz.feedback "src {a}" module-name)
+          ;; (jazz.feedback "caching src {a}" module-name)
           (jazz.iterate-packages #f
             (lambda (package)
               (let ((src (find-src package path)))
@@ -870,28 +870,35 @@
 
 
 (define (jazz.cache-package cache module-name package)
-  (let ((prefix (jazz.extract-cached-prefix module-name)))
-    (let ((packages (%%table-ref cache prefix '())))
-      (if (%%not (%%memq package packages))
-          (%%table-set! cache prefix (%%cons package packages))))))
+  (jazz.with-cached-prefix module-name
+    (lambda (prefix singleton-prefix)
+      (let ((packages (%%table-ref cache prefix '())))
+        (if (%%not (%%memq package packages))
+            (%%table-set! cache prefix (%%cons package packages)))))))
 
 
 (define (jazz.cached-packages cache module-name)
-  (let ((prefix (jazz.extract-cached-prefix module-name)))
-    (%%table-ref cache prefix '())))
+  (jazz.with-cached-prefix module-name
+    (lambda (prefix singleton-prefix)
+      (or (%%table-ref cache prefix #f)
+          (if singleton-prefix
+              (%%table-ref cache singleton-prefix '())
+            '())))))
 
 
-(define (jazz.extract-cached-prefix module-name)
+;; return as symbols the first 1 or 2 parts and the first part if there exactly 2 parts
+(define (jazz.with-cached-prefix module-name proc)
   (let ((name (%%symbol->string module-name)))
     (let ((first-period (jazz.string-find name #\.)))
       (if first-period
           (let ((second-period (jazz.string-find name #\. (%%fx+ first-period 1))))
             (if second-period
-                (%%string->symbol (%%substring name 0 second-period))
-              module-name))
-        module-name))))
+                (proc (%%string->symbol (%%substring name 0 second-period)) #f)
+              (proc module-name (%%string->symbol (%%substring name 0 first-period)))))
+        (proc module-name #f)))))
 
 
+;; cache every subdirectory of level 2 and every subdirectory of level 1 that contains files
 (define (jazz.cache-package-roots package)
   (let ((cache (if (%%repository-binary? (%%package-repository package))
                    jazz.*binary-packages-cache*
@@ -901,10 +908,17 @@
         (for-each (lambda (first-part)
                     (let ((first-dir (string-append toplevel-dir first-part "/")))
                       (if (jazz.directory-exists? first-dir)
-                          (for-each (lambda (second-part)
-                                      (let ((module-name (%%string->symbol (string-append first-part "." second-part))))
-                                        (jazz.cache-package cache module-name package)))
-                                    (jazz.directory-directories first-dir)))))
+                          (let ((has-files? #f))
+                            (for-each (lambda (second-part)
+                                        (let ((second-path (%%string-append first-dir second-part)))
+                                          (case (jazz.pathname-type second-path)
+                                            ((regular) (set! has-files? #t))
+                                            ((directory) (let ((module-name (%%string->symbol (string-append first-part "." second-part))))
+                                                           (jazz.cache-package cache module-name package))))))
+                                      (jazz.directory-content first-dir))
+                            (if has-files?
+                                (let ((module-name (%%string->symbol first-part)))
+                                  (jazz.cache-package cache module-name package)))))))
                   (jazz.directory-directories toplevel-dir)))))
 
 

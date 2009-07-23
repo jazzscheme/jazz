@@ -1479,8 +1479,12 @@
                                                (and ext (%%string=? ext "jazz"))))))
                  (jazz.load-resource bin quiet?)))
               (src
-               (if (jazz.warn-interpreted?)
-                   (jazz.feedback "Warning: Loading {a} interpreted" module-name))
+               (let ((warn (jazz.warn-interpreted?)))
+                 (if warn
+                     (begin
+                       (jazz.feedback "Warning: Loading {a} interpreted" module-name)
+                       (if (and (%%pair? warn) (%%memq module-name warn))
+                           (pp jazz.Load-Stack)))))
                (jazz.with-extension-reader (%%resource-extension src)
                  (lambda ()
                    (jazz.load-resource src))))

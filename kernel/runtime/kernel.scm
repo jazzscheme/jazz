@@ -756,6 +756,7 @@
                       (if bin
                           (continuation-return return bin))))
                   (jazz.cached-packages jazz.*binary-packages-cache* module-name))
+        ;; (jazz.feedback "bin {a}" module-name)
         (jazz.iterate-packages #t
           (lambda (package)
             (let ((bin (find-bin package path)))
@@ -798,6 +799,7 @@
                         (if src
                             (continuation-return return src))))
                     (jazz.cached-packages jazz.*source-packages-cache* module-name))
+          ;; (jazz.feedback "src {a}" module-name)
           (jazz.iterate-packages #f
             (lambda (package)
               (let ((src (find-src package path)))
@@ -871,9 +873,7 @@
   (let ((prefix (jazz.extract-cached-prefix module-name)))
     (let ((packages (%%table-ref cache prefix '())))
       (if (%%not (%%memq package packages))
-          (begin
-            ;; (jazz.feedback "++ {a} {a}" (if (eq? cache jazz.*binary-packages-cache*) "bin" "src") prefix)
-            (%%table-set! cache prefix (%%cons package packages)))))))
+          (%%table-set! cache prefix (%%cons package packages))))))
 
 
 (define (jazz.cached-packages cache module-name)

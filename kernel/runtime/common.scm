@@ -287,17 +287,22 @@
         (newline output)))))
 
 
+(define (jazz.manifest-uptodate? manifest)
+  (let ((digest (%%manifest-digest manifest)))
+    (%%string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest))))
+
+
 (define (jazz.load/create-manifest name manifest-filepath)
   (or (jazz.load-manifest manifest-filepath)
       (%%make-manifest name jazz.kernel-version (%%make-digest "" "" 0) #f)))
 
 
-(define (jazz.cache-manifest-uptodate? name manifest-filepath src-filepath)
+(define (jazz.load-updated-manifest name manifest-filepath src-filepath)
   (let ((manifest (jazz.load/create-manifest name manifest-filepath)))
     (let ((digest (%%manifest-digest manifest)))
       (if (jazz.updated-digest-source? digest src-filepath)
           (jazz.save-manifest manifest-filepath manifest))
-      (%%string=? (%%digest-source-hash digest) (%%digest-compile-time-hash digest)))))
+      manifest)))
 
 
 (define (jazz.update-manifest-compile-time name manifest-filepath src-filepath updated-references)

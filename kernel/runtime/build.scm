@@ -160,7 +160,7 @@
         (let ((src (string-append dir name ".scm"))
               (dst (string-append output name ".c"))
               (mnf (string-append output name "." jazz.Manifest-Extension)))
-          (let ((hash-changed? (not (jazz.cache-manifest-uptodate? name mnf src))))
+          (let ((hash-changed? (not (jazz.manifest-uptodate? (jazz.load-updated-manifest name mnf src)))))
             (if (or rebuild? hash-changed? (not (jazz.file-exists? dst)))
                 (let ((path (string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())

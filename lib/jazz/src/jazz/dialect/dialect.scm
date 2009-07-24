@@ -1728,7 +1728,6 @@
 (define (jazz.effective-class-declaration-metaclass class-declaration)
   (if (%%not class-declaration)
       #f
-    ;; not 100% clean to use jazz.resolve-declaration here but will do for now
     (let ((class-declaration (jazz.resolve-declaration class-declaration)))
       (or (%%get-category-declaration-metaclass class-declaration)
           (let ((ascendant (%%get-class-declaration-ascendant class-declaration)))

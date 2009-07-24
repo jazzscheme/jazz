@@ -468,7 +468,7 @@
         #f
       (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
         (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-          (jazz.table-merge-without-conflicts! library-declaration "imports" private imported))))))
+          (jazz.table-merge-reporting-conflicts! library-declaration "imports" private imported))))))
 
 
 (define (jazz.add-library-export library-declaration library-invoice)
@@ -492,15 +492,24 @@
                        autoload)))
           (else
            (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) library-declaration)))
-             (jazz.table-merge-without-conflicts! library-declaration "exports" public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
+             (jazz.table-merge-reporting-conflicts! library-declaration "exports" public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
 
 
-(define (jazz.table-merge-without-conflicts! library-declaration suffix table add)
+(define (jazz.table-merge-reporting-conflicts! library-declaration suffix table add)
+  (define (find-actual-conflicts)
+    (let ((lst '()))
+      (%%iterate-table add
+        (lambda (key value)
+          (let ((actual (%%table-ref table key #f)))
+            (%%when (%%neq? value actual)
+              (set! lst (%%cons (%%list key value actual) lst))))))
+      lst))
+  
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
     (%%table-merge! table add #t)
     (%%when (%%not (%%fx= (%%table-length table) (%%fx+ table-count add-count)))
-      (let ((conflicts (jazz.find-actual-conflicts table add)))
+      (let ((conflicts (find-actual-conflicts)))
         ;; Can be null if the same declaration has been imported from
         ;; different libraries. Maybe we should also do an error in that case...
         (%%when (%%not (%%null? conflicts))
@@ -512,16 +521,6 @@
                                      (%%get-declaration-locator (%%cadr conflict))
                                      (%%get-declaration-locator (%%car (%%cddr conflict)))))
                            conflicts)))))))
-
-
-(define (jazz.find-actual-conflicts table add)
-  (let ((lst '()))
-    (%%iterate-table add
-      (lambda (key value)
-        (let ((actual (%%table-ref table key #f)))
-          (%%when (%%neq? value actual)
-            (set! lst (%%cons (%%list key value actual) lst))))))
-    lst))
 
 
 (define (jazz.generate-reference-list library-declaration)

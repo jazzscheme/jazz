@@ -42,7 +42,8 @@
 (export (jazz.dialect.kernel))
 
 
-;; These get redefined in jazz.dialect.language but are used by the syntax modules
+;; These get redefined by more evolved versions in jazz.dialect.language but are
+;; needed by the syntax modules so this file gives them access to the scheme versions
 
 
 ;;;

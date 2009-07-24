@@ -41,8 +41,7 @@
 (require (core.library)
          (jazz.dialect.core (phase syntax))
          (jazz.dialect.classes (phase syntax))
-         (jazz.dialect.dialect)
-         (jazz.dialect.kernel.boot))
+         (jazz.dialect.dialect))
 
 
 (export (jazz.dialect.syntax)

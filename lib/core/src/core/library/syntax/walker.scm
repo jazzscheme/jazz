@@ -235,17 +235,17 @@
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Declaration binding) symbol)
-  (jazz.lookup-declaration binding symbol #f))
+  (jazz.lookup-declaration binding symbol jazz.private-access))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.walk-error walker resume source-declaration "{a} is not callable" (%%get-declaration-locator declaration)))
 
 
-(jazz.define-virtual-runtime (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
+(jazz.define-virtual-runtime (jazz.lookup-declaration (jazz.Declaration declaration) symbol access))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?)
+(jazz.define-method (jazz.lookup-declaration (jazz.Declaration declaration) symbol access)
   #f)
 
 
@@ -405,7 +405,7 @@
   (%%table-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Namespace-Declaration namespace-declaration) symbol external?)
+(jazz.define-method (jazz.lookup-declaration (jazz.Namespace-Declaration namespace-declaration) symbol access)
   (define (add-to-library-references declaration)
     (%%when (and declaration
                  (%%neq? namespace-declaration (%%get-declaration-toplevel declaration)))
@@ -414,10 +414,9 @@
         (%%when (%%neq? library-declaration (%%get-declaration-toplevel declaration))
           (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
   
-  (let ((access (if external? jazz.public-access jazz.private-access)))
-    (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
-      (add-to-library-references found)
-      found)))
+  (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
+    (add-to-library-references found)
+    found))
 
 
 (jazz.encapsulate-class jazz.Namespace-Declaration)
@@ -505,7 +504,7 @@
         ;; Can be null if the same declaration has been imported from
         ;; different libraries. Maybe we should also do an error in that case...
         (%%when (%%not (%%null? conflicts))
-          (jazz.error "Conflicts detected in {a} {a}: {s}"
+          (jazz.error "Import conflicts detected in {a} {a}: {s}"
                       (%%get-lexical-binding-name library-declaration)
                       suffix
                       (map (lambda (conflict)
@@ -566,6 +565,20 @@
                                         declaration))
                                     (%%cdar in))))
              (iter (%%cdr in) (merge-sorted (%%cons library-locator declarations) out)))))))
+
+
+(jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access)
+  ;; test to detect unused imports
+  ;; this is not 100% correct because a private can shadow an imported symbol
+  #; ;; wait
+  (for-each (lambda (library-invoice)
+              (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
+                (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
+                  (%%when (%%table-ref imported symbol #f)
+                    (%%set-import-invoice-hit? library-invoice #t)))))
+            (%%get-library-declaration-imports declaration))
+  (nextmethod declaration symbol access))
+
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -714,7 +727,7 @@
 
 
 (define (jazz.new-import-invoice library phase version only)
-  (jazz.allocate-import-invoice jazz.Import-Invoice library phase version only #f #f #f))
+  (jazz.allocate-import-invoice jazz.Import-Invoice library phase version only #f #f #f #f))
 
 
 (jazz.encapsulate-class jazz.Import-Invoice)
@@ -775,7 +788,7 @@
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
-             (decl (jazz.lookup-declaration exported-library name #t)))
+             (decl (jazz.lookup-declaration exported-library name jazz.public-access)))
         (%%set-autoload-declaration-declaration declaration decl)
         (%%assertion decl (jazz.error "Unable to find autoload: {s}" name)
           decl))))
@@ -1473,7 +1486,7 @@
         (let ((library-name (if (%%eq? name 'Object) 'jazz.dialect.language.object 'jazz.dialect.language.functional)))
           (let ((library-declaration (jazz.get-catalog-entry library-name)))
             (if library-declaration
-                (jazz.lookup-declaration library-declaration name #t)
+                (jazz.lookup-declaration library-declaration name jazz.public-access)
               type)))
       type)))
 
@@ -4967,7 +4980,7 @@
 (define (jazz.lookup-subpath declaration subpath)
   (if (%%null? subpath)
       declaration
-    (let ((subdecl (jazz.lookup-declaration declaration (%%car subpath) #t)))
+    (let ((subdecl (jazz.lookup-declaration declaration (%%car subpath) jazz.public-access)))
       (if subdecl
           (jazz.lookup-subpath subdecl (%%cdr subpath))
         #f))))

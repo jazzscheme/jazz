@@ -88,7 +88,7 @@
 
 
 (jazz.define-virtual (jazz.resolve-declaration (jazz.Declaration declaration)))
-(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
+(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol access))
 (jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
 (jazz.define-virtual (jazz.get-declaration-inclusions (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
@@ -210,7 +210,7 @@
 
 
 (jazz.define-class jazz.Import-Invoice jazz.Library-Invoice (library phase version only except prefix rename) jazz.Object-Class jazz.allocate-import-invoice
-  ())
+  ((hit? %%get-import-invoice-hit? %%set-import-invoice-hit?)))
 
 
 ;;;

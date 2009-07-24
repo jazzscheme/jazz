@@ -269,13 +269,22 @@
 
 
 (define (jazz.setup-class-lookups class-declaration)
-  (define (resolve-declaration decl)
+  (define (resolve-class decl)
     (if decl
-        (jazz.resolve-declaration decl)
+        (let ((class-declaration (jazz.resolve-declaration decl)))
+          (%%assert (%%is? class-declaration jazz.Class-Declaration))
+          class-declaration)
       #f))
   
-  (let ((ascendant (resolve-declaration (%%get-class-declaration-ascendant class-declaration)))
-        (interfaces (map resolve-declaration (%%get-class-declaration-interfaces class-declaration))))
+  (define (resolve-interface decl)
+    (if decl
+        (let ((interface-declaration (jazz.resolve-declaration decl)))
+          (%%assert (%%is? interface-declaration jazz.Interface-Declaration))
+          interface-declaration)
+      #f))
+  
+  (let ((ascendant (resolve-class (%%get-class-declaration-ascendant class-declaration)))
+        (interfaces (map resolve-interface (%%get-class-declaration-interfaces class-declaration))))
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
@@ -442,12 +451,14 @@
 
 
 (define (jazz.setup-interface-lookups interface-declaration)
-  (define (resolve-declaration decl)
+  (define (resolve-interface decl)
     (if decl
-        (jazz.resolve-declaration decl)
+        (let ((interface-declaration (jazz.resolve-declaration decl)))
+          (%%assert (%%is? interface-declaration jazz.Interface-Declaration))
+          interface-declaration)
       #f))
   
-  (let ((ascendants (map resolve-declaration (%%get-interface-declaration-ascendants interface-declaration))))
+  (let ((ascendants (map resolve-interface (%%get-interface-declaration-ascendants interface-declaration))))
     
     (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
       (for-each (lambda (interface)
@@ -1020,7 +1031,7 @@
   (let ((symbol (jazz.source-code symbol-src)))
     (let ((slot-name (jazz.self-access symbol)))
       (if slot-name
-          (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
+          (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name jazz.private-access)))
             (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
               (jazz.new-reference slot-declaration)))
         (nextmethod walker resume declaration environment symbol-src)))))
@@ -1043,7 +1054,7 @@
 (jazz.define-method (jazz.walk-symbol-assignment (jazz.Jazz-Walker walker) resume declaration environment symbol value)
   (let ((slot-name (jazz.self-access symbol)))
     (if slot-name
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name jazz.private-access)))
           (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
             (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
       (nextmethod walker resume declaration environment symbol value))))
@@ -1265,7 +1276,7 @@
     (define (lookup-method object-code)
       (let ((object-type (resolve-type object-code)))
         (if (%%class-is? object-type jazz.Category-Declaration)
-            (let ((declaration (jazz.lookup-declaration object-type name #t)))
+            (let ((declaration (jazz.lookup-declaration object-type name jazz.public-access)))
               (if (and declaration (%%class-is? declaration jazz.Method-Declaration))
                   declaration
                 #f))
@@ -1564,7 +1575,7 @@
   (let ((form (%%desourcify form-src)))
     (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr form))
       (if (%%class-is? declaration jazz.Library-Declaration)
-          (let ((generic-declaration (jazz.lookup-declaration declaration name #f)))
+          (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access)))
             (if (%%class-is? generic-declaration jazz.Generic-Declaration)
                 (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                   (let* ((root? (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration signature name parameters))
@@ -1949,7 +1960,7 @@
 
 (define (jazz.walk-method-declaration walker resume declaration environment form)
   (define (find-root-declaration name)
-    (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
+    (let* ((next-declaration (jazz.lookup-declaration declaration name jazz.private-access))
            (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration))))
       (if (and root-declaration (%%eq? declaration (%%get-declaration-parent root-declaration)))
           #f
@@ -1980,7 +1991,7 @@
 (define (jazz.walk-method walker resume declaration environment form-src)
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr (jazz.source-code form-src)))
     (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name)
-      (let* ((new-declaration (jazz.lookup-declaration declaration name #f))
+      (let* ((new-declaration (jazz.lookup-declaration declaration name jazz.private-access))
              (category-declaration (%%get-declaration-parent new-declaration))
              (root-method-declaration (%%get-method-declaration-root new-declaration))
              (root-method-propagation (and root-method-declaration (%%get-method-declaration-propagation root-method-declaration)))

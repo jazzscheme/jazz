@@ -526,13 +526,27 @@
 
 
 (define (jazz.generate-reference-list library-declaration)
-  (define (merge-sorted item sorted compare)
+  (define (lesser name1 name2)
+    (if (or (%%null? name1) (%%null? name2))
+        (%%null? name1)
+      (let ((string1 (%%symbol->string (car name1)))
+            (string2 (%%symbol->string (car name2))))
+        (or (%%string<? string1 string2)
+            (and (%%string=? string1 string2)
+                 (lesser (cdr name1) (cdr name2)))))))
+  (define (merge-sorted item sorted)
     (cond ((%%null? sorted)
            (%%list item))
-          ((compare item (%%car sorted))
+          ((lesser item (%%car sorted))
            (%%cons item sorted))
           (else
-           (%%cons (%%car sorted) (merge-sorted item (%%cdr sorted) compare)))))
+           (%%cons (%%car sorted) (merge-sorted item (%%cdr sorted))))))
+  (define (compose-name root-declaration declaration)
+    (let iter ((declaration declaration)
+               (composite-name '()))
+         (if (%%eq? root-declaration declaration)
+             composite-name
+           (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-name)))))
   
   (let ((partition (%%make-table test: eq?)))
     (%%iterate-table (%%get-library-declaration-references library-declaration)
@@ -540,21 +554,18 @@
         (let ((resolved-declaration (jazz.resolve-declaration declaration)))
           (let ((library (%%get-declaration-toplevel resolved-declaration)))
             (%%table-set! partition library
-              (merge-sorted (let ((library-locator-length (%%string-length (%%symbol->string (%%get-declaration-locator library))))
-                                  (declaration-string (%%symbol->string (%%get-declaration-locator resolved-declaration))))
-                              (%%substring declaration-string (fx+ library-locator-length 1) (%%string-length declaration-string)))
-                            (%%table-ref partition library '())
-                            ##string<?))))))
+              (merge-sorted (compose-name library resolved-declaration) (%%table-ref partition library '())))))))
     (let iter ((in (%%table->list partition))
                (out '()))
          (if (%%null? in)
              out
-           (let ((library-string (%%symbol->string (%%get-declaration-locator (%%caar in))))
-                 (declaration-strings (%%cdar in)))
-             (iter (%%cdr in) (merge-sorted (%%cons library-string declaration-strings)
-                                            out
-                                            (lambda (lib1 lib2)
-                                              (%%string<? (%%car lib1) (%%car lib2))))))))))
+           (let ((library-locator (%%get-declaration-locator (%%caar in)))
+                 (declarations (map (lambda (declaration)
+                                      (if (and (%%pair? declaration) (%%null? (cdr declaration)))
+                                          (car declaration)
+                                        declaration))
+                                    (%%cdar in))))
+             (iter (%%cdr in) (merge-sorted (%%cons library-locator declarations) out)))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)

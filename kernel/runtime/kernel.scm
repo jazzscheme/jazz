@@ -822,12 +822,12 @@
         (src (jazz.find-module-src module-name extensions)))
     (let ((bin-uptodate?
             (if (and src bin)
-                  (let ((manifest (jazz.load-updated-manifest module-name
-                                                              (jazz.manifest-pathname (%%resource-package bin) bin)
-                                                              (jazz.resource-pathname src))))
-                    (and (jazz.manifest-uptodate? manifest)
-                         (%%not (jazz.manifest-needs-rebuild? manifest))))
-                bin)))
+                (let ((manifest (jazz.load-updated-manifest module-name
+                                                            (jazz.manifest-pathname (%%resource-package bin) bin)
+                                                            (jazz.resource-pathname src))))
+                  (and (jazz.manifest-uptodate? manifest)
+                       (%%not (jazz.manifest-needs-rebuild? manifest))))
+              bin)))
       (proc src bin bin-uptodate?))))
 
 

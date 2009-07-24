@@ -38,7 +38,11 @@
 (library protected jazz.dialect.syntax.macros scheme
 
 
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
+
+
+(native jazz.->string)
+(native jazz.error)
 
 
 (syntax public (constant form-src)

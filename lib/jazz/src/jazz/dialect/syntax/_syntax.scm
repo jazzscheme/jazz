@@ -52,5 +52,4 @@
         (jazz.dialect.syntax.with)
         (jazz.dialect.syntax.macros)
         (jazz.dialect.syntax.template)
-        (jazz.dialect.syntax.templates)
-        (jazz.dialect.kernel)))
+        (jazz.dialect.syntax.templates)))

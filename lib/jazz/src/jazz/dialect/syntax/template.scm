@@ -42,7 +42,7 @@
 
 
 @w
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
 
 
 @w

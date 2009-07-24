@@ -39,7 +39,7 @@
 (library protected jazz.dialect.syntax.bind-optionals scheme
 
 
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
 
 
 ; @syntax (bind-optionals ((a 2)) rest a)

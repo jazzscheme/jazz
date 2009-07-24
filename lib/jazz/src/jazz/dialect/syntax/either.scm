@@ -38,7 +38,7 @@
 (library protected jazz.dialect.syntax.either scheme
 
 
-(import (jazz.dialect.kernel.boot)
+(import (jazz.dialect.kernel)
         (jazz.dialect.syntax.bind)
         (jazz.dialect.syntax.macros))
 

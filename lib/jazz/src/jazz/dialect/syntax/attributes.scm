@@ -38,8 +38,12 @@
 (library protected jazz.dialect.syntax.attributes scheme
 
 
-(import (jazz.dialect.kernel.boot)
+(import (jazz.dialect.kernel)
         (jazz.dialect.syntax.macros))
+
+
+(native jazz.getf)
+(native jazz.system-format)
 
 
 ; @macro

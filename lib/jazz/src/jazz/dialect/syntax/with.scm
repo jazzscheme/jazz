@@ -38,7 +38,7 @@
 (library protected jazz.dialect.syntax.with scheme
 
 
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
 
 
 ;; should prolly expand into a let to be consistant with the naming

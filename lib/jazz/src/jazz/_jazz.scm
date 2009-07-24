@@ -42,5 +42,6 @@
         
         (jazz.dialect (phase syntax))
         (jazz.dialect.syntax (phase syntax))
+        (jazz.dialect.kernel)
         (jazz.dialect.language)
-        (jazz.dialect.walker.jazz)))
+        (jazz.dialect.walker)))

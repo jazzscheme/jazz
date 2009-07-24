@@ -39,7 +39,7 @@
 (library protected jazz.dialect.syntax.bind scheme
 
 
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
 
 
 ; @syntax (bind ((a . r) b . c) tree (list a b c r))

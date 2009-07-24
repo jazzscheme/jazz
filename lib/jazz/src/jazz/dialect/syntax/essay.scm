@@ -38,8 +38,12 @@
 (library protected jazz.dialect.syntax.essay scheme
 
 
-(import (jazz.dialect.kernel.boot)
+(import (jazz.dialect.kernel)
         (jazz.dialect.syntax.macros))
+
+
+(native jazz.butlast)
+(native jazz.last)
 
 
 ;; @syntax (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))

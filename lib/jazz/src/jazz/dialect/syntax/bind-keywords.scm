@@ -39,7 +39,10 @@
 (library protected jazz.dialect.syntax.bind-keywords scheme
 
 
-(import (jazz.dialect.kernel.boot))
+(import (jazz.dialect.kernel))
+
+
+(native jazz.last-tail)
 
 
 ; @syntax (bind-keywords ((a 2) (b 3)) rest (list b: 5))

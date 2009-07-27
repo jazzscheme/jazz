@@ -710,11 +710,14 @@
   (let iter-repo ((repositories jazz.Repositories) (profiles '()))
     (if (%%null? repositories)
         profiles
-      (let iter ((packages (jazz.repository-packages (%%car repositories))) (profiles profiles))
-        (if (%%null? packages)
+      (let ((repository (%%car repositories)))
+        (if (%%repository-binary? repository)
             (iter-repo (%%cdr repositories) profiles)
-          (let ((package-profiles (%%package-profiles (%%car packages))))
-            (iter (%%cdr packages) (%%append package-profiles profiles))))))))
+          (let iter ((packages (jazz.repository-packages repository)) (profiles profiles))
+            (if (%%null? packages)
+                (iter-repo (%%cdr repositories) profiles)
+              (let ((package-profiles (%%package-profiles (%%car packages))))
+                (iter (%%cdr packages) (%%append package-profiles profiles))))))))))
 
 
 (define (jazz.make-profile name module-name)

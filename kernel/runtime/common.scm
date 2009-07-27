@@ -274,9 +274,10 @@
             (begin
               (display ")" output)
               (newline output)
-              (display "  (references " output)
+              (display "  (references" output)
               (if (%%pair? references)
                   (begin
+                    (display " " output)
                     (write (%%car references) output)
                     (for-each (lambda (library-references)
                                 (newline output)

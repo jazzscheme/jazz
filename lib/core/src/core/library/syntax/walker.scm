@@ -496,25 +496,28 @@
 
 
 (define (jazz.table-merge-reporting-conflicts! library-declaration suffix table add)
+  (define (effective-declaration-locator decl)
+    (cond ((%%is? decl jazz.Export-Declaration)
+           (%%get-export-declaration-symbol decl))
+          ((%%is? decl jazz.Autoload-Declaration)
+           (effective-declaration-locator (jazz.resolve-declaration decl)))
+          (else
+           (%%get-declaration-locator decl))))
+  
   (define (find-actual-conflicts)
     (let ((lst '()))
       (%%iterate-table add
         (lambda (key value)
           (let ((actual (%%table-ref table key #f)))
-            (%%when (%%neq? value actual)
-              #; ;; wait
-                (and (%%neq? (%%get-declaration-locator value)
-                             (%%get-declaration-locator actual))
-                     (%%not (%%is? value jazz.Autoload-Declaration))
-                     (%%not (%%is? actual jazz.Autoload-Declaration))
-                     (%%not (%%is? value jazz.Export-Declaration))
-                     (%%not (%%is? actual jazz.Export-Declaration)))
-              (set! lst (%%cons (%%list key value actual) lst))))))
+            (let ((value-locator (effective-declaration-locator value))
+                  (actual-locator (effective-declaration-locator actual)))
+              (%%when (%%neq? value-locator actual-locator)
+                (set! lst (%%cons (%%list key value-locator actual-locator) lst)))))))
       lst))
   
   (let ((table-count (%%table-length table))
         (add-count (%%table-length add)))
-    (%%table-merge! table add #t)
+    (%%table-merge! table add #f)
     (%%when (%%not (%%fx= (%%table-length table) (%%fx+ table-count add-count)))
       (let ((conflicts (find-actual-conflicts)))
         ;; Can be null if the same declaration has been imported from
@@ -523,11 +526,7 @@
           (jazz.error "Import conflicts detected in {a} {a}: {s}"
                       (%%get-lexical-binding-name library-declaration)
                       suffix
-                      (map (lambda (conflict)
-                             (%%list (%%car conflict)
-                                     (%%get-declaration-locator (%%cadr conflict))
-                                     (%%get-declaration-locator (%%car (%%cddr conflict)))))
-                           conflicts)))))))
+                      conflicts))))))
 
 
 (define (jazz.generate-reference-list library-declaration)
@@ -793,8 +792,8 @@
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
              (decl (jazz.lookup-declaration exported-library name jazz.public-access)))
-        (%%set-autoload-declaration-declaration declaration decl)
-        (%%assertion decl (jazz.error "Unable to find autoload: {s}" name)
+        (%%assertion decl (jazz.error "Unable to find autoload {s} in {s}" name (%%get-declaration-locator exported-library))
+          (%%set-autoload-declaration-declaration declaration decl)
           decl))))
 
 

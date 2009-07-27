@@ -716,8 +716,8 @@
 (jazz.define-class-runtime jazz.Export-Invoice)
 
 
-(define (jazz.new-export-invoice library phase version only autoload)
-  (jazz.allocate-export-invoice jazz.Export-Invoice library phase version only #f #f #f autoload))
+(define (jazz.new-export-invoice name library phase version only autoload)
+  (jazz.allocate-export-invoice jazz.Export-Invoice name library phase version only #f #f #f autoload))
 
 
 (jazz.encapsulate-class jazz.Export-Invoice)
@@ -731,8 +731,8 @@
 (jazz.define-class-runtime jazz.Import-Invoice)
 
 
-(define (jazz.new-import-invoice library phase version only)
-  (jazz.allocate-import-invoice jazz.Import-Invoice library phase version only #f #f #f #f))
+(define (jazz.new-import-invoice name library phase version only)
+  (jazz.allocate-import-invoice jazz.Import-Invoice name library phase version only #f #f #f #f))
 
 
 (jazz.encapsulate-class jazz.Import-Invoice)
@@ -2773,7 +2773,7 @@
     (let ((symbols-exports (%%assq #t partition))
           (library-exports (%%assq #f partition)))
       (%%append (if symbols-exports
-                    (%%list (jazz.new-export-invoice #f #f '() (map (lambda (symbol) (jazz.new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
+                    (%%list (jazz.new-export-invoice #f #f #f '() (map (lambda (symbol) (jazz.new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
                   '())
                 (if library-exports
                     (map (lambda (export)
@@ -2785,7 +2785,8 @@
 (define (jazz.walk-library-export walker export)
   (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice export)
     (let ((library-reference (jazz.new-library-reference library-name #f)))
-      (jazz.new-export-invoice library-reference
+      (jazz.new-export-invoice library-name
+                               library-reference
                                library-phase
                                library-version
                                (if (%%not library-only)
@@ -2808,7 +2809,8 @@
 
 (define (jazz.walk-library-import walker import)
   (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
-    (jazz.new-import-invoice (jazz.lookup-library walker #f #f '() library-name)
+    (jazz.new-import-invoice library-name
+                             (jazz.lookup-library walker #f #f '() library-name)
                              library-phase
                              library-version
                              (if (%%not library-only)
@@ -2891,6 +2893,7 @@
     (if (%%eq? dialect-name 'core)
         #f
       (jazz.new-import-invoice
+        dialect-name
         (jazz.outline-library dialect-name)
         'syntax
         #f

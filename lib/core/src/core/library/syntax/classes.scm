@@ -186,7 +186,8 @@
 
 
 (jazz.define-class jazz.Library-Invoice jazz.Object () jazz.Object-Class ()
-  ((library    %%get-library-invoice-library ())
+  ((name       %%get-library-invoice-name    ())
+   (library    %%get-library-invoice-library ())
    (phase      %%get-library-invoice-phase   ())
    (version    %%get-library-invoice-version ())
    (only       %%get-library-invoice-only    ())
@@ -200,7 +201,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Invoice jazz.Library-Invoice (library phase version only except prefix rename) jazz.Object-Class jazz.allocate-export-invoice
+(jazz.define-class jazz.Export-Invoice jazz.Library-Invoice (name library phase version only except prefix rename) jazz.Object-Class jazz.allocate-export-invoice
   ((autoload %%get-export-invoice-autoload ())))
 
 
@@ -209,7 +210,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Import-Invoice jazz.Library-Invoice (library phase version only except prefix rename) jazz.Object-Class jazz.allocate-import-invoice
+(jazz.define-class jazz.Import-Invoice jazz.Library-Invoice (name library phase version only except prefix rename) jazz.Object-Class jazz.allocate-import-invoice
   ((hit? %%get-import-invoice-hit? %%set-import-invoice-hit?)))
 
 

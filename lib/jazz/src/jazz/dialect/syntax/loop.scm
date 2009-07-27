@@ -45,6 +45,10 @@
         (jazz.dialect.syntax.macros (phase syntax)))
 
 
+(native private jazz.->string)
+(native private jazz.error)
+
+
 ;;;
 ;;;; Samples
 ;;;

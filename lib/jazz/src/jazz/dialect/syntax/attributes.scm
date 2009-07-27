@@ -42,8 +42,8 @@
         (jazz.dialect.syntax.macros))
 
 
-(native jazz.getf)
-(native jazz.system-format)
+(native private jazz.getf)
+(native private jazz.system-format)
 
 
 ; @macro

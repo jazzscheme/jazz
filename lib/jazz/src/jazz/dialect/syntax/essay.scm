@@ -42,8 +42,9 @@
         (jazz.dialect.syntax.macros))
 
 
-(native jazz.butlast)
-(native jazz.last)
+(native private jazz.butlast)
+(native private jazz.error)
+(native private jazz.last)
 
 
 ;; @syntax (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))

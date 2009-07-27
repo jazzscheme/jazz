@@ -41,8 +41,8 @@
 (import (jazz.dialect.kernel))
 
 
-(native jazz.->string)
-(native jazz.error)
+(native private jazz.->string)
+(native private jazz.error)
 
 
 (syntax public (constant form-src)

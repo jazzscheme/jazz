@@ -55,6 +55,9 @@
 (jazz.define-setting jazz.parse-verbose?
   #f)
 
+(jazz.define-setting jazz.warn-unreferenced-import?
+  #f)
+
 (jazz.define-setting jazz.done-verbose?
   #f)
 

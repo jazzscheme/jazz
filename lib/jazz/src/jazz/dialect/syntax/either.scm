@@ -43,6 +43,9 @@
         (jazz.dialect.syntax.macros))
 
 
+(native private jazz.error)
+
+
 ;; @syntax (either code result) @expansion (if code code result)
 ;; @syntax (either (f) (g) (h)) @expansion (let ((sym15 (f))) (if sym15 sym15 (let ((sym16 (g))) (if sym16 sym16 (h)))))
 

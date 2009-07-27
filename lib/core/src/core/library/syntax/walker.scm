@@ -502,6 +502,13 @@
         (lambda (key value)
           (let ((actual (%%table-ref table key #f)))
             (%%when (%%neq? value actual)
+              #; ;; wait
+                (and (%%neq? (%%get-declaration-locator value)
+                             (%%get-declaration-locator actual))
+                     (%%not (%%is? value jazz.Autoload-Declaration))
+                     (%%not (%%is? actual jazz.Autoload-Declaration))
+                     (%%not (%%is? value jazz.Export-Declaration))
+                     (%%not (%%is? actual jazz.Export-Declaration)))
               (set! lst (%%cons (%%list key value actual) lst))))))
       lst))
   
@@ -567,15 +574,13 @@
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access)
-  ;; test to detect unused imports
-  ;; this is not 100% correct because a private can shadow an imported symbol
-  #; ;; wait
-  (for-each (lambda (library-invoice)
-              (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
-                (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                  (%%when (%%table-ref imported symbol #f)
-                    (%%set-import-invoice-hit? library-invoice #t)))))
-            (%%get-library-declaration-imports declaration))
+  (%%when (jazz.warn-unreferenced-import?)
+    (for-each (lambda (library-invoice)
+                (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
+                  (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
+                    (%%when (%%table-ref imported symbol #f)
+                      (%%set-import-invoice-hit? library-invoice #t)))))
+              (%%get-library-declaration-imports declaration)))
   (nextmethod declaration symbol access))
 
 

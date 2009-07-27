@@ -500,7 +500,9 @@
     (cond ((%%is? decl jazz.Export-Declaration)
            (%%get-export-declaration-symbol decl))
           ((%%is? decl jazz.Autoload-Declaration)
-           (effective-declaration-locator (jazz.resolve-declaration decl)))
+           ;; this heuristic used because we cannot call jazz.resolve-declaration at this point
+           ;; is not 100% correct if the autoload was obtained through a reexported library...
+           (jazz.compose-name (%%get-declaration-reference-name (%%get-autoload-declaration-exported-library decl)) (%%get-lexical-binding-name decl)))
           (else
            (%%get-declaration-locator decl))))
   

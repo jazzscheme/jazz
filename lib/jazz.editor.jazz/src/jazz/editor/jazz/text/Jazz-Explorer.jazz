@@ -39,9 +39,7 @@
 
 
 (import (jazz.editor.jazz)
-        (jazz.editor.scheme)
-        (jazz.library)
-        (jazz.utilities))
+        (jazz.editor.scheme))
 
 
 (proclaim (warn optimizations))
@@ -328,7 +326,7 @@
             (iterate))))))
   
   
-  (method (jazz-find-import-invoice module)
+  (method (jazz-find-import-invoice module ordered-insert?)
     (let ((target (symbol->string module)))
       (let (iterate (first? #t))
         (let ((pos (copy (get-end))))
@@ -342,7 +340,7 @@
                          (exit-list)
                          (set-start pos)
                          (values #t first?))
-                        ((string>? name target)
+                        ((and ordered-insert? (string>? name target))
                          (set-end pos)
                          (values #f first?))
                         (else
@@ -352,11 +350,11 @@
             (values #f first?))))))
   
   
-  (method (insert-import-invoice module)
+  (method public (insert-import-invoice module)
     (jazz-forward-declaration)
     (if (not (jazz-enter-import))
         (error "Unable to find import declaration")
-      (receive (found? first?) (jazz-find-import-invoice module)
+      (receive (found? first?) (jazz-find-import-invoice module #t)
         (unless found?
           (with-atomic-undo~ (get-undoer~ text)
             (function ()
@@ -375,24 +373,13 @@
     (jazz-forward-declaration)
     (if (not (jazz-enter-import))
         (error "Unable to find import declaration")
-      (receive (found? first?) (jazz-find-import-invoice module)
+      (receive (found? first?) (jazz-find-import-invoice module #f)
         (when found?
           (with-atomic-undo~ (get-undoer~ text)
             (function ()
               (replace~ text (get-range) (list ""))
               (when first?
-                (remove-spaces~ text (get-start) keep: 'one))
-              @w
-              (set-caret~ text (get-end))
-              @w
-              (cond (first?
-                      (insert-string~ text (format " ({a})" module))
-                      (insert-newline~ text)
-                      (tabulate~ text))
-                    (else
-                     (insert-newline~ text)
-                     (tabulate~ text)
-                     (insert-string~ text (format "({a})" module))))))))))
+                (remove-spaces~ text (get-start) keep: 'one))))))))
   
   
   (method (jazz-symbol)

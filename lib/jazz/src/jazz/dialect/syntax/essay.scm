@@ -38,8 +38,7 @@
 (library protected jazz.dialect.syntax.essay scheme
 
 
-(import (jazz.dialect.kernel)
-        (jazz.dialect.syntax.macros))
+(import (jazz.dialect.kernel))
 
 
 (native private jazz.butlast)

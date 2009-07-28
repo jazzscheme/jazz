@@ -202,7 +202,7 @@
 
 
 (jazz.define-class jazz.Export-Invoice jazz.Library-Invoice (name library phase version only except prefix rename) jazz.Object-Class jazz.allocate-export-invoice
-  ((autoload %%get-export-invoice-autoload ())))
+  ((autoload %%get-export-invoice-autoload %%set-export-invoice-autoload)))
 
 
 ;;;

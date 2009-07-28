@@ -481,8 +481,7 @@
 
 (define (jazz.add-library-export library-declaration library-invoice)
   (define (merge-invoice actual library-invoice)
-    ;; todo
-    #f)
+    (%%set-export-invoice-autoload actual (%%append (%%get-export-invoice-autoload actual) (%%get-export-invoice-autoload library-invoice))))
   
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) library-declaration)))
@@ -818,7 +817,7 @@
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
              (decl (jazz.lookup-declaration exported-library name jazz.public-access)))
-        (%%assertion decl (jazz.error "Unable to find autoload {s} in {s}" name (%%get-declaration-locator exported-library))
+        (%%assertion decl (jazz.error "Unable to find autoload {s} in module {s}" name (%%get-declaration-locator exported-library))
           (%%set-autoload-declaration-declaration declaration decl)
           decl))))
 

@@ -456,11 +456,19 @@
 
 
 (define (jazz.add-library-import library-declaration library-invoice register?)
+  (define (merge-invoice actual library-invoice)
+    ;; todo
+    #f)
+  
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (%%get-library-invoice-library library-invoice)))
       (jazz.load-module (%%get-lexical-binding-name library-declaration))))
   (if register?
-      (%%set-library-declaration-imports library-declaration (%%append (%%get-library-declaration-imports library-declaration) (%%list library-invoice))))
+      (let ((imports (%%get-library-declaration-imports library-declaration)))
+        (let ((actual (jazz.find-library-invoice imports library-invoice)))
+          (if actual
+              (merge-invoice actual library-invoice)
+            (%%set-library-declaration-imports library-declaration (%%append imports (%%list library-invoice)))))))
   (let ((private (%%get-access-lookup library-declaration jazz.private-access))
         (only (%%get-library-invoice-only library-invoice)))
     (if only
@@ -472,10 +480,18 @@
 
 
 (define (jazz.add-library-export library-declaration library-invoice)
+  (define (merge-invoice actual library-invoice)
+    ;; todo
+    #f)
+  
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) library-declaration)))
       (jazz.load-module (%%get-lexical-binding-name library-declaration))))
-  (%%set-library-declaration-exports library-declaration (%%append (%%get-library-declaration-exports library-declaration) (%%list library-invoice)))
+  (let ((exports (%%get-library-declaration-exports library-declaration)))
+    (let ((actual (jazz.find-library-invoice exports library-invoice)))
+      (if actual
+          (merge-invoice actual library-invoice)
+        (%%set-library-declaration-exports library-declaration (%%append exports (%%list library-invoice))))))
   (let ((public (%%get-access-lookup library-declaration jazz.public-access))
         (only (%%get-library-invoice-only library-invoice))
         (autoload (%%get-export-invoice-autoload library-invoice)))
@@ -583,7 +599,6 @@
                       (%%set-import-invoice-hit? library-invoice #t)))))
               (%%get-library-declaration-imports declaration)))
   (nextmethod declaration symbol access))
-
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -706,6 +721,15 @@
 
 
 (jazz.encapsulate-class jazz.Library-Invoice)
+
+
+(define (jazz.find-library-invoice invoices target)
+  (let ((target-name (%%get-library-invoice-name target))
+        (target-phase (%%get-library-invoice-phase target)))
+    (jazz.find-if (lambda (invoice)
+                    (and (%%eq? (%%get-library-invoice-name invoice) target-name)
+                         (%%eq? (%%get-library-invoice-phase invoice) target-phase)))
+                  invoices)))
 
 
 ;;;
@@ -5554,7 +5578,8 @@
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (let ((source (jazz.resource-pathname src)))
       (define (load-declaration)
-        (let ((form (jazz.read-toplevel-form source)))
+        ;; not reading the literals is necessary as reading a literal will load modules
+        (let ((form (jazz.read-toplevel-form source read-literals?: #f)))
           (parameterize ((jazz.requested-module-name module-name)
                          (jazz.requested-module-resource src))
             (case (%%car form)
@@ -5568,17 +5593,17 @@
           (load-declaration))))))
 
 
-(define jazz.parse-read?
-  (make-parameter #f))
+(define jazz.read-literals?
+  (make-parameter #t))
 
 
-(define (jazz.read-toplevel-form source #!key (parse-read? #t) (read-source? #f))
+(define (jazz.read-toplevel-form source #!key (read-literals? #t) (read-source? #f))
   (receive (form extraneous?)
       (jazz.with-extension-reader (jazz.pathname-extension source)
          (lambda ()
            (call-with-input-file (%%list path: source eol-encoding: 'cr-lf)
              (lambda (port)
-               (parameterize ((jazz.parse-read? parse-read?))
+               (parameterize ((jazz.read-literals? read-literals?))
                  (if (%%not read-source?)
                      (let ((form (read port))
                            (extraneous? (%%not (%%eof-object? (read port)))))

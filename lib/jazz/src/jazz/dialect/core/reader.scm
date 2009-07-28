@@ -117,7 +117,7 @@
             (jazz.error "Trying to read an unreadable literal")
           (let ((lst (%%build-list re #t start-pos #\})))
             (jazz.readenv-wrap re
-              (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
+              (if (or (%%not (jazz.read-literals?)) (jazz.in-expression-comment?))
                   #f
                 (jazz.construct-literal (map (lambda (expr) (%%desourcify expr)) lst))))))))
     

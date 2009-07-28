@@ -590,13 +590,13 @@
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access)
-  (%%when (jazz.warn-unreferenced-import?)
-    (for-each (lambda (library-invoice)
-                (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
-                  (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                    (%%when (%%table-ref imported symbol #f)
-                      (%%set-import-invoice-hit? library-invoice #t)))))
-              (%%get-library-declaration-imports declaration)))
+  ;; code to detect unreferenced imports
+  (for-each (lambda (library-invoice)
+              (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
+                (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
+                  (%%when (%%table-ref imported symbol #f)
+                    (%%set-import-invoice-hit? library-invoice #t)))))
+            (%%get-library-declaration-imports declaration))
   (nextmethod declaration symbol access))
 
 

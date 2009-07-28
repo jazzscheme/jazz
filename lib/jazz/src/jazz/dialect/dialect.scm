@@ -3053,11 +3053,11 @@
 
 
 (define (jazz.expand-form walker resume declaration environment form)
-  (let* ((class-declaration declaration)
-         (class-locator (%%get-declaration-locator class-declaration)))
+  (let* ((class-name (%%get-lexical-binding-name declaration))
+         (class-locator (%%get-declaration-locator declaration)))
     `(begin
        (definition class-form
-         (jml->form>> ',form ,class-locator))
+         (jml->form>> ',form ,class-name))
        
        (register-form ',class-locator class-form)
 

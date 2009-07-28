@@ -339,6 +339,8 @@
                 (forward-expr)
                 (let ((name (get-marked)))
                   (cond ((string=? name target)
+                         (exit-list)
+                         (set-start pos)
                          (values #t first?))
                         ((string>? name target)
                          (set-end pos)
@@ -359,6 +361,30 @@
           (with-atomic-undo~ (get-undoer~ text)
             (function ()
               (set-caret~ text (get-end))
+              (cond (first?
+                      (insert-string~ text (format " ({a})" module))
+                      (insert-newline~ text)
+                      (tabulate~ text))
+                    (else
+                     (insert-newline~ text)
+                     (tabulate~ text)
+                     (insert-string~ text (format "({a})" module))))))))))
+  
+  
+  (method (remove-import-invoice module)
+    (jazz-forward-declaration)
+    (if (not (jazz-enter-import))
+        (error "Unable to find import declaration")
+      (receive (found? first?) (jazz-find-import-invoice module)
+        (when found?
+          (with-atomic-undo~ (get-undoer~ text)
+            (function ()
+              (replace~ text (get-range) (list ""))
+              (when first?
+                (remove-spaces~ text (get-start) keep: 'one))
+              @w
+              (set-caret~ text (get-end))
+              @w
               (cond (first?
                       (insert-string~ text (format " ({a})" module))
                       (insert-newline~ text)

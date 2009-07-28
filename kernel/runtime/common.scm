@@ -308,6 +308,7 @@
 
 (define (jazz.update-manifest-compile-time name manifest-filepath src-filepath updated-references)
   (let ((manifest (jazz.load/create-manifest name manifest-filepath)))
+    (%%manifest-version-set! manifest jazz.kernel-version)
     (let ((digest (%%manifest-digest manifest)))
       (jazz.updated-digest-source? digest src-filepath)
       (if updated-references

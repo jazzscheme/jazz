@@ -264,6 +264,9 @@
 (jazz.define-macro (%%manifest-version manifest)
   `(%%vector-ref ,manifest 2))
 
+(jazz.define-macro (%%manifest-version-set! manifest version)
+  `(%%vector-set! ,manifest 2 ,version))
+
 (jazz.define-macro (%%manifest-digest manifest)
   `(%%vector-ref ,manifest 3))
 

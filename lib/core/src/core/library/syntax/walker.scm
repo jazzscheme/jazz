@@ -459,7 +459,7 @@
 
 
 (define (jazz.add-library-import library-declaration library-invoice register?)
-  (define (merge-invoice actual library-invoice)
+  (define (merge-invoice actual new)
     ;; todo
     #f)
   
@@ -483,8 +483,11 @@
 
 
 (define (jazz.add-library-export library-declaration library-invoice)
-  (define (merge-invoice actual library-invoice)
-    (%%set-export-invoice-autoload actual (%%append (%%get-export-invoice-autoload actual) (%%get-export-invoice-autoload library-invoice))))
+  (define (merge-invoice actual new)
+    (let ((actual-autoload (%%get-export-invoice-autoload actual))
+          (new-autoload (%%get-export-invoice-autoload new)))
+      (%%when new-autoload
+        (%%set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
   
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) library-declaration)))

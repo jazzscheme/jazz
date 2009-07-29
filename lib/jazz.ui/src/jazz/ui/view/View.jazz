@@ -2010,16 +2010,18 @@
            (view (find-mouse-view pos)))
       (when view
         (close-popups~ view event: 'mouse-down)
-        (let ((acquired (acquire~ view self pos)))
+        (let ((actual-focus (get-focus))
+              (acquired (acquire~ view self pos)))
           (set-mouse-down? #t)
           (set-mouse-down-view view)
           (set-mouse-down-point acquired)
-          (when (mouse-activate?~ view)
-            (let ((host (get-host~ view)))
-              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                (mouse-activate~ host))))
-          (call-mouse-down~ view acquired)
-          (call-cursor-update~ view acquired)))))
+          (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
+            (when (mouse-activate?~ view)
+              (let ((host (get-host~ view)))
+                (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                  (mouse-activate~ host))))
+            (call-mouse-down~ view acquired)
+            (call-cursor-update~ view acquired))))))
 
   
   (method public (call-mouse-down pos)
@@ -2542,6 +2544,14 @@
 
   
   (method public virtual (mouse-copy pos destination)
+    (let ((data (mouse-data pos)))
+      (if (not data)
+          #f
+        (mouse-insert~ destination data)
+        #t)))
+
+  
+  (method public virtual (mouse-data pos)
     #f)
 
   

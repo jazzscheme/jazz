@@ -103,31 +103,33 @@
   (property protected colorize?                      initialize #t                       getter get-colorize?                 setter set-colorize?)
   
   
-  (slot protected syntax                initialize {})
-  (slot protected selection-anchor      initialize {})
-  (slot protected locked-anchor?        initialize #f)
-  (slot protected mouse-selecting?      initialize #f)
-  (slot protected selection-mode        initialize 'char)
-  (slot protected special-mode          initialize {})
-  (slot protected virtual-h             initialize {})
-  (slot protected caret-position        initialize {})
-  (slot protected caret-pulse           initialize {})
-  (slot protected caret-visible?        initialize #f)
-  (slot protected has-focus?            initialize #f)
-  (slot protected completion-active?    initialize #f)
-  (slot protected text-listeners        initialize '())
-  (slot protected undoer                initialize (new Undoer self))
-  (slot protected user-tabs             initialize '())
-  (slot protected tabs                  initialize '())
-  (slot protected mark                  initialize {})
-  (slot protected formats               initialize (new Exemplar-Domain))
-  (slot protected styles                initialize (new Exemplar-Domain))
-  (slot protected controller            initialize {})
-  (slot protected previous-position     initialize {})
-  (slot protected autoscroll-pulse      initialize #f)
-  (slot protected wrap-width            initialize {})
-  (slot protected wrap-patch            initialize {})
-  (slot protected contiguous-undo-range initialize {})
+  (slot protected syntax                 initialize {})
+  (slot protected selection-anchor       initialize {})
+  (slot protected locked-anchor?         initialize #f)
+  (slot protected mouse-selecting?       initialize #f)
+  (slot protected selection-mode         initialize 'char)
+  (slot protected special-mode           initialize {})
+  (slot protected virtual-h              initialize {})
+  (slot protected caret-position         initialize {})
+  (slot protected caret-pulse            initialize {})
+  (slot protected caret-visible?         initialize #f)
+  (slot protected has-focus?             initialize #f)
+  (slot protected completion-active?     initialize #f)
+  (slot protected text-listeners         initialize '())
+  (slot protected undoer                 initialize (new Undoer self))
+  (slot protected user-tabs              initialize '())
+  (slot protected tabs                   initialize '())
+  (slot protected mark                   initialize {})
+  (slot protected formats                initialize (new Exemplar-Domain))
+  (slot protected styles                 initialize (new Exemplar-Domain))
+  (slot protected controller             initialize {})
+  (slot protected previous-position      initialize {})
+  (slot protected autoscroll-pulse       initialize #f)
+  (slot protected wrap-width             initialize {})
+  (slot protected wrap-patch             initialize {})
+  (slot protected contiguous-undo-range  initialize {})
+  (slot protected mouse-copy-selection   initialize {})
+  (slot protected mouse-copy-destination initialize {})
     
   
   (form
@@ -856,11 +858,12 @@
   (method (cursor-update view <Point>)
     (show-text-cursor)
     (when (and enabled? selectable?)
-      (let* ((pos (view->text view))
-             (par (get-paragraph (get-row~ pos))))
-        (if (< (get-h~ view) (paragraph-left~ par))
-            (set-cursor :left-arrow)
-          (set-cursor :ibeam)))))
+      (if (alt-down?)
+          (set-cursor :finger)
+        (let ((par (get-paragraph (get-row~ (view->text view)))))
+          (if (< (get-h~ view) (paragraph-left~ par))
+              (set-cursor :left-arrow)
+            (set-cursor :ibeam))))))
   
   
   ;;;
@@ -964,8 +967,11 @@
   (method (mouse-down view)
     (when (and enabled? selectable?)
       (let ((focus? has-focus?)
+            (mouse-copy? (alt-down?))
             (pos (view->text view)))
-        (acquire-focus)
+        (end-completion)
+        (unless mouse-copy?
+          (acquire-focus))
         (when pos
           (acquire-capture)
           (unlock-anchor)
@@ -983,6 +989,13 @@
                 (update-caret)))
             (reset-mode)
             (set! previous-position pos))))))
+
+  
+  (method (mouse-copy pos destination)
+    (set! mouse-copy-selection (get-selection))
+    (set! mouse-copy-destination destination)
+    (call-mouse-down pos)
+    #t)
   
   
   (method (mouse-up pos)
@@ -1018,6 +1031,13 @@
         (mouse-select-copy
           (function ()
             (get-selected-string)))
+        (when (and mouse-copy-selection (alt-down?))
+          (let* ((range (if (has-selection?) selection (expr-range (get-start))))
+                 (copy (get-string range)))
+            (set-selection mouse-copy-selection)
+            (mouse-insert~ mouse-copy-destination copy)))
+        (set! mouse-copy-selection {})
+        (set! mouse-copy-destination {})
         (when (and (not alt?) control? (not shift?))
           (let ((recorder (get-recorder~ appl)))
             (when recorder
@@ -3827,6 +3847,12 @@
     (let ((range (current-expr-range)))
       (when range
         (get-string range))))
+  
+  
+  (method public virtual (expr-range pos)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+      (outer-expr~ expl)
+      (get-range~ expl)))
   
   
   ;;;

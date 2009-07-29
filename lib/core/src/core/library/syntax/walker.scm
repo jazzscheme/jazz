@@ -53,13 +53,16 @@
 ;; - Is the extra indirection level of having declaration references really necessary?
 ;; - Convert and remove the temporary patch jazz.register-autoload that was used to implement
 ;;   the old load
-;; - Think about the check order of imported modules. I do not like that they are checked in
-;;   reversed order although with the new lookups the order should be irrelevant as it should be
 ;; - Cleanup the probably not usefull new method jazz.resolve-declaration that I added to get
 ;;   things working
 
 
 (module protected core.library.syntax.walker
+
+
+;; complex code analysis for tools
+(define jazz.analysis-mode?
+  (make-parameter #f))
 
 
 ;;;
@@ -591,12 +594,13 @@
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access)
   ;; code to detect unreferenced imports
-  (for-each (lambda (library-invoice)
-              (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
-                (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                  (%%when (%%table-ref imported symbol #f)
-                    (%%set-import-invoice-hit? library-invoice #t)))))
-            (%%get-library-declaration-imports declaration))
+  (%%when (jazz.analysis-mode?)
+    (for-each (lambda (library-invoice)
+                (let ((imported-library-declaration (%%get-library-invoice-library library-invoice)))
+                  (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
+                    (%%when (%%table-ref imported symbol #f)
+                      (%%set-import-invoice-hit? library-invoice #t)))))
+              (%%get-library-declaration-imports declaration)))
   (nextmethod declaration symbol access))
 
 
@@ -5026,13 +5030,6 @@
     (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((library (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration library referenced-declaration)))
-    #; ;; wait
-    (let ((library-declaration (%%get-declaration-toplevel declaration)))
-      (if (%%neq? (%%get-declaration-toplevel referenced-declaration) library-declaration)
-          (let ((table (%%get-library-declaration-references library-declaration)))
-            (let ((references (%%table-ref table referenced-declaration '())))
-              (if (%%not (%%memq declaration references))
-                  (%%table-set! table referenced-declaration (%%cons declaration references)))))))
     referenced-declaration))
 
 

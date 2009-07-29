@@ -946,6 +946,7 @@
 ;;;
 
 
+(native jazz.analysis-mode?)
 (native jazz.new-walk-context)
 (native jazz.register-literal-constructor)
 (native jazz.specifier?)

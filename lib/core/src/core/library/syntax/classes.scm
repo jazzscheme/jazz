@@ -153,7 +153,6 @@
 (jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class ()
   ((lookups         %%get-namespace-declaration-lookups         ())
    (children-lookup %%get-namespace-declaration-children-lookup ())
-   (children        %%get-namespace-declaration-children        %%set-namespace-declaration-children)
    (body            %%get-namespace-declaration-body            %%set-namespace-declaration-body)))
 
 
@@ -166,7 +165,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator source lookups children-lookup children body) jazz.Object-Class jazz.allocate-library-declaration
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator source lookups children-lookup body) jazz.Object-Class jazz.allocate-library-declaration
   ((dialect-name    %%get-library-declaration-dialect-name    ())
    (dialect-invoice %%get-library-declaration-dialect-invoice ())
    (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)

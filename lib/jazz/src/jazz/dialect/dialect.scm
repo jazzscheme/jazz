@@ -263,7 +263,7 @@
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -410,8 +410,19 @@
 
 
 (define (jazz.validate-core-class/slots core-class declaration)
+  (define (collect-slots lst)
+    (let ((queue (jazz.new-queue)))
+      (define (process obj)
+        (cond ((%%is? obj jazz.Slot-Declaration)
+               (jazz.enqueue queue obj))
+              ((%%is? obj jazz.Begin)
+               (for-each process (%%get-begin-expressions obj)))))
+      
+      (for-each process lst)
+      (jazz.queue-list queue)))
+  
   (let ((core-class-slot-names (map (lambda (name/slot) (if (%%symbol? name/slot) name/slot (%%get-field-name name/slot))) (%%get-class-slots core-class)))
-        (declaration-slot-names (map (lambda (decl) (%%get-lexical-binding-name decl)) (jazz.collect-type jazz.Slot-Declaration (%%get-namespace-declaration-children declaration)))))
+        (declaration-slot-names (map (lambda (decl) (%%get-lexical-binding-name decl)) (collect-slots (%%get-namespace-declaration-body declaration)))))
     (%%when (%%not (%%equal? core-class-slot-names declaration-slot-names))
       (jazz.error "Inconsistant core-class/class slots for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-slot-names declaration-slot-names))))
 
@@ -445,7 +456,7 @@
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) '() #f implementor metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

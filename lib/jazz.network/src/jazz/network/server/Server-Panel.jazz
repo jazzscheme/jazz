@@ -39,7 +39,8 @@
 
 
 (import (jazz.io)
-        (jazz.system))
+        (jazz.system)
+        (jazz.utilities))
 
 
 (class Server-Panel extends Object
@@ -178,18 +179,21 @@
       (display prompt output)
       (force-output output)
       (let ((command (read-line input)))
-        (if (empty-string? command)
-            (loop #f)
-          (continuation-capture
-            (function (stop)
-              (with-exception-handler
-                (function (exc)
-                  (display-exception exc)
-                  (if display-backtrace?
-                      (continuation-capture
-                        (function (cont)
-                          (display-continuation-backtrace cont))))
-                  (continuation-return stop #f))
-                (function ()
-                  (process-command command)))))
-          (loop #t)))))))
+        (if (eof-object? command)
+            ;; temp fix to give time to the debugger to detach us
+            (sleep 1)
+          (if (empty-string? command)
+              (loop #f)
+            (continuation-capture
+              (function (stop)
+                (with-exception-handler
+                  (function (exc)
+                    (display-exception exc)
+                    (if display-backtrace?
+                        (continuation-capture
+                          (function (cont)
+                            (display-continuation-backtrace cont))))
+                    (continuation-return stop #f))
+                  (function ()
+                    (process-command command)))))
+            (loop #t))))))))

@@ -2440,8 +2440,8 @@
     ((jazz.platform.windows.com.VARIANT*) '())
     ((jazz.platform.windows.com.IUnknown*) (error "cotype IUnknown* has no default value"))
     ((jazz.platform.windows.com.IUnknown**) #f)
-    ((jazz.platform.windows.com.INT*) 0)
-    ((jazz.platform.windows.com.LONG*) 0)
+    ((jazz.platform.windows.WinTypes.INT*) 0)
+    ((jazz.platform.windows.WinTypes.LONG*) 0)
     (else 0)))
 
 
@@ -2457,8 +2457,8 @@
     ((jazz.platform.windows.com.VARIANT*) 'VARIANT-encode)
     ((jazz.platform.windows.com.IUnknown*) #f)
     ((jazz.platform.windows.com.IUnknown**) 'IUnknown*-enref)
-    ((jazz.platform.windows.com.INT*) 'INT-enref)
-    ((jazz.platform.windows.com.LONG*) 'LONG-enref)
+    ((jazz.platform.windows.WinTypes.INT*) 'INT-enref)
+    ((jazz.platform.windows.WinTypes.LONG*) 'LONG-enref)
     (else #f)))
 
 
@@ -2474,8 +2474,8 @@
     ((jazz.platform.windows.com.VARIANT*) 'VARIANT-ref)
     ((jazz.platform.windows.com.IUnknown*) #f)
     ((jazz.platform.windows.com.IUnknown**) 'IUnknown**-ref)
-    ((jazz.platform.windows.com.INT*) 'INT*-ref)
-    ((jazz.platform.windows.com.LONG*) 'LONG*-ref)
+    ((jazz.platform.windows.WinTypes.INT*) 'INT*-ref)
+    ((jazz.platform.windows.WinTypes.LONG*) 'LONG*-ref)
     (else #f)))
 
 
@@ -2491,8 +2491,8 @@
     ((jazz.platform.windows.com.VARIANT*) 'VARIANT-decode)
     ((jazz.platform.windows.com.IUnknown*) #f)
     ((jazz.platform.windows.com.IUnknown**) 'IUnknown**-free)
-    ((jazz.platform.windows.com.INT*) 'INT*-free)
-    ((jazz.platform.windows.com.LONG*) 'LONG*-free)
+    ((jazz.platform.windows.WinTypes.INT*) 'INT*-free)
+    ((jazz.platform.windows.WinTypes.LONG*) 'LONG*-free)
     (else #f)))
 
 

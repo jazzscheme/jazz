@@ -3110,7 +3110,7 @@
 
 
 (define (jazz.lookup-reference walker resume declaration environment symbol)
-  (or (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)
+  (or (jazz.lookup-symbol walker resume declaration environment symbol)
       (jazz.walk-unresolved walker resume declaration symbol)))
 
 
@@ -4998,45 +4998,41 @@
       (jazz.error "Illegal set! of {s}" form))))
 
 
-(define (jazz.lookup-symbol walker environment symbol)
-  (if (jazz.composite-name? symbol)
-      (jazz.lookup-composite walker environment symbol)
-    (jazz.find-in (lambda (binding)
-                    (jazz.walk-binding-lookup binding symbol))
-                  environment)))
+(define (jazz.lookup-symbol walker resume declaration environment symbol-src)
+  (define (lookup-subpath declaration subpath)
+    (if (%%null? subpath)
+        declaration
+      (let ((subdecl (jazz.lookup-declaration declaration (%%car subpath) jazz.public-access)))
+        (if subdecl
+            (lookup-subpath subdecl (%%cdr subpath))
+          #f))))
 
-
-(define (jazz.lookup-composite walker environment symbol)
-  (receive (library-name name) (jazz.split-composite symbol)
-    (let ((library-decl (jazz.outline-library library-name #f)))
-      (if library-decl
-          (jazz.lookup-subpath library-decl (%%list name))
-        #f))))
-
-
-(define (jazz.lookup-subpath declaration subpath)
-  (if (%%null? subpath)
-      declaration
-    (let ((subdecl (jazz.lookup-declaration declaration (%%car subpath) jazz.public-access)))
-      (if subdecl
-          (jazz.lookup-subpath subdecl (%%cdr subpath))
-        #f))))
-
-
-(define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)
-  (let ((referenced-declaration (jazz.lookup-symbol walker environment (jazz.source-code symbol-src))))
+  (define (lookup-composite walker environment symbol)
+    (receive (library-name name) (jazz.split-composite symbol)
+      (let ((library-decl (jazz.outline-library library-name #f)))
+        (if library-decl
+            (lookup-subpath library-decl (%%list name))
+          #f))))
+  
+  (define (lookup walker environment symbol)
+    (if (jazz.composite-name? symbol)
+        (lookup-composite walker environment symbol)
+      (jazz.find-in (lambda (binding)
+                      (jazz.walk-binding-lookup binding symbol))
+                    environment)))
+  
+  (define (validate-compatibility walker declaration referenced-declaration)
+    (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)
+        (let ((referenced-locator (%%get-declaration-locator referenced-declaration)))
+          (jazz.walk-warning walker declaration "Deprecated access to {s}" referenced-locator))))
+  
+  (let ((referenced-declaration (lookup walker environment (jazz.source-code symbol-src))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
-        (jazz.validate-compatibility walker declaration referenced-declaration))
+        (validate-compatibility walker declaration referenced-declaration))
     (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((library (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration library referenced-declaration)))
     referenced-declaration))
-
-
-(define (jazz.validate-compatibility walker declaration referenced-declaration)
-  (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)
-      (let ((referenced-locator (%%get-declaration-locator referenced-declaration)))
-        (jazz.walk-warning walker declaration "Deprecated access to {s}" referenced-locator))))
 
 
 ;;;
@@ -5045,7 +5041,7 @@
 
 
 (define (jazz.walk-symbol-reference walker resume declaration environment symbol-src)
-  (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)))
+  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol-src)))
     (if binding
         (begin
           (if (%%class-is? binding jazz.Variable)
@@ -5070,7 +5066,7 @@
 
 
 (jazz.define-method (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value)
-  (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
+  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol)))
     (if binding
         (begin
           (jazz.walk-binding-validate-assignment binding walker resume declaration)
@@ -5095,7 +5091,7 @@
 
 (jazz.define-method (jazz.walk-form (jazz.Walker walker) resume declaration environment form-src)
   (let ((procedure-expr (%%desourcify (%%car (jazz.source-code form-src)))))
-    (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-accessible/compatible-symbol walker resume declaration environment procedure-expr))))
+    (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-symbol walker resume declaration environment procedure-expr))))
       ;; special form
       (if (and binding (jazz.walk-binding-walkable? binding))
           (jazz.walk-binding-walk-form binding walker resume declaration environment form-src)
@@ -5113,7 +5109,7 @@
 
 
 (define (jazz.lookup-macro-form walker resume declaration environment symbol)
-  (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
+  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol)))
     (if (and binding (jazz.walk-binding-expandable? binding))
         binding
       #f)))

@@ -54,64 +54,62 @@
 
 
 (define (jazz.format . rest)
-  (jazz.parse-format rest
+  (define (parse-format rest proc)
+    (if (%%string? (%%car rest))
+        (proc ':string (%%car rest) (%%cdr rest))
+      (proc (%%car rest) (%%cadr rest) (%%cddr rest))))
+  
+  (define (format-to output fmt-string arguments)
+    (let ((control (open-input-string fmt-string))
+          (done? #f))
+      (define (format-directive)
+        (let ((directive (read control)))
+          (read-char control)
+          (case directive
+            ((a)
+             (jazz.display (%%car arguments) output)
+             (set! arguments (%%cdr arguments)))
+            ((s)
+             (jazz.write (%%car arguments) output)
+             (set! arguments (%%cdr arguments)))
+            ((t)
+             (jazz.write (%%car arguments) output)
+             (set! arguments (%%cdr arguments)))
+            ((l)
+             (let ((first? #t))
+               (for-each (lambda (element)
+                           (if first?
+                               (set! first? #f)
+                             (display " " output))
+                           (jazz.display element output))
+                         (%%car arguments)))
+             (set! arguments (%%cdr arguments)))
+            ((%)
+             (newline output))
+            (else
+             (jazz.kernel-error "Unknown format directive:" directive)))))
+      
+      (let iter ()
+           (let ((c (read-char control)))
+             (if (%%not (%%eof-object? c))
+                 (begin
+                   (cond ((%%eqv? c #\~)
+                          (write-char (read-char control) output))
+                         ((%%eqv? c #\{)
+                          (format-directive))
+                         (else
+                          (write-char c output)))
+                   (iter)))))))
+  
+  (parse-format rest
     (lambda (port fmt-string arguments)
       (case port
         ((:string)
          (let ((output (open-output-string)))
-           (jazz.format-to output fmt-string arguments)
+           (format-to output fmt-string arguments)
            (get-output-string output)))
         (else
-         (jazz.format-to port fmt-string arguments))))))
-
-
-(define (jazz.parse-format rest proc)
-  (if (%%string? (%%car rest))
-      (proc ':string (%%car rest) (%%cdr rest))
-    (proc (%%car rest) (%%cadr rest) (%%cddr rest))))
-
-
-(define (jazz.format-to output fmt-string arguments)
-  (let ((control (open-input-string fmt-string))
-        (done? #f))
-    (define (format-directive)
-      (let ((directive (read control)))
-        (read-char control)
-        (case directive
-          ((a)
-           (jazz.display (%%car arguments) output)
-           (set! arguments (%%cdr arguments)))
-          ((s)
-           (jazz.write (%%car arguments) output)
-           (set! arguments (%%cdr arguments)))
-          ((t)
-           (jazz.write (%%car arguments) output)
-           (set! arguments (%%cdr arguments)))
-          ((l)
-           (let ((first? #t))
-             (for-each (lambda (element)
-                         (if first?
-                             (set! first? #f)
-                           (display " " output))
-                         (jazz.display element output))
-                       (%%car arguments)))
-           (set! arguments (%%cdr arguments)))
-          ((%)
-           (newline output))
-          (else
-           (jazz.kernel-error "Unknown format directive:" directive)))))
-    
-    (let iter ()
-      (let ((c (read-char control)))
-        (if (%%not (%%eof-object? c))
-            (begin
-              (cond ((%%eqv? c #\~)
-                     (write-char (read-char control) output))
-                    ((%%eqv? c #\{)
-                     (format-directive))
-                    (else
-                     (write-char c output)))
-              (iter)))))))
+         (format-to port fmt-string arguments))))))
 
 
 ;;;

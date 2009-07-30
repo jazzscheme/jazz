@@ -41,25 +41,24 @@
 
 
 (define (jazz.setup-versions)
-  (set! jazz.source-versions-file "kernel/versions")
-  (jazz.validate-gambit-version))
-
-
-(define (jazz.validate-gambit-version)
-  (define (wrong-version message)
-    (display message)
-    (newline)
-    (exit 1))
+  (define (validate-gambit-version)
+    (define (wrong-version message)
+      (display message)
+      (newline)
+      (exit 1))
+    
+    (if (not (jazz.gambit-uptodate? (system-version) (system-stamp)))
+        (let ((gambit-version (jazz.get-gambit-version))
+              (gambit-stamp (jazz.get-gambit-stamp)))
+          (let ((stamp (if gambit-stamp (jazz.format " stamp {a}" gambit-stamp) "")))
+            (wrong-version
+              (jazz.format "JazzScheme needs Gambit version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
+                           gambit-version
+                           stamp
+                           gambit-stamp))))))
   
-  (if (not (jazz.gambit-uptodate? (system-version) (system-stamp)))
-      (let ((gambit-version (jazz.get-gambit-version))
-            (gambit-stamp (jazz.get-gambit-stamp)))
-        (let ((stamp (if gambit-stamp (jazz.format " stamp {a}" gambit-stamp) "")))
-          (wrong-version
-            (jazz.format "JazzScheme needs Gambit version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
-                         gambit-version
-                         stamp
-                         gambit-stamp))))))
+  (set! jazz.source-versions-file "kernel/versions")
+  (validate-gambit-version))
 
 
 ;;;
@@ -691,7 +690,15 @@
   (define (make-symbol symbol jobs)
     (let ((name (symbol->string symbol)))
       (receive (target configuration) (jazz.parse-target/configuration name)
-        (jazz.make-target target configuration jobs local?))))
+        (make-target target configuration jobs local?))))
+  
+  (define (make-target target configuration jobs local?)
+    (case target
+      ((clean) (jazz.make-clean configuration))
+      ((cleankernel) (jazz.make-cleankernel configuration))
+      ((kernel) (jazz.make-kernel configuration local?))
+      ((install) (jazz.make-install configuration))
+      (else (jazz.make-product target configuration jobs))))
   
   (parse-symbols
     (lambda (syms jobs)
@@ -706,15 +713,6 @@
                   (if (not (null? tail))
                       (newline (console-port)))
                   (iter tail)))))))))
-
-
-(define (jazz.make-target target configuration jobs local?)
-  (case target
-    ((clean) (jazz.make-clean configuration))
-    ((cleankernel) (jazz.make-cleankernel configuration))
-    ((kernel) (jazz.make-kernel configuration local?))
-    ((install) (jazz.make-install configuration))
-    (else (jazz.make-product target configuration jobs))))
 
 
 ;;;
@@ -824,27 +822,26 @@
 (define (jazz.make-product product configuration jobs)
   (define (make)
     (jazz.make-kernel configuration #f)
-    (jazz.product-make product configuration jobs))
+    (product-make product configuration jobs))
+  
+  (define (product-make product configuration jobs)
+    (let ((destdir (jazz.configuration-directory configuration))
+          (platform (jazz.configuration-platform configuration)))
+      (define (build-file path)
+        (string-append destdir path))
+      
+      (define (jazz-path)
+        (case platform
+          ((windows)
+           (build-file "jazz"))
+          (else
+           "./jazz")))
+      
+      (jazz.call-process (jazz-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
   
   (if jazz.time-make-product?
       (time (make))
     (make)))
-
-
-(define (jazz.product-make product configuration jobs)
-  (let ((destdir (jazz.configuration-directory configuration))
-        (platform (jazz.configuration-platform configuration)))
-    (define (build-file path)
-      (string-append destdir path))
-    
-    (define (jazz-path)
-      (case platform
-        ((windows)
-         (build-file "jazz"))
-        (else
-         "./jazz")))
-    
-    (jazz.call-process (jazz-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
 
 
 ;;;
@@ -867,38 +864,37 @@
 
 
 (define (jazz.format fmt-string . arguments)
+  (define (format-to output fmt-string arguments)
+    (let ((control (open-input-string fmt-string))
+          (done? #f))
+      (define (format-directive)
+        (let ((directive (read control)))
+          (read-char control)
+          (case directive
+            ((a)
+             (display (car arguments) output)
+             (set! arguments (cdr arguments)))
+            ((s)
+             (write (car arguments) output)
+             (set! arguments (cdr arguments)))
+            ((%)
+             (newline output)))))
+      
+      (let iter ()
+           (let ((c (read-char control)))
+             (if (not (eof-object? c))
+                 (begin
+                   (cond ((eqv? c #\~)
+                          (write-char (read-char control) output))
+                         ((eqv? c #\{)
+                          (format-directive))
+                         (else
+                          (write-char c output)))
+                   (iter)))))))
+
   (let ((output (open-output-string)))
-    (jazz.format-to output fmt-string arguments)
+    (format-to output fmt-string arguments)
     (get-output-string output)))
-
-
-(define (jazz.format-to output fmt-string arguments)
-  (let ((control (open-input-string fmt-string))
-        (done? #f))
-    (define (format-directive)
-      (let ((directive (read control)))
-        (read-char control)
-        (case directive
-          ((a)
-           (display (car arguments) output)
-           (set! arguments (cdr arguments)))
-          ((s)
-           (write (car arguments) output)
-           (set! arguments (cdr arguments)))
-          ((%)
-           (newline output)))))
-    
-    (let iter ()
-      (let ((c (read-char control)))
-        (if (not (eof-object? c))
-            (begin
-              (cond ((eqv? c #\~)
-                     (write-char (read-char control) output))
-                    ((eqv? c #\{)
-                     (format-directive))
-                    (else
-                     (write-char c output)))
-              (iter)))))))
 
 
 ;;;
@@ -1082,6 +1078,52 @@
 
 
 (define (jazz.build-system-repl)
+  (define (process-command command output)
+    (if (eof-object? command)
+        (quit-command '() output)
+      (call-with-input-string command
+        (lambda (input)
+          (let ((command (read input)))
+            (if (eof-object? command)
+                #f
+              (begin
+                (let ((arguments (read-all input read)))
+                  (case command
+                    ((list) (list-command arguments output))
+                    ((delete) (delete-command arguments output))
+                    ((configure) (configure-command arguments output))
+                    ((make) (make-command arguments output))
+                    ((help ?) (help-command arguments output))
+                    ((quit) (quit-command arguments output))
+                    (else (jazz.error "Unknown command: {s}" command))))
+                #t)))))))
+  
+  (define (list-command arguments output)
+    (jazz.list-configurations))
+  
+  (define (delete-command arguments output)
+    (let ((name (if (null? arguments) #f (car arguments))))
+      (jazz.delete-configuration (jazz.require-configuration name))
+      (jazz.list-configurations)))
+  
+  (define (configure-command arguments output)
+    (apply jazz.configure arguments))
+  
+  (define (make-command arguments output)
+    (jazz.make arguments #f))
+  
+  (define (help-command arguments output)
+    (jazz.print "Commands are" output)
+    (jazz.print "  list" output)
+    (jazz.print "  delete [configuration]" output)
+    (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
+    (jazz.print "  make [target]" output)
+    (jazz.print "  help or ?" output)
+    (jazz.print "  quit" output))
+  
+  (define (quit-command arguments output)
+    (exit))
+  
   (let ((console (console-port)))
     (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
     (force-output console)
@@ -1099,61 +1141,8 @@
                 (jazz.debug-exception exc console jazz.display-exception? jazz.display-backtrace?)
                 (continuation-return stop #f))
               (lambda ()
-                (set! processed? (jazz.process-command command console))))))
+                (set! processed? (process-command command console))))))
         (loop processed?)))))
-
-
-(define (jazz.process-command command output)
-  (if (eof-object? command)
-      (jazz.quit-command '() output)
-    (call-with-input-string command
-      (lambda (input)
-        (let ((command (read input)))
-          (if (eof-object? command)
-              #f
-            (begin
-              (let ((arguments (read-all input read)))
-                (case command
-                  ((list) (jazz.list-command arguments output))
-                  ((delete) (jazz.delete-command arguments output))
-                  ((configure) (jazz.configure-command arguments output))
-                  ((make) (jazz.make-command arguments output))
-                  ((help ?) (jazz.help-command arguments output))
-                  ((quit) (jazz.quit-command arguments output))
-                  (else (jazz.error "Unknown command: {s}" command))))
-              #t)))))))
-
-
-(define (jazz.list-command arguments output)
-  (jazz.list-configurations))
-
-
-(define (jazz.delete-command arguments output)
-  (let ((name (if (null? arguments) #f (car arguments))))
-    (jazz.delete-configuration (jazz.require-configuration name))
-    (jazz.list-configurations)))
-
-
-(define (jazz.configure-command arguments output)
-  (apply jazz.configure arguments))
-
-
-(define (jazz.make-command arguments output)
-  (jazz.make arguments #f))
-
-
-(define (jazz.help-command arguments output)
-  (jazz.print "Commands are" output)
-  (jazz.print "  list" output)
-  (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
-  (jazz.print "  make [target]" output)
-  (jazz.print "  help or ?" output)
-  (jazz.print "  quit" output))
-
-
-(define (jazz.quit-command arguments output)
-  (exit))
 
 
 ;;;

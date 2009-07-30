@@ -2508,38 +2508,6 @@
 
 
 ;;;
-;;;; Symbol
-;;;
-
-
-(jazz.define-method (jazz.validate-access (jazz.Jazz-Walker walker) resume declaration referenced-declaration)
-  #f
-  #;
-  (let ((referenced-access (%%get-declaration-access referenced-declaration)))
-    (case referenced-access
-      ((public)    (jazz.unspecified))
-      ((private)   (jazz.validate-private-access walker resume declaration referenced-declaration))
-      ((protected) (jazz.validate-protected-access walker resume declaration referenced-declaration)))))
-
-
-(define (jazz.validate-private-access walker resume declaration referenced-declaration)
-  (if (%%neq? (%%get-declaration-toplevel declaration)
-              (%%get-declaration-toplevel referenced-declaration))
-      (jazz.illegal-access walker resume declaration referenced-declaration)))
-
-
-(define (jazz.validate-protected-access walker resume declaration referenced-declaration)
-  ;; todo
-  (jazz.unspecified))
-
-
-(define (jazz.illegal-access walker resume declaration referenced-declaration)
-  (let ((referenced-access (%%get-declaration-access referenced-declaration))
-        (referenced-locator (%%get-declaration-locator referenced-declaration)))
-    (jazz.walk-error walker resume declaration "Illegal {a} access to {s}" referenced-access referenced-locator)))
-
-
-;;;
 ;;;; Assert
 ;;;
 

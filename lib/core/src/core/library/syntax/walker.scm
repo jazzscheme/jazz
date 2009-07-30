@@ -5026,20 +5026,11 @@
 (define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol-src)
   (let ((referenced-declaration (jazz.lookup-symbol walker environment (jazz.source-code symbol-src))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
-        (begin
-          (jazz.validate-access walker resume declaration referenced-declaration)
-          (jazz.validate-compatibility walker declaration referenced-declaration)))
+        (jazz.validate-compatibility walker declaration referenced-declaration))
     (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((library (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration library referenced-declaration)))
     referenced-declaration))
-
-
-(jazz.define-virtual-runtime (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration))
-
-
-(jazz.define-method (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration)
-  (jazz.unspecified))
 
 
 (define (jazz.validate-compatibility walker declaration referenced-declaration)

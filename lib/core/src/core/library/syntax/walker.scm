@@ -388,7 +388,7 @@
 
 
 (define (jazz.new-module-declaration name access parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f access 'uptodate '() #f parent #f #f requires)))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -445,7 +445,7 @@
 
 
 (define (jazz.new-library-declaration name access parent dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -777,7 +777,7 @@
 
 
 (define (jazz.new-export-declaration name type access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent #f #f symbol)))
+  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type #f access compatibility attributes #f parent #f #f symbol)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -809,7 +809,7 @@
 
 
 (define (jazz.new-autoload-declaration name type parent library-declaration exported-library)
-  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent #f #f library-declaration exported-library #f)))
+  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type #f 'public 'uptodate '() #f parent #f #f library-declaration exported-library #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1535,7 +1535,7 @@
 
 
 (define (jazz.new-macro-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type #f access compatibility attributes #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1587,7 +1587,7 @@
 
 
 (define (jazz.new-syntax-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type #f access compatibility attributes #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1638,7 +1638,7 @@
 
 
 (define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion base-type inclusions c-to-scheme scheme-to-c declare)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f #f kind expansion base-type '() inclusions c-to-scheme scheme-to-c declare)))
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type #f access compatibility attributes #f parent #f #f kind expansion base-type '() inclusions c-to-scheme scheme-to-c declare)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1673,7 +1673,7 @@
 
 
 (define (jazz.new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
-  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent #f #f signature parameter-types result-type c-name scope #f)))
+  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type #f access compatibility attributes #f parent #f #f signature parameter-types result-type c-name scope #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1953,7 +1953,7 @@
 
 (define (jazz.new-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-variable jazz.Variable name type 0)))
+    (jazz.allocate-variable jazz.Variable name type #f 0)))
 
 
 (define (jazz.variable-name-valid? name)
@@ -2000,7 +2000,7 @@
 
 (define (jazz.new-nextmethod-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0)))
+    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type #f 0)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.NextMethod-Variable binding) source-declaration environment)
@@ -2045,7 +2045,7 @@
 
 (define (jazz.new-parameter name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-parameter jazz.Parameter name type 0)))
+    (jazz.allocate-parameter jazz.Parameter name type #f 0)))
 
 
 (jazz.define-virtual-runtime (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
@@ -2067,7 +2067,7 @@
 
 
 (define (jazz.new-dynamic-parameter name type class)
-  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type 0 class))
+  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type #f 0 class))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) declaration environment)
@@ -2087,7 +2087,7 @@
 
 
 (define (jazz.new-optional-parameter name type default)
-  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type 0 default))
+  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type #f 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) declaration environment)
@@ -2107,7 +2107,7 @@
 
 
 (define (jazz.new-named-parameter name type default)
-  (jazz.allocate-named-parameter jazz.Named-Parameter name type 0 default))
+  (jazz.allocate-named-parameter jazz.Named-Parameter name type #f 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) declaration environment)
@@ -2127,7 +2127,7 @@
 
 
 (define (jazz.new-rest-parameter name type)
-  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type 0))
+  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type #f 0))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter) declaration environment)
@@ -2149,7 +2149,7 @@
 
 
 (define (jazz.new-self-binding type)
-  (jazz.allocate-self-binding jazz.Self-Binding 'self type))
+  (jazz.allocate-self-binding jazz.Self-Binding 'self type #f))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Self-Binding declaration) source-declaration environment)
@@ -2171,7 +2171,7 @@
 
 
 (define (jazz.new-dynamic-self-binding type code)
-  (jazz.allocate-dynamic-self-binding jazz.Dynamic-Self-Binding 'self type code))
+  (jazz.allocate-dynamic-self-binding jazz.Dynamic-Self-Binding 'self type #f code))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Dynamic-Self-Binding declaration) source-declaration environment)
@@ -2202,7 +2202,7 @@
 
 
 (define (jazz.new-macro-symbol name getter setter)
-  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f getter setter))
+  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f #f getter setter))
 
 
 #; ;; convert to walk / emit
@@ -2245,7 +2245,7 @@
 
 
 (define (jazz.new-special-form name walk)
-  (jazz.allocate-special-form jazz.Special-Form name #f walk))
+  (jazz.allocate-special-form jazz.Special-Form name #f #f walk))
 
 
 (jazz.define-method (jazz.walk-binding-walkable? (jazz.Special-Form binding))
@@ -2269,7 +2269,7 @@
 
 
 (define (jazz.new-macro-form name expander)
-  (jazz.allocate-macro-form jazz.Macro-Form name #f expander))
+  (jazz.allocate-macro-form jazz.Macro-Form name #f #f expander))
 
 
 (jazz.define-method (jazz.walk-binding-expandable? (jazz.Macro-Form binding))
@@ -2294,7 +2294,7 @@
 
 
 (define (jazz.new-syntax-form name expander)
-  (jazz.allocate-syntax-form jazz.Syntax-Form name #f expander))
+  (jazz.allocate-syntax-form jazz.Syntax-Form name #f #f expander))
 
 
 (jazz.define-method (jazz.walk-binding-expandable? (jazz.Syntax-Form binding))
@@ -4470,7 +4470,7 @@
 
 
 (define (jazz.new-c-named-declare-declaration name type access compatibility attributes parent code)
-  (let ((new-declaration (jazz.allocate-c-named-declare-declaration jazz.C-Named-Declare-Declaration name type access compatibility attributes #f parent #f #f code)))
+  (let ((new-declaration (jazz.allocate-c-named-declare-declaration jazz.C-Named-Declare-Declaration name type #f access compatibility attributes #f parent #f #f code)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

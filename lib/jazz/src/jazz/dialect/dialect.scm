@@ -47,7 +47,7 @@
 
 
 (define (jazz.new-definition-declaration name type access compatibility attributes parent expansion signature)
-  (let ((new-declaration (jazz.allocate-definition-declaration jazz.Definition-Declaration name type access compatibility attributes #f parent #f #f expansion signature #f)))
+  (let ((new-declaration (jazz.allocate-definition-declaration jazz.Definition-Declaration name type #f access compatibility attributes #f parent #f #f expansion signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -171,7 +171,7 @@
 
 
 (define (jazz.new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
-  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type access compatibility attributes #f parent #f #f dispatch-types signature #f)))
+  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type #f access compatibility attributes #f parent #f #f dispatch-types signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -212,7 +212,7 @@
 
 
 (define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature root?)
-  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type access compatibility attributes #f parent #f #f generic signature #f root?)))
+  (let ((new-declaration (jazz.allocate-specific-declaration jazz.Specific-Declaration name type #f access compatibility attributes #f parent #f #f generic signature #f root?)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -263,7 +263,7 @@
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -456,7 +456,7 @@
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -541,7 +541,7 @@
 
 
 (define (jazz.new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz.allocate-slot-declaration jazz.Slot-Declaration name type access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
+  (let ((new-declaration (jazz.allocate-slot-declaration jazz.Slot-Declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -612,7 +612,7 @@
 
 
 (define (jazz.new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz.allocate-property-declaration jazz.Property-Declaration name type access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
+  (let ((new-declaration (jazz.allocate-property-declaration jazz.Property-Declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -657,7 +657,7 @@
 
 
 (define (jazz.new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
-  (let ((new-declaration (jazz.allocate-method-declaration jazz.Method-Declaration name type access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
+  (let ((new-declaration (jazz.allocate-method-declaration jazz.Method-Declaration name type #f access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

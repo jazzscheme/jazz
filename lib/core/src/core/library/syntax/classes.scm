@@ -69,7 +69,8 @@
 
 (jazz.define-class jazz.Lexical-Binding jazz.Walk-Binding () jazz.Object-Class ()
   ((name %%get-lexical-binding-name ())
-   (type %%get-lexical-binding-type ())))
+   (type %%get-lexical-binding-type ())
+   (hits %%get-lexical-binding-hits ())))
 
 
 ;;;
@@ -77,7 +78,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Declaration jazz.Lexical-Binding (name type) jazz.Object-Class ()
+(jazz.define-class jazz.Declaration jazz.Lexical-Binding (name type hits) jazz.Object-Class ()
   ((access        %%get-declaration-access        ())
    (compatibility %%get-declaration-compatibility ())
    (attributes    %%get-declaration-attributes    ())
@@ -141,7 +142,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-module-declaration
+(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-module-declaration
   ((requires %%get-module-declaration-requires ())))
 
 
@@ -150,7 +151,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class ()
+(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class ()
   ((lookups         %%get-namespace-declaration-lookups         ())
    (children-lookup %%get-namespace-declaration-children-lookup ())
    (body            %%get-namespace-declaration-body            %%set-namespace-declaration-body)))
@@ -165,7 +166,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator source lookups children-lookup body) jazz.Object-Class jazz.allocate-library-declaration
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children-lookup body) jazz.Object-Class jazz.allocate-library-declaration
   ((dialect-name    %%get-library-declaration-dialect-name    ())
    (dialect-invoice %%get-library-declaration-dialect-invoice ())
    (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
@@ -218,7 +219,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-export-declaration
+(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-export-declaration
   ((symbol %%get-export-declaration-symbol ())))
 
 
@@ -227,7 +228,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-autoload-declaration
+(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-autoload-declaration
   ((library          %%get-autoload-declaration-library          ())
    (exported-library %%get-autoload-declaration-exported-library ())
    (declaration      %%get-autoload-declaration-declaration      %%set-autoload-declaration-declaration)))
@@ -238,7 +239,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-macro-declaration
+(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-macro-declaration
   ((signature %%get-macro-declaration-signature %%set-macro-declaration-signature)
    (body      %%get-macro-declaration-body      %%set-macro-declaration-body)))
 
@@ -248,7 +249,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-syntax-declaration
+(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-syntax-declaration
   ((signature %%get-syntax-declaration-signature %%set-syntax-declaration-signature)
    (body      %%get-syntax-declaration-body      %%set-syntax-declaration-body)))
 
@@ -391,7 +392,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-type-declaration
+(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-type-declaration
   ((kind          %%get-c-type-declaration-kind          ())
    (expansion     %%get-c-type-declaration-expansion     ())
    (base-type     %%get-c-type-declaration-base-type     ())
@@ -407,7 +408,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-definition-declaration
+(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-definition-declaration
   ((signature       %%get-c-definition-declaration-signature       %%set-c-definition-declaration-signature)
    (parameter-types %%get-c-definition-declaration-parameter-types ())
    (result-type     %%get-c-definition-declaration-result-type     ())
@@ -533,7 +534,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name type) jazz.Object-Class ()
+(jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class ()
   ())
 
 
@@ -542,7 +543,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class jazz.allocate-variable
+(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type hits) jazz.Object-Class jazz.allocate-variable
   ((reference-count %%get-variable-reference-count %%set-variable-reference-count)))
 
 
@@ -551,7 +552,7 @@
 ;;;
 
 
-(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type reference-count) jazz.Object-Class jazz.allocate-nextmethod-variable
+(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type hits reference-count) jazz.Object-Class jazz.allocate-nextmethod-variable
   ())
 
 
@@ -560,7 +561,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Parameter jazz.Variable (name type reference-count) jazz.Object-Class jazz.allocate-parameter
+(jazz.define-class jazz.Parameter jazz.Variable (name type hits reference-count) jazz.Object-Class jazz.allocate-parameter
   ())
 
 
@@ -572,7 +573,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-dynamic-parameter
+(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-dynamic-parameter
   ((class %%get-dynamic-parameter-class ())))
 
 
@@ -581,7 +582,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-optional-parameter
+(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-optional-parameter
   ((default %%get-optional-parameter-default %%set-optional-parameter-default)))
 
 
@@ -590,7 +591,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-named-parameter
+(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-named-parameter
   ((default %%get-named-parameter-default %%set-named-parameter-default)))
 
 
@@ -599,7 +600,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-rest-parameter
+(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-rest-parameter
   ())
 
 
@@ -608,7 +609,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Self-Binding jazz.Lexical-Binding (name type) jazz.Object-Class jazz.allocate-self-binding
+(jazz.define-class jazz.Self-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class jazz.allocate-self-binding
   ())
 
 
@@ -617,7 +618,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Dynamic-Self-Binding jazz.Lexical-Binding (name type) jazz.Object-Class jazz.allocate-dynamic-self-binding
+(jazz.define-class jazz.Dynamic-Self-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class jazz.allocate-dynamic-self-binding
   ((code %%get-dynamic-self-binding-code ())))
 
 
@@ -626,7 +627,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type) jazz.Object-Class jazz.allocate-macro-symbol
+(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type hits) jazz.Object-Class jazz.allocate-macro-symbol
   ((getter %%get-macro-symbol-getter ())
    (setter %%get-macro-symbol-setter ())))
 
@@ -636,7 +637,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Form-Binding jazz.Lexical-Binding (name type) jazz.Object-Class ()
+(jazz.define-class jazz.Form-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class ()
   ())
 
 
@@ -645,7 +646,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Special-Form jazz.Form-Binding (name type) jazz.Object-Class jazz.allocate-special-form
+(jazz.define-class jazz.Special-Form jazz.Form-Binding (name type hits) jazz.Object-Class jazz.allocate-special-form
   ((walk %%get-special-form-walk ())))
 
 
@@ -654,7 +655,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Form jazz.Form-Binding (name type) jazz.Object-Class jazz.allocate-macro-form
+(jazz.define-class jazz.Macro-Form jazz.Form-Binding (name type hits) jazz.Object-Class jazz.allocate-macro-form
   ((expander %%get-macro-form-expander ())))
 
 
@@ -663,7 +664,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Syntax-Form jazz.Form-Binding (name type) jazz.Object-Class jazz.allocate-syntax-form
+(jazz.define-class jazz.Syntax-Form jazz.Form-Binding (name type hits) jazz.Object-Class jazz.allocate-syntax-form
   ((expander %%get-syntax-form-expander ())))
 
 
@@ -981,7 +982,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Named-Declare-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-named-declare-declaration
+(jazz.define-class jazz.C-Named-Declare-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-c-named-declare-declaration
   ((code %%get-c-named-declare-declaration-code ())))
 
 

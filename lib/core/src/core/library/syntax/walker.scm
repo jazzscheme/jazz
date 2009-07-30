@@ -2850,7 +2850,7 @@
                                     library-only)))))
 
 
-(define (jazz.expand-library partial-form)
+(define (jazz.expand-library-source partial-form)
   (jazz.emit-declaration (jazz.walk-library partial-form) '()))
 
 

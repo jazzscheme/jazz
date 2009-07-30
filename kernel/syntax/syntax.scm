@@ -294,4 +294,4 @@
       (lambda (name access rest)
         (if (and (%%neq? (jazz.walk-for) 'eval) (%%neq? name (jazz.requested-module-name)))
             (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-          (jazz.expand-module name rest))))))
+          (jazz.expand-module-source name rest))))))

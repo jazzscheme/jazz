@@ -962,4 +962,5 @@
 (native jazz.get-catalog-entry)
 (native jazz.release-catalog-entries)
 (native jazz.outline-module)
-(native jazz.walk-module))
+(native jazz.walk-module)
+(native jazz.expand-module))

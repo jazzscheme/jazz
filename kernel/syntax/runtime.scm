@@ -43,7 +43,7 @@
 ;;;
 
 
-(define (jazz.expand-module name rest)
+(define (jazz.expand-module-source name rest)
   (define (parse rest proc)
     (if (and (%%pair? rest)
              (%%pair? (jazz.source-code (%%car rest)))

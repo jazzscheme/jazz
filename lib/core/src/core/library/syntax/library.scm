@@ -40,4 +40,4 @@
 
 (jazz.define-syntax library
   (lambda (form-src)
-    (jazz.expand-library (%%cdr (jazz.source-code form-src))))))
+    (jazz.expand-library-source (%%cdr (jazz.source-code form-src))))))

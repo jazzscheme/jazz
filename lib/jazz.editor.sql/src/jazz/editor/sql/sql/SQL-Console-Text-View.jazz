@@ -154,9 +154,11 @@
                (with-transaction~ connection
                  (function ()
                    (for-each (function (statement)
-                               (let ((table (load-request~ connection statement)))
-                                 (when table
-                                   (increase! affected (get-count~ table)))))
+                               (cond ((select-statement? statement)
+                                      (let ((table (load-request~ connection statement)))
+                                        (increase! affected (get-count~ table))))
+                                     (else
+                                      (increase! affected (execute~ connection statement)))))
                              statements)))
                (clear-table)
                (when console?
@@ -196,9 +198,10 @@
   (method (load-sql connection command)
     (let* ((pref (sql-tool-preferences))
            (max-load (get-max-load~ pref))
-           (sql (expand-sql command))
-           (cmd (parse-sql-command command)))
-      (load-multirequest~ connection sql max-load: max-load)))
+           (sql (expand-sql command)))
+      (if (select-statement? sql)
+          (load-multirequest~ connection sql max-load: max-load)
+        (execute~ connection sql))))
   
   
   (method (expand-sql command)

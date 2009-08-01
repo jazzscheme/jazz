@@ -421,11 +421,10 @@
   
   
   (method (colorize-syntax-from pos recoloring?)
-    @convert-automata
     (let ((colorizer (essay (not recoloring?) (new-colorizer self)))
           (targets (syntax-targets))
           (found (automata-search (syntax-automata) (get-paragraphs) (get-limit) 0 0)))
-      (while found
+      (while (not-null? found)
         (let ((info (car found)))
           (bind ((target type) row col) info
             (let ((start (new Cell row col))
@@ -473,8 +472,8 @@
     (let ((title? (and title-char (eqv? (get-char (next-pos start 2)) title-char))))
       (if (not title?)
           (apply-coloring colorizer start (new Cell (get-row~ start) (paragraph-length (get-row~ start))) line-style)
-        (apply-coloring colorizer start (+ start 3) line-style)
-        (apply-coloring colorizer (+ start 3) (new Cell (get-row~ start) (paragraph-length (get-row~ start))) title-style))
+        (apply-coloring colorizer start (nu+ start 3) line-style)
+        (apply-coloring colorizer (nu+ start 3) (new Cell (get-row~ start) (paragraph-length (get-row~ start))) title-style))
       (let ((row (get-row~ start)))
         (set! found (cdr found))
         (while (and found (= (second (car found)) row))
@@ -511,10 +510,9 @@
                 (set! pos start))))))
       (let ((range (naturals (get-row~ pos) (+ end-row 1))))
         (for-each uncolorize-row range))
-      @convert-automata
       (let ((colorizer (new-colorizer self))
             (found (automata-search (syntax-automata) (get-paragraphs) end-row (get-row~ pos) (get-col~ pos))))
-        (while found
+        (while (not-null? found)
           (let ((info (car found)))
             (bind ((target type) row col) info
               (let ((start (new Cell row col))

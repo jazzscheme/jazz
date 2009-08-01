@@ -35,10 +35,29 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+;;
+;; A search automata is made up of:
+;;
+;;   start state:   the automata is looking for a word beginning
+;;   skip state:    the automata is skipping to the end of the current word
+;;   letter states: these states make up the decomposed tree of searched words
+;;   found states:  these states collect found strings without advancing the tape
+;;
+;; Note: No effort was made to generalize this code into a reusable automata class
+;;       as this clearly requires usage of templates. I will rather wait for the fully
+;;       optimized and typed Jazz compiler and make this automata class in Jazz!
+;;
+;; Todo: Implemented Listed and Lettered transitions.
+;;       Find a clean solution to a whole word that ends the file (i.e. the non-constituent
+;;       transition to the found state doesn't get called!).
+;;
+
+
 ;; is object in is_constituent est necessary?
 ;; general scheme cleanup of c++ code
 ;; it will take a proper-tail-call for iter and maybe others
 ;; nil can prolly be replaced by {}
+;; no_char -> {} !?
 
 
 (library protected jazz.library.automata jazz
@@ -57,16 +76,16 @@
     automata))
 
 
-(definition public (automata-statistics automata)
-  (list (get-nbVectoredGet~ automata)
-        (get-nbListedGet~ automata)
-        (get-nbLetteredGet~ automata)))
-
-
 (definition public (automata-search automata paragraphs limit row col)
   (let ((tape (new Tape paragraphs limit row col)))
     (run~ automata tape)
     (get-found~ tape)))
+
+
+(definition public (automata-statistics automata)
+  (list (get-nbVectoredGet~ automata)
+        (get-nbListedGet~ automata)
+        (get-nbLetteredGet~ automata)))
 
 
 (definition no-char
@@ -312,34 +331,30 @@
         (string (car target)))
     (iterate string
       (function (c)
-        (set! c (char->integer c))
-        (let ((new-state (follow~ state c)))
-          (cond ((and new-state (neq? new-state start) (neq? new-state skip))
-                 (set! state new-state)
-                 (when (and ignore-case (is-constituent object constituent-test c))
-                   (let ((c-autre (if (lower-case? c) (upcase c) (downcase c))))
-                     (set! new-state (follow~ state c-autre))
-                     (when (not new-state)
-                       (set! new-state (new State string (new VectoredTransitions)))
-                       (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
-                       (add-constituency-transitions new-state skip start start object constituent-test)
-                       (add-transition~ state c-autre new-state)
-                       (if (lower-case? c)
-                           (add-transition~ state (upcase c) new-state)
-                         (add-transition~ state (downcase c) new-state))))))
-                (else
-                 (set! new-state (new State string (new VectoredTransitions)))
-                 (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
-                 (add-constituency-transitions new-state skip start start object constituent-test)
-                 (add-transition~ state c new-state)
-                 (when (and ignore-case (is-constituent object constituent-test c))
-                   (if (lower-case? c)
-                       (add-transition~ state (upcase c) new-state)
-                     (add-transition~ state (downcase c) new-state)))
-                 state = new-state)))))
+        (let ((i (char->integer c)))
+          (let ((new-state (follow~ state i)))
+            (cond ((and new-state (neq? new-state start) (neq? new-state skip))
+                   (set! state new-state)
+                   (when (and ignore-case (is-constituent object constituent-test i))
+                     (let ((c-autre (char->integer (if (lower-case? c) (upcase c) (downcase c)))))
+                       (set! new-state (follow~ state c-autre))
+                       (when (not new-state)
+                         (set! new-state (new State string (new VectoredTransitions)))
+                         (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
+                         (add-constituency-transitions new-state skip start start object constituent-test)
+                         (add-transition~ state c-autre new-state)
+                         (add-transition~ state (char->integer (if (lower-case? c) (upcase c) (downcase c))) new-state)))))
+                  (else
+                   (set! new-state (new State string (new VectoredTransitions)))
+                   (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
+                   (add-constituency-transitions new-state skip start start object constituent-test)
+                   (add-transition~ state i new-state)
+                   (when (and ignore-case (is-constituent object constituent-test i))
+                     (add-transition~ state (char->integer (if (lower-case? c) (upcase c) (downcase c))) new-state))
+                   (set! state new-state)))))))
     (let ((new-state (new FoundState target start)))
       (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
       (loop (for i from 0 below NbAscii)
-            (if (not (is-constituent object constituent-test i))
-                (add-transition~ state i new-state)
-              (add-transition~ state EOFTransition new-state)))))))
+            (when (not (is-constituent object constituent-test i))
+              (add-transition~ state i new-state)))
+      (add-transition~ state EOFTransition new-state)))))

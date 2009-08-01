@@ -53,43 +53,7 @@
 ;;
 
 
-;; is object in is_constituent est necessary?
-;; general scheme cleanup of c++ code
-;; it will take a proper-tail-call for iter and maybe others
-;; nil can prolly be replaced by {}
-;; no_char -> {} !?
-
-
 (library protected jazz.library.automata jazz
-
-
-(definition public (build-search-automata targets whole-words ignore-case object constituent-test)
-  (let* ((start (new StartState (new VectoredTransitions)))
-         (skip (new State "skip" (new VectoredTransitions)))
-         (automata (new Automata start)))
-    (set-nbVectored~ automata (+ (get-nbVectored~ automata) 2))
-    (add-constituency-transitions start skip start start object constituent-test)
-    (add-constituency-transitions skip skip start start object constituent-test)
-    (for-each (function (target)
-                (process-target target automata start skip whole-words ignore-case object constituent-test))
-              targets)
-    automata))
-
-
-(definition public (automata-search automata paragraphs limit row col)
-  (let ((tape (new Tape paragraphs limit row col)))
-    (run~ automata tape)
-    (get-found~ tape)))
-
-
-(definition public (automata-statistics automata)
-  (list (get-nbVectoredGet~ automata)
-        (get-nbListedGet~ automata)
-        (get-nbLetteredGet~ automata)))
-
-
-(definition no-char
-  '(no-char))
 
 
 ;;;
@@ -100,20 +64,21 @@
 (class Automata extends Object
   
   
-  (slot nbVectored accessors generate)
-  (slot nbListed   accessors generate)
-  (slot nbLettered accessors generate)
-  (slot start      getter generate)
+  (slot nb-vectored <fx> accessors generate)
+  (slot nb-listed   <fx> accessors generate)
+  (slot nb-lettered <fx> accessors generate)
+  (slot start       getter generate)
   
   
   (method (initialize s)
-    (set! nbVectored~self 0)
-    (set! nbListed~self 0)
-    (set! nbLettered~self 0)
+    (set! nb-vectored~self 0)
+    (set! nb-listed~self 0)
+    (set! nb-lettered~self 0)
     (set! start~self s))
   
   
   (method public (run tape)
+    (declare (proper-tail-calls))
     (let (iter (state start))
       (when state
         (iter (transition~ state tape))))))
@@ -127,13 +92,13 @@
 (class Tape extends Object
   
   
-  (slot paragraphs getter generate)
-  (slot limit      getter generate)
-  (slot row        getter generate)
-  (slot col        getter generate)
-  (slot scan       getter generate)
-  (slot start-row  accessors generate)
-  (slot start-col  accessors generate)
+  (slot paragraphs          getter generate)
+  (slot limit      <fx>     getter generate)
+  (slot row        <fx>     getter generate)
+  (slot col        <fx>     getter generate)
+  (slot scan       <string> getter generate)
+  (slot start-row  <fx>     accessors generate)
+  (slot start-col  <fx>     accessors generate)
   (slot found)
   
   
@@ -148,7 +113,7 @@
     (set! found~self (new-queue)))
   
   
-  (method public (get-next)
+  (method public (get-next) <fx+>
     (if (= col (cardinality scan))
         (if (< row limit)
             (begin
@@ -156,9 +121,9 @@
               (set! col 0)
               (set! scan (get-string~ (element paragraphs row)))
               (char->integer #\newline))
-          no-char)
-      (set! col (+ col 1))
-      (char->integer (element scan (- col 1)))))
+          {})
+      (prog1 (char->integer (element scan col))
+        (set! col (+ col 1)))))
   
   
   (method public (add-found info)
@@ -177,8 +142,8 @@
 (class Transitions extends Object
   
   
-  (method public virtual (add-transition char state))
-  (method public virtual (follow char)))
+  (method public virtual (add-transition i state))
+  (method public virtual (follow i)))
 
 
 ;;;
@@ -202,12 +167,12 @@
     (set! vector (make-vector NbTransitions {})))
   
   
-  (method (add-transition c state)
-    (set-element! vector (if (> c NbAscii) NotAsciiTransition c) state))
+  (method (add-transition i <fx> state)
+    (set-element! vector (if (> i NbAscii) NotAsciiTransition i) state))
   
   
-  (method (follow c)
-    (element vector (if (> c NbAscii) NotAsciiTransition c))))
+  (method (follow i <fx>)
+    (element vector (if (> i NbAscii) NotAsciiTransition i))))
 
 
 ;;;
@@ -233,20 +198,20 @@
         (format printer "{a}" name))))
   
   
-  (method public (add-transition c state)
-    (add-transition~ transitions c state))
+  (method public (add-transition i <fx> state)
+    (add-transition~ transitions i state))
   
   
   (method public virtual (transition tape)
-    (let ((c (get-next~ tape)))
-      (if (neq? c no-char)
-          (follow c)
+    (let ((i (get-next~ tape)))
+      (if i
+          (follow i)
         (action~ (follow EOFTransition) tape)
         {})))
   
   
-  (method public (follow c)
-    (follow~ transitions c))
+  (method public (follow i <fx>)
+    (follow~ transitions i))
   
   
   (method public virtual (action tape)))
@@ -314,47 +279,70 @@
 ;;;
 
 
-(definition (is-constituent object constituent-test i)
-  (constituent-test (integer->char i)))
+(definition public (build-search-automata targets whole-words ignore-case constituent-test)
+  (let* ((start (new StartState (new VectoredTransitions)))
+         (skip (new State "skip" (new VectoredTransitions)))
+         (automata (new Automata start)))
+    (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 2))
+    (add-constituency-transitions start skip start start constituent-test)
+    (add-constituency-transitions skip skip start start constituent-test)
+    (for-each (function (target)
+                (process-target target automata start skip whole-words ignore-case constituent-test))
+              targets)
+    automata))
 
 
-(definition (add-constituency-transitions state c not-c eof object constituent-test)
+(definition (add-constituency-transitions state c not-c eof constituent-test)
   (loop (for i from 0 below NbAscii)
-        (if (is-constituent object constituent-test i)
-            (add-transition~ state i c)
-          (add-transition~ state i not-c)))
+        (add-transition~ state i (if (is-constituent constituent-test i)
+                                     c
+                                   not-c)))
   (add-transition~ state EOFTransition eof))
 
 
-(definition (process-target target automata start skip whole-words ignore-case object constituent-test)
+(definition (process-target target automata start skip whole-words ignore-case constituent-test)
   (let ((state start)
         (string (car target)))
     (iterate string
       (function (c)
-        (let ((i (char->integer c)))
+        (let ((i (char->integer c))
+              (iinv (char->integer (if (lower-case? c) (upcase c) (downcase c)))))
           (let ((new-state (follow~ state i)))
             (cond ((and new-state (neq? new-state start) (neq? new-state skip))
                    (set! state new-state)
-                   (when (and ignore-case (is-constituent object constituent-test i))
-                     (let ((c-autre (char->integer (if (lower-case? c) (upcase c) (downcase c)))))
-                       (set! new-state (follow~ state c-autre))
-                       (when (not new-state)
-                         (set! new-state (new State string (new VectoredTransitions)))
-                         (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
-                         (add-constituency-transitions new-state skip start start object constituent-test)
-                         (add-transition~ state c-autre new-state)
-                         (add-transition~ state (char->integer (if (lower-case? c) (upcase c) (downcase c))) new-state)))))
+                   (when (and ignore-case (is-constituent constituent-test i))
+                     (set! new-state (follow~ state iinv))
+                     (when (not new-state)
+                       (set! new-state (new State string (new VectoredTransitions)))
+                       (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
+                       (add-constituency-transitions new-state skip start start constituent-test)
+                       (add-transition~ state iinv new-state))))
                   (else
                    (set! new-state (new State string (new VectoredTransitions)))
-                   (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
-                   (add-constituency-transitions new-state skip start start object constituent-test)
+                   (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
+                   (add-constituency-transitions new-state skip start start constituent-test)
                    (add-transition~ state i new-state)
-                   (when (and ignore-case (is-constituent object constituent-test i))
-                     (add-transition~ state (char->integer (if (lower-case? c) (upcase c) (downcase c))) new-state))
+                   (when (and ignore-case (is-constituent constituent-test i))
+                     (add-transition~ state iinv new-state))
                    (set! state new-state)))))))
     (let ((new-state (new FoundState target start)))
-      (set-nbVectored~ automata (+ (get-nbVectored~ automata) 1))
+      (set-nb-vectored~ automata (+ (get-nb-vectored~ automata) 1))
       (loop (for i from 0 below NbAscii)
-            (when (not (is-constituent object constituent-test i))
+            (when (not (is-constituent constituent-test i))
               (add-transition~ state i new-state)))
-      (add-transition~ state EOFTransition new-state)))))
+      (add-transition~ state EOFTransition new-state))))
+
+
+(definition (is-constituent constituent-test <procedure> i <fx>) <boolean>
+  (constituent-test (integer->char i)))
+
+
+;;;
+;;;; Search
+;;;
+
+
+(definition public (automata-search automata <Automata> paragraphs limit <fx> row <fx> col <fx>)
+  (let ((tape (new Tape paragraphs limit row col)))
+    (run~ automata tape)
+    (get-found~ tape))))

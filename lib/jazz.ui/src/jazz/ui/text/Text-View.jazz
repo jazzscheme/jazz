@@ -113,7 +113,6 @@
   (slot protected caret-position         initialize {})
   (slot protected caret-pulse            initialize {})
   (slot protected caret-visible?         initialize #f)
-  (slot protected has-focus?             initialize #f)
   (slot protected completion-active?     initialize #f)
   (slot protected text-listeners         initialize '())
   (slot protected undoer                 initialize (new Undoer self))
@@ -457,7 +456,6 @@
   (method (focus-gain old)
     (nextmethod old)
     (show-text-cursor)
-    (set! has-focus? #t)
     (update-caret)
     (when focus-selects-all?
       (select-all))
@@ -468,7 +466,6 @@
   (method (focus-lose view)
     (nextmethod view)
     (show-text-cursor)
-    (set! has-focus? #f)
     (hide-caret)
     (end-completion)
     (when (has-selection?)
@@ -886,7 +883,7 @@
   
   
   (method (show-caret)
-    (when (and editable? has-focus? (not caret-pulse))
+    (when (and editable? (has-focus?) (not caret-pulse))
       (set! caret-visible? #t)
       (set! caret-pulse (new Pulse 0.5 pulse-caret))
       (invalidate-caret)))
@@ -913,7 +910,7 @@
   
   
   (method (update-caret)
-    (when (and player editable? has-focus? (not (get-surrogate)))
+    (when (and player editable? (has-focus?) (not (get-surrogate)))
       (if (has-selection?)
           (hide-caret)
         (set-caret-position (get-start))
@@ -966,7 +963,7 @@
   
   (method (mouse-down view)
     (when (and enabled? selectable?)
-      (let ((focus? has-focus?)
+      (let ((focus? (has-focus?))
             (mouse-copy? (alt-down?))
             (pos (view->text view)))
         (end-completion)
@@ -2232,11 +2229,11 @@
   
   
   (method (draw-selection surface top bottom)
-    (when (or has-focus? show-unfocused-selection?)
+    (when (or (has-focus?) show-unfocused-selection?)
       (with-closed ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
         (when region
           (fill-region~ surface region
-            (if has-focus?
+            (if (has-focus?)
                 (get-selection-color)
               (let ((appl (get-application)))
                 (if appl

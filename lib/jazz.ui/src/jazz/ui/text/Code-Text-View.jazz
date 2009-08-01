@@ -411,7 +411,9 @@
   
   
   (method protected virtual (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #f self c-constituent?))
+    (let ((targets (syntax-targets)))
+      (when targets
+        (build-search-automata targets #t #f self c-constituent?))))
   
   
   (method (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
@@ -421,17 +423,18 @@
   
   
   (method (colorize-syntax-from pos recoloring?)
-    (let ((colorizer (essay (not recoloring?) (new-colorizer self)))
-          (targets (syntax-targets))
-          (found (automata-search (syntax-automata) (get-paragraphs) (get-limit) 0 0)))
-      (while (not-null? found)
-        (let ((info (car found)))
-          (bind ((target type) row col) info
-            (let ((start (new Cell row col))
-                  (end (new Cell row (+ col (string-length target)))))
-              (set! found (colorize-type found type start end colorizer #f))))))
-      (when colorizer
-        (finish-current~ colorizer))))
+    (let ((automata (syntax-automata)))
+      (when automata
+        (let ((found (automata-search automata (get-paragraphs) (get-limit) 0 0))
+              (colorizer (essay (not recoloring?) (new-colorizer self))))
+          (while (not-null? found)
+            (let ((info (car found)))
+              (bind ((target type) row col) info
+                (let ((start (new Cell row col))
+                      (end (new Cell row (+ col (string-length target)))))
+                  (set! found (colorize-type found type start end colorizer #f))))))
+          (when colorizer
+            (finish-current~ colorizer))))))
   
   
   (method protected (apply-coloring colorizer start end style-name)
@@ -510,15 +513,17 @@
                 (set! pos start))))))
       (let ((range (naturals (get-row~ pos) (+ end-row 1))))
         (for-each uncolorize-row range))
-      (let ((colorizer (new-colorizer self))
-            (found (automata-search (syntax-automata) (get-paragraphs) end-row (get-row~ pos) (get-col~ pos))))
-        (while (not-null? found)
-          (let ((info (car found)))
-            (bind ((target type) row col) info
-              (let ((start (new Cell row col))
-                    (end (new Cell row (+ col (string-length target)))))
-                (set! found (colorize-type found type start end colorizer #f))))))
-        (finish-current~ colorizer))))
+      (let ((automata (syntax-automata)))
+        (when automata
+          (let ((found (automata-search automata (get-paragraphs) end-row (get-row~ pos) (get-col~ pos)))
+                (colorizer (new-colorizer self)))
+            (while (not-null? found)
+              (let ((info (car found)))
+                (bind ((target type) row col) info
+                  (let ((start (new Cell row col))
+                        (end (new Cell row (+ col (string-length target)))))
+                    (set! found (colorize-type found type start end colorizer #f))))))
+            (finish-current~ colorizer))))))
   
   
   (method public virtual (colorize-entries)

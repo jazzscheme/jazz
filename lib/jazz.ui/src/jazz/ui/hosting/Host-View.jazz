@@ -169,7 +169,11 @@
   
   
   (method public (get-focused)
-    focused)
+    ;; only return a valid focused as certain operations like
+    ;; changing parent can leave the focused to be invalid
+    (if (and focused (eq? (get-host~ focused) self))
+        focused
+      {}))
   
   
   (method public (set-focused view)
@@ -177,7 +181,7 @@
   
   
   (method public (focus-host)
-    (cond (focused
+    (cond ((get-focused)
            (reactivate-focused))
           (guest
            (focus-default~ guest))
@@ -205,8 +209,9 @@
   
   
   (method protected (reactivate-focused)
-    (when focused
-      (acquire-focus~ focused)))
+    (let ((focused (get-focused)))
+      (when focused
+        (acquire-focus~ focused))))
   
   
   (method protected (view-destroyed view)

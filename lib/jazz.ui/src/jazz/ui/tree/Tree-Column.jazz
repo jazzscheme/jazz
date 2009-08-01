@@ -48,11 +48,10 @@
 (class Tree-Column extends Component
   
   
-  (property protected title           initialize ""    getter get-title           setter set-title)
-  (property protected width           initialize 0     getter get-width           setter set-width)
-  (property protected background      initialize {}    getter get-background      setter set-background)
-  (property protected justification   initialize 'head getter get-justification   setter set-justification)
-  (property protected vertical-offset initialize 2     getter get-vertical-offset setter set-vertical-offset)
+  (property protected title         initialize ""     getter get-title           setter set-title)
+  (property protected width         initialize 0      getter get-width           setter set-width)
+  (property protected background    initialize {}     getter get-background      setter set-background)
+  (property protected justification initialize '(1 2) getter get-justification   setter set-justification)
   
   
   (slot protected down? initialize #f)
@@ -109,14 +108,6 @@
   (method public (set-justification just)
     (set! justification just)
     (invalidate-view~ parent))
-  
-  
-  (method public (get-vertical-offset)
-    vertical-offset)
-  
-  
-  (method public (set-vertical-offset offset)
-    (set! vertical-offset offset))
   
   
   (method public (set-visible? flag)
@@ -318,7 +309,7 @@
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
              (inner (expand-rect outer 1 1 (if spaced? 0 thick) thick))
-             (text-h (+ h (header-title-h surface width title))))
+             (text-h (+ h (header-title-h surface width height title))))
         (if flat?
             (if spaced?
                 (let ((smaller (expand-rect outer 0 0 0 -1)))
@@ -333,13 +324,13 @@
         (draw-sorted surface text-h v title sorted))))
     
   
-  (method protected virtual (header-title-h surface width title)
-    (+ 2 (justify-title surface (- width 4) title justification)))
+  (method protected virtual (header-title-h surface width height title)
+    (+ 2 (get-h~ (justify-title surface (- width 4) height title justification))))
   
   
-  (method protected (justify-title surface width title justification)
+  (method protected (justify-title surface width height title justification)
     (let ((extent (get-text-extent~ surface title)))
-      (justify (get-width~ extent) width justification)))
+      (justify extent (new Dimension width height) justification)))
 
   
   (method (draw-sorted surface h v title sorted)
@@ -357,7 +348,7 @@
   (method (draw-sunken-button surface h v width height title sorted spaced? flat?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1))
-           (text-h (+ h (header-title-h surface width title) 1)))
+           (text-h (+ h (header-title-h surface width height title) 1)))
       (set-color~ surface {Color name: Dark})
       (frame-rect~ surface outer {Color name: Dark})
       (fill-rect~ surface inner (either background (header-color~ parent)))

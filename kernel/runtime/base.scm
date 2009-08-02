@@ -330,7 +330,9 @@
 
 
 (define (jazz.directory-content directory)
-  (directory-files (list path: directory ignore-hidden: 'dot-and-dot-dot)))
+  (directory-files (if (string? directory)
+                       (list path: directory ignore-hidden: 'dot-and-dot-dot)
+                     directory)))
 
 
 (define (jazz.directory-files directory)

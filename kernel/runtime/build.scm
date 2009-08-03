@@ -378,21 +378,21 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (display "#!gsi -:darR,t8,f8,-8" output)
-                    (if minimum-heap
-                        (begin
-                          (display ",m" output)
-                          (display minimum-heap output)))
-                    (if maximum-heap
-                        (begin
-                          (display ",h" output)
-                          (display maximum-heap output)))
-                    (newline output)
-                    (newline output)
                     (cond (library-image?
                             (display "(jazz.library-main)" output)
                             (newline output))
                           (else
+                           (display "#!gsi -:darR,t8,f8,-8" output)
+                           (if minimum-heap
+                               (begin
+                                 (display ",m" output)
+                                 (display minimum-heap output)))
+                           (if maximum-heap
+                               (begin
+                                 (display ",h" output)
+                                 (display maximum-heap output)))
+                           (newline output)
+                           (newline output)
                            (display "(define (jazz.main)" output)
                            (newline output)
                            (display "  (jazz.executable-main))" output)

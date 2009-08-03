@@ -811,7 +811,7 @@
           (source-access? (jazz.configuration-source-access? configuration))
           (destination (jazz.configuration-destination configuration))
           (destination-directory (jazz.configuration-directory configuration)))
-      (jazz.build-executable #f
+      (jazz.build-image #f
         system:                system
         platform:              platform
         windowing:             windowing

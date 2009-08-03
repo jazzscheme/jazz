@@ -45,8 +45,8 @@
       (lambda rest
         #f))
 
-(define jazz.build-executable #f)
-(set! jazz.build-executable #f)
+(define jazz.build-image #f)
+(set! jazz.build-image #f)
 
 
 ;;;

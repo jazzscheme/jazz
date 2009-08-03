@@ -75,7 +75,7 @@
 
 (native jazz.compile-module)
 (native jazz.build-module)
-(native jazz.build-executable)
+(native jazz.build-image)
 (native jazz.for-each-submodule)
 
 

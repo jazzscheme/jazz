@@ -271,7 +271,7 @@
 
 
 (define jazz.kernel-install
-  (or (and jazz.executable-directory (jazz.executable-directory))
+  (or (and (%%eq? jazz.image 'executable) jazz.executable-directory (jazz.executable-directory))
       (jazz.pathname-normalize jazz.built)))
 
 
@@ -1176,8 +1176,8 @@
     (if build
         (for-each (lambda (obj)
                     (if (%%symbol? obj)
-                        (jazz.build-executable obj)
-                      (%%apply jazz.build-executable obj)))
+                        (jazz.build-image obj)
+                      (%%apply jazz.build-image obj)))
                   build))))
 
 

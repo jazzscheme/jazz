@@ -107,11 +107,11 @@
 
 
 ;;;
-;;;; Executable
+;;;; Image
 ;;;
 
 
-(define (jazz.build-executable-impl product
+(define (jazz.build-image-impl product
           #!key
           (system jazz.kernel-system)
           (platform jazz.kernel-platform)
@@ -358,6 +358,8 @@
                 (call-with-output-file file
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.image (or image 'executable) output)
                     (newline output)
                     (jazz.print-variable 'jazz.built (jazz.pathname-normalize destination-directory) output)
                     (newline output)
@@ -614,4 +616,4 @@
 
 
 (set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
-(set! jazz.build-executable jazz.build-executable-impl)
+(set! jazz.build-image jazz.build-image-impl)

@@ -105,7 +105,7 @@
 
 
 (define (jazz.new-define-special-form-declaration name type parent signature)
-  (let ((new-declaration (jazz.allocate-define-special-form-declaration jazz.Define-Special-Form-Declaration name type 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz.allocate-define-special-form-declaration jazz.Define-Special-Form-Declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

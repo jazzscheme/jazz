@@ -594,7 +594,12 @@
     (jazz.define-macro (%%number->string n)
       (if jazz.debug-core?
           `(number->string ,n)
-        `(##number->string ,n))))
+        `(##number->string ,n)))
+   
+    (jazz.define-macro (%%string->number str)
+      (if jazz.debug-core?
+          `(string->number ,str)
+        `(##string->number ,str))))
 
   (else))
 

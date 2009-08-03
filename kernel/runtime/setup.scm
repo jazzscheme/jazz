@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Main
+;;;; Kernel Setup
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -100,7 +100,7 @@
 
 
 ;;;
-;;;; Main
+;;;; Common
 ;;;
 
 
@@ -120,7 +120,27 @@
   #f)
 
 
-(define (jazz.process-main)
+(define (jazz.process-jazzini-file)
+  (if (file-exists? jazz.jazzini-file)
+      (jazz.load jazz.jazzini-file)))
+
+
+;;;
+;;;; Library
+;;;
+
+
+(define (jazz.library-main)
+  (jazz.process-jazzini-file)
+  (jazz.setup-repositories))
+
+
+;;;
+;;;; Executable
+;;;
+
+
+(define (jazz.executable-main)
   (define (missing-argument-for-option opt)
     (set! jazz.warnings
           (lambda (output-port)
@@ -132,15 +152,15 @@
             #t))
     (jazz.repl-main))
   
-  (define (read-argument arg)
+  (define (number-argument arg)
     (if (%%string? arg)
-        (call-with-input-string (%%list init: arg)
-          read)
+        (%%string->number arg)
       arg))
   
-  (define (process-jazzini-file)
-    (if (file-exists? jazz.jazzini-file)
-        (jazz.load jazz.jazzini-file)))
+  (define (symbol-argument arg)
+    (if (%%string? arg)
+        (%%string->symbol arg)
+      arg))
   
   (define (process-buildini-file)
     (if (file-exists? jazz.buildini-file)
@@ -163,10 +183,10 @@
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options))
-            (jobs (read-argument (jazz.get-option "jobs" options))))
+            (jobs (number-argument (jazz.get-option "jobs" options))))
         (set! jazz.debugger debugger)
         (set! jazz.jobs jobs)
-        (process-jazzini-file)
+        (jazz.process-jazzini-file)
         (jazz.setup-repositories)
         (cond (run
                (jazz.run-product (%%string->symbol run)))

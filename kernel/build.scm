@@ -660,22 +660,45 @@
   'jazz)
 
 
-(define (jazz.parse-target/configuration str)
-  (let ((pos (jazz.string-find str #\@)))
-    (if (not pos)
-        (values (string->symbol str) (jazz.require-default-configuration))
-      (let ((target
-              (if (= pos 0)
-                  jazz.default-target
-                (string->symbol (substring str 0 pos))))
-            (configuration
-              (if (= (+ pos 1) (string-length str))
-                  (jazz.require-default-configuration)
-                (jazz.require-configuration (string->symbol (substring str (+ pos 1) (string-length str)))))))
-        (values target configuration)))))
-
-
 (define (jazz.make symbols local?)
+  (define (parse-target/configuration/image str proc)
+    (let ((colon (jazz.string-find str #\:)))
+      (if (not colon)
+          (parse-target/configuration str
+            (lambda (target configuration)
+              (proc target configuration #f)))
+        (let ((image
+                (if (= (+ colon 1) (string-length str))
+                    #f
+                  (standardize-image (string->symbol (substring str (+ colon 1) (string-length str)))))))
+          (parse-target/configuration (substring str 0 colon)
+            (lambda (target configuration)
+              (proc target configuration image)))))))
+  
+  (define (parse-target/configuration str proc)
+    (let ((at (jazz.string-find str #\@)))
+      (if (not at)
+          (proc (if (string=? str "") jazz.default-target (string->symbol str)) (jazz.require-default-configuration))
+        (let ((target
+                (if (= at 0)
+                    jazz.default-target
+                  (string->symbol (substring str 0 at))))
+              (configuration
+                (if (= (+ at 1) (string-length str))
+                    (jazz.require-default-configuration)
+                  (jazz.require-configuration (string->symbol (substring str (+ at 1) (string-length str)))))))
+          (proc target configuration)))))
+  
+  (define (standardize-image image)
+    (cond ((memv image '(lib library)) 'library)
+          ((memv image '(exe executable)) 'executable)
+          (else (jazz.error "Unknown image type: {s}" image))))
+  
+  (define (standardize-symbol symbol/keyword)
+    (cond ((symbol? symbol/keyword) symbol/keyword)
+          ((keyword? symbol/keyword) (string->symbol (keyword->string symbol/keyword)))
+          (else (jazz.error "Invalid make target: {s}" symbol/keyword))))
+  
   (define (parse-symbols proc)
     (let iter ((scan symbols)
                (syms '())
@@ -683,20 +706,21 @@
       (if (null? scan)
           (proc syms jobs)
         (let ((obj (car scan)))
-          (if (memv obj '(jobs: -j -jobs))
+          (if (memv obj '(j: jobs: -j -jobs))
               (iter (cddr scan) syms (cadr scan))
-            (iter (cdr scan) (cons obj syms) jobs))))))
+            (iter (cdr scan) (cons (standardize-symbol obj) syms) jobs))))))
   
   (define (make-symbol symbol jobs)
     (let ((name (symbol->string symbol)))
-      (receive (target configuration) (jazz.parse-target/configuration name)
-        (make-target target configuration jobs local?))))
+      (parse-target/configuration/image name
+        (lambda (target configuration image)
+          (make-target target configuration image jobs local?)))))
   
-  (define (make-target target configuration jobs local?)
+  (define (make-target target configuration image jobs local?)
     (case target
       ((clean) (jazz.make-clean configuration))
       ((cleankernel) (jazz.make-cleankernel configuration))
-      ((kernel) (jazz.make-kernel configuration local?))
+      ((kernel) (jazz.make-kernel configuration image local?))
       ((install) (jazz.make-install configuration))
       (else (jazz.make-product target configuration jobs))))
   
@@ -720,11 +744,14 @@
 ;;;
 
 
-(define (jazz.build-recursive target configuration)
+(define (jazz.build-recursive target configuration image)
   (let ((configuration-name (jazz.configuration-name configuration)))
-    (let ((argument (if configuration-name
-                        (jazz.format "{a}@{a}" target configuration-name)
-                      (symbol->string target)))
+    (let ((argument (string-append (if configuration-name
+                                       (jazz.format "{a}@{a}" target configuration-name)
+                                     (symbol->string target))
+                                   (if image
+                                       (string-append ":" (symbol->string image))
+                                     "")))
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
@@ -762,13 +789,13 @@
 ;;;
 
 
-(define (jazz.make-kernel configuration local?)
+(define (jazz.make-kernel configuration image local?)
   (if local?
-      (jazz.build-kernel configuration)
-    (jazz.build-recursive 'kernel configuration)))
+      (jazz.build-kernel configuration image)
+    (jazz.build-recursive 'kernel configuration image)))
 
 
-(define (jazz.build-kernel #!optional (configuration #f))
+(define (jazz.build-kernel configuration image)
   (define (build configuration)
     (let ((name (jazz.configuration-name configuration))
           (system (jazz.configuration-system configuration))
@@ -799,6 +826,7 @@
         source-access?:        source-access?
         destination:           destination
         destination-directory: destination-directory
+        image:                 image
         kernel?:               #t
         console?:              #t)))
   
@@ -815,15 +843,7 @@
 ;;;
 
 
-(define jazz.time-make-product?
-  #f)
-
-
 (define (jazz.make-product product configuration jobs)
-  (define (make)
-    (jazz.make-kernel configuration #f)
-    (product-make product configuration jobs))
-  
   (define (product-make product configuration jobs)
     (let ((destdir (jazz.configuration-directory configuration))
           (platform (jazz.configuration-platform configuration)))
@@ -839,9 +859,8 @@
       
       (jazz.call-process (jazz-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
   
-  (if jazz.time-make-product?
-      (time (make))
-    (make)))
+  (jazz.make-kernel configuration #f #f)
+  (product-make product configuration jobs))
 
 
 ;;;
@@ -1201,7 +1220,7 @@
                  (jazz.print "" console)
                  (jazz.print "Usage:" console)
                  (jazz.print "  gsc configure [-system] [-platform] [-windowing] [-safety]" console)
-                 (jazz.print "  gsc make [target]@[configuration]" console)
+                 (jazz.print "  gsc make [target]@[configuration]:[image]" console)
                  (jazz.print "  gsc -debug" console)
                  (jazz.print "  gsc -help" console))
                (exit))

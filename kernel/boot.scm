@@ -51,7 +51,7 @@
     "kernel/runtime/settings"
     "kernel/runtime/digest"
     "kernel/runtime/kernel"
-    "kernel/runtime/main"))
+    "kernel/runtime/setup"))
 
 
 (define jazz.load-kernel
@@ -66,4 +66,4 @@
 
 
 (jazz.load-kernel)
-(jazz.process-main)
+(jazz.executable-main)

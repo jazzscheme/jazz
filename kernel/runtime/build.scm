@@ -127,13 +127,15 @@
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
           (destination-directory jazz.kernel-install)
+          (image #f)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
           (feedback jazz.feedback))
   (let ((product-name (if (not product) "jazz" (symbol->string product)))
-        (gambit-library (if include-compiler? "gambcgsc" "gambc")))
+        (gambit-library (if include-compiler? "gambcgsc" "gambc"))
+        (library-image? (eq? image 'library)))
     (let ((kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
@@ -260,7 +262,7 @@
           (compile-source-file "runtime/" "install")
           (compile-source-file "runtime/" "digest")
           (compile-source-file "runtime/" "kernel")
-          (compile-source-file "runtime/" "main")))
+          (compile-source-file "runtime/" "setup")))
       
       (define (generate-architecture rebuild? rebuild-architecture?)
         (let ((file (kernel-file "_architecture.scm")))
@@ -291,60 +293,65 @@
                 (touch)))
           
           (if product?
-              (compile-product-file "_product"))
+              (compile-product-file (product-filename)))
           (if main?
-              (compile-product-file "_main"))
+              (compile-product-file (main-filename)))
           
           (if (generate-resources rebuild?)
               (touch))
           
           ;;;
-          ;;;; Link Kernel
+          ;;;; Create Link File
           ;;;
           
-          (let ((link-file (product-file (string-append product-name ".c"))))
+          (let ((link-file (link-file)))
             (if (or rebuild?
                     (not (file-exists? link-file))
                     (or (not kernel-time) (< (jazz.file-modification-time link-file) kernel-time))
                     (touched?))
-                (begin
-                  (feedback-message "; linking kernel...")
-                  (link-incremental `(,(kernel-file "_architecture")
-                                      ,(product-file "_product")
-                                      ,(kernel-file "syntax/header")
-                                      ,(kernel-file "syntax/macros")
-                                      ,(kernel-file "syntax/expansion")
-                                      ,(kernel-file "syntax/features")
-                                      ,(kernel-file "syntax/declares")
-                                      ,(kernel-file "syntax/primitives")
-                                      ,(kernel-file "syntax/syntax")
-                                      ,(kernel-file "syntax/runtime")
-                                      ,(kernel-file "runtime/base")
-                                      ,(kernel-file "runtime/common")
-                                      ,@(if include-compiler?
-                                            `(,(kernel-file "runtime/build"))
-                                          '())
-                                      ,(kernel-file "runtime/settings")
-                                      ,(kernel-file "runtime/install")
-                                      ,(kernel-file "runtime/digest")
-                                      ,(kernel-file "runtime/kernel")
-                                      ,(kernel-file "runtime/main")
-                                      ,(product-file "_main"))
-                                    output: link-file
-                                    base: (string-append "~~lib/_" gambit-library)))))
+                (let ((files `(,(kernel-file "_architecture")
+                               ,(product-file (product-filename))
+                               ,(kernel-file "syntax/header")
+                               ,(kernel-file "syntax/macros")
+                               ,(kernel-file "syntax/expansion")
+                               ,(kernel-file "syntax/features")
+                               ,(kernel-file "syntax/declares")
+                               ,(kernel-file "syntax/primitives")
+                               ,(kernel-file "syntax/syntax")
+                               ,(kernel-file "syntax/runtime")
+                               ,(kernel-file "runtime/base")
+                               ,(kernel-file "runtime/common")
+                               ,@(if include-compiler?
+                                     `(,(kernel-file "runtime/build"))
+                                   '())
+                               ,(kernel-file "runtime/settings")
+                               ,(kernel-file "runtime/install")
+                               ,(kernel-file "runtime/digest")
+                               ,(kernel-file "runtime/kernel")
+                               ,(kernel-file "runtime/setup")
+                               ,(product-file (main-filename)))))
+                  (feedback-message "; creating link file...")
+                  (if library-image?
+                      (link-flat files output: link-file)
+                    (link-incremental files output: link-file base: (string-append "~~lib/_" gambit-library))))))
           
           ;;;
-          ;;;; Link Executable
+          ;;;; Link Image
           ;;;
           
           (if (or rebuild?
-                  (not (file-exists? (executable-name)))
-                  (or (not kernel-time) (< (jazz.file-modification-time (executable-name)) kernel-time))
+                  (not (file-exists? (image-file)))
+                  (or (not kernel-time) (< (jazz.file-modification-time (image-file)) kernel-time))
                   (touched?))
-              (link-executable))))
+              (link-image))))
+      
+      (define (link-file)
+        (if library-image?
+            (product-file (string-append product-name ".o1.c"))
+          (product-file (string-append product-name ".c"))))
       
       (define (generate-product rebuild?)
-        (let ((file (product-file "_product.scm")))
+        (let ((file (product-file (string-append (product-filename) ".scm"))))
           (if (or rebuild? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -356,14 +363,14 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source destination-directory) output)
+                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory source destination-directory)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-access? source-access? output)))
                 #t)
             #f)))
       
       (define (generate-main rebuild?)
-        (let ((file (product-file "_main.scm")))
+        (let ((file (product-file (string-append (main-filename) ".scm"))))
           (if (or rebuild? (not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -380,15 +387,29 @@
                           (display maximum-heap output)))
                     (newline output)
                     (newline output)
-                    (display "(define (jazz.main)" output)
-                    (newline output)
-                    (display "  (jazz.process-main))" output)
-                    (newline output)
-                    (newline output)
-                    (display "(##main-set! jazz.main)" output)
-                    (newline output)))
+                    (cond (library-image?
+                            (display "(jazz.library-main)" output)
+                            (newline output))
+                          (else
+                           (display "(define (jazz.main)" output)
+                           (newline output)
+                           (display "  (jazz.executable-main))" output)
+                           (newline output)
+                           (newline output)
+                           (display "(##main-set! jazz.main)" output)
+                           (newline output)))))
                 #t)
             #f)))
+      
+      (define (product-filename)
+        (if library-image?
+            "_libproduct"
+          "_product"))
+      
+      (define (main-filename)
+        (if library-image?
+            "_libmain"
+          "_main"))
       
       (define (generate-resources rebuild?)
         (case platform
@@ -416,6 +437,11 @@
           (else
            '())))
       
+      (define (gambit-link-libraries)
+        (if (not library-image?)
+            `("-lgambc" ,(string-append "-l" gambit-library))
+          '()))
+      
       (define (link-libraries)
         (case platform
           ((windows)
@@ -426,20 +452,24 @@
            '())))
       
       (define (link-options)
-        (case platform
-          ((windows)
-           (if console?
-               '("-mconsole")
-             '("-mwindows")))
-          (else
-           '())))
+        (if library-image?
+            (case platform
+              ((windows) '("-shared" "-D___DYNAMIC"))
+              (else '("-bundle" "-D___DYNAMIC")))
+          (case platform
+            ((windows)
+             (if console?
+                 '("-mconsole")
+               '("-mwindows")))
+            (else
+             '()))))
       
-      (define (link-executable)
-        (feedback-message "; linking executable...")
+      (define (link-image)
+        (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
         (jazz.call-process
           "gcc"
           `(,(jazz.quote-gcc-pathname (kernel-file "_architecture.c") platform)
-            ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file (string-append (product-filename) ".c")) platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/header.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/macros.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/expansion.c") platform)
@@ -457,18 +487,21 @@
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/kernel.c") platform)
-            ,(jazz.quote-gcc-pathname (kernel-file "runtime/main.c") platform)
-            ,(jazz.quote-gcc-pathname (product-file "_main.c") platform)
-            ,(jazz.quote-gcc-pathname (product-file (string-append product-name ".c")) platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/setup.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file (string-append (main-filename) ".c")) platform)
+            ,(jazz.quote-gcc-pathname (link-file) platform)
             ,@(resource-files)
             ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
             ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
-            "-lgambc" ,(string-append "-l" gambit-library) ,@(link-libraries)
+            ,@(gambit-link-libraries)
+            ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(jazz.quote-gcc-pathname (build-file product-name) platform))))
+            "-o" ,(jazz.quote-gcc-pathname (image-file) platform))))
       
-      (define (executable-name)
-        (build-file (string-append product-name (jazz.executable-extension platform))))
+      (define (image-file)
+        (if library-image?
+            (build-file (string-append product-name ".o1"))
+          (build-file (string-append product-name (jazz.executable-extension platform)))))
       
       ;;;
       ;;;; Configuration

@@ -2250,6 +2250,8 @@
 
 
 (define (jazz.find-special-form symbol)
+  #f
+  #; ;; walk is undefined
   (let ((found (assq walk jazz.special-forms)))
     (if found (cdr found) #f)))
 

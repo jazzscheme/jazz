@@ -1180,7 +1180,7 @@
                       (%%apply jazz.build-image obj)))
                   build))))
 
-
+#; ;; old
 (define (jazz.make-product name)
   (let ((install jazz.kernel-install)
         (platform jazz.kernel-platform)
@@ -1255,111 +1255,95 @@
     (make name)))
 
 
-#; ;; new build2
 (define (jazz.make-product name)
   (let ((install jazz.kernel-install)
         (platform jazz.kernel-platform)
         (jobs (or jazz.jobs (jazz.build-jobs)))
         (subproduct-table (make-table))
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
-        (active-count 0)
+        (active-processes '())
         (free-processes '())
         (process-mutex (make-mutex 'process-mutex))
         (process-condition (make-condition-variable 'process-condition)))
-    (define (install-file path)
-      (%%string-append install path))
-    
-    (define (jazz-path)
-      (case platform
-        ((windows)
-         (install-file "jazz"))
-        (else
-         "./jazz")))
-    
-    (define (with-subproduct-table-mutex proc)
-      (mutex-lock! subproduct-table-mutex)
-      (let ((result (proc)))
-        (mutex-unlock! subproduct-table-mutex)
-        result))
-    
-    (define (get-subproduct-thread name)
-      (with-subproduct-table-mutex
-        (lambda ()
-          (%%table-ref subproduct-table name #f))))
-    
-    (define (set-subproduct-thread name thread)
-      (with-subproduct-table-mutex
-        (lambda ()
-          (%%table-set! subproduct-table name thread))))
     
     (define (make-parallel names)
       (for-each thread-join!
                 (map (lambda (name)
-                       (or (get-subproduct-thread name)
-                           (let ((thread (thread-start!
-                                           (make-thread
-                                             (lambda ()
-                                               (make name))))))
-                             (set-subproduct-thread name thread)
-                             thread)))
+                       (mutex-lock! subproduct-table-mutex)
+                       (let ((thread (or (%%table-ref subproduct-table name #f)
+                                         (let ((thread (thread-start! (make-thread (lambda ()
+                                                                                     (make name))))))
+                                           (%%table-set! subproduct-table name thread)
+                                           thread))))
+                         (mutex-unlock! subproduct-table-mutex)
+                         thread))
                      names)))
     
-    (define (grab-build-process name)
+    (define (grab-build-process)
+      (define (jazz-path)
+        (case platform
+          ((windows)
+           (%%string-append install "jazz"))
+          (else
+           "./jazz")))
+      
       (mutex-lock! process-mutex)
-      (cond ((%%pair? free-processes)
-             (let ((process (%%car free-processes)))
-               (set! free-processes (%%cdr free-processes))
-               (mutex-unlock! process-mutex)
-               process))
-            ((%%fx< active-count jobs)
-             (let ((process (open-process
-                              (list
-                                path: (jazz-path)
-                                arguments: '("-:dq-" "-build2 zz" "-jobs 1")
-                                directory: install
-                                stdin-redirection: #t
-                                stdout-redirection: #t
-                                stderr-redirection: #f))))
-               (set! active-count (%%fx+ active-count 1))
-               (mutex-unlock! process-mutex)
-               process))
-            (else
-             (mutex-unlock! process-mutex process-condition)
-             (grab-build-process name))))
-    
-    (define (release-build-process process terminate? name)
-      (mutex-lock! process-mutex)
-      (if terminate?
-          (begin
-            (set! active-count (%%fx- active-count 1))
-            (send-command process #f))
-        (set! free-processes (%%cons process free-processes)))
-      (mutex-unlock! process-mutex)
-      (condition-variable-signal! process-condition))
-    
-    (define (send-command process name)
-      (write name process)
-      (newline process)
-      (force-output process))
+      (let ((active-count (%%length active-processes)))
+        (cond ((%%pair? free-processes)
+               (let ((process (%%car free-processes)))
+                 (set! free-processes (%%cdr free-processes))
+                 (mutex-unlock! process-mutex)
+                 process))
+              ((%%fx< active-count jobs)
+               (let ((process (open-process
+                                (list
+                                  path: (jazz-path)
+                                  arguments: `("-:dq-" "-build2" ,(number->string active-count) "-jobs 1")
+                                  directory: install
+                                  stdin-redirection: #t
+                                  stdout-redirection: #t
+                                  stderr-redirection: #f))))
+                 (set! active-processes (%%cons process active-processes))
+                 (mutex-unlock! process-mutex)
+                 process))
+              (else
+               (mutex-unlock! process-mutex process-condition)
+               (grab-build-process)))))
     
     (define (build name)
-      (let ((process (grab-build-process name)))
-        (define (pass-through)
-          (let iter ((modified? #f))
-               (let* ((line (read-line process))
-                      (count (%%string-length line)))
-                 (if (%%fx> count 0)
-                     (let ((compiling? (and (%%fx>= count 11) (%%string=? (%%substring line 0 11) "; compiling"))))
-                       (display line)
-                       (newline)
-                       (force-output)
-                       (iter (or modified? compiling?)))
-                   modified?))))
+      (let ((process (grab-build-process))
+            (key-product? (%%memq name '(core jazz))))
+        (define (build-process-died)
+          (mutex-lock! process-mutex)
+          (set! active-processes (jazz.remove process active-processes))
+          (mutex-unlock! process-mutex)
+          (condition-variable-signal! process-condition))
+        
+        (define (build-process-ended product-modified?)
+          (mutex-lock! process-mutex)
+          (if (and key-product? product-modified?)
+              (begin
+                (set! active-processes (jazz.remove process active-processes))
+                (send-command process #f))
+            (set! free-processes (%%cons process free-processes)))
+          (mutex-unlock! process-mutex)
+          (condition-variable-signal! process-condition))
         
         (send-command process name)
-        (let ((terminate? (and (pass-through)
-                               (%%memq name '(core jazz)))))
-          (release-build-process process terminate? name))))
+        (let iter ((product-modified? #f))
+             (let ((line (read-line process)))
+               (if (%%not (eof-object? line))
+                   (let ((count (%%string-length line)))
+                     (if (%%fx> count 0)
+                         (begin
+                           (display line)
+                           (newline)
+                           (force-output)
+                           (if (and (%%fx>= count 11) (%%string=? (%%substring line 0 11) "; compiling"))
+                               (iter #t)
+                             (iter product-modified?)))
+                       (build-process-ended product-modified?)))
+                 (build-process-died))))))
     
     (define (make name)
       (let ((descriptor (jazz.get-product-descriptor name)))
@@ -1367,8 +1351,15 @@
           (make-parallel dependencies)
           (build name))))
     
-    (make name)
-    (for-each (lambda (process) (send-command process #f)) free-processes)))
+    (define (send-command process name)
+      (write name process)
+      (newline process)
+      (force-output process))
+    
+    (dynamic-wind
+      (lambda () #f)
+      (lambda () (make name))
+      (lambda () (for-each (lambda (process) (send-command process #f)) active-processes)))))
 
 
 ;;;

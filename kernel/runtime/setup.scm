@@ -218,6 +218,7 @@
                   (lambda ()
                     (let iter ()
                          (let ((product (read)))
+                           (force-output)
                            (if product
                                (begin
                                  (jazz.build-product product)

@@ -73,6 +73,16 @@
       '())))
 
 
+(define (jazz.remove item lst)
+  (let iter ((scan lst))
+    (if (%%not (%%null? scan))
+        (let ((value (%%car scan)))
+          (if (%%eq? value item)
+              (iter (%%cdr scan))
+            (%%cons value (iter (%%cdr scan)))))
+      '())))
+
+
 ;;;
 ;;;; String
 ;;;

@@ -130,9 +130,24 @@
   
   
   (method (on-browse evt)
+    (define (get-root-class)
+      (let* ((text (locate 'name))
+             (string (get-string-content~ text)))
+        (if (empty-string? string)
+            Object
+          (let ((name (string->symbol string)))
+            (if (get-autoload name)
+                (autoload name)
+              (if (global-variable? name)
+                  (let ((value (global-value name)))
+                    (if (category? value)
+                        value
+                      {}))
+                {}))))))
+    
     (let ((root (get-root-class)))
       (if (not root)
-          (message-box (format "Unable to find autoload class: {a}" (get-string-content~ (locate 'name))))
+          (message-box (format "Unable to find class: {a}" (get-string-content~ (locate 'name))))
         (with-cursor :wait
           (function ()
             (browse-inheritance-tree root: (get-root-class)))))))
@@ -150,16 +165,6 @@
                (type (get-user-data~ row))
                (appl (get-application)))
           (edit-definitions~ appl (identifier-name (type-name type)))))))
-  
-  
-  (method (get-root-class)
-    (let* ((text (locate 'name))
-           (string (get-string-content~ text)))
-      (if (empty-string? string)
-          Object
-        (let ((name (string->symbol string)))
-          (when (get-autoload name)
-            (autoload name))))))
 
   
   ;;;

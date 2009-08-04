@@ -447,6 +447,8 @@
 (native jazz.register-service)
 (native jazz.get-service)
 (native jazz.require-service)
+(native jazz.global-variable?)
+(native jazz.global-value)
 (native main)
 
 

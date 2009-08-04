@@ -47,7 +47,7 @@
          (implementation-name (jazz.method-implementation-name class-name name))
          (rank-name (jazz.method-rank-name implementation-name))
          (is-test (if bootstrap-type? 'jazz.bootstrap-type? '%%class-is?)))
-    #;
+    #; ;; experimental non-functional but cleaner version of the following quasiquote
     (let ((proc (lambda (object-parameter object-symbol)
                   `(%%core-assertion (,is-test ,object-symbol ,class-name) (jazz.error ,(jazz.format "{s} expected in calling {s}: {s}" class-name name object-parameter))
                      ((%%vector-ref (%%get-class-core-vtable (%%get-object-class ,object-symbol)) ,rank-name)

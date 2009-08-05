@@ -197,29 +197,6 @@
 
 
 ;;;
-;;;; Slot Reference
-;;;
-
-
-(jazz.define-class jazz.Slot-Reference jazz.Expression (type source) jazz.Object-Class jazz.allocate-slot-reference
-  ((declaration %%get-slot-reference-declaration ())
-   (name        %%get-slot-reference-name        ())
-   (context     %%get-slot-reference-context     ())))
-
-
-;;;
-;;;; Slot Assignment
-;;;
-
-
-(jazz.define-class jazz.Slot-Assignment jazz.Expression (type source) jazz.Object-Class jazz.allocate-slot-assignment
-  ((declaration %%get-slot-assignment-declaration ())
-   (name        %%get-slot-assignment-name        ())
-   (context     %%get-slot-assignment-context     ())
-   (value       %%get-slot-assignment-value       ())))
-
-
-;;;
 ;;;; Dispatch
 ;;;
 

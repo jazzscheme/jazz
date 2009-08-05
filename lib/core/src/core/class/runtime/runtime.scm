@@ -397,12 +397,8 @@
     (%%symbol->string (%%get-category-name class))))
 
 
-(jazz.define-virtual-runtime (jazz.print-object? (jazz.Object object)))
 (jazz.define-virtual-runtime (jazz.print-object (jazz.Object object) output detail))
 
-
-(jazz.define-method (jazz.print-object? (jazz.Object object))
-  #f)
 
 (jazz.define-method (jazz.print-object (jazz.Object object) output detail)
   (jazz.print-serial object output))

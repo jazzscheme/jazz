@@ -181,9 +181,6 @@
 (jazz.define-class-runtime jazz.Lexical-Binding)
 
 
-(jazz.define-method (jazz.print-object? (jazz.Lexical-Binding binding))
-  #t)
-
 (jazz.define-method (jazz.print-object (jazz.Lexical-Binding binding) output detail)
   (jazz.format output "#<{a} {a} #{a}>"
                (%%get-category-name (%%get-object-class binding))
@@ -393,6 +390,10 @@
     new-declaration))
 
 
+(jazz.define-method (jazz.fold-declaration (jazz.Module-Declaration expression) f k s)
+  (f expression s))
+
+
 (jazz.encapsulate-class jazz.Module-Declaration)
 
 
@@ -420,6 +421,10 @@
   (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
     (add-to-library-references found)
     found))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.Namespace-Declaration declaration) f k s)
+  (f declaration (jazz.fold-statements (%%get-namespace-declaration-body declaration) f k s s)))
 
 
 (jazz.encapsulate-class jazz.Namespace-Declaration)
@@ -662,10 +667,6 @@
        ,@body-expansion)))
 
 
-(jazz.define-method (jazz.fold-declaration (jazz.Library-Declaration declaration) f k s)
-  (f declaration (jazz.fold-statements (%%get-namespace-declaration-body declaration) f k s s)))
-
-
 (define (jazz.get-library-proclaim library-declaration proclaim-name default)
   (%%table-ref (%%get-library-declaration-proclaims library-declaration) proclaim-name default))
 
@@ -797,6 +798,10 @@
     #f))
 
 
+(jazz.define-method (jazz.fold-declaration (jazz.Export-Declaration declaration) f k s)
+  (f declaration s))
+
+
 (jazz.encapsulate-class jazz.Export-Declaration)
 
 
@@ -840,6 +845,10 @@
 (define (jazz.autoload-locator referenced-declaration)
   (%%string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator referenced-declaration))
                                      ":autoload")))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.Autoload-Declaration declaration) f k s)
+  (f declaration s))
 
 
 (jazz.encapsulate-class jazz.Autoload-Declaration)
@@ -1570,9 +1579,8 @@
 
 (jazz.define-method (jazz.fold-declaration (jazz.Macro-Declaration declaration) f k s)
   (f declaration
-     (k (%%get-macro-declaration-signature declaration)
-        (k (jazz.fold-statement (%%get-macro-declaration-body declaration) f k s)
-           s))))
+     (k (jazz.fold-statement (%%get-macro-declaration-body declaration) f k s)
+        s)))
 
 
 (jazz.encapsulate-class jazz.Macro-Declaration)
@@ -1621,9 +1629,8 @@
 
 (jazz.define-method (jazz.fold-declaration (jazz.Syntax-Declaration declaration) f k s)
   (f declaration
-     (k (%%get-syntax-declaration-signature declaration)
-        (k (jazz.fold-statement (%%get-syntax-declaration-body declaration) f k s)
-           s))))
+     (k (jazz.fold-statement (%%get-syntax-declaration-body declaration) f k s)
+        s)))
 
 
 (jazz.encapsulate-class jazz.Syntax-Declaration)
@@ -1659,6 +1666,10 @@
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
                                               (%%list c-to-scheme scheme-to-c #f)
                                             '()))))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.C-Type-Declaration expression) f k s)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.C-Type-Declaration)
@@ -1706,6 +1717,12 @@
     (%%get-declaration-locator declaration)
     jazz.Any
     #f))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.C-Definition-Declaration declaration) f k s)
+  (f declaration
+     (k (jazz.fold-statement (%%get-c-definition-declaration-body declaration) f k s)
+           s)))
 
 
 (jazz.encapsulate-class jazz.C-Definition-Declaration)
@@ -3202,6 +3219,10 @@
   #f)
 
 
+(jazz.define-method (jazz.fold-expression (jazz.Proclaim expression) f k s)
+  (f expression s))
+
+
 (jazz.encapsulate-class jazz.Proclaim)
 
 
@@ -3253,6 +3274,12 @@
       #f)))
 
 
+(jazz.define-method (jazz.fold-expression (jazz.Delay expression) f k s)
+  (f expression
+     (k (jazz.fold-expression (%%get-delay-expression expression) f k s)
+        s)))
+
+
 (jazz.encapsulate-class jazz.Delay)
 
 
@@ -3283,6 +3310,10 @@
       #f)))
 
 
+(jazz.define-method (jazz.fold-expression (jazz.Quasiquote expression) f k s)
+  (f expression s))
+
+
 (jazz.encapsulate-class jazz.Quasiquote)
 
 
@@ -3304,6 +3335,10 @@
 
 (jazz.define-method (jazz.emit-call (jazz.Reference expression) arguments declaration environment)
   (jazz.emit-binding-call (%%get-reference-binding expression) arguments declaration environment))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Reference expression) f k s)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.Reference)
@@ -3371,9 +3406,8 @@
 
 (jazz.define-method (jazz.fold-expression (jazz.Lambda expression) f k s)
   (f expression
-     (k (%%get-lambda-signature expression)
-        (k (jazz.fold-statement (%%get-lambda-body expression) f k s)
-           s))))
+     (k (jazz.fold-statement (%%get-lambda-body expression) f k s)
+        s)))
 
 
 (jazz.encapsulate-class jazz.Lambda)
@@ -3688,7 +3722,7 @@
 
 (jazz.define-method (jazz.fold-expression (jazz.Begin expression) f k s)
   (f expression
-     (jazz.fold-expressions (%%get-begin-expressions expression) f k s s)))
+     (jazz.fold-statements (%%get-begin-expressions expression) f k s s)))
 
 
 (jazz.encapsulate-class jazz.Begin)
@@ -3736,6 +3770,14 @@
                    ,@(jazz.sourcified-form body-code))
                 (%%get-code-type result-code)
                 #f))))))))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Do expression) f k s)
+  (f expression
+     (k (jazz.fold-expression (%%get-do-test expression) f k s)
+        (k (jazz.fold-expression (%%get-do-result expression) f k s)
+           (k (jazz.fold-expression (%%get-do-body expression) f k s)
+              s)))))
 
 
 (jazz.encapsulate-class jazz.Do)
@@ -4257,7 +4299,8 @@
   (f expression
      (k (jazz.fold-expression (%%get-if-test expression) f k s)
         (k (jazz.fold-expression (%%get-if-yes expression) f k s)
-           (jazz.fold-expressions (%%get-if-no expression) f k s s)))))
+           (k (jazz.fold-expression (%%get-if-no expression) f k s)
+              s)))))
 
 
 (jazz.encapsulate-class jazz.If)
@@ -4300,7 +4343,15 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Cond expression) f k s)
-  #f)
+  (f expression (map (lambda (clause)
+                       (let ((test (%%car clause))
+                             (body (%%cdr clause)))
+                         (if (%%not test)
+                             (jazz.fold-expression body f k s)
+                           (k (jazz.fold-expression test f k s)
+                              (k (jazz.fold-expression body f k s)
+                                 s)))))
+                     (%%get-cond-clauses expression))))
 
 
 (jazz.encapsulate-class jazz.Cond)
@@ -4339,7 +4390,9 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Case expression) f k s)
-  #f)
+  (f expression
+     (k (jazz.fold-expression (%%get-case-target expression) f k s)
+        (jazz.fold-expressions (map cdr (%%get-case-clauses expression)) f k s s))))
 
 
 (jazz.encapsulate-class jazz.Case)
@@ -4420,7 +4473,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Declare expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.Declare)
@@ -4447,7 +4500,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.C-Include expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.C-Include)
@@ -4474,7 +4527,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.C-Declare expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.C-Declare)
@@ -4503,6 +4556,10 @@
     `(c-declare ,code)))
 
 
+(jazz.define-method (jazz.fold-declaration (jazz.C-Named-Declare-Declaration expression) f k s)
+  (f expression s))
+
+
 (jazz.encapsulate-class jazz.C-Named-Declare-Declaration)
 
 
@@ -4527,7 +4584,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.C-Initialize expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.C-Initialize)
@@ -4553,7 +4610,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.C-Function expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.C-Function)
@@ -4588,7 +4645,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Parameterize expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.Parameterize)
@@ -4616,7 +4673,7 @@
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Time-Special expression) f k s)
-  #f)
+  (f expression s))
 
 
 (jazz.encapsulate-class jazz.Time-Special)

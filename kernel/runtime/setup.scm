@@ -216,15 +216,16 @@
                 (process-buildini-file)
                 (with-debug-exception-handler
                   (lambda ()
-                    (let iter ()
-                         (let ((product (read)))
-                           (force-output)
-                           (if product
-                               (begin
-                                 (jazz.build-product product)
-                                 (newline)
-                                 (force-output)
-                                 (iter))))))))
+                    (parameterize ((current-user-interrupt-handler (lambda () #f)))
+                      (let iter ()
+                           (let ((product (read)))
+                             (force-output)
+                             (if product
+                                 (begin
+                                   (jazz.build-product product)
+                                   (newline)
+                                   (force-output)
+                                   (iter)))))))))
               (else
                (jazz.repl-main)))))))
 

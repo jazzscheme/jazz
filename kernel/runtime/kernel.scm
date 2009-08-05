@@ -1256,39 +1256,26 @@
 
 
 (define (jazz.make-product name)
-  (let ((install jazz.kernel-install)
-        (platform jazz.kernel-platform)
-        (jobs (or jazz.jobs (jazz.build-jobs)))
-        (subproduct-table (make-table))
+  (let ((subproduct-table (make-table))
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
         (active-processes '())
         (free-processes '())
         (process-mutex (make-mutex 'process-mutex))
-        (process-condition (make-condition-variable 'process-condition)))
-    
-    (define (make-parallel names)
-      (for-each thread-join!
-                (map (lambda (name)
-                       (mutex-lock! subproduct-table-mutex)
-                       (let ((thread (or (%%table-ref subproduct-table name #f)
-                                         (let ((thread (thread-start! (make-thread (lambda ()
-                                                                                     (make name))))))
-                                           (%%table-set! subproduct-table name thread)
-                                           thread))))
-                         (mutex-unlock! subproduct-table-mutex)
-                         thread))
-                     names)))
+        (process-condition (make-condition-variable 'process-condition))
+        (output-mutex (make-mutex 'output-mutex))
+        (stop-build? #f))
     
     (define (grab-build-process)
       (define (jazz-path)
-        (case platform
+        (case jazz.kernel-platform
           ((windows)
-           (%%string-append install "jazz"))
+           (%%string-append jazz.kernel-install "jazz"))
           (else
            "./jazz")))
       
       (mutex-lock! process-mutex)
-      (let ((active-count (%%length active-processes)))
+      (let ((active-count (%%length active-processes))
+            (jobs (or jazz.jobs (jazz.build-jobs))))
         (cond ((%%pair? free-processes)
                (let ((process (%%car free-processes)))
                  (set! free-processes (%%cdr free-processes))
@@ -1299,7 +1286,7 @@
                                 (list
                                   path: (jazz-path)
                                   arguments: `("-:dq-" "-build2" ,(number->string active-count) "-jobs 1")
-                                  directory: install
+                                  directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t
                                   stderr-redirection: #f))))
@@ -1311,45 +1298,62 @@
                (grab-build-process)))))
     
     (define (build name)
-      (let ((process (grab-build-process))
-            (key-product? (%%memq name '(core jazz))))
+      (let ((process (grab-build-process)))
+        (define (atomic-output line)
+          (mutex-lock! output-mutex)
+          (display line)
+          (newline)
+          (force-output)
+          (mutex-unlock! output-mutex))
+        
         (define (build-process-died)
           (mutex-lock! process-mutex)
           (set! active-processes (jazz.remove process active-processes))
+          (set! stop-build? #t)
           (mutex-unlock! process-mutex)
           (condition-variable-signal! process-condition))
         
         (define (build-process-ended product-modified?)
           (mutex-lock! process-mutex)
-          (if (and key-product? product-modified?)
-              (begin
-                (set! active-processes (jazz.remove process active-processes))
-                (send-command process #f))
-            (set! free-processes (%%cons process free-processes)))
-          (mutex-unlock! process-mutex)
-          (condition-variable-signal! process-condition))
+          (let ((key-product? (%%memq name '(core jazz))))
+            (if (and key-product? product-modified?)
+                (begin
+                  (set! active-processes (jazz.remove process active-processes))
+                  (send-command process #f))
+              (set! free-processes (%%cons process free-processes)))
+            (mutex-unlock! process-mutex)
+            (condition-variable-signal! process-condition)))
         
-        (send-command process name)
-        (let iter ((product-modified? #f))
-             (let ((line (read-line process)))
-               (if (%%not (eof-object? line))
-                   (let ((count (%%string-length line)))
-                     (if (%%fx> count 0)
-                         (begin
-                           (display line)
-                           (newline)
-                           (force-output)
-                           (if (and (%%fx>= count 11) (%%string=? (%%substring line 0 11) "; compiling"))
-                               (iter #t)
-                             (iter product-modified?)))
-                       (build-process-ended product-modified?)))
-                 (build-process-died))))))
+        (if stop-build?
+            (build-process-ended #f)
+          (begin
+            (send-command process name)
+            (let iter ((product-modified? #f))
+                 (let ((line (read-line process)))
+                   (if (%%not (eof-object? line))
+                       (let ((count (%%string-length line)))
+                         (if (%%fx> count 0)
+                             (begin
+                               (atomic-output line)
+                               (if (and (%%fx>= count 11) (%%string=? (%%substring line 0 11) "; compiling"))
+                                   (iter #t)
+                                 (iter product-modified?)))
+                           (build-process-ended product-modified?)))
+                     (build-process-died))))))))
     
     (define (make name)
-      (let ((descriptor (jazz.get-product-descriptor name)))
-        (let ((dependencies (jazz.product-descriptor-dependencies descriptor)))
-          (make-parallel dependencies)
-          (build name))))
+      (for-each thread-join!
+                (map (lambda (name)
+                       (mutex-lock! subproduct-table-mutex)
+                       (let ((thread (or (%%table-ref subproduct-table name #f)
+                                         (let ((thread (thread-start! (make-thread (lambda ()
+                                                                                     (make name))))))
+                                           (%%table-set! subproduct-table name thread)
+                                           thread))))
+                         (mutex-unlock! subproduct-table-mutex)
+                         thread))
+                     (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name))))
+      (build name))
     
     (define (send-command process name)
       (write name process)

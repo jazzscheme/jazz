@@ -449,6 +449,7 @@
       ((c-structure)     (walk-c-structure     context declaration keyword expression doc walk-expressions?))
       ((c-definition)    (walk-c-definition    context declaration keyword expression doc walk-expressions?))
       ((c-external)      (walk-external        context declaration keyword expression doc walk-expressions?))
+      ((com-external)    (walk-com-external    context declaration keyword expression doc walk-expressions?))
       ((generic)         (walk-generic         context declaration keyword expression doc walk-expressions?))
       ((specific)        (walk-specific        context declaration keyword expression doc walk-expressions?))
       ((datacontainer)   (walk-datacontainer   context declaration keyword expression doc walk-expressions?))
@@ -750,6 +751,23 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc)
       (when (forward-expr)
+        (let ((entered? (enter-list)))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+          (when entered?
+            (walk-parameters entry declaration keyword expression doc))
+          (when entered?
+            (exit-list))))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+
+  
+  (method (walk-com-external context declaration keyword expression doc walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc)
+      (when (and (forward-expr) (forward-expr))
         (let ((entered? (enter-list)))
           (when (and (forward-expr) (eq? kind 'symbol))
             (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))

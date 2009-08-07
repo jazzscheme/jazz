@@ -65,24 +65,6 @@
     (set! jazz.registered-jazz-literals (cons register jazz.registered-jazz-literals))))
 
 
-(define jazz.install-jazz-literals
-  (lambda ()
-    (if jazz.jazz-literals-installed?
-        (jazz.global-value 'jazz.jazz-readtable)
-      (begin
-        (jazz.load-module 'core.library)
-        (jazz.load-module 'jazz.dialect)
-        
-        (for-each (lambda (literal)
-                    (literal))
-                  jazz.registered-jazz-literals)
-        
-        (set! jazz.registered-jazz-literals '())
-        (set! jazz.jazz-literals-installed? #t)
-      
-        (jazz.global-value 'jazz.jazz-readtable)))))
-
-
 ;;;
 ;;;; Literals
 ;;;
@@ -143,6 +125,24 @@
 ;;;
 ;;;; Extension
 ;;;
+
+
+(define jazz.install-jazz-literals
+  (lambda ()
+    (if jazz.jazz-literals-installed?
+        (jazz.global-value 'jazz.jazz-readtable)
+      (begin
+        (jazz.load-module 'core.library)
+        (jazz.load-module 'jazz.dialect)
+        
+        (for-each (lambda (literal)
+                    (literal))
+                  jazz.registered-jazz-literals)
+        
+        (set! jazz.registered-jazz-literals '())
+        (set! jazz.jazz-literals-installed? #t)
+      
+        (jazz.global-value 'jazz.jazz-readtable)))))
 
 
 (jazz.register-reader-extension "jazz" jazz.install-jazz-literals))

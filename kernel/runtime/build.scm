@@ -541,6 +541,8 @@
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
+                    (jazz.print-variable 'jazz.image (or image 'executable) output)
+                    (newline output)
                     (jazz.print-variable 'jazz.built "." output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)

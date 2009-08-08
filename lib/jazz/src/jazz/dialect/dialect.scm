@@ -2366,29 +2366,31 @@
 ;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
 (define (jazz.expand-com-external walker resume declaration environment offset result-type signature . rest)
   (let* ((name (%%car signature))
+         (param-types (map cadr (%%cdr signature)))
          (refiid (if (%%null? rest) #f (%%car rest)))
          (resolve-declaration (lambda (type) (if (%%symbol? type)
                                                  (jazz.resolve-c-type-reference walker resume declaration environment type)
                                                (jazz.walk-error walker resume declaration "Illegal parameter type in com-external {s}: {s}" name type)))))
     (let ((resolved-result (resolve-declaration result-type))
-          (resolved-params (map resolve-declaration (map cadr (%%cdr signature))))
+          (resolved-params (map resolve-declaration param-types))
           (resolved-directions (map car (%%cdr signature)))
           (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
       (let ((hresult? (%%eq? (%%get-declaration-locator resolved-result) 'jazz.platform.windows.com.HRESULT)))
         (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (%%cons resolved-result resolved-params))
             `(begin
-               (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
+               (definition ,lowlevel-name ,(jazz.emit-com-function offset result-type resolved-result param-types resolved-params))
                (definition public ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
 
 
-(define (jazz.emit-com-function offset resolved-result resolved-params)
-  (define (fix-locator declaration)
+(define (jazz.emit-com-function offset result-type resolved-result param-types resolved-params)
+  (define (fix-locator type declaration)
     (if (%%eq? (%%get-c-type-declaration-kind declaration) 'type)
-        (%%string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator declaration)) "*"))
-      (%%get-declaration-locator declaration)))
+        (%%string->symbol (%%string-append (%%symbol->string type) "*"))
+      type))
+  
   ;; we assume lexical-binding-name exactly matches the c type
-  `(c-function ,(%%cons 'IUnknown* (map fix-locator resolved-params))
-               ,(%%get-declaration-locator resolved-result)
+  `(c-function ,(%%cons 'IUnknown* (map fix-locator param-types resolved-params))
+               ,result-type
                ,(string-append
                   "{typedef "
                   (jazz.->string (%%get-lexical-binding-name resolved-result))
@@ -2416,12 +2418,15 @@
     (if (%%eq? resolved-direction 'out)
         #f
       (%%string->symbol (%%string-append "in$" (%%number->string order)))))
+  
   (define (generate-low resolved-param resolved-direction order)
     (%%string->symbol (%%string-append "low$" (%%number->string order))))
+  
   (define (generate-out resolved-param resolved-direction order)
     (if (%%eq? resolved-direction 'in)
         #f
       (%%string->symbol (%%string-append "out$" (%%number->string order)))))
+  
   (define (generate-encode/enref resolved-param resolved-direction order)
     (let ((binding (generate-low resolved-param resolved-direction order))
           (encode/enref (get-cotype-encode/enref resolved-param))
@@ -2431,6 +2436,7 @@
       (if encode/enref
           `(,binding (,encode/enref ,value))
         `(,binding ,value))))
+  
   (define (generate-ref resolved-param resolved-direction order)
     (if (%%eq? resolved-direction 'in)
         #f
@@ -2440,12 +2446,14 @@
         (if ref
             `(,binding (,ref ,value))
           `(,binding ,value)))))
+  
   (define (generate-free resolved-param resolved-direction order)
     (let ((free (get-cotype-free resolved-param))
           (value (generate-low resolved-param resolved-direction order)))
       (if free
           `(,free ,value)
         #f)))
+  
   (define (generate-cotype-transform generator)
     (let iter ((resolved-params resolved-params)
                (resolved-directions resolved-directions)
@@ -2456,6 +2464,7 @@
                    (cons generated (iter (%%cdr resolved-params) (%%cdr resolved-directions) (%%fx+ order 1)))
                  (iter (%%cdr resolved-params) (%%cdr resolved-directions) (%%fx+ order 1))))
            '())))
+  
   (let ((out-list (generate-cotype-transform generate-out)))
     `(function (coptr ,@(generate-cotype-transform generate-in))
                (let (,@(generate-cotype-transform generate-encode/enref))

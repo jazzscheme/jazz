@@ -834,6 +834,10 @@
           decl))))
 
 
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Autoload-Declaration declaration) walker resume source-declaration operator arguments)
+  (jazz.walk-binding-validate-call (jazz.resolve-declaration declaration) walker resume source-declaration operator arguments))
+
+
 (jazz.define-method (jazz.emit-binding-reference (jazz.Autoload-Declaration declaration) source-declaration environment)
   (let ((referenced-declaration (jazz.resolve-declaration declaration)))
     (jazz.new-code
@@ -3007,18 +3011,24 @@
 
 
 (define (jazz.emit-library-autoloads library-declaration environment)
-  (map (lambda (autoload-declaration)
-         (let ((referenced-declaration (jazz.resolve-declaration autoload-declaration)))
-           (let ((locator (jazz.autoload-locator referenced-declaration)))
-             `(define ,locator
-                (let ((loaded? #f))
-                  (lambda ()
-                    (if (%%not loaded?)
-                        (begin
-                          (jazz.load-module ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
-                          (set! loaded? #t)))
-                    ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration library-declaration environment))))))))
-       (%%get-library-declaration-autoloads library-declaration)))
+  (let ((queue (jazz.new-queue))
+        (locators (%%make-table test: eq?)))
+    (for-each (lambda (autoload-declaration)
+                (let ((referenced-declaration (jazz.resolve-declaration autoload-declaration)))
+                  (let ((locator (jazz.autoload-locator referenced-declaration)))
+                    (%%when (%%not (%%table-ref locators locator #f))
+                      (%%table-set! locators locator #t)
+                      (jazz.enqueue queue
+                        `(define ,locator
+                           (let ((loaded? #f))
+                             (lambda ()
+                               (if (%%not loaded?)
+                                   (begin
+                                     (jazz.load-module ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
+                                     (set! loaded? #t)))
+                               ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration library-declaration environment))))))))))
+              (%%get-library-declaration-autoloads library-declaration))
+    (jazz.queue-list queue)))
 
 
 ;;;
@@ -5075,20 +5085,15 @@
 
 
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
-  (define (lookup-subpath declaration subpath)
-    (if (%%null? subpath)
-        declaration
-      (let ((subdecl (jazz.lookup-declaration declaration (%%car subpath) jazz.public-access)))
-        (if subdecl
-            (lookup-subpath subdecl (%%cdr subpath))
-          #f))))
-
   (define (lookup-composite walker environment symbol)
     (receive (library-name name) (jazz.split-composite symbol)
-      (let ((library-decl (jazz.outline-library library-name #f)))
-        (if library-decl
-            (lookup-subpath library-decl (%%list name))
-          #f))))
+      (let ((exported-library-reference (jazz.outline-library library-name)))
+        (let ((decl (jazz.lookup-declaration exported-library-reference name jazz.public-access)))
+          (if decl
+              (if (%%is? decl jazz.Autoload-Declaration)
+                  decl
+                (jazz.new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz.new-library-reference library-name #f)))
+            (jazz.error "Unable to find {s} in module {s}" name library-name))))))
   
   (define (lookup walker environment symbol)
     (if (jazz.composite-name? symbol)

@@ -1208,6 +1208,7 @@
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
         (active-processes '())
         (free-processes '())
+        (outdated-processes '())
         (process-mutex (make-mutex 'process-mutex))
         (process-condition (make-condition-variable 'process-condition))
         (output-mutex (make-mutex 'output-mutex))
@@ -1266,11 +1267,15 @@
           (let ((key-product? (%%memq name '(core jazz))))
             (if (and key-product? product-modified?)
                 (begin
+                  (set! outdated-processes active-processes))))
+          (if (memq process outdated-processes)
+              (begin
                   (set! active-processes (jazz.remove process active-processes))
+                  (set! outdated-processes (jazz.remove process outdated-processes))
                   (send-command process #f))
-              (set! free-processes (%%cons process free-processes)))
+            (set! free-processes (%%cons process free-processes)))
             (mutex-unlock! process-mutex)
-            (condition-variable-signal! process-condition)))
+            (condition-variable-signal! process-condition))
         
         (if stop-build?
             (build-process-ended #f)

@@ -100,7 +100,7 @@
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
               (bindir (jazz.resource-build-dir src)))
-          (let ((build-package (jazz.copy-package package)))
+          (let ((build-package (jazz.find-build-package (%%package-name package))))
             (display "; compiling ")
             (display path)
             (display "...")
@@ -123,26 +123,8 @@
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
-(define (jazz.copy-package package)
-  (let* ((name (%%package-name package))
-         (parent (%%package-parent package))
-         (bin-parent (if parent (jazz.copy-package parent) #f))
-         (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
-         (path (%%string-append dir jazz.Package-Filename))
-         (src (jazz.repository-pathname (%%package-repository package) path))
-         (dst (jazz.repository-pathname jazz.Bin-Repository path)))
-    (if (and (jazz.file-exists? dst) (>= (jazz.file-modification-time dst) (jazz.file-modification-time src)))
-        (jazz.repository-find-package jazz.Bin-Repository name)
-      (begin
-        (jazz.create-directories (jazz.repository-pathname jazz.Bin-Repository dir))
-        (if (jazz.file-exists? dst)
-            (jazz.file-delete dst))
-        (jazz.file-copy src dst)
-        (let ((package (jazz.load-package jazz.Bin-Repository bin-parent name dst)))
-          (%%table-set! (%%repository-packages-table jazz.Bin-Repository)
-                        name
-                        package)
-          package)))))
+(define (jazz.find-build-package name)
+  (jazz.repository-find-package jazz.Bin-Repository name))
 
 
 ;;;

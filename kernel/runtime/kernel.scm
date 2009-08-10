@@ -452,6 +452,28 @@
         (jazz.setup-package package)))))
 
 
+(define (jazz.setup-build-packages)
+  (jazz.iterate-packages #f
+    jazz.setup-build-package))
+
+
+(define (jazz.setup-build-package package)
+  (let* ((name (%%package-name package))
+         (parent (%%package-parent package))
+         (bin-parent (if parent (jazz.setup-build-package parent) #f))
+         (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
+         (path (%%string-append dir jazz.Package-Filename))
+         (src (jazz.repository-pathname (%%package-repository package) path))
+         (dst (jazz.repository-pathname jazz.Bin-Repository path)))
+    (if (or (%%not (jazz.file-exists? dst))
+            (< (jazz.file-modification-time dst) (jazz.file-modification-time src)))
+        (begin
+          (jazz.create-directories (jazz.repository-pathname jazz.Bin-Repository dir))
+          (if (jazz.file-exists? dst)
+              (jazz.file-delete dst))
+          (jazz.file-copy src dst)))))
+
+
 (define (jazz.repository-packages repository)
   (let ((table (jazz.repository-packages-table repository))
         (packages '()))
@@ -1180,80 +1202,6 @@
                       (%%apply jazz.build-image obj)))
                   build))))
 
-#; ;; old
-(define (jazz.make-product name)
-  (let ((install jazz.kernel-install)
-        (platform jazz.kernel-platform)
-        (jobs (or jazz.jobs (jazz.build-jobs)))
-        (made-mutex (make-mutex 'make-product))
-        (made '()))
-    (define (install-file path)
-      (%%string-append install path))
-    
-    (define (jazz-path)
-      (case platform
-        ((windows)
-         (install-file "jazz"))
-        (else
-         "./jazz")))
-    
-    (define (with-made-mutex proc)
-      (mutex-lock! made-mutex)
-      (let ((result (proc)))
-        (mutex-unlock! made-mutex)
-        result))
-    
-    (define (get-made)
-      (with-made-mutex
-        (lambda ()
-          made)))
-    
-    (define (set-made lst)
-      (with-made-mutex
-        (lambda ()
-          (set! made lst))))
-    
-    (define (build name)
-      (jazz.call-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name) "-jobs" (%%number->string jobs)) install))
-    
-    (define (make name)
-      (if (%%not (%%memq name (get-made)))
-          (let ((descriptor (jazz.get-product-descriptor name)))
-            (let ((dependencies (jazz.product-descriptor-dependencies descriptor)))
-              (for-each make-dependencies dependencies)
-              (make-parallel dependencies)
-              (build name)
-              (set-made (%%cons name (get-made)))))))
-    
-    (define (make-parallel names)
-      (let ((port (open-vector)))
-        (define (start-threads count)
-          (if (%%fx<= count 0)
-              '()
-            (%%cons (thread-start!
-                      (make-thread
-                        (lambda ()
-                          (let iter ()
-                            (let ((name (read port)))
-                              (if (%%not (%%eof-object? name))
-                                  (begin
-                                    (make name)
-                                    (iter))))))))
-                    (start-threads (%%fx- count 1)))))
-      
-        (input-port-timeout-set! port 0)
-        (for-each (lambda (name)
-                    (write name port))
-                  names)
-        (let ((threads (start-threads jobs)))
-          (for-each thread-join! threads))))
-    
-    (define (make-dependencies name)
-      (let ((descriptor (jazz.get-product-descriptor name)))
-        (for-each make (jazz.product-descriptor-dependencies descriptor))))
-    
-    (make name)))
-
 
 (define (jazz.make-product name)
   (let ((subproduct-table (make-table))
@@ -1359,6 +1307,8 @@
       (write name process)
       (newline process)
       (force-output process))
+    
+    (jazz.setup-build-packages)
     
     (dynamic-wind
       (lambda () #f)

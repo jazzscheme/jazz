@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(jazz.kernel-declares)
+
+
 ;;;
 ;;;; Version
 ;;;

@@ -1234,7 +1234,7 @@
                (let ((process (open-process
                                 (list
                                   path: (jazz-path)
-                                  arguments: `("-:dq-" "-build2" ,(number->string active-count) "-jobs 1")
+                                  arguments: `("-:dq-" "-build" ,(number->string active-count) "-jobs 1")
                                   directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t
@@ -1283,7 +1283,7 @@
             (send-command process name)
             (let iter ((product-modified? #f))
                  (let ((line (read-line process)))
-                   (if (%%not (eof-object? line))
+                   (if (%%not (or (eof-object? line) (equal? line "(#f)")))
                        (let ((count (%%string-length line)))
                          (if (%%fx> count 0)
                              (begin

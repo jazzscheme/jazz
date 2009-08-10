@@ -38,5 +38,5 @@
 (module jazz.editor.lisp.install
 
 
-(jazz.define-literal Lisp-File-Entry    jazz.editor.lisp.construct-lisp-file-entry)
-(jazz.define-literal Lisp-Entry         jazz.editor.lisp.construct-lisp-entry))
+(jazz.define-literal Lisp-File-Entry    jazz.editor.lisp.literals.construct-lisp-file-entry)
+(jazz.define-literal Lisp-Entry         jazz.editor.lisp.literals.construct-lisp-entry))

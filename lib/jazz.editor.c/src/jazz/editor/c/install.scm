@@ -38,8 +38,8 @@
 (module jazz.editor.c.install
 
 
-(jazz.define-literal C-File-Entry       jazz.editor.c.construct-c-file-entry)
-(jazz.define-literal C-Category-Entry   jazz.editor.c.construct-c-category-entry)
-(jazz.define-literal C-Define-Entry     jazz.editor.c.construct-c-define-entry)
-(jazz.define-literal C-Include-Entry    jazz.editor.c.construct-c-include-entry)
-(jazz.define-literal C-Export-Entry     jazz.editor.c.construct-c-export-entry))
+(jazz.define-literal C-File-Entry       jazz.editor.c.literals.construct-c-file-entry)
+(jazz.define-literal C-Category-Entry   jazz.editor.c.literals.construct-c-category-entry)
+(jazz.define-literal C-Define-Entry     jazz.editor.c.literals.construct-c-define-entry)
+(jazz.define-literal C-Include-Entry    jazz.editor.c.literals.construct-c-include-entry)
+(jazz.define-literal C-Export-Entry     jazz.editor.c.literals.construct-c-export-entry))

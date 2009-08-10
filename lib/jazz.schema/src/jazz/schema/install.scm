@@ -38,4 +38,4 @@
 (module jazz.schema.install
 
 
-(jazz.define-literal Datatype jazz.schema.literals))
+(jazz.define-literal Datatype jazz.schema.literals.construct-datatype))

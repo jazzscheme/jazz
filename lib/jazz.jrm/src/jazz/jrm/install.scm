@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Database Literals
+;;;; JRM Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.database.literals.constructors jazz
+(module jazz.jrm.install
 
 
-(import (jazz.database))
-
-
-;;;
-;;;; Systype
-;;;
-
-
-(definition package (construct-systype name size precision scale default-value)
-  (new Systype name size precision scale default-value)))
+(jazz.define-literal IOR jazz.jrm.literals.construct-ior))

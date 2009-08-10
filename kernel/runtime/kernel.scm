@@ -1468,8 +1468,7 @@
   (jazz.with-module-src/bin module-name #f
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-module-name module-name)
-                     (jazz.requested-module-resource (if bin-uptodate? bin src))
-                     (jazz.walk-for 'load))
+                     (jazz.requested-module-resource (if bin-uptodate? bin src)))
         (cond (bin-uptodate?
                (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
                                                (and ext (%%string=? ext "jazz"))))))
@@ -1481,9 +1480,10 @@
                        (jazz.feedback "Warning: Loading {a} interpreted" module-name)
                        (if (and (%%pair? warn) (%%memq module-name warn))
                            (pp jazz.Load-Stack)))))
-               (jazz.with-extension-reader (%%resource-extension src)
-                 (lambda ()
-                   (jazz.load-resource src))))
+               (parameterize ((jazz.walk-for 'load))
+                 (jazz.with-extension-reader (%%resource-extension src)
+                   (lambda ()
+                     (jazz.load-resource src)))))
               (else
                (jazz.error "Unable to find module: {s}" module-name)))))))
 
@@ -1660,6 +1660,37 @@
 
 
 ;;;
+;;;; Literal
+;;;
+
+
+(define jazz.Literal-Constructors
+  (%%make-table test: eq?))
+
+
+(define (jazz.register-literal-constructor name contructor-name constructor)
+  (%%table-set! jazz.Literal-Constructors name (%%cons contructor-name constructor)))
+
+
+(define (jazz.require-literal-constructor name)
+  (or (%%table-ref jazz.Literal-Constructors name #f)
+      (jazz.error "Cannot construct literals of type {s}" name)))
+
+
+(jazz.define-macro (jazz.define-literal name contructor-name)
+  (receive (contructor-library ignore) (jazz.split-composite contructor-name)
+    `(jazz.register-literal-constructor ',name ',contructor-name
+       (lambda (arguments)
+         (jazz.load-module ',contructor-library)
+         (apply (jazz.global-value ',contructor-name) arguments)))))
+
+
+(define (jazz.construct-literal name arguments)
+  (let ((constructor (%%cdr (jazz.require-literal-constructor name))))
+    (constructor arguments)))
+
+
+;;;
 ;;;; Reader
 ;;;
 
@@ -1691,6 +1722,7 @@
 
 (define jazz.scheme-readtable
   (%%current-readtable))
+
 
 (jazz.register-reader-extension "scm"
   (lambda ()

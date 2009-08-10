@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; C Like Autoload
+;;;; Library Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.editor.clike.autoload jazz
+(module jazz.library.install
 
 
-(export
-  (jazz.editor.clike.text.CLike-Text-Preferences (autoload CLike-Text-Preferences))
-  (jazz.editor.clike.text.CLike-Text-View (autoload CLike-Text-View))))
+(jazz.define-literal Box                jazz.library.literals.construct-box)
+(jazz.define-literal Directory-Group    jazz.library.literals.construct-directory-group)
+(jazz.define-literal Locales            jazz.library.literals.construct-locales)
+(jazz.define-literal Bitmap-Resource    jazz.library.literals.construct-bitmap-resource)
+(jazz.define-literal Icon-Resource      jazz.library.literals.construct-icon-resource)
+(jazz.define-literal Cursor-Resource    jazz.library.literals.construct-cursor-resource)
+(jazz.define-literal Event              jazz.library.literals.construct-event)
+(jazz.define-literal Event-Handler      jazz.library.literals.construct-event-handler)
+(jazz.define-literal Version            jazz.library.literals.construct-version))

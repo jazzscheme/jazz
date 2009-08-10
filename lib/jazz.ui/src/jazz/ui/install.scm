@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; C Like Autoload
+;;;; UI Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,14 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.editor.clike.autoload jazz
+(module jazz.ui.install
 
 
-(export
-  (jazz.editor.clike.text.CLike-Text-Preferences (autoload CLike-Text-Preferences))
-  (jazz.editor.clike.text.CLike-Text-View (autoload CLike-Text-View))))
+(jazz.define-literal Action             jazz.ui.literals.construct-action)
+(jazz.define-literal Shortcut           jazz.ui.literals.construct-shortcut)
+(jazz.define-literal Format             jazz.ui.literals.construct-format)
+(jazz.define-literal Text-Style         jazz.ui.literals.construct-text-style)
+(jazz.define-literal Hyperlink-Style    jazz.ui.literals.construct-hyperlink-style)
+(jazz.define-literal Text               jazz.ui.literals.construct-text)
+(jazz.define-literal Formatted-Text     jazz.ui.literals.construct-formatted-text)
+(jazz.define-literal Selection-Handler  jazz.ui.literals.construct-selection-handler))

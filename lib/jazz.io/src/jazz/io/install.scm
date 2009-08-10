@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; C Like Autoload
+;;;; IO Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.editor.clike.autoload jazz
+(module jazz.io.install
 
 
-(export
-  (jazz.editor.clike.text.CLike-Text-Preferences (autoload CLike-Text-Preferences))
-  (jazz.editor.clike.text.CLike-Text-View (autoload CLike-Text-View))))
+(jazz.define-literal File      jazz.io.literals.construct-file)
+(jazz.define-literal Directory jazz.io.literals.construct-directory))

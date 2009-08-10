@@ -859,6 +859,21 @@
 
 
 ;;;
+;;;; Literal
+;;;
+
+
+(jazz.define-class-runtime jazz.Literal)
+
+
+(define (jazz.new-literal name arguments)
+  (jazz.allocate-literal jazz.Literal name arguments))
+
+
+(jazz.encapsulate-class jazz.Literal)
+
+
+;;;
 ;;;; Void
 ;;;
 
@@ -2996,8 +3011,8 @@
 
 (define (jazz.emit-library-literals library-declaration)
   (map (lambda (info)
-         (let ((name (%%cadr info))
-               (value (%%cddr info)))
+         (let ((name (%%car info))
+               (value (%%cdr info)))
            `(define ,name ,(jazz.sourcified-form (jazz.emit-expression value library-declaration '())))))
        (%%get-library-declaration-literals library-declaration)))
 
@@ -4909,7 +4924,7 @@
           ((jazz.scheme-pair-literal? form)
            (jazz.new-constant `(quote ,form-src) jazz.Pair))
           (else
-           (jazz.register-literal walker resume declaration environment form)))))
+           (jazz.walk-literal/constant walker resume declaration environment form)))))
 
 
 (define (jazz.scheme-pair-literal? form)
@@ -4934,57 +4949,36 @@
 ;;;
 
 
-(define jazz.Literal-Constructors
-  (%%make-table test: eq?))
+(define (jazz.walk-literal/constant walker resume declaration environment literal/constant)
+  (let ((library-declaration (%%get-declaration-toplevel declaration))
+        (literal? (%%is? literal/constant jazz.Literal)))
+    (define (walk-literal/constant walker resume declaration literal/constant)
+      (let ((environment (%%cons library-declaration (jazz.walker-environment walker))))
+        (jazz.walk walker resume library-declaration environment
+          (cond (literal?
+                  (let ((name (%%get-literal-name literal/constant))
+                        (arguments (%%get-literal-arguments literal/constant)))
+                    (let ((constructor-name (%%car (jazz.require-literal-constructor (%%desourcify name)))))
+                      `(,constructor-name ,@(map (lambda (arg)
+                                                   `(quote ,arg))
+                                                 arguments)))))
+                ((%%pair? literal/constant)
+                 `(cons ',(%%car literal/constant) ',(%%cdr literal/constant)))
+                (else
+                 (jazz.error "Unable to walk constant: {s}" literal/constant))))))
 
-
-(define (jazz.register-literal-constructor name constructor)
-  (%%table-set! jazz.Literal-Constructors name constructor))
-
-
-(define (jazz.require-literal-constructor name)
-  (or (%%table-ref jazz.Literal-Constructors name #f)
-      (jazz.error "Cannot construct literals of type {s}" name)))
-
-
-(define (jazz.construct-literal lst)
-  (if (%%null? lst)
-      #f
-    (let ((constructor (jazz.require-literal-constructor (%%car lst))))
-      (%%apply constructor (%%cdr lst)))))
-
-
-(define (jazz.register-literal walker resume declaration environment literal)
-  ;; calling jazz.get-registered-literal to only register when not already there
-  ;; doesnt work directly because some literals are interned and thus can be shared
-  (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((name (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator library-declaration)) ".lit"))))
+    ;; calling jazz.get-registered-literal to only register when not already there
+    ;; doesnt work directly because some literals are interned and thus can be shared
+    (let ((locator (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator library-declaration)) ".lit"))))
       ;; it is important to register before any subliterals to ensure they come before us
-      (let ((info (%%cons literal (%%cons name #f))))
+      (let ((info (%%cons locator #f)))
         (%%set-library-declaration-literals library-declaration (%%cons info (%%get-library-declaration-literals library-declaration)))
-        (%%set-cdr! (%%cdr info) (jazz.walk-literal walker resume declaration literal)))
-      ;; this way of getting a reference to the literal's class is a big quicky mostly to test the concept
-      (let ((class-name (jazz.identifier-name (%%get-category-name (%%class-of literal)))))
-        (jazz.new-constant name (jazz.lookup-reference walker resume declaration environment class-name))))))
-
-
-(define (jazz.get-registered-literal library-declaration literal)
-  (let ((pair (%%assq literal (%%get-library-declaration-literals library-declaration))))
-    (if pair
-        (%%cadr pair)
-      #f)))
-
-
-(define (jazz.walk-literal walker resume declaration literal)
-  ;; this is a quick solution
-  (let* ((library-declaration (%%get-declaration-toplevel declaration))
-         (environment (%%cons library-declaration (jazz.walker-environment walker))))
-    (jazz.walk walker resume library-declaration environment
-      (cond ((%%pair? literal)
-             `(cons ',(%%car literal) ',(%%cdr literal)))
-            (else
-             ;; the rank of fold-literal is known to be 3 as it is the fourth method of Object
-             ((%%class-dispatch literal 0 3) literal))))))
+        (%%set-cdr! info (walk-literal/constant walker resume declaration literal/constant)))
+      ;; this way of getting a reference to the literal's class is a quick solution
+      (let ((literal-type (if literal?
+                              (%%desourcify (%%get-literal-name literal/constant))
+                            (jazz.identifier-name (%%get-category-name (%%class-of literal/constant))))))
+        (jazz.new-constant locator (jazz.lookup-reference walker resume declaration environment literal-type))))))
 
 
 (define (jazz.make-symbolic-chars alist)
@@ -5685,9 +5679,10 @@
 (define (jazz.walk-module module-name)
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (let ((source (jazz.resource-pathname src)))
-      (let ((form (jazz.read-toplevel-form source)))
-        (parameterize ((jazz.requested-module-name module-name)
-                       (jazz.requested-module-resource src))
+      (parameterize ((jazz.requested-module-name module-name)
+                     (jazz.requested-module-resource src)
+                     (jazz.walk-for 'walk))
+        (let ((form (jazz.read-toplevel-form source)))
           (case (%%car form)
             ((module)
              #f)

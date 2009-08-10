@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Schema Literals
+;;;; C Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.schema.literals.constructors jazz
+(module jazz.editor.c.install
 
 
-(import (jazz.schema))
-
-
-;;;
-;;;; Datatype
-;;;
-
-
-(definition package (construct-datatype . rest)
-  (new Datatype)))
+(jazz.define-literal C-File-Entry       jazz.editor.c.construct-c-file-entry)
+(jazz.define-literal C-Category-Entry   jazz.editor.c.construct-c-category-entry)
+(jazz.define-literal C-Define-Entry     jazz.editor.c.construct-c-define-entry)
+(jazz.define-literal C-Include-Entry    jazz.editor.c.construct-c-include-entry)
+(jazz.define-literal C-Export-Entry     jazz.editor.c.construct-c-export-entry))

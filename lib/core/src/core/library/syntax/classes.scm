@@ -235,6 +235,16 @@
 
 
 ;;;
+;;;; Literal
+;;;
+
+
+(jazz.define-class jazz.Literal jazz.Object () jazz.Object-Class jazz.allocate-literal
+  ((name      %%get-literal-name      ())
+   (arguments %%get-literal-arguments ())))
+
+
+;;;
 ;;;; Macro
 ;;;
 

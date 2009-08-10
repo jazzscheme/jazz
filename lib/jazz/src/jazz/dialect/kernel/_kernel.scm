@@ -639,7 +639,6 @@
 (native jazz.scheme-readtable)
 (native jazz.jazz-readtable)
 (native jazz.with-jazz-readtable)
-(native jazz.install-jazz-literals)
 
 
 ;;;
@@ -950,7 +949,6 @@
 
 (native jazz.analysis-mode?)
 (native jazz.new-walk-context)
-(native jazz.register-literal-constructor)
 (native jazz.specifier?)
 (native jazz.binding-specifier)
 (native jazz.parse-specifier)

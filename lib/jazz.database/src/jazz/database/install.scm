@@ -38,5 +38,4 @@
 (module jazz.database.install
 
 
-(require (jazz.install)
-         (jazz.database.registration)))
+(jazz.define-literal Systype jazz.database.literals.construct-systype))

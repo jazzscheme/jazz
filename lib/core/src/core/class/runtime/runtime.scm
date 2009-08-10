@@ -79,13 +79,6 @@
     (map string->symbol (jazz.split-string (%%symbol->string identifier) #\.))))
 
 
-(define (jazz.split-composite identifier)
-  (let ((str (%%symbol->string identifier)))
-    (let ((n (jazz.string-find-reversed str #\.)))
-      (values (%%string->symbol (%%substring str 0 n))
-              (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str)))))))
-
-
 ;;;
 ;;;; Object
 ;;;

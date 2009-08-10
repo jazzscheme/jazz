@@ -38,5 +38,4 @@
 (module jazz.schema.install
 
 
-(require (jazz.install)
-         (jazz.schema.registration)))
+(jazz.define-literal Datatype jazz.schema.literals))

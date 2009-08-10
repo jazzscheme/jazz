@@ -562,13 +562,14 @@
   (method public (forward-whites) <void>
     (let (iterate)
       (let ((c (char-forward 0)))
-        (when (and c (or (whitespace? c) (eqv? c #\semi-colon)))
-          (if (eqv? c #\semi-colon)
-              (begin
-                (forward-comments)
+        (when c
+          (if (whitespace? c)
+              (when (forward)
                 (iterate))
-            (when (forward)
-              (iterate))))))
+            (case c
+              ((#\semi-colon)
+               (forward-comments)
+               (iterate)))))))
     (when line-hook
       (line-hook self)))
 
@@ -676,14 +677,15 @@
              (backward-constituent))
             ((and (memv? prv '(#\quote #\backquote #\comma #\at))
                   (let* ((s (get-char s))
-                         @see-further-comment
                          (e (get-char e)))
                     (or (text-constituent? s)
                         (and (eqv? prv #\comma) (eqv? s #\at))
                         (and (eqv? prv #\quote) (eqv? s #\comma))
-                        (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
+                        (and (open-composite? s) (close-composite? e)))))
              (set-start (previous-pos start 1))
              #t)
+            ((and (eqv? prv #\backslash) (eqv? (previous-char start 1) #\sharp))
+             (set-start (previous-pos start 2)))
             ((and composite? (eqv? prv #\double-quote) (eqv? nxt #\double-quote))
              (set-start (previous-pos start 1))
              (set-end (next-pos end 1))

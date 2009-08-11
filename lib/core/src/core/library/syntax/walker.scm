@@ -5224,11 +5224,16 @@
 (jazz.define-method (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments)
   (let ((mandatory (%%get-signature-mandatory signature))
         (rest (%%get-signature-rest signature))
-        (passed (%%length arguments)))
-    (if (if rest (%%fx< passed mandatory) (%%not (%%fx= passed mandatory)))
-        (let ((locator (%%get-declaration-locator declaration)))
-          (jazz.walk-error walker resume source-declaration "Wrong number of arguments to {a} (passed {a} expected{a} {a})"
-            locator passed (if rest " at least" "") mandatory)))))
+        (passed (%%length arguments))
+        (locator (%%get-declaration-locator declaration))
+        ;; todo improve handling of optional and named parameters
+        (rest? (or (%%get-signature-rest signature)
+                   (%%not-null? (%%get-signature-optional signature))
+                   (%%not-null? (%%get-signature-named signature)))))
+    (cond ((and (%%not rest?) (%%fx> passed mandatory))
+           (jazz.walk-error walker resume source-declaration "Too many arguments for {a}" locator))
+          ((%%fx< passed mandatory)
+           (jazz.walk-error walker resume source-declaration "Not enough arguments for {a}" locator)))))
 
 
 ;;;

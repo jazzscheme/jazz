@@ -2177,16 +2177,6 @@
 
 
 ;;;
-;;;; Call
-;;;
-
-
-;; temp
-(jazz.define-method (jazz.validate-arguments (jazz.Jazz-Walker walker) resume source-declaration declaration signature arguments)
-  (jazz.unspecified))
-
-
-;;;
 ;;;; Remotable Stub
 ;;;
 

@@ -1203,6 +1203,10 @@
                   build))))
 
 
+(define jazz.end-make-marker
+  "***end-make***")
+
+
 (define (jazz.make-product name)
   (let ((subproduct-table (make-table))
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
@@ -1283,7 +1287,7 @@
             (send-command process name)
             (let iter ((product-modified? #f))
                  (let ((line (read-line process)))
-                   (if (%%not (or (eof-object? line) (equal? line "(#f)")))
+                   (if (%%not (or (eof-object? line) (equal? line jazz.end-make-marker)))
                        (let ((count (%%string-length line)))
                          (if (%%fx> count 0)
                              (begin
@@ -1315,10 +1319,30 @@
     
     (jazz.setup-build-packages)
     
-    (dynamic-wind
-      (lambda () #f)
-      (lambda () (make name))
-      (lambda () (for-each (lambda (process) (send-command process #f)) active-processes)))))
+    (parameterize ((current-user-interrupt-handler
+                     (lambda ()
+                       (set! stop-build? #t))))
+      (dynamic-wind
+        (lambda () #f)
+        (lambda () (make name))
+        (lambda () (for-each (lambda (process) (send-command process #f)) active-processes))))))
+
+
+(define (jazz.subprocess-build-products)
+  (parameterize ((current-user-interrupt-handler
+                   (lambda ()
+                     (display jazz.end-make-marker)
+                     (newline)
+                     (force-output)
+                     #f)))
+    (let iter ()
+         (let ((product (read)))
+           (if product
+               (begin
+                 (jazz.build-product product)
+                 (newline)
+                 (force-output)
+                 (iter)))))))
 
 
 ;;;

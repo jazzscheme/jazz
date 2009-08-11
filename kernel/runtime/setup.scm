@@ -191,6 +191,11 @@
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))
+              (compile
+               (process-buildini-file)
+               (with-debug-exception-handler
+                 (lambda ()
+                   (jazz.compile-module (%%string->symbol compile)))))
               (update
                (process-buildini-file)
                (with-debug-exception-handler
@@ -201,29 +206,11 @@
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.make-product (%%string->symbol make)))))
-              (compile
-               (process-buildini-file)
-               (with-debug-exception-handler
-                 (lambda ()
-                   (jazz.compile-module (%%string->symbol compile)))))
               (build
                 (process-buildini-file)
                 (with-debug-exception-handler
                   (lambda ()
-                    (parameterize ((current-user-interrupt-handler (lambda ()
-                                                                     (write '(#f))
-                                                                     (newline)
-                                                                     (force-output)
-                                                                     #f)))
-                      (let iter ()
-                           (let ((product (read)))
-                             (force-output)
-                             (if product
-                                 (begin
-                                   (jazz.build-product product)
-                                   (newline)
-                                   (force-output)
-                                   (iter)))))))))
+                    (jazz.subprocess-build-products))))
               (else
                (jazz.repl-main)))))))
 

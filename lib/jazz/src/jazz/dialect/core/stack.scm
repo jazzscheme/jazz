@@ -181,7 +181,7 @@
     ;;;
     
     
-    ;; copy-pasted from gambit's repl to changed to no-windind
+    ;; copy-pasted from gambit's repl and changed to no-windind
     (define (eval-within-no-winding src cont repl-context receiver)
       
       (define (run c rte)

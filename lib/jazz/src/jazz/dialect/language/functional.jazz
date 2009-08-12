@@ -2034,9 +2034,10 @@
 (definition (multisearch-impl seq <Sequence> contexts <list> constituent-test <procedure+> start <fx+> reverse? <bool>)
   (let ((len (cardinality seq)))
     (let ((pos <fx> (either start (if reverse? len 0))))
-      (let (iter (scan contexts))
+      (let (iterate (scan contexts)
+                    (best #f))
         (if (null? scan)
-            #f
+            best
           (let ((context <Search-Context> (car scan)))
             (let ((target (get-target~ context))
                   (whole-words? (get-whole-words?~ context))
@@ -2093,9 +2094,14 @@
                              (iter (+ pos 1)))))))
                 
                 (let ((found ((if reverse? find-backward find-forward))))
-                  (if found
-                      (cons context found)
-                    (iter (cdr scan))))))))))))
+                  (cond ((not found)
+                         (iterate (cdr scan) best))
+                        ((not best)
+                         (iterate (cdr scan) (cons context found)))
+                        (((if reverse? > <) found (cdr best))
+                         (iterate (cdr scan) (cons context found)))
+                        (else
+                         (iterate (cdr scan) best))))))))))))
 
 
 (definition public (multisearch seq <Sequence> contexts <list>

@@ -443,6 +443,7 @@
 (native jazz.reload-module)
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)
+(native jazz.module-get)
 (native jazz.walk-for)
 (native jazz.register-service)
 (native jazz.get-service)

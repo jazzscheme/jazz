@@ -163,36 +163,34 @@
          (memq? (source-code (car (source-code expr))) '(module library))))
   
   
-  (method (evaluate-expressions expressions)
+  (method (evaluate-expressions syntax str container line col)
+    (define (present result)
+      (when (specified? result)
+        (let ((values (call-with-values (function () result) list)))
+          (for-each (function (value)
+                      (format :console #"\($\)\(color Ochre {s}\){%}"# value))
+                    values))
+        (display-prompt (get-console-port) (current-repl-level))
+        (force-output (get-console-port))))
+    
     (thread-call (primordial-thread) 'evaluate-expressions
       (function ()
-        (let ((expressions (map (function (expr)
-                                  (bind (syntax name str container line col) expr
-                                    (parameterize ((walk-for 'eval))
-                                      (with-readtable (case syntax
-                                                        ((scheme) scheme-readtable)
-                                                        ((jazz) jazz-readtable))
-                                        (function ()
-                                          (call-with-input-string str
-                                            (function (port)
-                                              (list name (read-source-first port container line col)))))))))
-                                expressions)))
-          (define (present name result)
-            (format :console #"\($\)\(color Debug {s}\){%}"# (or name result)))
-          
-          (for-each (function (info)
-                      (bind (name expr) info
-                        (if (module/library-form? expr)
-                            (receive (module-name access) (parse-module/library (cdr (source-code expr)))
-                              (load-module module-name)
-                              (outline-module module-name)
-                              (parameterize ((requested-module-name module-name)
-                                             (jazz.walk-for 'eval))
-                                (present name (eval expr))))
-                          (present name (eval expr)))))
-                    expressions)
-          (display-prompt (get-console-port) (current-repl-level))
-          (force-output (get-console-port))))))
+        (let ((expr (parameterize ((walk-for 'eval))
+                      (with-readtable (case syntax
+                                        ((scheme) scheme-readtable)
+                                        ((jazz) jazz-readtable))
+                        (function ()
+                          (call-with-input-string str
+                            (function (port)
+                              (read-source-first port container line col))))))))
+          (if (module/library-form? expr)
+              (receive (module-name access) (parse-module/library (cdr (source-code expr)))
+                (load-module module-name)
+                (outline-module module-name)
+                (parameterize ((requested-module-name module-name)
+                               (jazz.walk-for 'eval))
+                  (present (eval expr))))
+            (present (eval expr)))))))
   
   
   (definition (parse-module/library expr)

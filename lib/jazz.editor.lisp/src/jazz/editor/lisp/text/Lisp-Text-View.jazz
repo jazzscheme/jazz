@@ -647,20 +647,18 @@
     (let ((debugged (get-focused-process)))
       (if (not debugged)
           (bell)
-        (let ((expressions (prepare-expressions range)))
-          (evaluate-expressions~ debugged expressions)
-          (user-message "Evaluated: {l detail: :human}"
-                        (map (function (expr)
-                               (let ((name (second expr)))
-                                 (either name '<expr>)))
-                             expressions))))))
+        (bind (syntax str container line col) (prepare-expressions range)
+          (evaluate-expressions~ debugged syntax str container line col)
+          (let ((names (collect-declaration-names range)))
+            (when (not-null? names)
+              (user-message "Evaluated: {l detail: :human separator: \", \"}" names)))))))
   
   
   (method protected virtual (prepare-expressions range)
     )
   
   
-  (method (collect-expressions range)
+  (method (collect-declaration-names range)
     (let ((start (get-start~ range))
           (end (get-end~ range)))
       (let ((expl (new (explorer-class) self start: start end: start))
@@ -671,7 +669,9 @@
                   (e (get-end~ expl)))
               (cond ((nu<=? e end)
                      (let ((form (read-text-form (get-range~ expl))))
-                       (enqueue queue (cons (form-name~ expl form) (get-range~ expl))))
+                       (let ((name (form-name~ expl form)))
+                         (when name
+                           (enqueue queue name))))
                      (when (forward-expr~ expl)
                        (iterate)))
                     ((nu<? s end)

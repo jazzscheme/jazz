@@ -54,25 +54,29 @@
   Unbound)
 
 
-(definition public (package-info name value (kind :value))
+(definition public (package-info value (kind :value))
   (let* ((unbound? (eq? value Unbound))
          (serial (object->serial value))
          (presented (cond (unbound? "<unbound>") (else (->string value :reader))))
          (more? (if unbound? #f (or (memq? kind '(frame: context:)) (more-value? value)))))
     (when (> (cardinality presented) 512)
       (set! presented (concatenate (subseq presented 0 128) "...")))
-    (list name serial presented more? kind)))
+    (list serial presented more? kind)))
 
 
-(definition (more-value? value)
+(definition public (more-value? value)
   (and (not (null? value))
        (not (empty-string? value))
        (is-not? value Symbol)
        (is-not? value Boolean)
        (is-not? value Char)
        (is-not? value Number)
-       (is-not? value Field)
-       (not (category? value))))
+       (cond ((object? value)
+              (not (null? (all-slots (class-of value)))))
+             ((category? value)
+              #f)
+             (else
+              #t))))
 
 
 ;;;
@@ -84,34 +88,28 @@
   (typecase value
     ((List) (inspect-list value))
     ((Table) (inspect-table value))
-    ((Sequence) (inspect-sequence value))
+    ((Sequence) (inspect-list (coerce value List)))
     (else (inspect-slots value))))
 
 
 (definition (inspect-list lst)
-  (let ((fact (new List-Factory))
-        (rank 0))
-    (while (not-null? lst)
-      (if (pair? lst)
-          (begin
-            (put~ fact (package-info rank (car lst)))
-            (set! lst (cdr lst)))
-        (put~ fact (package-info 'rest lst))
-        (set! lst '()))
-      (increase! rank))
-    (get-output~ fact)))
+  (let (iter (scan lst)
+             (rank 0))
+    (cond ((pair? scan)
+           (cons (cons rank (package-info (car scan)))
+                 (iter (cdr scan) (+ rank 1))))
+          ((not (null? scan))
+           (cons 'rest (package-info scan)))
+          (else
+           '()))))
 
 
 (definition (inspect-table table)
   (let ((fact (new List-Factory)))
     (iterate-table table
       (function (key value)
-        (put~ fact (package-info key value))))
+        (put~ fact (cons key (package-info value)))))
     (get-output~ fact)))
-
-
-(definition (inspect-sequence seq)
-  (map package-info (naturals 0 (cardinality seq)) (coerce seq List)))
 
 
 (definition package (inspect-slots object)
@@ -119,11 +117,11 @@
          (slots (all-slots class))
          (infos
            (map (function (slot)
-                  (package-info (field-name slot)
-                                (cond ((property? slot)
-                                       (read-property object slot))
-                                      (else
-                                       (slot-value object (field-name slot))))))
+                  (cons (field-name slot)
+                        (package-info (cond ((property? slot)
+                                             (read-property object slot))
+                                            (else
+                                             (slot-value object (field-name slot)))))))
                 slots)))
     (if #t
         infos

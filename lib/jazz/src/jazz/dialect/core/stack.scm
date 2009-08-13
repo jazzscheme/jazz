@@ -71,9 +71,11 @@
     (define (jazz.collect-var-val var val cte queue)
       (jazz.enqueue queue
                     (%%cons (##object->string var)
-                            (if (##cte-top? cte)
-                                (##inverse-eval-in-env val cte)
-                              (##inverse-eval-in-env val (##cte-parent-cte cte))))))
+                            (if (##procedure? val)
+                                (if (##cte-top? cte)
+                                    (##inverse-eval-in-env val cte)
+                                  (##inverse-eval-in-env val (##cte-parent-cte cte)))
+                              val))))
     
     
     (define (jazz.get-continuation-dynamic-environment cont)

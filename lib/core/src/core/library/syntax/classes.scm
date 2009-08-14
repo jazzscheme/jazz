@@ -288,7 +288,7 @@
 
 
 ;;;
-;;;; Opt
+;;;; Opt Type
 ;;;
 
 
@@ -297,7 +297,7 @@
 
 
 ;;;
-;;;; Key
+;;;; Key Type
 ;;;
 
 
@@ -307,7 +307,7 @@
 
 
 ;;;
-;;;; Rest
+;;;; Rest Type
 ;;;
 
 
@@ -316,7 +316,7 @@
 
 
 ;;;
-;;;; Function
+;;;; Function Type
 ;;;
 
 
@@ -330,7 +330,7 @@
 
 
 ;;;
-;;;; Category
+;;;; Category Type
 ;;;
 
 
@@ -339,7 +339,7 @@
 
 
 ;;;
-;;;; Values
+;;;; Values Type
 ;;;
 
 
@@ -348,7 +348,7 @@
 
 
 ;;;
-;;;; Restriction
+;;;; Restriction Type
 ;;;
 
 
@@ -358,7 +358,7 @@
 
 
 ;;;
-;;;; Complement
+;;;; Complement Type
 ;;;
 
 
@@ -367,7 +367,7 @@
 
 
 ;;;
-;;;; Union
+;;;; Union Type
 ;;;
 
 
@@ -376,7 +376,7 @@
 
 
 ;;;
-;;;; Template
+;;;; Template Type
 ;;;
 
 
@@ -386,7 +386,7 @@
 
 
 ;;;
-;;;; Nillable
+;;;; Nillable Type
 ;;;
 
 

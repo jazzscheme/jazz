@@ -116,13 +116,15 @@
   (let* ((class (class-of object))
          (slots (all-slots class))
          (infos
-           (map (function (slot)
-                  (cons (field-name slot)
-                        (package-info (cond ((property? slot)
-                                             (read-property object slot))
-                                            (else
-                                             (slot-value object (field-name slot)))))))
-                slots)))
+           (collect (function (slot)
+                      ;; not redefined core classes have symbols as slots
+                      (unless (symbol? slot)
+                        (cons (field-name slot)
+                              (package-info (cond ((property? slot)
+                                                   (read-property object slot))
+                                                  (else
+                                                   (slot-value object (field-name slot))))))))
+                    slots)))
     (if #t
         infos
       (sort < infos key: car)))))

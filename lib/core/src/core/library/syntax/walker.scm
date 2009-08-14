@@ -4748,45 +4748,6 @@
 
 
 ;;;
-;;;; Debug
-;;;
-
-
-#; ;; fix warnings
-(define (ppl library-name)
-  (pps (walk library-name)))
-
-
-#; ;; fix warnings
-(define (pps statement)
-  (define (present-declaration sta)
-    (%%get-lexical-binding-name sta))
-  
-  (define (present-expression sta)
-    (cond ((%%class-is? sta jazz.Constant)
-           (%%get-constant-expansion sta))
-          ((%%class-is? sta jazz.Reference)
-           (%%get-lexical-binding-name (%%get-reference-binding sta)))
-          (else
-           (jazz.identifier-name (%%get-category-name (%%class-of sta))))))
-  
-  (pp
-    (jazz.fold-statement (if (%%integer? statement) (jazz.serial->object statement) statement)
-      (lambda (sta s)
-        (let ((info (cond ((%%class-is? sta jazz.Declaration)
-                           (present-declaration sta))
-                          ((%%class-is? sta jazz.Expression)
-                           (present-expression sta))
-                          (else
-                           sta))))
-          (if (%%null? s)
-              info
-            (%%cons info s))))
-      cons
-      '())))
-
-
-;;;
 ;;;; Walk
 ;;;
 

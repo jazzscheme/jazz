@@ -167,7 +167,8 @@
 
 
 (jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children-lookup body) jazz.Object-Class jazz.allocate-library-declaration
-  ((dialect-name    %%get-library-declaration-dialect-name    ())
+  ((walker          %%get-library-declaration-walker          ())
+   (dialect-name    %%get-library-declaration-dialect-name    ())
    (dialect-invoice %%get-library-declaration-dialect-invoice ())
    (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
    (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
@@ -221,6 +222,15 @@
 
 (jazz.define-class jazz.Export-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-export-declaration
   ((symbol %%get-export-declaration-symbol ())))
+
+
+;;;
+;;;; Export Syntax
+;;;
+
+
+(jazz.define-class jazz.Export-Syntax-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-export-syntax-declaration
+  ((symbol %%get-export-syntax-declaration-symbol ())))
 
 
 ;;;
@@ -446,6 +456,7 @@
 (jazz.define-virtual (jazz.walk-form (jazz.Walker walker) resume declaration environment form))
 (jazz.define-virtual (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src))
 (jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
+(jazz.define-virtual (jazz.runtime-export (jazz.Walker walker) declaration))
 
 
 ;;;

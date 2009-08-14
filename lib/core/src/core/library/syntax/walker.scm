@@ -449,8 +449,8 @@
 (jazz.define-class-runtime jazz.Library-Declaration)
 
 
-(define (jazz.new-library-declaration name access parent dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) #f dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
+(define (jazz.new-library-declaration name access parent walker dialect-name dialect-invoice)
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -566,6 +566,7 @@
         (or (%%string<? string1 string2)
             (and (%%string=? string1 string2)
                  (lesser (cdr name1) (cdr name2)))))))
+  
   (define (merge-sorted item sorted)
     (cond ((%%null? sorted)
            (%%list item))
@@ -573,6 +574,7 @@
            (%%cons item sorted))
           (else
            (%%cons (%%car sorted) (merge-sorted item (%%cdr sorted))))))
+  
   (define (compose-name root-declaration declaration)
     (let iter ((declaration declaration)
                (composite-name '()))
@@ -617,7 +619,8 @@
         (inclusions-expansion (jazz.emit-library-inclusions declaration))
         (literals-expansion (jazz.emit-library-literals declaration))
         (variables-expansion (jazz.emit-library-variables declaration))
-        (autoloads-expansion (jazz.emit-library-autoloads declaration environment)))
+        (autoloads-expansion (jazz.emit-library-autoloads declaration environment))
+        (registration-expansion (jazz.emit-library-registration declaration environment)))
     `(begin
        ,@(case (jazz.walk-for)
            ((eval) '())
@@ -664,6 +667,7 @@
        ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
+       ,@registration-expansion
        ,@body-expansion)))
 
 
@@ -803,6 +807,42 @@
 
 
 (jazz.encapsulate-class jazz.Export-Declaration)
+
+
+;;;
+;;;; Export Syntax
+;;;
+
+
+(jazz.define-class-runtime jazz.Export-Syntax-Declaration)
+
+
+(define (jazz.new-export-syntax-declaration name type access compatibility attributes parent symbol)
+  (let ((new-declaration (jazz.allocate-export-syntax-declaration jazz.Export-Syntax-Declaration name type #f access compatibility attributes #f parent #f #f symbol)))
+    (jazz.setup-declaration new-declaration)
+    new-declaration))
+
+
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Syntax-Declaration declaration) walker resume source-declaration operator arguments)
+  (jazz.unspecified))
+
+
+(jazz.define-method (jazz.emit-declaration (jazz.Export-Syntax-Declaration declaration) environment)
+  `(begin))
+
+
+(jazz.define-method (jazz.emit-binding-reference (jazz.Export-Syntax-Declaration declaration) source-declaration environment)
+  (jazz.new-code
+    (%%get-export-syntax-declaration-symbol declaration)
+    jazz.Any
+    #f))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.Export-Syntax-Declaration declaration) f k s)
+  (f declaration s))
+
+
+(jazz.encapsulate-class jazz.Export-Syntax-Declaration)
 
 
 ;;;
@@ -2845,7 +2885,7 @@
 
 
 (define (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice body)
-  (let ((declaration (or actual (jazz.new-library-declaration name access #f dialect-name dialect-invoice))))
+  (let ((declaration (or actual (jazz.new-library-declaration name access #f walker dialect-name dialect-invoice))))
     (%%when dialect-invoice
       (jazz.add-library-import declaration dialect-invoice #f))
     (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
@@ -3046,6 +3086,34 @@
     (jazz.queue-list queue)))
 
 
+(define (jazz.emit-library-registration declaration environment)
+  (if (%%eq? (%%get-declaration-access declaration) 'public)
+      `((jazz.register-library ',(%%get-lexical-binding-name declaration)
+         ',(let ((walker (%%get-library-declaration-walker declaration))
+                 (queue (jazz.new-queue)))
+             (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
+               (lambda (name decl)
+                 (let ((export (jazz.runtime-export walker decl)))
+                   (if export
+                       (jazz.enqueue queue (%%cons name export))))))
+             (jazz.queue-list queue))))
+    '()))
+
+
+(jazz.define-virtual-runtime (jazz.runtime-export (jazz.Walker walker) declaration))
+
+
+(jazz.define-method (jazz.runtime-export (jazz.Walker walker) declaration)
+  (cond ((%%is? declaration jazz.Export-Declaration)
+         (%%get-declaration-locator declaration))
+        ((%%is? declaration jazz.Autoload-Declaration)
+         (let ((referenced-declaration (jazz.resolve-declaration declaration)))
+           (%%cons (%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration))
+                   (%%get-declaration-locator referenced-declaration))))
+        (else
+         #f)))
+
+
 ;;;
 ;;;; Environment
 ;;;
@@ -3053,13 +3121,14 @@
 
 (define (jazz.core-bindings)
   (%%list
-    (jazz.new-special-form 'require  jazz.walk-require)
-    (jazz.new-special-form 'export   jazz.walk-export)
-    (jazz.new-special-form 'import   jazz.walk-import)
-    (jazz.new-special-form 'proclaim jazz.walk-proclaim)
-    (jazz.new-special-form 'native   jazz.walk-native)
-    (jazz.new-special-form 'macro    jazz.walk-macro)
-    (jazz.new-special-form 'syntax   jazz.walk-syntax)))
+    (jazz.new-special-form 'require       jazz.walk-require)
+    (jazz.new-special-form 'export        jazz.walk-export)
+    (jazz.new-special-form 'import        jazz.walk-import)
+    (jazz.new-special-form 'proclaim      jazz.walk-proclaim)
+    (jazz.new-special-form 'native        jazz.walk-native)
+    (jazz.new-special-form 'native-syntax jazz.walk-native-syntax)
+    (jazz.new-special-form 'macro         jazz.walk-macro)
+    (jazz.new-special-form 'syntax        jazz.walk-syntax)))
 
 
 (jazz.define-virtual-runtime (jazz.walker-environment (jazz.Walker walker)))
@@ -3087,13 +3156,14 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((require) (jazz.walk-require-declaration walker resume declaration environment form))
-          ((export)  (jazz.walk-export-declaration walker resume declaration environment form))
-          ((import)  (jazz.walk-import-declaration walker resume declaration environment form))
-          ((native)  (jazz.walk-native-declaration walker resume declaration environment form))
-          ((macro)   (jazz.walk-macro-declaration  walker resume declaration environment form))
-          ((syntax)  (jazz.walk-syntax-declaration walker resume declaration environment form))
-          (else      #f)))
+          ((require)       (jazz.walk-require-declaration walker resume declaration environment form))
+          ((export)        (jazz.walk-export-declaration walker resume declaration environment form))
+          ((import)        (jazz.walk-import-declaration walker resume declaration environment form))
+          ((native)        (jazz.walk-native-declaration walker resume declaration environment form))
+          ((native-syntax) (jazz.walk-native-syntax-declaration walker resume declaration environment form))
+          ((macro)         (jazz.walk-macro-declaration  walker resume declaration environment form))
+          ((syntax)        (jazz.walk-syntax-declaration walker resume declaration environment form))
+          (else            #f)))
     #f))
 
 
@@ -4947,7 +5017,7 @@
     (map (lambda (pair)
            (%%cons (%%car pair) (integer->char (%%cdr pair))))
          alist)
-    eq?))
+    test: eq?))
 
 
 (define jazz.Symbolic-Chars
@@ -5307,6 +5377,44 @@
 
 
 ;;;
+;;;; Native Syntax
+;;;
+
+
+(define jazz.native-syntax-modifiers
+  '(((private protected package public) . public)
+    ((deprecated undocumented uptodate) . uptodate)))
+
+(define jazz.native-syntax-keywords
+  '())
+
+
+(define (jazz.parse-native-syntax walker resume declaration rest)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.native-syntax-modifiers rest)
+    (let ((name (%%car rest)))
+      (jazz.parse-specifier (%%cdr rest)
+        (lambda (specifier rest)
+          (%%assert (%%null? rest)
+            (values name specifier access compatibility)))))))
+
+
+(define (jazz.walk-native-syntax-declaration walker resume declaration environment form)
+  (receive (name specifier access compatibility) (jazz.parse-native-syntax walker resume declaration (%%cdr form))
+    (receive (name symbol) (jazz.parse-exported-symbol declaration name)
+      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+        (let ((new-declaration (jazz.new-export-syntax-declaration name type access compatibility '() declaration symbol)))
+          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
+
+
+(define (jazz.walk-native-syntax walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name specifier access compatibility) (jazz.parse-native-syntax walker resume declaration (%%cdr form))
+      (receive (name symbol) (jazz.parse-exported-symbol declaration name)
+        (jazz.find-form-declaration declaration name)))))
+
+
+;;;
 ;;;; Macro
 ;;;
 
@@ -5555,8 +5663,7 @@
 
 
 (define (jazz.release-catalog-entries)
-  (%%iterate-table
-    jazz.Catalog
+  (%%iterate-table jazz.Catalog
     (lambda (module-name entry)
       (if (%%pair? entry)
           (jazz.set-catalog-entry module-name (%%cdr entry))))))

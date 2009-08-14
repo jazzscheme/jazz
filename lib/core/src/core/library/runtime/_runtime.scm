@@ -42,6 +42,63 @@
 
 
 ;;;
+;;;; Library
+;;;
+
+
+(jazz.define-class jazz.Library jazz.Object () jazz.Object-Class jazz.allocate-library
+  ((name    %%get-library-name    ())
+   (exports %%get-library-exports ())))
+
+
+(jazz.define-class-runtime jazz.Library)
+
+
+(define (jazz.new-library name exports)
+  (jazz.allocate-library jazz.Library name exports))
+
+
+(jazz.encapsulate-class jazz.Library)
+
+
+;;;
+;;;; Libraries
+;;;
+
+
+(define jazz.Libraries
+  (%%make-table test: eq?))
+
+
+(define (jazz.register-library name exports-list)
+  (let ((library (jazz.new-library name (%%list->table exports-list test: eq?))))
+    (%%table-set! jazz.Libraries name library)
+    library))
+
+
+(define (jazz.get-library name)
+  (%%table-ref jazz.Libraries name #f))
+
+
+(define (jazz.require-library name)
+  (or (%%table-ref jazz.Libraries name #f)
+      (jazz.error "Unknown library: {s}" name)))
+
+
+(define (jazz.library-ref library-name name)
+  (jazz.load-module library-name)
+  (let ((library (jazz.require-library library-name)))
+    (let ((info (%%table-ref (%%get-library-exports library) name #f)))
+      (if info
+          (if (%%symbol? info)
+              (jazz.global-value info)
+            (jazz.bind (module-name . locator) info
+              (jazz.load-module module-name)
+              (jazz.global-value locator)))
+        (jazz.error "Unable to find '{s} in: {s}" name library-name)))))
+
+
+;;;
 ;;;; Error
 ;;;
 

@@ -239,6 +239,13 @@
   (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '()))
 
 
+(jazz.define-method (jazz.runtime-export (jazz.Scheme-Walker walker) declaration)
+  (or (nextmethod walker declaration)
+      (if (%%is? declaration jazz.Define-Declaration)
+          (%%get-declaration-locator declaration)
+        #f)))
+
+
 ;;;
 ;;;; Declaration
 ;;;

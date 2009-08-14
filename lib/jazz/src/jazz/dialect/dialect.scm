@@ -902,6 +902,15 @@
   (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '()))
 
 
+(jazz.define-method (jazz.runtime-export (jazz.Jazz-Walker walker) declaration)
+  (or (nextmethod walker declaration)
+      (if (or (%%is? declaration jazz.Definition-Declaration)
+              (%%is? declaration jazz.Generic-Declaration)
+              (%%is? declaration jazz.Category-Declaration))
+          (%%get-declaration-locator declaration)
+        #f)))
+
+
 ;;;
 ;;;; Environment
 ;;;

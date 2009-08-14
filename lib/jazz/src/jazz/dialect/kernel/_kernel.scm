@@ -241,8 +241,6 @@
 (native jazz.with-exception-propagater)
 (native jazz.dump-exception)
 (native jazz.raise)
-(native jazz.present-exception)
-(native jazz.get-detail)
 
 
 ;;;
@@ -444,6 +442,9 @@
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)
 (native jazz.module-get)
+(native jazz.get-library)
+(native jazz.require-library)
+(native jazz.library-ref)
 (native jazz.walk-for)
 (native jazz.register-service)
 (native jazz.get-service)
@@ -955,7 +956,6 @@
 (native jazz.parse-specifier)
 (native jazz.requested-module-name)
 (native jazz.requested-module-resource)
-(native jazz.resolve-declaration)
 (native jazz.get-private-lookup)
 (native jazz.get-public-lookup)
 (native jazz.get-protected-lookup)

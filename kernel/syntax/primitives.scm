@@ -979,8 +979,8 @@
           `(table-merge! ,table ,additions ,additions-takes-precedence?)
         `(##table-merge! ,table ,additions ,additions-takes-precedence?)))
     
-    (jazz.define-macro (%%list->table alist test)
-      `(list->table ,alist test: ,test))
+    (jazz.define-macro (%%list->table alist . rest)
+      `(list->table ,alist ,@rest))
     
     (jazz.define-macro (%%table->list table)
       `(table->list ,table))

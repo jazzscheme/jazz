@@ -67,8 +67,8 @@
       (jazz.queue-list queue))))
 
 
-(define (jazz.list->table alist #!optional (test equal?))
-  (%%list->table alist test))
+(define (jazz.list->table alist #!key (test equal?))
+  (%%list->table alist test: test))
 
 
 (define (jazz.table->list table)

@@ -56,9 +56,12 @@
 
 (definition public (package-info value (kind :value))
   (let* ((unbound? (eq? value Unbound))
+         (raw? (eq? kind :raw))
          (serial (object->serial value))
-         (presented (cond (unbound? "<unbound>") (else (->string value :reader))))
-         (more? (if unbound? #f (or (memq? kind '(frame: context:)) (more-value? value)))))
+         (presented (cond (unbound? "<unbound>")
+                          (raw? (->string value))
+                          (else (present-object value))))
+         (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
     (when (> (cardinality presented) 512)
       (set! presented (concatenate (subseq presented 0 128) "...")))
     (list serial presented more? kind)))
@@ -84,7 +87,7 @@
 ;;;
 
 
-(constant inspect-rank-limit 128)
+(constant inspect-rank-limit 100)
 
 
 (definition public (inspect-value value)
@@ -96,7 +99,7 @@
 
 
 (definition (inspect-limit displayed total)
-  (cons "..." (package-info (format "{a} of {a} elements" displayed total))))
+  (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw)))
 
 
 (definition (inspect-list lst)

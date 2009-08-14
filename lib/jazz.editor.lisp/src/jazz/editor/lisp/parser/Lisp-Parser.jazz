@@ -63,9 +63,19 @@
              (fact (new List-Factory)))
         (walk-declarations~ expl
           {}
-          (function (parent start end marked documented?)
-            (let ((name (if (pair? marked) (car marked) marked))
-                  (signature (if (pair? marked) (cdr marked) #f)))
+          (function (parent symbol start end marked documented?)
+            (define (mangle-name name)
+              (case symbol
+                ((remotable-stub) (string-append name "~stub"))
+                (else name)))
+            (define (mangle-signature signature)
+              (case symbol
+                ((jazz.define-virtual) (cons (string-append (car signature) "~virtual") (cdr signature)))
+                ((jazz.define-virtual-runtime) (cons (string-append (car signature) "~virtual-runtime") (cdr signature)))
+                (else signature)))
+            
+            (let ((name (mangle-name (if (pair? marked) (car marked) marked)))
+                  (signature (if (pair? marked) (mangle-signature (cdr marked)) #f)))
               (let ((entry (new Lisp-Entry name signature (get-row~ start) (get-col~ start) (get-row~ end) (get-col~ end) '() '())))
                 (if (not parent)
                     (put~ fact entry)

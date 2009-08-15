@@ -71,7 +71,6 @@
       define-check-type
       define-fail-check-type
       define-type
-      define-type-of-port
       define-runtime-macro
       define-runtime-syntax
       define-library-type
@@ -81,6 +80,7 @@
   (method (definition-name? name)
     (or (memq? name Scheme-Toplevels)
         (memq? name Gambit-Toplevels)
+        (starts-with? (symbol->string name) "define-type-of-")
         (let ((form (get-lisp-form name)))
           (and form (get-declaration?~ form)))))
 
@@ -127,8 +127,7 @@
         define-library-type-of-exception
         define-check-type
         define-fail-check-type
-        define-type
-        define-type-of-port)
+        define-type)
        (walk-define context declaration keyword expression doc walk-expressions?))
       ((jazz.define-generic
         jazz.define-specific
@@ -167,15 +166,17 @@
       ((native)
        (walk-native context declaration keyword expression doc walk-expressions?))
       (else
-       (let ((form (get-lisp-form symbol)))
-         (if form
-             (let ((walk (get-walk~ form)))
-               (if walk
-                   (if (symbol? walk)
-                       (walk-named-declaration context walk declaration keyword expression doc walk-expressions?)
-                     (walk self context declaration keyword expression doc walk-expressions?))
-                 (walk-unknown context declaration keyword expression doc walk-expressions?)))
-           (walk-unknown context declaration keyword expression doc walk-expressions?))))))
+       (if (starts-with? (symbol->string symbol) "define-type-of-")
+           (walk-define context declaration keyword expression doc walk-expressions?)
+         (let ((form (get-lisp-form symbol)))
+           (if form
+               (let ((walk (get-walk~ form)))
+                 (if walk
+                     (if (symbol? walk)
+                         (walk-named-declaration context walk declaration keyword expression doc walk-expressions?)
+                       (walk self context declaration keyword expression doc walk-expressions?))
+                   (walk-unknown context declaration keyword expression doc walk-expressions?)))
+             (walk-unknown context declaration keyword expression doc walk-expressions?)))))))
   
   
   (method (walk-modifiers context declaration keyword expression doc)

@@ -1136,7 +1136,7 @@
     (jazz.print "  list" output)
     (jazz.print "  delete [configuration]" output)
     (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
-    (jazz.print "  make [target]" output)
+    (jazz.print "  make [clean | cleankernel | kernel | target]" output)
     (jazz.print "  help or ?" output)
     (jazz.print "  quit" output))
   

@@ -92,75 +92,69 @@
 
 
 (definition public (inspect-value value)
-  (if (structure? value)
-      (inspect-structure value)
-    (typecase value
-      ((List) (inspect-list value))
-      ((Table) (inspect-table value))
-      ((Sequence) (inspect-list (coerce value List)))
-      (else (inspect-slots value)))))
-
-
-(definition (inspect-structure struct)
-  (let ((kind (structure-kind struct)))
-    (let (iter (kind kind)
-               (fields '()))
-      (if (not kind)
-          fields
-        (iter (kind-super kind)
-              (append (map (function (info)
-                             (bind (name index) info
-                               (cons name (package-info (structure-ref struct index kind)))))
-                           (kind-fields kind))
-                      fields))))))
-
-
-(definition (inspect-list lst)
-  (let (iter (scan lst)
-             (rank 0))
-    (cond ((>= rank inspect-rank-limit)
-           (list (inspect-limit rank (+ rank (length scan)))))
-          ((pair? scan)
-           (cons (cons rank (package-info (car scan)))
-                 (iter (cdr scan) (+ rank 1))))
-          ((not (null? scan))
-           (list (cons 'rest (package-info scan))))
-          (else
-           '()))))
-
-
-(definition (inspect-table table)
-  (let ((fact (new List-Factory))
-        (rank 0))
-    (continuation-capture
-      (function (return)
-        (iterate-table table
-          (function (key value)
-            (when (>= rank inspect-rank-limit)
-              (put~ fact (inspect-limit rank (table-length table)))
-              (continuation-return return))
-            (increase! rank)
-            (put~ fact (cons key (package-info value)))))))
-    (get-output~ fact)))
-
-
-(definition package (inspect-slots object)
-  (let* ((class (class-of object))
-         (slots (all-slots class))
-         (infos
-           (collect (function (slot)
-                      ;; not redefined core classes have symbols as slots
-                      (unless (symbol? slot)
-                        (cons (field-name slot)
-                              (package-info (cond ((property? slot)
-                                                   (read-property object slot))
-                                                  (else
-                                                   (slot-value object (field-name slot))))))))
-                    slots)))
-    (if #t
-        infos
-      (sort < infos key: car))))
-
-
-(definition (inspect-limit displayed total)
-  (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw))))
+  (define (inspect-structure struct)
+    (let ((kind (structure-kind struct)))
+      (let (iter (kind kind)
+                 (fields '()))
+        (if (not kind)
+            fields
+          (iter (kind-super kind)
+                (append (map (function (info)
+                               (bind (name index) info
+                                 (cons name (package-info (structure-ref struct index kind)))))
+                             (kind-fields kind))
+                        fields))))))
+  
+  (define (inspect-list lst)
+    (let (iter (scan lst)
+               (rank 0))
+      (cond ((>= rank inspect-rank-limit)
+             (list (inspect-limit rank (+ rank (length scan)))))
+            ((pair? scan)
+             (cons (cons rank (package-info (car scan)))
+                   (iter (cdr scan) (+ rank 1))))
+            ((not (null? scan))
+             (list (cons 'rest (package-info scan))))
+            (else
+             '()))))
+  
+  (define (inspect-table table)
+    (let ((fact (new List-Factory))
+          (rank 0))
+      (continuation-capture
+        (function (return)
+          (iterate-table table
+                         (function (key value)
+                           (when (>= rank inspect-rank-limit)
+                             (put~ fact (inspect-limit rank (table-length table)))
+                             (continuation-return return))
+                           (increase! rank)
+                           (put~ fact (cons key (package-info value)))))))
+      (get-output~ fact)))
+  
+  (define (inspect-slots object)
+    (let* ((class (class-of object))
+           (slots (all-slots class))
+           (infos
+             (collect (function (slot)
+                        ;; not redefined core classes have symbols as slots
+                        (unless (symbol? slot)
+                          (cons (field-name slot)
+                                (package-info (cond ((property? slot)
+                                                     (read-property object slot))
+                                                    (else
+                                                     (slot-value object (field-name slot))))))))
+                      slots)))
+      (if #t
+          infos
+        (sort < infos key: car))))
+  
+  (define (inspect-limit displayed total)
+    (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw)))
+  
+  (cond ((null/pair? value) (inspect-list value))
+        ((table? value) (inspect-table value))
+        ((structure? value) (inspect-structure value))
+        ((sequence? value) (inspect-list (coerce value List)))
+        ((object? value) (inspect-slots value))
+        (else '()))))

@@ -112,7 +112,16 @@
 (define jazz.subtype-flonum       (macro-subtype-flonum))
 (define jazz.subtype-bignum       (macro-subtype-bignum))
 (define jazz.subtype-foreign      (macro-subtype-foreign))
+(define jazz.subtype-s8vector     (macro-subtype-s8vector))
 (define jazz.subtype-u8vector     (macro-subtype-u8vector))
+(define jazz.subtype-s16vector    (macro-subtype-s16vector))
+(define jazz.subtype-u16vector    (macro-subtype-u16vector))
+(define jazz.subtype-s32vector    (macro-subtype-s32vector))
+(define jazz.subtype-u32vector    (macro-subtype-u32vector))
+(define jazz.subtype-s64vector    (macro-subtype-s64vector))
+(define jazz.subtype-u64vector    (macro-subtype-u64vector))
+(define jazz.subtype-f32vector    (macro-subtype-f32vector))
+(define jazz.subtype-f64vector    (macro-subtype-f64vector))
 (define jazz.subtype-boxvalues    (macro-subtype-boxvalues))
 
 

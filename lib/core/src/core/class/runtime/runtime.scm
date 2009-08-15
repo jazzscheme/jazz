@@ -612,7 +612,16 @@
         ((%%pair? expr)         jazz.Pair)
         ((%%string? expr)       jazz.String)
         ((%%vector? expr)       jazz.Vector)
+        ((%%s8vector? expr)     jazz.S8Vector)
         ((%%u8vector? expr)     jazz.U8Vector)
+        ((%%s16vector? expr)    jazz.S16Vector)
+        ((%%u16vector? expr)    jazz.U16Vector)
+        ((%%s32vector? expr)    jazz.S32Vector)
+        ((%%u32vector? expr)    jazz.U32Vector)
+        ((%%s64vector? expr)    jazz.S64Vector)
+        ((%%u64vector? expr)    jazz.U64Vector)
+        ((%%f32vector? expr)    jazz.F32Vector)
+        ((%%f64vector? expr)    jazz.F64Vector)
         ((%%symbol? expr)       jazz.Symbol)
         ((%%keyword? expr)      jazz.Keyword)
         ((%%port? expr)         jazz.Port)
@@ -1159,6 +1168,35 @@
 
 
 ;;;
+;;;; S8Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.S8Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.S8Vector-Class class) object)
+  (%%s8vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.S8Vector-Class class))
+  's8vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.S8Vector-Class type) value source-declaration environment)
+  `(%%s8vector? ,value))
+
+
+(jazz.encapsulate-class jazz.S8Vector-Class)
+
+
+(jazz.define-class-runtime jazz.S8Vector)
+
+
+(jazz.encapsulate-class jazz.S8Vector)
+
+
+;;;
 ;;;; U8Vector
 ;;;
 
@@ -1185,6 +1223,238 @@
 
 
 (jazz.encapsulate-class jazz.U8Vector)
+
+
+;;;
+;;;; S16Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.S16Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.S16Vector-Class class) object)
+  (%%s16vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.S16Vector-Class class))
+  's16vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.S16Vector-Class type) value source-declaration environment)
+  `(%%s16vector? ,value))
+
+
+(jazz.encapsulate-class jazz.S16Vector-Class)
+
+
+(jazz.define-class-runtime jazz.S16Vector)
+
+
+(jazz.encapsulate-class jazz.S16Vector)
+
+
+;;;
+;;;; U16Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.U16Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.U16Vector-Class class) object)
+  (%%u16vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.U16Vector-Class class))
+  'u16vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.U16Vector-Class type) value source-declaration environment)
+  `(%%u16vector? ,value))
+
+
+(jazz.encapsulate-class jazz.U16Vector-Class)
+
+
+(jazz.define-class-runtime jazz.U16Vector)
+
+
+(jazz.encapsulate-class jazz.U16Vector)
+
+
+;;;
+;;;; S32Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.S32Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.S32Vector-Class class) object)
+  (%%s32vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.S32Vector-Class class))
+  's32vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.S32Vector-Class type) value source-declaration environment)
+  `(%%s32vector? ,value))
+
+
+(jazz.encapsulate-class jazz.S32Vector-Class)
+
+
+(jazz.define-class-runtime jazz.S32Vector)
+
+
+(jazz.encapsulate-class jazz.S32Vector)
+
+
+;;;
+;;;; U32Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.U32Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.U32Vector-Class class) object)
+  (%%u32vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.U32Vector-Class class))
+  'u32vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.U32Vector-Class type) value source-declaration environment)
+  `(%%u32vector? ,value))
+
+
+(jazz.encapsulate-class jazz.U32Vector-Class)
+
+
+(jazz.define-class-runtime jazz.U32Vector)
+
+
+(jazz.encapsulate-class jazz.U32Vector)
+
+
+;;;
+;;;; S64Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.S64Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.S64Vector-Class class) object)
+  (%%s64vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.S64Vector-Class class))
+  's64vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.S64Vector-Class type) value source-declaration environment)
+  `(%%s64vector? ,value))
+
+
+(jazz.encapsulate-class jazz.S64Vector-Class)
+
+
+(jazz.define-class-runtime jazz.S64Vector)
+
+
+(jazz.encapsulate-class jazz.S64Vector)
+
+
+;;;
+;;;; U64Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.U64Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.U64Vector-Class class) object)
+  (%%u64vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.U64Vector-Class class))
+  'u64vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.U64Vector-Class type) value source-declaration environment)
+  `(%%u64vector? ,value))
+
+
+(jazz.encapsulate-class jazz.U64Vector-Class)
+
+
+(jazz.define-class-runtime jazz.U64Vector)
+
+
+(jazz.encapsulate-class jazz.U64Vector)
+
+
+;;;
+;;;; F32Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.F32Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.F32Vector-Class class) object)
+  (%%f32vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.F32Vector-Class class))
+  'f32vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.F32Vector-Class type) value source-declaration environment)
+  `(%%f32vector? ,value))
+
+
+(jazz.encapsulate-class jazz.F32Vector-Class)
+
+
+(jazz.define-class-runtime jazz.F32Vector)
+
+
+(jazz.encapsulate-class jazz.F32Vector)
+
+
+;;;
+;;;; F64Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.F64Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.F64Vector-Class class) object)
+  (%%f64vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.F64Vector-Class class))
+  'f64vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.F64Vector-Class type) value source-declaration environment)
+  `(%%f64vector? ,value))
+
+
+(jazz.encapsulate-class jazz.F64Vector-Class)
+
+
+(jazz.define-class-runtime jazz.F64Vector)
+
+
+(jazz.encapsulate-class jazz.F64Vector)
 
 
 ;;;
@@ -1570,7 +1840,16 @@
     (%%vector-set! jazz.subtypes jazz.subtype-flonum       jazz.Flonum)
     (%%vector-set! jazz.subtypes jazz.subtype-bignum       jazz.Rational)
     (%%vector-set! jazz.subtypes jazz.subtype-foreign      jazz.Foreign)
+    (%%vector-set! jazz.subtypes jazz.subtype-s8vector     jazz.S8Vector)
     (%%vector-set! jazz.subtypes jazz.subtype-u8vector     jazz.U8Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-s16vector    jazz.S16Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-u16vector    jazz.U16Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-s32vector    jazz.S32Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-u32vector    jazz.U32Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-s64vector    jazz.S64Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-u64vector    jazz.U64Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-f32vector    jazz.F32Vector)
+    (%%vector-set! jazz.subtypes jazz.subtype-f64vector    jazz.F64Vector)
     (%%vector-set! jazz.subtypes jazz.subtype-boxvalues    jazz.Values)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)

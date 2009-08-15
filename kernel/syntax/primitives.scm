@@ -1096,10 +1096,55 @@
          `(vector->list ,vector)
        `(##vector->list ,vector)))
    
+   (jazz.define-macro (%%s8vector? obj)
+     (if jazz.debug-core?
+         `(s8vector? ,obj)
+       `(##s8vector? ,obj)))
+   
    (jazz.define-macro (%%u8vector? obj)
      (if jazz.debug-core?
          `(u8vector? ,obj)
-       `(##u8vector? ,obj))))
+       `(##u8vector? ,obj)))
+   
+   (jazz.define-macro (%%s16vector? obj)
+     (if jazz.debug-core?
+         `(s16vector? ,obj)
+       `(##s16vector? ,obj)))
+   
+   (jazz.define-macro (%%u16vector? obj)
+     (if jazz.debug-core?
+         `(u16vector? ,obj)
+       `(##u16vector? ,obj)))
+   
+   (jazz.define-macro (%%s32vector? obj)
+     (if jazz.debug-core?
+         `(s32vector? ,obj)
+       `(##s32vector? ,obj)))
+   
+   (jazz.define-macro (%%u32vector? obj)
+     (if jazz.debug-core?
+         `(u32vector? ,obj)
+       `(##u32vector? ,obj)))
+   
+   (jazz.define-macro (%%s64vector? obj)
+     (if jazz.debug-core?
+         `(s64vector? ,obj)
+       `(##s64vector? ,obj)))
+   
+   (jazz.define-macro (%%u64vector? obj)
+     (if jazz.debug-core?
+         `(u64vector? ,obj)
+       `(##u64vector? ,obj)))
+   
+   (jazz.define-macro (%%f32vector? obj)
+     (if jazz.debug-core?
+         `(f32vector? ,obj)
+       `(##f32vector? ,obj)))
+   
+   (jazz.define-macro (%%f64vector? obj)
+     (if jazz.debug-core?
+         `(f64vector? ,obj)
+       `(##f64vector? ,obj))))
 
   (else
    (jazz.define-macro (%%vector? obj)

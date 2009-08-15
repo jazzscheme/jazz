@@ -745,6 +745,25 @@
 
 
 ;;;
+;;;; Structure
+;;;
+
+
+(native jazz.kind?)
+(native jazz.kind-id)
+(native jazz.kind-name)
+(native jazz.kind-flags)
+(native jazz.kind-super)
+(native jazz.kind-fields)
+(native jazz.structure?)
+(native jazz.structure-kind)
+(native jazz.structure-ref)
+(native jazz.structure-set!)
+(native make-foo)
+(native make-bar)
+
+
+;;;
 ;;;; Symbol
 ;;;
 

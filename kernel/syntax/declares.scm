@@ -48,7 +48,9 @@
                 (not inline)
                 
                 ,@(if jazz.debug-core?
-                      '((not proper-tail-calls))
+                      '((not proper-tail-calls)
+                        #; ;; wait-buggy
+                        (not optimize-dead-local-variables))
                     '())
                 
                 ,@(if jazz.debug-user?
@@ -83,7 +85,9 @@
                  ;; mainly to the safe declare)
                  ,@(if jazz.kernel-optimize?
                        '()
-                     '((not proper-tail-calls)))
+                     '((not proper-tail-calls)
+                       #; ;; wait-buggy
+                       (not optimize-dead-local-variables)))
                  
                  ,@(if jazz.debug-user?
                        ;; safe and inlining primitives at the same time

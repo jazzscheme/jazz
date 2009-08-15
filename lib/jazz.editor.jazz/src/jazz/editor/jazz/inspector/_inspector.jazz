@@ -70,6 +70,8 @@
 (definition public (more-value? value)
   (and (not (null? value))
        (not (empty-string? value))
+       (not (procedure? value))
+       (not (continuation? value))
        (is-not? value Symbol)
        (is-not? value Boolean)
        (is-not? value Char)
@@ -84,19 +86,32 @@
 ;;;
 
 
-(constant inspect-rank-limit 100)
+(constant inspect-rank-limit
+  100)
 
 
 (definition public (inspect-value value)
-  (typecase value
-    ((List) (inspect-list value))
-    ((Table) (inspect-table value))
-    ((Sequence) (inspect-list (coerce value List)))
-    (else (inspect-slots value))))
+  (if (structure? value)
+      (inspect-structure value)
+    (typecase value
+      ((List) (inspect-list value))
+      ((Table) (inspect-table value))
+      ((Sequence) (inspect-list (coerce value List)))
+      (else (inspect-slots value)))))
 
 
-(definition (inspect-limit displayed total)
-  (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw)))
+(definition (inspect-structure struct)
+  (let ((kind (structure-kind struct)))
+    (let (iter (kind kind)
+               (fields '()))
+      (if (not kind)
+          fields
+        (iter (kind-super kind)
+              (append (map (function (info)
+                             (bind (name index) info
+                               (cons name (package-info (structure-ref struct index kind)))))
+                           (kind-fields kind))
+                      fields))))))
 
 
 (definition (inspect-list lst)
@@ -143,4 +158,8 @@
                     slots)))
     (if #t
         infos
-      (sort < infos key: car)))))
+      (sort < infos key: car))))
+
+
+(definition (inspect-limit displayed total)
+  (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw))))

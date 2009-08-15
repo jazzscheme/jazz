@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Core
+;;;; Structures
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,27 +35,50 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.dialect.core scheme
+(module protected jazz.dialect.core.structure
 
 
-(require (jazz.dialect.core.continuation)
-         (jazz.dialect.core.debug)
-         (jazz.dialect.core.development)
-         (jazz.dialect.core.exception)
-         (jazz.dialect.core.foreign)
-         (jazz.dialect.core.list)
-         (jazz.dialect.core.memory)
-         (jazz.dialect.core.network)
-         (jazz.dialect.core.number)
-         (jazz.dialect.core.pathname)
-         (jazz.dialect.core.port)
-         (jazz.dialect.core.profile)
-         (jazz.dialect.core.reader)
-         (jazz.dialect.core.repository)
-         (jazz.dialect.core.stack)
-         (jazz.dialect.core.structure)
-         (jazz.dialect.core.system)
-         (jazz.dialect.core.table)
-         (jazz.dialect.core.thread)
-         (jazz.dialect.core.time)
-         (jazz.dialect.core.vector)))
+(define (jazz.kind? obj)
+  (##type? obj))
+
+(define (jazz.kind-id type)
+  (##type-id type))
+
+(define (jazz.kind-name type)
+  (##type-name type))
+
+(define (jazz.kind-flags type)
+  (##type-flags type))
+
+(define (jazz.kind-super type)
+  (##type-super type))
+
+(define (jazz.kind-fields type)
+  (let loop ((i 1)
+             (lst (%%vector->list (##type-fields type)))
+             (alist '()))
+       (if (%%pair? lst)
+           (let* ((name (%%car lst))
+                  (rest (%%cdr lst))
+                  (options (%%car rest))
+                  (rest (%%cdr rest))
+                  (val (%%car rest))
+                  (rest (%%cdr rest)))
+             (loop (%%fx+ i 1)
+                   rest
+                   (%%cons (%%list name i options val)
+                           alist)))
+         (jazz.reverse! alist))))
+
+
+(define (jazz.structure? obj)
+  (##structure? obj))
+
+(define (jazz.structure-kind obj)
+  (##structure-type obj))
+
+(define (jazz.structure-ref obj i type)
+  (##structure-ref obj i type #f))
+
+(define (jazz.structure-set! obj val i type)
+  (##structure-set! obj val i type #f)))

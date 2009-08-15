@@ -441,43 +441,44 @@
                  (values {} {}))))
       (values {} {})))
   
+  (define (frame-evaluator)
+    (let ((frame-box (current-repl-frame)))
+      (if frame-box
+          (let ((frame (unbox frame-box)))
+            (if frame
+                (let ((cont (serial->object (get-continuation~ frame))))
+                  (function (expr)
+                    (eval-within-no-winding expr cont)))
+              eval))
+        eval)))
+  
   (let ((console (current-console)))
-    (let ((context (if (not console) {} (context-init console)))
-          (frame-box (current-repl-frame)))
+    (let ((context (if (not console) {} (context-init console))))
       (receive (command arguments) (parse-unquote-command expr)
-        (cond ((eq? command 'in)
-               (if (null? arguments)
-                   context
-                 (let ((ctx (car arguments)))
-                   (let ((new-context (either (context-alias ctx) (evaluate ctx))))
-                     (when (symbol? new-context)
-                       (load-module new-context))
-                     (when console
-                       (set-context~ console new-context)
-                       (set-readtable~ console (if (not new-context) {} jazz-readtable)))
-                     new-context))))
-              (frame-box
-               (evaluate-in-frame (unbox frame-box) expr))
-              (else
-               (evaluate-in-context context expr)))))))
+        (if (eq? command 'in)
+            (if (null? arguments)
+                context
+              (let ((ctx (car arguments)))
+                (let ((new-context (either (context-alias ctx) (evaluate ctx))))
+                  (when (symbol? new-context)
+                    (load-module new-context))
+                  (when console
+                    (set-context~ console new-context)
+                    (set-readtable~ console (if (not new-context) {} jazz-readtable)))
+                  new-context)))
+          (let ((evaluator eval @w (frame-evaluator)))
+            (evaluate-in-context context evaluator expr)))))))
 
 
-(definition (evaluate-in-frame frame expr)
-  (if (not frame)
-      (eval expr)
-    (let ((cont (serial->object (get-continuation~ frame))))
-      (eval-within-no-winding expr cont))))
-
-
-(definition (evaluate-in-context context expr)
+(definition (evaluate-in-context context evaluator expr)
   (parameterize ((walk-for 'eval))
     (cond ((not context)
-           (eval expr))
+           (evaluator expr))
           ((symbol? context)
            (let ((module-name context))
              (load-module module-name)
              (outline-module module-name)
-             (eval
+             (evaluator
                `(library ,module-name jazz
                 ,expr))))
           (else
@@ -486,7 +487,7 @@
                    (class-name (identifier-name class-identifier)))
                (load-module module-name)
                (outline-module module-name)
-               (eval
+               (evaluator
                  `(library ,module-name jazz
                   (class ,class-name
                     (with-dynamic-self (jazz.debuggee.current-console-context)

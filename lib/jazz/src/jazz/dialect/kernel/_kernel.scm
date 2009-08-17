@@ -861,6 +861,7 @@
 (native jazz.kind-name)
 (native jazz.kind-flags)
 (native jazz.kind-super)
+(native jazz.kind-length)
 (native jazz.kind-fields)
 (native jazz.structure?)
 (native jazz.structure-kind)

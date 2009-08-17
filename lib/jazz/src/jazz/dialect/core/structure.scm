@@ -53,6 +53,9 @@
 (define (jazz.kind-super type)
   (##type-super type))
 
+(define (jazz.kind-length type)
+  (##type-field-count type))
+
 (define (jazz.kind-fields type)
   (let loop ((i 1)
              (lst (%%vector->list (##type-fields type)))

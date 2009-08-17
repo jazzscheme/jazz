@@ -1609,12 +1609,6 @@
   (jazz.load-module module-name))
 
 
-;; this is a quick solution to getting access at runtime to a module field
-(define (jazz.module-get module-name field-name)
-  (let ((locator (%%string->symbol (string-append (%%symbol->string module-name) "." (%%symbol->string field-name)))))
-    (jazz.global-value locator)))
-
-
 ;;;
 ;;;; Service
 ;;;

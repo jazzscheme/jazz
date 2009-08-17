@@ -549,7 +549,6 @@
 (native jazz.reload-module)
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)
-(native jazz.module-get)
 (native jazz.get-library)
 (native jazz.require-library)
 (native jazz.library-ref)

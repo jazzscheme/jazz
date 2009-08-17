@@ -82,7 +82,7 @@
 
 (define (jazz.require-library name)
   (or (%%table-ref jazz.Libraries name #f)
-      (jazz.error "Unknown library: {s}" name)))
+      (jazz.error "Unknown public library: {s}" name)))
 
 
 (define (jazz.library-ref library-name name)

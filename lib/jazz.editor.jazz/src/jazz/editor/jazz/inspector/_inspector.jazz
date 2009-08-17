@@ -46,6 +46,10 @@
 ;;;
 
 
+(definition presented-limit
+  128)
+
+
 (definition Unbound
   (cons {} {}))
 
@@ -69,8 +73,8 @@
                           (raw? (->string value))
                           (else (present-object value))))
          (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (when (> (cardinality presented) 512)
-      (set! presented (concatenate (subseq presented 0 128) "...")))
+    (when (> (cardinality presented) presented-limit)
+      (set! presented (concatenate (subseq presented 0 presented-limit) "...")))
     (list serial presented more? kind)))
 
 
@@ -142,7 +146,8 @@
         (sort < infos key: car))))
   
   (define (inspect-limit displayed total)
-    (cons "..." (package-info (format "{a} of {a} elements" displayed total) :raw)))
+    (let ((missing (- total displayed)))
+      (cons "..." (package-info (format "{a} missing of {a}" missing total) :raw))))
   
   (cond ((null/pair? value) (inspect-list value))
         ((table? value) (inspect-table value))

@@ -2288,6 +2288,28 @@
 
 
 ;;;
+;;;; Local-Variable-Binding
+;;;
+
+
+(jazz.define-class-runtime jazz.Local-Variable-Binding)
+
+
+(define (jazz.new-local-variable-binding type variable)
+  (jazz.allocate-local-variable-binding jazz.Local-Variable-Binding variable type #f variable))
+
+
+(jazz.define-method (jazz.emit-binding-reference (jazz.Local-Variable-Binding declaration) source-declaration environment)
+  (jazz.new-code
+    (%%get-local-variable-binding-variable declaration)
+    jazz.Any
+    #f))
+
+
+(jazz.encapsulate-class jazz.Local-Variable-Binding)
+
+
+;;;
 ;;;; Macro Symbol
 ;;;
 

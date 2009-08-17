@@ -643,6 +643,15 @@
 
 
 ;;;
+;;;; Local-Variable-Binding
+;;;
+
+
+(jazz.define-class jazz.Local-Variable-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class jazz.allocate-local-variable-binding
+  ((variable %%get-local-variable-binding-variable ())))
+
+
+;;;
 ;;;; Macro Symbol
 ;;;
 

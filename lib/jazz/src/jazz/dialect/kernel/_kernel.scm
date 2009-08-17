@@ -306,6 +306,114 @@
 
 
 ;;;
+;;;; Homogeneous
+;;;
+
+
+;; s8
+(native s8vector)
+(native make-s8vector)
+(native s8vector-length)
+(native s8vector-ref)
+(native s8vector-set!)
+(native s8vector?)
+(native s8vector->list)
+(native list->s8vector)
+
+;; u8
+(native u8vector)
+(native make-u8vector)
+(native u8vector-length)
+(native u8vector-ref)
+(native u8vector-set!)
+(native u8vector?)
+(native u8vector->list)
+(native list->u8vector)
+(native u8vector->object)
+(native object->u8vector)
+
+;; s16
+(native s16vector)
+(native make-s16vector)
+(native s16vector-length)
+(native s16vector-ref)
+(native s16vector-set!)
+(native s16vector?)
+(native s16vector->list)
+(native list->s16vector)
+
+;; u16
+(native u16vector)
+(native make-u16vector)
+(native u16vector-length)
+(native u16vector-ref)
+(native u16vector-set!)
+(native u16vector?)
+(native u16vector->list)
+(native list->u16vector)
+
+;; s32
+(native s32vector)
+(native make-s32vector)
+(native s32vector-length)
+(native s32vector-ref)
+(native s32vector-set!)
+(native s32vector?)
+(native s32vector->list)
+(native list->s32vector)
+
+;; u32
+(native u32vector)
+(native make-u32vector)
+(native u32vector-length)
+(native u32vector-ref)
+(native u32vector-set!)
+(native u32vector?)
+(native u32vector->list)
+(native list->u32vector)
+
+;; s64
+(native s64vector)
+(native make-s64vector)
+(native s64vector-length)
+(native s64vector-ref)
+(native s64vector-set!)
+(native s64vector?)
+(native s64vector->list)
+(native list->s64vector)
+
+;; u64
+(native u64vector)
+(native make-u64vector)
+(native u64vector-length)
+(native u64vector-ref)
+(native u64vector-set!)
+(native u64vector?)
+(native u64vector->list)
+(native list->u64vector)
+
+;; f32
+(native f32vector)
+(native make-f32vector)
+(native f32vector-length)
+(native f32vector-ref)
+(native f32vector-set!)
+(native f32vector?)
+(native f32vector->list)
+(native list->f32vector)
+
+;; f64
+(native f64vector)
+(native make-f64vector)
+(native f64vector-length)
+(native f64vector-ref)
+(native f64vector-set!)
+(native f64vector?)
+(native f64vector->list)
+(native list->f64vector)
+
+
+;;;
 ;;;; Host
 ;;;
 
@@ -927,40 +1035,6 @@
 
 
 (native jazz.vector-copy)
-(native u8vector)
-(native make-u8vector)
-(native u8vector-length)
-(native u8vector-ref)
-(native u8vector-set!)
-(native u8vector?)
-(native u8vector->list)
-(native list->u8vector)
-(native u8vector->object)
-(native object->u8vector)
-(native u16vector)
-(native make-u16vector)
-(native u16vector-length)
-(native u16vector-ref)
-(native u16vector-set!)
-(native u16vector?)
-(native u32vector)
-(native make-u32vector)
-(native u32vector-length)
-(native u32vector-ref)
-(native u32vector-set!)
-(native u32vector?)
-(native f32vector)
-(native make-f32vector)
-(native f32vector-length)
-(native f32vector-ref)
-(native f32vector-set!)
-(native f32vector?)
-(native f64vector)
-(native make-f64vector)
-(native f64vector-length)
-(native f64vector-ref)
-(native f64vector-set!)
-(native f64vector?)
 
 
 ;;;

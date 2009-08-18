@@ -57,7 +57,7 @@
   (slot projects-table   initialize (make-table test: eq?))
   (slot categories-table initialize (make-table test: eq?))
   (slot resources-table  initialize (make-table test: equal?))
-  ;; this is clearly not maintained up to date perfectly but it'll do for now
+  ;; this is clearly not maintained up to date perfectly but it will do for now
   (slot sources-table    initialize (make-table test: equal?))
 
 
@@ -70,13 +70,31 @@
     projects-table)
   
   
-  (method public (find-project type-name)
-    (table-ref projects-table type-name #f))
+  (method public (find-project project-accessor/class)
+    (define (determine-project-class)
+      (if (symbol? project-accessor/class)
+          (receive (module name) (split-composite project-accessor/class)
+            ;; this is to support the old format so profiles won't crash
+            (if (not module)
+                name
+              (library-ref module name)))
+        project-accessor/class))
+    
+    (let ((project-class (determine-project-class)))
+      (continuation-capture
+        (function (return)
+          (iterate-table projects-table
+            (function (locator project)
+              (when (if (symbol? project-class)
+                        (eq? (identifier-name (type-name (class-of project))) project-class)
+                      (instance-of? project project-class))
+                (continuation-return return project))))
+          {}))))
   
   
-  (method public (require-project type-name)
-    (either (find-project type-name)
-            (error "Unable to find project: {s}" type-name)))
+  (method public (require-project project-accessor/class)
+    (either (find-project project-accessor/class)
+            (error "Unable to find project: {s}" project-accessor/class)))
 
 
   ;;;
@@ -142,7 +160,7 @@
        (when (is? component Project)
          (set-workbench~ component self)
          (set-parent-project~ component project)
-         (table-set! projects-table (identifier-name (type-name (class-of component))) component))
+         (table-set! projects-table (type-name (class-of component)) component))
        (set-project~ component project)
        (let ((source (get-source~ component)))
          (add-source source component)
@@ -158,7 +176,7 @@
     (typecase component
       ((Project-File)
        (when (is? component Project)
-         (table-clear projects-table (identifier-name (type-name (class-of component)))))
+         (table-clear projects-table (type-name (class-of component))))
        (let ((source (get-source~ component)))
          (remove-source source component)
          (typecase component

@@ -432,6 +432,7 @@
 (native jazz.identifier-module <symbol>)
 (native jazz.identifier-name <symbol>)
 (native jazz.split-identifier)
+(native jazz.split-composite)
 
 
 ;;;

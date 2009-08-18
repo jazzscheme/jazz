@@ -53,45 +53,45 @@
   (property process initialize {} getter get-process setter set-process)
   (property client  initialize {} getter get-client  setter set-client)
   (property sort?   initialize #t getter get-sort?   setter set-sort?)
-
-
+  
+  
   (form
     (<install>                         filled-column: value multiple-selection?: #f selection-mode: row portfolio: :icons
       (<Tree-Node-Column>  name: name  title: "Name")
       (<Tree-Label-Column> name: value title: "Value")))
-    
+  
   
   ;;;
   ;;;; Access
   ;;;
-
-
+  
+  
   (method public (get-process)
     process)
-
-
+  
+  
   (method public (set-process value)
     (set! process value))
-
-
+  
+  
   (method public (get-client)
     client)
-
-
+  
+  
   (method public (set-client clt)
     (when (neq? clt client)
       (set! client clt)
       (present-client client)))
-
-
+  
+  
   (method public (get-sort?)
     sort?)
-
-
+  
+  
   (method public (set-sort? value)
     (set! sort? value))
-
-
+  
+  
   ;;;
   ;;;; Tree
   ;;;
@@ -100,8 +100,8 @@
   (method (update-row row)
     (bind (serial . kind) (get-user-data~ row)
       (present row (inspect-serial~ process serial))))
-
-
+  
+  
   ;;;
   ;;;; Present
   ;;;
@@ -120,17 +120,25 @@
     (with-update-locked
       (function ()
         (for-each (function (info)
-                    (bind-optionals ((name {}) (address {}) (presented {}) (more? {}) (kind {})) info
+                    (bind (name serial presented more? kind) info
                       (let ((state (if more? 'dynamic 'collapsed)))
-                        (add-row father: row state: state children: (list (new Tree-Node title: name image: {Bitmap-Resource "Variable"}) (new Tree-Label title: presented)) user-data: (cons address kind)))))
+                        (add-row father: row state: state
+                          children: (list (new Tree-Node title: name image: {Bitmap-Resource "Variable"}) (new Tree-Label title: presented))
+                          user-data: (cons serial kind)))))
                   values))))
-
-
+  
+  
   ;;;
   ;;;; Inspect
   ;;;
-
-
+  
+  
   (method public virtual (inspect data kind)
     (case kind
-      ((:value) (inspect-value data))))))
+      ((:value)
+       (inspect-value data))
+      ((:remote)
+        (bind (serial presented more? kind) data
+          (if more?
+              (inspect-serial~ process serial)
+            '())))))))

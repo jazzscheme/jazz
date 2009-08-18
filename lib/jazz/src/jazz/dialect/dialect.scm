@@ -279,7 +279,7 @@
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (jazz.new-queue) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -466,7 +466,7 @@
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (%%make-table test: eq?) #f implementor metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type #f access compatibility attributes #f parent #f #f (jazz.make-access-lookups jazz.protected-access) (jazz.new-queue) #f implementor metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

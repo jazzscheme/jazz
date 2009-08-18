@@ -450,7 +450,7 @@
 
 
 (define (jazz.new-library-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -3226,7 +3226,7 @@
 
 (define (jazz.add-declaration-child walker resume namespace-declaration child)
   (let ((name (%%get-lexical-binding-name child)))
-    (%%table-set! (%%get-namespace-declaration-children-lookup namespace-declaration) name child)
+    (jazz.enqueue (%%get-namespace-declaration-children namespace-declaration) child)
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
     ;; for now everything not private is considered public
     (%%when (%%neq? (%%get-declaration-access child) 'private)

@@ -166,22 +166,6 @@
                    lst))
 
 
-(define (jazz.get-core-class-all-slots core-class)
-  (let ((slots (%%get-class-slots core-class))
-        (ascendant (%%get-class-ascendant core-class)))
-    (if (%%not ascendant)
-        slots
-      (%%append (jazz.get-core-class-all-slots ascendant) slots))))
-
-
-(define (jazz.get-core-class-all-slot-names core-class)
-  (map (lambda (name/slot)
-         (if (%%symbol? name/slot)
-             name/slot
-           (%%get-field-name name/slot)))
-       (jazz.get-core-class-all-slots core-class)))
-
-
 (define (jazz.create-class-tables class)
   (jazz.create-class-interface-table class)
   (jazz.create-class-class-table class))
@@ -363,9 +347,25 @@
 
 
 (define (jazz.validate-inherited-slots name ascendant inherited-slot-names)
+  (define (core-class-all-slots core-class)
+    (let ((slots (%%get-class-slots core-class))
+          (ascendant (%%get-class-ascendant core-class)))
+      (if (%%not ascendant)
+          slots
+        (%%append (core-class-all-slots ascendant) slots))))
+  
+  (define (core-class-all-slot-names core-class)
+    (let ((all-slots (core-class-all-slots core-class)))
+      ;; core class has not been redefined yet
+      (if (jazz.some? symbol? all-slots)
+          all-slots
+        (map (lambda (slot)
+               (%%get-field-name slot))
+             (%%get-class-slots core-class)))))
+  
   (if (or (and (%%not ascendant) (%%not (%%null? inherited-slot-names)))
-          (and ascendant (%%not (%%equal? (jazz.get-core-class-all-slot-names ascendant) inherited-slot-names))))
-      (jazz.error "Inconsistant inherited slots for {s}: {s} vs {s}" name inherited-slot-names (and ascendant (jazz.get-core-class-all-slot-names ascendant)))))
+          (and ascendant (%%not (%%equal? (core-class-all-slot-names ascendant) inherited-slot-names))))
+      (jazz.error "Inconsistant inherited slots for {s}: {s} vs {s}" name inherited-slot-names (and ascendant (core-class-all-slot-names ascendant)))))
 
 
 ;;;
@@ -2025,9 +2025,10 @@
         slot)))
 
 
-(define (jazz.remove-slots class)
-  (let ((actual (%%get-class-slots class)))
-    (%%set-class-slots class '())
+(define (jazz.remove-own-slots class)
+  (let ((ascendant (%%get-class-ascendant class))
+        (actual (%%get-class-slots class)))
+    (%%set-class-slots class (if ascendant (%%get-class-slots ascendant) '()))
     (%%set-class-instance-size class (%%fx- (%%get-class-instance-size class) (%%length actual)))))
 
 

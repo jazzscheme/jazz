@@ -363,13 +363,11 @@
         `(begin
            ,@(if (jazz.core-class? name)
                  (let ((core-class (jazz.get-core-class name)))
-                   (jazz.validate-core-class/class core-class declaration)
+                   (jazz.validate-core-class core-class declaration)
                    (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.sourcified-form (jazz.emit-binding-reference ascendant-declaration declaration environment)))))
                      `((define ,locator ,(%%get-category-name core-class))
                        (define ,level-locator (%%get-class-level ,locator))
-                       (begin
-                         ,@(if ascendant-access (%%list ascendant-access) '())
-                         (jazz.remove-slots ,locator)))))
+                       (jazz.remove-own-slots ,locator))))
                (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
                  (let ((ascendant-access (jazz.emit-ascendant-access declaration environment)))
                    (let ((metaclass-access (if (%%not metaclass-declaration) (if (%%not ascendant-access) 'jazz.Object-Class `(%%get-object-class ,ascendant-access)) (jazz.sourcified-form (jazz.emit-binding-reference metaclass-declaration declaration environment))))
@@ -420,47 +418,43 @@
 ;;;
 
 
-(define (jazz.validate-core-class/class core-class declaration)
-  (jazz.validate-core-class/category core-class declaration)
-  (jazz.validate-core-class/slots core-class declaration))
-
-
-(define (jazz.validate-core-class/slots core-class declaration)
-  (define (collect-slots lst)
-    (let ((queue (jazz.new-queue)))
-      (define (process obj)
-        (cond ((%%is? obj jazz.Slot-Declaration)
-               (jazz.enqueue queue obj))
-              ((%%is? obj jazz.Begin)
-               (for-each process (%%get-begin-expressions obj)))))
-      
-      (for-each process lst)
-      (jazz.queue-list queue)))
+(define (jazz.validate-core-class core-class declaration)
+  (define (validate-category)
+    (define (validate-ascendant)
+      (let* ((core-class-ascendant (%%get-class-ascendant core-class))
+             (core-class-ascendant-name (if (%%not core-class-ascendant) '() (jazz.identifier-name (%%get-category-name core-class-ascendant))))
+             (declaration-ascendant (%%get-class-declaration-ascendant declaration))
+             (declaration-ascendant-name (if (%%not declaration-ascendant) '() (jazz.identifier-name (%%get-declaration-locator declaration-ascendant)))))
+        (%%when (%%not (%%eq? core-class-ascendant-name declaration-ascendant-name))
+          (jazz.error "Inconsistant core-class/class ascendant for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-ascendant-name declaration-ascendant-name))))
+    
+    (define (validate-interfaces)
+      (let ((declaration-interfaces (%%get-class-declaration-interfaces declaration)))
+        (%%when (%%not (%%null? declaration-interfaces))
+          (jazz.error "Interfaces are not supported in open classes: {s}" (%%get-lexical-binding-name declaration)))))
+    
+    (validate-ascendant)
+    (validate-interfaces))
   
-  (let ((core-class-slot-names (map (lambda (name/slot) (if (%%symbol? name/slot) name/slot (%%get-field-name name/slot))) (%%get-class-slots core-class)))
-        (declaration-slot-names (map (lambda (decl) (%%get-lexical-binding-name decl)) (collect-slots (%%get-namespace-declaration-body declaration)))))
-    (%%when (%%not (%%equal? core-class-slot-names declaration-slot-names))
-      (jazz.error "Inconsistant core-class/class slots for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-slot-names declaration-slot-names))))
-
-
-(define (jazz.validate-core-class/category core-class declaration)
-  (jazz.validate-core-class/ascendant core-class declaration)
-  (jazz.validate-core-class/interfaces core-class declaration))
-
-
-(define (jazz.validate-core-class/ascendant core-class declaration)
-  (let* ((core-class-ascendant (%%get-class-ascendant core-class))
-         (core-class-ascendant-name (if (%%not core-class-ascendant) '() (jazz.identifier-name (%%get-category-name core-class-ascendant))))
-         (declaration-ascendant (%%get-class-declaration-ascendant declaration))
-         (declaration-ascendant-name (if (%%not declaration-ascendant) '() (jazz.identifier-name (%%get-declaration-locator declaration-ascendant)))))
-    (%%when (%%not (%%eq? core-class-ascendant-name declaration-ascendant-name))
-      (jazz.error "Inconsistant core-class/class ascendant for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-ascendant-name declaration-ascendant-name))))
-
-
-(define (jazz.validate-core-class/interfaces core-class declaration)
-  (let ((declaration-interfaces (%%get-class-declaration-interfaces declaration)))
-    (%%when (%%not (%%null? declaration-interfaces))
-      (jazz.error "Interfaces are not supported in open classes: {s}" (%%get-lexical-binding-name declaration)))))
+  (define (validate-slots)
+    (define (collect-slots lst)
+      (let ((queue (jazz.new-queue)))
+        (define (process obj)
+          (cond ((%%is? obj jazz.Slot-Declaration)
+                 (jazz.enqueue queue obj))
+                ((%%is? obj jazz.Begin)
+                 (for-each process (%%get-begin-expressions obj)))))
+        
+        (for-each process lst)
+        (jazz.queue-list queue)))
+    
+    (let ((core-class-slot-names (map (lambda (name/slot) (if (%%symbol? name/slot) name/slot (%%get-field-name name/slot))) (%%get-class-slots core-class)))
+          (declaration-slot-names (map (lambda (decl) (%%get-lexical-binding-name decl)) (collect-slots (%%get-namespace-declaration-body declaration)))))
+      (%%when (%%not (%%equal? core-class-slot-names declaration-slot-names))
+        (jazz.error "Inconsistant core-class/class slots for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-slot-names declaration-slot-names))))
+  
+  (validate-category)
+  (validate-slots))
 
 
 ;;;

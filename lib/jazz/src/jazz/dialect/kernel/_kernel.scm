@@ -890,7 +890,7 @@
 (native jazz.source-code)
 (native jazz.source-locat)
 (native jazz.desourcify)
-(native jazz.desourcify-list)
+(native jazz.desourcify-all)
 (native jazz.sourcify)
 (native jazz.sourcify-if)
 (native jazz.present-source)

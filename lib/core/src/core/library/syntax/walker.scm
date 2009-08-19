@@ -3001,7 +3001,7 @@
                (actual (jazz.get-catalog-entry name))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice (jazz.desourcify-list body))))
+                                (let ((declaration (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice (jazz.desourcify-all body))))
                                   (jazz.set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz.walker-environment walker)))
@@ -5308,7 +5308,7 @@
   (let ((operator (%%car (jazz.source-code form-src)))
         (arguments (%%cdr (jazz.source-code form-src))))
     (if procedure-binding
-        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-list arguments)))
+        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-all arguments)))
     (jazz.new-call form-src
                    (continuation-capture
                      (lambda (resume)

@@ -2006,7 +2006,7 @@
 
 (define (jazz.parse-method walker resume declaration rest)
   (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz.parse-modifiers walker resume declaration jazz.method-modifiers rest)
-    (%%assertion (and (%%pair? rest) (%%pair? (jazz.source-code (%%car rest)))) (jazz.error "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method (jazz.desourcify-list rest)))
+    (%%assertion (and (%%pair? rest) (%%pair? (jazz.source-code (%%car rest)))) (jazz.error "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method (jazz.desourcify-all rest)))
       (let ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
             (parameters (jazz.wrap-parameters (%%cdr (%%desourcify (%%car rest))))))
         (jazz.parse-specifier (%%cdr rest)

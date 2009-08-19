@@ -43,15 +43,17 @@
 
 
 ;;;
-;;;; Expand
+;;;; Parse
 ;;;
 
 
-(define (expand module-name)
-  (expand-to-port module-name (current-output-port)))
+(define (jazz.parse module-name)
+  (let ((source (jazz.resource-pathname (jazz.find-module-src module-name #f))))
+    (let ((form (jazz.read-toplevel-form source)))
+      (pretty-print form))))
 
 
-(define (expand-source module-name)
+(define (jazz.parse-source module-name)
   (parameterize ((jazz.walk-for 'walk))
     (let* ((src (jazz.find-module-src module-name #f))
            (source (jazz.resource-pathname src))
@@ -61,18 +63,13 @@
           syntax)))))
 
 
-(define (expand-syntax module-name)
-  (parameterize ((jazz.walk-for 'walk))
-    (let* ((src (jazz.find-module-src module-name #f))
-           (source (jazz.resource-pathname src))
-           (syntax (jazz.read-toplevel-form source read-source?: #t)))
-      (pretty-print
-        (jazz.present-source
-          (jazz.expand-module module-name))))))
+;;;
+;;;; Expand
+;;;
 
 
-(define (jazz.expand-module module-name)
-  (parameterize ((jazz.walk-for 'walk))
+(define (jazz.expand-module module-name #!key (walk-for #f))
+  (parameterize ((jazz.walk-for (or walk-for 'walk)))
     (let* ((src (jazz.find-module-src module-name #f))
            (source (jazz.resource-pathname src))
            (form (jazz.read-toplevel-form source read-source?: #t))
@@ -80,28 +77,27 @@
       (parameterize ((jazz.requested-module-name module-name)
                      (jazz.requested-module-resource src))
         (case kind
-          ;; todo ((module) (jazz.expand-module-source (car rest) (cdr rest)))
+          ((module) (jazz.expand-module-source (car (jazz.source-code form)) (cdr (jazz.source-code form))))
           ((library) (jazz.expand-library-source (cdr (jazz.source-code form)))))))))
 
 
-(define (expand-to-file module-name . rest)
-  (let ((filename (if (%%null? rest) "x.scm" (%%car rest))))
-    (call-with-output-file filename
-      (lambda (port)
-        (expand-to-port module-name port)))))
+(define (jazz.expand module-name . rest)
+  (apply jazz.expand-to-port module-name (current-output-port) rest))
 
 
-(define (expand-to-port module-name port)
-  (parameterize ((jazz.walk-for 'walk))
-    (let* ((src (jazz.find-module-src module-name #f))
-           (source (jazz.resource-pathname src))
-           (form (jazz.read-toplevel-form source))
-           (kind (%%car form))
-           (rest (%%cdr form)))
-      (pretty-print
-        (parameterize ((jazz.requested-module-name module-name)
-                       (jazz.requested-module-resource src))
-          (case kind
-            ((module) (jazz.expand-module-source (%%car rest) (%%cdr rest)))
-            ((library) (jazz.expand-library-source rest))))
-        port)))))
+(define (jazz.expand-to-file module-name #!key (file #f) #!rest rest)
+  (call-with-output-file (or file "x.scm")
+    (lambda (port)
+      (apply jazz.expand-to-port module-name port rest))))
+
+
+(define (jazz.expand-to-port module-name port . rest)
+  (pretty-print
+    (jazz.desourcify-all (apply jazz.expand-module module-name rest))
+    port))
+
+
+(define (jazz.expand-source module-name . rest)
+  (pretty-print
+    (jazz.present-source
+      (apply jazz.expand-module module-name rest)))))

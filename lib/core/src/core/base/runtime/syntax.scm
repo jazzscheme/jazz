@@ -56,8 +56,46 @@
   (%%desourcify expr))
 
 
-(define (jazz.desourcify-list lst)
-  (map jazz.desourcify lst))
+(define (jazz.desourcify-all expr)
+  
+  (define (desourcify-source src)
+    (desourcify-all (%%source-code src)))
+
+  (define (desourcify-list lst)
+    (cond ((%%pair? lst)
+           (%%cons (desourcify-all (%%car lst))
+                   (desourcify-list (%%cdr lst))))
+          ((%%null? lst)
+           '())
+          (else
+           (desourcify-all lst))))
+
+  (define (desourcify-vector vect)
+    (let* ((len (%%vector-length vect))
+           (x (%%make-vector len 0)))
+      (let loop ((i (%%fx- len 1)))
+        (if (%%fx< i 0)
+          x
+          (begin
+            (%%vector-set! x i (desourcify-all (%%vector-ref vect i)))
+            (loop (%%fx- i 1)))))))
+  
+  (define (desourcify-box box)
+    (%%box (desourcify-all (%%unbox box))))
+  
+  (define (desourcify-all expr)
+    (cond ((%%source? expr)
+           (desourcify-source expr))
+          ((%%pair? expr)
+           (desourcify-list expr))
+          ((%%vector? expr)
+           (desourcify-vector expr))
+          ((%%box? expr)
+           (desourcify-box expr))
+          (else
+           expr)))
+  
+  (desourcify-all expr))
 
 
 (define (jazz.sourcify expr src)

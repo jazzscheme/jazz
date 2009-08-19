@@ -57,6 +57,31 @@
 
 
 ;;;
+;;;; Box
+;;;
+
+
+(cond-expand
+  (gambit
+   (jazz.define-macro (%%box? obj)
+     (if jazz.debug-core?
+         `(box? ,obj)
+       `(##box? ,obj)))
+   
+   (jazz.define-macro (%%box obj)
+     (if jazz.debug-core?
+         `(box ,obj)
+       `(##box ,obj)))
+   
+   (jazz.define-macro (%%unbox box)
+     (if jazz.debug-core?
+         `(unbox ,box)
+       `(##unbox ,box))))
+  
+  (else))
+
+
+;;;
 ;;;; Char
 ;;;
 

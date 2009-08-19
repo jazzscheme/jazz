@@ -442,16 +442,18 @@
                  (values {} {}))))
       (values {} {})))
   
-  (define (frame-evaluator)
+  (define (current-frame)
     (let ((frame-box (current-repl-frame)))
       (if frame-box
-          (let ((frame (unbox frame-box)))
-            (if frame
-                (let ((cont (serial->object (get-continuation~ frame))))
-                  (function (expr)
-                    (eval-within-no-winding expr cont)))
-              eval))
-        eval)))
+          (unbox frame-box)
+        {})))
+  
+  (define (frame-evaluator frame)
+    (if frame
+        (let ((cont (serial->object (get-continuation~ frame))))
+          (function (expr)
+            (eval-within-no-winding expr cont)))
+      eval))
   
   (let ((console (current-console)))
     (let ((context (if (not console) {} (context-init console))))
@@ -467,38 +469,34 @@
                     (set-context~ console new-context)
                     (set-readtable~ console (if (not new-context) {} jazz-readtable)))
                   new-context)))
-          (let ((evaluator eval @wait (frame-evaluator)))
-            (evaluate-in-context context evaluator expr)))))))
+          (let ((frame (current-frame)))
+            (let ((evaluator (frame-evaluator frame)))
+              (evaluate-in-context context frame evaluator expr))))))))
 
 
-(definition (evaluate-in-context context evaluator expr)
+(definition (evaluate-in-context context frame evaluator expr)
   (parameterize ((walk-for 'eval))
-    (cond ((not context)
-           (evaluator expr))
-          ((symbol? context)
-           (let ((module-name context))
-             (load-module module-name)
-             (outline-module module-name)
-             (evaluator
-               `(library ,module-name jazz
-                ,expr
-                @wait
-                (with-local-variables (p t l h) ;; for tests
-                  ,expr)))))
-          (else
-           (let ((class-identifier (type-name (class-of context))))
-             (let ((module-name (identifier-module class-identifier))
-                   (class-name (identifier-name class-identifier)))
-               (load-module module-name)
-               (outline-module module-name)
-               (evaluator
-                 `(library ,module-name jazz
-                  (class ,class-name
-                    (with-dynamic-self (jazz.debuggee.current-console-context)
-                      ,expr
-                      @wait
-                      (with-local-variables (p t l h) ;; for tests
-                        ,expr)))))))))))
+    (if (not context)
+        (evaluator expr)
+      (let ((local-variables (if frame (get-names~ frame) '())))
+        (if (symbol? context)
+            (let ((module-name context))
+              (load-module module-name)
+              (outline-module module-name)
+              (evaluator
+                `(library ,module-name jazz
+                 (with-local-variables ,local-variables
+                   ,expr))))
+          (let ((class-identifier (type-name (class-of context))))
+            (receive (module-name class-name) (split-composite class-identifier)
+              (load-module module-name)
+              (outline-module module-name)
+              (evaluator
+                `(library ,module-name jazz
+                 (class ,class-name
+                   (with-dynamic-self (jazz.debuggee.current-console-context)
+                     (with-local-variables ,local-variables
+                       ,expr))))))))))))
 
 
 ;;;

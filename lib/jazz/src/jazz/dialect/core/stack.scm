@@ -156,6 +156,10 @@
       (jazz.locat->file/line/col (%%continuation-locat cont)))
     
     
+    (define (jazz.interpreted-continuation? cont)
+      (%%interp-continuation? (%%continuation-creator cont)))
+    
+    
     (define (jazz.with-repl-context cont thunk)
       (let ((prev-context (%%thread-repl-context-get!)))
         (let ((context

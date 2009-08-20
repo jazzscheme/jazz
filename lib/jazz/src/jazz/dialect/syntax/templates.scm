@@ -97,9 +97,9 @@
 #; ;; wait
 (macro public (instantiate-search name T)
   `(begin
-     (definition (multisearch-impl seq <Sequence> contexts <list> start <fx+> reverse? <bool>)
+     (definition (multisearch-impl seq <Sequence> contexts <list> start <fx+> reversed? <bool>)
        (let ((len (cardinality seq)))
-         (let ((pos (either start (if reverse? len 0))))
+         (let ((pos (either start (if reversed? len 0))))
            (let (iter (scan contexts))
              (if (null? scan)
                  #f
@@ -158,51 +158,51 @@
                                  (else
                                   (iter (+ pos 1)))))))
                      
-                     (let ((found ((if reverse? find-backward find-forward))))
+                     (let ((found ((if reversed? find-backward find-forward))))
                        (if found
                            (cons context found)
                          (iter (cdr scan))))))))))))
      
      (definition public (multisearch seq <Sequence> contexts <list>
                           (start: start {})
-                          (reverse?: reverse? #f))
-       (multisearch-impl seq contexts start reverse?))
+                          (reversed?: reversed? #f))
+       (multisearch-impl seq contexts start reversed?))
      
      (definition public (multisearch-all seq <Sequence> contexts <list>
                           (start: start {})
-                          (reverse?: reverse? #f))
+                          (reversed?: reversed? #f))
        (let ((len (cardinality seq))
              (queue (new-queue)))
-         (let (iter (pos <fx> (either start (if reverse? len 0))))
-           (let ((found (multisearch-impl seq contexts pos reverse?)))
+         (let (iter (pos <fx> (either start (if reversed? len 0))))
+           (let ((found (multisearch-impl seq contexts pos reversed?)))
              (if found
                  (begin
                    (enqueue queue found)
-                   (iter (if reverse?
+                   (iter (if reversed?
                              (cdr found)
                            (+ (cdr found) (cardinality (get-target~ (car found)))))))
                (queue-list queue))))))
      
      (definition public (search seq <Sequence> target <Object>
                           (start: start {})
-                          (reverse?: reverse? #f)
+                          (reversed?: reversed? #f)
                           (whole-words?: whole-words? #f)
                           (ignore-case?: ignore-case? #f)
                           (constituent-test: constituent-test word-constituent?)) <int+>
-       (let ((result (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f)) start reverse?)))
+       (let ((result (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f)) start reversed?)))
          (if result
              (cdr result)
            #f)))
      
      (definition public (search-all seq <Sequence> target <Object>
                           (start: start {})
-                          (reverse?: reverse? #f)
+                          (reversed?: reversed? #f)
                           (whole-words?: whole-words? #f)
                           (ignore-case?: ignore-case? #f)
                           (constituent-test: constituent-test word-constituent?)) <list>
        (map cdr (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f))
                   start: start
-                  reverse?: reverse?)))))
+                  reversed?: reversed?)))))
 
 
 (macro public (instantiate-starts-with? T)

@@ -4452,7 +4452,7 @@
   
   
   (method public virtual (select-next contexts)
-    (let ((found (text-multisearch contexts start: (get-end) reverse?: #f)))
+    (let ((found (text-multisearch contexts start: (get-end) reversed?: #f)))
       (when found
         (bind (context . pos) found
           (let ((target (get-target~ context)))
@@ -4463,7 +4463,7 @@
   
   
   (method public virtual (select-previous contexts)
-    (let ((found (text-multisearch contexts start: (get-start) reverse?: #t)))
+    (let ((found (text-multisearch contexts start: (get-start) reversed?: #t)))
       (when found
         (bind (context . pos) found
           (let ((target (get-target~ context)))
@@ -4488,29 +4488,29 @@
   ;;;
   
   
-  (method public (text-multisearch contexts (start: start {}) (end: end (get-limit)) (reverse?: reverse? #f))
+  (method public (text-multisearch contexts (start: start {}) (end: end (get-limit)) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test)))
       ;; Quick solution to multi-line string search
       (if (some? (function (context)
                    (search (get-target~ context) "\n"))
                  contexts)
           (let ((content (get-string-content)))
-            (let ((found (multisearch content contexts constituent-test: constituent-test start: (position-offset start) reverse?: reverse?)))
+            (let ((found (multisearch content contexts constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (context . offset) found
                   (cons context (offset-position offset))))))
-        (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
+        (let ((pos (either start (if reversed? (text-ending) (text-beginning))))
               (limit (get-limit)))
           (let ((row (get-row~ pos))
                 (col (get-col~ pos)))
             (let (iter (n row) (start col))
-              (if (if reverse? (>= n 0) (<= n limit))
+              (if (if reversed? (>= n 0) (<= n limit))
                   (let ((string (paragraph-string n)))
-                    (let ((found (multisearch string contexts constituent-test: constituent-test start: start reverse?: reverse?)))
+                    (let ((found (multisearch string contexts constituent-test: constituent-test start: start reversed?: reversed?)))
                       (if found
                           (bind (context . pos) found
                             (cons context (new Cell n pos)))
-                        (iter (if reverse? (- n 1) (+ n 1)) {}))))
+                        (iter (if reversed? (- n 1) (+ n 1)) {}))))
                 #f)))))))
 
   
@@ -4537,7 +4537,7 @@
     (map cdr (apply text-multisearch-all (standardize-search-contexts context) rest)))
 
   
-  (method public (text-expression-search string (start: start {}) (end: end (get-limit)) (reverse?: reverse? #f))
+  (method public (text-expression-search string (start: start {}) (end: end (get-limit)) (reversed?: reversed? #f))
     (let* ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
            (moniker (get-moniker))
            (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))

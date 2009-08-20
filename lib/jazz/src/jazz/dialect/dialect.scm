@@ -1075,21 +1075,35 @@
 
 (jazz.define-method (jazz.walk-symbol (jazz.Jazz-Walker walker) resume declaration environment symbol-src)
   (let ((symbol (jazz.source-code symbol-src)))
-    (let ((slot-name (jazz.self-access symbol)))
-      (if slot-name
-          (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name jazz.private-access)))
-            (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
-              (jazz.new-reference slot-declaration)))
-        (nextmethod walker resume declaration environment symbol-src)))))
+    (jazz.split-tilde symbol
+      (lambda (tilde? name self/class-name)
+        (if tilde?
+            (cond ((and name self/class-name)
+                   (if (%%eq? self/class-name 'self)
+                       (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name jazz.private-access)))
+                         (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
+                           (jazz.new-reference slot-declaration)))
+                     (let ((category-declaration (jazz.resolve-declaration (jazz.lookup-reference walker resume declaration environment self/class-name))))
+                       (%%assert (%%class-is? category-declaration jazz.Category-Declaration)
+                         (let ((method-declaration (jazz.lookup-declaration category-declaration name jazz.private-access)))
+                           (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
+                             (jazz.new-method-reference method-declaration)))))))
+                  ((or name self/class-name)
+                   (jazz.error "Ill-formed expression: {s}" symbol))
+                  (else
+                   (nextmethod walker resume declaration environment symbol-src)))
+          (nextmethod walker resume declaration environment symbol-src))))))
 
 
-(define (jazz.self-access symbol)
-  (let* ((name (%%symbol->string symbol))
-         (len (%%string-length name))
-         (size (%%fx- len 5)))
-    (and (%%fx> size 0)
-         (%%equal? (%%substring name size len) "~self")
-         (%%string->symbol (%%substring name 0 size)))))
+(define (jazz.split-tilde symbol proc)
+  (let ((str (%%symbol->string symbol)))
+    (let ((n (jazz.string-find-reversed str #\~)))
+      (if (%%not n)
+          (proc #f #f #f)
+        (let ((len (%%string-length str)))
+          (proc #t
+                (if (%%fx> n 0) (%%string->symbol (%%substring str 0 n)) #f)
+                (if (%%fx< (%%fx+ n 1) len) (%%string->symbol (%%substring str (%%fx+ n 1) len)) #f)))))))
 
 
 ;;;
@@ -1098,12 +1112,15 @@
 
 
 (jazz.define-method (jazz.walk-symbol-assignment (jazz.Jazz-Walker walker) resume declaration environment symbol value)
-  (let ((slot-name (jazz.self-access symbol)))
-    (if slot-name
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name jazz.private-access)))
-          (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
-            (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
-      (nextmethod walker resume declaration environment symbol value))))
+  (jazz.split-tilde symbol
+    (lambda (tilde? name self/class-name)
+      (if tilde?
+          (if (and name (%%eq? self/class-name 'self))
+              (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name jazz.private-access)))
+                (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
+                  (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
+            (jazz.error "Ill-formed set! variable: {s}" symbol))
+        (nextmethod walker resume declaration environment symbol value)))))
 
 
 ;;;

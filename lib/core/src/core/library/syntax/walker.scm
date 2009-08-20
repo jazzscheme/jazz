@@ -3480,6 +3480,41 @@
 
 
 ;;;
+;;;; Method Reference
+;;;
+
+
+(jazz.define-class-runtime jazz.Method-Reference)
+
+
+(define (jazz.new-method-reference binding)
+  (jazz.allocate-method-reference jazz.Method-Reference #f #f binding))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Method-Reference expression) declaration environment)
+  (let ((method-declaration (%%get-reference-binding expression)))
+    (jazz.new-code
+      (%%get-declaration-locator method-declaration)
+      (or (%%get-lexical-binding-type method-declaration)
+          jazz.Any)
+      #f)))
+
+
+(jazz.define-method (jazz.emit-call (jazz.Method-Reference expression) arguments declaration environment)
+  (jazz.new-code
+    `(,(jazz.sourcified-form (jazz.emit-expression expression declaration environment)) ,@(jazz.codes-forms arguments))
+    jazz.Any
+    #f))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Method-Reference expression) f k s)
+  (f expression s))
+
+
+(jazz.encapsulate-class jazz.Method-Reference)
+
+
+;;;
 ;;;; Assignment
 ;;;
 

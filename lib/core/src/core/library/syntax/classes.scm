@@ -811,6 +811,15 @@
 
 
 ;;;
+;;;; Method Reference
+;;;
+
+
+(jazz.define-class jazz.Method-Reference jazz.Reference (type source binding) jazz.Object-Class jazz.allocate-method-reference
+  ())
+
+
+;;;
 ;;;; Assignment
 ;;;
 

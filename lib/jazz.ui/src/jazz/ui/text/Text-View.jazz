@@ -3868,14 +3868,21 @@
   
   
   (method (mouse-insert copy)
+    (define (separate? before after)
+      (and (not (or (memv? before '(#\- #\.))
+                    (memv? after '(#\- #\.))))
+           (or (text-constituent? before) (memv? before '(#\) #\] #\})))
+           (or (text-constituent? after) (memv? after '(#\( #\[ #\{)))))
+    
     (let ((start (get-start))
           (end (get-end)))
-      (when (/= start (text-beginning))
-        (let ((sc (get-char (previous-cell start))))
-          (when (and (text-constituent? (element copy 0)) (text-constituent? sc) (not (memv? sc '(#\minus))))
-            (set! copy (string-append " " copy)))))
-      (when (and (/= end (text-ending)) (text-constituent? (last copy)) (text-constituent? (get-char end)))
-        (set! copy (string-append copy " ")))
+      (when (nu=? start end)
+        (let ((prev (essay (/= start (text-beginning)) (get-char (previous-cell start))))
+              (next (essay (/= end (text-ending)) (get-char end))))
+          (when (and prev (separate? prev (element copy 0)))
+            (set! copy (string-append " " copy)))
+          (when (and next (separate? (last copy) next))
+            (set! copy (string-append copy " ")))))
       (with-update-locked
         (function ()
           (insert-string copy)))))

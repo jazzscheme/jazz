@@ -844,6 +844,12 @@
 
 
 (define (jazz.with-module-src/bin module-name extensions proc)
+  (define (force-interpreted?)
+    (let ((interpreted? (jazz.force-interpreted?)))
+      (if (%%boolean? interpreted?)
+          interpreted?
+        (%%memv module-name interpreted?))))
+  
   (let ((bin (jazz.find-module-bin module-name))
         (src (jazz.find-module-src module-name extensions)))
     (let ((bin-uptodate?
@@ -852,7 +858,8 @@
                                                             (jazz.manifest-pathname (%%resource-package bin) bin)
                                                             (jazz.resource-pathname src))))
                   (and (jazz.manifest-uptodate? manifest)
-                       (%%not (jazz.manifest-needs-rebuild? manifest))))
+                       (%%not (jazz.manifest-needs-rebuild? manifest))
+                       (%%not (force-interpreted?))))
               bin)))
       (proc src bin bin-uptodate?))))
 

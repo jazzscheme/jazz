@@ -46,9 +46,6 @@
 (jazz.define-setting jazz.load-verbose?
   #f)
 
-(jazz.define-setting jazz.load-interpreted?
-  #f)
-
 (jazz.define-setting jazz.warn-interpreted?
   #f)
 
@@ -111,6 +108,10 @@
 
 (jazz.define-setting jazz.debug-specializers
   '())
+
+
+(jazz.define-setting jazz.force-interpreted?
+  #f)
 
 
 (jazz.define-setting jazz.use-debugger?

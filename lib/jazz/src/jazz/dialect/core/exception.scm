@@ -62,20 +62,12 @@
 
 
 (define (jazz.system-exception-hook exc other)
-  (jazz.setup-terminal)
   (##repl-exception-handler-hook exc other))
 
 
 ;;;
 ;;;; Terminal
 ;;;
-
-
-(define (jazz.setup-terminal)
-  (if (tty? (repl-output-port))
-      (begin
-        (jazz.set-terminal-title)
-        (jazz.bring-terminal-to-front))))
 
 
 (define (jazz.set-terminal-title)

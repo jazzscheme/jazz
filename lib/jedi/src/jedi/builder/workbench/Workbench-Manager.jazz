@@ -747,9 +747,24 @@
   
   
   (method (activate-object object)
-    (if (and (is? object Project)
-             (concrete?~ object))
-        (activate-project object)
+    (define (find-concrete-descendant)
+      (continuation-capture
+        (function (return)
+          (for-each-descendant~ object
+            (function (descendant level)
+              (when (and (is? descendant Project)
+                         (concrete?~ descendant))
+                (continuation-return return descendant)))
+            include-self?: #f)
+          {})))
+    
+    (if (is? object Project)
+        (if (concrete?~ object)
+            (activate-project object)
+          (let ((concrete-descendant (find-concrete-descendant)))
+            (if concrete-descendant
+                (activate-project concrete-descendant)
+              (bell))))
       (bell)))
   
   

@@ -850,14 +850,14 @@
       (define (build-file path)
         (string-append destdir path))
       
-      (define (jazz-path)
+      (define (kernel-path)
         (case platform
           ((windows)
-           (build-file "jazz"))
+           (build-file "kernel"))
           (else
-           "./jazz")))
+           "./kernel")))
       
-      (jazz.call-process (jazz-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
+      (jazz.call-process (kernel-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
   
   (jazz.make-kernel configuration #f #f)
   (product-make product configuration jobs))

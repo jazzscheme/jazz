@@ -1229,12 +1229,12 @@
         (stop-build? #f))
     
     (define (grab-build-process)
-      (define (jazz-path)
+      (define (kernel-path)
         (case jazz.kernel-platform
           ((windows)
-           (%%string-append jazz.kernel-install "jazz"))
+           (%%string-append jazz.kernel-install "kernel"))
           (else
-           "./jazz")))
+           "./kernel")))
       
       (mutex-lock! process-mutex)
       (let ((active-count (%%length active-processes))
@@ -1247,7 +1247,7 @@
               ((%%fx< active-count jobs)
                (let ((process (open-process
                                 (list
-                                  path: (jazz-path)
+                                  path: (kernel-path)
                                   arguments: `("-:dq-" "-build" ,(number->string active-count) "-jobs 1")
                                   directory: jazz.kernel-install
                                   stdin-redirection: #t

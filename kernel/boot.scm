@@ -50,7 +50,7 @@
     "kernel/runtime/build"
     "kernel/runtime/settings"
     "kernel/runtime/digest"
-    "kernel/runtime/kernel"
+    "kernel/runtime/module"
     "kernel/runtime/setup"))
 
 

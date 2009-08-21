@@ -38,6 +38,8 @@
 (library protected jazz.editor.scheme.text.Scheme-Explorer jazz
 
 
+(require (jazz.editor.scheme.forms))
+
 (import (jazz.editor.lisp)
         (jazz.editor.scheme))
 
@@ -108,74 +110,27 @@
   
   (method protected virtual (walk-named-declaration context symbol declaration keyword expression doc walk-expressions?)
     (case symbol
-      ((begin)
-       (walk-begin context symbol declaration keyword expression doc walk-expressions?))
-      ((cond-expand)
-       (walk-cond-expand context symbol declaration keyword expression doc walk-expressions?))
-      ((library module)
-       (walk-category context symbol declaration keyword expression doc walk-expressions?))
-      ((require import export)
-       (walk-import context symbol declaration keyword expression doc walk-expressions?))
-      ((define
-        jazz.define-feature
-        jazz.define
-        jazz.define-remote
-        jazz.define-literal
-        ;; Gambit
-        define-prim
-        define-library-type
-        define-library-type-of-exception
-        define-check-type
-        define-fail-check-type
-        define-type)
-       (walk-define context symbol declaration keyword expression doc walk-expressions?))
-      ((jazz.define-generic
-        jazz.define-specific
-        jazz.define-virtual
-        jazz.define-virtual-syntax
-        jazz.define-virtual-runtime
-        jazz.define-method)
-       (walk-define-generic/specific context symbol declaration keyword expression doc walk-expressions?))
-      ((define-macro
-        define-syntax
-        define-special-form
-        jazz.define-macro
-        jazz.define-check-macro
-        jazz.define-syntax
-        jazz.define-special
-        jazz.define-setting
-        jazz.define-variable
-        jazz.define-global
-        ;; Gambit
-        ##define-macro
-        define-runtime-macro
-        define-runtime-syntax
-        template
-        instantiate
-        specialize)
-       (walk-define-macro context symbol declaration keyword expression doc walk-expressions?))
-      ((%macro
-        macro
-        syntax)
-       (walk-macro context symbol declaration keyword expression doc walk-expressions?))
-      ((jazz.define-class jazz.define-class-runtime)
-       (walk-define-class context symbol declaration keyword expression doc walk-expressions?))
-      ((;; Gambit
-        c-define-type)
-       (walk-type context symbol declaration keyword expression doc walk-expressions?))
-      ((native)
-       (walk-native context symbol declaration keyword expression doc walk-expressions?))
+      ((:cond-expand)      (walk-cond-expand context symbol declaration keyword expression doc walk-expressions?))
+      ((:begin)            (walk-begin context symbol declaration keyword expression doc walk-expressions?))
+      ((:category)         (walk-category context symbol declaration keyword expression doc walk-expressions?))
+      ((:keyword)          (walk-keyword context symbol declaration keyword expression doc walk-expressions?))
+      ((:define)           (walk-define context symbol declaration keyword expression doc walk-expressions?))
+      ((:generic/specific) (walk-define-generic/specific context symbol declaration keyword expression doc walk-expressions?))
+      ((:define-macro)     (walk-define-macro context symbol declaration keyword expression doc walk-expressions?))
+      ((:macro)            (walk-macro context symbol declaration keyword expression doc walk-expressions?))
+      ((:define-class)     (walk-define-class context symbol declaration keyword expression doc walk-expressions?))
+      ((:type)             (walk-type context symbol declaration keyword expression doc walk-expressions?))
+      ((:native)           (walk-native context symbol declaration keyword expression doc walk-expressions?))
       (else
        (if (starts-with? (symbol->string symbol) "define-type-of-")
            (walk-define context symbol declaration keyword expression doc walk-expressions?)
          (let ((form (get-lisp-form symbol)))
            (if form
                (let ((walk (get-walk~ form)))
-                 (if walk
-                     (if (symbol? walk)
-                         (walk-named-declaration context walk declaration keyword expression doc walk-expressions?)
-                       (walk self context declaration keyword expression doc walk-expressions?))
-                   (walk-unknown context declaration keyword expression doc walk-expressions?)))
+                 (when walk
+                   (if (symbol? walk)
+                       (walk-named-declaration context walk declaration keyword expression doc walk-expressions?)
+                     (walk self context symbol declaration keyword expression doc walk-expressions?))))
              (walk-unknown context declaration keyword expression doc walk-expressions?)))))))
   
   
@@ -221,7 +176,7 @@
       entry))
   
   
-  (method (walk-import context symbol declaration keyword expression doc walk-expressions?)
+  (method (walk-keyword context symbol declaration keyword expression doc walk-expressions?)
     (keyword context start end))
   
   
@@ -344,10 +299,10 @@
     context)
   
   
-  (method (symbol-documentation symbol doc)
+  (method package (symbol-documentation symbol doc)
     (when (and symbol doc)
       (get-definition~ doc symbol)))
   
   
-  (method (symbol-documented? symbol doc)
+  (method package (symbol-documented? symbol doc)
     (symbol-documentation symbol doc))))

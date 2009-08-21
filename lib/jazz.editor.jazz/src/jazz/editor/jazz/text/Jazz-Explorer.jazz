@@ -38,7 +38,11 @@
 (library protected jazz.editor.jazz.text.Jazz-Explorer jazz
 
 
+(require (jazz.editor.scheme.forms))
+(require (jazz.editor.jazz.forms))
+
 (import (jazz.editor.jazz)
+        (jazz.editor.lisp)
         (jazz.editor.scheme))
 
 
@@ -80,7 +84,8 @@
   (method public (forward-category)
     (when (and (enter-list)
                (forward-expr)
-               (memq? (find-marked-symbol) '(class interface remotable-stub)))
+               (or (lisp-form-categorical? (find-marked-symbol))
+                   (memq? (find-marked-symbol) '(class interface))))
       (let ((kind (intern-marked-symbol))
             (meta? (forward-modifiers)))
         (when (and (forward-expr)
@@ -99,7 +104,8 @@
       (while (and (forward-expr)
                   (begin
                     (set! keyword (find-marked-symbol))
-                    (or (memq? keyword '(module library class interface remotable-stub))
+                    (or (lisp-form-categorical? keyword)
+                        (memq? keyword '(module library class interface))
                         (memq? keyword '(metaclass extends implements))))
                   (forward-expr))
         (set! previous (get-end))
@@ -204,7 +210,7 @@
 
 
   (method public (jazz-declaration?)
-    (form-expr? '(module library class interface remotable-stub)))
+    (form-expr? '(module library class interface)))
 
   
   (definition jazz-module-parameters
@@ -392,7 +398,7 @@
   
   
   (definition Jazz-Toplevels
-    '(module library class interface remotable-stub require import export define definition macro syntax method inline slot property form constant enumeration global c-constant c-enumeration c-include c-type structure c-structure c-definition c-external generic specific attributes datacontainer define-form pattern))
+    '(module library class interface require import export define definition macro syntax method inline slot property form constant enumeration global c-constant c-enumeration c-include c-type structure c-structure c-definition c-external generic specific attributes datacontainer define-form pattern))
 
 
   (method (definition-name? name)
@@ -406,54 +412,34 @@
   
   (method (walk-named-declaration context symbol declaration keyword expression doc walk-expressions?)
     (case symbol
-      ((module)          (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((library)         (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((class)           (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((interface)       (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((remotable-stub)  (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((repository)      (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((package)         (walk-category        context symbol declaration keyword expression doc walk-expressions?))
-      ((root)            (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((install)         (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((project)         (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((products)        (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((profiles)        (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((require)         (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((export)          (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((import)          (walk-import          context symbol declaration keyword expression doc walk-expressions?))
-      ((declare)         (walk-declare         context symbol declaration keyword expression doc walk-expressions?))
-      ((proclaim)        (walk-proclaim        context symbol declaration keyword expression doc walk-expressions?))
-      ((properties)      (walk-properties      context symbol declaration keyword expression doc walk-expressions?))
-      ((native)          (walk-native          context symbol declaration keyword expression doc walk-expressions?))
-      ((native-syntax)   (walk-native          context symbol declaration keyword expression doc walk-expressions?))
-      ((attributes)      (walk-attributes      context symbol declaration keyword expression doc walk-expressions?))
-      ((define)          (walk-define          context symbol declaration keyword expression doc walk-expressions?))
-      ((definition)      (walk-definition      context symbol declaration keyword expression doc walk-expressions?))
-      ((define-form)     (walk-define          context symbol declaration keyword expression doc walk-expressions?))
-      ((specialize)      (walk-specialize      context symbol declaration keyword expression doc walk-expressions?))
-      ((method)          (walk-method          context symbol declaration keyword expression doc walk-expressions?))
-      ((pattern)         (walk-method          context symbol declaration keyword expression doc walk-expressions?))
-      ((inline)          (walk-method          context symbol declaration keyword expression doc walk-expressions?))
-      ((slot)            (walk-slot            context symbol declaration keyword expression doc walk-expressions?))
-      ((property)        (walk-property        context symbol declaration keyword expression doc walk-expressions?))
-      ((form)            (walk-form            context symbol declaration keyword expression doc walk-expressions?))
-      ((global)          (walk-global          context symbol declaration keyword expression doc walk-expressions?))
-      ((constant)        (walk-constant        context symbol declaration keyword expression doc walk-expressions?))
-      ((enumeration)     (walk-enumeration     context symbol declaration keyword expression doc walk-expressions?))
-      ((c-constant)      (walk-c-constant      context symbol declaration keyword expression doc walk-expressions?))
-      ((c-enumeration)   (walk-c-enumeration   context symbol declaration keyword expression doc walk-expressions?))
-      ((c-initialize)    (walk-c-initialize    context symbol declaration keyword expression doc walk-expressions?))
-      ((c-declare)       (walk-c-declare       context symbol declaration keyword expression doc walk-expressions?))
-      ((c-named-declare) (walk-c-named-declare context symbol declaration keyword expression doc walk-expressions?))
-      ((c-include)       (walk-c-include       context symbol declaration keyword expression doc walk-expressions?))
-      ((c-type)          (walk-c-type          context symbol declaration keyword expression doc walk-expressions?))
-      ((c-structure)     (walk-c-structure     context symbol declaration keyword expression doc walk-expressions?))
-      ((c-definition)    (walk-c-definition    context symbol declaration keyword expression doc walk-expressions?))
-      ((c-external)      (walk-external        context symbol declaration keyword expression doc walk-expressions?))
-      ((com-external)    (walk-com-external    context symbol declaration keyword expression doc walk-expressions?))
-      ((generic)         (walk-generic         context symbol declaration keyword expression doc walk-expressions?))
-      ((specific)        (walk-specific        context symbol declaration keyword expression doc walk-expressions?))
-      ((datacontainer)   (walk-datacontainer   context symbol declaration keyword expression doc walk-expressions?))
+      ((:declare)         (walk-declare         context symbol declaration keyword expression doc walk-expressions?))
+      ((:proclaim)        (walk-proclaim        context symbol declaration keyword expression doc walk-expressions?))
+      ((:properties)      (walk-properties      context symbol declaration keyword expression doc walk-expressions?))
+      ((:attributes)      (walk-attributes      context symbol declaration keyword expression doc walk-expressions?))
+      ((:native)          (walk-native          context symbol declaration keyword expression doc walk-expressions?))
+      ((:definition)      (walk-definition      context symbol declaration keyword expression doc walk-expressions?))
+      ((:specialize)      (walk-specialize      context symbol declaration keyword expression doc walk-expressions?))
+      ((:method)          (walk-method          context symbol declaration keyword expression doc walk-expressions?))
+      ((:slot)            (walk-slot            context symbol declaration keyword expression doc walk-expressions?))
+      ((:property)        (walk-property        context symbol declaration keyword expression doc walk-expressions?))
+      ((:form)            (walk-form            context symbol declaration keyword expression doc walk-expressions?))
+      ((:global)          (walk-global          context symbol declaration keyword expression doc walk-expressions?))
+      ((:constant)        (walk-constant        context symbol declaration keyword expression doc walk-expressions?))
+      ((:enumeration)     (walk-enumeration     context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-constant)      (walk-c-constant      context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-enumeration)   (walk-c-enumeration   context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-initialize)    (walk-c-initialize    context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-declare)       (walk-c-declare       context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-named-declare) (walk-c-named-declare context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-include)       (walk-c-include       context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-type)          (walk-c-type          context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-structure)     (walk-c-structure     context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-definition)    (walk-c-definition    context symbol declaration keyword expression doc walk-expressions?))
+      ((:c-external)      (walk-external        context symbol declaration keyword expression doc walk-expressions?))
+      ((:com-external)    (walk-com-external    context symbol declaration keyword expression doc walk-expressions?))
+      ((:generic)         (walk-generic         context symbol declaration keyword expression doc walk-expressions?))
+      ((:specific)        (walk-specific        context symbol declaration keyword expression doc walk-expressions?))
+      ((:datacontainer)   (walk-datacontainer   context symbol declaration keyword expression doc walk-expressions?))
       (else
        (nextmethod context symbol declaration keyword expression doc walk-expressions?))))
       

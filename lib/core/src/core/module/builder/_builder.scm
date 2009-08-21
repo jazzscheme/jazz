@@ -69,7 +69,9 @@
                                                    (else
                                                     declaration)))
                                       (jazz.find-declaration library-declaration symbol))))
-                         (and found (%%neq? (%%get-declaration-access found) 'private))))
+                         (and found 
+                              (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) library-locator)
+                              (%%neq? (%%get-declaration-access found) 'private))))
                      library-references))))
   
   (let ((references (get-manifest-references)))

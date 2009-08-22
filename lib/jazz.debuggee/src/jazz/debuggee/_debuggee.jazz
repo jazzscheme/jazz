@@ -44,6 +44,7 @@
         (jazz.editor.jazz.inspector)
         (jazz.jrm)
         (jazz.network)
+        (jazz.profile)
         (jazz.system))
 
 
@@ -420,9 +421,8 @@
           default-context
         (let ((process (get-process)))
           (if (not process)
-              (if (and (eq? context :default)
-                       (module-loaded? 'jazz))
-                  'jazz
+              (if (eq? context :default)
+                  (new Me)
                 {})
             (if (eq? context :default)
                 (either (process-alias~ process :profile)
@@ -482,21 +482,21 @@
         (if (symbol? context)
             (let ((module-name context))
               (load-module module-name)
-              (outline-module module-name)
-              (evaluator
-                `(library ,module-name jazz
-                 (with-local-variables ,local-variables
-                   ,expr))))
+              (let ((library-declaration (outline-module module-name)))
+                (evaluator
+                  `(library ,module-name ,(get-dialect-name~ library-declaration)
+                   (with-local-variables ,local-variables
+                     ,expr)))))
           (let ((class-identifier (type-name (class-of context))))
             (receive (module-name class-name) (split-composite class-identifier)
               (load-module module-name)
-              (outline-module module-name)
-              (evaluator
-                `(library ,module-name jazz
-                 (class ,class-name
-                   (with-dynamic-self (jazz.debuggee.current-console-context)
-                     (with-local-variables ,local-variables
-                       ,expr))))))))))))
+              (let ((library-declaration (outline-module module-name)))
+                (evaluator
+                  `(library ,module-name ,(get-dialect-name~ library-declaration)
+                   (class ,class-name
+                     (with-dynamic-self (jazz.debuggee.current-console-context)
+                       (with-local-variables ,local-variables
+                         ,expr)))))))))))))
 
 
 ;;;

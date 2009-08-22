@@ -1,0 +1,238 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Development
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.development jazz
+
+
+(import (jazz.debuggee)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.locale))
+
+
+;;;
+;;;; Fold
+;;;
+
+
+;; fun and experimental
+
+
+(definition (iter-list lst proc)
+  (when lst
+    (proc (car lst))
+    (iter-list (cdr lst) proc)))
+
+
+(definition (iter-node node proc)
+  (letrec ((iter
+             (function (node)
+               (proc node)
+               (for-each iter (get-children~ node)))))
+    (iter node)))
+
+
+(definition (iter obj proc)
+  (cond ((null/pair? obj) (iter-list obj proc))
+        ((is? obj JML-Node) (iter-node obj proc))))
+
+
+(definition (foldl-list x f s)
+  (if (not x)
+      s
+    (foldl-list (cdr x) f (f (car x) s))))
+
+
+(definition (foldr-list x f s)
+  (if (not x)
+      s
+    (f (car x) (foldr-list (cdr x) f s))))
+
+
+(definition (foldl-node x f s)
+  (foldl (get-children~ x)
+         (function (c s)
+           (foldl-node c f s))
+         (f x s)))
+
+
+(definition (foldr-node x f s)
+  )
+
+
+(definition (foldl-component x f s)
+  (foldl (get-children~ x)
+         (function (c s)
+           (foldl-component c f s))
+         (f x s)))
+
+
+(definition (foldr-component x f s)
+  )
+
+
+(definition (foldl x f s)
+  (cond ((null/pair? x) (foldl-list x f s))
+        ((is? x JML-Node) (foldl-node x f s))
+        ((is? x Component) (foldl-component x f s))))
+
+
+(definition (foldr x f s)
+  (cond ((null/pair? x) (foldr-list x f s))
+        ((is? x JML-Node) (foldr-node x f s))
+        ((is? x Component) (foldr-component x f s))))
+
+
+(definition (iter-map proc obj)
+  (let ((fact (new List-Factory)))
+    (iter obj
+          (function (x)
+            (put~ fact (proc x))))
+    (get-output~ fact)))
+
+
+(definition (iter-linearize obj)
+  (iter-map identity obj))
+
+
+(definition (fold-map proc obj)
+  (foldr obj
+         (function (x lst)
+           (cons (proc x) lst))
+         {}))
+
+
+(definition (foldl-map proc obj)
+  (foldl obj
+         (function (x lst)
+           (cons (proc x) lst))
+         {}))
+
+
+(definition (fold-linearize obj)
+  (fold-map identity obj))
+
+
+(definition public (fold x f s)
+  (cond ((null/pair? x) (foldl-list x f s))
+        ((is? x JML-Node) (fold-node x f s))
+        ((is? x Component) (fold-component x f s))))
+
+
+(definition (fold-node x f s)
+  (let ((ps (f x s)))
+    (for-each (function (c)
+                (fold-node c f ps))
+              (get-children~ x))
+    ps))
+
+
+(definition (fold-component x f s)
+  (let ((ps (f x s)))
+    (for-each (function (c)
+                (fold-component c f ps))
+              (get-children~ x))
+    ps))
+
+
+(definition public (component->jml x)
+  (fold x
+        component-self->jml
+        {}))
+
+
+(definition (component-self->jml c p)
+  (new JML-Element p (identifier-name (type-name (class-of c)))
+       properties:
+       (list
+         'name (get-name~ c)
+         'position (essay (typed? c 'jazz.ui.layout.Figure.Figure) (get-position~ c))
+         'size (essay (typed? c 'jazz.ui.layout.Figure.Figure) (get-size~ c))
+         'serial (object->serial c))))
+
+
+(definition (component-ascendants->jml c)
+  (define (component->jml c)
+    (component-self->jml c (let ((parent (get-parent~ c)))
+                             (if parent
+                                 (component->jml parent)
+                               {}))))
+  
+  (define (find-toplevel c)
+    (let ((parent (get-parent~ c)))
+      (if parent
+          (find-toplevel parent)
+        c)))
+  
+  (find-toplevel (component->jml c)))
+
+
+(definition public (pprint-component x)
+  (pretty-print~
+    (component->jml x)
+    :console))
+
+
+(definition public (pprint-component-ascendants x)
+  (pretty-print~
+    (component-ascendants->jml x)
+    :console))
+
+
+;;;
+;;;; Hierarchy
+;;;
+
+
+(definition public (ppd c)
+  (pprint-component c)
+  (unspecified))
+
+
+(definition public (ppa c)
+  (pprint-component-ascendants c)
+  (unspecified))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition public (hex n)
+  (format "#x{x}" n)))

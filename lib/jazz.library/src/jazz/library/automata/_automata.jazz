@@ -87,9 +87,81 @@
 ;;;
 ;;;; Tape
 ;;;
-           
+
 
 (class Tape extends Object
+  
+  
+  (slot found)
+  
+  
+  (method (initialize)
+    (set! found~self (new-queue)))
+  
+  
+  (method virtual (get-next) <fx+>
+    )
+  
+  
+  (method virtual (save-start)
+    )
+  
+  
+  (method virtual (add-start found)
+    )
+  
+  
+  (method (add-found info)
+    (enqueue found info))
+  
+  
+  (method (get-found)
+    (queue-list found)))
+
+
+;;;
+;;;; StringTape
+;;;
+
+
+(class StringTape extends Tape
+  
+  
+  (slot string            getter generate)
+  (slot limit        <fx> getter generate)
+  (slot index        <fx> getter generate)
+  (slot start-index  <fx> accessors generate)
+  
+  
+  (method (initialize s)
+    (nextmethod)
+    (set! string~self s)
+    (set! limit~self (string-length s))
+    (set! index~self 0)
+    (set! start-index~self 0))
+  
+  
+  (method (get-next) <fx+>
+    (if (< index limit)
+        (prog1 (char->integer (element string index))
+          (set! index (+ index 1)))
+      {}))
+  
+  
+  (method (save-start)
+    (set! start-index index))
+  
+  
+  (method (add-start found)
+    (list found start-index)))
+
+
+;;;
+;;;; TextTape
+;;;
+
+
+(class TextTape extends Tape
   
   
   (slot paragraphs          getter generate)
@@ -99,21 +171,20 @@
   (slot scan       <string> getter generate)
   (slot start-row  <fx>     accessors generate)
   (slot start-col  <fx>     accessors generate)
-  (slot found)
   
   
   (method (initialize p l r c)
+    (nextmethod)
     (set! paragraphs~self p)
     (set! limit~self l)
     (set! row~self r)
     (set! col~self c)
     (set! scan~self (get-string~ (element paragraphs row)))
     (set! start-row~self 0)
-    (set! start-col~self 0)
-    (set! found~self (new-queue)))
+    (set! start-col~self 0))
   
   
-  (method public (get-next) <fx+>
+  (method (get-next) <fx+>
     (if (= col (cardinality scan))
         (if (< row limit)
             (begin
@@ -126,12 +197,13 @@
         (set! col (+ col 1)))))
   
   
-  (method public (add-found info)
-    (enqueue found info))
+  (method (save-start)
+    (set! start-row row)
+    (set! start-col col))
   
   
-  (method public (get-found)
-    (queue-list found)))
+  (method (add-start found)
+    (list found start-row start-col)))
 
 
 ;;;
@@ -236,8 +308,7 @@
   
   
   (method (transition tape)
-    (set-start-row~ tape (get-row~ tape))
-    (set-start-col~ tape (get-col~ tape))
+    (save-start~ tape)
     (nextmethod tape)))
 
 
@@ -271,7 +342,7 @@
   
   
   (method (action tape)
-    (add-found~ tape (list found (get-start-row~ tape) (get-start-col~ tape)))))
+    (add-found~ tape (add-start~ tape found))))
 
 
 ;;;
@@ -342,7 +413,6 @@
 ;;;
 
 
-(definition public (automata-search automata <Automata> paragraphs limit <fx> row <fx> col <fx>)
-  (let ((tape (new Tape paragraphs limit row col)))
-    (run~ automata tape)
-    (get-found~ tape))))
+(definition public (automata-search automata <Automata> tape <Tape>)
+  (run~ automata tape)
+  (get-found~ tape)))

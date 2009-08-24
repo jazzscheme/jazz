@@ -303,6 +303,7 @@
 
 
 (native compile-file)
+(native datum-parsing-exception?)
 
 
 ;;;

@@ -123,19 +123,19 @@
 ;; @syntax (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
 (syntax public (catch form-src)
-  (let ((type (cadr (source-code form-src)))
+  (let ((predicate/type (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
     (sourcify-if
-      (cond ((symbol? (source-code type))
-             `(call-with-catch ,type (lambda (exc) exc)
+      (cond ((symbol? (source-code predicate/type))
+             `(call-with-catch ,predicate/type (lambda (exc) exc)
                 (lambda ()
                   ,@body)))
-            ((pair? (source-code type))
-             `(call-with-catch ,(car (source-code type)) (lambda (,(source-code (cadr (source-code type)))) ,@(cddr (source-code type)))
+            ((pair? (source-code predicate/type))
+             `(call-with-catch ,(car (source-code predicate/type)) (lambda (,(source-code (cadr (source-code predicate/type)))) ,@(cddr (source-code predicate/type)))
                 (lambda ()
                   ,@body)))
             (else
-             (error "Ill-formed type in catch: {t}" (desourcify type))))
+             (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
       form-src)))
 
 

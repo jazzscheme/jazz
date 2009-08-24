@@ -789,6 +789,7 @@
 (native jazz.dispatch)
 (native jazz.find-dispatch)
 (native jazz.call-into-abstract)
+(native jazz.get-core-classes)
 
 
 ;;;

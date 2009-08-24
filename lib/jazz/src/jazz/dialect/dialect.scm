@@ -367,6 +367,7 @@
                    (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.sourcified-form (jazz.emit-binding-reference ascendant-declaration declaration environment)))))
                      `((define ,locator ,(%%get-category-name core-class))
                        (define ,level-locator (%%get-class-level ,locator))
+                       (jazz.set-core-class-redefined ',(jazz.identifier-name name) ',name)
                        (jazz.remove-own-slots ,locator))))
                (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
                  (let ((ascendant-access (jazz.emit-ascendant-access declaration environment)))
@@ -858,10 +859,6 @@
 ;;;
 
 
-(jazz.define-class jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-jazz-dialect
-  ())
-
-
 (jazz.define-class-runtime jazz.Jazz-Dialect)
 
 
@@ -883,10 +880,6 @@
 ;;;
 ;;;; Walker
 ;;;
-
-
-(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-jazz-walker
-  ())
 
 
 (jazz.define-class-runtime jazz.Jazz-Walker)

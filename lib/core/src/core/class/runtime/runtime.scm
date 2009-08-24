@@ -121,6 +121,10 @@
   (%%table-set! jazz.Core-Classes name class))
 
 
+(define (jazz.set-core-class-redefined name class)
+  (%%table-set! jazz.Core-Classes name #t))
+
+
 ;;;
 ;;;; Category
 ;;;

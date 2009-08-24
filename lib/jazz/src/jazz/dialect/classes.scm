@@ -203,4 +203,22 @@
 
 (jazz.define-class jazz.Dispatch jazz.Expression (type source) jazz.Object-Class jazz.allocate-dispatch
   ((name      %%get-dispatch-name      ())
-   (arguments %%get-dispatch-arguments ()))))
+   (arguments %%get-dispatch-arguments ())))
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(jazz.define-class jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-jazz-dialect
+  ())
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-jazz-walker
+  ()))

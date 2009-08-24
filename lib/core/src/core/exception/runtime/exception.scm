@@ -64,8 +64,10 @@
     (jazz.format output "This exception was raised: {s}" exception)
     (get-output-string output)))
 
+
 (jazz.define-method (jazz.get-message (jazz.Exception exception))
   #f)
+
 
 (jazz.define-method (jazz.get-detail (jazz.Exception exception))
   #f)
@@ -87,6 +89,28 @@
 
 
 (jazz.encapsulate-class jazz.Exception-Detail)
+
+
+;;;
+;;;; System Exception
+;;;
+
+
+(jazz.define-class-runtime jazz.System-Exception)
+
+
+(jazz.define-method (jazz.present-exception (jazz.System-Exception exception))
+  (let ((output (open-output-string)))
+    (display-exception (%%get-system-exception-exception exception) output)
+    (let ((str (get-output-string output)))
+      (let ((len (string-length str)))
+        (if (and (%%fx> len 0)
+                 (%%eqv? (%%string-ref str (%%fx- len 1)) #\newline))
+            (%%substring str 0 (%%fx- len 1))
+          str)))))
+
+
+(jazz.encapsulate-class jazz.System-Exception)
 
 
 ;;;

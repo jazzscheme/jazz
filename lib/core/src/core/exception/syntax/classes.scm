@@ -65,6 +65,15 @@
 
 
 ;;;
+;;;; System Exception
+;;;
+
+
+(jazz.define-class jazz.System-Exception jazz.Exception () jazz.Object-Class ()
+  ((exception %%get-system-exception-exception ())))
+
+
+;;;
 ;;;; Error
 ;;;
 

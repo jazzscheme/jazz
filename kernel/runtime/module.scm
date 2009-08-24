@@ -991,16 +991,25 @@
               (let ((package (%%car packages)))
                 (let ((pair (%%assq name (%%package-products package))))
                   (if pair
-                      (if (%%repository-binary? repository)
-                          (begin
-                            (set! binary-descriptor pair)
-                            (iter (%%cdr packages)))
-                        pair)
+                      (let ((alias (jazz.product-descriptor-alias pair)))
+                        (cond (alias
+                               (jazz.find-product-descriptor alias))
+                              ((%%repository-binary? repository)
+                               (set! binary-descriptor pair)
+                               (iter (%%cdr packages)))
+                              (else
+                               pair)))
                     (iter (%%cdr packages))))))))))))
 
 
 (define (jazz.product-descriptor-name descriptor)
   (%%car descriptor))
+
+(define (jazz.product-descriptor-alias descriptor)
+  (let ((pair (%%assq 'alias (%%cdr descriptor))))
+    (if pair
+        (%%cadr pair)
+      #f)))
 
 (define (jazz.product-descriptor-module descriptor)
   (let ((pair (%%assq 'module (%%cdr descriptor))))
@@ -1116,7 +1125,8 @@
 
 (define (jazz.get-product name)
   (let ((descriptor (jazz.get-product-descriptor name)))
-    (let ((module (jazz.product-descriptor-module descriptor)))
+    (let ((name (jazz.product-descriptor-name descriptor)) ; because of aliases
+          (module (jazz.product-descriptor-module descriptor)))
       (if module
           (begin
             (jazz.load-module module)

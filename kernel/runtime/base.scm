@@ -437,4 +437,4 @@
   (if display-backtrace?
       (continuation-capture
         (lambda (cont)
-          (display-continuation-backtrace cont console #t #t 0 30)))))
+          (display-continuation-backtrace cont console #t #t 0 1000)))))

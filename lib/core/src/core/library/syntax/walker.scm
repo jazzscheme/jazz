@@ -5794,7 +5794,7 @@
         (if (%%not declaration)
             (jazz.call-with-catalog-entry-lock module-name
               (lambda ()
-                (let ((declaration (jazz.load-toplevel-declaration module-name)))
+                (let ((declaration (jazz.load-toplevel-declaration module-name error?)))
                   (if (%%not declaration)
                       (if error?
                           (jazz.error "Unable to locate module declaration: {s}" module-name))
@@ -5805,27 +5805,31 @@
 
 (define (jazz.outline-library module-name #!optional (error? #t))
   (let ((declaration (jazz.outline-module module-name error?)))
-    (%%assert (%%class-is? declaration jazz.Library-Declaration)
-      declaration)))
+    (if (%%not error?)
+        declaration
+      (%%assert (%%class-is? declaration jazz.Library-Declaration)
+        declaration))))
 
 
-(define (jazz.load-toplevel-declaration module-name)
-  (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
-    (let ((source (jazz.resource-pathname src)))
-      (define (load-declaration)
-        ;; not reading the literals is necessary as reading a literal will load modules
-        (let ((form (jazz.read-toplevel-form source read-literals?: #f)))
-          (parameterize ((jazz.requested-module-name module-name)
-                         (jazz.requested-module-resource src))
-            (case (%%car form)
-              ((module)
-               (jazz.parse-module-declaration (%%cdr form)))
-              ((library)
-               (jazz.parse-library-declaration (%%cdr form)))))))
-      
-      (jazz.with-verbose (jazz.parse-verbose?) "parsing" source
-        (lambda ()
-          (load-declaration))))))
+(define (jazz.load-toplevel-declaration module-name #!optional (error? #t))
+  (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
+    (if (and (%%not src) (%%not error?))
+        #f
+      (let ((source (jazz.resource-pathname src)))
+        (define (load-declaration)
+          ;; not reading the literals is necessary as reading a literal will load modules
+          (let ((form (jazz.read-toplevel-form source read-literals?: #f)))
+            (parameterize ((jazz.requested-module-name module-name)
+                           (jazz.requested-module-resource src))
+              (case (%%car form)
+                ((module)
+                 (jazz.parse-module-declaration (%%cdr form)))
+                ((library)
+                 (jazz.parse-library-declaration (%%cdr form)))))))
+        
+        (jazz.with-verbose (jazz.parse-verbose?) "parsing" source
+          (lambda ()
+            (load-declaration)))))))
 
 
 (define jazz.read-literals?

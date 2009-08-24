@@ -20,7 +20,7 @@
 
 
 (jazz.define-setting profiler-depth
-  5)
+  1)
 
 
 ;;;

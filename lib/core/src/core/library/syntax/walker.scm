@@ -5204,11 +5204,11 @@
 
 
 (define (jazz.walk-setbang walker resume declaration environment form-src)
-  (let ((form (jazz.source-code (%%cadr (jazz.source-code form-src))))
+  (let ((form (%%cadr (jazz.source-code form-src)))
         (value (%%car (%%cddr (jazz.source-code form-src)))))
-    (if (%%symbol? form)
+    (if (%%symbol? (jazz.source-code form))
         (jazz.walk-symbol-assignment walker resume declaration environment form value)
-      (jazz.error "Illegal set! of {s}" form))))
+      (jazz.error "Illegal set! of {s}" (%%desourcify form)))))
 
 
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
@@ -5270,23 +5270,23 @@
 ;;;
 
 
-(jazz.define-virtual-runtime (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value))
+(jazz.define-virtual-runtime (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol-src value))
 
 
-(jazz.define-method (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value)
-  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol)))
+(jazz.define-method (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol-src value)
+  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol-src)))
     (if binding
         (begin
           (jazz.walk-binding-validate-assignment binding walker resume declaration)
           (jazz.new-assignment binding (jazz.walk walker resume declaration environment value)))
-      (jazz.walk-free-assignment walker resume declaration symbol))))
+      (jazz.walk-free-assignment walker resume declaration symbol-src))))
 
 
-(jazz.define-virtual-runtime (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual-runtime (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol-src))
 
 
-(jazz.define-method (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol)
-  (jazz.walk-unresolved walker resume declaration symbol))
+(jazz.define-method (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol-src)
+  (jazz.walk-unresolved walker resume declaration symbol-src))
 
 
 ;;;

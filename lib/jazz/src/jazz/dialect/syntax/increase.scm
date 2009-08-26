@@ -38,17 +38,24 @@
 (library protected jazz.dialect.syntax.increase scheme
 
 
+(import (jazz.dialect.kernel))
+
+
 ;; @macro (increase! x) @expansion (set! x (+ x 1))
 ;; @macro (increase! x (f)) @expansion (set! x (+ x (f)))
 
-(macro public (increase! location . rest)
-  (let ((increment (if (null? rest) 1 (car rest))))
-    `(set! ,location (+ ,location ,increment))))
+(syntax public (increase! form-src)
+  (let ((location (cadr (source-code form-src)))
+        (rest (cddr (source-code form-src))))
+    (let ((increment (if (null? rest) 1 (car rest))))
+      `(set! ,location (+ ,location ,increment)))))
 
 
 ;; @macro (decrease! x) @expansion (set! x (- x 1))
 ;; @macro (decrease! x (f)) @expansion (set! x (- x (f)))
 
-(macro public (decrease! location . rest)
-  (let ((increment (if (null? rest) 1 (car rest))))
-    `(set! ,location (- ,location ,increment)))))
+(syntax public (decrease! form-src)
+  (let ((location (cadr (source-code form-src)))
+        (rest (cddr (source-code form-src))))
+    (let ((increment (if (null? rest) 1 (car rest))))
+      `(set! ,location (- ,location ,increment))))))

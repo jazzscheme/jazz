@@ -1105,16 +1105,16 @@
 ;;;
 
 
-(jazz.define-method (jazz.walk-symbol-assignment (jazz.Jazz-Walker walker) resume declaration environment symbol value)
-  (jazz.split-tilde symbol
+(jazz.define-method (jazz.walk-symbol-assignment (jazz.Jazz-Walker walker) resume declaration environment symbol-src value)
+  (jazz.split-tilde (jazz.source-code symbol-src)
     (lambda (tilde? name self/class-name)
       (if tilde?
           (if (and name (%%eq? self/class-name 'self))
               (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name jazz.private-access)))
                 (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
                   (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
-            (jazz.error "Ill-formed set! variable: {s}" symbol))
-        (nextmethod walker resume declaration environment symbol value)))))
+            (jazz.error "Ill-formed set! variable: {s}" (%%desourcify symbol-src)))
+        (nextmethod walker resume declaration environment symbol-src value)))))
 
 
 ;;;

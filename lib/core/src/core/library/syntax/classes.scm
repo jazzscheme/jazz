@@ -73,6 +73,9 @@
    (hits %%get-lexical-binding-hits ())))
 
 
+(jazz.define-virtual (jazz.resolve-binding (jazz.Lexical-Binding binding)))
+
+
 ;;;
 ;;;; Declaration
 ;;;
@@ -88,7 +91,6 @@
    (source        %%get-declaration-source        %%set-declaration-source)))
 
 
-(jazz.define-virtual (jazz.resolve-declaration (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol access))
 (jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
 (jazz.define-virtual (jazz.get-declaration-inclusions (jazz.Declaration declaration)))

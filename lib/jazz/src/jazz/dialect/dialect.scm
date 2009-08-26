@@ -287,14 +287,14 @@
 (define (jazz.setup-class-lookups class-declaration)
   (define (resolve-class decl)
     (if decl
-        (let ((class-declaration (jazz.resolve-declaration decl)))
+        (let ((class-declaration (jazz.resolve-binding decl)))
           (%%assert (%%is? class-declaration jazz.Class-Declaration))
           class-declaration)
       #f))
   
   (define (resolve-interface decl)
     (if decl
-        (let ((interface-declaration (jazz.resolve-declaration decl)))
+        (let ((interface-declaration (jazz.resolve-binding decl)))
           (%%assert (%%is? interface-declaration jazz.Interface-Declaration))
           interface-declaration)
       #f))
@@ -346,7 +346,7 @@
          (let iter ((target subtype))
            (if (%%not target)
                #f
-             (let ((target-declaration (jazz.resolve-declaration target)))
+             (let ((target-declaration (jazz.resolve-binding target)))
                (if (%%eq? target-declaration declaration)
                    #t
                  (iter (%%get-class-declaration-ascendant target-declaration)))))))))
@@ -475,7 +475,7 @@
 (define (jazz.setup-interface-lookups interface-declaration)
   (define (resolve-interface decl)
     (if decl
-        (let ((interface-declaration (jazz.resolve-declaration decl)))
+        (let ((interface-declaration (jazz.resolve-binding decl)))
           (%%assert (%%is? interface-declaration jazz.Interface-Declaration))
           interface-declaration)
       #f))
@@ -1077,7 +1077,7 @@
                        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name jazz.private-access)))
                          (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
                            (jazz.new-reference slot-declaration)))
-                     (let ((category-declaration (jazz.resolve-declaration (jazz.lookup-reference walker resume declaration environment self/class-name))))
+                     (let ((category-declaration (jazz.resolve-binding (jazz.lookup-reference walker resume declaration environment self/class-name))))
                        (%%assert (%%class-is? category-declaration jazz.Category-Declaration)
                          (let ((method-declaration (jazz.lookup-declaration category-declaration name jazz.private-access)))
                            (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
@@ -1339,7 +1339,7 @@
     (define (resolve-type object-code)
       (let ((object-type (jazz.patch-type-until-unification (%%get-code-type object-code))))
         (if (%%class-is? object-type jazz.Autoload-Declaration)
-            (jazz.resolve-declaration object-type)
+            (jazz.resolve-binding object-type)
           object-type)))
     
     (define (lookup-method object-code)
@@ -1667,8 +1667,8 @@
          (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
                (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
            (cond ((and generic-dynamic? specific-dynamic?)
-                  (let ((generic-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
-                        (specific-class (jazz.resolve-declaration (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
+                  (let ((generic-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
+                        (specific-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
                     (if ;; temp commented because it creates a problem in compiling Document-Moniker
                         #t ;; (jazz.of-subtype? generic-class specific-class)
                         (iter (%%cdr generic-parameters)
@@ -1797,7 +1797,7 @@
 (define (jazz.effective-class-declaration-metaclass class-declaration)
   (if (%%not class-declaration)
       #f
-    (let ((class-declaration (jazz.resolve-declaration class-declaration)))
+    (let ((class-declaration (jazz.resolve-binding class-declaration)))
       (or (%%get-category-declaration-metaclass class-declaration)
           (let ((ascendant (%%get-class-declaration-ascendant class-declaration)))
             (if (%%not ascendant)

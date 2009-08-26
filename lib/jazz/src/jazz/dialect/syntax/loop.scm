@@ -193,7 +193,7 @@
                 ((collect) (process-collect actions rest))
                 ((return)  (process-return  actions rest))
                 ((finally) (process-finally actions rest))
-                (else    (add-action clause actions))))))
+                (else      (add-action clause actions))))))
         (set! clauses (cdr clauses)))
       (queue-list actions)))
 
@@ -210,8 +210,10 @@
              finally
            `((if ,exit
                  ,return
-               (begin
-                 ,@finally))))))
+               ,@(if (not-null? finally)
+                     `((begin
+                         ,@finally))
+                   '()))))))
   
   
   (define (unique prefix)
@@ -318,15 +320,6 @@
                     (add-binding value '<Object+>)
                     (add-before (list 'set! value for)))
                    (else (error "Unknown for in keyword: {t}" keyword))))))))
-        ((in-sequence)
-         (bind (iterator) rest
-           (let ((val (unique "val"))
-                 (itr (unique "itr")))
-             (add-binding val '<Object> iterator)
-             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate-sequence val)))
-             (add-binding variable '<Object> #f)
-             (add-test (list 'not (list 'done?~ itr)))
-             (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((in-vector)
          (bind (vector . rest) rest
            (let ((vec (unique "vec"))
@@ -339,6 +332,15 @@
              (add-test (list '< for len))
              (add-before (list 'set! variable (list 'element vec for)))
              (add-before (list 'set! for (list '+ for 1))))))
+        ((in-sequence)
+         (bind (iterator) rest
+           (let ((val (unique "val"))
+                 (itr (unique "itr")))
+             (add-binding val '<Object> iterator)
+             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate-sequence val)))
+             (add-binding variable '<Object> #f)
+             (add-test (list 'not (list 'done?~ itr)))
+             (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((in-properties)
          (bind (keyword value) (source-code variable)
            (bind (lst) rest

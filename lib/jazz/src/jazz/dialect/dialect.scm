@@ -911,8 +911,8 @@
     (jazz.new-syntax-form  'class                jazz.expand-class)
     (jazz.new-special-form '%class               jazz.walk-%class)
     (jazz.new-special-form 'interface            jazz.walk-interface)
-    (jazz.new-macro-form   'slot                 jazz.expand-slot)
-    (jazz.new-macro-form   'property             jazz.expand-property)
+    (jazz.new-syntax-form  'slot                 jazz.expand-slot)
+    (jazz.new-syntax-form  'property             jazz.expand-property)
     (jazz.new-special-form '%slot                jazz.walk-%slot)
     (jazz.new-special-form '%property            jazz.walk-%slot)
     (jazz.new-special-form 'method               jazz.walk-method)
@@ -994,12 +994,13 @@
 (define (jazz.parse-keywords keywords rest)
   (let ((table (%%make-table test: eq?))
         (done? #f))
-    (%%while (%%not done?)
-      (if (or (%%null? rest) (%%not (%%memq (jazz.source-code (%%car rest)) keywords)))
-          (set! done? #t)
-        (begin
-          (%%table-set! table (jazz.source-code (%%car rest)) (jazz.source-code (%%cadr rest)))
-          (set! rest (%%cddr rest)))))
+    (%%while (and (%%not done?) (%%not (%%null? rest)))
+      (let ((symbol (jazz.source-code (%%car rest))))
+        (if (%%not (%%memq symbol keywords))
+            (set! done? #t)
+          (begin
+            (%%table-set! table symbol (%%cadr rest))
+            (set! rest (%%cddr rest))))))
     (%%apply values (%%append (map (lambda (keyword)
                                      (%%table-ref table keyword (jazz.unspecified)))
                                    keywords)
@@ -1881,19 +1882,19 @@
     ((generate handcode) . #f)))
 
 
-(define (jazz.parse-slot walker resume declaration form)
-  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.slot-modifiers form)
-    (let ((name (%%car rest)))
+(define (jazz.parse-slot walker resume declaration form-src)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.slot-modifiers (%%cdr (jazz.source-code form-src)))
+    (let ((name (jazz.source-code (%%car rest))))
       (jazz.parse-specifier (%%cdr rest)
         (lambda (specifier rest)
           (receive (initialize accessors getter setter rest) (jazz.parse-keywords jazz.slot-keywords rest)
             (if (%%not-null? rest)
-                (jazz.walk-error walker resume declaration "Invalid slot definition: {s}" form)
+                (jazz.walk-error walker resume declaration "Invalid slot definition: {s}" (%%desourcify form-src))
               (values name specifier access compatibility initialize accessors getter setter))))))))
 
 
-(define (jazz.expand-slot walker resume declaration environment . rest)
-  (jazz.expand-slot-form walker resume declaration (%%cons 'slot rest)))
+(define (jazz.expand-slot walker resume declaration environment form-src)
+  (jazz.expand-slot-form walker resume declaration form-src '%slot))
 
 
 (define (jazz.parse-slot-accessors walker resume declaration form slot-access)
@@ -1921,16 +1922,17 @@
                 name)))))
 
 
-(define (jazz.expand-slot-form walker resume declaration form)
-  (receive (name specifier access compatibility initialize accessors getter setter) (jazz.parse-slot walker resume declaration (%%cdr form))
+(define (jazz.expand-slot-form walker resume declaration form-src symbol)
+  (receive (name specifier access compatibility initialize accessors getter setter) (jazz.parse-slot walker resume declaration form-src)
     (let ((standardize
             (lambda (info)
-              (cond ((jazz.unspecified? info)
-                     '())
-                    ((%%symbol? info)
-                     (%%list info))
-                    (else
-                     info)))))
+              (let ((info (jazz.desourcify info)))
+                (cond ((jazz.unspecified? info)
+                       '())
+                      ((%%symbol? info)
+                       (%%list info))
+                      (else
+                       info))))))
       (let ((accessors (standardize accessors))
             (getter (standardize getter))
             (setter (standardize setter)))
@@ -1942,7 +1944,7 @@
                      (generate-setter? (%%eq? setter-generation 'generate))
                      (specifier-list (if specifier (%%list specifier) '())))
                 `(begin
-                   (,(if (%%eq? (%%car form) 'property) '%property '%slot) ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
+                   (,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                    ,@(if generate-getter?
                          `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
                              ,name))
@@ -1994,8 +1996,8 @@
 ;;;
 
 
-(define (jazz.expand-property walker resume declaration environment . rest)
-  (jazz.expand-slot-form walker resume declaration (%%cons 'property rest)))
+(define (jazz.expand-property walker resume declaration environment form-src)
+  (jazz.expand-slot-form walker resume declaration form-src '%property))
 
 
 ;;;

@@ -42,6 +42,9 @@
 (import (jazz.dialect.kernel))
 
 
+(native private jazz.error)
+
+
 ; @syntax (typecase target (a 1) ((b c) 2) (else 3))
 ; @expansion (let ((sym8 target))
 ;              (cond ((eqv? sym8 a) 1)
@@ -56,16 +59,16 @@
       (with-uniqueness target
         (lambda (variable)
           `(cond ,@(map (lambda (clause)
-                          (let ((value (desourcify (car (source-code clause))))
+                          (let ((selector (car (source-code clause)))
                                 (body (cdr (source-code clause))))
-                            (cond ((eq? value 'else)
+                            (cond ((eq? (source-code selector) 'else)
                                    `(else ,@body))
-                                  ((pair? value)
+                                  ((pair? (source-code selector))
                                    `((or ,@(map (lambda (value)
                                                   `(is? ,variable ,value))
-                                                value))
+                                                (source-code selector)))
                                      ,@body))
                                   (else
-                                   `((is? ,variable ,value) ,@body)))))
+                                   (error "Ill-formed selector list: {s}" (desourcify selector))))))
                         clauses))))
       form-src))))

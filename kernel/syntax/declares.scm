@@ -47,11 +47,10 @@
                 
                 (not inline)
                 
-                ,@(if jazz.debug-core?
-                      '((not proper-tail-calls)
-                        #; ;; wait-buggy
-                        (not optimize-dead-local-variables))
-                    '())
+                ,@(if jazz.kernel-optimize?
+                       '()
+                     '((not proper-tail-calls)
+                       (not optimize-dead-local-variables)))
                 
                 ,@(if jazz.debug-user?
                       '()
@@ -86,7 +85,6 @@
                  ,@(if jazz.kernel-optimize?
                        '()
                      '((not proper-tail-calls)
-                       #; ;; wait-buggy
                        (not optimize-dead-local-variables)))
                  
                  ,@(if jazz.debug-user?

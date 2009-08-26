@@ -1587,7 +1587,7 @@
 
 (define (jazz.parse-generic walker resume declaration rest)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.generic-modifiers rest)
-    (let ((signature (%%car rest)))
+    (let ((signature (jazz.desourcify (%%car rest))))
       (let ((name (%%car signature))
             (parameters (%%cdr signature)))
         (jazz.parse-specifier (%%cdr rest)
@@ -1610,15 +1610,14 @@
 
 
 (define (jazz.walk-generic walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr form))
-      (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-        (let ((new-declaration (jazz.find-form-declaration declaration name)))
-          (%%set-generic-declaration-signature new-declaration signature)
-          (%%set-generic-declaration-body new-declaration
-            (jazz.walk-body walker resume declaration augmented-environment body))
-          (%%set-declaration-source new-declaration form-src)
-          new-declaration)))))
+  (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr (jazz.source-code form-src)))
+    (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+      (let ((new-declaration (jazz.find-form-declaration declaration name)))
+        (%%set-generic-declaration-signature new-declaration signature)
+        (%%set-generic-declaration-body new-declaration
+          (jazz.walk-body walker resume declaration augmented-environment body))
+        (%%set-declaration-source new-declaration form-src)
+        new-declaration))))
 
 
 ;;;
@@ -1632,7 +1631,7 @@
 
 (define (jazz.parse-specific walker resume declaration rest)
   (receive (rest) (jazz.parse-modifiers walker resume declaration jazz.specific-modifiers rest)
-    (let* ((signature (%%car rest))
+    (let* ((signature (jazz.desourcify (%%car rest)))
            (body (%%cdr rest))
            (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
            (name (%%car signature))
@@ -1641,21 +1640,20 @@
 
 
 (define (jazz.walk-specific walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr form))
-      (if (%%class-is? declaration jazz.Library-Declaration)
-          (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access)))
-            (if (%%class-is? generic-declaration jazz.Generic-Declaration)
-                (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-                  (let* ((root? (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration signature name parameters))
-                         (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
-                         (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
-                    (%%set-specific-declaration-body new-declaration
-                      (jazz.walk-body walker resume declaration body-environment body))
-                    (%%set-declaration-source new-declaration form-src)
-                    new-declaration))
-              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" (%%cons name parameters))))
-        (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name)))))
+  (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr (jazz.source-code form-src)))
+    (if (%%class-is? declaration jazz.Library-Declaration)
+        (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access)))
+          (if (%%class-is? generic-declaration jazz.Generic-Declaration)
+              (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+                (let* ((root? (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration signature name parameters))
+                       (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
+                       (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
+                  (%%set-specific-declaration-body new-declaration
+                                                   (jazz.walk-body walker resume declaration body-environment body))
+                  (%%set-declaration-source new-declaration form-src)
+                  new-declaration))
+            (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" (%%cons name parameters))))
+      (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name))))
 
 
 (define (jazz.walk-specific-root-dynamic-parameters? walker resume declaration generic-declaration specific-signature name parameters)

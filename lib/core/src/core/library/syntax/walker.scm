@@ -53,7 +53,7 @@
 ;; - Is the extra indirection level of having declaration references really necessary?
 ;; - Convert and remove the temporary patch jazz.register-autoload that was used to implement
 ;;   the old load
-;; - Cleanup the probably not usefull new method jazz.resolve-declaration that I added to get
+;; - Cleanup the probably not usefull new method jazz.resolve-binding that I added to get
 ;;   things working
 
 
@@ -181,6 +181,13 @@
 (jazz.define-class-runtime jazz.Lexical-Binding)
 
 
+(jazz.define-virtual-runtime (jazz.resolve-binding (jazz.Lexical-Binding binding)))
+
+
+(jazz.define-method (jazz.resolve-binding (jazz.Lexical-Binding binding))
+  binding)
+
+
 (jazz.define-method (jazz.print-object (jazz.Lexical-Binding binding) output detail)
   (jazz.format output "#<{a} {a} #{a}>"
                (%%get-category-name (%%get-object-class binding))
@@ -214,13 +221,6 @@
         (name (%%get-lexical-binding-name new-declaration)))
     (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-name (%%get-declaration-locator parent) name)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
-
-
-(jazz.define-virtual-runtime (jazz.resolve-declaration (jazz.Declaration declaration)))
-
-
-(jazz.define-method (jazz.resolve-declaration (jazz.Declaration declaration))
-  declaration)
 
 
 (define (jazz.get-declaration-path declaration)
@@ -526,7 +526,7 @@
     (cond ((%%is? decl jazz.Export-Declaration)
            (%%get-export-declaration-symbol decl))
           ((%%is? decl jazz.Autoload-Declaration)
-           ;; this heuristic used because we cannot call jazz.resolve-declaration at this point
+           ;; this heuristic used because we cannot call jazz.resolve-binding at this point
            ;; is not 100% correct if the autoload was obtained through a reexported library...
            (jazz.compose-name (%%get-declaration-reference-name (%%get-autoload-declaration-exported-library decl)) (%%get-lexical-binding-name decl)))
           (else
@@ -585,7 +585,7 @@
   (let ((partition (%%make-table test: eq?)))
     (%%iterate-table (%%get-library-declaration-references library-declaration)
       (lambda (locator declaration)
-        (let ((resolved-declaration (jazz.resolve-declaration declaration)))
+        (let ((resolved-declaration (jazz.resolve-binding declaration)))
           (let ((library (%%get-declaration-toplevel resolved-declaration)))
             (%%table-set! partition library
               (merge-sorted (compose-name library resolved-declaration) (%%table-ref partition library '())))))))
@@ -861,10 +861,10 @@
 
 (jazz.define-method (jazz.of-subtype? (jazz.Autoload-Declaration declaration) subtype)
   ;; not sure calling resolve here is correct
-  (jazz.of-subtype? (jazz.resolve-declaration declaration) subtype))
+  (jazz.of-subtype? (jazz.resolve-binding declaration) subtype))
 
 
-(jazz.define-method (jazz.resolve-declaration (jazz.Autoload-Declaration declaration))
+(jazz.define-method (jazz.resolve-binding (jazz.Autoload-Declaration declaration))
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
@@ -875,14 +875,14 @@
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Autoload-Declaration declaration) walker resume source-declaration operator arguments)
-  (jazz.walk-binding-validate-call (jazz.resolve-declaration declaration) walker resume source-declaration operator arguments))
+  (jazz.walk-binding-validate-call (jazz.resolve-binding declaration) walker resume source-declaration operator arguments))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Autoload-Declaration declaration) source-declaration environment)
-  (let ((referenced-declaration (jazz.resolve-declaration declaration)))
+  (let ((referenced-declaration (jazz.resolve-binding declaration)))
     (jazz.new-code
       `(,(jazz.autoload-locator referenced-declaration))
-      (jazz.resolve-declaration declaration)
+      (jazz.resolve-binding declaration)
       #f)))
 
 
@@ -3109,7 +3109,7 @@
   (let ((queue (jazz.new-queue))
         (locators (%%make-table test: eq?)))
     (for-each (lambda (autoload-declaration)
-                (let ((referenced-declaration (jazz.resolve-declaration autoload-declaration)))
+                (let ((referenced-declaration (jazz.resolve-binding autoload-declaration)))
                   (let ((locator (jazz.autoload-locator referenced-declaration)))
                     (%%when (%%not (%%table-ref locators locator #f))
                       (%%table-set! locators locator #t)
@@ -3147,7 +3147,7 @@
   (cond ((%%is? declaration jazz.Export-Declaration)
          (%%get-declaration-locator declaration))
         ((%%is? declaration jazz.Autoload-Declaration)
-         (let ((referenced-declaration (jazz.resolve-declaration declaration)))
+         (let ((referenced-declaration (jazz.resolve-binding declaration)))
            (%%cons (%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration))
                    (%%get-declaration-locator referenced-declaration))))
         (else
@@ -4367,7 +4367,7 @@
                                 ((%%class-is? type-expr jazz.Reference)
                                  (let ((binding (%%get-reference-binding type-expr)))
                                    (if (%%class-is? binding jazz.Declaration)
-                                       (jazz.resolve-declaration binding)
+                                       (jazz.resolve-binding binding)
                                      #f)))
                                 (else
                                  #f))))

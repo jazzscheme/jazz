@@ -155,6 +155,7 @@
 
 
 (define (jazz.some? predicate lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%null? scan)
         #f
@@ -163,6 +164,7 @@
 
 
 (define (jazz.every? predicate lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (or (%%null? scan)
         (and (predicate (%%car scan))
@@ -175,6 +177,7 @@
 
 
 (define (jazz.string-find-reversed str c)
+  (declare (proper-tail-calls))
   (let iter ((n (%%fx- (%%string-length str) 1)))
     (cond ((%%fx< n 0)
            #f)

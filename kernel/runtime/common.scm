@@ -67,6 +67,7 @@
 
 
 (define (jazz.collect-if predicate lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
         (let ((value (%%car scan)))
@@ -77,6 +78,7 @@
 
 
 (define (jazz.remove item lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
         (let ((value (%%car scan)))
@@ -92,6 +94,7 @@
 
 
 (define (jazz.string-find str c #!optional (start 0))
+  (declare (proper-tail-calls))
   (let ((len (%%string-length str)))
     (let iter ((n start))
       (cond ((%%fx>= n len)
@@ -103,6 +106,7 @@
 
 
 (define (jazz.string-replace str old new)
+  (declare (proper-tail-calls))
   (let ((cpy (string-copy str)))
     (let iter ((n (%%fx- (%%string-length cpy) 1)))
       (if (%%fx>= n 0)
@@ -128,6 +132,7 @@
 
 
 (define (jazz.split-string str separator)
+  (declare (proper-tail-calls))
   (let ((lst '())
         (end (%%string-length str)))
     (let iter ((pos (%%fx- end 1)))

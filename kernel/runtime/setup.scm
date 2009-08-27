@@ -183,6 +183,8 @@
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options))
             (jobs (number-argument (jazz.get-option "jobs" options))))
+        ;; until the library syntax doesn't generate global defines
+        (set! ##allow-inner-global-define? #t)
         (set! jazz.debugger debugger)
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)

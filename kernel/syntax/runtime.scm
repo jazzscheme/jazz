@@ -43,27 +43,35 @@
 ;;;
 
 
-(define (jazz.expand-module-source name rest)
+(define (jazz.expand-module-source rest)
   (define (parse rest proc)
-    (if (and (%%pair? rest)
-             (%%pair? (jazz.source-code (%%car rest)))
-             (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
-        (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
-      (proc '() rest)))
+    (let ((first (jazz.source-code (%%car rest))))
+      (if (%%memq first '(protected public))
+          (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
+        (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
   
   (parse rest
-    (lambda (requires body)
-      `(begin
-         ,@(jazz.declares 'module)
-         ;; note that making require a macro instead of being part of the
-         ;; module syntax could be done but would pollute the underlying scheme
-         ;; with an unnecessary extra macro
-         ,@(map (lambda (require)
-                  (jazz.parse-require require
-                    (lambda (module-name feature-requirement phase)
-                      `(jazz.load-module ',module-name))))
-                requires)
-         ,@body))))
+    (lambda (name access body)
+      (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
+          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+        `(begin
+           ,@(jazz.declares 'module)
+           ,@body)))))
+
+
+;;;
+;;;; Require
+;;;
+
+
+(define (jazz.expand-require rest)
+  (jazz.simplify-begin
+    `(begin
+       ,@(map (lambda (require)
+                (jazz.parse-require (jazz.listify require)
+                  (lambda (module-name feature-requirement phase)
+                    `(jazz.load-module ',module-name))))
+              (jazz.filter-features (map (lambda (src) (%%desourcify src)) rest))))))
 
 
 (define (jazz.parse-require require proc)

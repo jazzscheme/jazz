@@ -150,12 +150,6 @@
     (%%cons (%%car lst) (jazz.butlast (%%cdr lst)))))
 
 
-(define (jazz.listify obj)
-  (if (or (%%null? obj) (%%pair? obj))
-      obj
-    (%%list obj)))
-
-
 (define (jazz.naturals from to)
   (let ((lst '())
         (n from))

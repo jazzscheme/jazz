@@ -2841,14 +2841,22 @@
       (if (%%memq first '(protected public))
           (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
         (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
+
+  (define (collect-requires body)
+    (let ((requires '()))
+      (for-each (lambda (expr)
+                  (if (and (%%pair? (jazz.source-code expr))
+                           (%%eq? (jazz.source-code (%%car (jazz.source-code expr))) 'require))
+                      (set! requires (append requires (map jazz.listify (jazz.filter-features (%%cdr (%%desourcify expr))))))))
+                body)
+      requires))
   
   (parse partial-form
-    (lambda (name access rest)
+    (lambda (name access body)
       (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
           (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-        (jazz.parse-module rest
-          (lambda (requires body)
-            (jazz.new-module-declaration name access #f requires)))))))
+        (let ((requires (collect-requires body)))
+          (jazz.new-module-declaration name access #f requires))))))
 
 
 ;;;
@@ -2989,14 +2997,6 @@
           (jazz.validate-walk-problems walker)
           (%%set-namespace-declaration-body declaration body)
           declaration)))))
-
-
-(define (jazz.parse-module rest proc)
-  (if (and (%%pair? rest)
-           (%%pair? (jazz.source-code (%%car rest)))
-           (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
-      (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
-    (proc '() rest)))
 
 
 (define (jazz.cond-expand form-src cont)

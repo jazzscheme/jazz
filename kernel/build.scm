@@ -1180,15 +1180,38 @@
     (force-output)
     (exit 1))
   
-  (define (unknown-option opt)
-    (fatal (jazz.format "Unknown option: {a}" opt)))
-  
   (define (missing-argument-for-option opt)
     (fatal (jazz.format "Missing argument for option: {a}" opt)))
   
   (define (read-argument arg)
     (call-with-input-string (list init: arg)
       read))
+  
+  (define (string-option name options)
+    (let ((opt (jazz.get-option name options)))
+      (if (not opt)
+          #f
+        opt)))
+  
+  (define (symbol-option name options)
+    (let ((opt (jazz.get-option name options)))
+      (if (not opt)
+          #f
+        (string->symbol opt))))
+  
+  (define (boolean-option name options default)
+    (let ((opt (jazz.get-option name options)))
+      (cond ((not opt)
+             default)
+            ((string-ci=? opt "false")
+             #f)
+            ((string-ci=? opt "true")
+             #t)
+            (else
+             (fatal (jazz.format "Invalid boolean argument for option: {a}" name))))))
+  
+  (define (unknown-option opt)
+    (fatal (jazz.format "Unknown option: {a}" opt)))
   
   (let ((command-arguments (cdr (command-line))))
     (if (null? command-arguments)
@@ -1206,29 +1229,6 @@
               ((equal? action "configure")
                (jazz.split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "interpret-kernel" "destination") missing-argument-for-option
                  (lambda (options remaining)
-                   (define (string-option name options)
-                     (let ((opt (jazz.get-option name options)))
-                       (if (not opt)
-                           #f
-                         opt)))
-                   
-                   (define (symbol-option name options)
-                     (let ((opt (jazz.get-option name options)))
-                       (if (not opt)
-                           #f
-                         (string->symbol opt))))
-                   
-                   (define (boolean-option name options default)
-                     (let ((opt (jazz.get-option name options)))
-                       (cond ((not opt)
-                              default)
-                             ((string-ci=? opt "false")
-                              #f)
-                             ((string-ci=? opt "true")
-                              #t)
-                             (else
-                              (fatal (jazz.format "Invalid boolean argument for option: {a}" name))))))
-                   
                    (if (null? remaining)
                        (let ((name (symbol-option "name" options))
                              (system (symbol-option "system" options))

@@ -189,7 +189,9 @@
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)
-        (cond (run
+        (cond ((not (null? remaining))
+                (jazz.feedback "Unknown options: {a}" remaining))
+              (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))

@@ -1321,7 +1321,11 @@
                            (build-process-ended product-modified?)))
                      (build-process-died))))))))
     
-    (define (make name)
+    (define (local-make name)
+      (for-each make (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name)))
+      (jazz.build-product name))
+    
+    (define (remote-make name)
       (for-each thread-join!
                 (map (lambda (name)
                        (mutex-lock! subproduct-table-mutex)
@@ -1334,6 +1338,11 @@
                          thread))
                      (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name))))
       (build name))
+    
+    (define (make name)
+      (if (= jazz.jobs 0)
+          (local-make name)
+        (remote-make name)))
     
     (define (send-command process name)
       (write name process)

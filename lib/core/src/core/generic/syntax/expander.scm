@@ -41,6 +41,9 @@
 
 (define (jazz.dynamic-parameter? parameter)
   (and (%%pair? parameter)
+       (let ((type (%%car parameter)))
+         (or (%%pair? type)
+             (jazz.composite-name? type)))
        (%%pair? (%%cdr parameter))))
 
 

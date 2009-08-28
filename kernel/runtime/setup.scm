@@ -170,11 +170,12 @@
     (let ((current-handler (current-exception-handler)))
       (with-exception-handler
         (lambda (exc)
-          (jazz.debug-exception exc (console-port) (jazz.debug-build?) (jazz.debug-build?))
+          (let ((verbose? (%%eq? (jazz.debug-build?) 'verbose)))
+            (jazz.debug-exception exc (console-port) verbose? verbose?))
           (current-handler exc))
         thunk)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '() '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
@@ -189,6 +190,9 @@
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)
+        (if (or (jazz.get-option "debug" options)
+                (eqv? jobs 0))
+            (jazz.debug-build? #t))
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product

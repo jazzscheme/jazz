@@ -1322,7 +1322,12 @@
                      (build-process-died))))))))
     
     (define (local-make name)
-      (for-each make (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name)))
+      (for-each (lambda (subname)
+                  (if (not (%%table-ref subproduct-table subname #f))
+                      (begin
+                        (make subname)
+                        (%%table-set! subproduct-table subname #t))))
+                (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name)))
       (jazz.build-product name))
     
     (define (remote-make name)
@@ -1340,7 +1345,7 @@
       (build name))
     
     (define (make name)
-      (if (%%eqv? jazz.jobs 0)
+      (if (jazz.debug-build?)
           (local-make name)
         (remote-make name)))
     

@@ -383,7 +383,7 @@
               (rest (cdr args)))
           (cond ((member opt options-with-no-args)
                  (loop rest
-                       (cons (cons opt #f) rev-options)))
+                       (cons (cons opt #t) rev-options)))
                 ((member opt options-with-args)
                  (if (pair? rest)
                      (loop (cdr rest)

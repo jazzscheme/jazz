@@ -713,8 +713,8 @@
   (define (make-symbol symbol jobs)
     (let ((name (symbol->string symbol)))
       (parse-target/configuration/image name
-                                        (lambda (target configuration image)
-                                          (make-target target configuration image jobs local?)))))
+        (lambda (target configuration image)
+          (make-target target configuration image jobs local?)))))
   
   (define (make-target target configuration image jobs local?)
     (case target

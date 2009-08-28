@@ -45,7 +45,7 @@
 
 (jazz.define-class jazz.Definition-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-definition-declaration
   ((expansion %%get-definition-declaration-expansion ())
-   (signature %%get-definition-declaration-signature ())
+   (signature %%get-definition-declaration-signature %%set-definition-declaration-signature)
    (value     %%get-definition-declaration-value     %%set-definition-declaration-value)))
 
 

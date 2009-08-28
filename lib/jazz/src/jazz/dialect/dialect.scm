@@ -1493,11 +1493,17 @@
 
 (define (jazz.walk-definition walker resume declaration environment form-src)
   (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let* ((new-declaration (jazz.find-form-declaration declaration name))
-           (new-environment (%%cons new-declaration environment)))
-      (%%when (%%not (%%eq? expansion 'inline))
-        (%%set-definition-declaration-value new-declaration
-          (jazz.walk walker resume new-declaration new-environment value)))
+    (let ((new-declaration (jazz.find-form-declaration declaration name)))
+      (%%when (%%neq? expansion 'inline)
+        ;; adding source information for parameters (default for optional and keyword may be source code)
+        ;; jazz.find-annotated fails on first keyword at jazz.dialect.language.functional.minimum
+        ;; because (eq? variable annotated-variable) -> one points to a stale value
+        (let ((new-environment (if #f #; parameters
+                                   (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+                                     (%%set-definition-declaration-signature new-declaration signature)
+                                     (%%cons new-declaration augmented-environment))
+                                 (%%cons new-declaration environment))))
+          (%%set-definition-declaration-value new-declaration (jazz.walk walker resume new-declaration new-environment value))))
       (%%set-declaration-source new-declaration form-src)
       new-declaration)))
 
@@ -1587,8 +1593,8 @@
 
 (define (jazz.parse-generic walker resume declaration rest)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.generic-modifiers rest)
-    (let ((signature (jazz.desourcify (%%car rest))))
-      (let ((name (%%car signature))
+    (let ((signature (jazz.source-code (%%car rest))))
+      (let ((name (jazz.source-code (%%car signature)))
             (parameters (%%cdr signature)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)

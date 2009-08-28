@@ -73,12 +73,13 @@
     (let* ((src (jazz.find-module-src module-name #f))
            (source (jazz.resource-pathname src))
            (form (jazz.read-toplevel-form source read-source?: #t))
-           (kind (jazz.source-code (car (jazz.source-code form)))))
+           (kind (jazz.source-code (car (jazz.source-code form))))
+           (rest (cdr (jazz.source-code form))))
       (parameterize ((jazz.requested-module-name module-name)
                      (jazz.requested-module-resource src))
         (case kind
-          ((module) (jazz.expand-module-source (car (jazz.source-code form)) (cdr (jazz.source-code form))))
-          ((library) (jazz.expand-library-source (cdr (jazz.source-code form)))))))))
+          ((module) (jazz.expand-module-source rest))
+          ((library) (jazz.expand-library-source rest)))))))
 
 
 (define (jazz.expand module-name . rest)

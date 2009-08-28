@@ -145,7 +145,7 @@
 
 
 (jazz.define-class jazz.Module-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-module-declaration
-  ((requires %%get-module-declaration-requires ())))
+  ((requires %%get-module-declaration-requires %%set-module-declaration-requires)))
 
 
 ;;;

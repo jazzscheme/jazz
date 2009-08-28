@@ -2841,14 +2841,22 @@
       (if (%%memq first '(protected public))
           (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
         (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
+
+  (define (collect-requires body)
+    (let ((requires '()))
+      (for-each (lambda (expr)
+                  (if (and (%%pair? (jazz.source-code expr))
+                           (%%eq? (jazz.source-code (%%car (jazz.source-code expr))) 'require))
+                      (set! requires (append requires (map jazz.listify (jazz.filter-features (%%cdr (%%desourcify expr))))))))
+                body)
+      requires))
   
   (parse partial-form
-    (lambda (name access rest)
+    (lambda (name access body)
       (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
           (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-        (jazz.parse-module rest
-          (lambda (requires body)
-            (jazz.new-module-declaration name access #f requires)))))))
+        (let ((requires (collect-requires body)))
+          (jazz.new-module-declaration name access #f requires))))))
 
 
 ;;;
@@ -2933,20 +2941,6 @@
     declaration))
 
 
-(define (jazz.walk-library-exports walker exports)
-  (let ((partition (jazz.partition exports symbol? assv)))
-    (let ((symbols-exports (%%assq #t partition))
-          (library-exports (%%assq #f partition)))
-      (%%append (if symbols-exports
-                    (%%list (jazz.new-export-invoice #f #f #f '() (map (lambda (symbol) (jazz.new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
-                  '())
-                (if library-exports
-                    (map (lambda (export)
-                           (jazz.walk-library-export walker export))
-                         (%%cdr library-exports))
-                  '())))))
-
-
 (define (jazz.walk-library-export walker export)
   (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice export)
     (let ((library-reference (jazz.new-library-reference library-name #f)))
@@ -2964,12 +2958,6 @@
                                  (map (lambda (symbol)
                                         (jazz.new-autoload-reference symbol #f #f))
                                       library-autoload))))))
-
-
-(define (jazz.walk-library-imports walker imports)
-  (map (lambda (import)
-         (jazz.walk-library-import walker import))
-       imports))
 
 
 (define (jazz.walk-library-import walker import)
@@ -3009,14 +2997,6 @@
           (jazz.validate-walk-problems walker)
           (%%set-namespace-declaration-body declaration body)
           declaration)))))
-
-
-(define (jazz.parse-module rest proc)
-  (if (and (%%pair? rest)
-           (%%pair? (jazz.source-code (%%car rest)))
-           (%%eq? (jazz.source-code (%%car (jazz.source-code (%%car rest)))) 'require))
-      (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
-    (proc '() rest)))
 
 
 (define (jazz.cond-expand form-src cont)
@@ -5378,7 +5358,7 @@
   (let ((library-declaration (%%get-declaration-toplevel declaration)))
     (let ((requires (jazz.filter-features (%%cdr form))))
       (for-each (lambda (require)
-                  (jazz.add-library-require library-declaration require))
+                  (jazz.add-library-require library-declaration (jazz.listify require)))
                 requires))))
 
 
@@ -5392,8 +5372,21 @@
 
 
 (define (jazz.walk-export-declaration walker resume declaration environment form)
+  (define (walk-exports exports)
+    (let ((partition (jazz.partition exports symbol? assv)))
+      (let ((symbols-exports (%%assq #t partition))
+            (library-exports (%%assq #f partition)))
+        (%%append (if symbols-exports
+                      (%%list (jazz.new-export-invoice #f #f #f '() (map (lambda (symbol) (jazz.new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
+                    '())
+                  (if library-exports
+                      (map (lambda (export)
+                             (jazz.walk-library-export walker export))
+                           (%%cdr library-exports))
+                    '())))))
+  
   (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((export-invoices (jazz.walk-library-exports walker (jazz.filter-features (%%cdr form)))))
+    (let ((export-invoices (walk-exports (jazz.filter-features (%%cdr form)))))
       (for-each (lambda (export-invoice)
                   (jazz.add-library-export library-declaration export-invoice))
                 export-invoices))))
@@ -5409,8 +5402,13 @@
 
 
 (define (jazz.walk-import-declaration walker resume declaration environment form)
+  (define (walk-imports imports)
+    (map (lambda (import)
+           (jazz.walk-library-import walker (jazz.listify import)))
+         imports))
+  
   (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((import-invoices (jazz.walk-library-imports walker (jazz.filter-features (%%cdr form)))))
+    (let ((import-invoices (walk-imports (jazz.filter-features (%%cdr form)))))
       (for-each (lambda (import-invoice)
                   (jazz.add-library-import library-declaration import-invoice #t))
                 import-invoices))))

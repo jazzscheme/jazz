@@ -66,6 +66,12 @@
 ;;;
 
 
+(define (jazz.listify obj)
+  (if (or (%%null? obj) (%%pair? obj))
+      obj
+    (%%list obj)))
+
+
 (define (jazz.collect-if predicate lst)
   (declare (proper-tail-calls))
   (let iter ((scan lst))

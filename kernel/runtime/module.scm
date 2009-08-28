@@ -1340,7 +1340,7 @@
       (build name))
     
     (define (make name)
-      (if (= jazz.jobs 0)
+      (if (%%eqv? jazz.jobs 0)
           (local-make name)
         (remote-make name)))
     

@@ -2960,19 +2960,6 @@
                                       library-autoload))))))
 
 
-(define (jazz.walk-library-import walker import)
-  (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
-    (jazz.new-import-invoice library-name
-                             (jazz.lookup-library walker #f #f '() library-name)
-                             library-phase
-                             library-version
-                             (if (%%not library-only)
-                                 #f
-                               (map (lambda (symbol)
-                                      (jazz.new-export-reference symbol #f #f))
-                                    library-only)))))
-
-
 (define (jazz.expand-library-source partial-form)
   (jazz.emit-declaration (jazz.walk-library partial-form) '()))
 
@@ -3253,11 +3240,6 @@
 ;;;
 ;;;; Lookup
 ;;;
-
-
-(define (jazz.lookup-library walker resume declaration environment name)
-  (or (jazz.outline-library name #f)
-      (jazz.walk-unresolved walker resume declaration name)))
 
 
 (define (jazz.lookup-reference walker resume declaration environment symbol)
@@ -5402,9 +5384,25 @@
 
 
 (define (jazz.walk-import-declaration walker resume declaration environment form)
+  (define (jazz.walk-library-import import)
+    (define (jazz.lookup-library name)
+      (or (jazz.outline-library name #f)
+          (jazz.walk-unresolved walker resume declaration name)))
+    
+    (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
+      (jazz.new-import-invoice library-name
+                               (jazz.lookup-library library-name)
+                               library-phase
+                               library-version
+                               (if (%%not library-only)
+                                   #f
+                                 (map (lambda (symbol)
+                                        (jazz.new-export-reference symbol #f #f))
+                                      library-only)))))
+  
   (define (walk-imports imports)
     (map (lambda (import)
-           (jazz.walk-library-import walker (jazz.listify import)))
+           (jazz.walk-library-import (jazz.listify import)))
          imports))
   
   (let ((library-declaration (%%get-declaration-toplevel declaration)))

@@ -126,7 +126,7 @@
           (debug-source? jazz.kernel-debug-source?)
           (include-compiler? #f)
           (interpret-kernel? #f)
-          (source jazz.source)
+          (source jazz.kernel-source)
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
           (destination-directory jazz.kernel-install)

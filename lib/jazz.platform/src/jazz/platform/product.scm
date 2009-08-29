@@ -161,7 +161,7 @@
   (windows
     (define (jazz.build-platform descriptor)
       (let ((install jazz.kernel-install)
-            (source jazz.source))
+            (source jazz.kernel-source))
         (define (install-file path)
           (string-append install path))
         

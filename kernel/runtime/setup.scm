@@ -170,8 +170,8 @@
     (let ((current-handler (current-exception-handler)))
       (with-exception-handler
         (lambda (exc)
-          (let ((verbose? (%%eq? (jazz.debug-build?) 'verbose)))
-            (jazz.debug-exception exc (console-port) verbose? verbose?))
+          (if (%%not (jazz.debug-build?))
+              (jazz.debug-exception exc (console-port) #f #f))
           (current-handler exc))
         thunk)))
   

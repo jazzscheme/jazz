@@ -271,46 +271,38 @@
   
   
   (method (prepare-expressions range)
-    (let ((container (get-locat-container))
-          (declarations (collect-declarations range))
-          (string (get-string range)))
-      (receive (str line col) (package-expressions declarations range string)
-        (list 'jazz str container line col))))
-  
-  
-  (method (collect-declarations range)
-    (let ((declarations '())
-          (expl (new Jazz-Explorer self range: range)))
-      (while (outer-expr~ expl)
-        (when (jazz-declaration?~ expl)
-          (let ((declaration (jazz-declaration~ expl)))
-            (set! declarations (cons declaration declarations)))))
-      declarations))
-  
-  
-  (method (package-expressions declarations range expressions)
-    (let ((first (if (not-null? declarations) (car declarations) range)))
-      (let ((first-row (get-row~ (get-start~ first)))
-            (first-col (get-col~ (get-start~ first))))
-        (let ((row first-row)
-              (col first-col)
-              (output (open-output-string)))
-          (define (fill rng)
-            (let ((r (get-row~ (get-start~ rng)))
-                  (c (get-col~ (get-start~ rng))))
-              (let (iterate)
-                (if (= r row)
-                    (begin
-                      (display (make-string (- c col) #\space) output)
-                      (set! col c))
-                  (display #\newline output)
-                  (set! row (+ row 1))
-                  (set! col 0)
-                  (iterate)))))
-          
-          (for-each (function (range)
-                      (let ((declaration (get-string range)))
-                        (fill range)
+    (define (collect-namespaces)
+      (let ((namespaces '())
+            (expl (new Jazz-Explorer self range: range)))
+        (while (outer-expr~ expl)
+          (when (namespace-expr?~ expl)
+            (let ((namespace (namespace-declaration-range~ expl)))
+              (set! namespaces (cons namespace namespaces)))))
+        namespaces))
+    
+    (define (package-expressions namespaces expressions)
+      (let ((first (if (not-null? namespaces) (car namespaces) range)))
+        (let ((first-row (get-row~ (get-start~ first)))
+              (first-col (get-col~ (get-start~ first))))
+          (let ((row first-row)
+                (col first-col)
+                (output (open-output-string)))
+            (define (fill rng)
+              (let ((r (get-row~ (get-start~ rng)))
+                    (c (get-col~ (get-start~ rng))))
+                (let (iterate)
+                  (if (= r row)
+                      (begin
+                        (display (make-string (- c col) #\space) output)
+                        (set! col c))
+                    (display #\newline output)
+                    (set! row (+ row 1))
+                    (set! col 0)
+                    (iterate)))))
+            
+            (for-each (function (range)
+                        (let ((namespace (get-string range)))
+                          (fill range)
                           (for-each-pair (function (pair)
                                            (let ((line (car pair))
                                                  (last? (null? (cdr pair))))
@@ -321,12 +313,18 @@
                                                    (set! row (+ row 1))
                                                    (set! col 0))
                                                (set! col (+ col (cardinality line))))))
-                                         (split declaration (string #\newline)))))
-                    declarations)
-          (fill range)
-          (display expressions output)
-          (display (make-string (length declarations) #\)) output)
-          (values (get-output-string output) first-row first-col)))))
+                                         (split namespace (string #\newline)))))
+                      namespaces)
+            (fill range)
+            (display expressions output)
+            (display (make-string (length namespaces) #\)) output)
+            (values (get-output-string output) first-row first-col)))))
+    
+    (let ((container (get-locat-container))
+          (namespaces (collect-namespaces))
+          (string (get-string range)))
+      (receive (str line col) (package-expressions namespaces string)
+        (list 'jazz str container line col))))
 
 
   ;;;
@@ -364,87 +362,10 @@
   ;;;
   
   
+  ;; todo: code from old jazz was not portable
   (method (present-location location)
-    @convert
-    (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter location)
-      (when (and resolved? in-context?)
-        (let ((frame (active-frame~ (current-debugger))))
-          (present-expr frame object)))))
-
-
-  (method (present-expr frame object)
-    @convert (
-    @to-debug-field-logic
-    (format "{s} : {s}" (class-of object) object)
-    (typecase object
-      ((Global-Reference)   (present-global   frame object))
-      ((Manifest-Reference) (present-global   frame object))
-      ((Self)               (present-self     frame object))
-      ((Variable)           (present-variable frame object))
-      ((Field-Reference)    (present-field    frame object))
-      ((Symbol)             (present-constant frame object))
-      (else               (present-unknown  frame object)))))
+    )
   
-  
-  (method (present-global frame object)
-    (format "{s}" (dispatch self object)))
-  
-  
-  (method (present-self frame object)
-    @convert
-    (when frame
-      ;; todo temp patch until converted to the new remote debugger
-      (let* ((binder (frame-closure-frame~ Interpreter (get-address~ frame)))
-             (context (frame-context binder)))
-        (format "self = {a}"
-                (present-value context)))))
-  
-  
-  (method (present-variable frame var)
-    @convert
-    (when frame
-      ;; todo temp patch until converted to the new remote debugger
-      (set! frame (get-address~ frame))
-      (let* ((binder (frame-closure-frame~ Interpreter frame))
-             (variables (frame-variables binder))
-             ;; it is important to take the variable from the frame-variables list
-             ;; because it is the one that has its level member set correctly
-             (variable-base (~ variable-base Interpreter))
-             (variable (find-in variables (variable-base var) key: variable-base test: eq?)))
-        (when variable
-          (let ((value (variable-value~ Interpreter variable binder)))
-            (format "{s} = {a}"
-                    (variable-symbol~ Interpreter variable)
-                    (present-value value)))))))
-  
-  
-  (method (present-field frame reference)
-    @convert
-    (when frame
-      ;; todo temp patch until converted to the new remote debugger
-      (set! frame (get-address~ frame))
-      (let* ((binder (frame-closure-frame~ Interpreter frame))
-             (context (frame-context binder))
-             (field (field-reference-form~ Interpreter reference)))
-        (when (is? context (field-creator field))
-          (unless (and (definition? field) (definition-method? field))
-            (let ((value (get-value context field)))
-              (format "{s} = {a}"
-                      (field-name field)
-                      (present-value value))))))))
-  
-  
-  (method (present-constant frame object)
-    (format "{s}" object))
-  
-  
-  (method (present-unknown frame object)
-    {})
-  
-  
-  (method (present-value value)
-    (cond ((procedure? value) "<procedure>")
-          (else (format "{s}" value))))
 
   ;;;
   ;;;; Location
@@ -522,14 +443,11 @@
               (set! done? #t)
             (let ((def? (declaration-expr?~ expl)))
               (if def?
-                  (receive (package? meta? name) (declaration-name~ expl)
+                  (receive (modifiers name) (declaration-name~ expl)
                     (let ((loc (if previous-def? location (cons rank location))))
-                      (cond (package?
-                              (set! location (cons name (cons 'meta loc))))
-                            (meta?
-                              (set! location (cons 'meta (cons name loc))))
-                            (else
-                             (set! location (cons name loc))))))
+                      (if (memq? 'meta modifiers)
+                          (set! location (cons 'meta (cons name loc)))
+                        (set! location (cons name loc)))))
                 (set! location (cons rank location)))
               (set! previous-def? def?)))))
       location))
@@ -589,17 +507,15 @@
 
   
   (method (show-arguments)
-    @convert
     (when (empty-selection?)
       (let ((expl (new Jazz-Explorer self start: (get-start) end: (get-end))))
         (when (and (backward-expr~ expl)
                    (= (get-kind~ expl) 'symbol))
           (case (char-backward~ expl 0)
-            ((#\open-parenthesis) (show-method-arguments expl))
-            ((#\open-bracket) (show-category-fields)))))))
+            ((#\open-parenthesis) (show-declaration-arguments expl)))))))
   
   
-  (method (show-method-arguments expl)
+  (method (show-declaration-arguments expl)
     @convert
     (let ((name (get-marked~ expl))
           (info (current-toplevel-info)))
@@ -664,26 +580,6 @@
     (typecase parameter
       ((Variable) (format printer "{s}" (variable-symbol~ Interpreter parameter)))
       (else (format printer "{s}" parameter))))
-
-  
-  @convert
-  (method (find-in symbol class packages)
-    (continuation-capture
-      (function (return)
-        (for-each (function (package)
-                    (let* ((name (type-name package))
-                           (package (either (get-interpreted-category~ Interpreter-Services name) package))
-                           (field (category-field (class-of package) symbol)))
-                      (when field
-                        (continuation-return return field))))
-                  packages)
-        {})))
-  
-  
-  (method (show-category-fields)
-    @wait
-    (let ((popup (new Completion-Popup owner-text: self position: {Point 500 500})))
-      (show~ popup)))
    
 
   ;;;

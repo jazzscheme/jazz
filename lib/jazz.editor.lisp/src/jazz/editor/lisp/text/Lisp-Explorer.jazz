@@ -536,18 +536,17 @@
   
   (method public (forward-modifiers modifiers)
     (let ((old (copy end))
-          (meta? #f)
-          (symbol {}))
+          (symbol {})
+          (result '()))
       (let (iterate)
         (when (and (forward-expr) (eq? kind 'symbol))
            (set! symbol (find-marked-symbol))
            (when (memq? symbol modifiers)
              (set! old (copy end))
-             (when (eq? symbol 'meta)
-               (set! meta? #t))
+             (set! result (cons symbol result))
              (iterate))))
       (set! end old)
-      meta?))
+      (reverse! result)))
   
   
   (method (forward-comments)
@@ -731,10 +730,6 @@
               (find-marked-symbol)))
         (set-start s)
         (set-end e))))
-
-
-  (method public (form-expr? symbols)
-    (memq? (form-expr) symbols))
   
   
   (method public (form-name form)
@@ -775,10 +770,9 @@
       (set-end start)
       (enter-list)
       (forward-expr)
-      (let* ((type (find-marked-symbol))
-             (package? (eq? type 'package))
-             (meta? (forward-modifiers '())))
-        (cond ((memq? type '(generic specific))
+      (let* ((decl (find-marked-symbol))
+             (modifiers (lisp-form-modifiers decl)))
+        (cond ((memq? decl '(generic specific))
                (forward-expr)))
         (forward-whites)
         (if (eqv? (char-forward 0) #\open-parenthesis)
@@ -786,13 +780,13 @@
               (enter-list)
               (forward-expr))
           (forward-expr))
-        (prog1 (values package? meta? (find-marked-symbol))
+        (prog1 (values modifiers (find-marked-symbol))
           (set-start s)
           (set-end e)))))
   
   
   (method (declaration-only-name)
-    (receive (package? meta? name) (declaration-name)
+    (receive (modifiers name) (declaration-name)
       name))
 
 

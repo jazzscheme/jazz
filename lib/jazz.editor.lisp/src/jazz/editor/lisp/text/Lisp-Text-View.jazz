@@ -531,6 +531,17 @@
   
   
   (method public (tabulate-delta row)
+    (define (count-modifiers expressions modifiers)
+      (let ((total 0)
+            (done? #f))
+        (while (and (not-null? expressions) (not done?))
+          (let ((symbol (find-symbol (get-string (get-range~ (car expressions))))))
+            (if (or (not symbol) (not (memq? symbol modifiers)))
+                (set! done? #t)
+              (increase! total)
+              (set! expressions (cdr expressions)))))
+        total))
+    
     (let* ((pos (new Cell row 0))
            (expl <Text-Explorer> (new (explorer-class) self start: pos))
            (expressions (remove-specifiers (collect-backward-exprs~ expl)))
@@ -568,9 +579,9 @@
                                  (upper-case? (element first-string 0)))
                             (set! col default-col)
                           (set! col proposed-col)))))
-                (bind (modifiers? specials) info
-                  (when modifiers?
-                    (decrease! rank (count-modifiers (cdr expressions))))
+                (bind (modifiers specials) info
+                  (when (not-null? modifiers)
+                    (decrease! rank (count-modifiers (cdr expressions) modifiers)))
                   (if (= specials -1)
                       (set! col (get-col~ opening))
                     (if (= specials 0)
@@ -586,19 +597,6 @@
       (let ((actual (get-column row)))
         (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row actual))
                       (list (make-string (+ actual delta) #\space))))))
-  
-  
-  (method (count-modifiers expressions)
-    (let ((total 0)
-          (done? #f))
-      (while (and (not-null? expressions) (not done?))
-        (let ((symbol (find-symbol (get-string (get-range~ (car expressions))))))
-          ;; the (new (explorer-class)) is temporary
-          (if (or (not symbol) (not (memq? symbol (get-modifiers~ (new (explorer-class) self)))))
-              (set! done? #t)
-            (increase! total)
-            (set! expressions (cdr expressions)))))
-      total))
   
   
   (method (first-on-last-line expressions count)
@@ -619,8 +617,9 @@
   (method (evaluate-selection)
     (with-safe-explore
       (function ()
-        (let ((range (current-definition-range)))
-          (when range
+        (let ((range (current-declaration-range)))
+          (if (not range)
+              (bell)
             (with-cursor :wait
               (function ()
                 (sleep .1)
@@ -738,36 +737,31 @@
     '(jazz))
 
 
-  (method (current-definition)
-    (let ((range (current-definition-range)))
+  (method (current-declaration)
+    (let ((range (current-declaration-range)))
       (when range
         (read-string-element (get-string range)))))
   
   
-  (method (current-definition-range)
+  (method (current-declaration-range)
     (if (and (not completion-active?) (has-selection?))
         (get-selection)
-      (definition-range (get-end))))
+      (declaration-range (get-end))))
   
   
-  (method public (definition-range pos)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
-          (range {})
-          (definition? #f)
-          (done? #f))
-      (while (not done?)
+  (method public (declaration-range pos)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+      (let (iterate (range {}))
         (if (not (outer-expr~ expl))
-            (set! done? #t)
-          (set! range (get-range~ expl))
-          (when (definition-expr?~ expl)
-            (set! definition? #t)
-            (set! done? #t))))
-      (when (and range (or definition? (not (need-definition?))))
-        range)))
-  
-  
-  (method protected virtual (need-definition?)
-    #t)
+            range
+          (let ((new-range (get-range~ expl)))
+            (if (namespace-expr?~ expl)
+                (if (and range new-range
+                      (= (get-row~ (get-start~ range))
+                         (get-row~ (get-start~ new-range))))
+                    new-range
+                  range)
+              (iterate new-range)))))))
 
   
   ;;;
@@ -794,7 +788,7 @@
   
   
   (method (on-highlight-selection evt)
-    (let ((range (definition-range (get-start)))
+    (let ((range (declaration-range (get-start)))
           (constant (current-expr)))
       (if (or (not range) (not (constant? constant)))
           (bell)
@@ -805,7 +799,7 @@
   
   
   (method (on-remove-highlights evt)
-    (let ((range (definition-range (get-start))))
+    (let ((range (declaration-range (get-start))))
       (if (not range)
           (bell)
         (remove-highlights range))))

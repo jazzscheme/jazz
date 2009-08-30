@@ -437,12 +437,19 @@
   
   
   (method (with-safe-explore proc (action: action 'ask))
+    (proc)
+    @w
     (catch (Explore-Error err
              (case action
                ((ask)
-                (when (eq? (message-box (get-message~ err) type: 'question yes: "Show Me" no: "Ignore") 'yes)
-                  (set-selection-safe (get-text-range~ err self))
-                  (throw-cancel)))
+                (case (message-box (get-message~ err) type: 'question yes: "Show Me" no: "Debug" cancel: "Ignore")
+                  ((yes)
+                   (set-selection-safe (get-text-range~ err self))
+                   (throw-cancel))
+                  ((no)
+                   (throw err))
+                  ((cancel)
+                   (throw-cancel))))
                ((ignore)
                 (throw-cancel)))
              {})

@@ -38,32 +38,13 @@
 (library protected jazz.editor.commonlisp.text.CommonLisp-Explorer jazz
 
 
+(require (jazz.editor.commonlisp.forms))
+
 (import (jazz.editor.commonlisp)
         (jazz.editor.lisp))
 
 
 (class CommonLisp-Explorer extends Lisp-Explorer
-  
-  
-  (definition Modifiers
-    '())
-  
-  
-  (method (get-modifiers)
-    Modifiers)
-
-
-  ;;;
-  ;;;; Definitions
-  ;;;
-  
-  
-  (definition Toplevels
-    '(defun defmacro defvar defparameter defstruct))
-
-
-  (method (definition-name? name)
-    (memq? name Toplevels))
 
 
   ;;;
@@ -71,34 +52,16 @@
   ;;;
   
   
-  (method (walk-declaration context declaration keyword expression doc walk-expressions?)
-    (let ((list? (enter-list)))
-      (if (not list?)
-          (when (forward-expr)
-            (expression context start end 'code kind)
-            #t)
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (let ((symbol (find-marked-symbol)))
-            (case symbol
-              ((eval-when)
-               (walk-eval-when context symbol declaration keyword expression doc walk-expressions?))
-              ((defun defmethod defgeneric)
-               (walk-define context symbol declaration keyword expression doc walk-expressions?))
-              ((defmacro)
-               (walk-define-macro context symbol declaration keyword expression doc walk-expressions?))
-              ((defvar defparameter defstruct defclass defpackage define-condition define-modify-macro)
-               (walk-define-variable context symbol declaration keyword expression doc walk-expressions?))
-              (else
-               (walk-unknown context declaration keyword expression doc walk-expressions?)))))
-        (exit-list)
-        #t)))
-    
-  
-  (method (walk-eval-when context symbol declaration keyword expression doc walk-expressions?)
-    (walk-declarations context declaration keyword expression doc walk-expressions?))
+  (method (walk-named-declaration context symbol form declaration keyword expression doc walk-expressions?)
+    (case symbol
+      ((:define)          (walk-define          context symbol form declaration keyword expression doc walk-expressions?))
+      ((:define-macro)    (walk-define-macro    context symbol form declaration keyword expression doc walk-expressions?))
+      ((:define-variable) (walk-define-variable context symbol form declaration keyword expression doc walk-expressions?))
+      ((:eval-when)       (walk-eval-when       context symbol form declaration keyword expression doc walk-expressions?))
+      (else               (nextmethod           context symbol form declaration keyword expression doc walk-expressions?))))
 
   
-  (method (walk-define context symbol declaration keyword expression doc walk-expressions?)
+  (method (walk-define context symbol form declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -116,7 +79,7 @@
       entry))
   
   
-  (method (walk-define-macro context symbol declaration keyword expression doc walk-expressions?)
+  (method (walk-define-macro context symbol form declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -134,7 +97,7 @@
       entry))
     
   
-  (method (walk-define-variable context symbol declaration keyword expression doc walk-expressions?)
+  (method (walk-define-variable context symbol form declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -150,10 +113,7 @@
       (when walk-expressions?
         (walk-declarations entry declaration keyword expression doc walk-expressions?))
       entry))
-
+    
   
-  (method (walk-unknown context declaration keyword expression doc walk-expressions?)
-    (when walk-expressions?
-      (walk-expression context expression 'code #t)
-      (walk-expressions context expression))
-    context)))
+  (method (walk-eval-when context symbol form declaration keyword expression doc walk-expressions?)
+    (walk-declarations context declaration keyword expression doc walk-expressions?))))

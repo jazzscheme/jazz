@@ -90,15 +90,6 @@
       #\close-brace))
   
   
-  ;; todo make so modifiers are per walked expression
-  (method public virtual (get-modifiers)
-    '())
-  
-  
-  (method public virtual (get-keywords)
-    '())
-  
-  
   (method (explore-error message start end)
     (signal (new Explore-Error message: message start: start end: end)))
   
@@ -175,6 +166,7 @@
       (when c
         (cond ((eqv? c #\sharp)            (forward-sharp))
               ((string-delimiter? c)       (forward-string))
+              ((eqv? c #\\)                (forward-backslahed-symbol))
               ((eqv? c #\|)                (forward-escaped-symbol))
               ((text-constituent? c)       (forward-constituent))
               ((eqv? c #\at)               (forward-named-comment))
@@ -309,6 +301,12 @@
              (forward-expr-comment))
             (else
              (forward-constituent)))))
+  
+  
+  (method private (forward-backslahed-symbol)
+    (forward)
+    (forward)
+    (forward-constituent))
   
   
   (method private (forward-escaped-symbol)
@@ -536,14 +534,14 @@
     (and (backward-expr) (= (get-marked) name)))
   
   
-  (method public (forward-modifiers)
+  (method public (forward-modifiers modifiers)
     (let ((old (copy end))
           (meta? #f)
           (symbol {}))
       (let (iterate)
         (when (and (forward-expr) (eq? kind 'symbol))
            (set! symbol (find-marked-symbol))
-           (when (memq? symbol (get-modifiers))
+           (when (memq? symbol modifiers)
              (set! old (copy end))
              (when (eq? symbol 'meta)
                (set! meta? #t))
@@ -740,34 +738,38 @@
   
   
   (method public (form-name form)
-    (when (and (pair? form)
-               (definition-name? (car form)))
-      (let ((scan (cdr form))
-            (modifiers (get-modifiers)))
-        (while (and (not-null? scan) (memq? (car scan) modifiers))
-          (set! scan (cdr scan)))
-        (when scan
-          (let ((expr (car scan)))
-            (if (symbol? expr)
-                expr
-              (when (pair? expr)
-                (car expr))))))))
+    (when (pair? form)
+      (let ((lisp-form (get-lisp-form (car form))))
+        (when (and lisp-form (get-declaration?~ lisp-form))
+          (let ((scan (cdr form))
+                (modifiers (get-modifiers~ lisp-form)))
+            (while (and (not-null? scan) (memq? (car scan) modifiers))
+              (set! scan (cdr scan)))
+            (when (not-null? scan)
+              (let ((expr (car scan)))
+                (if (symbol? expr)
+                    expr
+                  (when (pair? expr)
+                    (car expr))))))))))
 
 
-  (method public (category-expr?)
-    (form-expr? '(class interface package remotable-stub com-class com-interface)))
+  (method public virtual (declaration-expr?)
+    (declaration-name? (form-expr)))
 
 
-  (method public virtual (definition-expr?)
-    (definition-name? (form-expr)))
-  
-  
-  (method public virtual (definition-name? name)
-    (or (lisp-form-declaration? name)
-        (memq? name '(class interface package com-class com-interface))))
+  (method public virtual (namespace-expr?)
+    (namespace-name? (form-expr)))
 
 
-  (method public (definition-name)
+  (method public virtual (declaration-name? name)
+    (lisp-form-declaration? name))
+
+
+  (method public virtual (namespace-name? name)
+    (lisp-form-namespace? name))
+
+
+  (method public (declaration-name)
     (let ((s (copy start))
           (e (copy end)))
       (set-end start)
@@ -775,7 +777,7 @@
       (forward-expr)
       (let* ((type (find-marked-symbol))
              (package? (eq? type 'package))
-             (meta? (forward-modifiers)))
+             (meta? (forward-modifiers '())))
         (cond ((memq? type '(generic specific))
                (forward-expr)))
         (forward-whites)
@@ -789,8 +791,8 @@
           (set-end e)))))
   
   
-  (method (definition-only-name)
-    (receive (package? meta? name) (definition-name)
+  (method (declaration-only-name)
+    (receive (package? meta? name) (declaration-name)
       name))
 
 
@@ -827,7 +829,33 @@
   
   
   (method public virtual (walk-declaration context declaration keyword expression doc walk-expressions?)
-    )
+    (let ((list? (enter-list)))
+      (if (not list?)
+          (when (forward-expr)
+            (expression context start end 'code kind)
+            #t)
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (let ((symbol (find-marked-symbol)))
+            (let ((form (get-lisp-form symbol)))
+              (walk-named-declaration context symbol form declaration keyword expression doc walk-expressions?))))
+        (exit-list)
+        #t)))
+  
+  
+  (method protected virtual (walk-named-declaration context symbol form declaration keyword expression doc walk-expressions?)
+    (cond ((enumerator? symbol)
+           (walk-unknown context symbol form declaration keyword expression doc walk-expressions?)
+           @wait-use-lisp-form-dialect
+           (error "Unknown declaration type: {s}" symbol))
+          (form
+           (let ((walk (get-walk~ form)))
+             (if walk
+                 (if (symbol? walk)
+                     (walk-named-declaration context walk form declaration keyword expression doc walk-expressions?)
+                   (walk self context symbol form declaration keyword expression doc walk-expressions?))
+               (walk-unknown context symbol form declaration keyword expression doc walk-expressions?))))
+          (else
+           (walk-unknown context symbol form declaration keyword expression doc walk-expressions?))))
   
   
   (method protected (walk-parameters context declaration keyword expression doc)
@@ -835,6 +863,13 @@
       (when (forward-expr)
         (walk-expression context expression 'code #f)
         (iterate))))
+  
+  
+  (method protected (walk-unknown context symbol form declaration keyword expression doc walk-expressions?)
+    (when walk-expressions?
+      (walk-expression context expression 'code #t)
+      (walk-expressions context expression))
+    context)
 
 
   ;;;

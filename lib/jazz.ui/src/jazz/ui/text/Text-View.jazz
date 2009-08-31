@@ -437,21 +437,21 @@
   
   
   (method (with-safe-explore proc (action: action 'ask))
-    (catch (Explore-Error err
-             (case action
-               ((ask)
-                (case (message-box (get-message~ err) type: 'question yes: "Show Me" no: "Debug" cancel: "Ignore")
-                  ((yes)
-                   (set-selection-safe (get-text-range~ err self))
-                   (throw-cancel))
-                  ((no)
-                   (throw err))
-                  ((cancel)
-                   (throw-cancel))))
-               ((ignore)
-                (throw-cancel)))
-             {})
-      (proc)))
+    (with-exception-filter
+      (function (obj)
+        (let ((err (and (object? obj) (is? obj Explore-Error) obj)))
+          (when err
+            (let ((result (case action
+                            ((ask)
+                             (message-box (get-message~ err) type: 'question yes: "Show Me" no: "Debug" cancel: "Ignore"))
+                            ((ignore)
+                             'cancel))))
+              (when (eq? result 'yes)
+                (set-selection-safe (get-text-range~ err self)))
+              (neq? result 'no)))))
+      (function (err)
+        (throw-cancel))
+      proc))
   
   
   ;;;

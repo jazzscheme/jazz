@@ -526,28 +526,30 @@
 
 
 (definition public (with-safe-execution context thunk (continue-text: continue-text {}) (continue-handler: continue-handler {}))
-  (call-with-catch Error
-      (function (err)
-        (let ((invite (format "The following error occured while {a}:" context))
-              (message (get-message~ err)))
-          (let ((text
-                  (format "{a}{%}{%}{a}{a}"
-                          invite
-                          message
-                          (if (not continue-handler)
-                              ""
-                            (format "{%}{%}Press Continue {a}, Exit to exit immediately"
-                                    (either continue-text "to bypass this problem"))))))
-            (if (not continue-handler)
-                (begin
-                  (message-box text yes: "Exit")
-                  (exit))
-              (case (message-box text
-                                 type: 'question
-                                 yes: "Continue"
-                                 no: "Exit")
-                ((yes) (continue-handler err))
-                ((no) (exit)))))))
+  (define (ask-continue message)
+    (let ((text (format "The following error occured while {a}:{%}{%}{a}{%}{%}Press Continue {a}, Exit to exit immediately"
+                        context
+                        message
+                        (either continue-text "to bypass this problem"))))
+      (let ((result (message-box text type: 'question yes: "Continue" no: "Debug" cancel: "Exit")))
+        (when (eq? result 'cancel)
+          (exit))
+        (eq? result 'yes))))
+  (define (warn-exit message)
+    (let ((text (format "The following error occured while {a}:{%}{%}{a}"
+                        context
+                        message)))
+      (message-box text yes: "Exit")
+      (exit)))
+  
+  (with-exception-filter
+    (function (obj)
+      (let ((err (and (object? obj) (is? obj Error) obj)))
+        (if continue-handler
+            (ask-continue (get-message~ err))
+          (warn-exit (get-message~ err)))))
+    (function (err)
+      (continue-handler err))
     thunk))
 
 

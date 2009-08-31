@@ -99,6 +99,7 @@
         ("underscore"           . #\x5F)
         ("backquote"            . #\x60)
         ("open-brace"           . #\x7B)
+        ("vertical-bar"         . #\x7C)
         ("close-brace"          . #\x7D)
         ("tilde"                . #\x7E)
         ("delete"               . #\x7F)

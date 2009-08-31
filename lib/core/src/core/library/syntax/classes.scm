@@ -47,7 +47,7 @@
   ())
 
 
-(jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
+(jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration))
 (jazz.define-virtual (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
@@ -70,7 +70,7 @@
 (jazz.define-class jazz.Lexical-Binding jazz.Walk-Binding () jazz.Object-Class ()
   ((name %%get-lexical-binding-name ())
    (type %%get-lexical-binding-type ())
-   (hits %%get-lexical-binding-hits ())))
+   (hits %%get-lexical-binding-hits %%set-lexical-binding-hits)))
 
 
 (jazz.define-virtual (jazz.resolve-binding (jazz.Lexical-Binding binding)))
@@ -91,7 +91,7 @@
    (source        %%get-declaration-source        %%set-declaration-source)))
 
 
-(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol access))
+(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol access source-declaration))
 (jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
 (jazz.define-virtual (jazz.get-declaration-inclusions (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
@@ -175,10 +175,10 @@
    (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
    (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
    (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
-   (proclaims       %%get-library-declaration-proclaims       %%set-library-declaration-proclaims)
+   (proclaims       %%get-library-declaration-proclaims       ())
    (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
-   (variables       %%get-library-declaration-variables       %%set-library-declaration-variables)
-   (references      %%get-library-declaration-references      %%set-library-declaration-references)
+   (variables       %%get-library-declaration-variables       ())
+   (references      %%get-library-declaration-references      ())
    (inclusions      %%get-library-declaration-inclusions      %%set-library-declaration-inclusions)
    (autoloads       %%get-library-declaration-autoloads       %%set-library-declaration-autoloads)))
 

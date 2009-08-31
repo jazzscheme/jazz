@@ -60,9 +60,18 @@
 (module protected core.library.syntax.walker
 
 
+;;;
+;;;; Code Analysis
+;;;
+
+
 ;; complex code analysis for tools
 (define jazz.analysis-mode?
   (make-parameter #f))
+
+
+(define jazz.autoload-references
+  (%%make-table test: eq?))
 
 
 ;;;
@@ -105,7 +114,7 @@
   (jazz.sourcified-form (jazz.emit-binding-reference type source-declaration environment)))
 
 
-(jazz.define-virtual-runtime (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
+(jazz.define-virtual-runtime (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration))
 (jazz.define-virtual-runtime (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual-runtime (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
@@ -120,7 +129,7 @@
 (jazz.define-virtual-runtime (jazz.walk-binding-expand-form (jazz.Walk-Binding binding) walker resume declaration environment form-src))
 
 
-(jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol)
+(jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration)
   #f)
 
 
@@ -195,7 +204,7 @@
                (jazz.object->serial binding)))
 
 
-(jazz.define-method (jazz.walk-binding-lookup (jazz.Lexical-Binding binding) symbol)
+(jazz.define-method (jazz.walk-binding-lookup (jazz.Lexical-Binding binding) symbol source-declaration)
   (if (%%eq? (%%get-lexical-binding-name binding) symbol)
       binding
     #f))
@@ -203,6 +212,13 @@
 
 (define (jazz.get-lexical-binding-name binding)
   (%%get-lexical-binding-name binding))
+
+
+(define (jazz.get-lexical-binding-hits binding)
+  (or (%%get-lexical-binding-hits binding)
+      (let ((table (%%make-table test: eq?)))
+        (%%set-lexical-binding-hits binding table)
+        table)))
 
 
 (jazz.encapsulate-class jazz.Lexical-Binding)
@@ -234,18 +250,18 @@
     (jazz.reverse! (proc declaration))))
 
 
-(jazz.define-method (jazz.walk-binding-lookup (jazz.Declaration binding) symbol)
-  (jazz.lookup-declaration binding symbol jazz.private-access))
+(jazz.define-method (jazz.walk-binding-lookup (jazz.Declaration binding) symbol source-declaration)
+  (jazz.lookup-declaration binding symbol jazz.private-access source-declaration))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.walk-error walker resume source-declaration "{a} is not callable" (%%get-declaration-locator declaration)))
 
 
-(jazz.define-virtual-runtime (jazz.lookup-declaration (jazz.Declaration declaration) symbol access))
+(jazz.define-virtual-runtime (jazz.lookup-declaration (jazz.Declaration declaration) symbol access source-declaration))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Declaration declaration) symbol access)
+(jazz.define-method (jazz.lookup-declaration (jazz.Declaration declaration) symbol access source-declaration)
   #f)
 
 
@@ -409,7 +425,7 @@
   (%%table-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Namespace-Declaration namespace-declaration) symbol access)
+(jazz.define-method (jazz.lookup-declaration (jazz.Namespace-Declaration namespace-declaration) symbol access source-declaration)
   (define (add-to-library-references declaration)
     (%%when (and declaration
                  (%%neq? namespace-declaration (%%get-declaration-toplevel declaration)))
@@ -418,8 +434,16 @@
         (%%when (%%neq? library-declaration (%%get-declaration-toplevel declaration))
           (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
   
+  (define (add-to-hits declaration)
+    (%%when (and declaration source-declaration (jazz.analysis-mode?))
+      (let ((hits-table (jazz.get-lexical-binding-hits declaration)))
+        (%%table-set! hits-table (%%get-declaration-locator source-declaration) source-declaration))
+      (%%when (%%is? declaration jazz.Autoload-Declaration)
+        (%%table-set! jazz.autoload-references (%%get-declaration-locator declaration) declaration))))
+  
   (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
     (add-to-library-references found)
+    (add-to-hits found)
     found))
 
 
@@ -602,7 +626,7 @@
              (iter (%%cdr in) (merge-sorted (%%cons library-locator declarations) out)))))))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access)
+(jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol access source-declaration)
   ;; code to detect unreferenced imports
   (%%when (jazz.analysis-mode?)
     (for-each (lambda (library-invoice)
@@ -611,7 +635,7 @@
                     (%%when (%%table-ref imported symbol #f)
                       (%%set-import-invoice-hit? library-invoice #t)))))
               (%%get-library-declaration-imports declaration)))
-  (nextmethod declaration symbol access))
+  (nextmethod declaration symbol access source-declaration))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -868,7 +892,7 @@
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
-             (decl (jazz.lookup-declaration exported-library name jazz.public-access)))
+             (decl (jazz.lookup-declaration exported-library name jazz.public-access declaration)))
         (%%assertion decl (jazz.error "Unable to find autoload {s} in module {s}" name (%%get-declaration-locator exported-library))
           (%%set-autoload-declaration-declaration declaration decl)
           decl))))
@@ -1607,7 +1631,7 @@
         (let ((library-name (if (%%eq? name 'Object) 'jazz.dialect.language.object 'jazz.dialect.language.functional)))
           (let ((library-declaration (jazz.get-catalog-entry library-name)))
             (if library-declaration
-                (jazz.lookup-declaration library-declaration name jazz.public-access)
+                (jazz.lookup-declaration library-declaration name jazz.public-access library-declaration)
               type)))
       type)))
 
@@ -1997,7 +2021,7 @@
     (jazz.allocate-walk-frame jazz.Walk-Frame table)))
 
 
-(jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Frame binding) symbol)
+(jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Frame binding) symbol source-declaration)
   (%%table-ref (%%get-walk-frame-bindings binding) symbol #f))
 
 
@@ -3193,7 +3217,9 @@
 
 (define (jazz.add-declaration-child walker resume namespace-declaration child)
   (let ((name (%%get-lexical-binding-name child)))
-    (jazz.enqueue (%%get-namespace-declaration-children namespace-declaration) child)
+    (let ((children (%%get-namespace-declaration-children namespace-declaration)))
+      (%%when (%%not (%%memq child (jazz.queue-list children)))
+        (jazz.enqueue children child)))
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
     ;; for now everything not private is considered public
     (%%when (%%neq? (%%get-declaration-access child) 'private)
@@ -3207,14 +3233,16 @@
       declaration)))
 
 
-(define (jazz.find-actual-declaration namespace-declaration class name)
-  (if (%%eq? (jazz.walk-for) 'eval)
-      (let ((declaration (jazz.find-declaration namespace-declaration name)))
-        (if (and declaration (%%class-is? declaration class))
-            declaration
-          #f))
-    #f))
-
+(define (jazz.find-typed-declaration namespace-declaration class name)
+  (define (find-declaration)
+    (jazz.find-if (lambda (decl)
+                    (%%eq? (%%get-lexical-binding-name decl) name))
+                  (jazz.queue-list (%%get-namespace-declaration-children namespace-declaration))))
+  
+  (let ((declaration (find-declaration)))
+    (if (and declaration (%%class-is? declaration class))
+        declaration
+      #f)))
 
 (define (jazz.begin-form? form)
   (and (%%pair? (jazz.source-code form))
@@ -5177,7 +5205,7 @@
   (define (lookup-composite walker environment symbol)
     (receive (library-name name) (jazz.split-composite symbol)
       (let ((exported-library-reference (jazz.outline-library library-name)))
-        (let ((decl (jazz.lookup-declaration exported-library-reference name jazz.public-access)))
+        (let ((decl (jazz.lookup-declaration exported-library-reference name jazz.public-access declaration)))
           (if decl
               (if (%%is? decl jazz.Autoload-Declaration)
                   decl
@@ -5188,7 +5216,7 @@
     (if (jazz.composite-name? symbol)
         (lookup-composite walker environment symbol)
       (jazz.find-in (lambda (binding)
-                      (jazz.walk-binding-lookup binding symbol))
+                      (jazz.walk-binding-lookup binding symbol declaration))
                     environment)))
   
   (define (validate-compatibility walker declaration referenced-declaration)

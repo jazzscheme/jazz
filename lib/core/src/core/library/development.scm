@@ -101,4 +101,13 @@
 (define (jazz.expand-source module-name . rest)
   (pretty-print
     (jazz.present-source
-      (apply jazz.expand-module module-name rest)))))
+      (apply jazz.expand-module module-name rest))))
+
+
+;;;
+;;;; Lookup
+;;;
+
+
+(define (jazz.lookup library-name name access)
+  (jazz.lookup-declaration (jazz.walk-module library-name) name access #f)))

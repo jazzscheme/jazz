@@ -1,0 +1,207 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; References Analyser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.editor.jazz.tools.References-Analyser jazz
+
+
+(import (jazz.editor.jazz)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.runtime)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class References-Analyser extends View
+  
+  
+  (property text initialize {})
+
+
+  (form
+    (<install>                                                   size: {Dimension 395 599}
+      (<Border-View>                   name: name-border         position: {Point 2 9} size: {Dimension 250 19} border-type: edge style: entry
+        (<Scroller-View>                                         hscroll?: #f vscroll?: #f
+          (<!>                         name: content             layout-type: fill
+            (<IDE-Text-View>           name: name                left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
+      (<Push-Button>                   name: browse              title: "Find Dead Code" position: {Point 272 7} size: {Dimension 120 22} action-handler: {Event-Handler :form on-find-dead-code})
+      (<Border-View>                   name: declarations-border position: {Point 2 35} size: {Dimension 391 562} border-type: edge style: entry
+        (<Scroller-View>                                         style: document hscroll?: #t vscroll?: #t
+          (<!>                         name: content             layout-type: fill
+            (<Tree-Header>                                       style: document
+              (<!>                     name: content
+                (<Tree-View>           name: declarations        filled-column: info multiple-selection?: #t portfolio: :icons double-click-handler: {Event-Handler :form on-double-click}
+                  (<Tree-Node-Column>                            title: "Name" display-images?: #f width: 200)
+                  (<Tree-Label-Column> name: info                title: "Info" width: 419)))))))))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+    
+
+  (method meta (host-icon)
+    {Bitmap-Resource "Class"})
+  
+  
+  (method meta (host-title)
+    "References Analyser")
+  
+  
+  (method meta (host-position)
+    {Point 90 20})
+  
+  
+  (method meta (host-size)
+    {Dimension 395 600})
+
+  
+  (method (focus-default)
+    (acquire-focus~ (locate 'name)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-text)
+    (get-string-content~ (locate 'name)))
+  
+  
+  (method public (set-text value)
+    (set-string-content~ (locate 'name) (either value "")))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'browse) dh 0)
+    (size-figure~ (locate 'declarations-border) dh dv))
+  
+  
+  (method (on-find-dead-code evt)
+    (with-cursor :wait
+      (function ()
+        (find-dead-code))))
+  
+  
+  (method (on-return-press evt)
+    (on-find-dead-code evt))
+  
+  
+  (method (on-double-click evt)
+    (let* ((tree (get-sender~ evt))
+           (selection (get-single-selection~ tree)))
+      (when selection
+        (let* ((row (get-row~ tree selection))
+               (type (get-user-data~ row))
+               (appl (get-application)))
+          (edit-definitions~ appl (identifier-name (type-name type)))))))
+
+  
+  ;;;
+  ;;;; Dead Code
+  ;;;
+  
+  
+  (method (find-dead-code)
+    (define (exception-declaration? declaration)
+      (and (is? declaration Class-Declaration)
+           (table-ref (get-core-classes) (identifier-name (type-name declaration)) #f)))
+    
+    (let ((tree (locate 'declarations)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (analyse-all)
+          (iterate-table autoload-references
+            (function (locator autoload)
+              (let ((declaration (resolve-binding autoload)))
+                (let ((hits (get-hits~ autoload))
+                      (declaration-hits (get-hits~ declaration)))
+                  (when (not declaration-hits)
+                    (let ((table (make-table test: eq?)))
+                      (set-hits~ declaration table)
+                      (set! declaration-hits table)))
+                  (iterate-table hits
+                    (function (name decl)
+                      (table-set! declaration-hits name decl)))))))
+          (iterate-modules
+            (function (module-name)
+              (let ((declaration (jazz.get-catalog-entry module-name)))
+                (when (is? declaration Library-Declaration)
+                  ;;(debug (get-name~ declaration) (get-hits~ declaration))
+                  (for-each (function (declaration)
+                              (when (is? declaration Category-Declaration)
+                                (let ((hits (get-hits~ declaration)))
+                                  (when (and (not hits) (not (exception-declaration? declaration)))
+                                    (let ((name (symbol->string (get-name~ declaration)))
+                                          (info ""))
+                                      (add-row~ tree children: (list (new Tree-Node title: name)
+                                                                     (new Tree-Label title: info))
+                                        user-data: declaration))))))
+                            (queue-list (get-children~ declaration)))))))))
+      (user-message "Found {a}" (get-row-count~ tree))))
+  
+  
+  (definition analyse-all
+    (let ((done? #f))
+      (function ()
+        (unless done?
+          (parameterize ((analysis-mode? #t))
+            (walk-all))
+          (set! done? #t)))))
+
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-declarations)
+    (let* ((tree (locate 'declarations))
+           (selection (get-selection~ tree)))
+      (map (function (rank)
+             (get-user-data~ (get-row~ tree rank)))
+           selection)))))

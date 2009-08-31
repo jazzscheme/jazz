@@ -1047,6 +1047,7 @@
 
 
 (native jazz.analysis-mode?)
+(native jazz.autoload-references)
 (native jazz.new-walk-context)
 (native jazz.specifier?)
 (native jazz.binding-specifier)

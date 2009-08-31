@@ -105,6 +105,13 @@
   
   (method (conclude-environment)
     (nextmethod)
+    ;; toggle terminal is windows only at the moment
+    (let ((menu (get-content~ (child~ menubar 'debug))))
+      (let ((label (child~ menu 'toggle-terminal)))
+        (when (neq? kernel-platform 'windows)
+          (set-title~ label "Show Terminal")
+          (set-tooltip-text~ label "Show Terminal")
+          (layout-menu~ menu))))
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
     (when (not (get-controller-debugger))
@@ -524,10 +531,22 @@
                 (sort string>? files key: (function (file) (get-name~ file))))))
   
   
-  (method package (on-show-terminal evt)
-    (set-terminal-title)
-    (bring-terminal-to-front)
-    (repl))
+  (cond-expand
+    (windows
+      (method package (on-toggle-terminal evt)
+        (let ((console (GetConsoleWindow)))
+          (if (and console (IsWindowVisible console))
+              (ShowWindow console SW_HIDE)
+            (when console
+              (ShowWindow console SW_SHOWNORMAL))
+            (set-terminal-title)
+            (bring-terminal-to-front)
+            (repl)))))
+    (else
+      (method package (on-toggle-terminal evt)
+        (set-terminal-title)
+        (bring-terminal-to-front)
+        (repl))))
   
   
   (method package (on-clear-terminal evt)

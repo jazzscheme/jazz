@@ -58,6 +58,7 @@
   (slot prompt         initialize {} accessors generate)
   (slot console-port   initialize {} accessors generate)
   (slot console-pump   initialize {} accessors generate)
+  (slot partial-line   initialize #f)
   
   
   (form
@@ -257,6 +258,36 @@
                       0))
                 0))
           0))))
+  
+  
+  ;;;
+  ;;;; Text Formatted
+  ;;;
+  
+  
+  (method public (insert-formatted-line line)
+    (let ((line (if partial-line (string-append partial-line line) line)))
+      (nextmethod
+        (call-with-input-string line
+          (function (input)
+            (let (iterate (pos 0)
+                          (insert-end #f)
+                          (depth 0))
+              (let ((c (read-char input)))
+                (if (not (eof-object? c))
+                    (ecase c
+                      ((formatted-start-delimiter)
+                       (iterate (+ pos 1) (or insert-end pos) (+ depth 1)))
+                      ((formatted-end-delimiter)
+                       (iterate (+ pos 1) (and (> depth 1) insert-end) (- depth 1)))
+                      (else
+                       (iterate (+ pos 1) (and (> depth 0) insert-end) depth)))
+                  (if insert-end
+                      (begin
+                        (set! partial-line (substring line insert-end pos))
+                        (substring line 0 insert-end))
+                    (set! partial-line #f)
+                    line)))))))))
 
   
   ;;;

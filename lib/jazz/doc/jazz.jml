@@ -35,6 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+; TODO: - see commit "Added examples of every clause supported by the loop syntax"
+
 (<Project-Doc> name: jazz title: "Jazz Platform"
   (<Section-Doc> name: overview title: "Overview"
     (<description>
@@ -188,7 +190,7 @@
           (<p> "Jazz uses the typical positional parameters seen in most languages. It also supports variadic functions and optional keyword parameters. ")
           (<pre> class: "code"
             "; standard positional                                                  \n"
-            "(definitione (double x)                                                \n"
+            "(definition (double x)                                                \n"
             "  (* x x))                                                             \n"
             "                                                                       \n"
             "(method (double x)                                                     \n"
@@ -244,35 +246,6 @@
                "; variadics                                                                    \n"
                "(bind (x . rest) '(1 2 3 4)   ; x is 1, rest is (2 3 4)                        \n"
                "  (/ (apply + rest) x))       ; sum rest, then divide by x; returns 9          \n")))
-
-    (<Syntax-Doc> name: bind-keywords parameters: "((variable default) ...) values-list expr ..."
-      (<description>
-        (<p> "Takes a list of keywords and values, and binds those values to identifiers of the same name -- note that order does not matter. "
-             "Unbound identifiers are remain unbound are then bound to their default values. "
-             "Like bind, bind-keywords can place overflow values in a list (see bind variadic example).")
-        (<pre> class: "code"
-               "(bind-keywords ((x 1) (y 2)) '()            ; both x and y are bound to their default values: x is 1, y is 2   \n" 
-               "  (+ x y))                                  ; evaluates to 3                                                   \n"
-               "                                                                                                               \n"
-               "(bind-keywords ((x 1) (y 2)) '(x: 5 y: 3)   ; x is 5, y is 3                                                   \n"
-               "  (+ x y))                                  ; evaluates to 8                                                   \n"
-               "                                                                                                               \n"
-               "(bind-keywords ((x 1) (y 2) . rest) '(x: 5 y: 3 z: 4 s: 5)    ; x is 5, y is 3, rest is (z: 4 s: 5)            \n"
-               "  (+ x y))                                                                                                     \n")))
-
-    (<Syntax-Doc> name: bind-optionals parameters: "((variable default) ...) values-list expr ..."
-      (<description>
-        (<p> "This takes a list of values and binds as indentifiers as it can. The remainder are assigned their default values. "
-             "Unlike bind or bind-keywords, bind-optionals doesn't support capturing overflow of values (see variadic bind examples above). ")
-        (<pre> class: "code"
-               "(bind-optionals ((x 1) (y 2)) '()     ; x is 1, y is 2    \n"
-               "  (+ x y))                            ; evaluates to 3    \n"
-               "                                                          \n"
-               "(bind-optionals ((x 1) (y 2)) '(5)    ; x is 5, y is 2    \n"
-               "  (+ x y))                            ; evaluates to 7    \n"
-               "                                                          \n"
-               "(bind-optionals ((x 1) (y 2)) '(5 9)  ; x is 5, y is 9    \n"
-               "  (+ x y))                            ; evaluates to 14   \n")))
 
     (<Syntax-Doc> name: receive parameters: "(variable ...) values expr ..."
       (<description>
@@ -733,129 +706,337 @@
   (<Section-Doc> name: object-oriented title: "Object-Oriented Programming"
     (<Section-Doc> name: classes title: "Classes"
       (<description>
-        (<p> "Jazz offers an object-oriented layer with :")
-        (<p>)
-        (<definition> title: "Method invocation"
-          (<p> (<xmp> "(f~ obj x y)")))
-        (<p>)
-        (<p> "Examples:")
-        (<node>
-          (<code> "(get-size~ window)")
-          (<code> "(invalidate-view~ (get-parent~ view))"))
-        (<p>)
-        (<node>
-          (<span> "Classes with single inheritance and multiple interfaces implemented")
-          (<span> "Metaclasses")
-          (<span> "Single-dispatch 'a la' Java")
-          (<span> "Generic multi-dispatch methods 'a la' CommonLisp")))
-      (<Form-Doc> name: class parameters: "extends implements uses ..."
-        (<description>
-          (<p> "Jazz uses a single inheritance model where a class can extend only one superclass. "
-            "A class can implement any number of interfaces.")))
-      (<Form-Doc> name: slot parameters: "name <initialize> <initial-value>"
-        (<description>
-          (<p> "A slot is a field that defines the structure of the instances of a class.")))
-      (<Form-Doc> name: property parameters: "name <initialize> <initial-value> <getter> <getter-name> <setter> <setter-name>"
-        (<description>
-          (<p> "A property is a slot that can specify a getter and a setter.")))
-      (<Form-Doc> name: method parameters: "{modifiers} (name . parameters) {return-type} . body"
-        (<description>
-          (<p> "A method is where code resides.")))
-    (<Section-Doc> name: meta-classes title: "Meta-Classes"
-      (<description>))
-      )
-    (<Section-Doc> name: interfaces title: "Interfaces"
-      (<Form-Doc> name: interface parameters: "extends uses ..."
-        (<description>
-          (<p> "An interface defines a new type but cannot contain code."))))
-    (<Class-Doc> name: Object
+        (<p> "Jazz supports a single-inheritance object system with multiple interfaces, similar to Java. "
+             "The root class -- from which all classes eventually inherit -- is 'Object'. Jazz's object system is fairly dynamic, "
+             "but with some restrictions: methods can be dynamically added at runtime, but slots cannot. Dynamically adding methods "
+             "is a useful but sharp tool, so please only use this with caution; avoid 'monkey-patching'. " )
+        (<p> "Classes can only be defined inside libraries.")
+        (<p> "A basic example of a class and its use: ")
+        (<pre> class: "code"
+               "; in class-example/Example.jazz:                                                                                         \n"
+               "(library class-example.ExampleClass jazz                                                                                 \n"
+               "                                                                                                                         \n"
+               "(import (jazz.utilities))                 ; so we can use (tie ...)                                                      \n"
+               "                                                                                                                         \n"
+               "(class ExampleClass extends Object        ; defining 'ExampleCass', inherits from 'Object'                               \n"
+               "                                                                                                                         \n"
+               "  (slot name initialize \"\")             ; instance variable 'name', initializes to empty string                                                    \n"
+               "                                                                                                                         \n"
+               "  (method (initialize a-name)             ; the constructor -- takes a single argument                                   \n"
+               "    (nextmethod)                          ; invoke the constructor of the parent class first                             \n"
+               "    (randomize)                           ; seed the random function                                                     \n"
+               "    (set! name a-name))                   ; change the value of 'name' to the given argument                             \n"
+               "                                                                                                                         \n"
+               "  (method public (display-hi)             ; public method                                                                \n"
+               "    (display (tie \"Hi, {name}!\\n\")))   ; display a greeting with the value of 'name'                                  \n"
+               "                                                                                                                         \n"
+               "  (method public (display-bye)                                                                                           \n"
+               "    (display \"Bye!\\n\"))                                                                                               \n"
+               "                                                                                                                         \n"
+               "  (method public (display-a-number)                                                                                      \n"
+               "    (display (make-a-random-prime))       ; method calls -within- a class behave like normal function calls              \n"
+               "    (display \"\\n\"))                                                                                                   \n"
+               "                                                                                                                         \n"
+               "  (method (make-a-random-prime)           ; this method defaults to private, so cannot be accessed outside class         \n"
+               "    (let ((primes      '(2 3 5 7 11 13 17 19 23 29))                                                                     \n"
+               "          (prime-index (random 10)))                                                                                     \n"
+               "      (element primes prime-index)))      ; fetch randomly one of the first ten primes                                   \n"
+               "                                                                                                                         \n"
+               "))                                                                                                                       \n"
+               "                                                                                                                         \n"
+               "                                                                                                                         \n"
+               "; in class-example/product.jazz                                                                                          \n"
+               "(library class-example.product jazz                                                                                      \n"
+               "                                                                                                                         \n"
+               "(import (class-example.ExampleClass))                                                                                    \n"
+               "                                                                                                                         \n"
+               "(definition (run descriptor)                                                                                             \n"
+               "  (let ((example (new ExampleClass \"Jane Doe\"))) ; create new ExampleClass                                             \n"
+               "    (display-hi~       example)                    ; '~' appended to method name invokes method on passed object         \n"
+               "    (display-a-number~ example)                                                                                          \n"
+               "    (display-bye~      example)))                                                                                        \n"
+               "                                                                                                                         \n"
+               "(register-product 'class-example          ; see 'products' below for details -- this is a detail unrelated to libraries  \n"
+               "  title: \"Class-Example\"                                                                                               \n"
+               "  run: run))                                                                                                             \n")))
+    
+    (<Form-Doc> name: slot parameters: "name <initialize> <initial-value>"
       (<description>
-        (<p> "The base class of every other class."))
-      (<Method-Doc> name: initialize parameters: "object ...")
-      (<Method-Doc> name: destroy parameters: "")
-      (<Method-Doc> name: close parameters: "")
-      (<Method-Doc> name: print parameters: "printer detail")
+        (<p> "A slot is an object instance variable. The set of slots in a class defines the structure of the class's instances, "
+             "thus the data that each instance can store. ")
+        (<p> "Initialization of a slot is optional, but always initializing is safer. If it's not initialized, it'll default to #f.")
+        (<pre> class: "code"
+               "(class Point extends Object                                                               \n"
+               "  (slot graph-id)              ; when a Point object is created, this isn't initialized   \n"
+               "  (slot x initialize 0)        ; but the following three are initialized to 0             \n"
+               "  (slot y initialize 0)                                                                   \n"
+               "  (slot z initialize 0))                                                                  \n")))
+    
+    (<Form-Doc> name: property parameters: "name <initialize> <initial-value> <getter> <getter-name> <setter> <setter-name>"
+      (<description>
+        (<p> "A property is a slot that can specify a getter and a setter. While this can be a short-cut for writing the getter and setter methods "
+             "yourself, but using 'accessors generate' (see example), it also provides metadata to the system while is needed for object literals. ")
+        (<p> "As with slots, initialization is optional, but it's safer to do so. They default to #f if not explicitly initialized. " )
+        (<pre> class: "code"
+               "(class ExamplePoint extends Object                                                                                                     \n"
+               "  (property foo)                                ; no different from (slot foo)                                                         \n"
+               "  (property x accessors generate)               ; makes slot 'x' and 'get-x', 'set-x' methods                                          \n"
+               "  (property y initialize 0 accessors generate)  ; similar to 'x', but initializes slot 'y' to 0                                        \n"
+               "  (property z getter get-z setter set-z)        ; specifies names of implemented getter and setter                                     \n"
+               "                                                                                                                                       \n"
+               "  (method public (get-z)                                                                                                               \n"
+               "    z)                                                                                                                                 \n"
+               "                                                                                                                                       \n"
+               "  (method public (set-z z)                                                                                                             \n"
+               "    (set! z~self z)))                           ; 'z~self' refers to the object's slot 'z' to disambiguate with the local variable 'z' \n")))
+    
+    (<Form-Doc> name: method parameters: "{modifiers} (name . parameters) {return-type} . body"
+      (<description>
+        (<p> "A method is where an object's code resides. A method is effectively a function that works with objects. ")
+        (<pre> class: "code"
+               "; a robot that says what it thinks                                                                                 \n"
+               "(class Robot                                                                                                       \n"
+               "  (method (think)                             ; since no modifier present, defaults to private                     \n"
+               "    \"EXTERMINATE! EXTERMINATE!\")            ; evaluates to a string                                              \n"
+               "                                                                                                                   \n"
+               "  (method public (speak name)                 ; modifier says it's a public method with a single argument: 'name'  \n"
+               "    (display (tie \"Attention, {name}!\n\"))  ; greets user                                                        \n"
+               "    (diplay  (think))))                       ; says what it thinks (exterminate!)                                 \n")))
+    
+    (<Form-Doc> name: methods title: "Method invocation"
+      (<description>
+        (<p> "A method looks exactly like a function call when invoking from within the same class where it is defined. When called "
+             "from outside, a tilde (~) is appended to the method name and the object is passed as the first argument; remaining arguments "
+             "are passed after it. The scope within which a method can be called is affected by modifiers in the definition. ")
+        (<pre> class: "code"
+               "(display-hi~ foo)                      ; invokes method 'display-hi' on object 'foo'                                       \n"
+               "(invalidate-view~ (get-parent~ view))  ; couple of method calls, the first returning an object that's used for the second  \n")))
+    
+    (<Section-Doc> name: interfaces title: "Interfaces"
+      (<description> 
+        (<p> "Jazz interfaces work much like Java interfaces. An interface describe an API that classes using that interface promise to "
+             "implement. The descriptive quality of interfaces must be emphasized -- they only describe the external interface -- "
+             "i.e. methods that must be present and can be called -- but they do not implement the code necessary for API to actually function; "
+             "that must be done by the classes implementing the interface.")
+        (<p> "Interfaces can only contain abstract methods. While a class can only inherit from a single parent, it can implement "
+             "many interfaces. Like classes, interfaces can only be defined within libraries.")
+        (<pre> class: "code"
+               "(library class-example.DangerousGerbil jazz                         \n"
+               "                                                                    \n"
+               "; all animals must have a sound, appearance and action methods      \n"
+               "(interface Animal                                                   \n"
+               "  (method public virtual abstract (sound))                          \n"
+               "  (method public virtual abstract (appearance))                     \n"
+               "  (method public virtual abstract (action)))                        \n"
+               "                                                                    \n"
+               "; anything dangerous must have a weapon                             \n"
+               "(interface Dangerous                                                \n"
+               "  (method public virtual abstract (weapon)))                        \n"
+               "                                                                    \n"
+               "; here we have a class of gerbils -- dangerous animals!             \n"
+               "(class DangerousGerbil extends Object implements Dangerous Animal   \n"
+               "  (method public (sound)                                            \n"
+               "    \"Squeak!\")                                                    \n"
+               "                                                                    \n"
+               "  (method public (appearance)                                       \n"
+               "    \"A man-eating gerbil.\")                                       \n"
+               "                                                                    \n"
+               "  (method public (weapon)                                           \n"
+               "    \"Long incisors!\")                                             \n"
+               "                                                                    \n"
+               "  (method public (action)                                           \n"
+               "    \"Nibbles at your finger ferociously!\"))                       \n"
+               "                                                                    \n"
+               ")                                                                   \n")))
+
+    (<Section-Doc> name: meta-classes title: "Meta-Classes"
+      (<description> 
+        (<p> "Classes are objects in Jazz, so just as objects have classes, classes have metaclasses. The methods of an object are stored in a "
+             "class, not the object itself; they can use instance variables. Likewise, the methods of a class are stored in the metaclass, not the class; "
+             "they can use class variables. Metaclasses are also notable since they're involved in construction of objects, inheritance hierarchy, "
+             "and other strange things. ")
+        (<p> "There are two ways of working with metaclasses: explicity make one, or use the 'meta' modifier on methods in a class. ")
+        (<pre> class: "code"
+               "; metaclasses are also classes, but they inherit from Class                                                                               \n"
+               "(class ExampleClass-Class extends Class                                                                                                   \n"
+               "  (method (meta-string)                                          ; all this method does is return the string \"meta\"                     \n"
+               "    \"meta\"))                                                                                                                            \n"
+               "                                                                                                                                          \n"
+               "; this class has the above metaclass                                                                                                      \n"
+               "(class ExampleClass metaclass ExampleClass-Class extends Object                                                                           \n"
+               "  (method public (display-class)                                 ; this method displays the string \"class\"                              \n"
+               "    (display \"class\"))                                                                                                                  \n"
+               "                                                                                                                                          \n"
+               "  (method public (display-meta)                                  ; this method displays the string \"meta\"                               \n"
+               "    (display (meta-string~ (class-of self)))))                   ; this gets the class of the object and invokes the meta-string method   \n"
+               "                                                                 ; in effect it acts as a class method                                    \n"
+               "                                                                                                                                          \n"
+               "; this is exactly the same as the above, but uses the 'meta' modifier, so doesn't require an explicit metaclass                           \n"
+               "(class ShortExampleClass extends Object                          ; note that we omit the metaclass here                                   \n"
+               "  (method public (display-class)                                                                                                          \n"
+               "    (display \"class\"))                                                                                                                  \n"
+               "                                                                                                                                          \n"
+               "  (method meta (meta-string)                                     ; note the 'meta' modifier in the method signature                       \n"
+               "    \"meta\")                                                                                                                             \n"
+               "                                                                                                                                          \n"
+               "  (method public (display-meta)                                                                                                           \n"
+               "    (display (meta-string~ (class-of self)))))                                                                                            \n")))
+    
+      (<Section-Doc> name: lifecycle title: "Construction & Destruction"
+        (<description>
+          (<p> "Jazz invokes the 'initialize' method on every method creation. 'destroy' can be explicitly invoked using (destroy~ obj), "
+               "or left up to the system. 'initialize' can take arguments, while 'destroy' does not. NB: automatic destruction doesn't "
+               "appear to be working at the moment. ")
+          (<pre> class: "code"
+                 "(class LifecycleExample extends Object                                                                                                     \n"
+                 "  (method (initialize foo)                   ; example of a constructor taking a parameter                                                 \n"
+                 "    (display (tie \"starting with {foo}\n\"))                                                                                              \n"
+                 "    (nextmethod)                             ; invokes constructors of parent classes -- leaving this out can cause problems               \n"
+                 "    (destroy-mandatory))                     ; here we indicate that the destructor must be called when the object is no longer reachable  \n"
+                 "                                                                                                                                           \n"
+                 "  (method (destroy)                          ; example of a destructor                                                                     \n"
+                 "    (display \"ending\n\")                                                                                                                 \n"
+                 "    (nextmethod)))                           ; as with the constructor, calls parent destructors -- leaving this out can cause problems    \n")))
+
       (<Section-Doc> title: "Literals"
         (<description>
           (<definition> name: literals title: "Literals"
-            (<p> "Jazz supports a powerfull concept where any class can define it's own literal constants using the following syntax: {class-name ...}. "
-              "This integrates classes fully with the reader and printer.")
-            (<p> "Examples:")
-            (<node>
-              (<code> "{Point 2 3}")
-              (<code> "{Dimension 100 100}")
-              (<code> "{Color name: Red}")
-              (<code> "{Font name: Code}"))))))
-    (<Section-Doc> name: dynamic-dispatch title: "Dynamic Dispatch"
-      (<description>))
+            (<p> "Jazz supports object literals, a useful sugar for creating objects, and powerful concept when combined in forms (see "
+                 "components below). Any class can define its own literal constants. A literal is enclosed in {} and begins with the "
+                 "class name. ")
+            (<pre> class: "code"
+                   "; a couple examples from the standard jazz library            \n"
+                   "{Point 2 3}         ; creates a Point with the given values   \n"
+                   "{Color name: Red}   ; creates a Color with the give value     \n"
+                   "                                                              \n"
+                   "; arrrrgh, what am I doing wrong?!                            \n"))))
+        
     (<Section-Doc> name: generic-methods title: "Generic methods"
-      (<description>)))
-  
-  
-  
-    (<Concept-Doc> name: modifiers title: "Modifiers"
       (<description>
+        (<p> "This is an experimental CLOS-like feature. Please don't use it for now.")))
+
+  
+  
+    (<Section-Doc> name: modifiers title: "Modifiers"
+      (<description>
+        (<p> "Modifiers are used with methods and sometimes functions. They modify the scope of a method or function, and other attributes "
+             "related to inheritance. Here's an example of a class with modifiers: ")
+        (<pre> class: "code"
+               "(class ModifierExample extends Object                                                                                              \n"
+               "                                                                                                                                   \n"  
+               "  (slot foo)                                                                                                                       \n"
+               "                                                                                                                                   \n"  
+               "  (method meta public (factory-method foo)            ; a class method that creates objects of this or inheriting classes          \n"
+               "    (new self (* 2 foo)))                                                                                                          \n"
+               "                                                                                                                                   \n"  
+               "  (method (initialize foo)                            ; a typical constructor                                                      \n"
+               "    (set! foo~self foo))                                                                                                           \n"
+               "                                                                                                                                   \n"  
+               "  (method abstract chained public (public-method))    ; an abstract method that must be implemented by the first inheriting class  \n"
+               "                                                                                                                                   \n"  
+               "  (method private final (unoverridable-method)        ; a private method that cannot be overriden                                  \n"
+               "    \"too bad, so sad\"))                                                                                                          \n"
+               "                                                                                                                                   \n"
+               "(class ChildModifierExample extends ModifierExample   ; inherit from the above class                                               \n"
+               "                                                                                                                                   \n"
+               "  (method public (public-method)                      ; implement the required method                                              \n"
+               "    foo))                                                                                                                          \n")
+        
         (<definition> name: meta
           (<p> "Defines a field of the meta class. Because a class is an object, meta methods can use self to refer to themselves (i.e. the class)."))
-        (<p>)
         (<p>)
         (<definition> name: private
           (<p> "Access is restricted to classes that reside in the same file."))
         (<p>)
-        (<p>)
         (<definition> name: protected
           (<p> "Access is restricted to sub-classes and classes in the same package."))
-        (<p>)
         (<p>)
         (<definition> name: public
           (<p> "Access is unrestricted."))
         (<p>)
-        (<p>)
         (<definition> name: final
           (<p> "A final definition cannot be overridden."))
-        (<p>)
         (<p>)
         (<definition> name: virtual
           (<p> "A virtual definition can be overridden in sub-classes."))
         (<p>)
-        (<p>)
         (<definition> name: chained
           (<p> "A chained method can be overridden in sub-classes and the override must call the overridden method."))
-        (<p>)
         (<p>)
         (<definition> name: abstract
           (<p> "A abstract definition must overridden in some sub-class. This modifier is currently unimplemented."))
         (<p>)
-        (<p>)
         (<definition> name: inline
           (<p> "An inline method permits the compiler to inline its code."))
         (<p>)
-        (<p>)
         (<definition> name: synchronized
-          (<p> "A synchronized method is guarantied to always be executing in at most one thread at a time."))
-        (<p>)
-        (<p>)
-        (<definition> name: remote
-          (<p> "A remote method can be used remotely (see the JRM package)."))
-        (<p>)))
- 
+          (<p> "A synchronized method is guaranteed to executing in at most one thread at a time."))
+        (<p>))))
+
+
+
+  (<Section-Doc> name: types title: "Type Annotations"
+    (<description>
+      (<p> "Jazz is a dynamically-typed language. It supports a superset of Gambit's types. ")
+      (<p> "In dynamically-typed (also called untyped) languages, the type is attached to the objects themselves and is available at "
+           "run-time. In statically-typed languages -- like most C-derivatives -- types are attached to identifiers. Dynamically-typed "
+           "languages are more flexible than statically-typed languages, but they trade off some performance and the earlier detection "
+           "of some classes of program errors in return. ")
+      (<p> "In order to provide the programmer a choice between these two trade-offs in any piece of code, Jazz supports optional type "
+           "declarations. This allows rapid early development and experimentation by using the strengths of dynamic typing, and once the "
+           "design solidifies and bottlenecks are identified, type annotations can be added where needed to increase correctness and "
+           "performance. ")
+      (<p> "Types annotations can be added in all function and method signatures for arguments and return values. They're also used in "
+           "slots and properties. ")
+      (<p> "Types are denoted by <> brackes and the type name. For example, a few primitive types: ")
+      (<xmp> "<int>, <bool>, <fx>, <double>")
+      (<p> "There are quite a few primitive types. To read the full list, find 'jazz.primitive-types' in walker.scm. A short list of the "
+           "more common types is: null, char, string, number, fx (a fixnum), fl (a float), int, list, pair, symbol, vector. Note that "
+           "some of these types are specializations of others. E.g. a fx is also a number. ")
+      (<p> "Programmers can freely add types through classes as well, since every class has a type. Some examples of these: ")
+      (<xmp> "<View>, <Window>, <Point>, <Dimension>")
+      (<p> "Note that the above examples do not allow null. If your type signature must support null, append a '+' to the type name: ")
+      (<xmp> "<int+>,  <double+>,  <Point+>, <Dimension+>")
+      (<p> "To increase the robustness of your code and catch errors earlier, do not allow nulls (using '+') unless necessary. The common "
+           "NullPointerException in Java is caused by allowing nulls with every type. ")
+      (<p> "Some examples of type annotations in action: ")
+      (<pre> class: "code"
+             "; this just squares an argument of type number, returning number               \n"
+             "(definition (square num <number>) <number>                                     \n"
+             "  (* num num))                                                                 \n"
+             "                                                                               \n"
+             "; this takes a list of floats, and returns a float                             \n"
+             "(definition (inv-sum-floats num-list <list<fl>> ) <fl>                         \n"
+             "  (/ 1 (apply + num-list)))                                                    \n"
+             "                                                                               \n"
+             "; example of a class that uses type annotations in places                      \n"
+             "(class TypeExample extends Object                                              \n"
+             "                                                                               \n"
+             "  (slot divisor <number>)                    ; slot is a number                \n"
+             "                                                                               \n"
+             "  (method (initialize divisor <number>)      ; takes a number as an argument   \n"
+             "    (nextmethod)                                                               \n"
+             "    (set! divisor~self divisor))                                               \n"
+             "                                                                               \n"
+             "  (method public (is-divisor-even?) <bool>   ; returns a bool                  \n"
+             "    (= (modulo divisor 2) 0))                                                  \n"
+             "                                                                               \n"
+             "  (method public (sum-and-divide num-list)   ; untyped                         \n"
+             "    (/ (apply + num-list) divisor)))                                           \n")))
+
 
   
   (<Section-Doc> name: component-programming title: "Component Programming"
     (<description>
-        (<p> "One of the biggest strength of components is the full integration of the programming metaphor with the visual design metaphor they enable. "
-          "By seamlessly intermixing programming code and designer data, components brings all the power of programming tools to the design part."))
+        (<p> "One of the strengths of components is the integration of programming with the visual design it enables. By mixing programming "
+             "code and view data, components bring the power of programming tools to design. Components are the basis for much of the UI. "))
     (<Class-Doc> name: Component
       (<description>
-        (<p> "Object-Oriented Databases")
-        (<p>)
         (<p> "Inheritance and Composition")
         (<p>)
-        (<p> "The Jazz component system unifies the inheritance and composition based programming models.")
-        (<p>)
-        (<p>
-          "The Component class is by far the most fundamental one. "
-          "It is the foundation of all the graphical user interface but can also be extremely usefull in non graphical contexes.")
+        (<p> "The Jazz component system unifies the inheritance and composition based programming models. The Component class is the most "
+             "fundamental class for components; it is the foundation of all the graphical user interface but can also be extremely useful "
+             "in non-graphical contexts.")
         (<p>)
         (<p> "Components are the result the following design goals:")
         (<node>
@@ -907,21 +1088,10 @@
         (<p> "With this naming, every thing becomes very clean -> for example the saved searches are branchs of the search that you package (maybe to a file or maybe you are copy pasting them or even drag and dropping them!) to a file and later on unpackage and reinstall in the search! "
           "Seeing it this way really makes it clear that branchs are clearly an outstanding feature of Jazz. ")
         (<p>)
-        (<p> "If I can reach a point where everytning is components that can be packaged for saving, copy pasting, ... and all the tools are based on that, I see branches as a concept that will show that a huge portion of the code out there is basically doing branch management stuff without knowing it. "))))
-  (<Section-Doc> name: types title: "Type Annotations"
-    (<description>
-      (<p> "Jazz is a dynamically typed language. Types are associated with objects as opposed to statically typed languages where types are associated with variables. With a dynamically typed language, type information is always available at runtime contrary to statically typed languages where only the compiler has access to type information")
-      (<p>)
-      (<p> "Jazz offer optional type declarations.")
-      (<p>)
-      (<p> "Types are denoted by :")
-      (<xmp> "<primitive> (ex: <int> <bool>)")
-      (<xmp> "<class> (ex: <View> <Window>)")
-      (<p> "denote the type of all objects of type class, the null not included")
-      (<xmp> "<class+> (ex: <Point+> <Rect+>)")
-      (<p> "denote the type of all objects of type class, the null included")
-      (<p>)
-      (<p> "Using a &lt;class&gt; type specifier instead of the more generic &lt;class+&gt; specifier will enable the compiler to enforce non null.")))
+        (<p> "If I can reach a point where everything is components that can be packaged for saving, copy pasting, ... and all the tools are based on that, I see branches as a concept that will show that a huge portion of the code out there is basically doing branch management stuff without knowing it. "))))
+
+
+
   (<Section-Doc> name: numbers title: "Numbers"
     (<description>
       )

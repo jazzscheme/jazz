@@ -1011,7 +1011,7 @@
       `(table->list ,table))
     
     (jazz.define-macro (%%table-entries table)
-      `(table-length ,table))
+      `(map cdr (table->list ,table)))
     
     (jazz.define-macro (%%copy-table table)
       `(table-copy ,table)))

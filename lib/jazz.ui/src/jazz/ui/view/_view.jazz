@@ -38,7 +38,8 @@
 (library jazz.ui.view jazz
 
 
-(import (jazz.graphic)
+(import (jazz.debuggee)
+        (jazz.graphic)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.window)
@@ -541,19 +542,25 @@
 
 
 (definition public (with-safe-execution context thunk (continue-text: continue-text {}) (continue-handler: continue-handler {}))
-  (define (ask-continue message)
+  (define (ask-continue err)
     (let ((text (format "The following error occured while {a}:{%}{%}{a}{%}{%}Press Continue {a}, Exit to exit immediately"
                         context
-                        message
+                        (get-message~ err)
                         (either continue-text "to bypass this problem"))))
-      (let ((result (message-box text type: 'question yes: "Continue" no: "Debug" cancel: "Exit")))
-        (when (eq? result 'cancel)
-          (exit))
-        (eq? result 'yes))))
-  (define (warn-exit message)
+      (let ((result (message-box text type: 'question yes: "Continue" no: "Debug Now" cancel: "Exit")))
+        (case result
+          ((yes)
+           (post-stop err)
+           #t)
+          ((no)
+           #f)
+          ((cancel)
+           (exit))))))
+  
+  (define (warn-exit err)
     (let ((text (format "The following error occured while {a}:{%}{%}{a}"
                         context
-                        message)))
+                        (get-message~ err))))
       (message-box text yes: "Exit")
       (exit)))
   
@@ -561,8 +568,8 @@
     (function (obj)
       (let ((err (and (object? obj) (is? obj Error) obj)))
         (if continue-handler
-            (ask-continue (get-message~ err))
-          (warn-exit (get-message~ err)))))
+            (ask-continue err)
+          (warn-exit err))))
     (function (err)
       (continue-handler err))
     thunk))

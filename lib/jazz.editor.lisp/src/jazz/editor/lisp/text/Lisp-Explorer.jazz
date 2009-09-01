@@ -836,18 +836,23 @@
         #t)))
   
   
+  (method protected virtual (find-named-walker name)
+    #f)
+  
+  
   (method protected virtual (walk-named-declaration context symbol form declaration keyword expression doc walk-expressions?)
     (cond ((enumerator? symbol)
            (walk-unknown context symbol form declaration keyword expression doc walk-expressions?)
            @wait-use-lisp-form-dialect
            (error "Unknown declaration type: {s}" symbol))
           (form
-           (let ((walk (get-walk~ form)))
-             (if walk
-                 (if (symbol? walk)
-                     (walk-named-declaration context walk form declaration keyword expression doc walk-expressions?)
-                   (walk self context symbol form declaration keyword expression doc walk-expressions?))
-               (walk-unknown context symbol form declaration keyword expression doc walk-expressions?))))
+            (let ((walk (get-walk~ form)))
+              (if walk
+                  (if (symbol? walk)
+                     (let ((proc (find-named-walker walk)))
+                       (proc context symbol form declaration keyword expression doc walk-expressions?))
+                    (walk self context symbol form declaration keyword expression doc walk-expressions?))
+                (walk-unknown context symbol form declaration keyword expression doc walk-expressions?))))
           (else
            (walk-unknown context symbol form declaration keyword expression doc walk-expressions?))))
   

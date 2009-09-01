@@ -77,16 +77,16 @@
 
 
 (define (jazz.get-library name)
+  (jazz.load-module name)
   (%%table-ref jazz.Libraries name #f))
 
 
 (define (jazz.require-library name)
-  (or (%%table-ref jazz.Libraries name #f)
+  (or (jazz.get-library name)
       (jazz.error "Unknown public library: {s}" name)))
 
 
-(define (jazz.library-ref library-name name)
-  (jazz.load-module library-name)
+(define (jazz.library-get library-name name #!key (not-found #f))
   (let ((library (jazz.require-library library-name)))
     (let ((info (%%table-ref (%%get-library-exports library) name #f)))
       (if info
@@ -95,7 +95,16 @@
             (jazz.bind (module-name . locator) info
               (jazz.load-module module-name)
               (jazz.global-value locator)))
-        (jazz.error "Unable to find '{s} in: {s}" name library-name)))))
+        not-found))))
+
+
+(define jazz.library-ref
+  (let ((not-found (box #f)))
+    (lambda (library-name name)
+      (let ((obj (jazz.library-get library-name name not-found: not-found)))
+        (if (%%eq? obj not-found)
+            (jazz.error "Unable to find '{s} in: {s}" name library-name)
+          obj)))))
 
 
 ;;;

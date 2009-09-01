@@ -38,7 +38,7 @@
 
 (library protected jazz.dialect.kernel scheme
 
-
+;
 ;;;
 ;;;; Autoload
 ;;;
@@ -553,6 +553,7 @@
 (native jazz.get-load-stack)
 (native jazz.get-library)
 (native jazz.require-library)
+(native jazz.library-get)
 (native jazz.library-ref)
 (native jazz.walk-for)
 (native jazz.register-service)
@@ -1060,6 +1061,7 @@
 (native jazz.get-catalog)
 (native jazz.get-catalog-entry)
 (native jazz.release-catalog-entries)
+(native jazz.outline-feedback)
 (native jazz.outline-module)
 (native jazz.walk-module)
 (native jazz.expand-module))

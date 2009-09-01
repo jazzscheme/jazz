@@ -57,7 +57,7 @@
   (define (library-references-valid? lst)
     (let ((library-locator (%%car lst))
           (library-references (%%cdr lst)))
-      (let ((library-declaration (jazz.outline-library library-locator #f)))
+      (let ((library-declaration (jazz.outline-library library-locator error?: #f)))
         (and library-declaration
              (jazz.every? (lambda (symbol)
                             (let ((found (if (%%pair? symbol)

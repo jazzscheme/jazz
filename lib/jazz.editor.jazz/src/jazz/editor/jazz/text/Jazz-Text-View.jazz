@@ -47,8 +47,12 @@
         (jazz.library)
         (jazz.locale)
         (jazz.platform)
+        (jazz.runtime)
+        (jazz.runtime.ui)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -117,6 +121,14 @@
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-find-imports evt)
+    (find-imports (current-expr)))
+  
+  
+  (method (on-find-all-imports evt)
+    )
   
   
   (method (get-context-menu)
@@ -355,6 +367,53 @@
             (when run
               (set-style~ run default-style)
               (invalidate-paragraph (get-paragraph (get-row~ (get-start~ range))))))))))
+
+
+  ;;;
+  ;;;; Imports
+  ;;;
+  
+  
+  (method (find-imports symbol)
+    (define (present-imports imports)
+      (let* ((border (new Imports-Border size: {Dimension 450 150}))
+             (tree (locate~ border 'tree))
+             (count (length imports)))
+        (for-each (function (import)
+                    (let ((title (symbol->string import)))
+                      (add-row~ tree children: (list (new Tree-Node title: title image: {Bitmap-Resource "Import"})))))
+                  imports)
+        (message-box (format "Found {a} import{a}" (downcase (format-cardinality count)) (format-plural count))
+                     type: 'confirmation
+                     yes: "OK"
+                     no: "Copy"
+                     cancel: "Insert"
+                     content: border
+                     sound: (if (= count 0) 'default {}))))
+    
+    (let ((imports '()))
+      (parameterize ((outline-feedback
+                       (function (module-name)
+                         (user-message "Outlining {a}..." module-name))))
+        (iterate-modules
+          (function (module-name)
+            (let ((declaration (outline-module module-name)))
+              (when (and (is? declaration Library-Declaration)
+                         (eq? (get-access~ declaration) 'public)
+                         (lookup-declaration declaration symbol public-access #f))
+                (set! imports (cons module-name imports)))))))
+      (case (present-imports imports)
+        ((yes)
+         )
+        ((no)
+         (set-clipboard-text (join (map symbol->string imports) " ")))
+        ((cancel)
+         (let ((expl (new (explorer-class) self)))
+           (for-each (function (import)
+                       (set-start~ expl (text-beginning))
+                       (set-end~ expl (text-beginning))
+                       (insert-import-invoice~ expl import))
+                     imports))))))
 
   
   ;;;
@@ -621,6 +680,24 @@
     (when (in-manifest? symbol)
       (edit-class~ (get-application) symbol)
       #t)))
+
+
+;;;
+;;;; Imports-Border
+;;;
+
+
+(class Imports-Border extends Border-View
+  
+  
+  (form
+    (<install>                                    border-type: solid border-color: {Color name: Outline-Border}
+      (<Scroller-View>                            flat?: #t hscroll?: #t vscroll?: #t
+        (<!>                        name: content layout-type: fill
+          (<Tree-Header>                          flat?: #t
+            (<!>                    name: content
+              (<Tree-View>          name: tree    portfolio: :icons selection-mode: row
+                (<Tree-Node-Column>               title: "Import" width: 300 toplevel-controls?: #f display-images?: #f)))))))))
 
 
 ;;;

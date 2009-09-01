@@ -5414,7 +5414,7 @@
 (define (jazz.walk-import-declaration walker resume declaration environment form)
   (define (jazz.walk-library-import import)
     (define (jazz.lookup-library name)
-      (or (jazz.outline-library name #f)
+      (or (jazz.outline-library name error?: #f)
           (jazz.walk-unresolved walker resume declaration name)))
     
     (receive (library-name library-load library-phase library-version library-only library-autoload) (jazz.parse-library-invoice import)
@@ -5830,51 +5830,56 @@
               (jazz.set-catalog-entry-status module-name #f)))))))
 
 
-(define (jazz.outline-module module-name #!optional (error? #t))
+(define jazz.outline-feedback
+  (make-parameter #f))
+
+
+(define (jazz.outline-module module-name #!key (error? #t))
+  (define (load-toplevel-declaration)
+    (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
+      (if (and (%%not src) (%%not error?))
+          #f
+        (let ((source (jazz.resource-pathname src)))
+          (define (load-declaration)
+            ;; not reading the literals is necessary as reading a literal will load modules
+            (let ((form (jazz.read-toplevel-form source read-literals?: #f)))
+              (parameterize ((jazz.requested-module-name module-name)
+                             (jazz.requested-module-resource src))
+                (case (%%car form)
+                  ((module)
+                   (jazz.parse-module-declaration (%%cdr form)))
+                  ((library)
+                   (jazz.parse-library-declaration (%%cdr form)))))))
+          
+          (jazz.with-verbose (jazz.outline-verbose?) "outlining" source
+            (lambda ()
+              (load-declaration)))))))
+  
   (let ((entry (jazz.get-catalog-entry module-name)))
     (let ((status (if (%%pair? entry) (%%car entry) #f))
           (declaration (if (%%pair? entry) (%%cdr entry) entry)))
       (if status
           (jazz.error "Circular dependency detected with {s}" module-name)
-        (if (%%not declaration)
+        (or declaration
             (jazz.call-with-catalog-entry-lock module-name
               (lambda ()
-                (let ((declaration (jazz.load-toplevel-declaration module-name error?)))
+                (let ((feedback (jazz.outline-feedback)))
+                  (if feedback
+                      (feedback module-name)))
+                (let ((declaration (load-toplevel-declaration)))
                   (if (%%not declaration)
                       (if error?
                           (jazz.error "Unable to locate module declaration: {s}" module-name))
                     (jazz.set-catalog-entry module-name declaration))
-                  declaration)))
-          declaration)))))
+                  declaration))))))))
 
 
-(define (jazz.outline-library module-name #!optional (error? #t))
-  (let ((declaration (jazz.outline-module module-name error?)))
+(define (jazz.outline-library module-name #!key (error? #t))
+  (let ((declaration (jazz.outline-module module-name error?: error?)))
     (if (%%not error?)
         declaration
       (%%assert (%%class-is? declaration jazz.Library-Declaration)
         declaration))))
-
-
-(define (jazz.load-toplevel-declaration module-name #!optional (error? #t))
-  (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
-    (if (and (%%not src) (%%not error?))
-        #f
-      (let ((source (jazz.resource-pathname src)))
-        (define (load-declaration)
-          ;; not reading the literals is necessary as reading a literal will load modules
-          (let ((form (jazz.read-toplevel-form source read-literals?: #f)))
-            (parameterize ((jazz.requested-module-name module-name)
-                           (jazz.requested-module-resource src))
-              (case (%%car form)
-                ((module)
-                 (jazz.parse-module-declaration (%%cdr form)))
-                ((library)
-                 (jazz.parse-library-declaration (%%cdr form)))))))
-        
-        (jazz.with-verbose (jazz.parse-verbose?) "parsing" source
-          (lambda ()
-            (load-declaration)))))))
 
 
 (define jazz.read-literals?

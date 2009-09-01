@@ -46,13 +46,19 @@
 (jazz.define-setting jazz.load-verbose?
   #f)
 
-(jazz.define-setting jazz.warn-interpreted?
-  #f)
-
-(jazz.define-setting jazz.parse-verbose?
+(jazz.define-setting jazz.outline-verbose?
   #f)
 
 (jazz.define-setting jazz.done-verbose?
+  #f)
+
+
+;;;
+;;;; Interpret
+;;;
+
+
+(jazz.define-setting jazz.warn-interpreted?
   #f)
 
 

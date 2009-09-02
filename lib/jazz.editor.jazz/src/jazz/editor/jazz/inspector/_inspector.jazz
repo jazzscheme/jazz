@@ -116,33 +116,28 @@
              '()))))
   
   (define (inspect-table table)
-    (let ((fact (new List-Factory))
-          (rank 0))
-      (continuation-capture
-        (function (return)
-          (iterate-table table
-                         (function (key value)
-                           (when (>= rank inspect-rank-limit)
-                             (put~ fact (inspect-limit rank (table-length table)))
-                             (continuation-return return))
-                           (increase! rank)
-                           (put~ fact (cons (present-object key)
-                                            (package-info value)))))))
-      (sort string<? (get-output~ fact) key: car)))
+    (let ((sorted '()))
+      (iterate-table table
+        (function (key value)
+          (let ((data (cons (present-object key)
+                            (package-info value))))
+            (set! sorted (insert-ordered! data sorted key: car test: string<=?)))))
+      (if (> (table-length table) inspect-rank-limit)
+          (append (subseq sorted 0 inspect-rank-limit)
+                  (list (inspect-limit inspect-rank-limit (table-length table))))
+        sorted)))
   
   (define (inspect-slots object)
-    (let* ((class (class-of object))
-           (slots (all-slots class))
-           (infos
-             (collect (function (slot)
-                        ;; not redefined core classes have symbols as slots
-                        (unless (symbol? slot)
-                          (cons (field-name slot)
-                                (package-info (cond ((property? slot)
-                                                     (read-property object slot))
-                                                    (else
-                                                     (slot-value object (field-name slot))))))))
-                      slots)))
+    (let ((infos (collect (function (slot)
+                            ;; when we forget to redefine core classes in jazz, slots are symbols
+                            (if (symbol? slot)
+                                (cons (symbol->string slot) (package-info "<core slot>" :raw))
+                              (cons (field-name slot)
+                                    (package-info (cond ((property? slot)
+                                                         (read-property object slot))
+                                                        (else
+                                                         (slot-value object (field-name slot))))))))
+                          (all-slots (class-of object)))))
       (if #t
           infos
         (sort < infos key: car))))

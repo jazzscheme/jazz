@@ -885,18 +885,36 @@
       (<Section-Doc> name: lifecycle title: "Construction & Destruction"
         (<description>
           (<p> "Jazz invokes the 'initialize' method on every method creation. 'destroy' can be explicitly invoked using (destroy~ obj), "
-               "or left up to the system. 'initialize' can take arguments, while 'destroy' does not. NB: automatic destruction doesn't "
-               "appear to be working at the moment. ")
+               "or used with (with-destroy ...). 'initialize' can take arguments, while 'destroy' does not. "
+          (<p> "'destroy' is not automatically invoked by the GC upon collection, like Java's finalize(). Instead, Jazz supports deterministic "
+               "finalization similar to C++, making idioms like RAII possible. Deterministic finalization is particularly useful for handling "
+               "non-memory resources like file handles and sockets. ")
+          (<p> "Jazz achieves this with 'with-closed'. (with-closed ...) behaves much like (let ...), except that objects that are newly bound by "
+               "'with-closed' will have their destructor invoked when the 'with-closed' expression completes evaluation. See the example: ")
           (<pre> class: "code"
                  "(class LifecycleExample extends Object                                                                                                     \n"
                  "  (method (initialize foo)                   ; example of a constructor taking a parameter                                                 \n"
+                 "    (nextmethod))                            ; invokes constructors of parent classes -- leaving this out can cause problems               \n"
                  "    (display (tie \"starting with {foo}\n\"))                                                                                              \n"
-                 "    (nextmethod)                             ; invokes constructors of parent classes -- leaving this out can cause problems               \n"
-                 "    (destroy-mandatory))                     ; here we indicate that the destructor must be called when the object is no longer reachable  \n"
                  "                                                                                                                                           \n"
                  "  (method (destroy)                          ; example of a destructor                                                                     \n"
+                 "    (nextmethod)))                           ; as with the constructor, calls parent destructors -- leaving this out can cause problems    \n"
                  "    (display \"ending\n\")                                                                                                                 \n"
-                 "    (nextmethod)))                           ; as with the constructor, calls parent destructors -- leaving this out can cause problems    \n")))
+                 "                                                                                                                                           \n"
+                 "; an example of using LifecycleExample that invokes the constructor but not the destructor                                                 \n"
+                 "; this displays:                                                                                                                           \n"
+                 "; - starting with 42                                                                                                                       \n"
+                 "; - leaving scope                                                                                                                          \n"
+                 "(let ((obj (new LifecycleExample 42)))                                                                                                     \n"
+                 "  (display \"leaving scope\n\"))                                                                                                           \n"
+                 "                                                                                                                                           \n"
+                 "; an example of using LifecycleExample that invokes the constructor and the destructor                                                     \n"
+                 "; this displays:                                                                                                                           \n"
+                 "; - starting with 42                                                                                                                       \n"
+                 "; - leaving scope                                                                                                                          \n"
+                 "; - ending                                                                                                                                 \n"
+                 "(with-closed ((obj (new LifecycleExample 42)))                                                                                             \n"
+                 "  (display \"leaving scope\n\"))                                                                                                           \n"))))
 
       (<Section-Doc> title: "Literals"
         (<description>
@@ -907,13 +925,64 @@
             (<pre> class: "code"
                    "; a couple examples from the standard jazz library            \n"
                    "{Point 2 3}         ; creates a Point with the given values   \n"
-                   "{Color name: Red}   ; creates a Color with the give value     \n"
-                   "                                                              \n"
-                   "; arrrrgh, what am I doing wrong?!                            \n"))))
-        
-    (<Section-Doc> name: generic-methods title: "Generic methods"
+                   "{Color name: Red}   ; creates a Color with the give value     \n")
+            (<p> "Since object literals must be understood by the compiler before their use in the rest of the code, they can be added by "
+                 "creating install.scm and literal.jazz files which are used by '.package' in a package's root. Here's an example: ")
+            (<pre> class: "code"
+                   "; in the .package file                                                                                                                  \n"
+                   "(package literal-example                                                                                                                \n"
+                   "  (root \"src\")                                                                                                                        \n"
+                   "  (install literal-example.install)                                          ; this is the line that is needed to call install          \n"
+                   "  ... )                                                                      ; the rest doesn't matter for this example                 \n"
+                   "                                                                                                                                        \n"
+                   "; in src/literal-example/install.scm                                                                                                    \n"
+                   "(module literal-example.install                                                                                                         \n"
+                   "  (jazz.define-literal LiteralExample literal-example.literals.construct-literalexample))  ; this line adds the LiteralExample literal  \n"
+                   "                                                                                                                                        \n"
+                   "; in src/literal-example/literals.jazz                                                                                                  \n"
+                   "(library literal-example.literals jazz                                                                                                  \n"
+                   "(import (literal-example.LiteralClass))                                                                                                 \n"
+                   "                                                                                                                                        \n"
+                   "(definition package (construct-literalexample h v)       ; the function called to create the object when the literal is encountered     \n"
+                   "  (new LiteralExample h v)))                                                                                                            \n"))))
+            
+    (<Section-Doc> name: generic-functions title: "Generic functions"
       (<description>
-        (<p> "This is an experimental CLOS-like feature. Please don't use it for now.")))
+        (<p> "Generic functionss are a useful way to extend classes without modifying the class itself. In many languages, in order to add a method to "
+             "a class, the class must be inherited from. In more dynamic languages, classes can be reopened to add methods to them at runtime -- "
+             "as can Jazz. ")
+        (<p> "An alternate way to add functionality to a class are generic methods, which look and behave like functions, but dispatch on the type of "
+             "arguments. Generic methods can be defined for any class regardless of which library the class is in and which library the generic method "
+             "is defined in. Indeed, a generic method for a set of classes may be spread across many files. ")
+        (<p> "Generic functions shine when dispatching against the types of multiple arguments -- a common example is binary operators. An experimental "
+             "CLOS-like extension for Jazz exists which supports multiple-dispatch, but for now mainline Jazz dispatches solely on the type of the "
+             "first argument. ")
+        (<pre> class: "code"
+               "; classes we want to use with a generic function                                                                     \n"
+               "(class Sum extends Object)                                                                                           \n"
+               "(class Mul extends Object)                                                                                           \n"
+               "(class InverseSum extends Sum)                                                                                       \n"
+               "                                                                                                                     \n"
+               "; indicate to Jazz we're creating a new generic function                                                             \n"
+               "(generic (perform (<Object> x) . rest)                                                                               \n"
+               "  #f)                                                                                                                \n"
+               "                                                                                                                     \n"
+               "; specialize the generic function for Sum -- if a Sum object is the first argument, this executes                    \n"
+               "(specific (perform (<Sum> x) . rest)                                                                                 \n"
+               "  (apply + rest))                                                                                                    \n"
+               "                                                                                                                     \n"
+               "; specialize the generic function for Mul -- if a Mul object is the first argument, this executes                    \n"
+               "(specific (perform (<Mul> x) . rest)                                                                                 \n"
+               "  (apply * rest))                                                                                                    \n"
+               "                                                                                                                     \n"
+               "; specialize the generic function for InverseSum -- if an InverseSum object is the first argument, this executes     \n"
+               "(specific (perform (<InverseSum> x) . rest)                                                                          \n"
+               "  (/ 1 (apply nextmethod x rest)))              ; here we also call to the parent, invoking the Sum specialization   \n"
+               "                                                                                                                     \n"
+               "; using a generic function                                                                                           \n"
+               "(display (perform (new Sum) 1 2 3 4))           ; displays 10                                                        \n"
+               "(display (perform (new Mul) 1 2 3 4))           ; displays 24                                                        \n"
+               "(display (perform (new InverseSum) 1 2 3 4))    ; displays 1/10                                                      \n"))))
 
   
   
@@ -971,7 +1040,7 @@
         (<p>)
         (<definition> name: synchronized
           (<p> "A synchronized method is guaranteed to executing in at most one thread at a time."))
-        (<p>))))
+        (<p>)))
 
 
 
@@ -1002,23 +1071,23 @@
       (<p> "Some examples of type annotations in action: ")
       (<pre> class: "code"
              "; this just squares an argument of type number, returning number               \n"
-             "(definition (square num <number>) <number>                                     \n"
+             "(definition (square num &lt;number>) <number>                                  \n"
              "  (* num num))                                                                 \n"
              "                                                                               \n"
-             "; this takes a list of floats, and returns a float                             \n"
-             "(definition (inv-sum-floats num-list <list<fl>> ) <fl>                         \n"
+             "; this takes a list, and returns a float                                       \n"
+             "(definition (inv-sum-floats num-list &lt;list&gt; ) &lt;fl&gt;                 \n"
              "  (/ 1 (apply + num-list)))                                                    \n"
              "                                                                               \n"
              "; example of a class that uses type annotations in places                      \n"
              "(class TypeExample extends Object                                              \n"
              "                                                                               \n"
-             "  (slot divisor <number>)                    ; slot is a number                \n"
+             "  (slot divisor &lt;number&gt;)                    ; slot is a number          \n"
              "                                                                               \n"
-             "  (method (initialize divisor <number>)      ; takes a number as an argument   \n"
+             "  (method (initialize divisor &lt;number&gt;)      ; takes a number as an argument   \n"
              "    (nextmethod)                                                               \n"
              "    (set! divisor~self divisor))                                               \n"
              "                                                                               \n"
-             "  (method public (is-divisor-even?) <bool>   ; returns a bool                  \n"
+             "  (method public (is-divisor-even?) &lt;bool&gt;   ; returns a bool            \n"
              "    (= (modulo divisor 2) 0))                                                  \n"
              "                                                                               \n"
              "  (method public (sum-and-divide num-list)   ; untyped                         \n"

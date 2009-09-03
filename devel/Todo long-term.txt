@@ -1,0 +1,557 @@
+;;;
+;;;; Todo long-term
+;;;
+
+
+GC  : Guillaume Cartier (gcartier@jazzscheme.org)
+SLC : Stephane Le Cornec (coleste@videotron.ca)
+JLR : Jeremie Lasalle Ratelle (pouexmachinax@gmail.com)
+MF  : Marc Feeley (feeley@iro.umontreal.ca)
+
+
+PUBLIC : To be done before the public open-source release
+
+
+;;;
+;;;; Release
+;;;
+
+
+PUBLIC
+- Create some tutorials about application creation (GC)
+- Consolidate in a 'Executing Gambit code' section (GC)
+  - Add some (load "mycode.scm") examples at both the console and the profile
+  - Gambit project to remotely run / build
+  - Termimal
+
+
+;;;
+;;;; Repository
+;;;
+
+
+MEDIUM
+- Look at how the repo can be made cross-platform so we don't need a separate devel
+  release for Windows. At the moment if we take the repo from Mac for instance and
+  use it on Windows, a git status will say some files are modified. This is probably
+  a line-ending problem.
+
+
+;;;
+;;;; Install
+;;;
+
+
+HIGH
+- Need to make sure a binary release works out of the box on every platform
+  - Brainstorm how this should be done
+  - One approach would be to distribute prebuilt cairo and its dependencies
+  - A key element is to have tests for each external dependency that gives a clear
+    error message explaining what is the problem
+  - On mac the solution is probably to create a .dmg with included installers
+    for every external dependency
+- Finish automating release building (GC)
+
+MEDIUM
+- Gambit uses for the installer:
+    MacOS
+    - xcode scriptable tools
+    - should probably install in frameworks dir and not lib
+    - see prebuilt/macosx/build-phase2 and gambc.pmproj.in
+    Windows
+    - NIS
+
+
+;;;
+;;;; Build
+;;;
+
+
+HIGH
+- Fix crash when bad module name in jedi.product
+- Implement showing the description when a version forces a rebuild
+
+MEDIUM
+- Copy the resources so that a binary release of Jazz can be 100% standalone and not require the source files (GC)
+- Be able to compile and build without Gambit installed (GC)
+- Font and other literals should not depend on the platform at readtime but only at runtime (GC)
+  - With that, cleanly separate platform build from windowing
+    - Be able to build the game server using only jazz and maybe platform
+- Use ##current-user-interrupt-handler to correctly handle ctrl-c in both the build system process and it's subprocesses
+
+NOTES
+- To build Gambit under VisualStudio C++, -D___LIBRARY has to be defined for
+  _gambcgsi.c and _gambcgsc.c
+
+
+;;;
+;;;; Kernel
+;;;
+
+
+PUBLIC
+- Modify the kernel so it uses SHA-1 instead of file modification times everywhere. This is why installing a binary release
+  and doing make at the moment recompiles some files
+
+HIGH
+- Clean header.scm with Marc Feeley's help (MF) (GC)
+- It is very important for performance and robustness of the debugger to improve the locking mecanism used by load-module
+  so it only locks out a thread if the module it wants to load / walk is actually on the load / walk stack vs the current
+  approach that uses a global lock. Note that this is probably a very simple change but it has to be done carefully as it
+  implies making sure that every structure used by the code walker / loader is thread safe.
+- Command line parameter to specify preferences paths (jazz jedi ...) (!?) (GC)
+
+
+;;;
+;;;; Platform
+;;;
+
+
+HIGH
+- Find memory leaks in FFI packages. (JLR)
+- We should investigate every platform function beginning by "(When handle" for logic errors. (JLR)
+- exact->inexact and inexact->exact. (JLR)
+- Implement a standard FFI construct to get the c constant value. (c-constant type name . c-name) (JLR)
+
+MEDIUM
+- Decide if we are going to keep the platform-... naming scheme or if we are going to
+  rename all that to better names (JLR)
+- Reduce the number of methods in platform packages and Window class. Remove old ones, merge others.
+  (Ex. get-root-owner, get-front-frame,  get-top-window)
+  (get-bounds, get-rectangle, set-bounds, etc.) (JLR)
+- Check platform packages for internal c-functions that could be written as c-code (JLR)
+- Implement play-sound in X11 and Carbon. (JLR)
+
+
+;;;
+;;;; Cairo
+;;;
+
+
+HIGH
+- Need to fix the Cairo text truncation glitch (seems to only happen on Windows)
+
+MEDIUM
+- Check if it could be better to use native bitmaps instead of pixman surfaces in cairo. (JLR)
+- Fix the cairo memory leaks. Add a deallocator to our structures and call foreign-nullify in the with special form.
+  - This will probably unify with and with-closed
+  - One thing that is very nice with foreign release functions (and wills!?) is that we do not need to wrap the
+    expansion of with inside an unwind-protect (not 100% sure about this as sometimes, having the object closed in
+    the dynamic scope is an important part of a function's semantics...)
+
+
+;;;
+;;;; Carbon
+;;;
+
+
+MEDIUM
+- Investigate why the carbon port is so slow. (JLR)
+
+
+;;;
+;;;; Windows
+;;;
+
+
+MEDIUM
+- Find how to fix the ascent hack in Windows. (Use freetype in windows?) (JLR)
+- Native Windows save-as dialog is buggy and can save as x.gLevel. Can reproduce by saving as to x.scm
+
+
+;;;
+;;;; X11
+;;;
+
+
+PUBLIC
+- Figure out why X11 double-buffering performance is slugish on Gentoo (JLR)
+- Find a good approach to implement Application and Windows activation (JLR)
+- Implement show-noactivate and hide-noactivate (JLR)
+- If I open a menu and switch to Safari the menus will go on poping!
+- On mac, open an xterm, close it -> error in Jedi
+- Implement dialog modality
+
+HIGH
+- Modify set-cursor to have the player that is needed by X11. How do you do something
+  like setting the cursor at application startup when there is no window on X11?
+- Can we implement palette so that they float over standard windows?
+
+MEDIUM
+- Check if it would be possible to receive mouse events only when we have the focus (JLR)
+
+NOTES
+- It would be very interesting using the message pump to identify exactly which
+  messages are direct callbacks under Windows
+
+
+;;;
+;;;; Paint
+;;;
+
+
+HIGH
+- Remove the lh lv sh sv sc sc? parameters to the painting algorithm (SLC)
+
+MEDIUM
+- Implement the CSS border-collapse concept
+
+
+;;;
+;;;; Jedi
+;;;
+
+
+PUBLIC
+- Add a project with run and build methods for jazz.sample.fib without which it is not intuitive how
+  to try it (same for every other project that have the same need)
+
+HIGH
+- Alt-S and Alt-R should have their own cache distinct from the search dialog so that doing
+  one or the other with an empty selection uses the cache if available.
+- Fast F8 + click -> bus error
+  - The error is a close-popups with player = {}
+- Try and understand the heratic behavior of time
+  - Try it with something like fib with no UI
+  - Try it on all OS
+- We need a fast boot, up to login dialog (GC)
+- Why is the definition not centered (like ctrl-l) when we do Toplevel F12 (GC)
+- Should use a SHA-1 when needs reload tests to play nicelly with Git
+- Have a nice shortcut for add-to-history to replace emacs style marking
+- F8 should always reselect the mouse-view if more specific than the one currently highlighted
+- Convert any palette that would be better of beeing a frame like the class-browser
+- Find a better naming for the *-Tool classes and rename docked by tool
+- There is a bug if I open a menu, do F8 and then right-click an item and then do an action. This bug
+  only appears on X11 because Windows will not error on handle = {}
+- Look at the behavior of Jedi with dual monitors
+- In home workspace: c-m-F, something, enter, c-m-S -> focus not correct (GC)
+- I got an "Unable to destroy 'picker" error after pressing enter in the login dialog
+  (New was selected I think)
+- Find a solution to the offscreen beeing destructed / recreated on every workspace switch because it
+  is associated with the root view. Maybe have the root view delegate offscreen management to the view-player!?
+- Implement assertions in Jazz and change the error test in install-child by an assertion.
+- The Show Terminal menu item should become Show Terminal and Hide Terminal.
+- Add gameserver to the Jedi dependencies and add some output to its banner about what port
+  it's listening on.
+
+MEDIUM
+- It would be nice to load the workbench partially even when there are errors. For that we will need
+  to have a way to wrap a catch around form actions but *not* recursively (want the errors reported at
+  the Workbench.jml level). Then display the component in error with a distinct icon and then maybe
+  even support double-clicking to edit the error spot by having instantiate do a read-source!
+- Move mouse over a tool so that it is highlighted, launch an app with F5, come back to
+  Jedi -> the button is still highlighted
+- Set current directory to a folder, remove that folder and quitting jedi errors!
+- Add a repository management window
+- Should annotate new files New, New1, New2, ...
+- With many open windows the Window menu can be too big and close as soon as it opens. Either put then together in submenus
+  or have a dialog when >= 10
+- Put offscreen? = false and take a *really* good look at all that gets painted. For instance when resizing the
+  workbench splitter between the wb and the stage, very strange things get painted
+- Adding sha-1 to catalogs instead of file modification time would be nice
+- When compiling lets says jazz.catalog, the merge of declarations generates an error because for instance the autoload
+  of X that was already present is added again and autoloads are not eq?
+- Adding a file-modification-time column to search-results would enable to easily find some recent change like "where did
+  I add those annoying debug"!
+- Maybe one day move up the text logic to view which is clearly a generic algo of box layouting very similar to css
+- For embeding views in texts, we need a rendering algo like html that goes botton-up as well as top-down
+- By spliting the first column of the bindings manager into context / action it would become possible to sort by action
+  to find a specific action like goto-line
+- The bindings format needs to be improved as it forces us to unbind left-arrow to bind ctrl-a!
+- If from an external app like the Windows explorer I click on the jedi toolbar, jedi doesn't activate. This is due to
+  mouse-activate? = #f for toolbars. Need to reinvestigate the role of this method
+- Road to having a palette with all the walk errors/warnings
+  - Need to catch all problems in the walk phase before the emit
+    - Should do type inferences in the walk phase as the interpreter will need them too anyways
+- A nice feature would be to color inner definitions by progressively augmenting their color's darkness in proportion to their depth.
+- Could also color expression commented code by augmenting it's color's gray component.
+- Finish the expression based search.
+- Click a header with the mouse middle button and the header doesn't come up after the mouse is released.
+- Resizing the rightmost header has invalidation problems.
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+PUBLIC
+- Implement correct filled / border red color management for the workspace icon
+- Reimplement the eval in <selected frame>
+- Add support for explicitly creating a thread's console
+- Console tab should become a combo with menu items highlighting problems / visits
+- A new console's button should be highlighted in red
+- Make the indicators work nicelly with multiple threads
+- Replace the temporary fix of (sleep .1) in the threads view with a clean callback
+  from the debuggee
+- Need a clean solution to repl threads. At the moment, if an exception occurs not from an eval,
+  we get more than one repl thread reading at the same time
+- Find a solution to exceptions occuring in the read or print stage of the read-eval-print-loop
+
+HIGH
+- Complete the Gambit debugger (MF) (GC)
+- Could we use Gambit's ##exception->locat to show / edit every exception even read errors
+- Add sourcification to console input
+- Add TCP/IP exceptions to Gambit and have the debugger catch those to cleanly detect problems
+- Make the inspector remote aware and then make variables inspectable once again in the variables
+  view
+- Use Gambit's new "need" parameter to read-substring and read-subu8vector
+- Make sure exceptions capture the real continuation (probably by using the continuation
+  capture in a tail-call position) and have the exception view use it to edit the exception
+
+MEDIUM
+- Very interesting idea to pretty-print results in the repl...
+- If the debugger is exited while a remotely debugged app had an error in the primordial
+  thread, the app's event loop should be restarted somehow
+- Add command-line arguments to set product icon/title so the user can launch distinguished
+  instances of a same process code
+- Debuggers must integrate with
+  - console
+  - stack
+  - variables
+  - break points
+  - tooltip debugging
+  - memory inspector
+- Gambit
+  - support for gambit records in the inspector
+
+
+;;;
+;;;; Emacs
+;;;
+
+
+HIGH
+- Incremental search
+  - c-s c-s to search again will beep for each character if not found
+  - reset positions when doing a c-s c-s
+  - wrap around when searching
+
+
+;;;
+;;;; Walker
+;;;
+
+
+HIGH
+- Should not keep the full form-src in the syntax tree but just the locat info or maybe a source
+  with the code emptied
+- Finish implementing the inconsistant dispatch error message for every case
+- Can sourcifications be used with Jazz inline functions / methods !?
+- Libraries should keep the walk-problems for later consultation and display
+  - has-warnings?
+  - has-errors?
+- (set! (or pivot (and selection (car selection)))) will crash the walker
+
+MEDIUM
+- Implement access rights to declarations
+- At some point i should start looking at the generated c code for my typical code
+- (in p (class X ... (definition some-x (new X)))) should generate a runtime error like Class X not fully loaded
+- Because specifics don't have associated declarations, walk error in them get wrongly reported as beeing
+  in their parent. Using the generic declaration is not correct as it will create illegal access problems.
+  I will probably have to create dummy specific declarations or maybe this is yet again a macro problem
+  that has to be solved with the complete macro solution...
+- Looking at how to implement the enumeration macro cleanly make me think that a declare special form is to moving alot
+  of code from the walker to high level macros
+  - define
+  - declare
+  - annotate (!?)
+  - relocate (!?)
+
+  - (definition D expr)
+  - (declare D <Definition-Declaration>
+      (define D
+        expr))
+  
+  - maybe definitions could even know their declaration which would unify the duplication between the 2
+- The optimisation of having a language construct that splices a slot's content at the end of the
+  object's vector could be correct i think if limited to final classes...
+- Implement partial library access like importing jazz.platform.windows and then using (WinUser.RegisterClass ...)
+
+
+;;;
+;;;; Language
+;;;
+
+
+HIGH
+- Dates generated in snapshot names are strange
+- Implement dependencies management for imported symbols, e.g. when a symbol is moved from one module to another one
+  and some other modules that where referencing that symbol where already compiled pointing to the old module
+
+MEDIUM
+- Implement hierarchical module lookup so that it is possible to have
+  a/b/c.jazz or a.b.c.jazz or a/b.c.jazz. Using that compile to a flat a.b.c.o1 so that
+  gambit's rule of unique module names is not violated
+- When axises are working, simplify the code and make sure it is well optimized for the case of rows with not alot
+  of sons
+- I should be able to clean *alot* of not directly related code that i was forced to put inside classes because i
+  didn't have generics. A class that needs big time cleanup like this is Component
+- Why reimplement queues in Jazz? Probably just add access to them for Jazz
+- Not allocate void slots
+- Find a good and elegant solution to the register-autoclass patch
+- Think about a naming convention (maybe CL's *symbol*) that would distinguish between global variables
+  and class names that make code like (f~ X) hard to understand
+- Detect if a user does a (form ...) without the initial <install>
+- If a toplevel doesn't specify an explicit size, we have an update bug
+- Why not have exactly like we have delimited strings, a syntax for binary objects that would enable images or ... to be saved in Jazz files like JML databases.
+  - Not a very scalable solution but very nice for small to medium size databases
+- Investigate if very generic and simple to implement inlined functions could be implemented by a simple macro expansion expanding to a syntax-case that would take care of lexical captures.
+- Add validation code for methods for parameters with an enumeration type. This could be very usefull for all those methods receiving symbols which is nice but not very robust.
+
+
+;;;
+;;;; R4RS
+;;;
+
+
+MEDIUM
+- r4rstest.scm
+- f1.0 notation
+- internal defines
+- quasiquote for vectors
+- =>
+- semantics of declarations that are bound only after beeing defined vs jazz which binds declarations
+  accross the whole module. another incompatibility that is related is that scheme code can define the
+  same variable multiple times -> a possible solution would be to implement scheme semantics for define
+  and jazz semantics for definition which seems very consistant with both names
+
+
+;;;
+;;;; Types
+;;;
+
+
+MEDIUM
+- With a restriction type we could have a type like fxstring that is a string that guaranties that
+  its length is bounded in the range of fixnums!?
+- Put back Rect as fx and make another class for number (or the opposite)
+- Because I want to do all type casting at call site for natives, I will need to always call the lowlevel
+  ## version of the procedure
+- Ummm I think that saying car's signature is <pair:object> is wrong. Really, car's signature is <object:object>
+  and throws an error if its parameter is not a pair. The <pair:object> is really a compile time specializer!
+- Specialize iterate and accumulate on basic classes
+- Decide if it is correct to only annotate the root method (annotations in a derived method should report an error)
+  or maybe validate that the derived annotations are the same!?
+- In a call like (f (/ a b)) where f is <fl:fl> we need to find some way of not generating
+  a rational that will just be costly converted to a flonum
+
+DOC
+- Type casting is done :
+  - for native, inline and specialize at call site
+  - for definitions, methods, ... and definition site
+
+
+;;;
+;;;; Optimize
+;;;
+
+
+MEDIUM
+- optimize the interpreted caching would seem to be very critical
+  - ahhh not really... why does it get always called is the right question!
+  - look with marc at how can jazz.cache-dispatch-interpreted appear in the statprof report
+    when it is even called! is it because of how we set! the dispatcher that gambit gets mixed up?
+
+
+;;;
+;;;; Interpreter
+;;;
+
+
+MEDIUM
+- Determine the exact redefinition rules
+  - Jazz -> Blues -> C++ -> Compiled Code
+  - Jazz -> Blues -> Interpreted Code
+- Policies
+  - Debug
+  - Release
+  - Distribution
+- Actions
+  - add slot
+  - redefine slot
+  - remove slot
+  - add method
+  - redefine method
+  - remove method
+  - modify visibility
+  - modify virtual
+  - change slot -> definition
+  - change definition -> slot
+
+
+;;;
+;;;; JRM
+;;;
+
+
+MEDIUM
+- An interesting concept is to extend the RMI concept to inter-thread communication which would result in
+  calling a thread connector through a proxy. What is nice is that the thread could be included in the IOR
+  and the call be made directly even from another process. On the other hand it is very heavy to have to
+  always marshall when calling in process between threads... We will see when the remote debugger implements
+  the concept directly to support multi-thread debugging...
+- Une idee fort interessante est l'implementation du dispatch rmi et autres par:
+  [X.foo x y z] qui est equivalent a
+  (Dispatchable.dispatch x 'X.foo y z)
+  (class IOR
+    (method (dispatch ...)
+      (rmi-call ...)))
+  Ca correspont a une implementation tres simple du dispatch rmi via un dynamic invoke (comme dans
+  la nouvelle version de Java)
+
+
+;;;
+;;;; Doc
+;;;
+
+
+HIGH
+- It is very important to document for each toplevel module at least it's level of completion. Something like
+  - commercial quality
+  - not yet '' but very usable
+  - experimental
+  - ...
+
+
+;;;
+;;;; Website
+;;;
+
+
+PUBLIC
+- Tutorials
+- Documentation
+  - Generate signatures from public methods
+
+
+;;;
+;;;; Wiki
+;;;
+
+
+;;;
+;;;; Snow
+;;;
+
+
+MEDIUM
+- Can we work around the fact that the snow package* form doesn't enclose the whole file content?
+- Need a solution to snow's name including the version and having periods in it
+- The snow packages need to be jazz modules to include any kind of scheme code but they also need to
+  be jazz libraries for optional / named parameters and name scoping...
+
+
+;;;
+;;;; Termite
+;;;
+
+
+MEDIUM
+- Not clear in documentation that there is a primordial process that is not the direct result of a spawn
+- node-init is not in the doc
+- Does termite implement message passing in a way that no tcp/ip is used for intra-node calls?
+- Look at Guillaume Germain's Dynamite web server!?
+- So is make-node to be used both for the actual node and for remotes and only the actual should call node-init ?
+- Everything i try crashes. There is no error validation? (node-init (current-node)) for instance
+- What does guillaume think about an RMI layer on top of termite

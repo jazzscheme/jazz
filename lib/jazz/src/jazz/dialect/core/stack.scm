@@ -157,9 +157,7 @@
     
     
     (define (jazz.interpreted-continuation? cont)
-      (let ((creator (%%continuation-creator cont)))
-        (or (%%not creator)
-            (%%interp-continuation? creator))))
+      (%%interp-continuation? cont))
     
     
     (define (jazz.with-repl-context cont thunk)

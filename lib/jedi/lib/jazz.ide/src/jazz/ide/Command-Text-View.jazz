@@ -48,10 +48,11 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode             initialize {} getter generate)
-  (slot client           initialize {} getter generate)
-  (slot search-context   initialize {})
-  (slot search-ranges    initialize '())
+  (slot mode                initialize {} getter generate)
+  (slot client              initialize {} getter generate)
+  (slot search-context      initialize {})
+  (slot search-whole-words? initialize #f)
+  (slot search-ranges       initialize '())
   
   
   (form
@@ -112,14 +113,14 @@
     (nextmethod key)
     (case mode
       ((search-forward search-backward)
-       (search mode #f #f))))
+       (search mode #f whole-words?: #f))))
   
   
   (method (backspace-press key (word?: word? #f))
     (nextmethod key word?: word?)
     (case mode
       ((search-forward search-backward)
-       (search mode #f #f))))
+       (search mode #f whole-words?: #f))))
   
   
   ;;;
@@ -134,7 +135,7 @@
        (acquire-focus)
        (when value
          (set-text value)
-         (search mode #t #t)))
+         (search mode #t whole-words?: #t)))
       (else
        (select-mode-execute)
        (acquire-focus))))
@@ -172,6 +173,15 @@
     (reset))
   
   
+  (method (select-whole-words? whole-words?)
+    (set! search-whole-words? whole-words?)
+    (user-message "Search whole-words {a}" (if search-whole-words? "on" "off")))
+  
+  
+  (method (on-whole-words evt)
+    (select-whole-words? (not search-whole-words?)))
+  
+  
   (method (on-search-forward evt)
     (search 'search-forward #t))
   
@@ -184,10 +194,12 @@
     (search-finish))
 
   
-  (method (search direction again? (whole-words? 'keep))
+  (method (search direction again? (whole-words?: whole-words? 'keep))
     (when (is? client Text-View)
       (unless search-context
         (prepare-search))
+      (unless (eq? whole-words? 'keep)
+        (select-whole-words? whole-words?))
       (let ((content (get-string-content))
             (target (get-target~ search-context)))
         (let ((prefix (prefix (list content target))))
@@ -196,12 +208,10 @@
             (if (and (empty-string? suffix) (not again?))
                 (set-selection~ client (last search-ranges))
               (for-each (function (key)
-                          (search-key key direction))
+                          (search-key key direction #f))
                         suffix)
-              (unless (eq? whole-words? 'keep)
-                (set-whole-words?~ search-context whole-words?))
               (when again?
-                (search-key {} direction))))))
+                (search-key {} direction search-whole-words?))))))
       (when again?
         (set-caret (text-ending)))))
   
@@ -217,7 +227,7 @@
     (set! search-ranges (subseq search-ranges 0 (+ len 1))))
   
   
-  (method (search-key key direction)
+  (method (search-key key direction whole-words?)
     (let ((target (if (not key)
                       (get-target~ search-context)
                     (concatenate (get-target~ search-context) (format "{c}" key))))
@@ -227,6 +237,7 @@
                    ((search-backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
             (reversed? (eq? direction 'search-backward)))
         (set-target~ search-context target)
+        (set-whole-words?~ search-context whole-words?)
         (let ((found (text-multisearch~ client (list search-context) start: pos reversed?: reversed?)))
           (define (update-range range)
             (if (not key)

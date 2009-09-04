@@ -68,14 +68,35 @@
       (jazz.get-procedure-name (%%continuation-creator cont)))
     
     
-    (define (jazz.collect-var-val var val cte queue)
-      (jazz.enqueue queue
-                    (%%cons (##object->string var)
-                            (if (##procedure? val)
-                                (if (##cte-top? cte)
-                                    (##inverse-eval-in-env val cte)
-                                  (##inverse-eval-in-env val (##cte-parent-cte cte)))
-                              val))))
+    (define (jazz.collect-var-val var val-or-box cte queue)
+      (define (collect-var-val var val mutable? cte queue)
+        (jazz.enqueue queue
+                      (%%list (##object->string var)
+                              (if (##procedure? val)
+                                  (if (##cte-top? cte)
+                                      (##inverse-eval-in-env val cte)
+                                    (##inverse-eval-in-env val (##cte-parent-cte cte)))
+                                val)
+                              mutable?)))
+      
+      (cond ((##var-i? var)
+             (collect-var-val (##var-i-name var)
+                              val-or-box
+                              #t
+                              cte
+                              queue))
+            ((##var-c-boxed? var)
+             (collect-var-val (##var-c-name var)
+                              (##unbox val-or-box)
+                              #t
+                              cte
+                              queue))
+            (else
+             (collect-var-val (##var-c-name var)
+                              val-or-box
+                              #f
+                              cte
+                              queue))))
     
     
     (define (jazz.get-continuation-dynamic-environment cont)
@@ -201,16 +222,23 @@
                   (let ((rte rte))
                     (jazz.code-run c rte))))))))
       
-      (if (%%interp-continuation? cont)
-          (let* (($code (##interp-continuation-code cont))
-                 (cte (jazz.code-cte $code))
-                 (rte (##interp-continuation-rte cont)))
-            (run (##compile-inner cte
-                                  (%%sourcify src (%%make-source #f #f)))
-                 rte))
-        (run (##compile-top ##interaction-cte
-                            (%%sourcify src (%%make-source #f #f)))
-             #f)))
+      (##define-macro (macro-make-rte-from-list rte lst)
+        `(##list->vector (##cons ,rte ,lst)))
+      
+      (let ((src2 (##sourcify src (##make-source #f #f))))
+        (cond ((##interp-continuation? cont)
+               (let* (($code (##interp-continuation-code cont))
+                      (cte (jazz.code-cte $code))
+                      (rte (##interp-continuation-rte cont)))
+                 (run (##compile-inner cte src2) rte)))
+              ((##with-no-result-expected-toplevel-continuation? cont)
+               (run (##compile-top ##interaction-cte src2) #f))
+              (else
+               (let* ((locals (##continuation-locals cont))
+                      (cte (##cte-frame (##cte-top-cte ##interaction-cte)
+                                        (##map ##car locals)))
+                      (rte (macro-make-rte-from-list #f (##map ##cdr locals))))
+                 (run (##compile-inner cte src2) rte))))))
     
     
     (define (jazz.eval-within-no-winding expr cont)

@@ -38,13 +38,15 @@
 (library protected jazz.debugger.jazz.Jazz-Project jazz
 
 
-(import (jazz.designer)
+(import (jazz.debugger)
+        (jazz.designer)
         (jazz.jrm)
         (jazz.library)
         (jazz.network)
         (jazz.system)
         (jazz.ui.dialog)
         (jazz.ui.view)
+        (jazz.utilities)
         (jedi)
         (jedi.builder))
 
@@ -95,12 +97,12 @@
   ;;;
   
   
-  (method (project-debug (executable: executable {}) (interactive?: interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method (project-debug (executable: executable {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (if product
         (launch
           executable: executable
           debugger?: #t
-          interactive?: interactive?
+          debugger-interactive?: debugger-interactive?
           profile: profile
           command-action: command-action
           command-arguments: command-arguments
@@ -114,7 +116,7 @@
   ;;;
   
   
-  (method (launch (executable: executable {}) (debugger?: debugger? #f) (interactive?: interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method (launch (executable: executable {}) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (define (determine-kernel)
       (cond ((eq? executable :choose) (choose-kernel))
             (executable executable)
@@ -129,17 +131,20 @@
       (when debugger?
         (start-remote-listener)
         (start-jazz-debugger~ ide))
-      (let* ((executable      (determine-kernel))
-             (runtime-arg     (list @wait "-:m250000,h1000000"))
-             (product-arg     (list "-run" (->string product)))
-             (debugger-arg    (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-             (interactive-arg (if interactive? (list "-interactive" "true") '()))
-             (profile         (either profile (project-profile)))
-             (profile-arg     (if profile (list "-profile" (->string profile)) '()))
-             (action-arg      (if command-action (list command-action) '()))
-             (arguments-arg   (if command-arguments command-arguments '()))
-             (arguments       (append runtime-arg action-arg product-arg debugger-arg interactive-arg profile-arg arguments-arg)))
+      (let* ((executable               (determine-kernel))
+             (runtime-arg              (list @wait "-:m250000,h1000000"))
+             (product-arg              (list "-run" (->string product)))
+             (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
+             (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string (either debugger-cookie (get-debugger-cookie)))) '()))
+             (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
+             (profile                  (either profile (project-profile)))
+             (profile-arg              (if profile (list "-profile" (->string profile)) '()))
+             (action-arg               (if command-action (list command-action) '()))
+             (arguments-arg            (if command-arguments command-arguments '()))
+             (arguments                (append runtime-arg action-arg product-arg debugger-arg debugger-cookie-arg debugger-interactive-arg profile-arg arguments-arg)))
         (save-all~ ide)
+        (when debugger?
+          (user-message "Debugging {a}..." (get-presentation)))
         (launch-executable executable
           arguments: arguments
           show-console?: show-console?))))

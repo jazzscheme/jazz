@@ -74,17 +74,21 @@
 (definition controller-debugger
   {})
 
+(definition controller-debugger-cookie
+  {})
+
 
 (definition public (get-controller-debugger)
   controller-debugger)
 
 
-(definition public (attach-to-controller controller-register select?)
+(definition public (attach-to-controller controller-register debugger-cookie select?)
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
+  (set! controller-debugger-cookie debugger-cookie)
   (setup-local-process)
   (set-console-port-getter console-port-getter)
-  (attach-process~ controller-debugger local-process select?)
+  (attach-process~ controller-debugger local-process debugger-cookie select?)
   (set-exception-debugger jazz-exception-debugger)
   (set-exception-hook exception-debugger-hook))
 
@@ -105,13 +109,14 @@
 
 (definition package (setup-debuggee)
   (let ((arg (command-argument "debugger"))
-        (interactive-arg (command-argument "interactive")))
+        (cookie-arg (command-argument "debugger-cookie"))
+        (interactive-arg (command-argument "debugger-interactive")))
     (when arg
       (receive (host port) (parse-host/service arg)
         (if (not port)
             (error "Ill-formed debugger argument: {a}" arg)
           (start-remote-listener)
-          (attach-to-controller (new-remote-register (either host #u8(127 0 0 1)) port) (parse-boolean interactive-arg)))))))
+          (attach-to-controller (new-remote-register (either host #u8(127 0 0 1)) port) (parse-integer cookie-arg) (parse-boolean interactive-arg)))))))
 
 
 (definition package (update-debuggee-process)

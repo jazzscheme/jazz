@@ -68,6 +68,9 @@
 (definition *current-debugger-cookie*
   0)
 
+(definition *debugger-cookies*
+  (make-table test: eqv?))
+
 
 (definition with-debuggers-mutex
   (let ((mutex (make-mutex 'debuggers)))
@@ -99,9 +102,16 @@
   *current-debugger*)
 
 
-(definition public (get-debugger-cookie)
-  (prog1 *current-debugger-cookie*
-    (increase! *current-debugger-cookie*)))
+(definition public (register-debugger-cookie proc)
+  (let ((cookie *current-debugger-cookie*))
+    (table-set! *debugger-cookies* cookie proc)
+    (increase! *current-debugger-cookie*)
+    cookie))
+
+
+(definition public (get-registered-cookie cookie)
+  (prog1 (table-ref *debugger-cookies* cookie {})
+    (table-set! *debugger-cookies* cookie {})))
 
 
 ;;;

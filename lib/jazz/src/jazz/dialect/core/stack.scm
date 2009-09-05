@@ -73,11 +73,19 @@
         (jazz.enqueue queue
                       (%%list (##object->string var)
                               (if (##procedure? val)
-                                  (if (##cte-top? cte)
-                                      (##inverse-eval-in-env val cte)
-                                    (##inverse-eval-in-env val (##cte-parent-cte cte)))
+                                  (remove-quote
+                                    (if (##cte-top? cte)
+                                        (##inverse-eval-in-env val cte)
+                                      (##inverse-eval-in-env val (##cte-parent-cte cte))))
                                 val)
                               mutable?)))
+      
+      (define (remove-quote val)
+        (if (and (pair? val)
+                 (eq? (##car val) 'quote)
+                 (##not (##null? (##cdr val))))
+            (##cadr val)
+          val))
       
       (cond ((##var-i? var)
              (collect-var-val (##var-i-name var)

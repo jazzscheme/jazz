@@ -122,8 +122,8 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name parent library-root library-path modules-root modules-path install products profiles project)
-  `(%%vector 'package ,repository ,name ,parent ,library-root ,library-path ,modules-root ,modules-path ,install ,products ,profiles ,project (%%make-table test: eq?)))
+(jazz.define-macro (%%make-package repository name parent library-root library-path modules-root modules-path install char-encoding products profiles project)
+  `(%%vector 'package ,repository ,name ,parent ,library-root ,library-path ,modules-root ,modules-path ,install ,char-encoding ,products ,profiles ,project (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -150,17 +150,20 @@
 (jazz.define-macro (%%package-install package)
   `(%%vector-ref ,package 8))
 
-(jazz.define-macro (%%package-products package)
+(jazz.define-macro (%%package-char-encoding package)
   `(%%vector-ref ,package 9))
 
-(jazz.define-macro (%%package-profiles package)
+(jazz.define-macro (%%package-products package)
   `(%%vector-ref ,package 10))
 
-(jazz.define-macro (%%package-project package)
+(jazz.define-macro (%%package-profiles package)
   `(%%vector-ref ,package 11))
 
-(jazz.define-macro (%%package-autoloads package)
+(jazz.define-macro (%%package-project package)
   `(%%vector-ref ,package 12))
+
+(jazz.define-macro (%%package-autoloads package)
+  `(%%vector-ref ,package 13))
 
 
 ;;;

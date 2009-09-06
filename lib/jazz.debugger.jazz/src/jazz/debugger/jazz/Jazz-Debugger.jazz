@@ -302,11 +302,11 @@
 
   (method (attach-process process-proxy cookie select?)
     (unless (member? process-proxy processes test: process=?)
-      (set! processes (append! processes (list process-proxy)))
-      (when (or select? (not (get-focused-process)))
-        (focus-process (new Debugged-Process self process-proxy process-proxy)))
       (execute-event
         (function ()
+          (set! processes (append! processes (list process-proxy)))
+          (when (or select? (not (get-focused-process)))
+            (focus-process (new Debugged-Process self process-proxy process-proxy)))
           (update~ (get-processes-view))
           (when cookie
             (let ((proc (get-registered-cookie cookie)))
@@ -321,21 +321,22 @@
           (set-values~ actual (get-values~ process-proxy))
           (execute-event
             (function ()
-              (update~ (get-processes-view))))))))
+              (update~ (get-processes-view))
+              (update-process~ (get-status-bar~ (get-application)))))))))
 
 
   (method (detach-process process-proxy)
     (when (member? process-proxy processes test: process=?)
-      (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
-      (set! processes (remove! process-proxy processes test: process=?))
-      (let ((focused-process (get-focused-process)))
-        (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
-          (if (null? processes)
-              (focus-process {})
-            (let ((new-focused (last processes)))
-              (focus-process (new Debugged-Process self new-focused new-focused))))))
       (execute-event
         (function ()
+          (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
+          (set! processes (remove! process-proxy processes test: process=?))
+          (let ((focused-process (get-focused-process)))
+            (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
+              (if (null? processes)
+                  (focus-process {})
+                (let ((new-focused (last processes)))
+                  (focus-process (new Debugged-Process self new-focused new-focused))))))
           (update~ (get-processes-view))))))
   
   

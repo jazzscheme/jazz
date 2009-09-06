@@ -38,10 +38,12 @@
 (library protected jedi.application.Jedi-Status jazz
 
 
-(import (jazz.ide)
+(import (jazz.debugger)
+        (jazz.ide)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui.menu)
+        (jazz.ui)
+        (jazz.ui.workspace)
         (jedi))
 
 
@@ -51,6 +53,7 @@
   (form
     (<install>
       (<Status-Label> name: message    size: {Dimension 782 20} location: center)
+      (<Status-Label> name: process    title: "Jedi" size: {Dimension 150 20} location: tail icon: {Bitmap-Resource "Script"} mouse-down-handler: {Event-Handler :form on-mouse-down} context-menu-handler: {Event-Handler :form on-context-menu})
       (<Status-Label> name: workspace  title: "Default" size: {Dimension 150 20} location: tail icon: {Bitmap-Resource "Workspace"} mouse-down-handler: {Event-Handler :form on-mouse-down} context-menu-handler: {Event-Handler :form on-context-menu})
       (<Status-Label> name: activities visible?: #f title: "No registered activities" size: {Dimension 250 20} location: tail icon: {Bitmap-Resource "Task"} mouse-down-handler: {Event-Handler :form on-mouse-down} context-menu-handler: {Event-Handler :form on-context-menu})
       @wait
@@ -84,6 +87,7 @@
            (name (get-name~ sender))
            (pos (acquire sender (get-position~ evt))))
       (case name
+        ((process) (popup-processes-menu self pos))
         ((workspace) (popup-workspaces-menu self pos))
         @wait
         ((activities) (track-popup-menu (new Activities-Menu) pos))
@@ -99,6 +103,7 @@
            (name (get-name~ sender))
            (pos (acquire sender (get-position~ evt))))
       (case name
+        ((process) (popup-processes-menu self pos))
         ((workspace) (popup-workspaces-menu self pos))
         @wait
         ((activities) (toggle-visible?~ (get-activity-manager)))
@@ -106,4 +111,99 @@
         ((locales) (track-popup-menu (new Locales-Menu) pos))
         @wait
         ((look) (track-popup-menu (new Look-Menu) pos))
-        (else (nextmethod evt)))))))
+        (else (nextmethod evt)))))
+  
+  
+  (method (update-process)
+    (let ((label (locate 'process))
+          (focused (get-focused-process)))
+      (set-icon~ label (if focused {Bitmap-Resource "Script"} {}))
+      (set-title~ label (if focused (get-title~ (get-focused-process)) "")))))
+
+
+;;;
+;;;; Processes
+;;;
+
+
+(definition (popup-processes-menu view pos)
+  (track-popup-menu~ view (new Processes-Menu) pos))
+
+
+(class Processes-Menu extends Context-Menu
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (insert-processes))
+  
+  
+  (method (insert-processes)
+    (let ((focused (get-focused-process))
+          (processes (collect-processes)))
+      (for-each (function (process)
+                  (insert-process process (debugged=? process focused)))
+                processes)))
+  
+  
+  (method (insert-process process selected?)
+    (let ((title (get-title~ process))
+          (icon (if selected? {Bitmap-Resource "Script"} {Bitmap-Resource "Process"})))
+      (let ((item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list process: process)))))
+        (when selected?
+          (set-selected?~ item #t)))))
+  
+  
+  (method (on-action evt)
+    (let ((process (get-property~ evt process:)))
+      (focus-process process))))
+
+
+;;;
+;;;; Workspaces
+;;;
+
+
+(definition (popup-workspaces-menu view pos)
+  (let ((preferences (get-workspaces-preferences error?: #f)))
+    (when preferences
+      (let ((workspaces (get-visible-children~ preferences)))
+        (when (>= (length workspaces) 1)
+          (track-popup-menu~ view (new Workspaces-Menu) pos))))))
+
+
+(class Workspaces-Menu extends Context-Menu
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (insert-workspaces))
+  
+  
+  (method (insert-workspaces)
+    (let* ((selected (selected-workspace))
+           (preferences (get-workspaces-preferences))
+           (workspaces (get-visible-children~ preferences))
+           (default (find-component~ preferences 'default)))
+      (when default
+        (insert-workspace default (eq? default selected))
+        (new Separator-Item parent: self))
+      (for-each (function (workspace)
+                  (unless (eq? workspace default)
+                    (if (is? workspace Separator)
+                        (new Separator-Item parent: self)
+                      (insert-workspace workspace (eq? workspace selected)))))
+                workspaces)))
+  
+  
+  (method (insert-workspace workspace selected?)
+    (let* ((title (if workspace (get-presentation~ workspace) "None"))
+           (icon (if workspace (get-icon~ workspace) {Bitmap-Resource "Empty"}))
+           (item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list workspace: workspace)))))
+      (when selected?
+        (set-selected?~ item #t))))
+  
+  
+  (method (on-action evt)
+    (let ((workspace (get-property~ evt workspace:)))
+      (apply-preferences~ workspace)))))

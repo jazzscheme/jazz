@@ -260,8 +260,7 @@
   (gambit
    (jazz.define-macro (%%load path script-callback clone-cte? raise-os-exception? quiet?)
      (%%force-uniqueness (path script-callback clone-cte? raise-os-exception? quiet?)
-       `(%%check-string ,path 1 (%%load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?)
-          (##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?)))))
+       `(##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?))))
   
   (else))
 

@@ -261,8 +261,8 @@
 (definition (current-console)
   (thread-console (current-thread)))
 
-(definition (current-console-context)
-  (get-context~ (current-console)))
+(definition current-console-context
+  (make-parameter {}))
 
 
 (definition (make-debuggee-console thread-proxy select?)
@@ -469,9 +469,10 @@
   (define (frame-evaluator frame)
     (if frame
         (let ((cont (serial->object (get-continuation~ frame))))
-          (function (expr)
-            (eval-within-no-winding expr cont)))
-      eval))
+          (function (runner expr)
+            (eval-within-no-winding runner expr cont)))
+      (function (runner expr)
+        (eval expr))))
   
   (let ((console (current-console)))
     (let ((context (if (not console) {} (context-init console))))
@@ -493,30 +494,62 @@
 
 
 (definition (evaluate-in-context context frame evaluator expr)
+  (define (local-names variables)
+    (map (function (var)
+           (string->symbol (car var)))
+          variables))
+  
+  (define (local-self variables)
+    (find-object (function (var)
+                   (when (string=? (car var) "self")
+                     (let ((serial (cadr var)))
+                       (when serial
+                         (let ((object (serial->object serial)))
+                           (when (object? object)
+                             object))))))
+                 variables))
+  
+  @debugging
+  (let ((ev evaluator))
+    (set! evaluator
+          (function (runner expr)
+            (pp (current-console-context))
+            (pp expr)
+            (ev runner expr))))
+  
   (parameterize ((walk-for 'eval))
-    (if (not context)
-        (evaluator expr)
-      (let ((local-variables (if frame (get-names~ frame) '())))
-        (if (symbol? context)
-            (let ((module-name context))
-              (load-module module-name)
-              (let ((library-declaration (outline-module module-name)))
-                (parameterize ((requested-module-name #f))
-                  (evaluator
-                    `(library ,module-name ,(get-dialect-name~ library-declaration)
-                     (with-local-variables ,local-variables
-                       ,expr))))))
-          (let ((class-identifier (type-name (class-of context))))
-            (receive (module-name class-name) (split-composite class-identifier)
-              (load-module module-name)
-              (let ((library-declaration (outline-module module-name)))
-                (parameterize ((requested-module-name #f))
-                  (evaluator
-                    `(library ,module-name ,(get-dialect-name~ library-declaration)
-                     (class ,class-name
-                       (with-dynamic-self (jazz.debuggee.current-console-context)
-                         (with-local-variables ,local-variables
-                           ,expr))))))))))))))
+    (let ((local-variables (if frame (get-variables~ frame) '())))
+      (let ((local-names (local-names local-variables))
+            (local-self (local-self local-variables)))
+        (let ((effective-context (either local-self context)))
+          (cond ((not effective-context)
+                 (evaluator (function (thunk)
+                              (thunk))
+                            expr))
+                ((symbol? effective-context)
+                 (let ((module-name effective-context))
+                   (load-module module-name)
+                   (let ((library-declaration (outline-module module-name)))
+                     (parameterize ((requested-module-name #f))
+                       (evaluator (function (thunk)
+                                    (thunk))
+                         `(library ,module-name ,(get-dialect-name~ library-declaration)
+                          (with-local-variables ,local-names
+                            ,expr)))))))
+                (else
+                 (let ((class-identifier (type-name (class-of effective-context))))
+                   (receive (module-name class-name) (split-composite class-identifier)
+                     (load-module module-name)
+                     (let ((library-declaration (outline-module module-name)))
+                       (parameterize ((requested-module-name #f))
+                         (evaluator (function (thunk)
+                                      (parameterize ((current-console-context effective-context))
+                                        (thunk)))
+                           `(library ,module-name ,(get-dialect-name~ library-declaration)
+                            (class ,class-name
+                              (with-dynamic-self (jazz.debuggee.current-console-context)
+                                (with-local-variables ,local-names
+                                  ,expr))))))))))))))))
 
 
 ;;;

@@ -217,7 +217,7 @@
     
     
     ;; copy-pasted from gambit's repl and changed to no-windind
-    (define (eval-within-no-winding src cont repl-context receiver)
+    (define (eval-within-no-winding runner src cont repl-context receiver)
       
       (define (run c rte)
         (%%continuation-graft-no-winding
@@ -228,7 +228,9 @@
               (lambda ()
                 (receiver
                   (let ((rte rte))
-                    (jazz.code-run c rte))))))))
+                    (runner
+                      (lambda ()
+                        (jazz.code-run c rte))))))))))
       
       (##define-macro (macro-make-rte-from-list rte lst)
         `(##list->vector (##cons ,rte ,lst)))
@@ -249,10 +251,11 @@
                  (run (##compile-inner cte src2) rte))))))
     
     
-    (define (jazz.eval-within-no-winding expr cont)
+    (define (jazz.eval-within-no-winding runner expr cont)
       (continuation-capture
         (lambda (return)
           (eval-within-no-winding
+            runner
             expr
             cont
             (jazz.current-repl-context)

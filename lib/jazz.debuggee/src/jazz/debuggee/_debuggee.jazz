@@ -438,14 +438,17 @@
                (neq? default-context :not-set))
           default-context
         (let ((process (get-process)))
-          (if (not process)
-              (if (eq? context :default)
-                  (new Me)
-                {})
-            (if (eq? context :default)
-                (either (process-alias~ process :profile)
-                        (process-alias~ process :process))
-              (process-alias~ process context)))))))
+          (cond ((not process)
+                 (if (eq? context :default)
+                     (new Me)
+                   {}))
+                ((eq? context :default)
+                 (either (process-alias~ process :profile)
+                         (process-alias~ process :process)))
+                ((eq? context :me)
+                 (context-alias :profile))
+                (else
+                 (process-alias~ process context)))))))
   
   (define (parse-unquote-command expr)
     (if (and (pair? expr)
@@ -472,7 +475,9 @@
           (function (runner expr)
             (eval-within-no-winding runner expr cont)))
       (function (runner expr)
-        (eval expr))))
+        (runner
+          (lambda ()
+            (eval expr))))))
   
   (let ((console (current-console)))
     (let ((context (if (not console) {} (context-init console))))
@@ -532,7 +537,8 @@
                    (let ((library-declaration (outline-module module-name)))
                      (parameterize ((requested-module-name #f))
                        (evaluator (function (thunk)
-                                    (thunk))
+                                    (parameterize ((current-console-context module-name))
+                                      (thunk)))
                          `(library ,module-name ,(get-dialect-name~ library-declaration)
                           (with-local-variables ,local-names
                             ,expr)))))))

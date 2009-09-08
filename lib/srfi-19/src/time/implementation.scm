@@ -264,7 +264,9 @@
 
 (cond-expand
   (gambit
-    (define-structure time type nanosecond second))
+    (define-type time
+      id: b3b7d0d0-9cb7-11de-8a39-0800200c9a66
+      type nanosecond second))
   (else
     (define-struct time (type nanosecond second) (make-inspector))))
 
@@ -616,7 +618,9 @@
 
 (cond-expand
   (gambit
-    (define-structure date nanosecond second minute hour day month year zone-offset))
+    (define-type date
+      id: d958b070-9cb7-11de-8a39-0800200c9a66
+      nanosecond second minute hour day month year zone-offset))
   (else
     (define-struct date (nanosecond second minute hour day month year zone-offset) (make-inspector))))
 

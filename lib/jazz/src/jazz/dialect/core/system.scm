@@ -58,15 +58,17 @@
 
 
 (define (jazz.command-argument name)
-  (let ((all (%%cdr (command-line))))
-    (let iter ((arguments all))
-      (if (%%null? arguments)
-          #f
-        (let ((arg (%%car arguments)))
-          (cond ((or (%%not (jazz.switch? arg))
-                     (%%null? (%%cdr arguments)))
-                 (jazz.error "Unable to parse command line: {a}" all))
-                ((%%equal? name (jazz.switch-name arg))
-                 (%%cadr arguments))
-                (else
-                 (iter (%%cddr arguments))))))))))
+  (if (eq? jazz.image 'executable)
+      (let ((all (%%cdr (command-line))))
+        (let iter ((arguments all))
+          (if (%%null? arguments)
+              #f
+            (let ((arg (%%car arguments)))
+              (cond ((or (%%not (jazz.switch? arg))
+                         (%%null? (%%cdr arguments)))
+                     (jazz.error "Unable to parse command line: {a}" all))
+                    ((%%equal? name (jazz.switch-name arg))
+                     (%%cadr arguments))
+                    (else
+                     (iter (%%cddr arguments))))))))
+    #f)))

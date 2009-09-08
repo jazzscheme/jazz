@@ -1009,10 +1009,6 @@
     #t)
   
   
-  (method (mouse-up pos)
-    (ensure-displayed))
-  
-  
   (method (drag-move view)
     (when mouse-selecting?
       (drag-move-action view)))
@@ -1036,18 +1032,18 @@
         (set! mouse-selecting? #f)
         (set! previous-position {})
         (update-caret)
-        (when (empty-selection?) (ensure-displayed))
         (set! selection-mode 'char)
         (process-selection-change)
         (mouse-select-copy
           (function ()
             (get-selected-string)))
-        (when (and mouse-copy-selection (alt-down?))
-          (let ((range (if (has-selection?) selection (expr-range (get-start)))))
-            (when range
-              (let ((copy (get-string range)))
-                (set-selection mouse-copy-selection)
-                (mouse-insert~ mouse-copy-destination copy)))))
+        (if mouse-copy-selection
+            (let ((range (if (has-selection?) selection (expr-range (get-start)))))
+              (when range
+                (let ((copy (get-string range)))
+                  (set-selection mouse-copy-selection ensure-displayed?: #f)
+                  (mouse-insert~ mouse-copy-destination copy))))
+          (ensure-displayed))
         (set! mouse-copy-selection {})
         (set! mouse-copy-destination {})
         (when (and (not alt?) control? (not shift?))

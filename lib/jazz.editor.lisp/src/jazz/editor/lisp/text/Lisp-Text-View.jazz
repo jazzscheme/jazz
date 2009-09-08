@@ -760,17 +760,21 @@
       (let (iterate (range {}))
         (if (not (outer-expr~ expl))
             range
-          (let ((new-range (get-range~ expl)))
-            (if (namespace-expr?~ expl)
-                (if (and new-range
-                         (or ;; anywhere on first line
-                             (= (get-row~ pos)
-                                (get-row~ (get-start~ new-range)))
-                             ;; exactly at end
-                             (nu=? pos (get-end~ new-range))))
-                    new-range
-                  range)
-              (iterate new-range)))))))
+          (let ((new-range (get-range~ expl))
+                (name (form-expr~ expl)))
+            (cond ((namespace-name?~ expl name)
+                   (if (or ;; anywhere on first line
+                           (= (get-row~ pos)
+                              (get-row~ (get-start~ new-range)))
+                           ;; exactly at end
+                           (nu=? pos (get-end~ new-range)))
+                       new-range
+                     range))
+                  ((and (declaration-name?~ expl name)
+                        (not (inner-name?~ expl name)))
+                   new-range)
+                  (else
+                   (iterate new-range))))))))
 
   
   ;;;

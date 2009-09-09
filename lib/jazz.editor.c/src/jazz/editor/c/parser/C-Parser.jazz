@@ -52,27 +52,18 @@
   (method (parse-definitions file)
     (let ((lines (list->vector (load-lines~ file char-encoding: char-encoding char-encoding-errors: #f)))
           (fact (new List-Factory))
-          (function-heuristic (get-heuristic 'c-function)))
+          (find-function (if (eq? (get-heuristic 'c-function) 'gambit)
+                             find-gambit-function
+                           find-open-brace-function)))
       (when (member? (get-extension~ file) '("c" "cpp"))
         (put~ fact (new C-Category-Entry (get-base~ file))))
       (loop (for n from 0 below (cardinality lines))
             (do
-              (let ((line (vector-ref lines n)))
-                (let ((define (find-define line n)))
-                  (when define
-                    (put~ fact define)))
-                (let ((include (find-include line n)))
-                  (when include
-                    (put~ fact include)))
-                (case function-heuristic
-                  ((open-brace)
-                   (let ((function (find-open-brace-function lines line n)))
-                     (when function
-                       (put~ fact function))))
-                  ((gambit)
-                   (let ((function (find-gambit-function line n)))
-                     (when function
-                       (put~ fact function))))))))
+              (let* ((line (vector-ref lines n))
+                     (item (or (find-define line n)
+                               (find-include line n)
+                               (find-function lines line n))))
+                (when item (put~ fact item)))))
       (get-output~ fact)))
   
 
@@ -88,7 +79,8 @@
   (method (find-define line n)
     (let ((len (string-length line))
           (col (skip-whitespace line)))
-      (when (search line define start: col)
+      (when (and (> len (+ col (string-length define)))
+                 (string=? define (substring line col (+ col (string-length define)))))
         (let* ((start (+ col (string-length define)))
                (col (skip-whitespace line start: start)))
           (when (and (> col start) (< col len))
@@ -110,7 +102,8 @@
   (method (find-include line n)
     (let ((len (string-length line))
           (col (skip-whitespace line)))
-      (when (search line include start: col)
+      (when (and (> len (+ col (string-length include)))
+                 (string=? include (substring line col (+ col (string-length include)))))
         (let* ((start (+ col (string-length include)))
                (col (skip-whitespace line start: start)))
           (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
@@ -150,14 +143,17 @@
     "___EXP_FUNC")
   
   
-  (method (find-gambit-function line n)
+  (method (find-gambit-function lines line n)
     (let ((len (string-length line))
           (col (skip-whitespace line)))
-      (when (search line gambit-function start: col)
+      (when (and (> len (+ col (string-length gambit-function)))
+                 (string=? gambit-function (substring line col (+ col (string-length gambit-function)))))
         (let* ((start (+ col (string-length gambit-function)))
                (col (skip (function (c) (not (eqv? c #\comma))) line start: start)))
           (when (and col (< col len))
             (let* ((start (skip-whitespace line start: (+ col 1)))
                    (end (skip c-constituent? line start: start)))
               (when (> end start)
-                (new C-Export-Entry (subseq line start end) n start))))))))))
+                (new C-Export-Entry (subseq line start end) n start))))))))
+  
+  ))

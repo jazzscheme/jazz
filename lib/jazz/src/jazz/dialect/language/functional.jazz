@@ -42,7 +42,8 @@
 
 
 (import (jazz.dialect.kernel)
-        (jazz.dialect.language.object))
+        (jazz.dialect.language.object)
+        (irregex))
 
 
 (native private jazz.error)
@@ -2070,12 +2071,13 @@
   (slot target           <Sequence>   accessors generate)
   (slot whole-words?     <bool>       accessors generate)
   (slot ignore-case?     <bool>       accessors generate)
+  (slot pattern?         <bool>       accessors generate)
   (slot constituent-test <procedure+> accessors generate)
   (slot user-data        <any>        accessors generate))
 
 
 (definition inline (construct-search-context target whole-words? ignore-case? constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? constituent-test user-data))
+  (construct Search-Context target whole-words? ignore-case? #f constituent-test user-data))
 
 
 (definition public (make-search-context target
@@ -2096,79 +2098,37 @@
       (map standardize-context obj)
     (list (standardize-context obj))))
 
+(definition (search-context->sre context <Search-Context>)
+  (list (if (get-ignore-case?~ context) 'w/nocase 'seq) (get-target~ context)))
+
+(definition (matching-context str <Sequence> contexts <list>)
+  (let (lp (ls contexts))
+    (if (or (null? (cdr ls)) (irregex-match (search-context->sre (car ls)) str))
+        (car ls)
+      (lp (cdr ls)))))
 
 (definition (multisearch-impl seq <Sequence> contexts <list> constituent-test <procedure+> start <fx+> reversed? <bool>)
-  (let ((len (cardinality seq)))
-    (let ((pos <fx> (either start (if reversed? len 0))))
-      (let (iterate (scan contexts)
-                    (best #f))
-        (if (null? scan)
+  (let ((rx (irregex (cons 'or (map search-context->sre contexts))))
+        (constituent-test (or (get-constituent-test~ (car contexts)) constituent-test word-constituent?))
+        (end (or (and reversed? start) (cardinality seq))))
+    (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
+      (let ((m (irregex-search rx seq i)))
+        (if (not m)
             best
-          (let ((context <Search-Context> (car scan)))
-            (let ((target (get-target~ context))
-                  (whole-words? (get-whole-words?~ context))
-                  (ignore-case? (get-ignore-case?~ context))
-                  (constituent-test (or (get-constituent-test~ context) constituent-test word-constituent?)))
-              (let ((test (if ignore-case? char-ci=? char=?))
-                    (size (cardinality target)))
-                
-                (define (match-case? pos <fx>) <bool>
-                  (let ((to (- size 1)))
-                    (let (iter (i <fx> pos) (j <fx> 0))
-                      (cond ((>= i len)
-                             #f)
-                            ((not (test (element seq i) (element target j)))
-                             #f)
-                            ((>= j to)
-                             #t)
-                            (else
-                             (iter (+ i 1) (+ j 1)))))))
-                
-                (define (match? pos <fx>) <bool>
-                  (and (>= pos 0)
-                       (match-case? pos)
-                       (or (not whole-words?)
-                           (let ((before (- pos 1))
-                                 (after (+ pos size)))
-                             (if (and (>= before 0)
-                                      (constituent-test (element seq before)))
-                                 #f
-                               (if (< after len)
-                                   (let ((c (element seq after)))
-                                     ;; This explicit test for ~ is a kind of patch for the new ~ syntax
-                                     (or (eqv? c #\~)
-                                         (not (constituent-test (element seq after)))))
-                                 #t))))))
-                
-                (define (find-backward) <fx+>
-                  (let (iter (pos <fx> pos))
-                    (cond ((match? (- pos size))
-                           (- pos size))
-                          ((<= pos 0)
-                           {})
-                          (else
-                           (iter (- pos 1))))))
-                
-                (define (find-forward) <fx+>
-                  (let ((last (- len size)))
-                    (let (iter (pos <fx> pos))
-                      (cond ((match? pos)
-                             pos)
-                            ((>= pos last)
-                             {})
-                            (else
-                             (iter (+ pos 1)))))))
-                
-                (let ((found ((if reversed? find-backward find-forward))))
-                  (cond ((not found)
-                         (iterate (cdr scan) best))
-                        ((not best)
-                         (iterate (cdr scan) (cons context found)))
-                        (((if reversed? > <) found (cdr best))
-                         (iterate (cdr scan) (cons context found)))
-                        (else
-                         (iterate (cdr scan) best))))))))))))
-
+          (let ((from (irregex-match-start-index m 0))
+                (to (irregex-match-end-index m 0)))
+            (cond
+              ((> to end) best)
+              ((or (not (get-whole-words?~ (car contexts)))
+                   (and (or (= 0 from)
+                            (not (constituent-test (element seq (- from 1)))))
+                        (or (>= to (cardinality seq))
+                            (eqv? (element seq to) #\~) ;; hack for ~ syntax
+                            (not (constituent-test (element seq to))))))
+               (let ((res (cons (matching-context (irregex-match-substring m 0) contexts)
+                                from)))
+                 (if reversed? (lp (+ to 1) res) res)))
+              (else (lp to best)))))))))
 
 (definition public (multisearch seq <Sequence> contexts <list>
                      (constituent-test: constituent-test {})

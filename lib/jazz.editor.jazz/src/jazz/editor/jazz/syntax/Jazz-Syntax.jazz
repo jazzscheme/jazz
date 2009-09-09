@@ -40,6 +40,13 @@
 
 (import (jazz.editor.jazz)
         (jazz.editor.lisp)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.runtime)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
@@ -63,4 +70,69 @@
   
   
   (method (get-constituent-test)
-    jazz-constituent?)))
+    jazz-constituent?)
+
+
+  ;;;
+  ;;;; Imports
+  ;;;
+  
+  
+  (method (find-imports text symbol)
+    (define (present-imports imports)
+      (let* ((border (new Imports-Border size: {Dimension 450 150}))
+             (tree (locate~ border 'tree))
+             (count (length imports)))
+        (for-each (function (import)
+                    (let ((title (symbol->string import)))
+                      (add-row~ tree children: (list (new Tree-Node title: title image: {Bitmap-Resource "Import"})))))
+                  imports)
+        (message-box (format "Found {a} import{a}" (downcase (format-cardinality count)) (format-plural count))
+                     type: 'confirmation
+                     yes: "OK"
+                     no: "Copy"
+                     cancel: "Insert"
+                     content: border
+                     sound: (if (= count 0) 'default {}))))
+    
+    (let ((imports '()))
+      (parameterize ((outline-feedback
+                       (function (module-name)
+                         (user-message "Outlining {a}..." module-name))))
+        (iterate-modules
+          (function (module-name)
+            (let ((declaration (outline-module module-name)))
+              (when (and (is? declaration Library-Declaration)
+                         (eq? (get-access~ declaration) 'public)
+                         (lookup-declaration declaration symbol public-access #f))
+                (set! imports (cons module-name imports)))))))
+      (case (present-imports imports)
+        ((yes)
+         )
+        ((no)
+         (set-clipboard-text (join (map symbol->string imports) " ")))
+        ((cancel)
+         (let ((expl (new (explorer-class~ text) text)))
+           (for-each (function (import)
+                       (set-start~ expl (text-beginning~ text))
+                       (set-end~ expl (text-beginning~ text))
+                       (insert-import-invoice~ expl import))
+                     imports)))))))
+
+
+;;;
+;;;; Imports-Border
+;;;
+
+
+(class Imports-Border extends Border-View
+  
+  
+  (form
+    (<install>                                    border-type: solid border-color: {Color name: Outline-Border}
+      (<Scroller-View>                            flat?: #t hscroll?: #t vscroll?: #t
+        (<!>                        name: content layout-type: fill
+          (<Tree-Header>                          flat?: #t
+            (<!>                    name: content
+              (<Tree-View>          name: tree    portfolio: :icons selection-mode: row
+                (<Tree-Node-Column>               title: "Import" width: 300 toplevel-controls?: #f display-images?: #f))))))))))

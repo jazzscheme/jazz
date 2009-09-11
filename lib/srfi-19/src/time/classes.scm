@@ -83,7 +83,7 @@
 (%%table-set! jazz.primitive-types 'time jazz.Time)
 (%%table-set! jazz.primitive-declarations jazz.Time 'Time)
 (%%table-set! jazz.type-tests 'time? jazz.Time)
-(jazz.register-usertype time? jazz.Time)
+(jazz.register-structure-type time? jazz.Time)
 
 
 ;;;
@@ -118,4 +118,4 @@
 (%%table-set! jazz.primitive-types 'date jazz.Date)
 (%%table-set! jazz.primitive-declarations jazz.Date 'Date)
 (%%table-set! jazz.type-tests 'date? jazz.Date)
-(jazz.register-usertype date? jazz.Date))
+(jazz.register-structure-type date? jazz.Date))

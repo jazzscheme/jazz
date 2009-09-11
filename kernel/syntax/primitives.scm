@@ -856,6 +856,9 @@
 
 (cond-expand
   (gambit
+    (jazz.define-macro (%%structure? obj)
+      `(##structure? ,obj))
+    
     (jazz.define-macro (%%structure-type structure)
       `(##structure-type ,structure)))
   

@@ -486,6 +486,28 @@
 
 
 ;;;
+;;;; Structure
+;;;
+
+
+(define jazz.structure-types
+  '())
+
+
+(define (jazz.register-structure-type test type)
+  (set! jazz.structure-types (%%cons (%%cons test type) jazz.structure-types)))
+
+
+(define (jazz.structure-type object)
+  (let iter ((scan jazz.structure-types))
+    (if (%%null? scan)
+        jazz.Structure
+      (if ((%%caar scan) object)
+          (%%cdar scan)
+        (iter (%%cdr scan))))))
+
+
+;;;
 ;;;; Category
 ;;;
 
@@ -636,7 +658,7 @@
         ((%%eof-object? expr)   jazz.EOF)
         ((%%unspecified? expr)  jazz.Unspecified)
         (else
-         (or (jazz.usertype expr)
+         (or (jazz.structure-type expr)
              (jazz.error "Unable to get class of {s}" expr)))))
 
 
@@ -1462,6 +1484,35 @@
 
 
 ;;;
+;;;; Structure
+;;;
+
+
+(jazz.define-class-runtime jazz.Structure-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Structure-Class class) object)
+  (%%structure? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Structure-Class class))
+  'structure)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Structure-Class type) value source-declaration environment)
+  `(%%structure? ,value))
+
+
+(jazz.encapsulate-class jazz.Structure-Class)
+
+
+(jazz.define-class-runtime jazz.Structure)
+
+
+(jazz.encapsulate-class jazz.Structure)
+
+
+;;;
 ;;;; Port
 ;;;
 
@@ -1488,6 +1539,9 @@
 
 
 (jazz.encapsulate-class jazz.Port)
+
+
+(jazz.register-structure-type port? jazz.Port)
 
 
 ;;;
@@ -1641,6 +1695,9 @@
 (jazz.encapsulate-class jazz.Table)
 
 
+(jazz.register-structure-type table? jazz.Table)
+
+
 ;;;
 ;;;; Thread
 ;;;
@@ -1668,6 +1725,9 @@
 
 
 (jazz.encapsulate-class jazz.Thread)
+
+
+(jazz.register-structure-type thread? jazz.Thread)
 
 
 ;;;
@@ -1863,26 +1923,6 @@
     (%%vector-set! jazz.specialtypes 4 jazz.Unspecified))
   
   (else))
-
-
-(define jazz.usertypes
-  '())
-
-
-(define (jazz.register-usertype test type)
-  (set! jazz.usertypes (%%cons (%%cons test type) jazz.usertypes)))
-
-
-(define (jazz.usertype object)
-  (let iter ((scan jazz.usertypes))
-    (if (%%null? scan)
-        #f
-      (if ((%%caar scan) object)
-          (%%cdar scan)
-        (iter (%%cdr scan))))))
-
-
-(jazz.register-usertype port? jazz.Port)
 
 
 ;;;

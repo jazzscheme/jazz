@@ -258,16 +258,7 @@
         if (subtyp == ___sJAZZ)
             ___RESULT = ___VECTORREF(obj,0);
         else if (subtyp == ___sSTRUCTURE)
-        {
-            // quicky until we find a clean solution with Marc
-            ___SCMOBJ type = ___VECTORREF(obj,0);
-            if (type == ___ARG6)
-                ___RESULT = ___ARG7;
-            else if (type == ___ARG8)
-                ___RESULT = ___ARG9;
-            else
-                ___RESULT = ___FAL;
-        }
+            ___RESULT = ___FAL;
         else
             ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
     }
@@ -284,12 +275,8 @@ end-of-c-code
     jazz.Fixnum             ;; ___ARG3
     jazz.Char               ;; ___ARG4
     jazz.specialtypes       ;; ___ARG5
-    jazz.table-type         ;; ___ARG6
-    jazz.Table              ;; ___ARG7
-    jazz.thread-type        ;; ___ARG8
-    jazz.Thread             ;; ___ARG9
     )
-           (jazz.usertype ,obj)))
+           (jazz.structure-type ,obj)))
     
     (jazz.define-macro (%%class-of obj)
       (jazz.with-uniqueness obj

@@ -109,26 +109,36 @@
 
   
   (method (forward-expr)
+    (define (forward-quotes)
+      (let ((c (char-forward 0)))
+        (when (memv? c '(#\quote #\backquote #\comma))
+          (when (and (eqv? c #\comma) (eqv? (char-forward 1) #\at))
+            (forward))
+          (forward)
+          (forward-whites)
+          #t)))
+    
     (forward-whites)
     (set-start end)
-    (let ((c (char-forward 0))
-          (start (get-start)))
-      (let ((quotation? (memv? c '(#\quote #\backquote #\comma))))
-        (when quotation?
-          (forward)
-          (let ((next (char-forward 0)))
-            (when (or (and (eqv? c #\comma) (eqv? next #\at))
-                      (and (eqv? c #\quote) (eqv? next #\comma)))
-              (forward))))
-        (let ((found (if quotation?
-                         (forward-expr)
-                       (forward-simple-expr))))
-          (when found
-            (set-start start)
-            found)))))
+    (let ((s (get-start)))
+      (while (forward-quotes))
+      (prog1 (forward-simple-expr)
+        (set-start s))))
 
   
   (method (backward-expr)
+    (define (backward-quote)
+      (let ((c (char-backward 0)))
+        (cond ((memv? c '(#\quote #\backquote #\comma #\at))
+               (backward)
+               #t)
+              ((and (eqv? (char-backward 1) #\comma) (eqv? c #\at))
+               (backward)
+               (backward)
+               #t)
+              (else
+               #f))))
+    
     (backward-whites)
     (set-end start)
     (let ((c0 (char-backward 0))
@@ -138,27 +148,10 @@
         (if (and (eqv? c1 #\backslash) (eqv? (char-backward 2) #\sharp))
             (backward-scheme-char)
           (let ((found (backward-simple-expr)))
-            (when found
-              (let ((prev (char-backward 0)))
-                (case prev
-                  ((#\quote #\backquote)
-                   (backward)
-                   found)
-                  ((#\comma)
-                   (backward)
-                   (let ((prev (char-backward 0)))
-                     (when (eqv? prev #\quote)
-                       (backward)))
-                   found)
-                  ((#\at)
-                   (backward)
-                   (let ((prev (char-backward 0)))
-                     (if (and (eq? (get-syntax) 'jazz) (not (eqv? prev #\comma)))
-                         'name-comment
-                       (backward)
-                       found)))
-                  (else
-                   found)))))))))
+            (while (backward-quote))
+            (if (and (eq? (get-syntax) 'jazz) (eqv? (get-char start) #\comma))
+                'name-comment
+              found))))))
 
 
   (method private (forward-simple-expr)
@@ -645,7 +638,7 @@
   ;; We want normal behavior until we hit one of the end token,
   ;;  but complete the expr by correcting the other end
   ;;  forex.: ... ( ... "# ...
-  ;;   where "backward found (", then "forward found "#", we must go backward again
+  ;;   where backward found "(", then forward found "\"#", we must go backward again
   ;;
   ;; Strings are free-form too, but you don't know the open/close direction
   ;;  ... " ... ( .... " .... ) ...
@@ -655,67 +648,176 @@
   ;;
   ;; We usually have 2 possible explorations: left or right
   ;; We take inner over outer, and left over right
-  ;; We may want to limit exploration to symbols only and refuse composite expressions
 
 
-  (method (outer-expr (composite?: composite? #t) (outer-composite?: outer-composite? #t))
-    (let ((s <Cell> (copy start))
-          (e <Cell> (copy end))
+  (method (outer-expr (atomic?: atomic? #f) (explore-whitespace?: explore-whitespace? #t))
+    (let ((empty? (= start end))
           (prv (previous-char start 0))
           (nxt (next-char end 0)))
-      (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (text-constituent? nxt))))))
-             (backward-expr))
-            ((and prv (= s e) (text-constituent? prv))
-             (forward-constituent)
-             (backward-constituent))
-            ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (text-constituent? prv)))))
-             (forward-expr))
-            ((and nxt (text-constituent? nxt))
-             (forward-constituent)
-             (backward-constituent))
-            ((and (memv? prv '(#\quote #\backquote #\comma #\at))
-                  (let* ((s (get-char s))
-                         (e (get-char (- e 1))))
-                    (or (text-constituent? s)
-                        (and (eqv? prv #\comma) (eqv? s #\at))
-                        (and (eqv? prv #\quote) (eqv? s #\comma))
-                        (and (open-composite? s) (close-composite? e)))))
-             (set-start (previous-pos start 1))
-             #t)
-            ((and (eqv? prv #\backslash) (eqv? (previous-char start 1) #\sharp))
-             (set-start (previous-pos start 2)))
-            ((and composite? (eqv? prv #\double-quote) (eqv? nxt #\double-quote))
-             (set-start (previous-pos start 1))
-             (set-end (next-pos end 1))
-             #t)
-            (else
-             (when outer-composite?
-               (forward-all-expr)
-               (let ((ender (char-forward 0)))
-                 (set! e (copy end))
-                 (set-start s)
-                 (let ((skipped (backward-all-expr))
-                       (starter (char-backward 0)))
-                   (cond ((or (and ender (not (close-composite? ender)))
-                              (and (not starter) ender)
-                              (and starter ender (not (composites-match? starter ender))))
-                          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
-                         ((or (and starter (not (open-composite? starter)))
-                              (and starter (not ender)))
-                          (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
-                         (else
-                          (set-end e)
-                          (let ((pc (previous-char start 0))
-                                (nc (next-char end 0)))
-                            (when (open-composite? pc)
-                              (let ((info (assq pc Composites)))
-                                (when info
-                                  (bind (open close knd) info
-                                    (when (eqv? nc close)
-                                      (backward)
-                                      (forward)
-                                      (set! kind knd)
-                                      skipped)))))))))))))))
+      (define (reset)
+        (set-start end)
+        (set! prv (previous-char start 0))
+        (set! nxt (next-char end 0)))
+      
+      (define (unquote-splicing? comma at)
+        (and (eqv? comma #\comma) (eqv? at #\at)))
+      
+      (define (quote? c)
+        (memv? c '(#\quote #\comma #\backquote)))
+      
+      (define (terminal? c)
+        (or (whitespace? c)
+            (open-composite? c)
+            (close-composite? c)
+            (string-delimiter? c)
+            (quote? c)))
+      
+      (define (homogeneous? str)
+        (member? str '("#s8" "#s16" "#s32" "#s64" "#f32"
+                       "#u8" "#u16" "#u32" "#u64" "#f64")))
+      
+      (define (advance-quoting)
+        (let (iterate (count 0))
+          (define (skip-quoting)
+            (forward)
+            (forward-whitespaces)
+            (reset)
+            (iterate (+ count 1)))
+          
+          (cond ((unquote-splicing? nxt (next-char end 1))
+                 (forward)
+                 (skip-quoting))
+                ((unquote-splicing? prv nxt)
+                 (skip-quoting))
+                ((quote? nxt)
+                 (skip-quoting))
+                ((quote? prv)
+                 count)
+                (else
+                 count))))
+      
+      (define (advance-literal)
+        (outer-constituent)
+        (when (eqv? (get-char start) #\sharp)
+          (forward-until terminal?)
+          (reset)
+          #t))
+      
+      (define (outer-literal)
+        (define (backward-to-sharp)
+          (let ((s (copy start)))
+            (backward-until terminal?)
+            (if (eqv? (get-char start) #\sharp)
+                #t
+              (set-start s)
+              #f)))
+        
+        (when (backward-to-sharp)
+          (forward-until terminal?)
+          (let ((marked (get-marked)))
+            (cond ((homogeneous? marked)
+                   (when (open-composite? (next-char end 0))
+                     (let ((s (copy start)))
+                       (forward-expr)
+                       (set-start s))))
+                  ((equal? marked "#\\")
+                   (forward))
+                  ((equal? marked "#")
+                   (when (open-composite? (next-char end 0))
+                     (let ((s (copy start)))
+                       (forward-expr)
+                       (set-start s))))))
+          #t))
+      
+      (define (outer-constituent)
+        (let ((prv-constituent? (and prv (text-constituent? prv)))
+              (nxt-constituent? (and nxt (text-constituent? nxt))))
+          (when (or prv-constituent? nxt-constituent?)
+            (when prv-constituent?
+              (backward-constituent))
+            (when nxt-constituent?
+              (forward-constituent))
+            #t)))
+      
+      (define (outer-string)
+        (let ((prv-string? (and prv (string-delimiter? prv)))
+              (nxt-string? (and nxt (string-delimiter? nxt))))
+          (when (or prv-string? nxt-string?)
+            (cond ((and prv-string? nxt-string?)
+                   (set-start (previous-pos start 1))
+                   (set-end (next-pos end 1)))
+                  (else
+                   (when prv-string?
+                     (backward-expr))
+                   (when nxt-string?
+                     (forward-expr))))
+            #t)))
+      
+      (define (outer-composite)
+        (let ((prv-close-composite? (and prv (close-composite? prv)))
+              (nxt-open-composite? (and prv (open-composite? nxt))))
+          (when (or prv-close-composite? nxt-open-composite?)
+            (if prv-close-composite?
+                (backward-expr)
+              (forward-expr))
+            #t)))
+      
+      (define (prepend-quoting)
+        (let ((s <Cell> (copy start)))
+          (backward-whitespaces)
+          (backward)
+          (when (unquote-splicing? (previous-char start 0) (get-char start))
+            (backward))
+          (if (quote? (get-char start))
+              #t
+            (set-start s)
+            #f)))
+      
+      (define (prepend-literal)
+        (let ((s <Cell> (copy start)))
+          (unless (terminal? (previous-char start 0))
+            (backward-until terminal?)
+            (let ((c (get-char start)))
+              (if (eqv? c #\sharp)
+                  #t
+                (set-start s)
+                #f)))))
+      
+      
+      (or (if empty?
+              (let ((quote-count (advance-quoting)))
+                (when (or (outer-literal)
+                          (outer-constituent)
+                          (outer-string)
+                          (outer-composite))
+                  (when (> quote-count 0)
+                    (for-each (function (n) (prepend-quoting)) (naturals 0 quote-count)))
+                  #t))
+            (or (outer-constituent)
+                (prepend-literal)
+                (when (prepend-quoting)
+                  (while (prepend-quoting))
+                  #t)))
+          (when explore-whitespace?
+            (receive (start-pos start-char) (let ((e (copy end)))
+                                              (backward-all-expr)
+                                              (set-end e)
+                                              (values (copy start) (previous-char start 0)))
+              (when (and start-char (not (open-composite? start-char)))
+                (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char start-char)) (previous-pos start-pos 1) start-pos))
+              (receive (end-pos end-char) (let ((s (copy start)))
+                                            (forward-all-expr)
+                                            (set-start s)
+                                            (values (copy end) (next-char end 0)))
+                (when (and end-char (not (close-composite? end-char)))
+                  (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char end-char)) end-pos (next-pos end-pos 1)))
+                (when (and start-char end-char (not (composites-match? start-char end-char)))
+                  (explore-error (format "Found mismatched open/close: {a} {a}" (present-char start-char) (present-char end-char)) end-pos (next-pos end-pos 1)))
+                (set-start start-pos)
+                (set-end end-pos)
+                (forward)
+                (backward)
+                (and start-char end-char)))))))
 
 
   (method public (form-expr)

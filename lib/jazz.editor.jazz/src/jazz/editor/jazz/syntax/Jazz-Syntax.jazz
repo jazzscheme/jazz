@@ -89,9 +89,8 @@
                   imports)
         (message-box (format "Found {a} import{a}" (downcase (format-cardinality count)) (format-plural count))
                      type: 'confirmation
-                     yes: "OK"
-                     no: "Copy"
-                     cancel: "Insert"
+                     yes: "Copy"
+                     no: "Insert"
                      content: border
                      sound: (if (= count 0) 'default {}))))
     
@@ -108,16 +107,18 @@
                 (set! imports (cons module-name imports)))))))
       (case (present-imports imports)
         ((yes)
-         )
+         (unless (null? imports)
+           (set-clipboard-text (join (map symbol->string imports) " "))))
         ((no)
-         (set-clipboard-text (join (map symbol->string imports) " ")))
+         (unless (null? imports)
+           (let ((expl (new (explorer-class~ text) text)))
+             (for-each (function (import)
+                         (set-start~ expl (text-beginning~ text))
+                         (set-end~ expl (text-beginning~ text))
+                         (insert-import-invoice~ expl import))
+                       imports))))
         ((cancel)
-         (let ((expl (new (explorer-class~ text) text)))
-           (for-each (function (import)
-                       (set-start~ expl (text-beginning~ text))
-                       (set-end~ expl (text-beginning~ text))
-                       (insert-import-invoice~ expl import))
-                     imports)))))))
+         (throw-cancel))))))
 
 
 ;;;

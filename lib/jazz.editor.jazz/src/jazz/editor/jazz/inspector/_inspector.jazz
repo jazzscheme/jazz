@@ -127,20 +127,18 @@
                   (list (inspect-limit inspect-rank-limit (table-length table))))
         sorted)))
   
-  (define (inspect-slots object)
+  (define (inspect-object object)
     (let ((infos (collect (function (slot)
                             ;; when we forget to redefine core classes in jazz, slots are symbols
                             (if (symbol? slot)
-                                (cons (symbol->string slot) (package-info "<core slot>" kind: :raw))
+                                (cons slot (package-info "<core slot>" kind: :raw))
                               (cons (field-name slot)
                                     (package-info (cond ((property? slot)
                                                          (read-property object slot))
                                                         (else
                                                          (slot-value object (field-name slot))))))))
                           (all-slots (class-of object)))))
-      (if #t
-          infos
-        (sort < infos key: car))))
+      (sort string-ci<? infos key: (function (info) (symbol->string (car info))))))
   
   (define (inspect-limit displayed total)
     (let ((missing (- total displayed)))
@@ -150,5 +148,5 @@
         ((table? value) (inspect-table value))
         ((structure? value) (inspect-structure value))
         ((sequence? value) (inspect-list (coerce value List)))
-        ((object? value) (inspect-slots value))
+        ((object? value) (inspect-object value))
         (else '()))))

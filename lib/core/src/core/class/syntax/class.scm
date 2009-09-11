@@ -254,20 +254,20 @@
     ___SCMOBJ obj = ___ARG1;
     if (___MEM_ALLOCATED(obj))
     {
-        int subtyp = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
-        if (subtyp == ___sJAZZ)
+        int subtype = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
+        if (subtype == ___sJAZZ)
             ___RESULT = ___VECTORREF(obj,0);
-        else if (subtyp == ___sSTRUCTURE)
+        else if (subtype == ___sSTRUCTURE)
             ___RESULT = ___FAL;
         else
-            ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
+            ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtype];
     }
     else if (___FIXNUMP(obj))
         ___RESULT = ___ARG3;
     else if (obj >= 0)
         ___RESULT = ___ARG4;
     else
-        ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL-obj)];
+        ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL - obj)];
 }
 end-of-c-code
     ,obj                    ;; ___ARG1

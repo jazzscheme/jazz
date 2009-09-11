@@ -38,7 +38,7 @@
 
 (library protected jazz.dialect.kernel scheme
 
-;
+
 ;;;
 ;;;; Autoload
 ;;;

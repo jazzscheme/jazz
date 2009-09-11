@@ -144,6 +144,15 @@
   
   
   (method (on-update evt)
+    (define (reload-jml-client)
+      (let ((document (current-document)))
+        (if document
+            (let ((moniker (get-moniker~ (get-controller~ document))))
+              (if moniker
+                  (set! client (safe-read-from-file moniker))
+                (set! client {})))
+          (set! client {}))))
+    
     (when (or (is? client Exception) (is? client Form))
       (reload-jml-client))
     (update))
@@ -172,69 +181,47 @@
   ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
   
   
-  (method (reload-jml-client)
-    (let ((document (current-document)))
-      (if document
-          (let ((moniker (get-moniker~ (get-controller~ document))))
-            (if moniker
-                (set! client (safe-read-from-file moniker))
-              (set! client {})))
-        (set! client {}))))
-  
-  
-  (method (get-client-title client)
-    (if (is? client JML-Node)
-        "JML"
-      (get-title~ client)))
-  
-  
   (method (insert-client-definition tree client)
     (if (is? client JML-Node)
         (insert-jml-definition tree {} 0 client (get-sorted?))
-      (insert-definition~ tree {} client (get-sorted?))))
+      (insert-definition~ tree {} 0 client (get-sorted?))))
   
   
   (method (insert-jml-definition tree father level node sort?)
-    (let ((row (insert-jml-self tree father level node)))
-      (insert-jml-self-definitions tree row level node sort?)))
-  
-  
-  (method (insert-jml-self tree father level node)
-    (let* ((model (get-jml-model node))
-           (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
-           (title (either (get-property~ node 'title) (->string (get-name~ node))))
-           (state (if (< level 1) 'expanded 'collapsed)))
-      (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
-  
-  
-  (method (get-jml-model node)
-    (let ((model-name (get-model-name~ node)))
-      (when model-name
-        (autoload-class model-name))))
-  
-  
-  (method (get-jml-named-children node)
-    (when (is? node JML-Element)
-      (collect-if (function (child)
-                    (and (is? child JML-Element)
-                         (or (get-name~ child)
-                             (get-property~ child 'title))))
-                  (get-children~ node))))
-  
-  
-  (method (insert-jml-self-definitions tree father level node sort?)
-    (insert-jml-definitions tree father level (get-jml-named-children node) sort?))
-  
-  
-  (method (insert-jml-definitions tree father level definitions sort?)
-    (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
-      (for-each (function (definition)
-                  (insert-jml-definition tree father (+ level 1) definition sort?))
-                ordered)))
-  
-  
-  (method (sort-jml-definitions definitions)
-    (sort string<? definitions key: (function (definition) (->string (get-name~ definition)))))
+    (define (insert-jml-self level node)
+      (let* ((model (get-jml-model node))
+             (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
+             (title (either (get-property~ node 'title) (->string (get-name~ node))))
+             (state (if (< level 1) 'expanded 'collapsed)))
+        (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
+    
+    (define (get-jml-model node)
+      (let ((model-name (get-model-name~ node)))
+        (when model-name
+          (autoload-class model-name))))
+    
+    (define (insert-jml-self-definitions level node sort?)
+      (insert-jml-definitions level (get-jml-named-children node) sort?))
+    
+    (define (get-jml-named-children node)
+      (when (is? node JML-Element)
+        (collect-if (function (child)
+                      (and (is? child JML-Element)
+                           (or (get-name~ child)
+                               (get-property~ child 'title))))
+                    (get-children~ node))))
+    
+    (define (insert-jml-definitions level definitions sort?)
+      (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
+        (for-each (function (definition)
+                    (insert-jml-definition tree father (+ level 1) definition sort?))
+                  ordered)))
+    
+    (define (sort-jml-definitions definitions)
+      (sort string<? definitions key: (function (definition) (->string (get-name~ definition)))))
+    
+    (let ((row (insert-jml-self level node)))
+      (insert-jml-self-definitions row level node sort?)))
   
   
   (method (edit-definitions definition)
@@ -271,6 +258,11 @@
   
   
   (method (update)
+    (define (get-client-title client)
+      (if (is? client JML-Node)
+          "JML"
+        (get-title~ client)))
+    
     (let ((tree (locate 'definitions)))
       (cond ((not client)
              (set-title "Class Browser")
@@ -292,6 +284,9 @@
   
   
   (method (selection-change tree double-click?)
+    (define (same-file? definition moniker)
+      (and moniker (pathname=? (get-file~ (get-file-definition~ definition)) moniker)))
+    
     (let ((guest (current-document)))
       (when guest
         (let ((moniker (get-moniker~ (get-controller~ guest)))
@@ -300,8 +295,4 @@
             (let ((definition (get-user-data~ (get-row~ tree selection))))
               (unless (is? definition Exception)
                 (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                  (edit-definitions definition)))))))))
-  
-  
-  (method (same-file? definition moniker)
-    (and moniker (pathname=? (get-file~ (get-file-definition~ definition)) moniker)))))
+                  (edit-definitions definition)))))))))))

@@ -162,32 +162,37 @@
   ;;;
   
   
-  (method public virtual (insert-definition tree father sort?)
-    (let ((row (insert-self tree father)))
+  (method public virtual (insert-definition tree father level sort?)
+    (let ((row (insert-self tree father level)))
       (unless (eq? (get-state~ row) 'dynamic)
-        (insert-self-definitions tree row sort?))))
+        (insert-self-definitions tree row level sort?))))
   
   
-  (method protected virtual (insert-self tree father)
+  (method protected virtual (insert-self tree father level)
     (let* ((image (get-image))
            (definitions (get-definitions))
-           (state (if (insert-state definitions) 'expanded 'dynamic))
+           (state (insert-state level definitions))
            (title (present-name)))
       (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: self)))
   
   
-  (method protected virtual (insert-self-definitions tree father sort?)
-    (insert-definitions tree father (get-definitions) sort?))
+  (method protected virtual (insert-self-definitions tree father level sort?)
+    (insert-definitions tree father (get-definitions) level sort?))
   
   
-  (method protected virtual (insert-state definitions)
-    'expanded)
+  (method protected virtual (insert-state level definitions)
+    (cond ((and parent (= level 2) (= 1 (length (get-definitions~ parent))))
+           'expanded)
+          ((and (> level 1) (not-null? definitions))
+           'dynamic)
+          (else
+           'expanded)))
   
   
-  (method (insert-definitions tree father definitions sort?)
+  (method (insert-definitions tree father definitions level sort?)
     (let ((ordered (if sort? (sort-definitions definitions) definitions)))
       (for-each (function (definition)
-                  (insert-definition~ definition tree father sort?))
+                  (insert-definition~ definition tree father (+ level 1) sort?))
                 ordered)))
   
   

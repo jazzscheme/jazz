@@ -5855,7 +5855,8 @@
     (let ((status (if (%%pair? entry) (%%car entry) #f))
           (declaration (if (%%pair? entry) (%%cdr entry) entry)))
       (if status
-          (jazz.error "Circular dependency detected with {s}" module-name)
+          (jazz.error "Circular dependency detected: {a}"
+                      (jazz.join-strings (reverse (map symbol->string (map cdr jazz.Load-Stack))) " -> "))
         (or declaration
             (jazz.call-with-catalog-entry-lock module-name
               (lambda ()

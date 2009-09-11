@@ -2073,11 +2073,16 @@
   (slot ignore-case?     <bool>       accessors generate)
   (slot pattern?         <bool>       accessors generate)
   (slot constituent-test <procedure+> accessors generate)
+  (slot regexp           <any>        accessors generate)
   (slot user-data        <any>        accessors generate))
+
+(class package Multi-Search-Context extends Object
+  (slot regexp           <any>        accessors generate)
+  (slot contexts         <list>       accessors generate))
 
 
 (definition inline (construct-search-context target whole-words? ignore-case? constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? #f constituent-test user-data))
+  (construct Search-Context target whole-words? ignore-case? #f constituent-test #f user-data))
 
 
 (definition public (make-search-context target
@@ -2087,6 +2092,12 @@
                      (user-data: user-data #f))
   (construct-search-context target whole-words? ignore-case? constituent-test user-data))
 
+(definition public (make-multi-search-context contexts <list>)
+  (construct Multi-Search-Context (irregex (cons 'or (map search-context->sre contexts))) contexts))
+
+(definition public (maybe-make-multi-search-context contexts <any>)
+  (cond ((pair? contexts) (make-multi-search-context contexts))
+        (else contexts)))
 
 (definition public (standardize-search-contexts obj)
   (define (standardize-context obj)
@@ -2101,16 +2112,26 @@
 (definition (search-context->sre context <Search-Context>)
   (list (if (get-ignore-case?~ context) 'w/nocase 'seq) (get-target~ context)))
 
+(definition (search-context-regexp context <Search-Context>)
+  (or (get-regexp~ context)
+      (let ((rx (search-context->sre context)))
+        (set-regexp~ context rx)
+        rx)))
+
 (definition (matching-context str <Sequence> contexts <list>)
   (let (lp (ls contexts))
-    (if (or (null? (cdr ls)) (irregex-match (search-context->sre (car ls)) str))
+    (if (or (null? (cdr ls)) (irregex-match (search-context-regexp (car ls)) str))
         (car ls)
       (lp (cdr ls)))))
 
-(definition (multisearch-impl seq <Sequence> contexts <list> constituent-test <procedure+> start <fx+> reversed? <bool>)
-  (let ((rx (irregex (cons 'or (map search-context->sre contexts))))
-        (constituent-test (or (get-constituent-test~ (car contexts)) constituent-test word-constituent?))
-        (end (or (and reversed? start) (cardinality seq))))
+(definition (multisearch-impl seq <Sequence> contexts <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
+  (let* ((contexts (maybe-make-multi-search-context contexts))
+         (rx (get-regexp~ contexts))
+         (constituent-test (or (get-constituent-test~ (car (get-contexts~ contexts)))
+                               constituent-test
+                               word-constituent?))
+         (whole-words? (get-whole-words?~ (car (get-contexts~ contexts))))
+         (end (or (and reversed? start) (cardinality seq))))
     (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
       (let ((m (irregex-search rx seq i)))
         (if (not m)
@@ -2119,30 +2140,32 @@
                 (to (irregex-match-end-index m 0)))
             (cond
               ((> to end) best)
-              ((or (not (get-whole-words?~ (car contexts)))
+              ((or (not whole-words?)
                    (and (or (= 0 from)
                             (not (constituent-test (element seq (- from 1)))))
                         (or (>= to (cardinality seq))
                             (eqv? (element seq to) #\~) ;; hack for ~ syntax
                             (not (constituent-test (element seq to))))))
-               (let ((res (cons (matching-context (irregex-match-substring m 0) contexts)
+               (let ((res (cons (matching-context (irregex-match-substring m 0)
+                                                  (get-contexts~ contexts))
                                 from)))
                  (if reversed? (lp (+ to 1) res) res)))
               (else (lp to best)))))))))
 
-(definition public (multisearch seq <Sequence> contexts <list>
+(definition public (multisearch seq <Sequence> contexts <any>
                      (constituent-test: constituent-test {})
                      (start: start {})
                      (reversed?: reversed? #f))
   (multisearch-impl seq contexts constituent-test start reversed?))
 
 
-(definition public (multisearch-all seq <Sequence> contexts <list>
+(definition public (multisearch-all seq <Sequence> contexts <any>
                      (constituent-test: constituent-test {})
                      (start: start {})
                      (reversed?: reversed? #f))
   (let ((len (cardinality seq))
-        (queue (new-queue)))
+        (queue (new-queue))
+        (contexts (maybe-make-multi-search-context contexts)))
     (let (iter (pos <fx> (either start (if reversed? len 0))))
       (let ((found (multisearch-impl seq contexts constituent-test pos reversed?)))
         (if found

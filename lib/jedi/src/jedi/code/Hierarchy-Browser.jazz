@@ -188,20 +188,30 @@
   
   
   (method (insert-jml-definition tree father level node sort?)
-    (define (insert-jml-self level node)
-      (let* ((model (get-jml-model node))
+    (define (insert-definition father level node sort?)
+      (let ((row (insert-jml-self father level node)))
+        (insert-jml-self-definitions row level node sort?)))
+    
+    (define (insert-jml-self father level node)
+      (let* ((model (get-jml-model father node))
              (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
              (title (either (get-property~ node 'title) (->string (get-name~ node))))
              (state (if (< level 1) 'expanded 'collapsed)))
         (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
     
-    (define (get-jml-model node)
+    (define (get-jml-model father node)
       (let ((model-name (get-model-name~ node)))
         (when model-name
           (autoload-class model-name))))
     
-    (define (insert-jml-self-definitions level node sort?)
-      (insert-jml-definitions level (get-jml-named-children node) sort?))
+    (define (insert-jml-self-definitions father level node sort?)
+      (insert-jml-definitions father level (get-jml-named-children node) sort?))
+    
+    (define (insert-jml-definitions father level definitions sort?)
+      (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
+        (for-each (function (definition)
+                    (insert-definition father (+ level 1) definition sort?))
+                  ordered)))
     
     (define (get-jml-named-children node)
       (when (is? node JML-Element)
@@ -211,17 +221,10 @@
                                (get-property~ child 'title))))
                     (get-children~ node))))
     
-    (define (insert-jml-definitions level definitions sort?)
-      (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
-        (for-each (function (definition)
-                    (insert-jml-definition tree father (+ level 1) definition sort?))
-                  ordered)))
-    
     (define (sort-jml-definitions definitions)
       (sort string<? definitions key: (function (definition) (->string (get-name~ definition)))))
     
-    (let ((row (insert-jml-self level node)))
-      (insert-jml-self-definitions row level node sort?)))
+    (insert-definition father level node sort?))
   
   
   (method (edit-definitions definition)

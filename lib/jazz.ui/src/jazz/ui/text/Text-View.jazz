@@ -4498,13 +4498,13 @@
   
   (method public (text-multisearch contexts (start: start {}) (end: end (get-limit)) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test))
-          (contexts (maybe-make-multi-search-context contexts)))
+          (multi-search-context (maybe-make-multi-search-context contexts)))
       ;; Quick solution to multi-line string search
       (if (some? (function (context)
                    (search (get-target~ context) "\n"))
-                 contexts)
+                 (get-contexts~ multi-search-context))
           (let ((content (get-string-content)))
-            (let ((found (multisearch content contexts constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
+            (let ((found (multisearch content multi-search-context constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (context . offset) found
                   (cons context (offset-position offset))))))
@@ -4515,7 +4515,7 @@
             (let (iter (n row) (start col))
               (if (if reversed? (>= n 0) (<= n limit))
                   (let ((string (paragraph-string n)))
-                    (let ((found (multisearch string contexts constituent-test: constituent-test start: start reversed?: reversed?)))
+                    (let ((found (multisearch string multi-search-context constituent-test: constituent-test start: start reversed?: reversed?)))
                       (if found
                           (bind (context . pos) found
                             (cons context (new Cell n pos)))
@@ -4525,14 +4525,14 @@
   
   (method public (text-multisearch-all contexts)
     (let ((queue (new-queue))
-          (contexts (maybe-make-multi-search-context contexts)))
+          (multi-search-context (maybe-make-multi-search-context contexts)))
       (for-each-paragraph
         (function (row <fx> paragraph <Paragraph>)
           (let ((line (get-string~ paragraph)))
             (for-each (function (found)
                         (bind (context . pos) found
                           (enqueue queue (cons context (new Cell row pos)))))
-                      (multisearch-all line contexts)))))
+                      (multisearch-all line multi-search-context)))))
       (queue-list queue)))
   
   

@@ -2125,12 +2125,12 @@
       (lp (cdr ls)))))
 
 (definition (multisearch-impl seq <Sequence> contexts <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
-  (let* ((contexts (maybe-make-multi-search-context contexts))
-         (rx (get-regexp~ contexts))
-         (constituent-test (or (get-constituent-test~ (car (get-contexts~ contexts)))
+  (let* ((multi-search-context (maybe-make-multi-search-context contexts))
+         (rx (get-regexp~ multi-search-context))
+         (constituent-test (or (get-constituent-test~ (car (get-contexts~ multi-search-context)))
                                constituent-test
                                word-constituent?))
-         (whole-words? (get-whole-words?~ (car (get-contexts~ contexts))))
+         (whole-words? (get-whole-words?~ (car (get-contexts~ multi-search-context))))
          (end (or (and reversed? start) (cardinality seq))))
     (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
       (let ((m (irregex-search rx seq i)))
@@ -2147,7 +2147,7 @@
                             (eqv? (element seq to) #\~) ;; hack for ~ syntax
                             (not (constituent-test (element seq to))))))
                (let ((res (cons (matching-context (irregex-match-substring m 0)
-                                                  (get-contexts~ contexts))
+                                                  (get-contexts~ multi-search-context))
                                 from)))
                  (if reversed? (lp (+ to 1) res) res)))
               (else (lp to best)))))))))
@@ -2165,9 +2165,9 @@
                      (reversed?: reversed? #f))
   (let ((len (cardinality seq))
         (queue (new-queue))
-        (contexts (maybe-make-multi-search-context contexts)))
+        (multi-search-context (maybe-make-multi-search-context contexts)))
     (let (iter (pos <fx> (either start (if reversed? len 0))))
-      (let ((found (multisearch-impl seq contexts constituent-test pos reversed?)))
+      (let ((found (multisearch-impl seq multi-search-context constituent-test pos reversed?)))
         (if found
             (begin
               (enqueue queue found)

@@ -72,12 +72,15 @@
       (define (collect-var-val var val mutable? cte queue)
         (jazz.enqueue queue
                       (%%list (##object->string var)
-                              (if (##procedure? val)
-                                  (remove-quote
-                                    (if (##cte-top? cte)
-                                        (##inverse-eval-in-env val cte)
-                                      (##inverse-eval-in-env val (##cte-parent-cte cte))))
-                                val)
+                              (cond ((jazz.absent-object? val)
+                                    '<absent>)
+                                    ((##procedure? val)
+                                     (remove-quote
+                                       (if (##cte-top? cte)
+                                           (##inverse-eval-in-env val cte)
+                                         (##inverse-eval-in-env val (##cte-parent-cte cte)))))
+                                    (else
+                                     val))
                               mutable?)))
       
       (define (remove-quote val)

@@ -245,3 +245,12 @@
 
 (define (jazz.btq-owner mutex)
   (macro-btq-owner mutex))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(define (jazz.absent-object? obj)
+  (##eq? obj (macro-absent-obj)))

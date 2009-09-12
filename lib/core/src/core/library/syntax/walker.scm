@@ -5910,17 +5910,17 @@
         (jazz.error "Invalid module declaration in {a}: {s}" source form)))))
 
 
-(define (jazz.walk-module module-name)
+(define (jazz.walk-module module-name #!key (read-source? #f))
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (parameterize ((jazz.requested-module-name module-name)
                    (jazz.requested-module-resource src)
                    (jazz.walk-for 'walk))
-      (let ((form (jazz.read-toplevel-form src)))
-        (case (%%car form)
+      (let ((form (jazz.read-toplevel-form src read-source?: read-source?)))
+        (case (jazz.source-code (%%car (jazz.source-code form)))
           ((module)
            #f)
           ((library)
-           (jazz.walk-library (%%cdr form))))))))
+           (jazz.walk-library (%%cdr (jazz.source-code form)))))))))
 
 
 ;;;

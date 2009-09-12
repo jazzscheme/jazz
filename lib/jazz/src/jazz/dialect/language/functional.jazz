@@ -2071,7 +2071,7 @@
   (slot target           <Sequence>   accessors generate)
   (slot whole-words?     <bool>       accessors generate)
   (slot ignore-case?     <bool>       accessors generate)
-  (slot pattern?         <bool>       accessors generate)
+  (slot regexp?          <bool>       accessors generate)
   (slot constituent-test <procedure+> accessors generate)
   (slot regexp           <any>        accessors generate)
   (slot user-data        <any>        accessors generate))
@@ -2081,19 +2081,24 @@
   (slot contexts         <list>       accessors generate))
 
 
-(definition inline (construct-search-context target whole-words? ignore-case? constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? #f constituent-test #f user-data))
+(definition inline (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data)
+  (construct Search-Context target whole-words? ignore-case? regexp? constituent-test #f user-data))
 
 
 (definition public (make-search-context target
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (regexp?: regexp? #f)
                      (constituent-test: constituent-test {})
                      (user-data: user-data #f))
-  (construct-search-context target whole-words? ignore-case? constituent-test user-data))
+  (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data))
 
 (definition public (make-multi-search-context contexts <list>)
-  (construct Multi-Search-Context (irregex (cons 'or (map search-context->sre contexts))) contexts))
+  (construct Multi-Search-Context
+             (if (and (pair? contexts) (null? (cdr contexts)))
+                 (search-context-regexp (car contexts))
+                 (sre->irregex (cons 'or (map search-context->sre contexts))))
+             contexts))
 
 (definition public (maybe-make-multi-search-context contexts <any>)
   (cond ((pair? contexts) (make-multi-search-context contexts))
@@ -2110,11 +2115,14 @@
     (list (standardize-context obj))))
 
 (definition (search-context->sre context <Search-Context>)
-  (list (if (get-ignore-case?~ context) 'w/nocase 'seq) (get-target~ context)))
+  (list (if (get-ignore-case?~ context) 'w/nocase 'seq)
+        (if (get-regexp?~ context)
+            `(posix-string ,(get-target~ context))
+            (get-target~ context))))
 
 (definition (search-context-regexp context <Search-Context>)
   (or (get-regexp~ context)
-      (let ((rx (search-context->sre context)))
+      (let ((rx (sre->irregex (search-context->sre context))))
         (set-regexp~ context rx)
         rx)))
 
@@ -2182,8 +2190,9 @@
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (regexp?: regexp? #f)
                      (constituent-test: constituent-test {})) <int+>
-  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? {} #f)) constituent-test start reversed?)))
+  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? regexp? {} #f)) constituent-test start reversed?)))
     (if found
         (cdr found)
       #f)))
@@ -2194,8 +2203,9 @@
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (regexp?: regexp? #f)
                      (constituent-test: constituent-test {})) <list>
-  (map cdr (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f))
+  (map cdr (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? regexp? constituent-test #f))
              start: start
              reversed?: reversed?)))
 

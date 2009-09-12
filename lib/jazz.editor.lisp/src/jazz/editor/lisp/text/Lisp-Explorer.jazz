@@ -148,10 +148,11 @@
         (if (and (eqv? c1 #\backslash) (eqv? (char-backward 2) #\sharp))
             (backward-scheme-char)
           (let ((found (backward-simple-expr)))
-            (while (backward-quote))
-            (if (and (eq? (get-syntax) 'jazz) (eqv? (get-char start) #\comma))
-                'name-comment
-              found))))))
+            (when found
+              (while (backward-quote))
+              (if (and (eq? (get-syntax) 'jazz) (eqv? (get-char start) #\at))
+                  'name-comment
+                found)))))))
 
 
   (method private (forward-simple-expr)
@@ -783,6 +784,9 @@
                 (set-start s)
                 #f)))))
       
+      (define (prepend-expr-comment)
+        (when (eqv? (previous-char start 0) #\at)
+          (backward)))
       
       (or (if empty?
               (let ((quote-count (advance-quoting)))
@@ -797,7 +801,8 @@
                 (prepend-literal)
                 (when (prepend-quoting)
                   (while (prepend-quoting))
-                  #t)))
+                  #t)
+                (prepend-expr-comment)))
           (when explore-whitespace?
             (receive (start-pos start-char) (let ((e (copy end)))
                                               (backward-all-expr)

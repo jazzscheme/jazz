@@ -5044,6 +5044,11 @@
            (jazz.new-constant `(quote ,form-src) jazz.Values))
           ((%%null? form)
            (jazz.new-constant `(quote ,form-src) jazz.Null))
+          ((or (%%box? form)
+               (%%eq? form #!optional)
+               (%%eq? form #!key)
+               (%%eq? form #!rest))
+           (jazz.new-constant `(quote ,form-src) jazz.Any))
           ((jazz.scheme-pair-literal? form)
            (jazz.new-constant `(quote ,form-src) jazz.Pair))
           (else

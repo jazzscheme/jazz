@@ -48,11 +48,10 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode                initialize {} getter generate)
-  (slot client              initialize {} getter generate)
-  (slot search-context      initialize {})
-  (slot search-whole-words? initialize #f)
-  (slot search-ranges       initialize '())
+  (slot mode           initialize {}                       getter generate)
+  (slot client         initialize {}                       getter generate)
+  (slot search-context initialize (make-search-context ""))
+  (slot search-ranges  initialize '())
   
   
   (form
@@ -66,14 +65,9 @@
       tooltip-text: "Command Shell"))
   
   
-  (method (reset)
-    (set! search-context #f)
-    (set! search-ranges '()))
-  
-  
   (method (prepare-search)
-    (set! search-context (make-search-context ""))
-    (set! search-ranges (list (get-selection~ client))))
+    (set-target~ search-context "")
+    (set! search-ranges (if client (list (get-selection~ client)) '())))
   
   
   ;;;
@@ -94,7 +88,7 @@
     (nextmethod old)
     (unless (eq? client old)
       (set! client old)
-      (reset)))
+      (prepare-search)))
   
   
   (method (focus-actions)
@@ -171,16 +165,25 @@
   
   (method (select-mode-search mode)
     (set! mode~self mode)
-    (reset))
+    (prepare-search))
   
   
   (method (select-whole-words? whole-words?)
-    (set! search-whole-words? whole-words?)
-    (user-message "Search whole-words {a}" (if search-whole-words? "on" "off")))
+    (set-whole-words?~ search-context whole-words?)
+    (user-message "Search whole-words {a}" (if whole-words? "on" "off")))
+  
+  
+  (method (select-ignore-case? ignore-case?)
+    (set-ignore-case?~ search-context ignore-case?)
+    (user-message "Search ignore-case {a}" (if ignore-case? "on" "off")))
   
   
   (method (on-whole-words evt)
-    (select-whole-words? (not search-whole-words?)))
+    (select-whole-words? (not (get-whole-words?~ search-context))))
+  
+  
+  (method (on-ignore-case evt)
+    (select-ignore-case? (not (get-ignore-case?~ search-context))))
   
   
   (method (on-search-forward evt)
@@ -197,8 +200,6 @@
   
   (method (search direction again? (whole-words?: whole-words? 'keep))
     (when (is? client Text-View)
-      (unless search-context
-        (prepare-search))
       (unless (eq? whole-words? 'keep)
         (select-whole-words? whole-words?))
       (let ((content (get-string-content))
@@ -208,11 +209,12 @@
           (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
             (if (and (empty-string? suffix) (not again?))
                 (set-selection~ client (last search-ranges))
-              (for-each (function (key)
-                          (search-key key direction #f))
-                        suffix)
-              (when again?
-                (search-key {} direction search-whole-words?))))))))
+              (let ((whole-words? (get-whole-words?~ search-context)))
+                (for-each (function (key)
+                            (search-key key direction #f))
+                          suffix)
+                (when again?
+                  (search-key {} direction whole-words?)))))))))
   
   
   (method (search-pos range direction)

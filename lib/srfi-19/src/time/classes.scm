@@ -43,11 +43,11 @@
 ;;;
 
 
-(jazz.define-class jazz.Time-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class jazz.Time-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Time       jazz.Object () jazz.Time-Class () ())
 
 
-(jazz.define-class jazz.Date-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class jazz.Date-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Date       jazz.Object () jazz.Date-Class () ())
 
 

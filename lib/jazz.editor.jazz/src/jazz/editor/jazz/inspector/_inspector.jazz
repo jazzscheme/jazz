@@ -64,7 +64,7 @@
           ((table? value) (> (table-length value) 0))
           ((structure? value) (> (kind-length (structure-kind value)) 0))
           ((sequence? value) (> (cardinality value) 0))
-          ((object? value) (not-null? (all-slots (class-of value))))
+          ((object? value) (not-null? (get-instance-slots~ (class-of value))))
           (else #f)))
   
   (let* ((unbound? (eq? value Unbound))
@@ -128,6 +128,11 @@
         sorted)))
   
   (define (inspect-object object)
+    (define (class-slots class)
+      (if (not class)
+          '()
+        (append (get-slots~ class) (class-slots (get-ascendant~ class)))))
+    
     (let ((infos (collect (function (slot)
                             ;; when we forget to redefine core classes in jazz, slots are symbols
                             (if (symbol? slot)
@@ -137,7 +142,9 @@
                                                          (read-property object slot))
                                                         (else
                                                          (slot-value object (field-name slot))))))))
-                          (all-slots (class-of object)))))
+                          (class-slots (class-of object)))))
+      infos
+      @when-we-have-sorting
       (sort string-ci<? infos key: (function (info) (symbol->string (car info))))))
   
   (define (inspect-limit displayed total)

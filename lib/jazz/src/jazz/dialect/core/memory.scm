@@ -94,7 +94,7 @@
                                               (jazz.vector-size (%%get-category-ancestors class))
                                               (jazz.list-size (%%get-category-descendants class))
                                               (jazz.list-size (%%get-class-interfaces class))
-                                              (jazz.list-size (%%get-class-slots class))
+                                              (jazz.list-size (%%get-class-instance-slots class))
                                               (jazz.vector-size (%%get-class-core-vtable class))
                                               (jazz.vector-vector-size (%%get-class-class-table class))
                                               (jazz.vector-vector-size (%%get-class-interface-table class)))))

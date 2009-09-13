@@ -62,8 +62,11 @@
 (define jazz.class-slots
   (%%fx+ jazz.class-interfaces 1))
 
-(define jazz.class-instance-size
+(define jazz.class-instance-slots
   (%%fx+ jazz.class-slots 1))
+
+(define jazz.class-instance-size
+  (%%fx+ jazz.class-instance-slots 1))
 
 (define jazz.class-level
   (%%fx+ jazz.class-instance-size 1))
@@ -144,6 +147,14 @@
 
 (jazz.define-macro (%%set-class-slots class slots)
   `(%%object-set! ,class ,jazz.class-slots ,slots))
+
+
+(jazz.define-macro (%%get-class-instance-slots class)
+  `(%%object-ref ,class ,jazz.class-instance-slots))
+
+
+(jazz.define-macro (%%set-class-instance-slots class slots)
+  `(%%object-set! ,class ,jazz.class-instance-slots ,slots))
 
 
 (jazz.define-macro (%%get-class-instance-size class)

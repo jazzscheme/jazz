@@ -71,9 +71,10 @@
   
   (method (prepare-search)
     (set-target~ search-context "")
-    (set! search-ranges (if client (list (get-selection~ client)) '()))
-    (set! found-style (if client (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
-    (set! highlight-style (if client (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {})))
+    (let ((text? (and client (is? client Text-View))))
+      (set! search-ranges (if text? (list (get-selection~ client)) '()))
+      (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
+      (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {}))))
   
   
   ;;;
@@ -210,6 +211,51 @@
 
   
   (method (search direction again? (whole-words?: whole-words? 'keep))
+    (define (reset-prefix len)
+      (set-target~ search-context (subseq (get-target~ search-context) 0 len))
+      (set-regexp~ search-context #f)
+      (set! search-ranges (subseq search-ranges 0 (+ len 1))))
+    
+    (define (search-key key whole-words?)
+      (let ((target (if (not key)
+                        (get-target~ search-context)
+                      (concatenate (get-target~ search-context) (format "{c}" key))))
+            (last-range (last search-ranges)))
+        (let ((pos (case direction
+                     ((search-forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
+                     ((search-backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
+              (reversed? (eq? direction 'search-backward)))
+          (set-target~ search-context target)
+          (set-regexp~ search-context #f)
+          (set-whole-words?~ search-context whole-words?)
+          (let ((found (text-multisearch~ client (list search-context) start: pos reversed?: reversed?)))
+            (define (update-range range)
+              (if (not key)
+                  (let ((pair (last-pair search-ranges)))
+                    (set-car! pair range))
+                (set! search-ranges (append search-ranges (list range)))))
+            
+            (if (not found)
+                (begin
+                  (update-range last-range)
+                  (bell))
+              (bind (from . to) found
+                (let ((range (new Range$Cell$ from to)))
+                  (update-range range))))))))
+    
+    (define (highlight-target found-range)
+      (remove-highlights)
+      (let ((target (get-target~ search-context)))
+        (unless (empty-string? target)
+          (for-each (function (found)
+                      (bind (start . end) found
+                        (let ((range (new Range$Cell$ start end)))
+                          (unless (nu=? range found-range)
+                            (add-highlight~ client (new Text-Highlight range highlight-style))))))
+                    (text-multisearch-all~ client (list search-context)))))
+      (add-highlight~ client (new Text-Highlight found-range found-style))
+      (ensure-range-displayed~ client found-range))
+    
     (when (is? client Text-View)
       (unless (eq? whole-words? 'keep)
         (select-whole-words? whole-words?))
@@ -221,69 +267,16 @@
             (when (or again? (not (empty-string? suffix)))
               (let ((whole-words? (get-whole-words?~ search-context)))
                 (for-each (function (key)
-                            (search-key key direction #f))
+                            (search-key key #f))
                           suffix)
                 (when again?
-                  (search-key {} direction whole-words?))))
+                  (search-key {} whole-words?))))
             (highlight-target (last search-ranges)))))))
   
   
-  (method (search-pos range direction)
-    (case direction
-      ((search-forward) (get-start~ range))
-      ((search-backward) (get-end~ range))))
-  
-  
-  (method (reset-prefix len)
-    (set-target~ search-context (subseq (get-target~ search-context) 0 len))
-    (set-regexp~ search-context #f)
-    (set! search-ranges (subseq search-ranges 0 (+ len 1))))
-  
-  
-  (method (search-key key direction whole-words?)
-    (let ((target (if (not key)
-                      (get-target~ search-context)
-                    (concatenate (get-target~ search-context) (format "{c}" key))))
-          (last-range (last search-ranges)))
-      (let ((pos (case direction
-                   ((search-forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
-                   ((search-backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
-            (reversed? (eq? direction 'search-backward)))
-        (set-target~ search-context target)
-        (set-regexp~ search-context #f)
-        (set-whole-words?~ search-context whole-words?)
-        (let ((found (text-multisearch~ client (list search-context) start: pos reversed?: reversed?)))
-          (define (update-range range)
-            (if (not key)
-                (let ((pair (last-pair search-ranges)))
-                  (set-car! pair range))
-              (set! search-ranges (append search-ranges (list range)))))
-          
-          (if (not found)
-              (begin
-                (update-range last-range)
-                (bell))
-            (bind (from . to) found
-              (let ((range (new Range$Cell$ from to)))
-                (update-range range))))))))
-  
-  
-  (method (highlight-target found-range)
-    (remove-highlights)
-    (let ((target (get-target~ search-context)))
-      (unless (empty-string? target)
-        (for-each (function (found)
-                    (bind (start . end) found
-                      (let ((range (new Range$Cell$ start end)))
-                        (unless (nu=? range found-range)
-                          (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                  (text-multisearch-all~ client (list search-context)))))
-    (add-highlight~ client (new Text-Highlight found-range found-style))
-    (ensure-range-displayed~ client found-range))
-  
-  
   (method (remove-highlights)
-    (remove-all-highlights~ client))
+    (when (is? client Text-View)
+      (remove-all-highlights~ client)))
   
   
   (method (search-finish)

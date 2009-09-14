@@ -121,15 +121,20 @@
                (highlighted-position (get-highlighted-position~ *highlighted-picker*)))
            (define (setup-view view)
              (let ((pos (acquire~ view highlighted-view highlighted-position)))
+               @w
+               (change-highlight-rect~ *highlighted-picker* view pos rect)
                (default-highlight~ *highlighted-picker* view pos)
                (update-tooltip~ view (display-description (view-describe view pos)))
                (user-message "{a}" view)))
            
            (cond ((shortcut=? shortcut {Shortcut Up})
-                  (let ((parent (get-parent~ highlighted-view)))
-                    (if (not parent)
-                        (bell)
-                      (setup-view parent)))
+                  (if (eq? (get-highlighted-rect~ *highlighted-picker*)
+                           (get-last-cell-rect~ *highlighted-picker*))
+                      (change-highlight-rect~ *highlighted-picker* (get-last-view-rect~ *highlighted-picker*))
+                    (let ((parent (get-parent~ highlighted-view)))
+                      (if (not parent)
+                          (bell)
+                        (setup-view parent))))
                   #t)
                  ((shortcut=? shortcut {Shortcut Down})
                   (let ((first (first-view~ highlighted-view)))
@@ -202,11 +207,13 @@
   (property tooltips?              accessors generate)
   
   
-  (slot highlighted-view      initialize {} getter generate)
-  (slot highlighted-rect      initialize {} getter generate)
-  (slot highlighted-position  initialize {} getter generate)
-  (slot last-mouse-position   initialize {} getter generate)
-
+  (slot highlighted-view     initialize {} getter generate)
+  (slot highlighted-rect     initialize {} getter generate)
+  (slot highlighted-position initialize {} getter generate)
+  (slot last-mouse-position  initialize {} getter generate)
+  (slot last-cell-rect       initialize {} getter generate)
+  (slot last-view-rect       initialize {} getter generate)
+  
   
   ;;;
   ;;;; Cursor
@@ -236,25 +243,28 @@
   
   
   (method (calculate-tooltip-bounds view pos)
-    (when view
-      (or (get-tooltip-bounds~ view pos)
-          (let ((display (get-display~ view)))
-            (acquire~ view display (get-bounds~ display))))))
+    (if view
+        (values (get-tooltip-bounds~ view pos)
+                (let ((display (get-display~ view)))
+                  (acquire~ view display (get-bounds~ display))))
+      (values #f #f)))
   
   
   (method (get-tooltip-bounds pos)
     (receive (view pos) (find-view-info pos)
-      (calculate-tooltip-bounds view pos)))
+      (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
+        (or cell-rect view-rect))))
   
   
   (method (get-tooltip-context pos)
     (receive (view pos) (find-view-info pos)
       (when view
-        (new Tooltip-Context
-          view: view
-          text: (display-description (view-describe view pos))
-          bounds: (calculate-tooltip-bounds view pos)
-          font: {Font name: Label}))))
+        (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
+          (new Tooltip-Context
+            view: view
+            text: (display-description (view-describe view pos))
+            bounds: (or cell-rect view-rect)
+            font: {Font name: Label})))))
   
   
   ;;;
@@ -300,14 +310,21 @@
   
   
   (method (default-highlight view pos)
-    (define (highlight-info view pos)
-      (let ((root (get-root~ (get-player~ view))))
-        (let ((picker (find-picker root))
-              (rect (if highlight-root-only?
-                        (get-bounds~ root)
-                      (acquire~ root view (calculate-tooltip-bounds view pos)))))
-          (values picker view rect))))
-    
+    (let ((root (get-root~ (get-player~ view))))
+      (let ((picker (find-picker root)))
+        (if highlight-root-only?
+            (update-highlight picker view pos cell-rect: #f view-rect: (get-bounds~ root))
+          (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
+            (update-highlight picker view pos
+              cell-rect: (and cell-rect (acquire~ root view cell-rect))
+              view-rect: (and view-rect (acquire~ root view view-rect))))))))
+  
+  
+  (method (change-highlight-rect override-rect)
+    (update-highlight self highlighted-view highlighted-position override-rect: override-rect))
+  
+  
+  (method (update-highlight picker view pos (cell-rect: cell-rect last-cell-rect) (view-rect: view-rect last-view-rect) (override-rect: override-rect #f))
     (define (redraw same-picker? picker view)
       (if same-picker?
           (when view
@@ -317,19 +334,22 @@
         (when picker
           (redraw-view~ picker))))
     
-    (receive (picker view rect) (highlight-info view pos)
-      (unless (and (eq? *highlighted-picker* picker)
-                   (eq? highlighted-view view)
-                   (nu=? highlighted-rect rect))
-        (let ((same-picker? (eq? picker *highlighted-picker*))
-              (old-picker *highlighted-picker*)
-              (old-view highlighted-view))
-          (set! *highlighted-picker* picker)
-          (set! highlighted-view view)
-          (set! highlighted-rect rect)
-          (set! highlighted-position pos)
-          (redraw same-picker? old-picker old-view)
-          (redraw same-picker? *highlighted-picker* highlighted-view)))))
+    (unless (and (eq? *highlighted-picker* picker)
+                 (eq? highlighted-view view)
+                 (eq? last-view-rect view-rect)
+                 (eq? last-cell-rect cell-rect)
+                 (not override-rect))
+      (let ((same-picker? (eq? picker *highlighted-picker*))
+            (old-picker *highlighted-picker*)
+            (old-view highlighted-view))
+        (set! *highlighted-picker* picker)
+        (set! highlighted-view view)
+        (set! highlighted-rect (or override-rect cell-rect view-rect))
+        (set! highlighted-position pos)
+        (set! last-cell-rect cell-rect)
+        (set! last-view-rect view-rect)
+        (redraw same-picker? old-picker old-view)
+        (redraw same-picker? *highlighted-picker* highlighted-view))))
   
   
   ;;;

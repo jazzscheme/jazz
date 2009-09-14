@@ -526,21 +526,23 @@
   
   
   (method protected (search-in-directories targets directories extensions expression? factory reporter)
-    (for-each (function (directory)
-                (search-in-directory targets directory extensions expression? factory reporter))
-              directories))
+    (let ((multi-sc (maybe-make-multi-search-context targets)))
+      (for-each (function (directory)
+                  (search-in-directory multi-sc directory extensions expression? factory reporter))
+                directories)))
     
 
   (method protected (search-in-directory targets directory extensions expression? factory reporter)
-    (let ((all-extensions? (equal? extensions '("*"))))
+    (let ((multi-sc (maybe-make-multi-search-context targets))
+          (all-extensions? (equal? extensions '("*"))))
       (iterate-directory~ directory
         (function (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
              ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
-              (search-in-file targets file expression? factory reporter))
+              (search-in-file multi-sc file expression? factory reporter))
              ((member? ext extensions test: ci=?)
-              (search-in-file targets file expression? factory reporter)))))
+              (search-in-file multi-sc file expression? factory reporter)))))
         ignored-directories: '(".git" ".hg" "bin" "build"))))
 
 

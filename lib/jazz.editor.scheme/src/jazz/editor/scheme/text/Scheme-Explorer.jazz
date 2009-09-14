@@ -119,7 +119,7 @@
       (set! end old)))
   
   
-  (method (walk-keywords context declaration keyword keywords)
+  (method (walk-keywords context declaration keyword expression keywords)
     (let ((old (copy end)))
       (let (iterate)
         (forward-whites)
@@ -127,11 +127,13 @@
         (let ((c0 (char-forward 0)))
           (when (and c0 (text-constituent? c0))
             (forward-constituent)
-            (when (memq? (find-marked-symbol) keywords)
-              (keyword context start end)
-              (forward-expr)
-              (set! old (copy end))
-              (iterate)))))
+            (let ((marked-keyword (find-marked-symbol)))
+              (when (memq? marked-keyword keywords)
+                (keyword context start end)
+                (forward-expr)
+                (walk-expression context expression 'code #f)
+                (set! old (copy end))
+                (iterate))))))
       (set! end old)))
     
   
@@ -158,7 +160,7 @@
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
         (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-        (walk-keywords context declaration keyword (get-keywords~ form))
+        (walk-keywords entry declaration keyword expression (get-keywords~ form))
         (walk-declarations entry declaration keyword expression doc walk-expressions?))
       entry))
   

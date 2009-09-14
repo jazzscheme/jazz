@@ -100,14 +100,7 @@
 
 
 (jazz.define-method (jazz.present-exception (jazz.System-Exception exception))
-  (let ((output (open-output-string)))
-    (display-exception (%%get-system-exception-exception exception) output)
-    (let ((str (get-output-string output)))
-      (let ((len (string-length str)))
-        (if (and (%%fx> len 0)
-                 (%%eqv? (%%string-ref str (%%fx- len 1)) #\newline))
-            (%%substring str 0 (%%fx- len 1))
-          str)))))
+  (jazz.exception-reason (%%get-system-exception-exception exception)))
 
 
 (jazz.encapsulate-class jazz.System-Exception)
@@ -121,7 +114,12 @@
 (define (jazz.exception-reason exc)
   (let ((output (open-output-string)))
     (jazz.display-exception exc output)
-    (get-output-string output)))
+    (let ((str (get-output-string output)))
+      (let ((len (string-length str)))
+        (if (and (%%fx> len 0)
+                 (%%eqv? (%%string-ref str (%%fx- len 1)) #\newline))
+            (%%substring str 0 (%%fx- len 1))
+          str)))))
 
 
 (define (jazz.exception-detail exc)

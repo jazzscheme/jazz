@@ -38,7 +38,8 @@
 (library protected jazz.ide.Command-Text-View jazz
 
 
-(import (jazz.ide)
+(import (jazz.graphic)
+        (jazz.ide)
         (jazz.jml)
         (jazz.platform)
         (jazz.ui)
@@ -48,10 +49,12 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode           initialize {}                       getter generate)
-  (slot client         initialize {}                       getter generate)
-  (slot search-context initialize (make-search-context ""))
-  (slot search-ranges  initialize '())
+  (slot mode            initialize {}                       getter generate)
+  (slot client          initialize {}                       getter generate)
+  (slot search-context  initialize (make-search-context ""))
+  (slot search-ranges   initialize '())
+  (slot found-style     initialize {})
+  (slot highlight-style initialize {})
   
   
   (form
@@ -67,7 +70,9 @@
   
   (method (prepare-search)
     (set-target~ search-context "")
-    (set! search-ranges (if client (list (get-selection~ client)) '())))
+    (set! search-ranges (if client (list (get-selection~ client)) '()))
+    (set! found-style (if client (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
+    (set! highlight-style (if client (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {})))
   
   
   ;;;
@@ -89,6 +94,11 @@
     (unless (eq? client old)
       (set! client old)
       (prepare-search)))
+  
+  
+  (method (focus-lose view)
+    (nextmethod view)
+    (search-finish))
   
   
   (method (focus-actions)
@@ -208,7 +218,7 @@
           (reset-prefix (cardinality prefix))
           (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
             (if (and (empty-string? suffix) (not again?))
-                (set-selection~ client (last search-ranges))
+                (highlight-target (last search-ranges))
               (let ((whole-words? (get-whole-words?~ search-context)))
                 (for-each (function (key)
                             (search-key key direction #f))
@@ -251,13 +261,34 @@
           (if (not found)
               (begin
                 (update-range last-range)
+                (highlight-target last-range)
                 (bell))
             (bind (context . pos) found
               (let ((range (new Range$Cell$ pos (nu+ pos (cardinality target)))))
                 (update-range range)
-                (set-selection~ client range))))))))
+                (highlight-target range))))))))
+  
+  
+  (method (highlight-target found-range)
+    (remove-highlights)
+    (let ((target (get-target~ search-context)))
+      (unless (empty-string? target)
+        (for-each (function (found)
+                    (bind (context . start) found
+                      (let ((end (nu+ start (cardinality target))))
+                        (let ((range (new Range$Cell$ start end)))
+                          (unless (nu=? range found-range)
+                            (add-highlight~ client (new Text-Highlight range highlight-style)))))))
+                  (text-multisearch-all~ client (list search-context)))))
+    (add-highlight~ client (new Text-Highlight found-range found-style))
+    (ensure-range-displayed~ client found-range))
+  
+  
+  (method (remove-highlights)
+    (remove-all-highlights~ client))
   
   
   (method (search-finish)
     (when client
+      (remove-highlights)
       (acquire-focus~ client)))))

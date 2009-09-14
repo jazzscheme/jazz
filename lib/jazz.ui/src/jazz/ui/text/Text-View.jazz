@@ -130,6 +130,7 @@
   (slot protected contiguous-undo-range  initialize {})
   (slot protected mouse-copy-selection   initialize {})
   (slot protected mouse-copy-destination initialize {})
+  (slot protected highlights             initialize '())
   
   
   (form
@@ -2056,6 +2057,24 @@
     (if locked-anchor?
         (on-unlock-anchor evt)
       (on-lock-anchor evt)))
+  
+  
+  ;;;
+  ;;;; Highlights
+  ;;;
+  
+  
+  (method public (add-highlight highlight)
+    (set! highlights (cons highlight highlights)))
+  
+  
+  (method public (remove-highlight highlight)
+    (set! highlights (remove! highlight highlights)))
+  
+  
+  (method public (remove-all-highlights)
+    (set! highlights '())
+    (invalidate-view))
 
   
   ;;;
@@ -2231,7 +2250,8 @@
           (bottom {})
           (printing? (getf context printing?:)))
       (unless printing?
-        (draw-selection surface top bottom))
+        (draw-selection surface top bottom)
+        (draw-highlights surface top bottom))
       (nextmethod surface context clipper lh lv sh sv sc sc?)
       (unless printing?
         (draw-caret surface sc sc?))))
@@ -2254,6 +2274,23 @@
                           {Color name: Light-Orange}
                         (get-inactive-selection-color)))
                   (get-inactive-selection-color)))))))))
+  
+  
+  (method (draw-highlights surface top bottom)
+    (for-each (function (highlight)
+                (let ((range (get-range~ highlight))
+                      (style (get-style~ highlight)))
+                  (let* ((start (get-start~ range))
+                         (end (get-end~ range))
+                         (paragraph (get-paragraph (get-row~ start)))
+                         (target (subseq (get-string~ paragraph) (get-col~ start) (get-col~ end)))
+                         (pos (text->view start))
+                         (height (get-height~ paragraph))
+                         (format (get-format~ paragraph))
+                         (left (get-left-margin~ format))
+                         (enabled? (draw-enabled?)))
+                    (draw-style~ style surface '() target (get-h~ pos) (get-v~ pos) height tabs left enabled?))))
+              highlights))
   
   
   (method (draw-caret surface sc <fl> sc? <bool>)
@@ -3462,6 +3499,10 @@
       (invalidate-view)))
   
   
+  (method public (remove-style range)
+    (apply-style default-style (get-start~ range) (get-end~ range)))
+  
+  
   (method public (set-text-alignment range <Range$Cell$> alignment)
     (for-each-range-exact range
       (function (paragraph start end)
@@ -3562,6 +3603,10 @@
     (setup-format (copy default-format)))
   
   
+  (method public (get-formats-domain)
+    formats)
+  
+  
   (method public (get-formats)
     (get-content~ formats))
   
@@ -3644,6 +3689,10 @@
         (set-row-height~ paragraph height)
         (set-height~ paragraph height)
         (set-height~ (get-line~ paragraph 0) height))))
+  
+  
+  (method public (get-styles-domain)
+    styles)
   
   
   (method public (get-styles)

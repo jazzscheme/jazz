@@ -4298,6 +4298,10 @@
     '())
 
 
+  (method protected virtual (favorite-completion name)
+    (assoc-value name (favorite-completions) {}))
+
+
   (method protected virtual (completion-name pos postfix)
     )
   
@@ -4314,17 +4318,16 @@
   (method (completion-string pos postfix)
     (let ((name (completion-name pos postfix)))
       (when name
-        (let* ((size (string-length name))
-               (favorites (favorite-completions))
-               (favorite (associate name favorites test: string=?))
-               (feedback? (not (macro-playing?~ (get-application)))))
+        (let ((size (string-length name))
+              (favorite (either (get-user-completion name) (favorite-completion name)))
+              (feedback? (not (macro-playing?~ (get-application)))))
           (if favorite
               (begin
                 (when feedback?
                   (clear-user-message))
-                (concatenate (either postfix "") (subseq (cdr favorite) size)))
+                (concatenate (either postfix "") (subseq favorite size)))
             (when (complete-name? size)
-              (let* ((completions (symbol-completions name favorites))
+              (let* ((completions (symbol-completions name))
                      (count (length completions)))
                 (cond ((null? completions)
                        (when feedback?
@@ -4355,7 +4358,7 @@
     (>= size 2))
   
   
-  (method protected virtual (symbol-completions name favorites)
+  (method protected virtual (symbol-completions name)
     '())
   
   

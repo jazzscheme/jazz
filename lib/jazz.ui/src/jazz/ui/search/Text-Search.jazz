@@ -92,23 +92,23 @@
   ;;;
   
   
-  (method (search-targets targets)
+  (method (search-targets multi-search-context)
     (case (get-search-domain)
       ((active-window)
-       (search-active-window targets))
+       (search-active-window multi-search-context))
       (else
-       (search-threaded targets)
+       (search-threaded multi-search-context)
        @convert
        (new Thread
          name: "Search"
          context: self
          execute: (function (thread)
-                    (search-threaded targets))))))
+                    (search-threaded multi-search-context))))))
   
   
-  (method synchronized (search-threaded targets)
+  (method synchronized (search-threaded multi-search-context)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
-           (found (search targets reporter)))
+           (found (search multi-search-context reporter)))
       (let ((results (get-results)))
         (set-mode~ results 'text)
         (add-results~ results found (get-search-targets))
@@ -120,10 +120,10 @@
           (close-manager~ manager)))))
 
 
-  (method (search targets reporter)
+  (method (search multi-search-context reporter)
     (case (get-search-domain)
-      ((jazz-files) (search-jazz-files targets reporter))
-      ((user-files) (search-user-files targets reporter))))
+      ((jazz-files) (search-jazz-files multi-search-context reporter))
+      ((user-files) (search-user-files multi-search-context reporter))))
 
 
   ;;;
@@ -227,7 +227,7 @@
   ;;;
   
   
-  (method (search-active-window targets)
+  (method (search-active-window multi-search-context)
     (let ((frames (get-views~ (get-stage))))
       (when (>= (length frames) 1)
         (let ((frame (car frames)))
@@ -235,24 +235,24 @@
             (let ((guest (get-guest~ frame)))
               (when (is? guest Text-View)
                 (set-caret~ guest (get-start~ guest))
-                (find-forward guest targets #f)
+                (find-forward guest multi-search-context #f)
                 (bring-to-front~ frame)
                 (acquire-focus~ guest))))))))
   
   
-  (method (search-jazz-files targets reporter)
+  (method (search-jazz-files multi-search-context reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
       (let ((directories (filter-existing (either (get-jazz-directories~ pref) (default-search-directories))))
             (extensions (either (get-jazz-extensions~ pref) (default-search-extensions))))
-        (search-in-directories targets directories extensions (get-expression?) factory reporter)
+        (search-in-directories multi-search-context directories extensions (get-expression?) factory reporter)
         (get-output~ factory))))
   
   
-  (method (search-user-files targets reporter)
+  (method (search-user-files multi-search-context reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
       (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
             (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
-        (search-in-directories targets directories extensions (get-expression?) factory reporter)
+        (search-in-directories multi-search-context directories extensions (get-expression?) factory reporter)
         (get-output~ factory))))))

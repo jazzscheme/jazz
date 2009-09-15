@@ -198,7 +198,7 @@
     (let ((whole-words? (get-whole-words?))
           (ignore-case? (get-ignore-case?))
           (regexp? (get-regexp?)))
-      (maybe-make-multi-search-context
+      (make-multi-search-context
         (map (function (target)
                (make-search-context (first target)
                  whole-words?: whole-words?
@@ -300,10 +300,10 @@
     (hide~ (get-player))
     (let ((targets (locate 'targets)))
       (end-edition~ targets)
-      (let ((find-targets (get-find-targets)))
-        (if (null? find-targets)
+      (let ((multi-search-context (get-find-targets)))
+        (if (null? (get-contexts~ multi-search-context))
             (bell)
-          (search-targets find-targets)))))
+          (search-targets multi-search-context)))))
   
   
   (method protected virtual (search-targets targets)
@@ -335,20 +335,20 @@
   
   
   (method package (on-find-forward evt)
-    (let ((find (get-find-targets)))
-      (unless (null? find)
+    (let ((multi-search-context (get-find-targets)))
+      (unless (null? (get-contexts~ multi-search-context))
         (let ((target (get-target-text))
               (domain (get-search-domain)))
-          (unless (and target (find-forward target find (follow-search-results? domain)))
+          (unless (and target (find-forward target multi-search-context (follow-search-results? domain)))
             (bell))))))
   
   
   (method package (on-find-backward evt)
-    (let ((find (get-find-targets)))
-      (unless (null? find)
+    (let ((multi-search-context (get-find-targets)))
+      (unless (null? (get-contexts~ multi-search-context))
         (let ((target (get-target-text))
               (domain (get-search-domain)))
-          (unless (and target (find-backward target find (follow-search-results? domain)))
+          (unless (and target (find-backward target multi-search-context (follow-search-results? domain)))
             (bell))))))
   
   
@@ -502,13 +502,13 @@
       (replace target find repl ignore-case? case? play? expression?)))
   
   
-  (method protected (find-forward target targets (next? #t))
-    (either (select-next~ target targets)
+  (method protected (find-forward target multi-search-context (next? #t))
+    (either (select-next~ target multi-search-context)
             (essay next? (edit-next~ (get-results)))))
   
   
-  (method protected (find-backward target targets (previous? #t))
-    (either (select-previous~ target targets)
+  (method protected (find-backward target multi-search-context (previous? #t))
+    (either (select-previous~ target multi-search-context)
             (essay previous? (edit-previous~ (get-results)))))
 
 
@@ -517,38 +517,36 @@
   ;;;
 
 
-  (method (search-in-file targets file expression? factory reporter)
+  (method (search-in-file multi-search-context file expression? factory reporter)
     (unless (and reporter (cancel-requested?~ reporter))
       (when reporter
         (user-message~ reporter "Searching {a}" (get-name~ file))
         (step-it~ reporter))
-      (let ((info (search-file file targets expression?)))
+      (let ((info (search-file file multi-search-context expression?)))
         (when info
-          (put~ factory (list file info targets))))))
+          (put~ factory (list file info multi-search-context))))))
   
   
-  (method protected (search-in-directories targets directories extensions expression? factory reporter)
-    (let ((multi-sc (maybe-make-multi-search-context targets)))
-      (for-each (function (directory)
-                  (search-in-directory multi-sc directory extensions expression? factory reporter))
-                directories)))
+  (method protected (search-in-directories multi-search-context directories extensions expression? factory reporter)
+    (for-each (function (directory)
+                (search-in-directory multi-search-context directory extensions expression? factory reporter))
+              directories))
     
 
-  (method protected (search-in-directory targets directory extensions expression? factory reporter)
-    (let ((multi-sc (maybe-make-multi-search-context targets))
-          (all-extensions? (equal? extensions '("*"))))
+  (method protected (search-in-directory multi-search-context directory extensions expression? factory reporter)
+    (let ((all-extensions? (equal? extensions '("*"))))
       (iterate-directory~ directory
         (function (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
              ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
-              (search-in-file multi-sc file expression? factory reporter))
+              (search-in-file multi-search-context file expression? factory reporter))
              ((member? ext extensions test: ci=?)
-              (search-in-file multi-sc file expression? factory reporter)))))
+              (search-in-file multi-search-context file expression? factory reporter)))))
         ignored-directories: '(".git" ".hg" "bin" "build"))))
 
 
-  (method (search-file file targets expression?)
+  (method (search-file file multi-search-context expression?)
     (when (exists?~ file)
       (let ((ext (get-extension~ file)))
         (if (not expression?)
@@ -556,13 +554,13 @@
               (function (reader)
                 (let ((content (read-content-string reader))
                       (constituent-test (extension-constituent-test ext)))
-                  (multisearch content targets constituent-test: constituent-test))))
+                  (multisearch content multi-search-context constituent-test: constituent-test))))
           (let ((text (new Jazz-Text-View)))
             (set-moniker~ text file)
             (let* ((beginning (text-beginning~ text))
                    (expl (new Jazz-Explorer text start: beginning end: beginning))
                    (mode (if (ci=? ext "jazz") 'code 'quotation)))
-              (search-expressions~ expl mode targets beginning)))))))
+              (search-expressions~ expl mode multi-search-context beginning)))))))
 
 
   ;;;

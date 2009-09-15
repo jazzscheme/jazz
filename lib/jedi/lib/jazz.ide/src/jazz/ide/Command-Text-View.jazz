@@ -41,6 +41,7 @@
 (import (jazz.graphic)
         (jazz.ide)
         (jazz.jml)
+        (jazz.library)
         (jazz.platform)
         (jazz.ui)
         (jazz.utilities))
@@ -49,13 +50,9 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode             initialize {}                       getter generate)
-  (slot client           initialize {}                       getter generate)
-  (slot client-selection initialize {}                       getter generate)
-  (slot search-context   initialize (make-search-context ""))
-  (slot search-ranges    initialize '())
-  (slot found-style      initialize {})
-  (slot highlight-style  initialize {})
+  (slot mode             initialize {} getter generate)
+  (slot client           initialize {} getter generate)
+  (slot client-selection initialize {} getter generate)
   
   
   (form
@@ -70,22 +67,10 @@
       default-style: {Text-Style name: Default font: {Font name: Label}}))
   
   
-  (method (prepare-search range)
-    (set-target~ search-context "")
-    (let ((text? (and client (is? client Text-View))))
-      (set! client-selection (if text? (get-selection~ client) {}))
-      (set! search-ranges (if text? (list (or range client-selection)) '()))
-      (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
-      (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {}))))
-  
-  
-  ;;;
-  ;;;; Text
-  ;;;
-  
-  
-  (method (auto-complete?)
-    (eq? mode 'execute))
+  (method (component-alias name)
+    (case name
+      ((:mode) mode)
+      (else (nextmethod name))))
   
   
   ;;;
@@ -95,20 +80,19 @@
   
   (method (focus-gain old)
     (nextmethod old)
-    (unless (eq? client old)
-      (set! client old)
-      (prepare-search {})))
+    (set! client old)
+    (set! client-selection (essay (and client (is? client Text-View)) (get-selection~ client))))
   
   
   (method (focus-lose view)
     (nextmethod view)
-    (search-finish))
+    (finish~ mode))
   
   
   (method (focus-actions)
-    (cons (case mode
-            ((search-forward search-backward) (find-actions 'command-search))
-            (else (find-actions 'command-execute)))
+    (when (not mode)
+      (select-mode-execute))
+    (cons (focus-actions~ mode)
           (nextmethod)))
   
   
@@ -119,20 +103,28 @@
   
   (method (key-press key)
     (nextmethod key)
-    (case mode
-      ((search-forward search-backward)
-       (search mode #f whole-words?: #f))))
+    (key-press~ mode key))
   
   
   (method (backspace-press key (word?: word? #f))
     (nextmethod key word?: word?)
-    (case mode
-      ((search-forward search-backward)
-       (search mode #f whole-words?: #f))))
+    (backspace-press~ mode key word?: word?))
   
   
   (method (escape-press key)
-    (search-cancel))
+    (escape-press~ mode key))
+  
+  
+  (method (next-page evt)
+    (next-page~ mode))
+  
+  
+  (method (prior-page evt)
+    (prior-page~ mode))
+  
+  
+  (method (auto-complete?)
+    (auto-complete?~ mode))
   
   
   ;;;
@@ -140,121 +132,212 @@
   ;;;
   
   
-  (method public (select-mode mode value)
-    (case mode
-      ((search-forward search-backward)
-       (select-mode-search mode {})
-       (acquire-focus)
-       (when value
-         (set-text value)
-         (select-all)
-         (search mode #t whole-words?: #t)))
-      (else
-       (select-mode-execute)
-       (acquire-focus))))
-  
-  
-  (method public (select-current range value)
-    (select-mode-search 'search-forward range)
+  (method public (select-search direction range value again? whole-words?)
+    (select-mode-search direction range)
     (acquire-focus)
     (when value
       (set-text value)
       (select-all)
-      (search mode #f whole-words?: #f)))
+      (search~ mode direction again? whole-words?: whole-words?)))
+    
+  
+  (method (select-mode-search direction range)
+    (set! mode~self (new Search-Mode self direction range)))
   
   
-  ;;;
-  ;;;; Execute
-  ;;;
+  (method public (select-extended)
+    (select-mode-extended)
+    (acquire-focus))
+  
+  
+  (method (select-mode-extended)
+    (set! mode (new Extended-Mode self)))
+  
+  
+  (method public (select-execute)
+    (select-mode-execute)
+    (acquire-focus))
   
   
   (method (select-mode-execute)
-    (set! mode 'execute))
+    (set! mode (new Execute-Mode self))))
+
+
+;;;
+;;;; Command-Mode
+;;;
+
+
+(class Command-Mode extends Object
   
   
-  (method (on-done evt)
-    (when client
-      (acquire-focus~ client)))
+  (slot text)
   
   
-  ;;;
-  ;;;; Search
-  ;;;
+  (method (initialize text)
+    (nextmethod)
+    (set! text~self text))
   
   
-  (method (next-page evt)
-    (search 'search-forward #t))
+  (method (get-client)
+    (get-client~ text))
   
   
-  (method (prior-page evt)
-    (search 'search-backward #t))
+  (method (get-client-selection)
+    (get-client-selection~ text))
     
   
-  (method (select-mode-search mode range)
-    (set! mode~self mode)
+  (method virtual (key-press key)
+    )
+  
+  
+  (method virtual (backspace-press key (word?: word? #f))
+    )
+  
+  
+  (method virtual (escape-press key)
+    (cancel))
+  
+  
+  (method virtual (next-page)
+    )
+  
+  
+  (method virtual (prior-page)
+    )
+
+  
+  (method virtual (auto-complete?)
+    #f)
+  
+  
+  (method virtual (finish)
+    (let ((client (get-client)))
+      (when client
+        (acquire-focus~ client))))
+  
+  
+  (method virtual (cancel)
+    (let ((client (get-client)))
+      (when client
+        (acquire-focus~ client)))))
+
+
+;;;
+;;;; Search-Mode
+;;;
+
+
+(class Search-Mode extends Command-Mode
+  
+  
+  (slot direction       initialize {})
+  (slot context         initialize (make-search-context ""))
+  (slot ranges          initialize '())
+  (slot found-style     initialize {})
+  (slot highlight-style initialize {})
+  
+  
+  (method (initialize text direction range)
+    (nextmethod text)
+    (set! direction~self direction)
     (prepare-search range))
   
   
+  (method (prepare-search range)
+    (set-target~ context "")
+    (let ((client (get-client))
+          (client-selection (get-client-selection)))
+      (let ((text? (and client (is? client Text-View))))
+        (set! ranges (if text? (list (or range client-selection)) '()))
+        (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
+        (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {})))))
+  
+  
+  (method (focus-actions)
+    search-actions)
+  
+  
+  (method (key-press key)
+    (search direction #f whole-words?: #f))
+  
+  
+  (method (backspace-press key (word?: word? #f))
+    (search direction #f whole-words?: #f))
+  
+  
+  (method (escape-press key)
+    (cancel))
+  
+  
+  (method (next-page)
+    (search 'forward #t))
+  
+  
+  (method (prior-page)
+    (search 'backward #t))
+  
+  
   (method (select-whole-words? whole-words?)
-    (set-whole-words?~ search-context whole-words?)
+    (set-whole-words?~ context whole-words?)
     (user-message "Search whole-words {a}" (if whole-words? "on" "off")))
   
   
   (method (select-ignore-case? ignore-case?)
-    (set-ignore-case?~ search-context ignore-case?)
+    (set-ignore-case?~ context ignore-case?)
     (user-message "Search ignore-case {a}" (if ignore-case? "on" "off")))
   
   
   (method (on-whole-words evt)
-    (select-whole-words? (not (get-whole-words?~ search-context)))
+    (select-whole-words? (not (get-whole-words?~ context)))
     (rehighlight-target))
   
   
   (method (on-ignore-case evt)
-    (select-ignore-case? (not (get-ignore-case?~ search-context)))
+    (select-ignore-case? (not (get-ignore-case?~ context)))
     (rehighlight-target))
   
   
-  (method (on-search-forward evt)
-    (search 'search-forward #t))
+  (method (on-forward evt)
+    (search 'forward #t))
   
   
-  (method (on-search-backward evt)
-    (search 'search-backward #t))
+  (method (on-backward evt)
+    (search 'backward #t))
   
   
-  (method (on-search-finish evt)
-    (search-finish))
+  (method (on-finish evt)
+    (finish))
   
   
-  (method (on-search-cancel evt)
-    (search-cancel))
+  (method (on-cancel evt)
+    (cancel))
 
   
   (method (search direction again? (whole-words?: whole-words? 'keep))
     (define (reset-prefix len)
-      (set-target~ search-context (subseq (get-target~ search-context) 0 len))
-      (set-regexp~ search-context #f)
-      (set! search-ranges (subseq search-ranges 0 (+ len 1))))
+      (set-target~ context (subseq (get-target~ context) 0 len))
+      (set-regexp~ context #f)
+      (set! ranges (subseq ranges 0 (+ len 1))))
     
-    (define (search-key key whole-words?)
+    (define (search-key client key whole-words?)
       (let ((target (if (not key)
-                        (get-target~ search-context)
-                      (concatenate (get-target~ search-context) (format "{c}" key))))
-            (last-range (last search-ranges)))
+                        (get-target~ context)
+                      (concatenate (get-target~ context) (format "{c}" key))))
+            (last-range (last ranges)))
         (let ((pos (case direction
-                     ((search-forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
-                     ((search-backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
-              (reversed? (eq? direction 'search-backward)))
-          (set-target~ search-context target)
-          (set-regexp~ search-context #f)
-          (set-whole-words?~ search-context whole-words?)
-          (let ((found (text-multisearch~ client (list search-context) start: pos reversed?: reversed?)))
+                     ((forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
+                     ((backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
+              (reversed? (eq? direction 'backward)))
+          (set-target~ context target)
+          (set-regexp~ context #f)
+          (set-whole-words?~ context whole-words?)
+          (let ((found (text-multisearch~ client (list context) start: pos reversed?: reversed?)))
             (define (update-range range)
               (if (not key)
-                  (let ((pair (last-pair search-ranges)))
+                  (let ((pair (last-pair ranges)))
                     (set-car! pair range))
-                (set! search-ranges (append search-ranges (list range)))))
+                (set! ranges (append ranges (list range)))))
             
             (if (not found)
                 (begin
@@ -264,55 +347,168 @@
                 (let ((range (new Range$Cell$ from to)))
                   (update-range range))))))))
     
-    (define (highlight-target found-range)
+    (define (highlight-target client found-range)
       (remove-highlights)
-      (let ((target (get-target~ search-context)))
+      (let ((target (get-target~ context)))
         (unless (empty-string? target)
           (for-each (function (found)
                       (bind (start . end) found
                         (let ((range (new Range$Cell$ start end)))
                           (unless (nu=? range found-range)
                             (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                    (text-multisearch-all~ client (list search-context)))))
+                    (text-multisearch-all~ client (list context)))))
       (add-highlight~ client (new Text-Highlight found-range found-style))
       (set-selection~ client found-range))
     
-    (when (is? client Text-View)
-      (unless (eq? whole-words? 'keep)
-        (select-whole-words? whole-words?))
-      (let ((content (get-string-content))
-            (target (get-target~ search-context)))
-        (let ((prefix (prefix (list content target))))
-          (reset-prefix (cardinality prefix))
-          (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
-            (when (or again? (not (empty-string? suffix)))
-              (let ((whole-words? (get-whole-words?~ search-context)))
-                (for-each (function (key)
-                            (search-key key #f))
-                          suffix)
-                (when again?
-                  (search-key {} whole-words?))))
-            (highlight-target (last search-ranges)))))))
+    (let ((client (get-client)))
+      (when (is? client Text-View)
+        (unless (eq? whole-words? 'keep)
+          (select-whole-words? whole-words?))
+        (let ((content (get-string-content~ text))
+              (target (get-target~ context)))
+          (let ((prefix (prefix (list content target))))
+            (reset-prefix (cardinality prefix))
+            (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
+              (when (or again? (not (empty-string? suffix)))
+                (let ((whole-words? (get-whole-words?~ context)))
+                  (iterate suffix
+                           (function (key)
+                             (search-key client key #f)))
+                  (when again?
+                    (search-key client {} whole-words?))))
+              (highlight-target client (last ranges))))))))
   
   
   (method (rehighlight-target)
-    (search mode #f))
+    (search direction #f))
   
   
   (method (remove-highlights)
-    (when (is? client Text-View)
-      (remove-all-highlights~ client)))
+    (let ((client (get-client)))
+      (when (is? client Text-View)
+        (remove-all-highlights~ client))))
   
   
-  (method (search-finish)
-    (when client
-      (remove-highlights)
-      (acquire-focus~ client)))
+  (method (finish)
+    (let ((client (get-client)))
+      (when client
+        (remove-highlights)
+        (acquire-focus~ client))))
   
   
-  (method (search-cancel)
-    (when client
-      (remove-highlights)
-      (when client-selection
-        (set-selection~ client client-selection))
-      (acquire-focus~ client)))))
+  (method (cancel)
+    (let ((client (get-client))
+          (client-selection (get-client-selection)))
+      (when client
+        (remove-highlights)
+        (when client-selection
+          (set-selection~ client client-selection))
+        (acquire-focus~ client)))))
+
+
+;;;
+;;;; Search-Actions
+;;;
+
+
+(class Search-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: whole-words action-handler: {Event-Handler (:focus :mode) on-whole-words} shortcut: {Shortcut :alt #\W})
+      (<Action-Item> name: ignore-case action-handler: {Event-Handler (:focus :mode) on-ignore-case} shortcut: {Shortcut :alt #\I})
+      (<Action-Item> name: forward     action-handler: {Event-Handler (:focus :mode) on-forward} shortcut: {Shortcut :control #\S})
+      (<Action-Item> name: backward    action-handler: {Event-Handler (:focus :mode) on-backward} shortcut: {Shortcut :control #\R})
+      (<Action-Item> name: current     action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :alt #\S})
+      (<Action-Item> name: finish      action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
+      (<Action-Item> name: cancel      action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
+
+
+(definition search-actions
+  (new Search-Actions))
+
+
+;;;
+;;;; Extended-Mode
+;;;
+
+
+(class Extended-Mode extends Command-Mode
+  
+  
+  (method (focus-actions)
+    extended-actions)
+  
+  
+  (method (on-find-file evt)
+    )
+  
+  
+  (method (on-finish evt)
+    (finish))
+  
+  
+  (method (on-cancel evt)
+    (cancel)))
+
+
+;;;
+;;;; Extended-Actions
+;;;
+
+
+(class Extended-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: find-file action-handler: {Event-Handler (:focus :mode) on-find-file} shortcut: {Shortcut :control #\F})
+      (<Action-Item> name: finish    action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
+      (<Action-Item> name: cancel    action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
+
+
+(definition extended-actions
+  (new Extended-Actions))
+
+
+;;;
+;;;; Execute-Mode
+;;;
+
+
+(class Execute-Mode extends Command-Mode
+  
+  
+  (method (focus-actions)
+    execute-actions)
+  
+  
+  (method (auto-complete?)
+    #t)
+  
+  
+  (method (on-finish evt)
+    (finish))
+  
+  
+  (method (on-cancel evt)
+    (cancel)))
+
+
+;;;
+;;;; Execute-Actions
+;;;
+
+
+(class Execute-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: finish action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
+      (<Action-Item> name: cancel action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
+
+
+(definition execute-actions
+  (new Execute-Actions)))

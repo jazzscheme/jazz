@@ -49,12 +49,13 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode            initialize {}                       getter generate)
-  (slot client          initialize {}                       getter generate)
-  (slot search-context  initialize (make-search-context ""))
-  (slot search-ranges   initialize '())
-  (slot found-style     initialize {})
-  (slot highlight-style initialize {})
+  (slot mode             initialize {}                       getter generate)
+  (slot client           initialize {}                       getter generate)
+  (slot client-selection initialize {}                       getter generate)
+  (slot search-context   initialize (make-search-context ""))
+  (slot search-ranges    initialize '())
+  (slot found-style      initialize {})
+  (slot highlight-style  initialize {})
   
   
   (form
@@ -69,10 +70,11 @@
       default-style: {Text-Style name: Default font: {Font name: Label}}))
   
   
-  (method (prepare-search)
+  (method (prepare-search range)
     (set-target~ search-context "")
     (let ((text? (and client (is? client Text-View))))
-      (set! search-ranges (if text? (list (get-selection~ client)) '()))
+      (set! client-selection (if text? (get-selection~ client) {}))
+      (set! search-ranges (if text? (list (or range client-selection)) '()))
       (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 162 blue: 47}) {}))
       (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {}))))
   
@@ -95,7 +97,7 @@
     (nextmethod old)
     (unless (eq? client old)
       (set! client old)
-      (prepare-search)))
+      (prepare-search {})))
   
   
   (method (focus-lose view)
@@ -141,7 +143,7 @@
   (method public (select-mode mode value)
     (case mode
       ((search-forward search-backward)
-       (select-mode-search mode)
+       (select-mode-search mode {})
        (acquire-focus)
        (when value
          (set-text value)
@@ -150,6 +152,15 @@
       (else
        (select-mode-execute)
        (acquire-focus))))
+  
+  
+  (method public (select-current range value)
+    (select-mode-search 'search-forward range)
+    (acquire-focus)
+    (when value
+      (set-text value)
+      (select-all)
+      (search mode #f whole-words?: #f)))
   
   
   ;;;
@@ -179,9 +190,9 @@
     (search 'search-backward #t))
     
   
-  (method (select-mode-search mode)
+  (method (select-mode-search mode range)
     (set! mode~self mode)
-    (prepare-search))
+    (prepare-search range))
   
   
   (method (select-whole-words? whole-words?)
@@ -296,5 +307,6 @@
   (method (search-cancel)
     (when client
       (remove-highlights)
-      (set-selection~ client (car search-ranges))
+      (when client-selection
+        (set-selection~ client client-selection))
       (acquire-focus~ client)))))

@@ -40,9 +40,11 @@
 
 (import (jazz.graphic)
         (jazz.ide)
+        (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.platform)
+        (jazz.system)
         (jazz.ui)
         (jazz.utilities))
 
@@ -64,7 +66,7 @@
       top-padding: 2
       tooltip?: #t
       tooltip-text: "Command Shell"
-      default-style: {Text-Style name: Default font: {Font name: Label}}))
+      default-style: {Text-Style name: Default font: {Font name: Label-User}}))
   
   
   (method (component-alias name)
@@ -86,12 +88,12 @@
   
   (method (focus-lose view)
     (nextmethod view)
-    (finish~ mode))
+    (cleanup~ mode))
   
   
   (method (focus-actions)
     (when (not mode)
-      (select-mode-execute))
+      (set-mode-execute))
     (cons (focus-actions~ mode)
           (nextmethod)))
   
@@ -127,39 +129,57 @@
     (auto-complete?~ mode))
   
   
+  (method (auto-complete-char? key last)
+    (let ((auto? (auto-complete-char?~ mode key last)))
+      (if (eq? auto? 'default)
+          (nextmethod key last)
+        auto?)))
+
+
+  (method (completion-name pos postfix)
+    (either (completion-name~ mode pos postfix)
+            (nextmethod pos postfix)))
+    
+  
+  (method (symbol-completions name)
+    (either (symbol-completions~ mode name)
+            (nextmethod name)))
+
+  
   ;;;
   ;;;; Mode
   ;;;
   
   
-  (method public (select-search direction range value again? whole-words?)
-    (select-mode-search direction range)
+  (method public (select-search direction range initial again? whole-words?)
+    (set-mode-search direction)
     (acquire-focus)
-    (when value
-      (set-text value)
+    (prepare-search~ mode range)
+    (when initial
+      (set-text initial)
       (select-all)
       (search~ mode direction again? whole-words?: whole-words?)))
     
   
-  (method (select-mode-search direction range)
-    (set! mode~self (new Search-Mode self direction range)))
+  (method (set-mode-search direction)
+    (set! mode~self (new Search-Mode self direction)))
   
   
   (method public (select-extended)
-    (select-mode-extended)
+    (set-mode-extended)
     (acquire-focus))
   
   
-  (method (select-mode-extended)
+  (method (set-mode-extended)
     (set! mode (new Extended-Mode self)))
   
   
   (method public (select-execute)
-    (select-mode-execute)
+    (set-mode-execute)
     (acquire-focus))
   
   
-  (method (select-mode-execute)
+  (method (set-mode-execute)
     (set! mode (new Execute-Mode self))))
 
 
@@ -211,13 +231,27 @@
     #f)
   
   
+  (method virtual (auto-complete-char? key last)
+    'default)
+
+
+  (method virtual (completion-name pos postfix)
+    {})
+  
+  
+  (method virtual (symbol-completions name)
+    {})
+  
+  
   (method virtual (finish)
-    (let ((client (get-client)))
-      (when client
-        (acquire-focus~ client))))
+    (cleanup))
   
   
   (method virtual (cancel)
+    (cleanup))
+  
+  
+  (method virtual (cleanup)
     (let ((client (get-client)))
       (when client
         (acquire-focus~ client)))))
@@ -238,10 +272,9 @@
   (slot highlight-style initialize {})
   
   
-  (method (initialize text direction range)
+  (method (initialize text direction)
     (nextmethod text)
-    (set! direction~self direction)
-    (prepare-search range))
+    (set! direction~self direction))
   
   
   (method (prepare-search range)
@@ -255,7 +288,7 @@
   
   
   (method (focus-actions)
-    search-actions)
+    (find-actions 'command-search))
   
   
   (method (key-press key)
@@ -390,43 +423,22 @@
   
   
   (method (finish)
-    (let ((client (get-client)))
-      (when client
-        (remove-highlights)
-        (acquire-focus~ client))))
+    (cleanup))
   
   
   (method (cancel)
+    (cleanup)
     (let ((client (get-client))
           (client-selection (get-client-selection)))
+      (when client-selection
+        (set-selection~ client client-selection))))
+  
+  
+  (method (cleanup)
+    (let ((client (get-client)))
       (when client
         (remove-highlights)
-        (when client-selection
-          (set-selection~ client client-selection))
         (acquire-focus~ client)))))
-
-
-;;;
-;;;; Search-Actions
-;;;
-
-
-(class Search-Actions extends Actions
-  
-  
-  (form
-    (<install>
-      (<Action-Item> name: whole-words action-handler: {Event-Handler (:focus :mode) on-whole-words} shortcut: {Shortcut :alt #\W})
-      (<Action-Item> name: ignore-case action-handler: {Event-Handler (:focus :mode) on-ignore-case} shortcut: {Shortcut :alt #\I})
-      (<Action-Item> name: forward     action-handler: {Event-Handler (:focus :mode) on-forward} shortcut: {Shortcut :control #\S})
-      (<Action-Item> name: backward    action-handler: {Event-Handler (:focus :mode) on-backward} shortcut: {Shortcut :control #\R})
-      (<Action-Item> name: current     action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :alt #\S})
-      (<Action-Item> name: finish      action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
-      (<Action-Item> name: cancel      action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
-
-
-(definition search-actions
-  (new Search-Actions))
 
 
 ;;;
@@ -437,12 +449,33 @@
 (class Extended-Mode extends Command-Mode
   
   
+  (slot submode initialize {})
+  
+  
   (method (focus-actions)
-    extended-actions)
+    (find-actions 'command-extended))
   
   
-  (method (on-find-file evt)
-    )
+  (method (auto-complete?)
+    (eq? submode 'find-file))
+  
+  
+  (method (auto-complete-char? key last)
+    (case submode
+      ((find-file) (memv? key '(#\/ #\- #\_ #\.)))
+      (else 'default)))
+
+
+  (method (completion-name pos postfix)
+    (case submode
+      ((find-file) (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
+      (else (nextmethod pos postfix))))
+  
+  
+  (method (symbol-completions name)
+    (case submode
+      ((find-file) (file-completions name))
+      (else (nextmethod name))))
   
   
   (method (on-finish evt)
@@ -450,26 +483,91 @@
   
   
   (method (on-cancel evt)
-    (cancel)))
-
-
-;;;
-;;;; Extended-Actions
-;;;
-
-
-(class Extended-Actions extends Actions
+    (cancel))
   
   
-  (form
-    (<install>
-      (<Action-Item> name: find-file action-handler: {Event-Handler (:focus :mode) on-find-file} shortcut: {Shortcut :control #\F})
-      (<Action-Item> name: finish    action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
-      (<Action-Item> name: cancel    action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
-
-
-(definition extended-actions
-  (new Extended-Actions))
+  (method (finish)
+    (case submode
+      ((find-file) (finish-find-file))
+      (else (nextmethod))))
+  
+  
+  (method (cancel)
+    (case submode
+      ((find-file) (cancel-find-file) (nextmethod))
+      (else (nextmethod))))
+  
+  
+  (method (cleanup)
+    (cleanup-find-file)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Find-File
+  ;;;
+  
+  
+  (method (on-find-file evt)
+    (set-submode-find-file)
+    (set-text~ text (standardize-filename (current-directory)))
+    (set-caret~ text (text-ending~ text)))
+  
+  
+  (method (set-submode-find-file)
+    (set! submode 'find-file))
+  
+  
+  (method (standardize-filename filename)
+    (let ((home (pathname-normalize "~")))
+      (if (starts-with? filename home)
+          (string-append "~/" (substring filename (cardinality home) (cardinality filename)))
+        filename)))
+  
+  
+  (method (file-name)
+    (get-string-content~ text))
+  
+  
+  (method (split-filename filename)
+    (let ((pos (find filename #\/ reversed?: #t)))
+      (if (not pos)
+          (values (current-directory) filename)
+        (values (substring filename 0 (+ pos 1))
+                (substring filename (+ pos 1) (string-length filename))))))
+  
+  
+  (method (file-completions filename)
+    (receive (dir filename) (split-filename filename)
+      (when (and (file-exists? dir)
+                 (eq? (pathname-type dir) 'directory))
+        (collect (function (name)
+                   (when (compare-n filename name (string-length filename) test: char-ci=?)
+                     (let ((path (standardize-filename (string-append dir name))))
+                       (if (and (file-exists? path)
+                                (eq? (pathname-type path) 'directory))
+                           (string-append path "/")
+                         path))))
+                 (directory-content (list path: dir ignore-hidden: 'dot-and-dot-dot))))))
+  
+  
+  (method (finish-find-file)
+    (let ((filename (file-name)))
+      (if (and (file-exists? filename)
+               (eq? (pathname-type filename) 'regular))
+          (let ((file (anchorize~ (new File (tokenise-filename (pathname-normalize filename))))))
+            (set-current-directory (get-parent~ file))
+            (edit-document~ (get-application) file)
+            (cleanup-find-file))
+        (bell))))
+  
+  
+  (method (cancel-find-file)
+    (cleanup-find-file))
+  
+  
+  (method (cleanup-find-file)
+    (set-string-content~ text "")))
 
 
 ;;;
@@ -481,7 +579,7 @@
   
   
   (method (focus-actions)
-    execute-actions)
+    (find-actions 'command-execute))
   
   
   (method (auto-complete?)
@@ -493,22 +591,4 @@
   
   
   (method (on-cancel evt)
-    (cancel)))
-
-
-;;;
-;;;; Execute-Actions
-;;;
-
-
-(class Execute-Actions extends Actions
-  
-  
-  (form
-    (<install>
-      (<Action-Item> name: finish action-handler: {Event-Handler (:focus :mode) on-finish} shortcut: {Shortcut Return})
-      (<Action-Item> name: cancel action-handler: {Event-Handler (:focus :mode) on-cancel} shortcut: {Shortcut :control #\G}))))
-
-
-(definition execute-actions
-  (new Execute-Actions)))
+    (cancel))))

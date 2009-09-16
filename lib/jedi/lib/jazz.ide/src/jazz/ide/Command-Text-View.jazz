@@ -113,10 +113,6 @@
     (backspace-press~ mode key word?: word?))
   
   
-  (method (escape-press key)
-    (escape-press~ mode key))
-  
-  
   (method (next-page evt)
     (next-page~ mode))
   
@@ -125,15 +121,27 @@
     (prior-page~ mode))
   
   
+  (method (get-constituent-test)
+    (either (get-constituent-test~ mode)
+            (nextmethod)))
+  
+  
   (method (auto-complete?)
     (auto-complete?~ mode))
   
   
   (method (auto-complete-char? key last)
-    (let ((auto? (auto-complete-char?~ mode key last)))
-      (if (eq? auto? 'default)
+    (let ((value (auto-complete-char?~ mode key last)))
+      (if (eq? value 'default)
           (nextmethod key last)
-        auto?)))
+        value)))
+  
+  
+  (method (complete-name? size)
+    (let ((value (complete-name?~ mode size)))
+      (if (eq? value 'default)
+          (nextmethod size)
+        value)))
 
 
   (method (completion-name pos postfix)
@@ -215,16 +223,16 @@
     )
   
   
-  (method virtual (escape-press key)
-    (cancel))
-  
-  
   (method virtual (next-page)
     )
   
   
   (method virtual (prior-page)
     )
+  
+  
+  (method virtual (get-constituent-test)
+    #f)
 
   
   (method virtual (auto-complete?)
@@ -232,6 +240,10 @@
   
   
   (method virtual (auto-complete-char? key last)
+    'default)
+  
+  
+  (method virtual (complete-name? size)
     'default)
 
 
@@ -297,10 +309,6 @@
   
   (method (backspace-press key (word?: word? #f))
     (search direction #f whole-words?: #f))
-  
-  
-  (method (escape-press key)
-    (cancel))
   
   
   (method (next-page)
@@ -456,6 +464,12 @@
     (find-actions 'command-extended))
   
   
+  (method (get-constituent-test)
+    (case submode
+      ((find-file) filename-constituent?)
+      (else {})))
+  
+  
   (method (auto-complete?)
     (eq? submode 'find-file))
   
@@ -464,11 +478,17 @@
     (case submode
       ((find-file) (memv? key '(#\/ #\- #\_ #\.)))
       (else 'default)))
+  
+  
+  (method (complete-name? size)
+    (case submode
+      ((find-file) (>= size 1))
+      (else 'default)))
 
 
   (method (completion-name pos postfix)
     (case submode
-      ((find-file) (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
+      ((find-file) (completion-filename pos postfix))
       (else (nextmethod pos postfix))))
   
   
@@ -518,6 +538,11 @@
     (set! submode 'find-file))
   
   
+  (definition (filename-constituent? c <char>) <bool>
+    (or (alphabetic? c)
+        (numeric? c)))
+  
+  
   (method (standardize-filename filename)
     (let ((home (pathname-normalize "~")))
       (if (starts-with? filename home)
@@ -529,26 +554,31 @@
     (get-string-content~ text))
   
   
+  (method (completion-filename pos postfix)
+    (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
+  
+  
   (method (split-filename filename)
     (let ((pos (find filename #\/ reversed?: #t)))
       (if (not pos)
-          (values (current-directory) filename)
+          (values {} filename)
         (values (substring filename 0 (+ pos 1))
                 (substring filename (+ pos 1) (string-length filename))))))
   
   
   (method (file-completions filename)
     (receive (dir filename) (split-filename filename)
-      (when (and (file-exists? dir)
-                 (eq? (pathname-type dir) 'directory))
+      (when (or (not dir)
+                (and (file-exists? dir)
+                     (eq? (pathname-type dir) 'directory)))
         (collect (function (name)
                    (when (compare-n filename name (string-length filename) test: char-ci=?)
-                     (let ((path (standardize-filename (string-append dir name))))
+                     (let ((path (standardize-filename (string-append (either dir "") name))))
                        (if (and (file-exists? path)
                                 (eq? (pathname-type path) 'directory))
                            (string-append path "/")
                          path))))
-                 (directory-content (list path: dir ignore-hidden: 'dot-and-dot-dot))))))
+                 (directory-content (list path: (either dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
   
   
   (method (finish-find-file)

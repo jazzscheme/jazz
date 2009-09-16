@@ -1513,11 +1513,11 @@
       v))
   
   
-  (method public (scroll-needed start end context (force-vertical: force-vertical {}) (force-horizontal: force-horizontal {}) (reposition?: reposition? #f)) <Point>
+  (method public (scroll-needed start end context (force-vertical: force-vertical {}) (force-horizontal: force-horizontal {}) (reposition?: reposition? #f) (center?: center? #f)) <Point>
     (let ((display-pos (get-display-position))
           (display-size (get-display-size))
           (needed
-            (function (start end context pos size force-direction)
+            (function (start end context pos size force-direction center?)
               (let* ((start-offset (- pos start))
                      (end-offset (- (+ pos size) end))
                      (big-range? (> (- end start) size))
@@ -1525,13 +1525,14 @@
                              (let ((context (if context (fxround (* size context)) 0)))
                                (if use-head? (+ start-offset context) (- end-offset context))))))
                 (cond
+                  (center? (quotient (+ start-offset end-offset) 2))
                   (reposition? (proc (neq? force-direction 'tail)))
                   ((and (> start-offset 0) (> end-offset 0)) (proc (if (not force-direction) (not big-range?) (eq? force-direction 'head))))
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed (get-h~ start) (get-h~ end) (essay context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal)
-        (needed (get-v~ start) (get-v~ end) (essay context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical))))
+        (needed (get-h~ start) (get-h~ end) (essay context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal #f)
+        (needed (get-v~ start) (get-v~ end) (essay context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical center?))))
   
   
   (method public (horizontal-scroll-needed target direction) <fx>

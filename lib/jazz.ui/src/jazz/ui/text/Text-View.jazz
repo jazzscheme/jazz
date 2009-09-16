@@ -1363,6 +1363,13 @@
              (process-selection-change)))))
   
   
+  (method (on-widen-forward evt)
+    (let ((start (get-start))
+          (end (get-end)))
+      (let ((extend (next-word end constituent-test: alphanumeric?)))
+        (set-selection (new Range$Cell$ start extend)))))
+  
+  
   (method (reset-mode-on-anchor)
     (if (and (has-selection?) (nu=? (get-start) (get-start~ selection-anchor)) (nu=? (get-end) (get-end~ selection-anchor)))
         (reset-mode)
@@ -2376,17 +2383,17 @@
   ;;;
   
   
-  (method public (next-word pos)
+  (method public (next-word pos (constituent-test: constituent-test {}))
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (get-constituent-test)))
+          (test (either constituent-test (get-constituent-test))))
       (forward-until~ expl (function (c) (test c)))
       (forward-until~ expl (function (c) (not (test c))))
       (get-end~ expl)))
   
   
-  (method public (previous-word pos)
+  (method public (previous-word pos (constituent-test: constituent-test {}))
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (get-constituent-test)))
+          (test (either constituent-test (get-constituent-test))))
       (backward-until~ expl (function (c) (test c)))
       (backward-until~ expl (function (c) (not (test c))))
       (get-start~ expl)))
@@ -3882,7 +3889,9 @@
   
   
   (method public virtual (current-expr-range)
-    )
+    (if (and (not completion-active?) (has-selection?))
+        (get-selection)
+      (expr-range (get-end))))
   
   
   (method public (current-expr-string)

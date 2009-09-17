@@ -250,18 +250,17 @@
                       processed))))
   
   
-  (method public (update-file file)
+  (method public (update-file file (threaded?: threaded? #f))
     (set-active? #t)
     (let* ((entry (get-file-entry file))
            (marked? (and entry (get-marked?~ entry))))
       (catch (Parse-Error err
                (user-message "Error at line {s}" (get-row~ (get-start~ err)))
                (when entry
-                 (set-marked?~ entry marked?))
-               #f)
+                 (set-marked?~ entry marked?)))
         (when entry
           (set-marked?~ entry #f))
-        (prog1 (process-file file)
+        (prog1 (process-file file report?: #f)
           (sweep)))))
   
   
@@ -326,8 +325,9 @@
            (get-parser-class extension))))
 
   
-  (method (scan-file file time)
-    (user-message "Parsing {a}" file)
+  (method (scan-file file time report?)
+    (when report?
+      (user-message "Parsing {a}" file))
     (let ((extension (get-extension~ file)))
       (parse~ (get-parser extension) file time)))
 

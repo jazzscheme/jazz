@@ -619,6 +619,14 @@
     (%%make-package repository name parent library-root library-path modules-root modules-path install char-encoding products profiles project)))
 
 
+(define (jazz.package-root package)
+  (let ((parent (%%package-parent package)))
+    (%%string-append (%%repository-library-root (%%package-repository package))
+                     "/"
+                     (if parent (%%string-append (%%package-library-path parent) "/") "")
+                     (%%symbol->string (%%package-name package)))))
+
+
 (define (jazz.package-pathname package path)
   (let ((parent (%%package-parent package)))
     (jazz.repository-pathname (%%package-repository package)

@@ -97,22 +97,22 @@
       ((active-window)
        (search-active-window multi-search-context))
       (else
-       (search-threaded multi-search-context)
-       @convert
-       (new Thread
-         name: "Search"
-         context: self
-         execute: (function (thread)
-                    (search-threaded multi-search-context))))))
+       (thread-start!
+         (new-thread
+           (function ()
+             (search-threaded multi-search-context))
+           'search)))))
   
   
   (method synchronized (search-threaded multi-search-context)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
            (found (search multi-search-context reporter)))
-      (let ((results (get-results)))
-        (set-mode~ results 'text)
-        (add-results~ results found (get-search-targets))
-        (select-results~ results))
+      (post-event
+        (function ()
+          (let ((results (get-results)))
+            (set-mode~ results 'text)
+            (add-results~ results found (get-search-targets))
+            (select-results~ results))))
       @activity-manager
       (when reporter
         (let ((manager (get-activity-manager)))

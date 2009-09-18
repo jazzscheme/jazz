@@ -40,26 +40,46 @@
 
 (import (jazz.catalog)
         (jazz.io)
+        (jazz.library)
         (jazz.system)
         (jazz.ui.view)
-        (jazz.ui.window)
         (jazz.utilities)
         (time))
 
 
 (class undocumented Filing-Catalog extends Catalog
+  
+
+  (slot file)
+  (slot active?)
+  (slot loaded?)
+  (slot modified?)
+  (slot directories)
+  (slot extensions)
+  (slot char-encoding)
+  (slot heuristics)
+  (slot references?)
+  (slot content-index)
+  (slot definitions-index)
+  (slot references-index)
+  (slot mutex)
 
 
-  (slot file      initialize {})
-  (slot active?   initialize #f)
-  (slot loaded?   initialize #f)
-  (slot modified? initialize #f)
-
-
-  (method (initialize name file active?)
+  (method (initialize name file directories extensions char-encoding heuristics references?)
     (nextmethod name)
     (set! file~self file)
-    (set! active?~self active?))
+    (set! active?~self #f)
+    (set! loaded?~self #f)
+    (set! modified?~self #f)
+    (set! directories~self directories)
+    (set! extensions~self extensions)
+    (set! char-encoding~self char-encoding)
+    (set! heuristics~self heuristics)
+    (set! references?~self references?)
+    (set! content-index~self (make-table test: equal?))
+    (set! definitions-index~self (make-table test: equal?))
+    (set! references-index~self (make-table test: equal?))
+    (set! mutex~self (make-mutex 'catalog)))
 
 
   ;;;
@@ -76,173 +96,140 @@
   
   
   (method (set-active? flag)
-    (when (neq? flag active?)
-      (set! active? flag)
-      (if active?
-          (activate)
-        (deactivate))))
-
-
-  (method public (get-modified?)
-    modified?)
-
-
-  (method public (set-modified? state)
-    (when (neq? state modified?)
-      (set! modified? state)))
-
-
-  ;;;
-  ;;;; Definitions
-  ;;;
+    (set! active? flag))
   
   
-  (method (get-category-definitions name)
-    (collect-type Category-Entry (get-definitions name)))
-
-
-  ;;;
-  ;;;; Content
-  ;;;
-
-
-  (method public virtual (iterate-content proc)
-    )
-
-
-  ;;;
-  ;;;; Update
-  ;;;
+  (method (set-modified? flag)
+    (set! modified? flag))
   
   
-  (method public virtual (update (report?: report? #t))
-    (set-active? #t)
-    (when report?
-      (user-message "Updating {a}..." (present)))
-    (scan)
-    (sweep)
-    (reset-marks)
-    (when report?
-      (user-message "{a} {a} Updated" name (present))))
+  (method public (get-directories)
+    directories)
   
   
-  (method protected virtual (reset-marks)
-    )
-
-
-  ;;;
-  ;;;; Scan
-  ;;;
+  (method public virtual (get-extensions)
+    extensions)
   
   
-  (method protected (scan)
-    (reset-marks)
-    (catch (Parse-Error err
-             (message-box (exception-reason err))
-             (let ((appl (get-application))
-                   (start (get-start~ err))
-                   (end (get-end~ err)))
-               (edit-document~ appl (get-source~ err) selection: (new Range start end)))
-             (throw-cancel))
-      (scan-directories)))
+  (method public virtual (get-char-encoding)
+    char-encoding)
   
   
-  (method protected virtual (scan-directories)
-    )
+  (method public virtual (get-heuristics)
+    heuristics)
   
   
-  (method protected (scan-directory directory (recursive?: recursive? #t))
-    (let ((processed 0))
-      (iterate-directory~ directory
-        (function (file)
-          (when (process-file file)
-            (increase! processed)))
-        files?: #t
-        directories?: #f
-        recursive?: recursive?)
-      processed))
-
-  
-  (method protected (process-file file (report?: report? #t))
-    ;; a quicky so that the scan doesn't block on errors
-    (catch (Parse-Error err
-             (debug (exception-reason err)))
-      (when (scan-file? file)
-        (if (exists?~ file)
-            (let* ((name (get-base~ file))
-                   (time (get-modification-time~ file))
-                   (definition (get-unmodified-file-entry name file time)))
-              (if definition
-                  (begin
-                    (set-marked?~ definition #t)
-                    #f)
-                (set-modified? #t)
-                (let ((entry (scan-file file time report?)))
-                  (set-marked?~ entry #t)
-                  (update-entry entry)
-                  (add-entry name entry))
-                #t))
-          ;; quick solution
-          (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
-          #f))))
+  (method public (get-references?)
+    references?)
   
   
-  (method (get-unmodified-file-entry name file time)
-    (let ((old (get-file-entry file)))
-      (when (and old (= (time->seconds (get-time~ old)) (time->seconds time)))
-        old)))
-
-  
-  (method protected virtual (scan-file? file)
-    #f)
-
-  
-  (method protected virtual (scan-file file time report?)
-    )
+  (method public (iterate-content proc)
+    (with-mutex
+      (function ()
+        (iterate-table content-index proc))))
   
   
-  (method protected virtual (update-entry entry)
-    )
+  (method public (iterate-definitions proc)
+    (with-mutex
+      (function ()
+        (iterate-table definitions-index proc))))
   
   
-  (method protected virtual (add-entry name entry)
-    )
+  (method public (iterate-references proc)
+    (with-mutex
+      (function ()
+        (iterate-table references-index proc))))
+  
+  
+  (method public (get-file-definitions name)
+    (with-mutex
+      (function ()
+        (%%get-file-definitions name))))
+  
+  
+  (method (%%get-file-definitions name)
+    (table-ref content-index name '()))
+  
+  
+  (method (get-file-entry file)
+    (with-mutex
+      (function ()
+        (%%get-file-entry file))))
+  
+  
+  (method (%%get-file-entry file)
+    (find-if (function (definition)
+               (pathname=? (get-file~ definition) file))
+             (%%get-file-definitions (get-base~ file))))
+  
+  
+  (method public (get-statistics)
+    (define (count-file-entries content-index)
+      (let ((count 0))
+        (iterate-table content-index
+          (function (name file-entries)
+            (increase! count (length file-entries))))
+        count))
+    
+    (with-mutex
+      (function ()
+        (let ((f (count-file-entries content-index))
+              (d (table-length definitions-index))
+              (r (table-length references-index)))
+          (format "{a} file{a}, {a} definition{a}, {a} reference{a}"
+                  f (format-plural f)
+                  d (format-plural d)
+                  r (format-plural r))))))
 
 
   ;;;
-  ;;;; Sweep
+  ;;;; Thread
   ;;;
   
   
-  ;; temp virtual until Indexed and Filing catalog unification
-  (method protected virtual (sweep)
-    )
+  (method (with-mutex thunk)
+    (mutex-lock! mutex)
+    (prog1 (thunk)
+      (mutex-unlock! mutex)))
+
+
+  ;;;
+  ;;;; Activation
+  ;;;
+      
   
+  (method (activate (report?: report? #t))
+    (define (load-content report?)
+      (when (and (not loaded?) (exists?~ file))
+        (when report?
+          (user-message "Loading Catalog..."))
+        (with-jazz-readtable
+          (function ()
+            (table-load content-index file #t)))
+        (update-catalog-indexes report?)
+        (set! loaded? #t)
+        (when report?
+          (user-message "Done"))))
+    
+    (define (update-catalog-indexes report?)
+      (when report?
+        (user-message "Updating Indexes..."))
+      (iterate-table content-index
+        (function (name definitions)
+          (for-each (function (file-definition)
+                      (set-catalog~ file-definition self)
+                      (update-indexes~ file-definition definitions-index references-index))
+                    definitions))))
+    
+    (unless (get-active?)
+      (with-mutex
+        (function ()
+          (load-content report?)
+          (set-active? #t)))))
+      
   
-  ;; temp virtual until Indexed and Filing catalog unification
-  (method protected virtual (marked? definition)
-    (get-marked?~ (get-file-entry~ definition)))
-  
-  
-  ;; temp virtual until Indexed and Filing catalog unification
-  (method protected virtual (sweep-table table marked? reset?)
-    (iterate-table table
-      (function (class-name definitions)
-        (when (not-null? definitions)
-          (let ((previous definitions)
-                (list (cdr definitions)))
-            (while (not-null? list)
-              (let ((definition (car list)))
-                (if (marked? definition)
-                    (begin
-                      (set! previous list)
-                      (set! list (cdr list)))
-                  (when reset?
-                    (set-marked?~ definition #f))
-                  (set-cdr! previous (cddr previous))
-                  (set! list (cdr previous))))))
-          (when (not (marked? (car definitions)))
-            (table-set! table class-name (cdr definitions)))))))
+  (method (deactivate)
+    (set-active? #f))
 
 
   ;;;
@@ -250,40 +237,285 @@
   ;;;
   
   
-  (method public virtual (save)
-    (when modified?
-      (user-message "Saving {a} {a}..." name (present))
-      (save-content)
-      (set-modified? #f)
-      (user-message "Done")))
+  (method (save)
+    (define (save-content)
+      (let* ((all (table-keys/values content-index))
+             (sorted (sort string<? all key: car)))
+        (create-directories~ file)
+        (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
+          (function (printer)
+            (for-each (function (info)
+                        (bind (name . definitions) info
+                          (when (not-null? definitions)
+                            (format printer "{s}{%}" name)
+                            (format printer " (")
+                            (let ((first? #t))
+                              (for-each (function (definition)
+                                          (print-catalog~ definition first? printer)
+                                          (set! first? #f))
+                                        definitions))
+                            (format printer "){%}"))))
+                      sorted)))))
+    
+    (with-mutex
+      (function ()
+        (when modified?
+          (user-message "Saving {a} Catalog..." name)
+          (save-content)
+          (set-modified? #f)
+          (user-message "Done")))))
 
 
-  ;; temp virtual until Indexed and Filing catalog unification
-  (method protected virtual (save-content)
-    (let* ((all (gather-definitions))
-           (sorted (sort < all key: car))
-           (first? #t))
-      (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
-        (function (printer)
-          (for-each (function (info)
-                      (if (not first?)
-                          (format printer "{%}")
-                        (set! first? #f))
-                      (bind (name . definitions) info
-                        (format printer "{s}{%}" name)
-                        (format printer " (")
-                        (let ((first? #t))
-                          (for-each (function (definition)
-                                      (print-catalog~ definition first? printer)
-                                      (set! first? #f))
-                                    definitions))
-                        (format printer "){%}")))
-                    sorted)))))
+  ;;;
+  ;;;; Update
+  ;;;
   
   
-  (method (gather-definitions)
-    (let ((list '()))
-      (iterate-content
-        (function (property value)
-          (set! list (cons (cons property value) list))))
-      list))))
+  (method public (update (report?: report? #t))
+    (activate report?: report?)
+    (when report?
+      (user-message "Updating {a} Catalog..." name))
+    (let ((entries (catch (Parse-Error err
+                            (message-box (exception-reason err))
+                            (let ((appl (get-application))
+                                  (start (get-start~ err))
+                                  (end (get-end~ err)))
+                              (edit-document~ appl (get-source~ err) selection: (new Range start end)))
+                            (throw-cancel))
+                     (scan))))
+      (when (not-null? entries)
+        (with-mutex
+          (function ()
+            (set-modified? #t)
+            (for-each update-entry entries)
+            (sweep))))
+      (when report?
+        (let ((len (length entries)))
+          (user-message "{a} Catalog Updated ({s} file{a} processed)"
+                        name
+                        len
+                        (format-plural len))))))
+  
+  
+  (method public (update-file file)
+    (activate report?: #t)
+    (let ((entry (catch (Parse-Error err
+                          (user-message "Error at line {s}" (get-row~ (get-start~ err)))
+                          {})
+                   (scan-file file #f))))
+      (when entry
+        (with-mutex
+          (function ()
+            (set-modified? #t)
+            (update-entry entry)
+            (sweep))))))
+  
+  
+  (method (update-entry entry)
+    (let ((file (get-file~ entry)))
+      (let ((actual (%%get-file-entry file)))
+        (when actual
+          (set-marked?~ actual #f)))
+      (let ((name (get-base~ file)))
+        (set-marked?~ entry #t)
+        (update-indexes~ entry definitions-index references-index)
+        (table-add content-index name entry))))
+
+
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  ;; This section is entirely functional and so should not lock the catalog mutex
+  
+  
+  (method protected (scan)
+    (let ((queue (new-queue)))
+      (scan-directories queue)
+      (queue-list queue)))
+  
+  
+  (method protected virtual (scan-directories queue)
+    (define (scandir dir)
+      (scan-directory dir queue))
+    
+    (if (is? directories Directory-Group)
+        (for-each scandir (get-list~ directories))
+      (scandir directories)))
+  
+  
+  (method protected (scan-directory directory queue)
+    (iterate-directory~ directory
+      (function (file)
+        (let ((entry (scan-file file #t)))
+          (when entry
+            (enqueue queue entry))))
+      files?: #t
+      directories?: #f
+      recursive?: #t))
+
+  
+  (method protected (scan-file file report?)
+    (define (scan? file)
+      (let ((extension (get-extension~ file))
+            (extensions (get-extensions)))
+        (and (or (not extensions) (member? extension extensions test: ci=?))
+             (get-parser-class extension))))
+    
+    (define (scan file time report?)
+      (when report?
+        (user-message "Parsing {a}" file))
+      (let ((extension (get-extension~ file)))
+        (parse~ (get-parser extension) file time)))
+    
+    (define (unmodified? file time)
+      (let ((actual (get-file-entry file)))
+        (when (and actual (= (time->seconds (get-time~ actual)) (time->seconds time)))
+          actual)))
+    
+    (when (scan? file)
+      (if (exists?~ file)
+          (let ((time (get-modification-time~ file)))
+            (unless (unmodified? file time)
+              (scan file time report?)))
+        (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
+        {})))
+  
+
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (definition Parser-Associations
+    (list
+      (list (function () jazz.editor.commonlisp.CommonLisp-Parser) "lisp")
+      (list (function () jazz.editor.c.C-Parser) "c" "cpp" "h")
+@wait (list (function () jazz.editor.css.CSS-Parser) "css")
+      (list (function () jazz.editor.jazz.Jazz-Parser) "jazz")
+@wait (list (function () jazz.editor.java.Java-Parser) "java")
+@wait (list (function () jazz.editor.javascript.JavaScript-Parser) "js")
+@wait (list (function () jazz.editor.lua.Lua-Parser) "lua")
+@wait (list (function () jazz.editor.properties.Properties-Parser) "properties")
+@wait (list (function () jazz.editor.python.Python-Parser) "py")
+      (list (function () jazz.editor.scheme.Scheme-Parser) "scm" "sch" "ss" "gambcini" "jazzini")))
+  
+  
+  (method (get-parser-class extension)
+    (let ((info
+           (rassociate extension Parser-Associations
+             test: (function (ext extensions)
+                     (member? ext extensions test: ci=?)))))
+      (when info
+        (let ((proc (car info)))
+          (proc)))))
+  
+  
+  (method (get-parser extension)
+    (let ((class (get-parser-class extension)))
+      (when class
+        (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
+
+
+  ;;;
+  ;;;; Sweep
+  ;;;
+  
+  
+  (method (reset)
+    (iterate-table content-index
+      (function (name definitions)
+        (for-each (function (file-definition)
+                    (set-marked?~ file-definition #f))
+                  definitions))))
+  
+  
+  (method (sweep)
+    (define (sweep-table table marked? reset?)
+      (iterate-table table
+        (function (name definitions)
+          (when (not-null? definitions)
+            (let ((previous definitions)
+                  (list (cdr definitions)))
+              (while (not-null? list)
+                (let ((definition (car list)))
+                  (if (marked? definition)
+                      (begin
+                        (set! previous list)
+                        (set! list (cdr list)))
+                    (when reset?
+                      (set-marked?~ definition #f))
+                    (set-cdr! previous (cddr previous))
+                    (set! list (cdr previous))))))
+            (when (not (marked? (car definitions)))
+              (set-modified? #t)
+              (table-set! table name (cdr definitions)))))))
+    
+    (define (marked? definition)
+      (get-marked?~ (get-file-definition~ definition)))
+    
+    (sweep-table content-index marked? #t)
+    (sweep-table definitions-index marked? #f)
+    (sweep-table references-index marked? #f))
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (method (get-definitions name)
+    (with-mutex
+      (function ()
+        (%%get-definitions name))))
+  
+  
+  (method (%%get-definitions name)
+    (table-ref definitions-index (canonicalize-name name) '()))
+  
+  
+  (method (search-definitions target (whole-words?: whole-words? #t) (ignore-case?: ignore-case? #f))
+    (with-mutex
+      (function ()
+        (if (and whole-words? (not ignore-case?))
+            (%%get-definitions target)
+          (let ((fact (new List-Factory)))
+            (iterate-table definitions-index
+              (function (name definitions)
+                (when (search (->string name) (->string target) whole-words?: whole-words? ignore-case?: ignore-case?)
+                  (put-sequence~ fact definitions))))
+            (get-output~ fact))))))
+  
+  
+  (method (get-references name)
+    (with-mutex
+      (function ()
+        (%%get-references name))))
+  
+  
+  (method (%%get-references name)
+    (table-ref references-index (canonicalize-name name) '()))
+  
+  
+  (method (canonicalize-name name)
+    (->string name))
+
+
+  ;;;
+  ;;;; Completions
+  ;;;
+
+
+  (method (add-completions dest target)
+    (let ((len (cardinality target)))
+      (define (add-table table)
+        (iterate-table table
+          (function (name value)
+            (when (compare-n name target len)
+              (table-set! dest name #t)))))
+      
+      (with-mutex
+        (function ()
+          (add-table definitions-index)
+          (add-table references-index)))))))

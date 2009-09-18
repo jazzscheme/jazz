@@ -61,9 +61,8 @@
   
   (method (apropos target catalog-name)
     (let ((catalog (find-catalog~ (get-cataloguer~ (get-application)) catalog-name)))
-      (let ((definitions (get-definitions-index~ catalog))
-            (fact (new List-Factory)))
-        (iterate-table definitions
+      (let ((fact (new List-Factory)))
+        (iterate-definitions~ catalog
           (function (name definitions)
             (when (search name target)
               (put~ fact name))))
@@ -164,12 +163,11 @@
   (method (load-catalog name)
     (load-catalog-synchronized name)
     @temp-commented-because-of-an-intermitent-bug-where-the-thread-will-allocate-memory-while-garbage-collecting
-    (new Thread
-      name: "Catalog Loader"
-      context: self
-      execute:
-      (function (thread)
-        (load-catalog-synchronized name))))
+    (thread-start!
+      (new-thread
+        (function ()
+          (load-catalog-synchronized name))
+        'catalog-loader)))
   
   
   (method synchronized (load-catalog-synchronized name)
@@ -177,7 +175,7 @@
            (cataloguer (get-cataloguer~ appl))
            (catalog (get-catalog~ cataloguer name error?: #f)))
       (when catalog
-        (set-active?~ catalog #t))))
+        (activate~ catalog))))
 
   
   ;;;
@@ -1121,55 +1119,6 @@
 
   
   ;;;
-  ;;;; Thread
-  ;;;
-  
-  
-  @wait
-  (method (test)
-    (new Thread
-      context: self
-      execute: (function (thread)
-                 (debug
-                   (foo)))))
-  
-  
-  @wait
-  (method (test)
-    (new Thread
-      context: self
-      execute: (function (thread)
-                 (car 1))))
-  
-  
-  @wait
-  (method (test-shift)
-    (let ((impulse (new Impulse)))
-      (new Thread
-        context: self
-        execute: (function (thread)
-                   (sleep 5)
-                   (car 1)
-                   (set-event~ impulse)
-                   (debug 'thread-done)))
-      (wait-for impulse timeout: 10 error?: #f)
-      (debug 'done)))
-  
-  
-  @wait
-  (method (test1)
-    (let ((t1 (new Thread
-                 context: self
-                 execute: (function (thread)
-                            (sleep 1))))
-           (t2 (new Thread
-                 context: self
-                 execute: (function (thread)
-                            (sleep 2)))))
-      (debug (wait-for (list t1 t2) timeout: 3000 error?: #f))))
-
-  
-  ;;;
   ;;;; Context
   ;;;
   
@@ -1316,7 +1265,6 @@
         (test-socket)
         (test-stack)
         (test-synchronizer)
-        (test-thread)
         (test-user-name))))
   
   
@@ -1418,17 +1366,6 @@
         (new Mutex)
         (new Semaphore))
       name: "Synchronizer"))
-  
-  
-  @wait
-  (method (test-thread)
-    (with-profile
-      (function (node)
-        (new Thread
-          context: self
-          execute: (function (thread)
-                     (sleep .5))))
-      name: "Thread"))
 
   
   @wait

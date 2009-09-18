@@ -43,7 +43,8 @@
         (jazz.library)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
 (class undocumented Catalogs-Manager extends View
@@ -114,12 +115,6 @@
     (size-figure~ (locate 'catalogs-border) dh dv))
   
   
-  (method (on-change-active evt)
-    (let* ((sender (get-sender~ evt))
-           (catalog (get-user-data~ sender)))
-      (set-active?~ catalog (get-checked?~ sender))))
-  
-  
   (method (on-selection-change evt)
     (update-buttons))
   
@@ -135,19 +130,16 @@
         (function ()
           (remove-every-row~ tree)
           (for-each (function (catalog)
-                      (let ((handler (new Event-Handler target: self method-name: 'on-change-active)))
-                        (let (@wait-project-catalogs
-                              (c0 (new Check-Box title: (->string (get-name~ catalog)) checked?: (get-active?~ catalog) user-data: catalog content-change-handler: handler))
-                              (c0 (new Tree-Node title: (->string (get-name~ catalog))))
-                              (c1 (new Tree-Label title: (->string (get-references?~ catalog))))
-                              (c2 (new Tree-Label title: (get-statistics~ catalog))))
-                          (add-row~ tree children: (list c0 c1 c2) user-data: catalog))))
-                    (get-indexed-catalogs))))))
+                      (let ((c0 (new Tree-Node title: (->string (get-name~ catalog))))
+                            (c1 (new Tree-Label title: (->string (get-references?~ catalog))))
+                            (c2 (new Tree-Label title: (get-statistics~ catalog))))
+                        (add-row~ tree children: (list c0 c1 c2) user-data: catalog)))
+                    (get-filing-catalogs))))))
   
   
-  (method (get-indexed-catalogs)
+  (method (get-filing-catalogs)
     (collect-if (function (catalog)
-                  (is? catalog Indexed-Catalog))
+                  (is? catalog Filing-Catalog))
                 (get-catalogs~ (get-cataloguer~ (get-application)))))
 
 
@@ -175,13 +167,17 @@
             (naturals 0 (get-row-count~ tree))
           selection))
       
-      (for-each (function (row)
-                  (let ((catalog (get-user-data~ (get-row~ tree row))))
-                    (update~ catalog)
-                    (let ((cell (new Cell row 2)))
-                      (set-title~ (get-cell-data~ tree cell) (get-statistics~ catalog))
-                      (invalidate-cell~ tree cell))))
-                (effective-selection selection))))
+      (post-catalog
+        (function ()
+          (for-each (function (row)
+                      (let ((catalog (get-user-data~ (get-row~ tree row))))
+                        (update~ catalog)
+                        (execute-event
+                          (function ()
+                            (let ((cell (new Cell row 2)))
+                              (set-title~ (get-cell-data~ tree cell) (get-statistics~ catalog))
+                              (invalidate-cell~ tree cell))))))
+                    (effective-selection selection))))))
   
   
   (method (update-buttons)

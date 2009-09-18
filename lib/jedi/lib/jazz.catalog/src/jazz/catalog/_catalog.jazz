@@ -38,4 +38,32 @@
 (library jazz.catalog jazz
 
 
-(export (jazz.catalog.autoload)))
+(export (jazz.catalog.autoload))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(definition catalog-thread
+  {})
+
+
+(definition (get-catalog-thread)
+  (define (make-catalog-thread)
+    (new-thread
+      (function ()
+        (thread-loop))
+      'catalog))
+  
+  (either catalog-thread (let ((thread (make-catalog-thread)))
+                           (thread-start-loop thread)
+                           (thread-start! thread)
+                           (set! catalog-thread thread)
+                           thread)))
+
+
+(definition public (post-catalog thunk)
+  (thread-post (get-catalog-thread) 'post-catalog
+    thunk)))

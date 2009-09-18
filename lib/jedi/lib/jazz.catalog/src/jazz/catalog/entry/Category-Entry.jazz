@@ -96,7 +96,7 @@
       (letrec ((process
                 (function (qualified)
                   (when qualified
-                    (let ((category (get-qualified-category~ catalog qualified)))
+                    (let ((category (get-qualified-category catalog qualified)))
                       (when (and category (not (memq? category (get-list~ fact))))
                         (put~ fact category)
                         (for-each process (get-extends~ category))))))))
@@ -128,7 +128,7 @@
         (letrec ((insert
                   (function (row qualified)
                     (when qualified
-                      (let ((interface (get-qualified-category~ catalog qualified)))
+                      (let ((interface (get-qualified-category catalog qualified)))
                         (when interface
                           (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
                             (for-each (function (interface)
@@ -144,4 +144,20 @@
            (inherited (collect-inherited ascendants)))
       (when inherited
         (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Inherited members" image: {Bitmap-Resource "OpenedFolder"})))))
-          (insert-definitions tree row inherited 0 #t)))))))
+          (insert-definitions tree row inherited 0 #t)))))
+  
+  
+  (method (get-qualified-category catalog qualified)
+    (define (get-category-package definition)
+      (find-if (function (definition)
+                 (is? definition Package-Entry))
+               (get-definitions~ (get-file-definition~ definition))))
+    
+    (let ((name (last qualified))
+          (qualifier (butlast qualified)))
+      (find-if (function (definition)
+                 (and (is? definition Category-Entry)
+                      (let ((package (get-category-package definition)))
+                        (and package
+                             (= (get-qualified~ package) qualifier)))))
+               (get-definitions~ catalog name))))))

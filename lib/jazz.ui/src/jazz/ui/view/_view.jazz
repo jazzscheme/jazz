@@ -461,30 +461,30 @@
       (let ((reporter (get-guest~ dialog)))
         (when (not cancelable?)
           (disable-cancel~ reporter))
-        (new Thread
-          name: (either name "Worker Thread")
-          context: self
-          execute: (function (thread)
-                     (let* ((result)
-                            (resignal {})
-                            (abnormal
-                              (function (sig)
-                                (when abnormal-cleanup
-                                  (abnormal-cleanup))
-                                (set! resignal sig))))
-                       (unwind-protect
-                           ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
-                           ;; The fact that we are using a thread for user interface responsiveness should not affect
-                           ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
-                           ;; definition which will resignal them to the calling thread
-                           (catch (Signal sig
-                                          (if (forwardable?~ sig)
-                                              (abnormal sig)
-                                            (signal sig)))
-                             (set! result (proc reporter)))
-                         (if resignal
-                             (signal-modal~ dialog resignal)
-                           (end-modal~ dialog result))))))
+        (thread-start!
+          (new-thread
+            (function ()
+              (let* ((result)
+                     (resignal {})
+                     (abnormal
+                       (function (sig)
+                         (when abnormal-cleanup
+                           (abnormal-cleanup))
+                         (set! resignal sig))))
+                (unwind-protect
+                    ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
+                    ;; The fact that we are using a thread for user interface responsiveness should not affect
+                    ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
+                    ;; definition which will resignal them to the calling thread
+                    (catch (Signal sig
+                             (if (forwardable?~ sig)
+                                 (abnormal sig)
+                               (signal sig)))
+                      (set! result (proc reporter)))
+                  (if resignal
+                      (signal-modal~ dialog resignal)
+                    (end-modal~ dialog result)))))
+            'worker))
         (process-modal~ dialog)))))
 
 

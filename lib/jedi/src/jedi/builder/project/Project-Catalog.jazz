@@ -43,7 +43,7 @@
         (jedi))
 
 
-(class Project-Catalog extends Indexed-Catalog
+(class Project-Catalog extends Filing-Catalog
   
   
   (slot project getter generate)
@@ -65,23 +65,6 @@
   
   (method (get-heuristics)
     (get-catalog-heuristics~ project))
-
-
-  ;;;
-  ;;;; Activation
-  ;;;
-
-  
-  (method (get-active?)
-    (get-active?~ project))
-  
-  
-  (method (set-active? flag)
-    (when (neq? flag (get-active?~ project))
-      (set-active?~ project flag)
-      (if (get-active?)
-          (activate)
-        (deactivate))))
   
 
   ;;;
@@ -89,9 +72,8 @@
   ;;;
   
   
-  (method (scan-directories)
-    (let ((processed 0)
-          (extensions (get-extensions)))
+  (method (scan-directories queue)
+    (let ((extensions (get-extensions)))
       (fold-files~ project
         (function (project-file seed)
           (if (and (neq? project-file project) (is? project-file Project) (get-catalog?~ project-file))
@@ -99,8 +81,8 @@
             (let ((file (get-effective-source~ project-file)))
               (when file
                 (let ((ext (get-extension~ file)))
-                  (when (and (or (not extensions) (member? ext extensions test: ci=?))
-                             (process-file file))
-                    (increase! processed)))))))
-        {})
-      processed))))
+                  (when (or (not extensions) (member? ext extensions test: ci=?))
+                    (let ((entry (scan-file file #t)))
+                      (when entry
+                        (enqueue queue entry)))))))))
+        {})))))

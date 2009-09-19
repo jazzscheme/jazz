@@ -1060,7 +1060,7 @@
 
 
 (jazz.define-class jazz.Time-Special jazz.Expression (type source) jazz.Object-Class jazz.allocate-time
-  ((expression %%get-time-special-expression ())))
+  ((expressions %%get-time-special-expressions ())))
 
 
 ;;;

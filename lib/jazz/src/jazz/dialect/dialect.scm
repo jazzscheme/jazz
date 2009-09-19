@@ -3106,8 +3106,8 @@
 
 (define (jazz.walk-time walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (let ((form (%%cadr form)))
-      (jazz.new-time-special (jazz.walk walker resume declaration environment form)))))
+    (let ((forms (%%cdr form)))
+      (jazz.new-time-special (jazz.walk-list walker resume declaration environment forms)))))
 
 
 ;;;

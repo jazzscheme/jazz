@@ -4828,15 +4828,16 @@
 (jazz.define-class-runtime jazz.Time-Special)
 
 
-(define (jazz.new-time-special expression)
-  (jazz.allocate-time jazz.Time-Special #f #f expression))
+(define (jazz.new-time-special expressions)
+  (jazz.allocate-time jazz.Time-Special #f #f expressions))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Time-Special expression) declaration environment)
-  (let ((expression (%%get-time-special-expression expression)))
+  (let ((expressions (%%get-time-special-expressions expression)))
     (jazz.new-code
       `(time
-         ,(jazz.sourcified-form (jazz.emit-expression expression declaration environment)))
+         (begin
+           ,@(jazz.codes-forms (jazz.emit-expressions expressions declaration environment))))
       jazz.Any
       #f)))
 

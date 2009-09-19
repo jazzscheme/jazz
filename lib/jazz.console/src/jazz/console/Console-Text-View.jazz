@@ -55,7 +55,7 @@
   (slot inserted-rank  initialize {})
   (slot inserted-where initialize {})
   (slot banner         initialize {} accessors generate)
-  (slot prompt         initialize {} accessors generate)
+  (slot banner-prompt  initialize {} accessors generate)
   (slot console-port   initialize {} accessors generate)
   (slot console-pump   initialize {} accessors generate)
   (slot partial-line   initialize #f)
@@ -87,6 +87,7 @@
       (add-style (new Text-Style name: 'Base font: {Font name: Code}))
       (add-style (new Text-Style name: 'Base-Bold font: {Font name: Code-Bold}))
       (add-style (new Text-Style name: 'Banner  base: 'Base color: (get-banner-color~ pref)))
+      (add-style (new Text-Style name: 'Prompt  base: 'Base color: (get-prompt-color~ pref)))
       (add-style (new Text-Style name: 'Entry  base: 'Base-Bold color: (get-entry-color~ pref)))
       (add-style (new Text-Style name: 'Input  base: 'Base-Bold color: (get-input-color~ pref)))
       (add-style (new Text-Style name: 'Output base: 'Base color: (get-output-color~ pref)))
@@ -177,7 +178,7 @@
   
   (method (delete-char)
     (if (and (at-end?)
-             (not (extended?~ (current-command))))
+             (empty?~ (current-command)))
         (send-end-of-file)
       (nextmethod)))
   
@@ -320,8 +321,15 @@
          (function (range)
            (set-style range (get-style 'Banner))
            (set! banner (get-string range)))))
+      ((banner-prompt)
+       (with-formatted-range input
+         (function (range)
+           (set-style range (get-style 'Prompt))
+           (set! banner-prompt (get-string range)))))
       ((prompt)
-       (fresh-prompt))
+       (with-formatted-range input
+         (function (range)
+           (set-style range (get-style 'Prompt)))))
       (else
        (nextmethod directive input))))
 
@@ -362,6 +370,7 @@
   (method public virtual (determine-banner)
     (let ((range (forward-style (text-beginning) (function (style)
                                                    (or (inherits?~ style 'Banner)
+                                                       (inherits?~ style 'Prompt)
                                                        (inherits?~ style 'Output))))))
       (when range
         (get-string range))))
@@ -370,17 +379,26 @@
   (method public (clear-console)
     (let ((banner (or banner (determine-banner))))
       (clear-all)
-      (display-banner banner)))
+      (display-banner banner)
+      (when banner-prompt
+        (insert-styled banner-prompt 'Prompt))))
 
 
   ;;;
   ;;;; Prompt
   ;;;
-
-
+  
+  
   (method public (fresh-prompt)
-    (set-style (last-block) (get-style 'Comment))
-    (set-caret (text-ending)))
+    (set-style (block-at (get-end)) (get-style 'Comment))
+    (let ((end (text-ending)))
+      (set-caret end)
+      (let ((prompt-range (last-prompt)))
+        (when (and prompt-range (not (nu=? (get-end~ prompt-range) end)))
+          (let ((prompt (get-string prompt-range)))
+            (when (/= (get-col~ end) 0)
+              (insert-newline)
+              (insert-styled prompt 'Prompt)))))))
   
   
   ;;;
@@ -395,6 +413,7 @@
   
   (definition (text-style? style)
     (or (inherits?~ style 'Banner)
+        (inherits?~ style 'Prompt)
         (inherits?~ style 'Output)
         (inherits?~ style 'Comment)))
   
@@ -424,6 +443,25 @@
   (method (last-block)
     (let ((ending (text-ending)))
       (backward-style ending user-style?)))
+  
+  
+  (method (last-prompt)
+    (define (prompt-style? style)
+      (inherits?~ style 'Prompt))
+    
+    (define (prompt range)
+      (if (empty?~ range)
+          {}
+        (let ((start (get-start~ range))
+              (end (get-end~ range)))
+          (if (= (get-row~ start)
+                 (get-row~ end))
+              range
+            (new Range$Cell$ (new Cell (get-row~ end) 0) end)))))
+    
+    (let ((ending (text-ending)))
+      (let ((range (backward-style ending (function (style) (not (prompt-style? style))))))
+        (prompt (backward-style (get-start~ range) (function (style) (prompt-style? style)))))))
   
   
   (method (find-block rank)

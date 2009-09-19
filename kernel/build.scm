@@ -1154,6 +1154,14 @@
   (define (quit-command arguments output)
     (exit))
   
+  (define (debug-exception exc console)
+    (if jazz.display-exception?
+        (display-exception exc console))
+    (if jazz.display-backtrace?
+        (continuation-capture
+          (lambda (cont)
+            (display-continuation-backtrace cont console #t #t 0 1000)))))
+  
   (let ((console (console-port)))
     (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
     (force-output console)
@@ -1168,7 +1176,7 @@
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
-                (jazz.debug-exception exc console jazz.display-exception? jazz.display-backtrace?)
+                (debug-exception exc console)
                 (continuation-return stop #f))
               (lambda ()
                 (set! processed? (process-command command console))))))

@@ -424,17 +424,3 @@
   (display (apply jazz.format fmt-string rest))
   (newline)
   (force-output))
-
-
-;;;
-;;;; Debug
-;;;
-
-
-(define (jazz.debug-exception exc console display-exception? display-backtrace?)
-  (if display-exception?
-      (display-exception exc console))
-  (if display-backtrace?
-      (continuation-capture
-        (lambda (cont)
-          (display-continuation-backtrace cont console #t #t 0 1000)))))

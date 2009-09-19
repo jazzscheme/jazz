@@ -166,15 +166,6 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (define (with-debug-exception-handler thunk)
-    (let ((current-handler (current-exception-handler)))
-      (with-exception-handler
-        (lambda (exc)
-          (if (%%not (jazz.debug-build?))
-              (jazz.debug-exception exc (console-port) #f #f))
-          (current-handler exc))
-        thunk)))
-  
   (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
@@ -199,24 +190,16 @@
                (jazz.run-product jazz.product))
               (compile
                (process-buildini-file)
-               (with-debug-exception-handler
-                 (lambda ()
-                   (jazz.compile-module (%%string->symbol compile)))))
+               (jazz.compile-module (%%string->symbol compile)))
               (update
                (process-buildini-file)
-               (with-debug-exception-handler
-                 (lambda ()
-                   (jazz.update-product (%%string->symbol update)))))
+               (jazz.update-product (%%string->symbol update)))
               (make
                (process-buildini-file)
-               (with-debug-exception-handler
-                 (lambda ()
-                   (jazz.make-product (%%string->symbol make)))))
+               (jazz.make-product (%%string->symbol make)))
               (build
                 (process-buildini-file)
-                (with-debug-exception-handler
-                  (lambda ()
-                    (jazz.subprocess-build-products))))
+                (jazz.subprocess-build-products))
               (else
                (jazz.repl-main)))))))
 

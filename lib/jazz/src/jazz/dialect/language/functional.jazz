@@ -759,26 +759,18 @@
 
 
 (definition public (find-keyword keyword box default)
-  (let ((before box)
-        (scan (unbox-list box))
-        (found (unspecified)))
-    (while (and (unspecified? found) (not-null? scan))
-      (let ((elem (if (keyword? (car scan))
-                      (car scan)
-                    (error "Bad keyword list: {s}" (unbox-list box)))))
-        (if (eq? keyword elem)
-            (begin
-              (set! found (cadr scan))
-              (set-cdr! before (cddr scan)))
-          (begin
-            (set! before (cdr scan))
-            (if (null? (cdr scan))
-                (error "Bad keyword list: {s}" (unbox-list box))
-              (set! scan (cddr scan)))))))
-    (if (specified? found)
-        found
-      (default))))
-
+  (let lp ((ls (unbox-list box)) (before box))
+    (cond ((null? ls)
+           (default))
+          ((or (not (pair? ls))
+               (not (pair? (cdr ls)))
+               (not (keyword? (car ls))))
+           (error "Bad keyword list: {s}" (unbox-list box)))
+          ((eq? keyword (car ls))
+           (set-cdr! before (cddr ls))
+           (cadr ls))
+          (else
+           (lp (cddr ls) (cdr ls))))))
 
 ;; this is a specialized implementation of the box concept
 ;; to enable an optimisation in the find-keyword code above

@@ -327,6 +327,9 @@
       ((:native)          walk-native)
       ((:definition)      walk-definition)
       ((:specialize)      walk-specialize)
+      ((:class)           walk-class)
+      ((:interface)       walk-interface)
+      ((:remotable-stub)  walk-remotable-stub)
       ((:method)          walk-method)
       ((:slot)            walk-slot)
       ((:property)        walk-property)
@@ -373,11 +376,11 @@
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (cond ((not list?)
                (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
               (else
                (enter-list)
                (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
                (walk-parameters entry declaration keyword expression doc)
                (exit-list))))
       (when walk-expressions?
@@ -394,16 +397,16 @@
         (when (and (forward-expr) (eq? kind 'symbol) (eq? (find-marked-symbol) 'as))
           (keyword context start end)
           (forward-expr)
-          (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))
+          (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))
           (forward-whites)))
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (cond ((not list?)
                (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+                 (set! entry (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
               (else
                (enter-list)
                (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+                 (set! entry (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
                (walk-parameters entry declaration keyword expression doc)
                (exit-list))))
       (when walk-expressions?
@@ -411,13 +414,23 @@
       entry))
 
   
+  (method (walk-class context symbol form declaration keyword expression doc walk-expressions?)
+    (walk-namespace context 'class symbol form declaration keyword expression doc walk-expressions?))
+
+  (method (walk-interface context symbol form declaration keyword expression doc walk-expressions?)
+    (walk-namespace context 'interface symbol form declaration keyword expression doc walk-expressions?))
+
+  (method (walk-remotable-stub context symbol form declaration keyword expression doc walk-expressions?)
+    (walk-namespace context 'remotable-stub symbol form declaration keyword expression doc walk-expressions?))
+  
+  
   (method public (walk-method context symbol form declaration keyword expression doc walk-expressions?)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (enter-list)
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (set! entry (declaration context 'method symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
         (forward-whites)
         (walk-parameters entry declaration keyword expression doc)
         (exit-list)
@@ -429,7 +442,7 @@
   (method (walk-slot/property-accessors context slot-name declaration keyword expression doc walk-expressions?)
     (define (declare-accessor accessor)
       (let ((name (string-append (case accessor ((getter) "get-") ((setter) "set-")) slot-name)))
-        (declaration context accessor start end name (symbol-documented? (find-marked-symbol) doc))
+        (declaration context 'accessor accessor start end name (symbol-documented? (find-marked-symbol) doc))
         #t))
     
     (while (forward-expr)
@@ -462,7 +475,7 @@
       (forward-whites)
       (when (and (forward-expr) (eq? kind 'symbol))
         (let ((marked (get-marked)))
-          (set! entry (declaration context symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
+          (set! entry (declaration context 'slot symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
           (walk-slot/property-accessors context marked declaration keyword expression doc walk-expressions?)))
       (when walk-expressions?
         (walk-expressions entry expression))
@@ -475,7 +488,7 @@
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
         (let ((marked (get-marked)))
-          (set! entry (declaration context symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
+          (set! entry (declaration context 'property symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
           (walk-slot/property-accessors context marked declaration keyword expression doc walk-expressions?)))
       (when walk-expressions?
         (walk-expressions entry expression))
@@ -493,7 +506,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'global symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       entry))
     
   
@@ -502,7 +515,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'constant symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -513,7 +526,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'enumeration symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -524,7 +537,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'c-constant symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -535,7 +548,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'c-enumeration symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -558,7 +571,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'c-type symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -573,7 +586,7 @@
         (when list?
           (enter-list))
         (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (set! entry (declaration context 'c-structure symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (when list?
           (exit-list)))
       (when walk-expressions?
@@ -590,7 +603,7 @@
         (when list?
           (enter-list))
         (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (set! entry (declaration context 'c-definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (when list?
           (exit-list)))
       (when walk-expressions?
@@ -605,10 +618,10 @@
       (forward-whites)
       (if (not (eqv? (char-forward 0) #\open-parenthesis))
           (when (and (forward-expr) (eq? kind 'symbol))
-            (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+            (set! entry (declaration context 'generic symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (enter-list)
         (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (set! entry (declaration context 'generic symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (walk-parameters entry declaration keyword expression doc)
         (exit-list))
       (when walk-expressions?
@@ -622,7 +635,7 @@
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (enter-list)
       (when (and (forward-expr) (eq? kind 'symbol))
-        (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (declaration context 'specific symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
       (walk-parameters entry declaration keyword expression doc)
       (exit-list)
       (when walk-expressions?
@@ -637,7 +650,7 @@
       (when (forward-expr)
         (let ((entered? (enter-list)))
           (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+            (declaration context 'external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
           (when entered?
             (walk-parameters entry declaration keyword expression doc))
           (when entered?
@@ -654,7 +667,7 @@
       (when (and (forward-expr) (forward-expr))
         (let ((entered? (enter-list)))
           (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+            (declaration context 'com-external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
           (when entered?
             (walk-parameters entry declaration keyword expression doc))
           (when entered?
@@ -668,7 +681,7 @@
     (let ((entry context))
       (keyword context start end)
       (when (forward-expr)
-        (declaration context symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (declaration context 'datacontainer symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))))

@@ -621,8 +621,10 @@
 
 (define (jazz.package-root package)
   (let ((parent (%%package-parent package)))
-    (%%string-append (%%repository-library-root (%%package-repository package))
-                     "/"
+    (%%string-append (let ((library-root (%%repository-library-root (%%package-repository package))))
+                       (if library-root
+                           (%%string-append library-root "/")
+                         ""))
                      (if parent (%%string-append (%%package-library-path parent) "/") "")
                      (%%symbol->string (%%package-name package)))))
 

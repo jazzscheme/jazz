@@ -46,6 +46,7 @@
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
@@ -88,7 +89,8 @@
   
   (method (focus-lose view)
     (nextmethod view)
-    (cleanup~ mode))
+    (cleanup~ mode)
+    (set! mode {}))
   
   
   (method (focus-actions)
@@ -134,6 +136,13 @@
     (let ((value (auto-complete-char?~ mode key last)))
       (if (eq? value 'default)
           (nextmethod key last)
+        value)))
+
+
+  (method (favorite-completions?)
+    (let ((value (favorite-completions?~ mode)))
+      (if (eq? value 'default)
+          (nextmethod)
         value)))
   
   
@@ -240,6 +249,10 @@
   
   
   (method virtual (auto-complete-char? key last)
+    'default)
+  
+  
+  (method virtual (favorite-completions?)
     'default)
   
   
@@ -482,11 +495,13 @@
   (method (on-find-file evt)
     (set-mode~ text (new Find-File-Mode text))
     (set-text~ text (standardize-filename (current-directory)))
-    (set-caret~ text (text-ending~ text)))
+    (set-caret~ text (text-ending~ text))
+    (user-message "Find file..."))
   
   
   (method (on-find-buffer evt)
-    (set-mode~ text (new Find-Buffer-Mode text)))
+    (set-mode~ text (new Find-Buffer-Mode text))
+    (user-message "Switch to buffer..."))
   
   
   (method (on-finish evt)
@@ -515,6 +530,10 @@
   
   (method (auto-complete-char? key last)
     (memv? key '(#\/ #\- #\_ #\.)))
+
+  
+  (method (favorite-completions?)
+    #f)
   
   
   (method (complete-name? size)
@@ -594,25 +613,47 @@
   
   
   (method (symbol-completions name)
-    (define (split-filename filename)
-      (let ((pos (find filename #\/ reversed?: #t)))
-        (if (not pos)
-            (values {} filename)
-          (values (substring filename 0 (+ pos 1))
-                  (substring filename (+ pos 1) (string-length filename))))))
+    (collect (function (view)
+               (let ((presentation (present-title view)))
+                 (when (compare-n name presentation (string-length name) test: char-ci=?)
+                   presentation)))
+             (all-views)))
+  
+  
+  (method (finish)
+    (define (find-view name)
+      (find-if (function (view)
+                 (string-ci=? (present-title view) name))
+               (all-views)))
     
-    (receive (dir filename) (split-filename name)
-      (when (or (not dir)
-                (and (file-exists? dir)
-                     (eq? (pathname-type dir) 'directory)))
-        (collect (function (name)
-                   (when (compare-n filename name (string-length filename) test: char-ci=?)
-                     (let ((path (standardize-filename (string-append (either dir "") name))))
-                       (if (and (file-exists? path)
-                                (eq? (pathname-type path) 'directory))
-                           (string-append path "/")
-                         path))))
-                 (directory-content (list path: (either dir (current-directory)) ignore-hidden: 'dot-and-dot-dot)))))))
+    (let ((view (find-view (get-string-content~ text))))
+      (if view
+          (begin
+            (bring-to-front~ view)
+            (focus-host~ view)
+            (cleanup))
+        (bell))))
+  
+  
+  (definition (present-title window/view)
+    (let ((title (typecase window/view
+                   ((Window)
+                    (get-title~ window/view))
+                   ((View)
+                    (if (is? window/view Host-View)
+                        (let ((guest (get-guest~ window/view)))
+                          (if (is? guest Document)
+                              (name-status~ (get-controller~ guest))
+                            (get-title~ window/view)))
+                      (get-title~ window/view))))))
+      (if (or (null? title) (empty-string? title))
+          "<Untitled>"
+        title)))
+  
+  
+  (definition (all-views)
+    (append (collect-frames)
+            (collect-palettes))))
 
 
 ;;;

@@ -420,6 +420,16 @@
     (+ (if (and (odd? a) (odd? b)) 1 0)
        (* 2 (bit-and (quotient a 2) (quotient b 2)))))))
 
+(define (integer-log n)
+  (define (b8 n r)
+    (if (>= n (bit-shl 1 8)) (b4 (bit-shr n 8) (+ r 8)) (b4 n r)))
+  (define (b4 n r)
+    (if (>= n (bit-shl 1 4)) (b2 (bit-shr n 4) (+ r 4)) (b2 n r)))
+  (define (b2 n r)
+    (if (>= n (bit-shl 1 2)) (b1 (bit-shr n 2) (+ r 2)) (b1 n r)))
+  (define (b1 n r) (if (>= n (bit-shl 1 1)) (+ r 1) r))
+  (if (>= n (bit-shl 1 16)) (b8 (bit-shr n 16) 16) (b8 n 0)))
+
 (define (flag-set? flags i)
   (= i (bit-and flags i)))
 (define (flag-join a b)
@@ -571,7 +581,7 @@
               ((#\?)
                (let ((res (collect/single)))
                  (if (null? res)
-                     (error "? can't follow empty sre" str res)
+                     (error "? can't follow empty pattern" str res)
                      (let ((x (car res)))
                        (lp (+ i 1)
                            (+ i 1)
@@ -595,9 +605,9 @@
                       (op (string->symbol (string c))))
                  (cond
                   ((sre-repeater? x)
-                   (error "duplicate repetition (e.g. **) in sre" str res))
+                   (error "duplicate repetition (e.g. **) in pattern" str res))
                   ((sre-empty? x)
-                   (error "can't repeat empty sre (e.g. ()*)" str res))
+                   (error "can't repeat empty pattern (e.g. ()*)" str res))
                   (else
                    (lp (+ i 1) (+ i 1) flags
                        (cons (list op x) (cdr res))
@@ -724,25 +734,35 @@
                   (lp (+ j 1) (+ j 1) flags (cons sre (collect)) st))
                 (string-parse-cset str (+ i 1) flags)))
               ((#\{)
-               (if (or (>= (+ i 1) end)
-                       (not (or (char-numeric? (string-ref str (+ i 1)))
-                                (eqv? #\, (string-ref str (+ i 1))))))
-                   (lp (+ i 1) from flags res st)
-                   (let* ((res (collect/single))
-                          (x (car res))
-                          (tail (cdr res))
-                          (j (string-scan-char str #\} (+ i 1)))
-                          (s2 (string-split-char (substring str (+ i 1) j) #\,))
-                          (n (or (string->number (car s2)) 0))
-                          (m (and (pair? (cdr s2)) (string->number (cadr s2)))))
-                     (cond
-                      ((null? (cdr s2))
-                       (lp (+ j 1) (+ j 1) flags `((= ,n ,x) ,@tail) st))
-                      (m
-                       (lp (+ j 1) (+ j 1) flags `((** ,n ,m ,x) ,@tail) st))
-                      (else
-                       (lp (+ j 1) (+ j 1) flags `((>= ,n ,x) ,@tail) st)
-                       )))))
+               (cond
+                ((or (>= (+ i 1) end)
+                     (not (or (char-numeric? (string-ref str (+ i 1)))
+                              (eqv? #\, (string-ref str (+ i 1))))))
+                 (lp (+ i 1) from flags res st))
+                (else
+                 (let ((res (collect/single)))
+                   (cond
+                    ((null? res)
+                     (error "{ can't follow empty pattern"))
+                    (else
+                     (let* ((x (car res))
+                            (tail (cdr res))
+                            (j (string-scan-char str #\} (+ i 1)))
+                            (s2 (string-split-char (substring str (+ i 1) j)
+                                                   #\,))
+                            (n (string->number (car s2)))
+                            (m (and (pair? (cdr s2))
+                                    (string->number (cadr s2)))))
+                       (cond
+                        ((or (not n) (and (pair? (cdr s2)) (not m)))
+                         (error "invalid {n} repetition syntax"))
+                        ((null? (cdr s2))
+                         (lp (+ j 1) (+ j 1) flags `((= ,n ,x) ,@tail) st))
+                        (m
+                         (lp (+ j 1) (+ j 1) flags `((** ,n ,m ,x) ,@tail) st))
+                        (else
+                         (lp (+ j 1) (+ j 1) flags `((>= ,n ,x) ,@tail) st)
+                         )))))))))
               ((#\\)
                (cond
                 ((>= (+ i 1) end)
@@ -2215,8 +2235,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; NFA multi-state representation
 
-;; (define (make-nfa-multi-state n)
-;;   (make-vector (quotient (+ n 23) 24) 0))
+;; (define (make-nfa-multi-state nfa)
+;;   (make-vector (quotient (+ (vector-length nfa) 23) 24) 0))
 
 ;; (define (reset-nfa-multi-state mst)
 ;;   (do ((i (- (vector-length mst) 1) (- i 1)))
@@ -2226,12 +2246,42 @@
 ;; (define (nfa-multi-state-contains? mst i)
 ;;   (let ((cell (quotient i 24))
 ;;         (bit (remainder i 24)))
-;;     (not (zero? (bit-ior (vector-ref mst cell) (bit-shl 1 bit))))))
+;;     (not (zero? (bit-and (vector-ref mst cell) (bit-shl 1 bit))))))
 
 ;; (define (nfa-multi-state-add! mst i)
 ;;   (let ((cell (quotient i 24))
 ;;         (bit (remainder i 24)))
 ;;     (vector-set! mst cell (bit-ior (vector-ref mst cell) (bit-shl 1 bit)))))
+
+;; (define (list->nfa-multi-state nfa ls)
+;;   (let ((res (make-nfa-multi-state nfa)))
+;;     (let lp ((ls ls))
+;;       (cond
+;;        ((null? ls)
+;;         res)
+;;        ((nfa-multi-state-contains? res (car ls))
+;;         (lp (cdr ls)))
+;;        (else
+;;         (nfa-multi-state-add! res (car ls))
+;;         (lp (append (map cdr
+;;                          (filter (lambda (trans) (eq? 'epsilon (car trans)))
+;;                                  (nfa-get-state nfa (car ls))))
+;;                     (cdr ls))))))))
+
+;; (define (nfa-multi-state-fold mst kons knil)
+;;   (let ((limit (vector-length mst)))
+;;     (let lp1 ((i 0)
+;;               (acc knil))
+;;       (if (>= i limit)
+;;           acc
+;;           (let lp2 ((n (vector-ref mst i))
+;;                     (acc acc))
+;;             (if (zero? n)
+;;                 (lp1 (+ i 1) acc)
+;;                 (let* ((n2 (bit-and n (- n 1)))
+;;                        (n-tail (- n n2))
+;;                        (bit (+ (* i 24) (integer-log n-tail))))
+;;                   (lp2 n2 (kons bit acc)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; NFA->DFA compilation
@@ -2246,8 +2296,9 @@
 ;; DFA states may be accepting states.
 
 (define (nfa->dfa nfa . o)
-  (let ((max-states (and (pair? o) (car o))))
-    (let lp ((ls (list (nfa-closure nfa (list (nfa-start-state nfa)))))
+  (let ((cache (make-vector (vector-length nfa) '()))
+        (max-states (and (pair? o) (car o))))
+    (let lp ((ls (list (nfa-closure nfa cache (list (nfa-start-state nfa)))))
              (i 0)
              (res '()))
       (cond
@@ -2257,7 +2308,7 @@
         (lp (cdr ls) i res))
        (else
         (let* ((states (car ls))
-               (trans (nfa-state-transitions nfa states))
+               (trans (nfa-state-transitions nfa cache states))
                (accept? (and (memq 0 states) #t)))
           (and (or (not max-states) (< (+ i 1) max-states))
                (lp (append (map cdr trans) (cdr ls))
@@ -2281,14 +2332,14 @@
 ;; Extract all distinct characters or ranges and the potential states
 ;; they can transition to from a given set of states.  Any ranges that
 ;; would overlap with distinct characters are split accordingly.
-(define (nfa-state-transitions nfa states)
+(define (nfa-state-transitions nfa cache states)
   (let lp ((trans '())   ;; list of (char . state) or ((char . char) . state)
            (ls states)   ;; list of integers (remaining state numbers)
            (res '()))    ;; (char state ...) or ((char . char) state ...)
     (cond
      ((null? trans)
       (if (null? ls)
-          (map (lambda (x) (cons (car x) (nfa-closure nfa (cdr x))))
+          (map (lambda (x) (cons (car x) (nfa-closure nfa cache (cdr x))))
                res)
           (let ((node (nfa-get-state nfa (car ls))))
             (lp node (cdr ls) res))))
@@ -2393,7 +2444,7 @@
 
 ;; The `closure' of a list of NFA states - all states that can be
 ;; reached from any of them using any number of epsilon transitions.
-(define (nfa-closure nfa states)
+(define (nfa-closure-internal nfa states)
   (let lp ((ls states)
            (res '()))
     (cond
@@ -2407,6 +2458,18 @@
                                (nfa-get-state nfa (car ls))))
                   (cdr ls))
           (insert-sorted (car ls) res))))))
+
+(define (nfa-closure nfa cache states)
+  (cond
+   ((assoc (cdr states) (vector-ref cache (car states)))
+    => cdr)
+   (else
+    (let ((res (nfa-closure-internal nfa states)))
+      (vector-set! cache
+                   (car states)
+                   (cons (cons (cdr states) res)
+                         (vector-ref cache (car states))))
+      res))))
 
 ;; insert an integer uniquely into a sorted list
 (define (insert-sorted n ls)

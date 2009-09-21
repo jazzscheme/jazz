@@ -52,7 +52,7 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode             initialize {} getter generate)
+  (slot mode             initialize {} accessors generate)
   (slot client           initialize {} getter generate)
   (slot client-selection initialize {} getter generate)
   
@@ -475,45 +475,54 @@
 (class Extended-Mode extends Command-Mode
   
   
-  (slot submode initialize {})
-  
-  
   (method (focus-actions)
     (find-actions 'command-extended))
   
   
+  (method (on-find-file evt)
+    (set-mode~ text (new Find-File-Mode text))
+    (set-text~ text (standardize-filename (current-directory)))
+    (set-caret~ text (text-ending~ text)))
+  
+  
+  (method (on-find-buffer evt)
+    (set-mode~ text (new Find-Buffer-Mode text)))
+  
+  
+  (method (on-finish evt)
+    (finish))
+  
+  
+  (method (on-cancel evt)
+    (cancel)))
+
+
+;;;
+;;;; Find
+;;;
+
+
+(class Find-Mode extends Command-Mode
+  
+  
   (method (get-constituent-test)
-    (case submode
-      ((find-file) filename-constituent?)
-      (else {})))
+    alphanumeric?)
   
   
   (method (auto-complete?)
-    (eq? submode 'find-file))
+    #t)
   
   
   (method (auto-complete-char? key last)
-    (case submode
-      ((find-file) (memv? key '(#\/ #\- #\_ #\.)))
-      (else 'default)))
+    (memv? key '(#\/ #\- #\_ #\.)))
   
   
   (method (complete-name? size)
-    (case submode
-      ((find-file) (>= size 1))
-      (else 'default)))
+    (>= size 1))
 
 
   (method (completion-name pos postfix)
-    (case submode
-      ((find-file) (completion-filename pos postfix))
-      (else (nextmethod pos postfix))))
-  
-  
-  (method (symbol-completions name)
-    (case submode
-      ((find-file) (file-completions name))
-      (else (nextmethod name))))
+    (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
   
   
   (method (on-finish evt)
@@ -524,82 +533,34 @@
     (cancel))
   
   
-  (method (finish)
-    (case submode
-      ((find-file) (finish-find-file))
-      (else (nextmethod))))
-  
-  
   (method (cancel)
-    (case submode
-      ((find-file) (cancel-find-file) (nextmethod))
-      (else (nextmethod))))
+    (cleanup))
   
   
   (method (cleanup)
-    (cleanup-find-file)
-    (nextmethod))
+    (set-string-content~ text "")
+    (let ((client (get-client)))
+      (when client
+        (acquire-focus~ client)))))
+
+
+;;;
+;;;; Find-File
+;;;
+
+
+(class Find-File-Mode extends Find-Mode
   
   
-  ;;;
-  ;;;; Find-Buffer
-  ;;;
-  
-  
-  (method (on-find-buffer evt)
-    (set-submode-find-buffer)
-    (set-caret~ text (text-ending~ text)))
-  
-  
-  (method (set-submode-find-buffer)
-    (set! submode 'find-buffer))
-  
-  
-  ;;;
-  ;;;; Find-File
-  ;;;
-  
-  
-  (method (on-find-file evt)
-    (set-submode-find-file)
-    (set-text~ text (standardize-filename (current-directory)))
-    (set-caret~ text (text-ending~ text)))
-  
-  
-  (method (set-submode-find-file)
-    (set! submode 'find-file))
-  
-  
-  (definition (filename-constituent? c <char>) <bool>
-    (or (alphabetic? c)
-        (numeric? c)))
-  
-  
-  (method (standardize-filename filename)
-    (let ((home (pathname-normalize "~")))
-      (if (starts-with? filename home)
-          (string-append "~/" (substring filename (cardinality home) (cardinality filename)))
-        filename)))
-  
-  
-  (method (file-name)
-    (get-string-content~ text))
-  
-  
-  (method (completion-filename pos postfix)
-    (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
-  
-  
-  (method (split-filename filename)
-    (let ((pos (find filename #\/ reversed?: #t)))
-      (if (not pos)
-          (values {} filename)
-        (values (substring filename 0 (+ pos 1))
-                (substring filename (+ pos 1) (string-length filename))))))
-  
-  
-  (method (file-completions filename)
-    (receive (dir filename) (split-filename filename)
+  (method (symbol-completions name)
+    (define (split-filename filename)
+      (let ((pos (find filename #\/ reversed?: #t)))
+        (if (not pos)
+            (values {} filename)
+          (values (substring filename 0 (+ pos 1))
+                  (substring filename (+ pos 1) (string-length filename))))))
+    
+    (receive (dir filename) (split-filename name)
       (when (or (not dir)
                 (and (file-exists? dir)
                      (eq? (pathname-type dir) 'directory)))
@@ -613,23 +574,45 @@
                  (directory-content (list path: (either dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
   
   
-  (method (finish-find-file)
-    (let ((filename (file-name)))
+  (method (finish)
+    (let ((filename (get-string-content~ text)))
       (if (and (file-exists? filename)
                (eq? (pathname-type filename) 'regular))
           (let ((file (anchorize~ (new File (tokenise-filename (pathname-normalize filename))))))
             (set-current-directory (get-parent~ file))
             (edit-document~ (get-application) file)
-            (cleanup-find-file))
-        (bell))))
+            (cleanup))
+        (bell)))))
+
+
+;;;
+;;;; Find-Buffer
+;;;
+
+
+(class Find-Buffer-Mode extends Find-Mode
   
   
-  (method (cancel-find-file)
-    (cleanup-find-file))
-  
-  
-  (method (cleanup-find-file)
-    (set-string-content~ text "")))
+  (method (symbol-completions name)
+    (define (split-filename filename)
+      (let ((pos (find filename #\/ reversed?: #t)))
+        (if (not pos)
+            (values {} filename)
+          (values (substring filename 0 (+ pos 1))
+                  (substring filename (+ pos 1) (string-length filename))))))
+    
+    (receive (dir filename) (split-filename name)
+      (when (or (not dir)
+                (and (file-exists? dir)
+                     (eq? (pathname-type dir) 'directory)))
+        (collect (function (name)
+                   (when (compare-n filename name (string-length filename) test: char-ci=?)
+                     (let ((path (standardize-filename (string-append (either dir "") name))))
+                       (if (and (file-exists? path)
+                                (eq? (pathname-type path) 'directory))
+                           (string-append path "/")
+                         path))))
+                 (directory-content (list path: (either dir (current-directory)) ignore-hidden: 'dot-and-dot-dot)))))))
 
 
 ;;;
@@ -653,4 +636,16 @@
   
   
   (method (on-cancel evt)
-    (cancel))))
+    (cancel)))
+
+
+;;;
+;;;; Execute-Mode
+;;;
+
+
+(definition (standardize-filename filename)
+  (let ((home (pathname-normalize "~")))
+    (if (starts-with? filename home)
+        (string-append "~/" (substring filename (cardinality home) (cardinality filename)))
+      filename))))

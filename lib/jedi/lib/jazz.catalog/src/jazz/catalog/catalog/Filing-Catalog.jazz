@@ -41,8 +41,11 @@
 (import (jazz.catalog)
         (jazz.io)
         (jazz.library)
+        (jazz.platform)
         (jazz.system)
+        (jazz.ui)
         (jazz.ui.view)
+        (jazz.ui.window)
         (jazz.utilities)
         (time))
 
@@ -275,40 +278,47 @@
     (activate report?: report?)
     (when report?
       (user-message "Updating {a} Catalog..." name))
-    (let ((entries (catch (Parse-Error err
-                            (message-box (exception-reason err))
-                            (let ((appl (get-application))
-                                  (start (get-start~ err))
-                                  (end (get-end~ err)))
-                              (edit-document~ appl (get-source~ err) selection: (new Range start end)))
-                            (throw-cancel))
-                     (scan))))
-      (when (not-null? entries)
-        (with-mutex
-          (function ()
-            (set-modified? #t)
-            (for-each update-entry entries)
-            (sweep))))
-      (when report?
-        (let ((len (length entries)))
-          (user-message "{a} Catalog Updated ({s} file{a} processed)"
-                        name
-                        len
-                        (format-plural len))))))
+    
+    (let ((exceptions/entries (scan)))
+      (receive (exceptions entries) (partition-binary exceptions/entries exception?)
+        (when (not-null? entries)
+          (with-mutex
+            (function ()
+              (set-modified? #t)
+              (for-each update-entry entries)
+              (sweep))))
+        (when report?
+          (let ((len (length exceptions/entries)))
+            (user-message "{a} Catalog Updated ({s} file{a} processed)"
+                          name
+                          len
+                          (format-plural len))))
+        (when (not-null? exceptions)
+          (post-event
+            (function ()
+              @wait
+              (for-each debug (map exception-reason exceptions))
+              @wait
+              (let ((exc (car exceptions)))
+                (message-box (exception-reason exc))
+                (edit-exception exc))))))))
   
   
   (method public (update-file file)
+    @w(
     (activate report?: #t)
-    (let ((entry (catch (Parse-Error err
-                          (user-message "Error at line {s}" (get-row~ (get-start~ err)))
-                          {})
-                   (scan-file file #f))))
-      (when entry
-        (with-mutex
-          (function ()
-            (set-modified? #t)
-            (update-entry entry)
-            (sweep))))))
+    (let ((exception/entry (scan-file file #f)))
+      (when exception/entry
+        (if (exception? exception/entry)
+            (let ((line (if (is? exception/entry Explore-Error) (format " at line {a}" (+ (get-row~ (get-start~ exception/entry)) 1)) "")))
+              (user-message/action-handler (format "Error{a}: {a}" line (exception-reason exception/entry))
+                                           (new Event-Handler execute: (function (evt) (edit-exception exception/entry))))
+              (bell))
+          (with-mutex
+            (function ()
+              (set-modified? #t)
+              (update-entry exception/entry)
+              (sweep))))))))
   
   
   (method (update-entry entry)
@@ -320,6 +330,15 @@
         (set-marked?~ entry #t)
         (update-indexes~ entry definitions-index references-index)
         (table-add content-index name entry))))
+  
+  
+  (definition (edit-exception exc)
+    (if (is? exc Explore-Error)
+        (let ((appl (get-application))
+              (source (get-source~ exc))
+              (range (get-range~ exc)))
+          (edit-document~ appl source selection: range))
+      (bell)))
 
 
   ;;;
@@ -378,7 +397,13 @@
       (if (exists?~ file)
           (let ((time (get-modification-time~ file)))
             (unless (unmodified? file time)
-              (scan file time report?)))
+              (with-exception-filter
+                (function (exc)
+                  #t)
+                (function (exc)
+                  (wrap-exception exc))
+                (function ()
+                  (scan file time report?)))))
         (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         {})))
   

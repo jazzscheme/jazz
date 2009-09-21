@@ -91,7 +91,8 @@
   
   
   (method (explore-error message start end)
-    (signal (new Explore-Error message: message start: start end: end)))
+    (let ((source (get-moniker~ text)))
+      (signal (new Explore-Error source start: start end: end message: message))))
   
   
   (method (present-char c)
@@ -1033,6 +1034,11 @@
   
   
   (method (walk-expression context expression mode first?)
+    (define (specifier-marked?)
+      (and (eq? kind 'symbol)
+           (eqv? (get-char start) #\<)
+           (eqv? (get-char (- end 1)) #\>)))
+    
     (expression context start end mode
       (if (and (eq? kind 'symbol) (specifier-marked?))
           (if first?
@@ -1047,12 +1053,6 @@
              (let ((mode (if (memq? kind '(quote quasiquote)) kind 'code)))
                (forward-expr)
                (walk-expression context expression mode #f))))))
-  
-  
-  (method (specifier-marked?)
-    (and (eq? kind 'symbol)
-         (eqv? (get-char start) #\<)
-         (eqv? (get-char (- end 1)) #\>)))
   
 
   ;;;

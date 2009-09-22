@@ -48,7 +48,8 @@
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window)
-        (jazz.utilities))
+        (jazz.utilities)
+        (jedi.builder.workbench))
 
 
 (class Command-Text-View extends IDE-Text-View
@@ -500,6 +501,12 @@
     (user-message "Find file..."))
   
   
+  (method (on-find-filename evt)
+    (set-mode~ text (new Find-Filename-Mode text))
+    (set-text~ text "")
+    (user-message "Find filename..."))
+  
+  
   (method (on-find-buffer evt)
     (set-mode~ text (new Find-Buffer-Mode text))
     (user-message "Find buffer..."))
@@ -604,6 +611,64 @@
             (edit-document~ (get-application) file)
             (cleanup))
         (bell)))))
+
+
+;;;
+;;;; Find-Filename
+;;;
+
+
+(class Find-Filename-Mode extends Find-Mode
+  
+  
+  (slot filenames)
+  
+  
+  (method (initialize text)
+    (define (collect-filenames)
+      (let ((workbench (get-workbench))
+            (table (make-table test: equal?)))
+        (for-each-project-file~ workbench
+          (function (file)
+            (let ((source (get-source~ file)))
+              (when source
+                (let ((name (downcase (get-name~ source))))
+                  (table-set! table name source))))))
+        table))
+    
+    (nextmethod text)
+    (set! filenames (collect-filenames)))
+  
+  
+  (method (symbol-completions name)
+    (let ((queue (new-queue)))
+      (iterate-table filenames
+                     (function (filename file)
+                       (when (compare-n name filename (string-length name) test: char-ci=?)
+                         (enqueue queue filename))))
+      (queue-list queue)))
+  
+  
+  (method (finish)
+    (define (find-file name)
+      (continuation-capture
+        (function (return)
+          (let ((len (string-length name)))
+            (iterate-table filenames
+                           (function (filename file)
+                             (when (compare-n name filename len test: char-ci=?)
+                               (let ((remaining (substring filename len (string-length filename))))
+                                 (when (or (empty-string? remaining)
+                                           (and (eqv? (string-ref remaining 0) #\.)
+                                                (not (find remaining #\. start: 1))))
+                                   (continuation-return return file)))))))
+          {})))
+    
+    (let ((filename (get-string-content~ text)))
+      (let ((file (find-file filename)))
+        (if file
+            (edit-document~ (get-application) file)
+          (bell))))))
 
 
 ;;;

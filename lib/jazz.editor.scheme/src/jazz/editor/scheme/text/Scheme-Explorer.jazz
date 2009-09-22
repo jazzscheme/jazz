@@ -140,11 +140,11 @@
       (set! end old)))
     
   
-  (method (walk-begin context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-declarations context declaration keyword expression doc walk-expressions?))
+  (method (walk-begin context symbol form declaration keyword expression doc)
+    (walk-declarations context declaration keyword expression doc))
 
   
-  (method (walk-cond-expand context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-cond-expand context symbol form declaration keyword expression doc)
     (let ((done? #f))
       (while (not done?)
         (let ((enter? (enter-list)))
@@ -153,47 +153,47 @@
             (forward-expr)
             (when (eq? (get-kind) 'symbol)
               (expression context start end 'code 'feature))
-            (walk-declarations context declaration keyword expression doc walk-expressions?)
+            (walk-declarations context declaration keyword expression doc)
             (exit-list))))))
   
   
-  (method (walk-repository context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-namespace context 'repository symbol form declaration keyword expression doc walk-expressions?))
+  (method (walk-repository context symbol form declaration keyword expression doc)
+    (walk-namespace context 'repository symbol form declaration keyword expression doc))
   
-  (method (walk-package context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-namespace context 'package symbol form declaration keyword expression doc walk-expressions?))
+  (method (walk-package context symbol form declaration keyword expression doc)
+    (walk-namespace context 'package symbol form declaration keyword expression doc))
   
-  (method (walk-module context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-namespace context 'module symbol form declaration keyword expression doc walk-expressions?))
+  (method (walk-module context symbol form declaration keyword expression doc)
+    (walk-namespace context 'module symbol form declaration keyword expression doc))
   
-  (method (walk-library context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-namespace context 'library symbol form declaration keyword expression doc walk-expressions?))
+  (method (walk-library context symbol form declaration keyword expression doc)
+    (walk-namespace context 'library symbol form declaration keyword expression doc))
   
   
-  (method (walk-namespace context namespace-kind symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-namespace context namespace-kind symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
       (when (and (forward-expr) (eq? kind 'symbol))
         (set! entry (declaration context namespace-kind symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
         (walk-keywords entry declaration keyword expression (get-keywords~ form))
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+        (walk-declarations entry declaration keyword expression doc))
       entry))
   
   
-  (method (walk-keyword context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-keyword context symbol form declaration keyword expression doc)
     (keyword context start end))
         
   
-  (method (walk-declare context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-declare context symbol form declaration keyword expression doc)
     (keyword context start end))
   
   
-  (method (walk-define-type-of context symbol form declaration keyword expression doc walk-expressions?)
-    (walk-define context symbol (get-lisp-form 'define) declaration keyword expression doc walk-expressions?))
+  (method (walk-define-type-of context symbol form declaration keyword expression doc)
+    (walk-define context symbol (get-lisp-form 'define) declaration keyword expression doc))
   
   
-  (method (walk-define context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-define context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -206,12 +206,11 @@
           (walk-parameters entry declaration keyword expression doc))
         (when list?
           (exit-list)))
-      (when walk-expressions?
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      (walk-declarations entry declaration keyword expression doc)
       entry))
   
   
-  (method (walk-define-generic/specific context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-define-generic/specific context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -228,12 +227,11 @@
           (exit-list)))
       (walk-parameters entry declaration keyword expression doc)
       (exit-list)
-      (when walk-expressions?
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      (walk-declarations entry declaration keyword expression doc)
       entry))
 
   
-  (method (walk-macro context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-macro context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
@@ -242,12 +240,11 @@
         (set! entry (declaration context 'macro symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
         (walk-parameters entry declaration keyword expression doc)
         (exit-list)
-        (when walk-expressions?
-          (walk-expressions entry expression)))
+        (walk-expressions entry expression))
       entry))
   
   
-  (method (walk-define-macro context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-define-macro context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
@@ -260,23 +257,21 @@
           (walk-expressions entry expression 'code #f))
         (when list?
           (exit-list)))
-      (when walk-expressions?
-        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      (walk-declarations entry declaration keyword expression doc)
       entry))
   
   
-  (method (walk-define-class context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-define-class context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (forward-whites)
       (when (and (forward-expr) (eq? kind 'symbol))
         (set! entry (declaration context 'define-class symbol start end (get-marked) #f)))
-      (when walk-expressions?
-        (walk-expressions entry expression))
+      (walk-expressions entry expression)
       entry))
   
   
-  (method (walk-native context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-native context symbol form declaration keyword expression doc)
     (define (parse-identifier str)
       (let ((pos (find str #\. reversed?: #t)))
         (if (not pos)
@@ -290,31 +285,27 @@
       (when (and (forward-expr) (eq? kind 'symbol))
         (let ((name (parse-identifier (get-marked))))
           (set! entry (declaration context 'native symbol start end name (symbol-documented? name doc)))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
+      (walk-expressions entry expression)
       entry))
   
   
-  (method (walk-type context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-type context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (when (and (forward-expr) (eq? kind 'symbol))
         (set! entry (declaration context 'type symbol start end (get-marked) #f)))
-      (when walk-expressions?
-        (walk-expressions entry expression))
+      (walk-expressions entry expression)
       entry))
 
   
-  (method (walk-c-initialize context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-c-initialize context symbol form declaration keyword expression doc)
     (keyword context start end)
-    (when walk-expressions?
-      (walk-expressions context expression)))
+    (walk-expressions context expression))
 
   
-  (method (walk-c-declare context symbol form declaration keyword expression doc walk-expressions?)
+  (method (walk-c-declare context symbol form declaration keyword expression doc)
     (keyword context start end)
-    (when walk-expressions?
-      (walk-expressions context expression)))
+    (walk-expressions context expression))
   
   
   (method package (symbol-documentation symbol doc)

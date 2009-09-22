@@ -47,6 +47,7 @@
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
+        (jazz.ui.window)
         (jazz.utilities))
 
 
@@ -501,7 +502,7 @@
   
   (method (on-find-buffer evt)
     (set-mode~ text (new Find-Buffer-Mode text))
-    (user-message "Switch to buffer..."))
+    (user-message "Find buffer..."))
   
   
   (method (on-finish evt)
@@ -560,7 +561,8 @@
     (set-string-content~ text "")
     (let ((client (get-client)))
       (when client
-        (acquire-focus~ client)))))
+        (acquire-focus~ client)))
+    (clear-user-message)))
 
 
 ;;;
@@ -626,13 +628,21 @@
                  (string-ci=? (present-title view) name))
                (all-views)))
     
-    (let ((view (find-view (get-string-content~ text))))
-      (if view
-          (begin
-            (bring-to-front~ view)
-            (focus-host~ view)
-            (cleanup))
-        (bell))))
+    (let ((name (get-string-content~ text)))
+      (if (empty-string? name)
+          (let ((views (get-views~ (get-stage))))
+            (if (>= (length views) 2)
+                (begin
+                  (send-to-back~ (first views))
+                  (focus-host~ (current-frame)))
+              (bell)))
+        (let ((view (find-view name)))
+          (if view
+              (begin
+                (bring-to-front~ view)
+                (focus-host~ view)
+                (cleanup))
+            (bell))))))
   
   
   (definition (present-title window/view)

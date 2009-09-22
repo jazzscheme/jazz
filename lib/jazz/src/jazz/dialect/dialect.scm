@@ -1082,7 +1082,9 @@
                          (let ((method-declaration (jazz.lookup-declaration category-declaration name jazz.private-access declaration)))
                            (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
                              (jazz.new-method-reference method-declaration)))))))
-                  ((or name self/class-name)
+                  ((and name (not self/class-name))
+                   (jazz.walk walker resume declaration environment `(function (object) (,symbol-src object))))
+                  ((and (not name) self/class-name)
                    (jazz.error "Ill-formed expression: {s}" symbol))
                   (else
                    (nextmethod walker resume declaration environment symbol-src)))

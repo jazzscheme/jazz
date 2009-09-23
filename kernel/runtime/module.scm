@@ -754,8 +754,12 @@
           (let iter ((packages (jazz.repository-packages repository)) (profiles profiles))
             (if (%%null? packages)
                 (iter-repo (%%cdr repositories) profiles)
-              (let ((package-profiles (%%package-profiles (%%car packages))))
-                (iter (%%cdr packages) (%%append package-profiles profiles))))))))))
+              (let ((package (%%car packages)))
+                (let ((package-profiles (%%package-profiles package)))
+                  (iter (%%cdr packages) (%%append (map (lambda (package-profile)
+                                                          (%%cons package package-profile))
+                                                        package-profiles)
+                                                   profiles)))))))))))
 
 
 (define (jazz.make-profile name module-name)

@@ -126,12 +126,12 @@
                                                           (settings (get-settings~ (get-application))))
                                                       (and settings (eq? (profile-name profile)
                                                                          (get-setting~ settings 'profile))))))
-      (cond ((null? profiles)
-             (install-new)
-             (set-selected?~ (locate 'new-button) #t))
-            (else
+      (cond ((some-user-profile?)
              (install-existing profiles rank)
-             (set-selected?~ (locate 'existing-button) #t)))))
+             (set-selected?~ (locate 'existing-button) #t))
+            (else
+             (install-new)
+             (set-selected?~ (locate 'new-button) #t)))))
   
 
   ;;;
@@ -254,13 +254,26 @@
   
   
   (method (collect-profile-info)
+    (define (collect-existing-profiles)
+      (let ((jazz-repository (find-repository 'Jazz)))
+        (map cdr (sort nu<? (gather-profiles) key: (function (info)
+                                                     (bind (package . profile) info
+                                                       (cons (if (eq? (package-repository package) jazz-repository)
+                                                                 2
+                                                               1)
+                                                             (downcase (profile-title profile)))))))))
+    
     (let ((profiles (collect-existing-profiles)))
       (let ((rank (find profiles (->string (argument/setting "profile" 'profile)) key: profile-title test: ci=?)))
         (values profiles rank))))
   
   
-  (method (collect-existing-profiles)
-    (sort ci<? (gather-profiles) key: profile-title))
+  (definition (some-user-profile?)
+    (let ((jazz-repository (find-repository 'Jazz)))
+      (some? (function (info)
+               (bind (package . profile) info
+                 (neq? (package-repository package) jazz-repository)))
+             (gather-profiles))))
   
 
   ;;;

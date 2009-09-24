@@ -39,7 +39,8 @@
 
 
 (export (jazz.ui.autoload))
-(import (jazz.ui.autoload))
+(import (jazz.ui.autoload)
+        (jazz.graphic))
 
 
 ;;;
@@ -57,20 +58,32 @@
 ;;;
 
 
-(definition public (preference->text-style default-name default-base preference)
-  (let ((name (either (get-name~ preference) default-name))
-        (base (either (get-base~ preference) default-base))
-        (font (get-font~ preference))
-        (color (get-color~ preference))
-        (highlight (get-highlight~ preference))
-        (frame (get-frame~ preference)))
-    (apply new Text-Style
-      `(,@(if name (list name: name) '())
-        ,@(if base (list base: base) '())
-        ,@(if font (list font: font) '())
-        ,@(if color (list color: color) '())
-        ,@(if highlight (list highlight: highlight) '())
-        ,@(if frame (list frame: frame) '())))))
+(definition public (preference->text-style name default-base preference)
+  (define (get-font font)
+    (if (symbol? font)
+        (registered-font font)
+      font))
+  
+  (define (get-color color)
+    (if (symbol? color)
+        (registered-color color)
+      color))
+  
+  (if (and name (get-name~ preference))
+      (error "Style should not be named: {s}" (get-name~ preference))
+    (let ((name (either (get-name~ preference) name))
+          (base (either (get-base~ preference) default-base))
+          (font (get-font~ preference))
+          (color (get-color~ preference))
+          (highlight (get-highlight~ preference))
+          (frame (get-frame~ preference)))
+      (apply new Text-Style
+        `(,@(if name (list name: name) '())
+          ,@(if base (list base: base) '())
+          ,@(if font (list font: (get-font font)) '())
+          ,@(if color (list color: (get-color color)) '())
+          ,@(if highlight (list highlight: (get-color highlight)) '())
+          ,@(if frame (list frame: (get-color frame)) '()))))))
 
 
 ;;;

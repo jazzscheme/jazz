@@ -400,16 +400,27 @@
 (definition (read-eval-print-loop thread port level)
   (declare (proper-tail-calls))
   (let (iterate)
-    (read-eval-print thread port level)
+    (continuation-capture
+      (function (resume)
+        (read-eval-print thread resume port level)))
     (iterate)))
 
 
-(definition (read-eval-print thread port level)
+(definition (read-eval-print thread resume port level)
   (let ((console (thread-console thread)))
     (let ((expr (parameterize ((walk-for 'eval))
                   (with-readtable (either (essay console (get-readtable~ console)) scheme-readtable)
                     (function ()
-                      (read port))))))
+                      (with-exception-filter
+                        (function (exc)
+                          #t)
+                        (function (exc)
+                          (thread-post thread 'exception
+                            (function ()
+                              (throw exc)))
+                          (continuation-return resume {}))
+                        (function ()
+                          (read port))))))))
       (if (eof-object? expr)
           (thread-post thread 'resume-loop
             (function ()

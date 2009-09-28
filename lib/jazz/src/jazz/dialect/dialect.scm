@@ -800,7 +800,7 @@
            (method-locator (%%get-declaration-locator declaration))
            (method-rank-locator (jazz.compose-helper method-locator 'rank))
            (method-node-locator (jazz.compose-helper method-locator 'node))
-           (method-call (cond (root-category-declaration                                                      'jazz.add-method-node) ; must be inherited
+           (method-call (cond (root-category-declaration                                                      'jazz.add-method-node) ; must be override
                               ((%%class-is? category-declaration jazz.Class-Declaration) (case propagation
                                                                                            ((final inherited) 'jazz.add-final-method)
                                                                                            ((virtual chained) 'jazz.add-virtual-method)))
@@ -1874,7 +1874,7 @@
 
 (define jazz.slot-accessors-modifiers
   '(((private protected package public) . #f)
-    ((final virtual chained inherited) . final)
+    ((final virtual chained override inherited) . final)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
     ((generate handcode) . handcode)))
@@ -1882,7 +1882,7 @@
 
 (define jazz.slot-accessor-modifiers
   '(((private protected package public) . #f)
-    ((final virtual chained inherited) . #f)
+    ((final virtual chained override inherited) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
     ((generate handcode) . #f)))
@@ -2014,7 +2014,7 @@
 (define jazz.method-modifiers
   '(((private protected package public) . protected)
     ((deprecated undocumented uptodate) . uptodate)
-    ((final virtual chained inherited) . inherited)
+    ((final virtual chained override inherited) . inherited)
     ((abstract concrete) . concrete)
     ((inline onsite) . onsite)
     ;; quicky
@@ -2075,12 +2075,14 @@
                (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
               ((and root-category-declaration (%%memq root-method-propagation '(final inherited)))
                (jazz.walk-error walker resume declaration "Cannot redefine method: {s}" name))
-              ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'inherited))
+              ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%not (%%memq propagation '(override inherited))))
                (case propagation
                  ((virtual chained)
                   (jazz.walk-error walker resume declaration "Method is already virtual: {s}" name))
                  ((final)
                   (jazz.walk-error walker resume declaration "Cannot finalize virtual method: {s}" name))))
+              ((and (%%not root-category-declaration) (%%eq? propagation 'override))
+               (jazz.walk-error walker resume declaration "Cannot find root method: {s}" name))
               ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
                (jazz.walk-error walker resume declaration "Interface method must be virtual: {s}" name))
               (else

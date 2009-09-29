@@ -3210,7 +3210,7 @@
                         (%%when expr?
                           (let ((expansion (jazz.expand-macros walker resume declaration environment expr)))
                             (if (jazz.begin-form? expansion)
-                                (walk (%%cdr expansion))
+                                (walk (%%cdr (jazz.source-code expansion)))
                               (jazz.walk-declaration walker resume declaration environment expansion)))))))))
               forms))
   
@@ -3245,6 +3245,7 @@
     (if (and declaration (%%class-is? declaration class))
         declaration
       #f)))
+
 
 (define (jazz.begin-form? form)
   (and (%%pair? (jazz.source-code form))

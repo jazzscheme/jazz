@@ -1718,17 +1718,19 @@
 (define (jazz.expand-class walker resume declaration environment form-src)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
     (receive (metaclass-body class-body) (jazz.preprocess-meta body)
-      (cond ((%%null? metaclass-body)
-             `(%class ,@(%%cdr (jazz.source-code form-src))))
-            ((%%specified? metaclass-name)
-             (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
-            (else
-             (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
-               `(begin
-                  (%class ,metaclass-name extends (:class ,ascendant-name)
-                    ,@metaclass-body)
-                  (%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
-                    ,@class-body))))))))
+      (jazz.sourcify-if
+        (cond ((%%null? metaclass-body)
+               `(%class ,@(%%cdr (jazz.source-code form-src))))
+              ((%%specified? metaclass-name)
+               (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
+              (else
+               (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
+                 `(begin
+                    (%class ,metaclass-name extends (:class ,ascendant-name)
+                      ,@metaclass-body)
+                    (%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
+                      ,@class-body)))))
+        form-src))))
 
 
 (define (jazz.preprocess-meta body)
@@ -1738,7 +1740,7 @@
                 (if (and (%%pair? (jazz.source-code expr))
                          (%%pair? (%%cdr (jazz.source-code expr)))
                          (%%eq? (jazz.source-code (%%cadr (jazz.source-code expr))) 'meta))
-                    (jazz.enqueue metaclass (%%cons (%%car (jazz.source-code expr)) (%%cddr (jazz.source-code expr))))
+                    (jazz.enqueue metaclass (jazz.sourcify-if (%%cons (%%car (jazz.source-code expr)) (%%cddr (jazz.source-code expr))) expr))
                   (jazz.enqueue class expr)))
               body)
     (values (jazz.queue-list metaclass)
@@ -1905,7 +1907,9 @@
 
 
 (define (jazz.expand-slot walker resume declaration environment form-src)
-  (jazz.expand-slot-form walker resume declaration form-src '%slot))
+  (jazz.sourcify-if
+    (jazz.expand-slot-form walker resume declaration form-src '%slot)
+    form-src))
 
 
 (define (jazz.parse-slot-accessors walker resume declaration form slot-access)
@@ -2010,7 +2014,9 @@
 
 
 (define (jazz.expand-property walker resume declaration environment form-src)
-  (jazz.expand-slot-form walker resume declaration form-src '%property))
+  (jazz.sourcify-if
+    (jazz.expand-slot-form walker resume declaration form-src '%property)
+    form-src))
 
 
 ;;;
@@ -2609,13 +2615,17 @@
 
 
 (define (jazz.expand-assert walker resume declaration environment form-src)
-  ;; we really want assertions in release and not in a new distribution safety
-  (jazz.expand-assert-test #t form-src))
+  (jazz.sourcify-if
+    ;; we really want assertions in release and not in a new distribution safety
+    (jazz.expand-assert-test #t form-src)
+    form-src))
 
 
 (define (jazz.expand-assertion walker resume declaration environment form-src)
-  ;; we really want assertions in release and not in a new distribution safety
-  (jazz.expand-assertion-test #t form-src))
+  (jazz.sourcify-if
+    ;; we really want assertions in release and not in a new distribution safety
+    (jazz.expand-assertion-test #t form-src)
+    form-src))
 
 
 (define (jazz.expand-assert-test test? src)

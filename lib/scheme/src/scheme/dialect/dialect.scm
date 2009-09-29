@@ -313,6 +313,7 @@
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
             (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #f #f))))
         (let ((new-declaration (jazz.new-define-declaration name type declaration signature)))
+          (%%set-declaration-source new-declaration form-src)
           (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
 
@@ -342,10 +343,11 @@
     (values name type parameters body)))
 
 
-(define (jazz.walk-define-special-form-declaration walker resume declaration environment form)
-  (receive (name type parameters body) (jazz.parse-define-special-form walker resume declaration (%%cdr form))
+(define (jazz.walk-define-special-form-declaration walker resume declaration environment form-src)
+  (receive (name type parameters body) (jazz.parse-define-special-form walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-define-special-form-declaration name type declaration signature)))
+        (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -379,6 +381,7 @@
   (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-define-macro-declaration name type declaration signature)))
+        (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 

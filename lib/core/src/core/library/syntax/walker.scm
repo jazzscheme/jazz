@@ -5577,6 +5577,7 @@
   (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-macro-declaration name type access compatibility '() declaration signature)))
+        (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -5616,6 +5617,7 @@
   (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-syntax-declaration name type access compatibility '() declaration signature)))
+        (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 

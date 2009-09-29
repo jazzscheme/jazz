@@ -5850,7 +5850,7 @@
   (make-parameter #f))
 
 
-(define (jazz.outline-module module-name #!key (read-source? #f) (error? #t))
+(define (jazz.outline-module module-name #!key (use-catalog? #t) (read-source? #f) (error? #t))
   (define (load-toplevel-declaration)
     (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
       (if (and (%%not src) (%%not error?))
@@ -5868,24 +5868,26 @@
                     ((library)
                      (jazz.parse-library-declaration (%%cdr (jazz.source-code form)))))))))))))
   
-  (let ((entry (jazz.get-catalog-entry module-name)))
-    (let ((status (if (%%pair? entry) (%%car entry) #f))
-          (declaration (if (%%pair? entry) (%%cdr entry) entry)))
-      (if status
-          (jazz.error "Circular dependency detected: {a}"
-                      (jazz.join-strings (reverse (map symbol->string (map cdr jazz.Load-Stack))) " -> "))
-        (or declaration
-            (jazz.call-with-catalog-entry-lock module-name
-              (lambda ()
-                (let ((feedback (jazz.outline-feedback)))
-                  (if feedback
-                      (feedback module-name)))
-                (let ((declaration (load-toplevel-declaration)))
-                  (if (%%not declaration)
-                      (if error?
-                          (jazz.error "Unable to locate module declaration: {s}" module-name))
-                    (jazz.set-catalog-entry module-name declaration))
-                  declaration))))))))
+  (if (not use-catalog?)
+      (load-toplevel-declaration)
+    (let ((entry (jazz.get-catalog-entry module-name)))
+      (let ((status (if (%%pair? entry) (%%car entry) #f))
+            (declaration (if (%%pair? entry) (%%cdr entry) entry)))
+        (if status
+            (jazz.error "Circular dependency detected: {a}"
+                        (jazz.join-strings (reverse (map symbol->string (map cdr jazz.Load-Stack))) " -> "))
+          (or declaration
+              (jazz.call-with-catalog-entry-lock module-name
+                (lambda ()
+                  (let ((feedback (jazz.outline-feedback)))
+                    (if feedback
+                        (feedback module-name)))
+                  (let ((declaration (load-toplevel-declaration)))
+                    (if (%%not declaration)
+                        (if error?
+                            (jazz.error "Unable to locate module declaration: {s}" module-name))
+                      (jazz.set-catalog-entry module-name declaration))
+                    declaration)))))))))
 
 
 (define (jazz.outline-library module-name #!key (read-source? #f) (error? #t))

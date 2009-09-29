@@ -481,6 +481,7 @@
 (native jazz.get-source-version-number)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
+(native jazz.delay-reporting?)
 (native jazz.use-debugger?)
 (native jazz.get-repositories)
 (native jazz.install-repository)

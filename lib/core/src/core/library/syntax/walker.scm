@@ -2832,7 +2832,7 @@
   (let ((partitions (map (lambda (info) (%%cons info '())) infos))
         (done? #f))
     (%%while (and (%%not-null? rest) (%%not done?))
-      (let ((target (%%desourcify (%%car rest)))
+      (let ((target (jazz.source-code (%%car rest)))
             (found? #f))
         (for-each (lambda (partition)
                     (let ((allowed (%%caar partition))
@@ -3180,30 +3180,30 @@
 ;; declaration tree coming from the runtime catalog.
 
 
-(jazz.define-virtual-runtime (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form))
+(jazz.define-virtual-runtime (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form-src))
 
 
-(jazz.define-method (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form)
-  (if (%%pair? form)
-      (let ((first (%%car form)))
+(jazz.define-method (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form-src)
+  (if (%%pair? (jazz.source-code form-src))
+      (let ((first (jazz.source-code (%%car (jazz.source-code form-src)))))
         (case first
-          ((require)       (jazz.walk-require-declaration walker resume declaration environment form))
-          ((export)        (jazz.walk-export-declaration walker resume declaration environment form))
-          ((import)        (jazz.walk-import-declaration walker resume declaration environment form))
-          ((native)        (jazz.walk-native-declaration walker resume declaration environment form))
-          ((native-syntax) (jazz.walk-native-syntax-declaration walker resume declaration environment form))
-          ((macro)         (jazz.walk-macro-declaration  walker resume declaration environment form))
-          ((syntax)        (jazz.walk-syntax-declaration walker resume declaration environment form))
+          ((require)       (jazz.walk-require-declaration       walker resume declaration environment form-src))
+          ((export)        (jazz.walk-export-declaration        walker resume declaration environment form-src))
+          ((import)        (jazz.walk-import-declaration        walker resume declaration environment form-src))
+          ((native)        (jazz.walk-native-declaration        walker resume declaration environment form-src))
+          ((native-syntax) (jazz.walk-native-syntax-declaration walker resume declaration environment form-src))
+          ((macro)         (jazz.walk-macro-declaration         walker resume declaration environment form-src))
+          ((syntax)        (jazz.walk-syntax-declaration        walker resume declaration environment form-src))
           (else            #f)))
     #f))
 
 
 (define (jazz.walk-declarations walker resume declaration environment forms)
   (define (walk forms)
-    (for-each (lambda (form)
+    (for-each (lambda (form-src)
                 (continuation-capture
                   (lambda (resume)
-                    (jazz.cond-expand form
+                    (jazz.cond-expand form-src
                       (lambda (expr expr?)
                         (%%when expr?
                           (let ((expansion (jazz.expand-macros walker resume declaration environment expr)))
@@ -5294,7 +5294,7 @@
 
 
 (jazz.define-method (jazz.walk-form (jazz.Walker walker) resume declaration environment form-src)
-  (let ((procedure-expr (%%desourcify (%%car (jazz.source-code form-src)))))
+  (let ((procedure-expr (jazz.source-code (%%car (jazz.source-code form-src)))))
     (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-symbol walker resume declaration environment procedure-expr))))
       ;; special form
       (if (and binding (jazz.walk-binding-walkable? binding))
@@ -5319,15 +5319,15 @@
       #f)))
 
 
-(define (jazz.expand-macros walker resume declaration environment form)
-  (if (%%not (%%pair? form))
-      form
-    (let ((procedure-expr (%%car form)))
+(define (jazz.expand-macros walker resume declaration environment form-src)
+  (if (%%not (%%pair? (jazz.source-code form-src)))
+      form-src
+    (let ((procedure-expr (jazz.source-code (%%car (jazz.source-code form-src)))))
       (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-macro-form walker resume declaration environment procedure-expr))))
         (if binding
-            (let ((expansion (jazz.walk-binding-expand-form binding walker resume declaration environment form)))
+            (let ((expansion (jazz.walk-binding-expand-form binding walker resume declaration environment form-src)))
               (jazz.expand-macros walker resume declaration environment expansion))
-          form)))))
+          form-src)))))
 
 
 ;;;
@@ -5370,12 +5370,13 @@
 ;;;
 
 
-(define (jazz.walk-require-declaration walker resume declaration environment form)
-  (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((requires (jazz.filter-features (%%cdr form))))
-      (for-each (lambda (require)
-                  (jazz.add-library-require library-declaration (jazz.listify require)))
-                requires))))
+(define (jazz.walk-require-declaration walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((library-declaration (%%get-declaration-toplevel declaration)))
+      (let ((requires (jazz.filter-features (%%cdr form))))
+        (for-each (lambda (require)
+                    (jazz.add-library-require library-declaration (jazz.listify require)))
+                  requires)))))
 
 
 (define (jazz.walk-require walker resume declaration environment form-src)
@@ -5387,7 +5388,7 @@
 ;;;
 
 
-(define (jazz.walk-export-declaration walker resume declaration environment form)
+(define (jazz.walk-export-declaration walker resume declaration environment form-src)
   (define (walk-exports exports)
     (let ((partition (jazz.partition exports symbol? assv)))
       (let ((symbols-exports (%%assq #t partition))
@@ -5401,11 +5402,12 @@
                            (%%cdr library-exports))
                     '())))))
   
-  (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((export-invoices (walk-exports (jazz.filter-features (%%cdr form)))))
-      (for-each (lambda (export-invoice)
-                  (jazz.add-library-export library-declaration export-invoice))
-                export-invoices))))
+  (let ((form (%%desourcify form-src)))
+    (let ((library-declaration (%%get-declaration-toplevel declaration)))
+      (let ((export-invoices (walk-exports (jazz.filter-features (%%cdr form)))))
+        (for-each (lambda (export-invoice)
+                    (jazz.add-library-export library-declaration export-invoice))
+                  export-invoices)))))
 
 
 (define (jazz.walk-export walker resume declaration environment form-src)
@@ -5417,7 +5419,7 @@
 ;;;
 
 
-(define (jazz.walk-import-declaration walker resume declaration environment form)
+(define (jazz.walk-import-declaration walker resume declaration environment form-src)
   (define (jazz.walk-library-import import)
     (define (jazz.lookup-library name)
       (or (jazz.outline-library name error?: #f)
@@ -5439,11 +5441,12 @@
            (jazz.walk-library-import (jazz.listify import)))
          imports))
   
-  (let ((library-declaration (%%get-declaration-toplevel declaration)))
-    (let ((import-invoices (walk-imports (jazz.filter-features (%%cdr form)))))
-      (for-each (lambda (import-invoice)
-                  (jazz.add-library-import library-declaration import-invoice #t))
-                import-invoices))))
+  (let ((form (%%desourcify form-src)))
+    (let ((library-declaration (%%get-declaration-toplevel declaration)))
+      (let ((import-invoices (walk-imports (jazz.filter-features (%%cdr form)))))
+        (for-each (lambda (import-invoice)
+                    (jazz.add-library-import library-declaration import-invoice #t))
+                  import-invoices)))))
 
 
 (define (jazz.walk-import walker resume declaration environment form-src)
@@ -5492,13 +5495,14 @@
             (values name specifier access compatibility)))))))
 
 
-(define (jazz.walk-native-declaration walker resume declaration environment form)
-  (receive (name specifier access compatibility) (jazz.parse-native walker resume declaration (%%cdr form))
-    (receive (name symbol) (jazz.parse-exported-symbol declaration name)
-      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-        (let ((new-declaration (jazz.new-export-declaration name type access compatibility '() declaration symbol)))
-          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-            effective-declaration))))))
+(define (jazz.walk-native-declaration walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name specifier access compatibility) (jazz.parse-native walker resume declaration (%%cdr form))
+      (receive (name symbol) (jazz.parse-exported-symbol declaration name)
+        (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+          (let ((new-declaration (jazz.new-export-declaration name type access compatibility '() declaration symbol)))
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              effective-declaration)))))))
 
 
 (define (jazz.walk-native walker resume declaration environment form-src)
@@ -5530,13 +5534,14 @@
             (values name specifier access compatibility)))))))
 
 
-(define (jazz.walk-native-syntax-declaration walker resume declaration environment form)
-  (receive (name specifier access compatibility) (jazz.parse-native-syntax walker resume declaration (%%cdr form))
-    (receive (name symbol) (jazz.parse-exported-symbol declaration name)
-      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-        (let ((new-declaration (jazz.new-export-syntax-declaration name type access compatibility '() declaration symbol)))
-          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-            effective-declaration))))))
+(define (jazz.walk-native-syntax-declaration walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (receive (name specifier access compatibility) (jazz.parse-native-syntax walker resume declaration (%%cdr form))
+      (receive (name symbol) (jazz.parse-exported-symbol declaration name)
+        (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+          (let ((new-declaration (jazz.new-export-syntax-declaration name type access compatibility '() declaration symbol)))
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              effective-declaration)))))))
 
 
 (define (jazz.walk-native-syntax walker resume declaration environment form-src)
@@ -5566,8 +5571,8 @@
       (values name type access compatibility parameters body))))
 
 
-(define (jazz.walk-macro-declaration walker resume declaration environment form)
-  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
+(define (jazz.walk-macro-declaration walker resume declaration environment form-src)
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-macro-declaration name type access compatibility '() declaration signature)))
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
@@ -5605,8 +5610,8 @@
       (values name type access compatibility parameters body))))
 
 
-(define (jazz.walk-syntax-declaration walker resume declaration environment form)
-  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
+(define (jazz.walk-syntax-declaration walker resume declaration environment form-src)
+  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-syntax-declaration name type access compatibility '() declaration signature)))
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
@@ -5840,7 +5845,7 @@
   (make-parameter #f))
 
 
-(define (jazz.outline-module module-name #!key (error? #t))
+(define (jazz.outline-module module-name #!key (read-source? #f) (error? #t))
   (define (load-toplevel-declaration)
     (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
       (if (and (%%not src) (%%not error?))
@@ -5848,14 +5853,15 @@
         (jazz.with-verbose (jazz.outline-verbose?) "outlining" (jazz.resource-pathname src)
           (lambda ()
             ;; not reading the literals is necessary as reading a literal will load modules
-            (let ((form (jazz.read-toplevel-form src read-literals?: #f)))
+            (let ((form (jazz.read-toplevel-form src read-literals?: #f read-source?: read-source?)))
               (parameterize ((jazz.requested-module-name module-name)
                              (jazz.requested-module-resource src))
-                (case (%%car form)
-                  ((module)
-                   (jazz.parse-module-declaration (%%cdr form)))
-                  ((library)
-                   (jazz.parse-library-declaration (%%cdr form)))))))))))
+                (let ((kind (jazz.source-code (%%car (jazz.source-code form)))))
+                  (case kind
+                    ((module)
+                     (jazz.parse-module-declaration (%%cdr (jazz.source-code form))))
+                    ((library)
+                     (jazz.parse-library-declaration (%%cdr (jazz.source-code form)))))))))))))
   
   (let ((entry (jazz.get-catalog-entry module-name)))
     (let ((status (if (%%pair? entry) (%%car entry) #f))
@@ -5877,8 +5883,8 @@
                   declaration))))))))
 
 
-(define (jazz.outline-library module-name #!key (error? #t))
-  (let ((declaration (jazz.outline-module module-name error?: error?)))
+(define (jazz.outline-library module-name #!key (read-source? #f) (error? #t))
+  (let ((declaration (jazz.outline-module module-name read-source?: read-source? error?: error?)))
     (if (%%not error?)
         declaration
       (%%assert (%%class-is? declaration jazz.Library-Declaration)

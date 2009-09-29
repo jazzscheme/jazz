@@ -75,10 +75,7 @@
 
 
   (slot toplevel                 initialize {})
-  (slot stage-border             initialize {})
   (slot stage                    initialize {})
-  (slot menubar                  initialize {})
-  (slot status-bar               initialize {})
   (slot profile-name             initialize {})
   (slot profile-module           initialize {})
   (slot profile-class            initialize {})
@@ -117,22 +114,6 @@
 
   (method public (get-stage)
     stage)
-
-
-  (method public (get-menubar)
-    menubar)
-
-
-  (method public (set-menubar bar)
-    (set! menubar bar))
-
-
-  (method public (get-status-bar)
-    status-bar)
-
-
-  (method public (set-status-bar status)
-    (set! status-bar status))
 
 
   (method public (get-profile)
@@ -244,10 +225,7 @@
     (when toplevel
       (close~ toplevel)
       (set! toplevel {})
-      (set! stage-border {})
       (set! stage {})
-      (set! menubar {})
-      (set! status-bar {})
       (set! profile-name {})
       (set! profile-module {})
       (set! profile-class {})
@@ -1123,26 +1101,18 @@
   ;;;
   ;;;; Menubar
   ;;;
-  
-  
-  (method public (get-menubar-class)
-    (let ((pref (get-workspaces-preferences)))
-      (when pref
-        (let* ((classes (get-toolbar-classes~ pref))
-               (model-info (assq :menubar classes)))
-          (when model-info
-            (autoload-class (cdr model-info)))))))
-  
-  
+
+
   (method public (find-menubar)
-    (let ((menubar-class (get-menubar-class)))
-      (when menubar-class
-        (find-palette~ toplevel menubar-class))))
+    (let ((host (get-toolbar :menubar)))
+      (when (and host (in-player?~ host))
+        (get-guest~ host))))
   
   
   (method public (update-menubar-buttons)
-    (when menubar
-      (update-buttons~ menubar)))
+    (let ((menubar (find-menubar)))
+      (when menubar
+        (update-buttons~ menubar))))
 
   
   ;;;
@@ -1167,11 +1137,18 @@
             (set-action-handler~ message action-handler)))
         (when (primordial-thread?)
           (update-view~ message)))))
+
+
+  (method public (find-status-bar)
+    (let ((host (get-toolbar :status)))
+      (when (and host (in-player?~ host))
+        (get-guest~ host))))
   
   
   (method public (get-message-view)
-    (when status-bar
-      (find-component~ status-bar 'message)))
+    (let ((status-bar (find-status-bar)))
+      (when status-bar
+        (find-component~ status-bar 'message))))
   
   
   (method public (show-undisplayed-message)
@@ -1270,7 +1247,7 @@
 
 
   (method public (select-locale locale)
-    (let ((status (get-status-bar)))
+    (let ((status (find-status-bar)))
       (when status
         (let ((label (locate-component~ status 'locales)))
           (when label
@@ -1279,7 +1256,7 @@
   
   (method public (locale-update)
     ;; All this should of course be event based but it will do for now...
-    (layout-menu~ (get-menubar))
+    (layout-menu~ (find-menubar))
     (redraw-window~ (get-toplevel)))
   
   
@@ -1326,13 +1303,15 @@
   
   
   (method public undocumented (activate-workspace-item workspace)
-    (let ((item (find-component~ menubar 'workspace)))
-      (when item
-        (let ((menu (get-content~ item)))
-          (let ((radio (find-component~ menu (get-name~ workspace))))
-            (if (not radio)
-                (unselect-elements~ menu class: Radio-Item group: 'workspace)
-              (set-selected?~ radio #t)))))))
+    (let ((menubar (find-menubar)))
+      (when menubar
+        (let ((item (find-component~ menubar 'workspace)))
+          (when item
+            (let ((menu (get-content~ item)))
+              (let ((radio (find-component~ menu (get-name~ workspace))))
+                (if (not radio)
+                    (unselect-elements~ menu class: Radio-Item group: 'workspace)
+                  (set-selected?~ radio #t)))))))))
   
   
   (method public undocumented (activate-workspace-button workspace)
@@ -1462,20 +1441,10 @@
   ;;;
   
   
-  (method public (get-toolbar-class)
-    (let ((pref (get-workspaces-preferences)))
-      (when pref
-        (let* ((classes (get-toolbar-classes~ pref))
-               (model-info (assq :toolbar classes)))
-          (when model-info
-            (autoload-class (cdr model-info)))))))
-  
-  
   (method public (find-toolbar)
-    (when toplevel
-      (let ((toolbar-class (get-toolbar-class)))
-        (when toolbar-class
-          (find-palette~ toplevel toolbar-class)))))
+    (let ((host (get-toolbar :toolbar)))
+      (when (and host (in-player?~ host))
+        (get-guest~ host))))
 
 
   ;;;

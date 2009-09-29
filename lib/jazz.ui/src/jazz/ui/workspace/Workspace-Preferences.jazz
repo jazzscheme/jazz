@@ -86,6 +86,60 @@
   
   
   (method (activate)
+    (define (collect-visibility)
+      (let* ((stage (get-stage))
+             (frames (get-children~ stage)))
+        (collect (function (frame)
+                   (let ((visible? (get-visible?~ frame))
+                         (guest (get-guest~ frame)))
+                     (when guest
+                       (let* ((ws (get-workspace~ frame))
+                              (lst (if ws (list ws) (effective-host-workspaces~ guest))))
+                         (if (or (and (memq? name lst) (or visible? (not preserve-visibility?) (memq? frame to-restore)))
+                                 (and (null? lst) visible?))
+                             (cons frame #t)
+                           (cons frame #f))))))
+                 frames)))
+    
+    (define (process-frames visibility flag)
+      (for-each (function (info)
+                  (bind (frame . visible?) info
+                    (when (eq? visible? flag)
+                      (set-visible?~ frame visible?)
+                      @wait-bug-fix-on-x11
+                      (unless maximized?
+                        (ensure-displayed~ frame)))))
+                visibility))
+    
+    (define (process-activation)
+      (let* ((stage (get-stage))
+             (frames (get-views~ stage)))
+        (if (null? frames)
+            (stage-activate~ stage)
+          (for-each-docked
+            (function (view)
+              (client-activate~ view))))))
+    
+    (define (process-palettes)
+      (for-each (function (preferences)
+                  (unless (eq? (get-location~ preferences) 'root)
+                    (let ((title (get-title~ preferences))
+                          (position (get-position~ preferences))
+                          (size (get-size~ preferences))
+                          (root-preferences (first-child~ preferences))
+                          (palette (new Palette visible?: #f)))
+                      (apply-root~ root-preferences palette)
+                      (when title
+                        (set-title~ palette title))
+                      (when position
+                        (set-position~ palette position))
+                      (when size
+                        (set-size~ palette size))
+                      (set-visible?~ palette #t)
+                      @w
+                      (focus-host~ host))))
+                children))
+    
     (let ((appl (get-application))
           (stage (get-stage))
           (toplevel (get-toplevel)))
@@ -115,53 +169,25 @@
           (let ((first (first-view~ stage)))
             (when first
               (focus-host~ first)))
-          (full-screen-stage~ appl fullscreen?)))))
+          (full-screen-stage~ appl fullscreen?)
+          (if position
+              (set-position~ toplevel (either position {Point -4 -4}))
+            (unless (eq? name 'home)
+              (set-position~ toplevel {Point -4 -4})))
+          (if size
+              (set-size~ toplevel size)
+            (unless (eq? name 'home)
+              (set-size~ toplevel {Dimension 1244 998})))
+          (process-palettes)))))
   
   
   (method public (update-status)
     (let* ((appl (get-application))
-           (status (get-status-bar~ appl))
+           (status (find-status-bar~ appl))
            (label (essay status (find-component~ status 'workspace))))
       (when label
         (set-title~ label (get-title))
         (set-icon~ label (get-icon)))))
-  
-  
-  (method (collect-visibility)
-    (let* ((stage (get-stage))
-           (frames (get-children~ stage)))
-      (collect (function (frame)
-                 (let ((visible? (get-visible?~ frame))
-                       (guest (get-guest~ frame)))
-                   (when guest
-                     (let* ((ws (get-workspace~ frame))
-                            (lst (if ws (list ws) (effective-host-workspaces~ guest))))
-                       (if (or (and (memq? name lst) (or visible? (not preserve-visibility?) (memq? frame to-restore)))
-                               (and (null? lst) visible?))
-                           (cons frame #t)
-                         (cons frame #f))))))
-               frames)))
-  
-  
-  (method (process-frames visibility flag)
-    (for-each (function (info)
-                (bind (frame . visible?) info
-                  (when (eq? visible? flag)
-                    (set-visible?~ frame visible?)
-                    @wait-bug-fix-on-x11
-                    (unless maximized?
-                      (ensure-displayed~ frame)))))
-              visibility))
-  
-  
-  (method (process-activation)
-    (let* ((stage (get-stage))
-           (frames (get-views~ stage)))
-      (if (null? frames)
-          (stage-activate~ stage)
-        (for-each-docked
-          (function (view)
-            (client-activate~ view))))))
   
   
   (method (deactivate)

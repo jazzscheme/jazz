@@ -49,16 +49,16 @@
 
 
 ;; Lexicon
-;; - picker : view added to the root to override mouse events
+;; - overlay : view added to the root to override mouse events
 
 
 (definition In-Pick?
   #f)
 
-(definition All-Pickers
+(definition All-Overlays
   '())
 
-(definition *highlighted-picker*
+(definition *highlighted-overlay*
   {})
 
 
@@ -77,23 +77,26 @@
         (let ((windows (process-windows)))
           (when (not-null? windows)
             (setup-pick)
-            (set! All-Pickers '())
+            (set! All-Overlays '())
             (for-each (function (overlapped)
                         (when (and (or (not include) (memq? overlapped include))
                                    (or (not exclude) (not (memq? overlapped exclude))))
-                          (let ((picker (install-picker overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)))
-                            (invalidate-view~ picker)
-                            (set! All-Pickers (cons picker All-Pickers)))))
+                          (let ((overlay (install-overlay overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)))
+                            (invalidate-view~ overlay)
+                            (set! All-Overlays (cons overlay All-Overlays)))))
                       windows)
             (set! In-Pick? #t)))))))
 
 
-(definition (install-picker overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)
-  (let ((root (get-root~ overlapped)))
+(definition (install-overlay overlapped click menu highlight highlight-root-only? report-figure? obscure-unhighlighted? tooltips?)
+  (let ((old-root (get-root~ overlapped))
+        (new-root (new Picker-Root)))
+    (set-parent~ old-root new-root)
+    (set-root~ overlapped new-root)
     (new Picker-Overlay
-      parent: root
+      parent: new-root
       position: {Point 0 0}
-      size: (get-size~ root)
+      size: (get-size~ new-root)
       click: click
       menu: menu
       highlight: highlight
@@ -103,8 +106,15 @@
       tooltips?: tooltips?)))
 
 
-(definition (remove-picker picker)
-  (close~ picker))
+(definition (remove-overlay overlay)
+  (let ((new-root (get-root~ overlay)))
+    (let ((old-root (first-child~ new-root)))
+      (set-root~ (get-overlapped~ overlay) old-root)
+      (close~ overlay))))
+
+
+(definition (root-overlay root)
+  (second (get-children~ root)))
 
 
 (definition (shortcut-hook shortcut)
@@ -114,25 +124,23 @@
              (end-pick)
              (clear-user-message)))
          #f)
-        ((not *highlighted-picker*)
+        ((not *highlighted-overlay*)
          #f)
         (else
-         (let ((highlighted-view (get-highlighted-view~ *highlighted-picker*))
-               (highlighted-position (get-highlighted-position~ *highlighted-picker*)))
+         (let ((highlighted-view (get-highlighted-view~ *highlighted-overlay*))
+               (highlighted-position (get-highlighted-position~ *highlighted-overlay*)))
            (define (setup-view view)
              (let ((pos (acquire~ view highlighted-view highlighted-position)))
-               @w
-               (change-highlight-rect~ *highlighted-picker* view pos rect)
-               (default-highlight~ *highlighted-picker* view pos)
+               (default-highlight~ *highlighted-overlay* view pos)
                (update-tooltip~ view (display-description (view-describe view pos)))
                (user-message "{a}" view)))
            
            (cond ((shortcut=? shortcut {Shortcut Up})
-                  (if (eq? (get-highlighted-rect~ *highlighted-picker*)
-                           (get-last-cell-rect~ *highlighted-picker*))
-                      (change-highlight-rect~ *highlighted-picker* (get-last-view-rect~ *highlighted-picker*))
+                  (if (eq? (get-highlighted-rect~ *highlighted-overlay*)
+                           (get-last-cell-rect~ *highlighted-overlay*))
+                      (change-highlight-rect~ *highlighted-overlay* (get-last-view-rect~ *highlighted-overlay*))
                     (let ((parent (find-ascendant~ highlighted-view View)))
-                      (if (not parent)
+                      (if (or (not parent) (is? parent Picker-Root))
                           (bell)
                         (setup-view parent))))
                   #t)
@@ -156,7 +164,7 @@
                   #t)
                  ((shortcut=? shortcut {Shortcut Return})
                   (end-pick)
-                  (let ((click (get-click~ *highlighted-picker*)))
+                  (let ((click (get-click~ *highlighted-overlay*)))
                     (click highlighted-view highlighted-position))
                   #f)
                  (else
@@ -171,10 +179,6 @@
              description)))
 
 
-(definition (find-picker view)
-  (find-type~ view Picker-Overlay))
-
-
 (definition (setup-pick)
   (set-shortcut-hook~ (get-application) shortcut-hook))
 
@@ -182,16 +186,24 @@
 (definition (end-pick)
   (set! In-Pick? #f)
   (set-shortcut-hook~ (get-application) {})
-  (close-pickers))
+  (close-overlays))
 
 
-(definition (close-pickers)
-  (for-each remove-picker All-Pickers)
-  (set! All-Pickers '()))
+(definition (close-overlays)
+  (for-each remove-overlay All-Overlays)
+  (set! All-Overlays '()))
 
 
 ;;;
-;;;; Picker
+;;;; Root
+;;;
+
+
+(class Picker-Root extends View)
+
+
+;;;
+;;;; Overlay
 ;;;
 
 
@@ -311,11 +323,11 @@
   
   (method (default-highlight view pos)
     (let ((root (get-root~ (get-player~ view))))
-      (let ((picker (find-picker root)))
+      (let ((overlay (root-overlay root)))
         (if highlight-root-only?
-            (update-highlight picker view pos cell-rect: #f view-rect: (get-bounds~ root))
+            (update-highlight overlay view pos cell-rect: #f view-rect: (get-bounds~ root))
           (receive (cell-rect view-rect) (calculate-tooltip-bounds view pos)
-            (update-highlight picker view pos
+            (update-highlight overlay view pos
               cell-rect: (and cell-rect (acquire~ root view cell-rect))
               view-rect: (and view-rect (acquire~ root view view-rect))))))))
   
@@ -324,32 +336,32 @@
     (update-highlight self highlighted-view highlighted-position override-rect: override-rect))
   
   
-  (method (update-highlight picker view pos (cell-rect: cell-rect last-cell-rect) (view-rect: view-rect last-view-rect) (override-rect: override-rect #f))
-    (define (redraw same-picker? picker view)
-      (if same-picker?
+  (method (update-highlight overlay view pos (cell-rect: cell-rect last-cell-rect) (view-rect: view-rect last-view-rect) (override-rect: override-rect #f))
+    (define (redraw same-overlay? overlay view)
+      (if same-overlay?
           (when view
             (let ((player (get-player~ view))
                   (rect (acquire~ (get-root~ view) view (inflate-rect (get-bounds~ view) 1 1))))
               (redraw-window~ player rect: rect)))
-        (when picker
-          (redraw-view~ picker))))
+        (when overlay
+          (redraw-view~ overlay))))
     
-    (unless (and (eq? *highlighted-picker* picker)
+    (unless (and (eq? *highlighted-overlay* overlay)
                  (eq? highlighted-view view)
                  (eq? last-view-rect view-rect)
                  (eq? last-cell-rect cell-rect)
                  (not override-rect))
-      (let ((same-picker? (eq? picker *highlighted-picker*))
-            (old-picker *highlighted-picker*)
+      (let ((same-overlay? (eq? overlay *highlighted-overlay*))
+            (old-overlay *highlighted-overlay*)
             (old-view highlighted-view))
-        (set! *highlighted-picker* picker)
+        (set! *highlighted-overlay* overlay)
         (set! highlighted-view view)
         (set! highlighted-rect (or override-rect cell-rect view-rect))
         (set! highlighted-position pos)
         (set! last-cell-rect cell-rect)
         (set! last-view-rect view-rect)
-        (redraw same-picker? old-picker old-view)
-        (redraw same-picker? *highlighted-picker* highlighted-view))))
+        (redraw same-overlay? old-overlay old-view)
+        (redraw same-overlay? *highlighted-overlay* highlighted-view))))
   
   
   ;;;
@@ -400,7 +412,7 @@
       (set-line-width~ surface 2)
       (set-color~ surface Highlight-Color))
     
-    (cond ((or (not *highlighted-picker*) (neq? (get-root) (get-root~ *highlighted-picker*)))
+    (cond ((or (not *highlighted-overlay*) (neq? (get-root) (get-root~ *highlighted-overlay*)))
            (when obscure-unhighlighted?
              (fill-rect~ surface (get-bounds) Overlay-Color)))
           (highlighted-rect

@@ -979,6 +979,10 @@
 ;;;
 
 
+(define jazz.test?
+  (make-parameter #f))
+
+
 (define (jazz.setup-debuggee)
   (jazz.load-module 'core.library)
   (jazz.load-module 'jazz)

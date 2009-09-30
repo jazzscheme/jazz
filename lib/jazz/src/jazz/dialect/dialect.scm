@@ -999,7 +999,7 @@
         (if (%%not (%%memq symbol keywords))
             (set! done? #t)
           (begin
-            (%%table-set! table symbol (%%cadr rest))
+            (%%table-set! table symbol (%%desourcify (%%cadr rest)))
             (set! rest (%%cddr rest))))))
     (%%apply values (%%append (map (lambda (keyword)
                                      (%%table-ref table keyword (jazz.unspecified)))

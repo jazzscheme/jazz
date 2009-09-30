@@ -445,8 +445,7 @@
    (variables  %%get-walker-variables  ())
    (references %%get-walker-references ())
    (inclusions %%get-walker-inclusions %%set-walker-inclusions)
-   (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)
-   ))
+   (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
 
 
 (jazz.define-virtual (jazz.walker-environment (jazz.Walker walker)))

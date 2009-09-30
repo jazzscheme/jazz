@@ -60,11 +60,11 @@
     (<install> default-style: {Text-Style name: Default font: {Font name: Code}} left-padding: 12))
   
   
-  (method (new-syntax)
+  (method override (new-syntax)
     (new Code-Syntax))
 
   
-  (method (install rest)
+  (method override (install rest)
     (nextmethod rest)
     (let ((pref (preferences)))
       (when pref
@@ -85,7 +85,7 @@
   ;;;
   
   
-  (method (host-workspaces)
+  (method override (host-workspaces)
     '(text debugger))
   
   
@@ -94,7 +94,7 @@
   ;;;
     
 
-  (method (tab-press key modifiers)
+  (method override (tab-press key modifiers)
     (if (or (has-completion?)
             (not accepts-returns?))
         (nextmethod key modifiers)
@@ -103,7 +103,7 @@
         (tabulate))))
 
   
-  (method (backspace-press key (word?: word? #f))
+  (method override (backspace-press key (word?: word? #f))
     (let ((previous (previous-cell (get-start))))
       (if (not completion-active?)
           (insert-char/backspace #\backspace word?: word?)
@@ -111,19 +111,19 @@
           (complete-current #\backspace previous {} #t #f)))))
 
 
-  (method (char-press key translated)
+  (method override (char-press key translated)
     (nextmethod key translated)
     (flash-matching-character)
     (when (eqv? key #\space)
       (show-arguments)))
 
 
-  (method (select-outer)
+  (method override (select-outer)
     (end-completion)
     (nextmethod))
 
 
-  (method (context-menu pos)
+  (method override (context-menu pos)
     (receive (shift? control? alt?) (modifiers-down)
       (let ((move-caret
              (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
@@ -141,7 +141,7 @@
   ;;;
   
   
-  (method (focus-actions)
+  (method override (focus-actions)
     (cons (find-actions 'code-text)
           (nextmethod)))
   
@@ -166,7 +166,7 @@
   ;;;
 
 
-  (method (explorer-class)
+  (method override (explorer-class)
     Code-Explorer)
 
   
@@ -175,19 +175,19 @@
   ;;;
   
   
-  (method (backward-compound)
+  (method override (backward-compound)
     (backward-expr))
   
   
-  (method (forward-compound)
+  (method override (forward-compound)
     (forward-expr))
   
   
-  (method (upward-compound)
+  (method override (upward-compound)
     (exit-composite))
   
   
-  (method (downward-compound)
+  (method override (downward-compound)
     (enter-composite))
   
   
@@ -231,7 +231,7 @@
         (set-caret (get-end~ expl)))))
   
   
-  (method (move-caret pos direction shift?)
+  (method override (move-caret pos direction shift?)
     (nextmethod pos direction shift?)
     (end-completion))
   
@@ -357,7 +357,7 @@
   ;;;
   
   
-  (method (current-history-item)
+  (method override (current-history-item)
     (let ((selection (get-selection))
           (moniker (get-moniker)))
       (if (not moniker)
@@ -372,7 +372,7 @@
   ;;;
   
   
-  (method (save-content moniker)
+  (method override (save-content moniker)
     (nextmethod moniker)
     (update-catalog))
 
@@ -440,7 +440,7 @@
         (build-search-automata targets #t #f c-constituent?))))
   
   
-  (method (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
+  (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
     (colorize-syntax-from (text-beginning) recoloring?)
     (when entries?
       (colorize-entries)))
@@ -526,7 +526,7 @@
                 (new Cell row (+ col 1)))))))))
 
   
-  (method (recolorize-text start end-row)
+  (method override (recolorize-text start end-row)
     (let ((pos (new Cell (get-row~ start) 0))
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
@@ -715,11 +715,11 @@
   ;;;
   
   
-  (method (auto-complete?)
+  (method override (auto-complete?)
     #t)
 
 
-  (method (completion-name pos postfix)
+  (method override (completion-name pos postfix)
     (unless (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos)))
       (let ((prev (previous-cell pos)))
         (if (not prev)
@@ -735,7 +735,7 @@
                         (string-append (get-symbol-string~ expl) (either postfix "")))))))))))))
   
   
-  (method (symbol-completions name)
+  (method override (symbol-completions name)
     (if (numeric? name)
         '()
       (let ((cataloguer (get-cataloguer~ (get-application))))
@@ -766,22 +766,22 @@
   ;;;
   
   
-  (method (left-arrow-move extend? word?)
+  (method override (left-arrow-move extend? word?)
     (convert-completion)
     (nextmethod extend? word?))
   
   
-  (method (right-arrow-move extend? word?)
+  (method override (right-arrow-move extend? word?)
     (convert-completion)
     (nextmethod extend? word?))
   
   
-  (method (up-arrow-move extend? scroll?)
+  (method override (up-arrow-move extend? scroll?)
     (convert-completion)
     (nextmethod extend? scroll?))
   
   
-  (method (down-arrow-move extend? scroll?)
+  (method override (down-arrow-move extend? scroll?)
     (convert-completion)
     (nextmethod extend? scroll?))
   
@@ -818,7 +818,7 @@
   ;;;
 
 
-  (method (flash-matching-character)
+  (method override (flash-matching-character)
     (when (and (empty-selection?) (not (at-beginning?)))
       (let ((pos (previous-cell (get-end))))
         (when (flash-character? (get-char pos))
@@ -911,7 +911,7 @@
     (set! history-item item))
   
   
-  (method (finish rest)
+  (method override (finish rest)
     (nextmethod rest)
     (if (< (length definitions) 20)
         (for-each (function (definition)
@@ -971,7 +971,7 @@
     (set! history-item item))
   
   
-  (method (finish rest)
+  (method override (finish rest)
     (nextmethod rest)
     (if (< (length definitions) 20)
         (for-each (function (definition)

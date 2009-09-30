@@ -72,7 +72,7 @@
   ;;;
   
   
-  (method (conclude rest)
+  (method override (conclude rest)
     (nextmethod rest)
     (destroy-mandatory))
 
@@ -95,7 +95,7 @@
   ;;;
   
   
-  (method (size-change size)
+  (method override (size-change size)
     (nextmethod size)
     (invalidate-caption)
     (invalidate-border insets: {Rect 4 4 4 4}))
@@ -113,7 +113,7 @@
     (close-with-confirm~ (get-host)))
 
 
-  (method (close-with-confirm)
+  (method override (close-with-confirm)
     (close-popups)
     (confirm-close)
     (nextmethod))
@@ -153,7 +153,7 @@
   ;;;
   
   
-  (method (destroy)
+  (method override (destroy)
     (when (get-surrogate)
       (remove-surrogate))
     (let* ((was-active? (eq? self (get-active-frame)))
@@ -172,13 +172,13 @@
   ;;;
   
   
-  (method (bring-to-front)
+  (method override (bring-to-front)
     (nextmethod)
     (when (get-visible?)
       (activate-front)))
   
   
-  (method (send-to-back)
+  (method override (send-to-back)
     (nextmethod)
     (activate-front))
 
@@ -188,7 +188,7 @@
   ;;;
   
   
-  (method (show)
+  (method override (show)
     (nextmethod)
     (let ((stage (get-stage)))
       (when (get-maximized?~ stage)
@@ -240,13 +240,13 @@
   ;;;
   
   
-  (method (get-effective-position)
+  (method override (get-effective-position)
     (if (get-maximized?)
         (get-preserved-position)
       (get-position)))
   
   
-  (method (get-effective-size)
+  (method override (get-effective-size)
     (if (get-maximized?)
         (get-preserved-size)
       (get-size)))
@@ -269,7 +269,7 @@
   ;;;
 
   
-  (method (confirm-close . rest)
+  (method override (confirm-close . rest)
     (when guest
       (confirm-close~ guest)))
   
@@ -279,7 +279,7 @@
   ;;;
   
   
-  (method (caption-rect)
+  (method override (caption-rect)
     (let ((border (if maximized? 0 4)))
       (new Rect border border (- (get-width) border) (+ border 20))))
   
@@ -297,21 +297,21 @@
   ;;;
   
   
-  (method (mouse-activate?)
+  (method override (mouse-activate?)
     #t)
   
   
-  (method (mouse-activate)
+  (method override (mouse-activate)
     (bring-to-front)
     (nextmethod))
   
   
-  (method (activate-focus)
+  (method override (activate-focus)
     (nextmethod)
     (invalidate-caption))
   
   
-  (method (deactivate-focus)
+  (method override (deactivate-focus)
     (nextmethod)
     (invalidate-caption))
   
@@ -321,7 +321,7 @@
   ;;;
   
   
-  (method (maximize)
+  (method override (maximize)
     (let ((host (get-host)))
       (unless maximized?
         (set! preserved-position (get-position~ host))
@@ -338,7 +338,7 @@
       (invalidate-view)))
   
   
-  (method (restore)
+  (method override (restore)
     (let ((host (get-host)))
       ;; test necessary because of temporary-fix
       (when preserved-position
@@ -357,7 +357,7 @@
   ;;;
   
   
-  (method (layout)
+  (method override (layout)
     (let* ((caption? (caption-visible?))
            (border (if caption? 4 0))
            (caption-rect (caption-rect))
@@ -386,7 +386,7 @@
   ;;;
   
   
-  (method (invalidate-caption)
+  (method override (invalidate-caption)
     (invalidate-rect (caption-rect)))
   
   
@@ -401,22 +401,22 @@
   ;;;
   
   
-  (method (caption-icon)
+  (method override (caption-icon)
     (let* ((host (get-host))
            (guest (get-guest~ host)))
       (guest-icon~ guest)))
   
   
-  (method (caption-title)
+  (method override (caption-title)
     (let ((host (get-host)))
       (get-title~ host)))
   
   
-  (method (caption-focused?)
+  (method override (caption-focused?)
     (eq? self (get-focused-host)))
   
   
-  (method (caption-visible?)
+  (method override (caption-visible?)
     (not maximized?))
 
 
@@ -425,7 +425,7 @@
   ;;;
 
 
-  (method (cursor-update pos)
+  (method override (cursor-update pos)
     (if (not (resizeable?))
         (set-cursor :arrow)
       (let ((part (essay (not maximized?) (find-resize-part pos (get-size)))))
@@ -447,7 +447,7 @@
     #t)
 
   
-  (method (mouse-down pos)
+  (method override (mouse-down pos)
     (let ((in-caption? (in-rect? pos (caption-rect))))
       (if (and in-caption? (control-down?))
           (send-to-back)
@@ -460,7 +460,7 @@
               (acquire-capture)))))))
   
   
-  (method (drag-move pos)
+  (method override (drag-move pos)
     (when dragging?
       (let* ((desktop-pos (to-desktop pos))
              (delta (point- desktop-pos old-position))
@@ -474,13 +474,13 @@
         (set! old-position desktop-pos))))
   
   
-  (method (drag-up pos . rest)
+  (method override (drag-up pos . rest)
     (when dragging?
       (release-capture)
       (set! dragging? #f)))
   
   
-  (method (double-click pos)
+  (method override (double-click pos)
     (cond ((in-close-rect? pos)
            (close-host))
           ((in-rect? pos (caption-rect))

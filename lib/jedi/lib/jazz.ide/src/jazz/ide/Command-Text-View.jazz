@@ -71,7 +71,7 @@
       tooltip-text: "Command Shell"))
   
   
-  (method (component-alias name)
+  (method override (component-alias name)
     (case name
       ((:mode) mode)
       (else (nextmethod name))))
@@ -82,19 +82,19 @@
   ;;;
   
   
-  (method (focus-gain old)
+  (method override (focus-gain old)
     (nextmethod old)
     (set! client old)
     (set! client-selection (essay (and client (is? client Text-View)) (get-selection~ client))))
   
   
-  (method (focus-lose view)
+  (method override (focus-lose view)
     (nextmethod view)
     (cleanup~ mode)
     (set! mode {}))
   
   
-  (method (focus-actions)
+  (method override (focus-actions)
     (when (not mode)
       (set-mode-execute))
     (cons (focus-actions~ mode)
@@ -106,60 +106,60 @@
   ;;;
   
   
-  (method (key-press key)
+  (method override (key-press key)
     (nextmethod key)
     (key-press~ mode key))
   
   
-  (method (backspace-press key (word?: word? #f))
+  (method override (backspace-press key (word?: word? #f))
     (nextmethod key word?: word?)
     (backspace-press~ mode key word?: word?))
   
   
-  (method (next-page evt)
+  (method override (next-page evt)
     (next-page~ mode))
   
   
-  (method (prior-page evt)
+  (method override (prior-page evt)
     (prior-page~ mode))
   
   
-  (method (get-constituent-test)
+  (method override (get-constituent-test)
     (either (get-constituent-test~ mode)
             (nextmethod)))
   
   
-  (method (auto-complete?)
+  (method override (auto-complete?)
     (auto-complete?~ mode))
   
   
-  (method (auto-complete-char? key last)
+  (method override (auto-complete-char? key last)
     (let ((value (auto-complete-char?~ mode key last)))
       (if (eq? value 'default)
           (nextmethod key last)
         value)))
 
 
-  (method (favorite-completions?)
+  (method override (favorite-completions?)
     (let ((value (favorite-completions?~ mode)))
       (if (eq? value 'default)
           (nextmethod)
         value)))
   
   
-  (method (complete-name? size)
+  (method override (complete-name? size)
     (let ((value (complete-name?~ mode size)))
       (if (eq? value 'default)
           (nextmethod size)
         value)))
 
 
-  (method (completion-name pos postfix)
+  (method override (completion-name pos postfix)
     (either (completion-name~ mode pos postfix)
             (nextmethod pos postfix)))
     
   
-  (method (symbol-completions name)
+  (method override (symbol-completions name)
     (either (symbol-completions~ mode name)
             (nextmethod name)))
 
@@ -212,7 +212,7 @@
   (slot text)
   
   
-  (method (initialize text)
+  (method override (initialize text)
     (nextmethod)
     (set! text~self text))
   
@@ -298,7 +298,7 @@
   (slot highlight-style initialize {})
   
   
-  (method (initialize text direction)
+  (method override (initialize text direction)
     (nextmethod text)
     (set! direction~self direction))
   
@@ -313,23 +313,23 @@
         (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {})))))
   
   
-  (method (focus-actions)
+  (method override (focus-actions)
     (find-actions 'command-search))
   
   
-  (method (key-press key)
+  (method override (key-press key)
     (search direction #f whole-words?: #f))
   
   
-  (method (backspace-press key (word?: word? #f))
+  (method override (backspace-press key (word?: word? #f))
     (search direction #f whole-words?: #f))
   
   
-  (method (next-page)
+  (method override (next-page)
     (search 'forward #t))
   
   
-  (method (prior-page)
+  (method override (prior-page)
     (search 'backward #t))
   
   
@@ -462,11 +462,11 @@
         (remove-all-highlights~ client))))
   
   
-  (method (finish)
+  (method override (finish)
     (cleanup))
   
   
-  (method (cancel)
+  (method override (cancel)
     (cleanup)
     (let ((client (get-client))
           (client-selection (get-client-selection)))
@@ -474,7 +474,7 @@
         (set-selection~ client client-selection))))
   
   
-  (method (cleanup)
+  (method override (cleanup)
     (let ((client (get-client)))
       (when client
         (remove-highlights)
@@ -489,7 +489,7 @@
 (class Extended-Mode extends Command-Mode
   
   
-  (method (focus-actions)
+  (method override (focus-actions)
     (find-actions 'command-extended))
   
   
@@ -527,27 +527,27 @@
 (class Find-Mode extends Command-Mode
   
   
-  (method (get-constituent-test)
+  (method override (get-constituent-test)
     alphanumeric?)
   
   
-  (method (auto-complete?)
+  (method override (auto-complete?)
     #t)
   
   
-  (method (auto-complete-char? key last)
+  (method override (auto-complete-char? key last)
     (memv? key '(#\/ #\- #\_ #\.)))
 
   
-  (method (favorite-completions?)
+  (method override (favorite-completions?)
     #f)
   
   
-  (method (complete-name? size)
+  (method override (complete-name? size)
     (>= size 1))
 
 
-  (method (completion-name pos postfix)
+  (method override (completion-name pos postfix)
     (string-append (get-string~ text (new Range$Cell$ {Cell 0 0} pos)) (either postfix "")))
   
   
@@ -559,11 +559,11 @@
     (cancel))
   
   
-  (method (cancel)
+  (method override (cancel)
     (cleanup))
   
   
-  (method (cleanup)
+  (method override (cleanup)
     (set-string-content~ text "")
     (let ((client (get-client)))
       (when client
@@ -579,7 +579,7 @@
 (class Find-File-Mode extends Find-Mode
   
   
-  (method (symbol-completions name)
+  (method override (symbol-completions name)
     (define (split-filename filename)
       (let ((pos (find filename #\/ reversed?: #t)))
         (if (not pos)
@@ -601,7 +601,7 @@
                  (directory-content (list path: (either dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
   
   
-  (method (finish)
+  (method override (finish)
     (let ((filename (get-string-content~ text)))
       (if (and (file-exists? filename)
                (eq? (pathname-type filename) 'regular))
@@ -623,7 +623,7 @@
   (slot filenames)
   
   
-  (method (initialize text)
+  (method override (initialize text)
     (define (collect-filenames)
       (let ((workbench (get-workbench))
             (table (make-table test: equal?)))
@@ -639,7 +639,7 @@
     (set! filenames (collect-filenames)))
   
   
-  (method (symbol-completions name)
+  (method override (symbol-completions name)
     (let ((queue (new-queue)))
       (iterate-table filenames
                      (function (filename file)
@@ -648,7 +648,7 @@
       (queue-list queue)))
   
   
-  (method (finish)
+  (method override (finish)
     (define (find-file name)
       (continuation-capture
         (function (return)
@@ -678,7 +678,7 @@
 (class Find-Buffer-Mode extends Find-Mode
   
   
-  (method (symbol-completions name)
+  (method override (symbol-completions name)
     (collect (function (view)
                (let ((presentation (present-title view)))
                  (when (compare-n name presentation (string-length name) test: char-ci=?)
@@ -686,7 +686,7 @@
              (all-views)))
   
   
-  (method (finish)
+  (method override (finish)
     (define (find-view name)
       (find-if (function (view)
                  (string-ci=? (present-title view) name))
@@ -738,11 +738,11 @@
 (class Execute-Mode extends Command-Mode
   
   
-  (method (focus-actions)
+  (method override (focus-actions)
     (find-actions 'command-execute))
   
   
-  (method (auto-complete?)
+  (method override (auto-complete?)
     #t)
   
   

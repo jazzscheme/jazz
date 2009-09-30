@@ -57,7 +57,7 @@
 (class Lisp-Text-View extends Code-Text-View
     
   
-  (method (new-syntax)
+  (method override (new-syntax)
     (new Lisp-Syntax))
 
   
@@ -66,7 +66,7 @@
   ;;;
   
   
-  (method meta (host-icon)
+  (method meta override (host-icon)
     {Bitmap-Resource "Script"})
 
   
@@ -87,7 +87,7 @@
   ;;;
   
 
-  (method (focus-actions)
+  (method override (focus-actions)
     (cons (find-actions 'lisp-text)
           (nextmethod)))
 
@@ -97,7 +97,7 @@
   ;;;
 
 
-  (method (context-menu pos)
+  (method override (context-menu pos)
     (receive (shift? control? alt?) (modifiers-down)
       (let ((move-caret
               (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
@@ -110,7 +110,7 @@
             (else (track-popup-menu (get-context-menu) pos)))))
 
 
-  (method (tab-press key modifiers)
+  (method override (tab-press key modifiers)
     (if (or (has-completion?)
             (not accepts-returns?))
         (nextmethod key modifiers)
@@ -126,7 +126,7 @@
   ;;;
   
   
-  (method (colorize-syntax (recoloring?: recoloring? #f))
+  (method override (colorize-syntax (recoloring?: recoloring? #f))
     (nextmethod entries?: #f)
     (with-safe-explore
       (function ()
@@ -141,33 +141,33 @@
     {})
   
   
-  (method (syntax-targets)
+  (method override (syntax-targets)
     (unless Syntax-Targets
       (set! Syntax-Targets (compute-syntax-targets)))
     Syntax-Targets)
   
   
-  (method (syntax-automata)
+  (method override (syntax-automata)
     (unless Syntax-Automata
       (set! Syntax-Automata (compute-syntax-automata)))
     Syntax-Automata)
   
   
-  (method (compute-syntax-targets)
+  (method override (compute-syntax-targets)
     Syntax-Targets)
   
   
-  (method (compute-syntax-automata)
+  (method override (compute-syntax-automata)
     (let ((targets (syntax-targets)))
       (when targets
         (build-search-automata targets #t #f text-constituent?))))
   
   
-  (method (colorize-type found type start end colorizer recolorize?)
+  (method override (colorize-type found type start end colorizer recolorize?)
     )
 
   
-  (method (colorize-declarations (recoloring? #f))
+  (method override (colorize-declarations (recoloring? #f))
     (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (walk-declarations~ expl
@@ -234,7 +234,7 @@
     )
   
   
-  (method (colorize-comments (recoloring? #f))
+  (method override (colorize-comments (recoloring? #f))
     (let ((expl <Text-Explorer> (new (explorer-class) self end: (text-beginning)))
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (for-each-comment~ expl
@@ -250,7 +250,7 @@
         (finish-current~ colorizer))))
 
   
-  (method (recolorize-text start end-row)
+  (method override (recolorize-text start end-row)
     (nextmethod start end-row)
     (loop (for row from (get-row~ start) to end-row)
           (recolorize-row row)))
@@ -428,28 +428,28 @@
     '(String Delimited-String Named-String))
   
   
-  (method (commented? pos)
+  (method override (commented? pos)
     (comment-style? (get-style-at pos)))
   
   
-  (method (comment-style? style)
+  (method override (comment-style? style)
     (some? (function (style-name)
              (inherits?~ style style-name))
            Comment-Styles))
   
   
-  (method (string-style? style)
+  (method override (string-style? style)
     (some? (function (style-name)
              (inherits?~ style style-name))
            String-Styles))
   
   
-  (method (textual-style? style)
+  (method override (textual-style? style)
     (or (comment-style? style)
         (string-style? style)))
 
 
-  (method (favorite-completions)
+  (method override (favorite-completions)
     (get-completions~ (preferences)))
 
   
@@ -482,14 +482,14 @@
         (tabulate))))
 
 
-  (method (return-press key)
+  (method override (return-press key)
     (with-atomic-undo~ undoer
       (function ()
         (nextmethod key)
         (tabulate))))
 
 
-  (method (tabulate)
+  (method override (tabulate)
     (let ((start (get-start))
           (end (get-end)))
       (with-update-locked
@@ -504,7 +504,7 @@
             action: 'ignore)))))
   
   
-  (method (tabulate-lines start end)
+  (method override (tabulate-lines start end)
     (let ((modified? #f)
           (last-delta {}))
       (loop (for row from start to end)
@@ -532,7 +532,7 @@
       (string->symbol string)))
   
   
-  (method (tabulate-line row)
+  (method override (tabulate-line row)
     (let ((delta (tabulate-delta row)))
       (tabulate-column row delta)
       delta))
@@ -622,7 +622,7 @@
   ;;;
   
   
-  (method (evaluate-selection)
+  (method override (evaluate-selection)
     (with-safe-explore
       (function ()
         (let ((range (current-declaration-range)))
@@ -634,14 +634,14 @@
                 (evaluate-range range))))))))
   
   
-  (method (evaluate-buffer)
+  (method override (evaluate-buffer)
     (with-cursor :wait
       (function ()
         (sleep .1)
         (evaluate-range (buffer-selection)))))
   
   
-  (method (evaluate-range range)
+  (method override (evaluate-range range)
     (let ((debugged (get-focused-process)))
       (if (not debugged)
           (bell)
@@ -682,13 +682,13 @@
   ;;;
 
 
-  (method (current-name)
+  (method override (current-name)
     (let ((range (current-expr-range)))
       (when range
         (get-string range))))
 
 
-  (method (current-expr)
+  (method override (current-expr)
     (let ((range (current-expr-range)))
       (when range
         (read-string-element (get-string range)))))
@@ -700,7 +700,7 @@
         expr)))
   
   
-  (method (expr-at pos)
+  (method override (expr-at pos)
     (let ((string (get-string (expr-range pos))))
       (if (ends-with? string "&")
           (read-string-element (butlast string))
@@ -712,7 +712,7 @@
   ;;;
   
   
-  (method (flash-character? char)
+  (method override (flash-character? char)
     (memq? char '(#\close-parenthesis #\close-bracket #\close-brace)))
 
   
@@ -726,7 +726,7 @@
       (string-append (make-string 4 #\semi-colon) " ")))
   
   
-  (method (get-headers)
+  (method override (get-headers)
     headers)
   
   
@@ -735,7 +735,7 @@
   ;;;
   
   
-  (method (get-context)
+  (method override (get-context)
     '(jazz))
 
 

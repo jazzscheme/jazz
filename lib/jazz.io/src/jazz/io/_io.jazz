@@ -399,7 +399,7 @@
   (slot path)
   
   
-  (method (initialize lst)
+  (method override (initialize lst)
     (nextmethod)
     (validate-component lst)
     (set-list lst))
@@ -473,7 +473,7 @@
     (file-rename (parse) (parse~ dst)))
   
 
-  (method (compare-object target)
+  (method override (compare-object target)
     (cond ((is-not? target (class-of self))
            :incompatible)
           ((= (get-list) (get-list~ target))
@@ -482,7 +482,7 @@
            :not-equal)))
   
   
-  (method (compare-pathname object)
+  (method override (compare-pathname object)
     (and (is? object Pathname)
          (ci=? (parse) (parse~ object))))
   
@@ -514,7 +514,7 @@
       (get-output~ fact)))
 
 
-  (method public (get-list)
+  (method public override (get-list)
     path)
 
 
@@ -522,7 +522,7 @@
     (set! path value))
 
 
-  (method (get-name)
+  (method override (get-name)
     (effective-name (get-list)))
   
   
@@ -536,18 +536,18 @@
              name))))
   
   
-  (method (get-base)
+  (method override (get-base)
     (let ((name (get-name)))
       (if (symbol? name)
           name
         (extract-base name))))
   
   
-  (method (get-extension)
+  (method override (get-extension)
     (extract-extension (get-name)))
   
   
-  (method (get-parent)
+  (method override (get-parent)
     (let ((effective-path (if (= (length path) 1) (expand) path)))
       (if (or (null? effective-path) (null? (cdr effective-path)))
           #f
@@ -584,19 +584,19 @@
         (error "Unable to set file attributes for {t}" self))))
   
   
-  (method (get-writable?)
+  (method override (get-writable?)
     #t ;; super quicky
     @windows-specific
     (not (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_READONLY)))
   
   
-  (method (set-writable? flag)
+  (method override (set-writable? flag)
     (unimplemented 'set-writable?)
     @windows-specific
     (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_READONLY (not flag))))
 
 
-  (method (exists?)
+  (method override (exists?)
     (file-exists? (parse)))
   
   
@@ -680,7 +680,7 @@
 (class File-Class extends (:class Pathname)
   
   
-  (method (get-protocol)
+  (method override (get-protocol)
     'file))
 
 
@@ -700,7 +700,7 @@
 (class File metaclass File-Class extends Pathname
   
   
-  (method (print printer readably)
+  (method override (print printer readably)
     (format printer "~{File {l detail: :v}}"
             (get-list)
             readably))
@@ -711,11 +711,11 @@
   ;;;
   
   
-  (method (new-brother name)
+  (method override (new-brother name)
     (new-file~ (get-parent) name))
   
   
-  (method (present)
+  (method override (present)
     (format "{l}" (get-list)))
   
   
@@ -724,15 +724,15 @@
   ;;;
 
 
-  (method (get-file)
+  (method override (get-file)
     self)
   
   
-  (method (get-directory)
+  (method override (get-directory)
     (get-parent))
 
 
-  (method (create)
+  (method override (create)
     (unless (exists?)
       (create-directories)
       ;; is there any smarter way to do this in gambit?
@@ -769,7 +769,7 @@
       (get-size~ reader)))
 
 
-  (method (get-modification-time)
+  (method override (get-modification-time)
     (seconds->time (inexact->exact (floor (file-modification-time (parse))))))
 
 
@@ -804,7 +804,7 @@
     (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_HIDDEN flag)))
   
   
-  (method (writable?)
+  (method override (writable?)
     (unimplemented 'writable?)
     @windows-specific
     (let ((handle (CreateFile (parse) GENERIC_WRITE 0 NULL OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL)))
@@ -823,12 +823,12 @@
   ;;;
 
 
-  (method (load-lines (char-encoding: char-encoding {}) (char-encoding-errors: char-encoding-errors #t))
+  (method override (load-lines (char-encoding: char-encoding {}) (char-encoding-errors: char-encoding-errors #t))
     (call-with-input-file (list path: (parse) char-encoding: (either char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
       read-lines))
 
 
-  (method (save-lines lines (char-encoding: char-encoding {}) (eol-encoding: eol-encoding {}))
+  (method override (save-lines lines (char-encoding: char-encoding {}) (eol-encoding: eol-encoding {}))
     (call-with-output-file (list path: (parse) char-encoding: (either char-encoding 'UTF-8) eol-encoding: (either eol-encoding (get-eol-encoding)))
       (function (printer)
         (write-lines printer lines)))))
@@ -858,14 +858,14 @@
 (class Directory-Class extends (:class Pathname)
   
   
-  (method (get-protocol)
+  (method override (get-protocol)
     'dir))
 
 
 (class Directory metaclass Directory-Class extends Pathname
   
   
-  (method (print printer readably)
+  (method override (print printer readably)
     (format printer "~{Directory {l detail: :v}}"
             (get-list)
             readably))
@@ -876,11 +876,11 @@
   ;;;
   
   
-  (method (new-brother name)
+  (method override (new-brother name)
     (new-directory~ (get-parent) name))
   
   
-  (method (present)
+  (method override (present)
     (format "{l}" (get-list)))
   
   
@@ -889,18 +889,18 @@
   ;;;
   
   
-  (method (get-directory)
+  (method override (get-directory)
     self)
 
 
-  (method (get-modification-time)
+  (method override (get-modification-time)
     {})
   
   
   ;; ... give us this day our windows drives ...
   (cond-expand
     (windows
-      (method (get-parent)
+      (method override (get-parent)
         (let ((effective-path (if (= (length path) 1) (expand) path)))
           (if (= 1 (length effective-path))
               (new Windows-Meta-Root)
@@ -908,7 +908,7 @@
     (else))
   
   
-  (method (create)
+  (method override (create)
     (directory-create (parse)))
   
   
@@ -977,7 +977,7 @@
     (directory-delete (parse)))
   
   
-  (method public (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+  (method public override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
     (let ((fact (new List-Factory)))
       (when nodes? (collect-nodes fact))
       (when leaves? (collect-leaves fact))
@@ -1007,7 +1007,7 @@
   ;;;
   
   
-  (method (add-suffix printer)
+  (method override (add-suffix printer)
     (write-char #\/ printer))
      
    
@@ -1106,31 +1106,31 @@
     (class undocumented Windows-Meta-Root extends Pathname
       
       
-      (method (initialize)
+      (method override (initialize)
         )
 
       
-      (method (get-name)
+      (method override (get-name)
         "This Computer")
       
       
-      (method (present)
+      (method override (present)
         (get-name))
       
       
-      (method (get-parent)
+      (method override (get-parent)
         #f)
       
       
-      (method (get-directory)
+      (method override (get-directory)
         (new Directory (list "C:")))
       
       
-      (method (exists?)
+      (method override (exists?)
         #t)
       
       
-      (method (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+      (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
         (let ((fact (new List-Factory)))
           (when nodes?
             (for-each (function (letter)

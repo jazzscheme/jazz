@@ -111,12 +111,12 @@
   ;;;
   
   
-  (method (finish rest)
+  (method override (finish rest)
     (nextmethod rest)
     (invalidate-columns))
   
   
-  (method (destroy-component)
+  (method override (destroy-component)
     (end-edition)
     (nextmethod))
   
@@ -126,13 +126,13 @@
   ;;;
 
 
-  (method (add-child child)
+  (method override (add-child child)
     (nextmethod child)
     (when (is? child Tree-Column)
       (set! columns (append! columns (list child)))))
   
   
-  (method (remove-child child)
+  (method override (remove-child child)
     (nextmethod child)
     (when (is? child Tree-Column)
       (set! columns (remove! child columns))))
@@ -277,12 +277,12 @@
   ;;;
 
 
-  (method (focus-gain old)
+  (method override (focus-gain old)
     (nextmethod old)
     (invalidate-selection selection))
 
 
-  (method (focus-lose view)
+  (method override (focus-lose view)
     (nextmethod view)
     (invalidate-selection selection))
   
@@ -325,7 +325,7 @@
   ;;;
   
 
-  (method (focus-actions)
+  (method override (focus-actions)
     (cons (find-actions 'tree)
           (nextmethod)))
 
@@ -399,14 +399,14 @@
   ;;;
   
   
-  (method (layout-scrollee)
+  (method override (layout-scrollee)
     (nextmethod)
     (unless update-locked?
       (when filled-column
         (fill-column (get-display-size)))))
   
   
-  (method (scrollee-width)
+  (method override (scrollee-width)
     (let ((width (if show-header? columns-right (+ visible-width column-spacing))))
       (if (and scroller fit-in-scroller?)
           (max (get-display-width) width)
@@ -419,7 +419,7 @@
   
   
   ;; todo: do both of these in a single pass
-  (method (update-visible)
+  (method override (update-visible)
     (update-visible-height)
     (update-visible-width))
   
@@ -459,7 +459,7 @@
           (set-width~ node-column width)))))
   
   
-  (method (scroll-invalidate dh dv)
+  (method override (scroll-invalidate dh dv)
     (nextmethod dh dv)
     (invalidate-header))
 
@@ -479,7 +479,7 @@
     {Color name: Dark-Red})
 
   
-  (method (draw-outline surface context clipper lh lv sh sv sc sc?)
+  (method override (draw-outline surface context clipper lh lv sh sv sc sc?)
     (nextmethod surface context clipper lh lv sh sv sc sc?)
     (let* ((pos (get-position))
            (left (+ (get-left~ clipper) (get-h~ pos)))
@@ -493,7 +493,7 @@
   
   
   ;; probably still buggy when scaling, so limit to tree-view for now
-  (method (draw-empty surface top bottom sh sv sc sc? rt width)
+  (method override (draw-empty surface top bottom sh sv sc sc? rt width)
     (when (and empty-background (<= rt bottom))
       (let ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
         (fill-rect~ surface rect (if *debug-paint* (cycle-debug-color!) empty-background)))))
@@ -605,20 +605,20 @@
   ;;;
   
   
-  (method (update-visible-width-incremental level width)
+  (method override (update-visible-width-incremental level width)
     @wait-optimized
     (let ((width (+ (text-h~ node-column level) width)))
       (when (> width visible-width)
         (set! visible-width width))))
 
   
-  (method (remove-row row)
+  (method override (remove-row row)
     (when (and (attached?~ row) (eq? row auto-expanded-row))
       (close-auto-expanded-row))
     (nextmethod row))
   
   
-  (method (remove-every-row)
+  (method override (remove-every-row)
     (close-auto-expanded-row)
     (set-sorted {} #t)
     (set! highlighted '())
@@ -630,7 +630,7 @@
   ;;;
   
   
-  (method (cursor-update pos)
+  (method override (cursor-update pos)
     (if (alt-down?)
         (set-cursor :finger)
       (nextmethod pos)))
@@ -641,12 +641,12 @@
   ;;;
   
   
-  (method (allow-start-drag? pos)
+  (method override (allow-start-drag? pos)
     (and (nextmethod pos)
          (allow-start-drag?~ selection-manager)))
   
   
-  (method (mouse-down view)
+  (method override (mouse-down view)
     (let* ((cell (view->tree view))
            (pos (essay cell (cell-coordinates cell view)))
            (part (essay cell (find-part~ (get-column (get-col~ cell)) cell pos))))
@@ -664,7 +664,7 @@
           (mouse-down~ column cell pos shift? control?)))))
   
   
-  (method (drag-move view)
+  (method override (drag-move view)
     (let ((cell (view->tree view)))
       (when cell
         (let ((pos (cell-coordinates cell view))
@@ -672,7 +672,7 @@
           (drag-move~ column cell pos)))))
   
   
-  (method (drag-up view (dragging? #f))
+  (method override (drag-up view (dragging? #f))
     (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
     (let ((cell (view->tree (either (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
           (shift? (shift-down?))
@@ -696,7 +696,7 @@
     (reset~ selection-manager))
   
   
-  (method (call-double-click view)
+  (method override (call-double-click view)
     (let ((cell (view->tree view)))
       (when cell
         (let* ((pos (cell-coordinates cell view))
@@ -708,7 +708,7 @@
             (else (double-click~ column cell pos)))))))
   
   
-  (method (double-click view)
+  (method override (double-click view)
     (double-click~ selection-manager (shift-down?) (control-down?) (alt-down?))
     (let ((cell (view->tree view)))
       (when cell
@@ -718,7 +718,7 @@
           (double-click~ column cell pos)))))
   
   
-  (method (context-menu view)
+  (method override (context-menu view)
     (let ((cell (view->tree view)))
       (when cell
         (let ((row (get-row (get-row~ cell))))
@@ -734,7 +734,7 @@
   ;;;
   
   
-  (method (mouse-data pos)
+  (method override (mouse-data pos)
     (let ((cell (view->tree pos)))
       (when cell
         (get-cell-title cell))))
@@ -745,7 +745,7 @@
   ;;;
 
 
-  (method (key-press key)
+  (method override (key-press key)
     (when (and (alphanumeric? key) (> visible-count 0))
       (enter~ locator key)))
 
@@ -819,11 +819,11 @@
   ;;;
   
   
-  (method public (get-content)
+  (method public override (get-content)
     content)
   
   
-  (method public (set-content value)
+  (method public override (set-content value)
     (loop (for row in value)
           (for i from 0)
           (loop (for info in row)
@@ -839,7 +839,7 @@
   ;;;
 
   
-  (method (with-context-click pos proc)
+  (method override (with-context-click pos proc)
     (acquire-focus)
     (let ((cell (view->tree pos)))
       (if (not cell)
@@ -924,7 +924,7 @@
   ;;;
 
 
-  (method (get-tooltip?)
+  (method override (get-tooltip?)
     #t)
   
   
@@ -932,13 +932,13 @@
     (cell-rect cell))
   
   
-  (method (get-tooltip-bounds pos)
+  (method override (get-tooltip-bounds pos)
     (let ((cell (view->tree pos)))
       (when cell
         (calculate-tooltip-bounds cell))))
   
   
-  (method (get-tooltip-context pos)
+  (method override (get-tooltip-context pos)
     (if (get-tooltip-text)
         (nextmethod pos)
       (let ((cell (view->tree pos)))
@@ -986,7 +986,7 @@
   ;;;
   
   
-  (method (get-drag-drop)
+  (method override (get-drag-drop)
     (when (view->tree mouse-down-point)
       (nextmethod)))
 
@@ -996,7 +996,7 @@
   ;;;
   
   
-  (method (get-drag-source)
+  (method override (get-drag-source)
     (let* ((pos (get-drag-position))
            (cell (view->tree pos))
            (row (get-row (get-row~ cell)))
@@ -1008,7 +1008,7 @@
     (new Tree-Drag-Source view: self position: pos @old image: @old (get-drag-image pos) row: row col: col))
   
   
-  (method (get-drag-hotspot)
+  (method override (get-drag-hotspot)
     (let* ((cell (view->tree mouse-down-point))
            (row (get-row (get-row~ cell)))
            (left (image-h~ node-column (get-level~ row)))
@@ -1016,7 +1016,7 @@
       (new Point left top)))
   
   
-  (method (get-drag-image pos)
+  (method override (get-drag-image pos)
     (let* ((cell (view->tree pos))
            (row (get-row~ cell)))
       (get-node-image row)))
@@ -1056,7 +1056,7 @@
   ;;;
   
   
-  (method (current-drop drag-drop pos)
+  (method override (current-drop drag-drop pos)
     (if (get-surrogate)
         (nextmethod drag-drop pos)
       (if (and reorderable? (eq? self (get-view~ (get-source~ drag-drop))))
@@ -1136,7 +1136,7 @@
     {})
     
   
-  (method (highlight-drop drag-drop pos)
+  (method override (highlight-drop drag-drop pos)
     (let ((target (get-target~ drag-drop)))
       ;; temp patch... this should always be a t-d-t
       (when (is? target Tree-Drop-Target)
@@ -1152,7 +1152,7 @@
           (set-highlighted (cons highlight (get-highlighted)))))))
   
   
-  (method (unhighlight-drop drag-drop)
+  (method override (unhighlight-drop drag-drop)
     (set-highlighted (cdr (get-highlighted))))
 
 
@@ -1161,7 +1161,7 @@
   ;;;
   
   
-  (method (tab-stop-enter)
+  (method override (tab-stop-enter)
     )
 
   
@@ -1212,7 +1212,7 @@
            (set-selection (list (- count 1))))))))
 
 
-  (method (left-arrow-press modifiers)
+  (method override (left-arrow-press modifiers)
     (left-arrow-action modifiers #t))
   
   
@@ -1233,7 +1233,7 @@
                (set-selection (list (row-rank (get-father~ row)))))))))))
 
 
-  (method (up-arrow-press modifiers)
+  (method override (up-arrow-press modifiers)
     (up-arrow-action modifiers #t))
   
   
@@ -1254,7 +1254,7 @@
                (move-selection (- row 1) 'backward user?))))))))
 
 
-  (method (right-arrow-press modifiers)
+  (method override (right-arrow-press modifiers)
     (right-arrow-action modifiers #t))
   
   
@@ -1273,7 +1273,7 @@
              (expand/collapse row)))))))
 
 
-  (method (down-arrow-press modifiers)
+  (method override (down-arrow-press modifiers)
     (down-arrow-action modifiers #t))
   
   
@@ -1333,7 +1333,7 @@
            (= (get-v~ needed) 0))))
   
   
-  (method (select-all (user-origin?: user-origin? #f))
+  (method override (select-all (user-origin?: user-origin? #f))
     (when multiple-selection?
       (set-selection (naturals 0 visible-count) user-origin?: user-origin?)))
 
@@ -1434,7 +1434,7 @@
     (invalidate-header))
 
   
-  (method (invalidate-columns)
+  (method override (invalidate-columns)
     (when (not-null? columns)
       (invalidate-node-column)
       (invalidate-borders)))
@@ -1488,11 +1488,11 @@
   ;;;
   
   
-  (method (row-class)
+  (method override (row-class)
     Tree-Row)
   
   
-  (method (update-father-control father)
+  (method override (update-father-control father)
     (when (and (not update-locked?) (neq? father root-row) (row-visible?~ father))
       (let* ((rank (row-rank father))
              (top (row-top rank)))
@@ -1501,20 +1501,20 @@
           (invalidate-rect (image-rect~ node-column father top))))))
   
   
-  (method (add-empty-row (father: father {}))
+  (method override (add-empty-row (father: father {}))
     (let ((father (either father root-row)))
       (add-row father: father children: (map (function (column)
                                                (new-empty-cell~ column))
                                              columns))))
   
   
-  (method (row-selected? row)
+  (method override (row-selected? row)
     (case selection-mode
       ((cell) (some? (function (cell) (= (get-row~ cell) row)) selection))
       (else (memq? row selection))))
   
   
-  (method (row-draw-selected? row)
+  (method override (row-draw-selected? row)
     (and (nextmethod row)
          (or (has-focus?) show-unfocused-selection?)))
 
@@ -1634,7 +1634,7 @@
   ;;;
   
   
-  (method (expand/collapse row)
+  (method override (expand/collapse row)
     (let ((top (get-v~ (get-position~ row))))
       (invalidate-rect (control-rect~ node-column row top)))
     (case (get-state~ row)
@@ -1647,21 +1647,21 @@
     (expand row #t))
   
   
-  (method (invalidate-expand row top dynamic?)
+  (method override (invalidate-expand row top dynamic?)
     (invalidate-rect (image-rect~ node-column row top))
     (if (and dynamic? (= (cardinality (get-sons~ row)) 0))
         (invalidate-rect (control-rect~ node-column row top))
       (invalidate-rect (plus/minus-rect~ node-column row top))))
   
   
-  (method (invalidate-collapse rank row top selected?)
+  (method override (invalidate-collapse rank row top selected?)
     (invalidate-rect (image-rect~ node-column row top))
     (if selected?
         (invalidate-rect (row-rect rank))
       (invalidate-rect (plus/minus-rect~ node-column row top))))
   
   
-  (method (collapse-selection rank removed)
+  (method override (collapse-selection rank removed)
     (case selection-mode
       ((cell)
        (when removed
@@ -1765,7 +1765,7 @@
   ;;;
 
 
-  (method (ensure-displayed . rest)
+  (method override (ensure-displayed . rest)
     (when (not-null? selection)
       (if (eq? selection-mode 'cell)
           (ensure-cell-displayed (car selection))
@@ -1811,7 +1811,7 @@
         (set-selection (list element) set-pivot?: #f user-origin?: #t))))
   
   
-  (method public (get-selection)
+  (method public override (get-selection)
     selection)
   
   
@@ -1819,7 +1819,7 @@
     (sort < selection))
   
   
-  (method public (set-selection sel
+  (method public override (set-selection sel
                                 (force?: force? #f)
                                 (set-pivot?: set-pivot? #t)
                                 (ensure-displayed?: ensure-displayed? #t)
@@ -1991,7 +1991,7 @@
   
   
   ;; update slots that are rank based
-  (method (added-update-selection rank count)
+  (method override (added-update-selection rank count)
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
     (let ((proc (case selection-mode
@@ -2012,7 +2012,7 @@
   
   
   ;; update slots that are rank based
-  (method (removed-update-selection rank count)
+  (method override (removed-update-selection rank count)
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (- (get-row~ edited-cell) count)))
     (let ((end-rank (+ rank count))
@@ -2045,7 +2045,7 @@
         removed)))
   
   
-  (method (selection-region sel dh dv sc)
+  (method override (selection-region sel dh dv sc)
     (let ((region (new Region)))
       (loop (for element in sel)
             (with-closed ((row-region (selection-element-region element dh dv sc)))
@@ -2059,7 +2059,7 @@
       (else (selection-row-region element dh dv sc))))
     
   
-  (method (selection-row-rect n)
+  (method override (selection-row-rect n)
     (let* ((row   (get-row n))
            (node-left (row-text-left~ node-column row))
            (left (if (> (length columns-borders) 1)
@@ -2118,7 +2118,7 @@
   
   
   ;; temp patch to be virtual...
-  (method (row-rect n <fx>) <Rect>
+  (method override (row-rect n <fx>) <Rect>
     (let* ((row   (get-row n))
            (left  (borders-left (car columns-borders)))
            (top   (get-v~ (get-position~ row)))
@@ -2354,11 +2354,11 @@
   ;;;
   
   
-  (method meta (get-class-image)
+  (method meta override (get-class-image)
     {Bitmap-Resource "Preferences"})
 
   
-  (method meta (property-presentation property)
+  (method meta override (property-presentation property)
     (case (field-name property)
       ((portfolio)                 "Portfolio")
       ((show-header?)              "Show Header")
@@ -2374,7 +2374,7 @@
       (else (nextmethod property))))
 
   
-  (method (get-row-instance property)
+  (method override (get-row-instance property)
     (case (field-name property)
       ((show-header? multiple-selection? can-select-empty? show-unfocused-selection? auto-expand/collapse? reorderable?) (new Boolean-Row))
       (else (nextmethod property)))))
@@ -2392,12 +2392,12 @@
   (slot column initialize {})
   
   
-  (method (initialize tree . rest)
+  (method override (initialize tree . rest)
     (set! tree~self tree)
     (apply nextmethod rest))
   
   
-  (method (iterate proc)
+  (method override (iterate proc)
     (bind (row . proc2) (prepare-iterate)
       (for-each-visible-row~ tree
         (function (row rank)
@@ -2408,7 +2408,7 @@
         wrap?: #t)))
   
   
-  (method (select rank)
+  (method override (select rank)
     (case (get-selection-mode~ tree)
       ((cell) (set-single-selection~ tree (new Cell rank column)))
       (else (set-single-selection~ tree rank))))

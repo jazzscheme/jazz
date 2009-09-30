@@ -886,7 +886,7 @@
 
 
 (define (jazz.new-jazz-walker)
-  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '()))
+  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '() '()))
 
 
 (jazz.define-method (jazz.runtime-export (jazz.Jazz-Walker walker) declaration)

@@ -52,5 +52,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Gambit-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-gambit-walker
+(jazz.define-class jazz.Gambit-Walker jazz.Scheme-Walker (warnings errors literals variables references inclusions autoloads) jazz.Object-Class jazz.allocate-gambit-walker
   ()))

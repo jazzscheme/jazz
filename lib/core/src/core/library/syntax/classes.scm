@@ -169,19 +169,13 @@
 
 
 (jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body) jazz.Object-Class jazz.allocate-library-declaration
-  ((walker          %%get-library-declaration-walker          ())
+  ((walker          %%get-library-declaration-walker          %%set-library-declaration-walker)
    (dialect-name    %%get-library-declaration-dialect-name    ())
    (dialect-invoice %%get-library-declaration-dialect-invoice ())
    (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
    (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
    (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
-   (proclaims       %%get-library-declaration-proclaims       ())
-   (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
-   (variables       %%get-library-declaration-variables       ())
-   (references      %%get-library-declaration-references      ())
-   (inclusions      %%get-library-declaration-inclusions      %%set-library-declaration-inclusions)
-   (autoloads       %%get-library-declaration-autoloads       %%set-library-declaration-autoloads)))
-
+   (proclaims       %%get-library-declaration-proclaims       ())))
 
 ;;;
 ;;;; Library Invoice
@@ -445,8 +439,14 @@
 
 
 (jazz.define-class jazz.Walker jazz.Object () jazz.Object-Class ()
-  ((warnings %%get-walker-warnings %%set-walker-warnings)
-   (errors   %%get-walker-errors   %%set-walker-errors)))
+  ((warnings   %%get-walker-warnings   %%set-walker-warnings)
+   (errors     %%get-walker-errors     %%set-walker-errors)
+   (literals   %%get-walker-literals   %%set-walker-literals)
+   (variables  %%get-walker-variables  ())
+   (references %%get-walker-references ())
+   (inclusions %%get-walker-inclusions %%set-walker-inclusions)
+   (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)
+   ))
 
 
 (jazz.define-virtual (jazz.walker-environment (jazz.Walker walker)))
@@ -459,6 +459,25 @@
 (jazz.define-virtual (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src))
 (jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
 (jazz.define-virtual (jazz.runtime-export (jazz.Walker walker) declaration))
+
+
+;; provide virtual access to some walker slots via the library-declaration
+(define (%%get-library-declaration-literals lib-decl)
+  (%%get-walker-literals (%%get-library-declaration-walker lib-decl)))
+(define (%%set-library-declaration-literals lib-decl value)
+  (%%set-walker-literals (%%get-library-declaration-walker lib-decl) value))
+(define (%%get-library-declaration-variables lib-decl)
+  (%%get-walker-variables (%%get-library-declaration-walker lib-decl)))
+(define (%%get-library-declaration-references lib-decl)
+  (%%get-walker-references (%%get-library-declaration-walker lib-decl)))
+(define (%%get-library-declaration-inclusions lib-decl)
+  (%%get-walker-inclusions (%%get-library-declaration-walker lib-decl)))
+(define (%%set-library-declaration-inclusions lib-decl value)
+  (%%set-walker-inclusions (%%get-library-declaration-walker lib-decl) value))
+(define (%%get-library-declaration-autoloads lib-decl)
+  (%%get-walker-autoloads (%%get-library-declaration-walker lib-decl)))
+(define (%%set-library-declaration-autoloads lib-decl value)
+  (%%set-walker-autoloads (%%get-library-declaration-walker lib-decl) value))
 
 
 ;;;
@@ -1077,5 +1096,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors) jazz.Object-Class jazz.allocate-core-walker
+(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals variables references inclusions autoloads) jazz.Object-Class jazz.allocate-core-walker
   ()))

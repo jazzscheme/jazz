@@ -474,7 +474,7 @@
 
 
 (define (jazz.new-library-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (jazz.new-queue) (%%make-table test: eq?) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?)))) ;; '() (jazz.new-queue) (%%make-table test: eq?) '() '()
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2960,6 +2960,8 @@
   (let ((declaration (or actual (jazz.new-library-declaration name access #f walker dialect-name dialect-invoice))))
     (%%when dialect-invoice
       (jazz.add-library-import declaration dialect-invoice #f))
+    ;; reset the walker if it was cached
+    (%%set-library-declaration-walker declaration walker)
     (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
     (jazz.validate-walk-problems walker)
     declaration))
@@ -5962,7 +5964,7 @@
 
 
 (define (jazz.new-core-walker)
-  (jazz.allocate-core-walker jazz.Core-Walker '() '()))
+  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '() '()))
 
 
 (jazz.encapsulate-class jazz.Core-Walker)

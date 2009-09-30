@@ -682,7 +682,7 @@
 (define (jazz.method-dispatch-info declaration)
   (let ((root (%%get-method-declaration-root declaration))
         (propagation (%%get-method-declaration-propagation declaration)))
-    (if (and (%%not root) (or (%%eq? propagation 'final) (%%eq? propagation 'inherited)))
+    (if (and (%%not root) (%%eq? propagation 'final))
         (values 'final declaration)
       (let ((root-method-declaration (%%get-method-declaration-root declaration)))
         (let ((method-declaration (or root-method-declaration declaration)))
@@ -800,11 +800,13 @@
            (method-locator (%%get-declaration-locator declaration))
            (method-rank-locator (jazz.compose-helper method-locator 'rank))
            (method-node-locator (jazz.compose-helper method-locator 'node))
-           (method-call (cond (root-category-declaration                                                      'jazz.add-method-node) ; must be override
-                              ((%%class-is? category-declaration jazz.Class-Declaration) (case propagation
-                                                                                           ((final inherited) 'jazz.add-final-method)
-                                                                                           ((virtual chained) 'jazz.add-virtual-method)))
-                              ((%%class-is? category-declaration jazz.Interface-Declaration)                  'jazz.add-virtual-method)))) ; must be virtual
+           (method-call (cond ((%%class-is? category-declaration jazz.Class-Declaration)     (case propagation
+                                                                                               ((override)        'jazz.add-method-node)
+                                                                                               ((final)           'jazz.add-final-method)
+                                                                                               ((virtual chained) 'jazz.add-virtual-method)))
+                              ((%%class-is? category-declaration jazz.Interface-Declaration) (case propagation
+                                                                                               ((override)        'jazz.add-method-node)
+                                                                                               ((virtual)         'jazz.add-virtual-method))))))
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
           (let ((augmented-environment (%%cons frame environment)))
@@ -1881,7 +1883,7 @@
 
 (define jazz.slot-accessors-modifiers
   '(((private protected package public) . #f)
-    ((final virtual chained override inherited) . final)
+    ((final virtual chained override) . final)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
     ((generate handcode) . handcode)))
@@ -1889,7 +1891,7 @@
 
 (define jazz.slot-accessor-modifiers
   '(((private protected package public) . #f)
-    ((final virtual chained override inherited) . #f)
+    ((final virtual chained override) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
     ((generate handcode) . #f)))
@@ -2027,7 +2029,7 @@
 (define jazz.method-modifiers
   '(((private protected package public) . protected)
     ((deprecated undocumented uptodate) . uptodate)
-    ((final virtual chained override inherited) . inherited)
+    ((final virtual chained override) . final)
     ((abstract concrete) . concrete)
     ((inline onsite) . onsite)
     ;; quicky
@@ -2087,9 +2089,9 @@
              (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
         (cond ((%%eq? category-declaration root-category-declaration)
                (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
-              ((and root-category-declaration (%%memq root-method-propagation '(final inherited)))
+              ((and root-category-declaration (%%eq? root-method-propagation 'final))
                (jazz.walk-error walker resume declaration "Cannot redefine method: {s}" name))
-              ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%not (%%memq propagation '(override inherited))))
+              ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'override))
                (case propagation
                  ((virtual chained)
                   (jazz.walk-error walker resume declaration "Method is already virtual: {s}" name))
@@ -2284,17 +2286,17 @@
           (%%string->symbol (%%string-append "__" (%%symbol->string parameter))))
         
         (let iter ((scan params))
-          (cond ((%%null? scan)
-                 (values (jazz.queue-list parameters) (jazz.queue-list positional) #f))
-                ((%%symbol? scan)
-                 (let ((rest (encode scan)))
-                   (jazz.enqueue-list parameters rest)
-                   (values (jazz.queue-list parameters) (jazz.queue-list positional) rest)))
-                (else
-                 (let ((parameter (encode (%%car scan))))
-                   (jazz.enqueue parameters parameter)
-                   (jazz.enqueue positional parameter)
-                   (iter (%%cdr scan))))))))
+             (cond ((%%null? scan)
+                    (values (jazz.queue-list parameters) (jazz.queue-list positional) #f))
+                   ((%%symbol? scan)
+                    (let ((rest (encode scan)))
+                      (jazz.enqueue-list parameters rest)
+                      (values (jazz.queue-list parameters) (jazz.queue-list positional) rest)))
+                   (else
+                    (let ((parameter (encode (%%car scan))))
+                      (jazz.enqueue parameters parameter)
+                      (jazz.enqueue positional parameter)
+                      (iter (%%cdr scan))))))))
     
     (define (parse-value-keyword name passage)
       (case passage
@@ -2326,11 +2328,11 @@
                           (%%when value-keyword
                             (jazz.enqueue values value-keyword)
                             (jazz.enqueue values `(,name)))
-                          (jazz.enqueue locals `(method (,name ,@parameters)
+                          (jazz.enqueue locals `(method override (,name ,@parameters)
                                                   ,@(cond ((%%not-null? body) body)
                                                           (rest `((apply (~ ,name object) ,@positional ,rest) ,@local-result))
                                                           (else `((,dispatch object ,@positional) ,@local-result)))))
-                          (jazz.enqueue remotes `(method (,name ,@parameters)
+                          (jazz.enqueue remotes `(method override (,name ,@parameters)
                                                    ,(let ((call (if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional))))
                                                       (if value-keyword
                                                           `(proxy-value ,value-keyword (function () ,call))
@@ -2340,24 +2342,24 @@
              (values-method
                (if (%%null? values-list)
                    '()
-                 `((method (proxy-values)
+                 `((method override (proxy-values)
                      (append (list ,@values-list)
                              (nextmethod)))))))
         `(begin
            (class package ,interface-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub-Interface") 'Stub-Interface)
-             (method (local-class)
+             (method override (local-class)
                ,local-class)
-             (method (remote-class)
+             (method override (remote-class)
                ,remote-class))
            (interface ,stub-access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
              ,@(jazz.queue-list proxies))
            (class package ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
-             (method (stub-interface)
+             (method override (stub-interface)
                ,stub-interface)
              ,@values-method
              ,@(jazz.queue-list locals))
            (class package ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
-             (method (stub-interface)
+             (method override (stub-interface)
                ,stub-interface)
              ,@(jazz.queue-list remotes)))))))
 
@@ -3148,10 +3150,10 @@
        
        (register-form ',class-locator class-form)
 
-       (method (get-class-form)
+       (method override (get-class-form)
          class-form)
        
-       (method (get-class-forms)
+       (method override (get-class-forms)
          (cons class-form (nextmethod))))))
 
 

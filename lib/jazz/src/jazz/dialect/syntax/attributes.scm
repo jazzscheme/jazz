@@ -94,7 +94,7 @@
         (property (generate-symbol "prop"))
         (value (generate-symbol "val")))
     `(begin
-       (method (node-properties)
+       (method override (node-properties)
          ',(map symbol->keyword (append inherited (map car properties))))
        ,@(map (lambda (property)
                 (let ((name (car property)))
@@ -105,14 +105,14 @@
                             `(slot ,name)
                           `(slot ,name initialize ,init)))))))
               properties)
-       (method (get-value ,property)
+       (method override (get-value ,property)
          (case ,property
            ,@(map (lambda (property)
                     (let ((name (car property)))
                       (list (list (symbol->keyword name)) name)))
                   properties)
            (else (nextmethod ,property))))
-       (method (set-value ,property ,value)
+       (method override (set-value ,property ,value)
          (case ,property
            ,@(map (lambda (property)
                     (let ((name (car property)))

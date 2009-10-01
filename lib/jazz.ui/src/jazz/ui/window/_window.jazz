@@ -107,24 +107,9 @@
 
 
 (definition public (process-events)
-  (declare (proper-tail-calls))
   (if (get-events-single-threaded?)
       (process-events-single-threaded)
-    (let ((pump (process-messages)))
-      (when pump
-        (thread-start-loop pump)
-        (thread-start! pump))
-      (unwind-protect
-          (let (loop)
-            (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
-              (function ()
-                (catch Cancel-Signal
-                  (let ((thunk (thread-read)))
-                    (with-exception-debugger (get-exception-debugger)
-                      thunk)))))
-            (loop))
-        (when pump
-          (thread-stop-loop pump))))))
+    (process-events-multi-threaded)))
 
 
 (definition (process-events-single-threaded)
@@ -142,6 +127,25 @@
                       thunk)
                     (loop)))))))))
     (loop)))
+
+
+(definition (process-events-multi-threaded)
+  (declare (proper-tail-calls))
+  (let ((pump (process-messages-multi-threaded)))
+    (when pump
+      (thread-start-loop pump)
+      (thread-start! pump))
+    (unwind-protect
+        (let (loop)
+          (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
+            (function ()
+              (catch Cancel-Signal
+                (let ((thunk (thread-read)))
+                  (with-exception-debugger (get-exception-debugger)
+                    thunk)))))
+          (loop))
+      (when pump
+        (thread-stop-loop pump)))))
 
 
 (definition (present-event-loop-restart)

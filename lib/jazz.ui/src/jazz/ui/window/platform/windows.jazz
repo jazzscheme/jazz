@@ -332,15 +332,32 @@
 ;;;
 
 
-(definition package (process-messages)
+(definition package (process-messages-single-threaded thunk)
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
+  
+  (declare (proper-tail-calls))
+  
+  (let ((msg (MSG-make)))
+    (let (loop)
+      (when (GetMessage msg NULL 0 0)
+        (process-message msg)
+        (thunk)
+        (loop)))
+    (MSG-free msg)))
+
+
+(definition package (process-messages-multi-threaded)
+  (define (process-message msg)
+    (execute-event
+      (function ()
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg)))))
+  
   (define (process)
-    (define (process-message msg)
-      (execute-event
-        (function ()
-          (unless (translate-shortcut msg)
-            (TranslateMessage msg)
-            (DispatchMessage msg)))))
-    
     (declare (proper-tail-calls))
     
     ;; put back here to see if moving it before the read was the cause of many
@@ -363,23 +380,6 @@
           (loop)))))
   
   (new-thread process 'message-pump))
-
-
-(definition package (process-messages-single-threaded thunk)
-  (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (DispatchMessage msg)))
-  
-  (declare (proper-tail-calls))
-  
-  (let ((msg (MSG-make)))
-    (let (loop)
-      (when (GetMessage msg NULL 0 0)
-        (process-message msg)
-        (thunk)
-        (loop)))
-    (MSG-free msg)))
 
 
 ;;;

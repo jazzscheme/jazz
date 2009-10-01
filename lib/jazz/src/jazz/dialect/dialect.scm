@@ -1720,19 +1720,23 @@
 (define (jazz.expand-class walker resume declaration environment form-src)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
     (receive (metaclass-body class-body) (jazz.preprocess-meta body)
-      (jazz.sourcify-if
-        (cond ((%%null? metaclass-body)
-               `(%class ,@(%%cdr (jazz.source-code form-src))))
-              ((%%specified? metaclass-name)
-               (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
-              (else
-               (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
-                 `(begin
-                    (%class ,metaclass-name extends (:class ,ascendant-name)
-                      ,@metaclass-body)
-                    (%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
-                      ,@class-body)))))
-        form-src))))
+      (cond ((%%null? metaclass-body)
+             (jazz.sourcify-if
+               `(%class ,@(%%cdr (jazz.source-code form-src)))
+               form-src))
+            ((%%specified? metaclass-name)
+             (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
+            (else
+             (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
+               `(begin
+                  ,(jazz.sourcify-if
+                     `(%class ,metaclass-name extends (:class ,ascendant-name)
+                        ,@metaclass-body)
+                     form-src)
+                  ,(jazz.sourcify-if
+                     `(%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
+                        ,@class-body)
+                     form-src))))))))
 
 
 (define (jazz.preprocess-meta body)

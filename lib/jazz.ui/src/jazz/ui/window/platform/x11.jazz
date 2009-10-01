@@ -436,21 +436,6 @@
             (paint~ win region)))))))
 
 
-(definition package (process-messages)
-  (define (process)
-    (declare (proper-tail-calls))
-    (with ((msg (XEvent-make)))
-      (let (loop)
-        (XNextEvent default-x11-display msg)
-        (process-message msg)
-        (when (= 0 (XPending default-x11-display))
-          (process-expose))
-        (when (thread-loop? (current-thread))
-          (loop)))))
-  
-  (new-thread process 'message-pump))
-
-
 (definition package (process-messages-single-threaded thunk)
   (declare (proper-tail-calls))
   (with ((msg (XEvent-make))
@@ -470,6 +455,21 @@
         (loop)))
     (XEvent-free msg)
     (free-fdset fdset)))
+
+
+(definition package (process-messages-multi-threaded)
+  (define (process)
+    (declare (proper-tail-calls))
+    (with ((msg (XEvent-make)))
+      (let (loop)
+        (XNextEvent default-x11-display msg)
+        (process-message msg)
+        (when (= 0 (XPending default-x11-display))
+          (process-expose))
+        (when (thread-loop? (current-thread))
+          (loop)))))
+  
+  (new-thread process 'message-pump))
 
 
 ;;;

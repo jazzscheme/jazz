@@ -1421,6 +1421,15 @@
   
   
   (method public (full-screen host fullscreen?)
+    (define (fix-top-splitter-insets splitter)
+      (if (not fullscreen?)
+          (let ((preserved (get-preserved-insets~ splitter)))
+            (when preserved
+              (set-preserved-insets~ splitter {})
+              (set-insets~ splitter preserved)))
+        (set-preserved-insets~ splitter (get-insets~ splitter))
+        (set-insets~ splitter {Rect 0 0 0 0})))
+    
     (let ((toplevel (get-toplevel))
           (stage (get-stage)))
       (when (neq? fullscreen? (get-fullscreen?~ toplevel))
@@ -1430,6 +1439,9 @@
             (set-fullscreen?~ stage fullscreen?)
             (for-each-splitter host
               (function (splitter host)
+                (let ((preferences (get-preferences~ splitter)))
+                  (when (and preferences (eq? (get-name~ preferences) 'top))
+                    (fix-top-splitter-insets splitter)))
                 (set-full?~ splitter fullscreen?)
                 (if fullscreen?
                     (zoom~ splitter host)

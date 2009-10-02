@@ -66,20 +66,22 @@
 
 
 (definition public (i object)
+  (inspect object))
+
+
+(definition public (ins object)
   (inspect-object object))
 
 
 (definition public (inspect-form form/component)
-  @need-to-convert
   (with-text-inspector
     (function (output)
-      (let ((form (if (is? form/component Form) form/component (get-form~ form/component)))
-            (printer (new Form-Printer)))
-        (print-form~ printer form 0 output)))))
+      (let ((form (if (is? form/component Form) form/component (get-form~ form/component))))
+        (pretty-print~ (form->node form) output form?: #t)
+        (newline output)))))
 
 
 (definition public (inspect-branches component)
-  @need-to-convert
   (with-text-inspector
     (function (output)
       (let ((first? #t))
@@ -91,37 +93,27 @@
             (format output "{a}{%}" (get-name~ branch))
             (let ((form (get-restore-form~ branch)))
               (if (not form)
-                  (format output " {}{%}")
-                (let ((printer (new Form-Printer)))
-                  (print-form~ printer form 0 output))))))))))
+                  (format output " ~{}{%}")
+                (pretty-print~ (form->node form) output form?: #t)
+                (newline output)))))))))
 
 
-(definition (with-text-inspector proc)
-  (let ((file (create-temporary-file)))
-    (call-with-output-file (parse~ file)
-      proc)
+(definition public (with-text-inspector proc)
+  (let ((output (open-output-string)))
+    (proc output)
     (let* ((workspace (get-name~ (selected-workspace)))
            (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
            (text (get-guest~ frame)))
-      (set-moniker~ (get-controller~ text) file)
+      (set-string-content~ text (get-output-string output))
       (set-caret~ text (text-beginning~ text))
       (set-modified?~ text #f)
       (bring-to-front~ frame)
       (set-visible?~ frame #t))))
 
 
-@wait-to-slow
-(definition (with-text-inspector proc)
-  @convert-text-printer
-  (let* ((workspace (get-name~ (selected-workspace)))
-         (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
-         (text (get-guest~ frame))
-         (output (new Text-Printer text)))
-    (proc output)
-    (set-caret~ text (text-beginning~ text))
-    (set-modified?~ text #f)
-    (bring-to-front~ frame)
-    (set-visible?~ frame #t)))
+;;;
+;;;; Introspect
+;;;
 
 
 (definition public (methods class/obj)
@@ -144,23 +136,11 @@
 
 
 ;;;
-;;;; Reset
-;;;
-
-
-(definition public (rsw name)
-  )
-
-
-(definition public (rsp name)
-  (table-set! Palettes name {}))
-
-
-;;;
 ;;;; Choose
 ;;;
 
 
+@convert
 (definition public (cc (color-or-name {}))
   (let ((color (if (or (not color-or-name) (is? color-or-name Color)) color-or-name (dispatch Color color-or-name))))
     (get-modal Color-Request initial-color: color)))
@@ -187,10 +167,6 @@
     (set-clipboard-text path)
     (user-message "Clipboard set to {a}" path)
     {}))
-
-
-(definition public (md class)
-  (get-modal~ class))
 
 
 ;;;
@@ -273,12 +249,11 @@
       (draw-text~ surface (get-h~ pos) (get-v~ pos) title #t))))
 
 
-(definition (setup-receiver receiver (title: title {}) (position: position {}) (size: size {}) (invite: invite {}))
+(definition public (setup-receiver receiver (title: title {}) (position: position {}) (size: size {}) (invite: invite {}))
   (new-palette Receiver-View
                host-title: (either title "Receive Files")
                host-position: (either position {Point 219 169})
                host-size: (either size {Dimension 434 224})
-               ;; convert guest-context: self
                invite: invite
                receiver: receiver))
 

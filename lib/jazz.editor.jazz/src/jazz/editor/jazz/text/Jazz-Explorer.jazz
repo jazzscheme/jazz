@@ -363,7 +363,22 @@
   
   (method (walk-attributes context symbol form declaration keyword expression doc)
     (keyword context start end)
-    (walk-expressions context expression))
+    (walk-expression context expression 'code #f)
+    (forward-expr)
+    (let (iterate)
+      (when (enter-list)
+        (forward-expr)
+        (when (eq? kind 'symbol)
+          (let ((marked (get-marked)))
+            (declaration context 'definition symbol start end marked (symbol-documented? (find-marked-symbol) doc))
+            (declaration context 'accessor 'getter start end (string-append "get-" marked) #f)
+            (declaration context 'accessor 'setter start end (string-append "set-" marked) #f))
+          (forward-expr)
+          (when (and (eq? kind 'symbol) (eq? (find-marked-symbol) 'initialize))
+            (keyword context start end))
+          (walk-expressions context expression))
+        (exit-list)
+        (iterate))))
 
   
   (method (walk-definition context symbol form declaration keyword expression doc)

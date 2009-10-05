@@ -575,7 +575,7 @@
 
 
 (jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name type hits) jazz.Object-Class ()
-  ())
+  ((gensym %%get-symbol-binding-gensym %%set-symbol-binding-gensym)))
 
 
 ;;;
@@ -583,7 +583,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type hits) jazz.Object-Class jazz.allocate-variable
+(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type hits gensym) jazz.Object-Class jazz.allocate-variable
   ((reference-count %%get-variable-reference-count %%set-variable-reference-count)))
 
 
@@ -592,7 +592,7 @@
 ;;;
 
 
-(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type hits reference-count) jazz.Object-Class jazz.allocate-nextmethod-variable
+(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-nextmethod-variable
   ())
 
 
@@ -601,7 +601,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Parameter jazz.Variable (name type hits reference-count) jazz.Object-Class jazz.allocate-parameter
+(jazz.define-class jazz.Parameter jazz.Variable (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-parameter
   ())
 
 
@@ -613,7 +613,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-dynamic-parameter
+(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-dynamic-parameter
   ((class %%get-dynamic-parameter-class ())))
 
 
@@ -622,7 +622,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-optional-parameter
+(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-optional-parameter
   ((default %%get-optional-parameter-default %%set-optional-parameter-default)))
 
 
@@ -631,7 +631,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-named-parameter
+(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-named-parameter
   ((default %%get-named-parameter-default %%set-named-parameter-default)))
 
 
@@ -640,7 +640,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type hits reference-count) jazz.Object-Class jazz.allocate-rest-parameter
+(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type hits gensym reference-count) jazz.Object-Class jazz.allocate-rest-parameter
   ())
 
 
@@ -676,7 +676,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type hits) jazz.Object-Class jazz.allocate-macro-symbol
+(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type hits gensym) jazz.Object-Class jazz.allocate-macro-symbol
   ((getter %%get-macro-symbol-getter ())
    (setter %%get-macro-symbol-setter ())))
 

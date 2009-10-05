@@ -474,7 +474,7 @@
 
 
 (define (jazz.new-library-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?)))) ;; '() (jazz.new-queue) (%%make-table test: eq?) '() '()
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?))))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2071,7 +2071,7 @@
 
 (define (jazz.new-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-variable jazz.Variable name type #f 0)))
+    (jazz.allocate-variable jazz.Variable name type #f 'gensym 0)))
 
 
 (define (jazz.variable-name-valid? name)
@@ -2118,7 +2118,7 @@
 
 (define (jazz.new-nextmethod-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type #f 0)))
+    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type #f 'gensym 0)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.NextMethod-Variable binding) source-declaration environment)
@@ -2163,7 +2163,7 @@
 
 (define (jazz.new-parameter name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-parameter jazz.Parameter name type #f 0)))
+    (jazz.allocate-parameter jazz.Parameter name type #f 'gensym 0)))
 
 
 (jazz.define-virtual-runtime (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
@@ -2185,7 +2185,7 @@
 
 
 (define (jazz.new-dynamic-parameter name type class)
-  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type #f 0 class))
+  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type #f 'gensym 0 class))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) declaration environment)
@@ -2205,7 +2205,7 @@
 
 
 (define (jazz.new-optional-parameter name type default)
-  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type #f 0 default))
+  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type #f 'gensym 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) declaration environment)
@@ -2225,7 +2225,7 @@
 
 
 (define (jazz.new-named-parameter name type default)
-  (jazz.allocate-named-parameter jazz.Named-Parameter name type #f 0 default))
+  (jazz.allocate-named-parameter jazz.Named-Parameter name type #f 'gensym 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) declaration environment)
@@ -2245,7 +2245,7 @@
 
 
 (define (jazz.new-rest-parameter name type)
-  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type #f 0))
+  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type #f 'gensym 0))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter) declaration environment)
@@ -2342,7 +2342,7 @@
 
 
 (define (jazz.new-macro-symbol name getter setter)
-  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f #f getter setter))
+  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f #f 'gensym getter setter))
 
 
 #; ;; convert to walk / emit

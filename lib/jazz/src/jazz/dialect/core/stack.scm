@@ -73,7 +73,9 @@
         (jazz.enqueue queue
                       (%%list (##object->string var)
                               (cond ((jazz.absent-object? val)
-                                    '<absent>)
+                                     '<absent>)
+                                    ((jazz.unbound-object? val)
+                                     '<unbound>)
                                     ((##procedure? val)
                                      (remove-quote
                                        (if (##cte-top? cte)

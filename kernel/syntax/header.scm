@@ -254,3 +254,7 @@
 
 (define (jazz.absent-object? obj)
   (##eq? obj (macro-absent-obj)))
+
+
+(define (jazz.unbound-object? obj)
+  (##eq? obj #!unbound))

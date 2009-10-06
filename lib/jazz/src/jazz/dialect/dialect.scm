@@ -1913,9 +1913,7 @@
 
 
 (define (jazz.expand-slot walker resume declaration environment form-src)
-  (jazz.sourcify-if
-    (jazz.expand-slot-form walker resume declaration form-src '%slot)
-    form-src))
+  (jazz.expand-slot-form walker resume declaration form-src '%slot))
 
 
 (define (jazz.parse-slot-accessors walker resume declaration form slot-access)
@@ -1965,7 +1963,9 @@
                      (generate-setter? (%%eq? setter-generation 'generate))
                      (specifier-list (if specifier (%%list specifier) '())))
                 `(begin
-                   (,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
+                   ,(jazz.sourcify-if
+                      `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
+                      form-src)
                    ,@(if generate-getter?
                          `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
                              ,name))
@@ -2020,9 +2020,7 @@
 
 
 (define (jazz.expand-property walker resume declaration environment form-src)
-  (jazz.sourcify-if
-    (jazz.expand-slot-form walker resume declaration form-src '%property)
-    form-src))
+  (jazz.expand-slot-form walker resume declaration form-src '%property))
 
 
 ;;;

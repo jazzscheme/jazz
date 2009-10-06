@@ -50,7 +50,7 @@
             (set! unique (##fixnum.+ unique 1))
             (if (##find-interned-symbol name)
                 (lp)
-                (##string->symbol name))))))))
+              (##string->symbol name))))))))
 
 
 (define (jazz.simplify-begin form)

@@ -832,7 +832,7 @@ $ " (<b> "tar -xvf jazz-2.0.0-macosx-intel32.tar") "
           "Press \"Login\". "
           "Your new profile will be created in the following directory : "
           (<p>)
-          (<code> "~/.jazz/lib/jedi.profiles/profile/Me/")
+          (<code> "~/jazz_user/lib/profile.me/")
           (<p>)
           "Here's a description of some important files that where created inside your new " (<code> "Me") " profile directory : "
           (<p>)
@@ -989,9 +989,9 @@ $ " (<b> "tar -xvf jazz-2.0.0-macosx-intel32.tar") "
               "The freedom of being inside a freely editable text can be surprising to new users. "
               "Expressions to be evaluated must be entered at the end. "
               "Note that Control-Alt-Space can be while inside the console to force a fresh prompt at the end. ")
-            (<span> "The keys bound to move-upward and move-downward (ctrl-P and ctrl-N if you are using emacs bindings) can be used to insert previous or next expressions. "
+            (<span> "The keys bound to move-upward and move-downward (alt-P and alt-N) can be used to insert previous or next expressions. "
               "Note that the previous expression does not replace the current line but is inserted instead. "
-              "This enables one to type some text, use ctrl-P to insert a previous expression, continue typing, ...")
+              "This enables one to type some text, use alt-P to insert a previous expression, continue typing, ...")
             (<span> "Another convenient way to access previous expressions, is to place the cursor on the line you want and press Enter. "
               "This will copy that line to a fresh line at the bottom. ")))
         (<division> title: "Context"
@@ -1894,10 +1894,433 @@ Options:
               (<span>
                 "Else, find the built " (<code> "'kernel.exe'") " kernel located inside the build directory and launch it like this: "
                  (<code> "kernel&nbsp;-make&nbsp;target@configuration:image&nbsp;-debug") ". "))))))
+  (<section> name: faq title: "FAQ"
+    (<article> title: "FAQ"
+      (<description>
+        (<division> title: "Build System"
+          (<node>
+            (<a> href: "#faq.build.afterpull" "Do I have to make clean and remake jazz and jedi every time I update from git?")
+            (<a> href: "#faq.build.parallel" "Can Jazz be builded in parallel?")
+            (<a> href: "#faq.build.scripting" "Can the build system be scripted?")
+            (<a> href: "#faq.build.static" "Can Jazz be used to build standalone executables?")))
+        (<division> title: "Jazz Platform"
+          (<node>
+            (<a> href: "#faq.jazz.executable" "Is there a jazz.exe that can be used to evaluate Jazz code in a non-GUI REPL?")
+            (<a> href: "#faq.jazz.definition" "What is the difference between definition and define?")
+            (<a> href: "#faq.jazz.referencedoc" "Is there a reference manual somewhere?")
+            (<a> href: "#faq.jazz.importconflicts" "Why do I get import conflicts?")
+            (<a> href: "#faq.jazz.importexport" "Where can import and export be used?")
+            (<a> href: "#faq.jazz.modules" "How does the runtime locate modules?")
+            (<a> href: "#faq.jazz.paradigms" "What are the available programming paradigms available in Jazz?")
+            (<a> href: "#faq.jazz.product" "What is the meaning of a product?")
+            (<a> href: "#faq.jazz.shortcuthook" "Is there a way to intercept every event?")
+            (<a> href: "#faq.jazz.gambit" "Can every feature of Gambit be accessed from Jazz code?")
+            (<a> href: "#faq.jazz.reader" "Why can't I use a @foo variable in my code?")
+            (<a> href: "#faq.jazz.repositorypackagealiases" "Is there an easy way to refer to files inside repositories and packages?")
+            (<a> href: "#faq.jazz.todo" "Is there a todo file for Jazz developers somewhere?")
+            (<a> href: "#faq.jazz.webframework" "Does Jazz include a web framework?")))
+        (<division> title: "Jedi IDE"
+          (<node>
+            (<a> href: "#faq.jedi.console" "Can I evaluate pure Scheme code at the console?")
+            (<a> href: "#faq.jedi.gambitrepl" "Does the console support the same set of command as the Gambit REPL?")
+            (<a> href: "#faq.jedi.gettingstarted" "What are the code introspection tools available in Jedi to help me get started?")
+            (<a> href: "#faq.jedi.profileproblems" "Why doesn't my profile load anymore?")
+            (<a> href: "#faq.jedi.customfonts" "Can I customize text styles?")
+            (<a> href: "#faq.jedi.customworkspaces" "Can I customize my workspaces?")))))
+    (<article> title: "Build System"
+      (<description>
+        (<division> name: faq.build.afterpull title: "Do I have to make clean and remake jazz and jedi every time I update from git?"
+          "Not at all! A simple " (<code> "make jedi") " will do."
+          (<p>)
+          "Here's a quick rundown on what's involved after doing a git pull : "
+          (<p>)
+          "Because Jazz was designed to minimize compilation dependencies, very few changes in a module force recompilation of other modules (some of those changes are modifying a macro, moving an exported symbol to another module, ...). "
+          "The build system takes advantage of this and recompiles only changed files. "
+          "This is why a simple " (<code> "make jedi") " will do. "
+          (<p>)
+          "When some changes done to Jazz should force a full rebuild, like some changes to a low-level kernel macro changing the generated code incompatibly, there is a file kernel/versions that the build system consults and that contains entries like : "
+          (<p>)
+          (<pre> class: "code_light"
+            "(version: 201016)"
+            (<br>)
+            "(version: 201015 gambit-version: 405001 gambit-stamp: 20090827151242)"
+            (<br>)
+            "(version: 201014 rebuild: all)"
+            (<br>)
+            "(version: 201011 rebuild: kernel)")
+          (<p>)
+          "For example, with the entries above, if your last pull pulled version 2.01.010, then the (version: 201014 rebuild: all) entry above tells the build system it must recompile everything. "
+          "All this meaning really that you never have to worry about it as the developers of Jazz have a way to automate rebuilding any parts of Jazz. "
+          (<p>)
+          "One other thing of importance is the way we implemented dependency checking code to automatically determine when a module's imports are not valid anymore because some imported symbol was moved or deleted. "
+          "For that check we had a choice to do it runtime but incur a non-trivial cost or integrate the check to the build system which is what we did. "
+          "So now it is possible that if some modules have invalid imports, just launching Jedi after a pull might not work and a " (<code> "make jedi") " will fix this. "
+          (<p>)
+          "Lastly, you should always consult the NEWS file after doing a pull. "
+          "This is where we describe any breaking changes not covered by the build system and the corrective actions to take. "
+          "Here's an example : "
+          (<p>)
+          (<pre> class: "code_light"
+            "Release 2.0.21"
+            (<br>)
+            "=============="
+            (<p>)
+            "Because a slot was added to the Lisp-Entry class, you will need to manually delete "
+            (<br>)
+            "your catalogs before launching Jedi. ")
+          (<p>)
+          "In summary, just do " (<code> "make jedi") " and have fun. "
+          ":-) ")
+        (<division> name: faq.build.parallel title: "Can Jazz be builded in parallel?"
+          "Yes, the number of parallel processes to use when building can be specified using the " (<code> "jobs:") " parameter to " (<code> "make") " (-j -job or j: can also be used)."
+          (<p>)
+          "Here's an example that could be used on a machine with 2 cores : "
+          (<p>)
+          (<pre> class: "code_light"
+            "% gsc make jedi jobs: 2 ")
+          (<p>)
+          "Another way to specify the number of parallel jobs to use is to add the following line to the following file $HOME/.jazz/.buildini file that is loaded by the build system :"
+          (<p>)
+          (<pre> class: "code_light"
+            "(jazz.build-jobs 2) "))
+        (<division> name: faq.build.scripting title: "Can the build system be scripted?"
+          "Yes. "
+          "The build system is now fully scriptable. "
+          "For instance, without entering the build system's interactive REPL, you can configure and build Jazz and Jedi like this : "
+          (<p>)
+          (<pre> class: "code_light"
+            "% gsc configure -safety release "
+            (<p>)
+            "% gsc make " (<br>)
+            "make kernel " (<br>)
+            "make core " (<br>)
+            "make jazz "
+            (<p>)
+            "% gsc make jedi " (<br>)
+            "make kernel " (<br>)
+            "make core " (<br>)
+            "make jazz " (<br>)
+            "make platform " (<br>)
+            "make jedi " (<br>)
+            "... "))
+        (<division> name: faq.build.static title: "Can Jazz be used to build standalone executables?"
+          "Yes and no. First, lets clarify a few thing. "
+          (<p>)
+          "Systems that build applications usually fall into 2 categories : "
+          (<ordered>
+            "Systems that build statically linked applications with the runtime statically linked in the application "
+            "Systems that build applications that are dependant on a runtime existing somewhere on the client machine ")
+          (<p>)
+          "This may surprise a few, but Jazz actually falls into the 1- statically linked applications category. "
+          "The fact that the built executable doesn't contain the code inside the exe but has it next to it as a series of Gambit .o1 is really a level of granularity detail. "
+          "The runtime is there completely for each application. "
+          (<p>)
+          "Ideally, I see Jazz applications as being either : "
+          (<p>)
+          (<ordered>
+            "A minimal exe implementing the kernel + Packages containing for each of their modules a .o1 "
+            "A minimal exe implementing the kernel + Packages each statically linked as a shared library "
+            "A statically linked exe statically including all packages ")
+          (<p>)
+          "1- being the most development, hot fix, ... friendly " (<br>)
+          "2- being a nicely balanced in between and " (<br>)
+          "3- being the most 'here is your application, have fun!' "
+          (<p>)
+          "At the moment only 1- is implemented but we are working on 2- and 3-.")))
+    (<article> title: "Jazz Platform"
+      (<description>
+        (<division> name: faq.jazz.executable title: "Is there a jazz.exe that can be used to evaluate Jazz code in a non-GUI REPL?"
+          "Even though Jazz was designed so it can be used independently of Jedi there is no jazz.exe that implement's a non-GUI Jazz REPL. "
+          "We have started work on that but it is really low priority as it would anyways be a pale substitute for Jedi (one big thing for instance that a console-based REPL will never be able to handle well is debugging multiple threads / processes). ")
+        (<division> name: faq.jazz.definition title: "What is the difference between definition and define?"
+          "A definition that is public can be seen as a define + an export of the definition name. "
+          (<p>)
+          "Note that because as a design goal, Jazz doesn't modify any Scheme primitive or syntax, it is not possible to specify access rights (private or public) to a define. ")
+        (<division> name: faq.jazz.referencedoc title: "Is there a reference manual somewhere?"
+          "A first draft of a complete documentation of the whole Jazz framework is now available on the website at "
+          (<a> href: "http://www.jazzscheme.org/reference.htm" "http://www.jazzscheme.org/reference.htm")
+          (<p>)
+          "This documentation is auto-generated from the code and contains the signature of every public and protected declaration. ")
+        (<division> name: faq.jazz.importconflicts title: "Why do I get import conflicts?"
+          "If a library imports 2 libraries that each export the same symbol, an error is generated at compile time. "
+          (<p>)
+          "Note that this feature is key in large systems where you often have tens of imports per library, as import order is proven to be non-important. ")
+        (<division> name: faq.jazz.importexport title: "Where can import and export be used?"
+          "Import and export statements can appear anywhere at the toplevel of a library. "
+          "This of course extends to statements inside a toplevel cond-expand or begin. "
+          (<p>)
+          "Note that in Jedi, they can be evaluated like any other toplevel form. ")
+        (<division> name: faq.jazz.modules title: "How does the runtime locate modules?"
+          "The first thing to understand is the relation between a module name and how Jazz locates the OS file that defines that module. "
+          "Modules are named with hierarchical names where the components are separated by periods. "
+          "For instance a.b.c is really the hierarchy (a b c). "
+          "There are many approaches to mapping modules names to persistent OS files and as a first step, Jazz supports the simple approach of mapping to the directory hierarchy. "
+          (<p>)
+          "In Jazz, the dynamically discovered runtime entities are the packages. "
+          "Each package defines a root for its modules. "
+          "For example, at the simplest, if you have a package P containing 3 modules a, a.b.c and foo then the file hierarchy would be :"
+          (<pre>
+            "P\n"
+            "  .package\n"
+            "  a\n"
+            "    _a.jazz\n"
+            "    b\n"
+            "      c.jazz\n"
+            "foo.jazz")
+          (<p>)
+          "A note about the _a.jazz convention. "
+          "As a folder cannot contain code, we have a problem when there is both a module like 'a' and a folder like \"a\" in \"a.b.c\" as conceptually the code for module 'a' really goes into folder \"a\". "
+          "To resolve this, Jazz considers the \"a/_a.jazz\" file exactly as \"a.jazz\". "
+          "So in the previous example, the 'a.b.c' module could be represented either by \"a/b/c.jazz\" or \"a/b/c/_c.jazz\". "
+          "It would of course be possible to put the code for the module 'a' at the toplevel in \"a.jazz\" but personally I find inelegant that \"a.jazz\" and the \"a\" folder that are it's descendant are 2 separate objects at the OS file system level. "
+          (<p>)
+          "Also note that because a package can contain other files than code (documentation, other languages, ...) it is convenient to be able to specify an arbitrary root and that is what default packages do with the (root \"src\") entry. ")
+        (<division> name: faq.jazz.paradigms title: "What are the available programming paradigms available in Jazz?"
+          "Jazz supports any mix of the following 3 programming paradigms :"
+          (<node>
+            "Functional"
+            "Object-Oriented with Generic methods"
+            "Object-Oriented with Encapsulated methods")
+          (<p>)
+          "In the standard distribution, a jazz.sample.paradigms package showcases the pros and cons about each paradigm through a simple simulation of an LDAP server (see the lib/jazz.sample.paradigms/Paradigms.txt file for details). ")
+        (<division> name: faq.jazz.product title: "What is the meaning of a product?"
+          "First, it is important to understand that the product is a Jazz concept totally independant of the Jedi IDE. "
+          (<p>)
+          "From the doc : "
+          (<p>)
+          "> A product is the runtime implementation of some user level entity that can " (<br>)
+          "> be run and built. They correspond to targets in the build system. For " (<br>)
+          "> instance, when doing 'make jedi', the build system will find the 'jedi' " (<br>)
+          "> product and ask it to build itself. "
+          (<p>)
+          "A product is simply some Scheme code that registers 2 functions: "
+          (<node>
+            "one that runs your code and"
+            "one that builds your code ")
+          (<p>)
+          "For example, lets say you want to run some mandelbrot code and you name your product: mandelbrot. "
+          "Then"
+          (<p>)
+          (<node>
+            "to run your code simply launch: kernel -run mandelbrot and "
+            "to build your code simply run: make mandelbrot from the build system")
+          (<p>)
+          "For example :"
+          (<node>
+            "Jedi can be run by doing: kernel -run jedi"
+            "Connect-4 sample can be run by doing: kernel -run c4"
+            "... ")
+          (<p>)
+          "You may be wandering how jazz finds the code. "
+          "This all relates to the repositories / packages / modules system. "
+          "Jedi can create all those automatically for you so if you do it by yourself you will need to familiarize yourself with how they work. "
+          "There is some preliminary doc here: http://www.jazzscheme.org/kernel.htm. "
+          "And I suggest you look at the jazz.sample.c4 for a simple example of a package containing a product that can be run and that builds an executable. ")
+        (<division> name: faq.jazz.shortcuthook title: "Is there a way to intercept every event?"
+          "Yes. "
+          "Here's a code snippet showing how to use the hook : "
+          (<p>)
+          "Note that the hook function shoud return :"
+          (<br>)
+          (<node>
+            "#f says it wants the default handling to occur "
+            "#t says it consumed the shortcut and so stop default handling ")
+          (<p>)
+          "Insert the code snippet in your profile class to try it out. "
+          (<p>)
+          (<pre> class: "code_light"
+            "(method (test)\n"
+            "  (set-shortcut-hook~ (get-application)\n"
+            "    (function (shortcut)\n"
+            "      (debug shortcut)\n"
+            "      #f)))\n"
+            "\n"
+            "(method (test-shift)\n"
+            "  (set-shortcut-hook~ (get-application) {}))")
+          (<p>)
+          "Doing: c-t foo c-p c-n c-s-t will output {Shortcut #\\F} {Shortcut #\\O} {Shortcut #\\O} {Shortcut :control #\\P} {Shortcut :control #\\N} {Shortcut :control :shift #\\T} to the console. "
+          (<p>)
+          "Note that for a finished application, Jazz supports high-level binding tables that associate code to shortcuts. "
+          "For fast experimentation or different needs though, this hook can be very useful. "
+          "One example is the Tools / View Shortcut Bindings dialog that uses the shortcut to enable the user to enter a shortcut interactively. ")
+        (<division> name: faq.jazz.gambit title: "Can every feature of Gambit be accessed from Jazz code?"
+          "Yes. "
+          "Jazz now has a new 'gambit' library that can be imported to have access to every Gambit procedure from Jazz code. "
+          (<p>)
+          "Here's a sample : "
+          (<p>)
+          (<pre> class: "code_light"
+            "(library my-lib jazz\n"
+            "\n"
+            "(import (gambit))\n"
+            "\n"
+            "(define (test)\n"
+            "  (let ((vec (f64vector 2.0 3.2 4.6)))\n"
+            "    (pp (fl> (f64vector-ref vec 2) 1.0))))\n"
+            "\n"
+            "(test)) ")
+          (<p>)
+          "Note that many of those functions are already exported from the 'jazz' library. "
+          "Many have the same name and some have a different name as their underlying code tries to be portable accross Scheme implementations, mainly Gambit, Chicken, PLT and Bigloo. ")
+        (<division> name: faq.jazz.reader title: "Why can't I use a @foo variable in my code?"
+          "Jazz as a language defines some read-time syntax. "
+          "@ is a read-time named comment. "
+          "@wait-bug-fix (define (some-code) ...) for example. "
+          "So yes in Jazz, using @ is restricted. "
+          "This said, the Jazz loader for exactly this will consult the file extension so it knows what readtable to use to read the file. "
+          "Files with .jazz will use the Jazz readtable while others will use the Gambit default one. "
+          (<p>)
+          "So you can either :"
+          (<p>)
+          (<ordered>
+            "Leave the external code in a separate pure Scheme .scm file and load it using (load ...) or"
+            "Put it in a Jazz module of Scheme code also in a .scm file. ")
+          (<p>)
+          "Only difference is that if your module is lets say (module external ...), then loading can be done cleanly by the module system by adding (require (external)) as the first declaration of your library that wants to use it. "
+          (<p>)
+          "As you probably know, to access Scheme symbols, use the special form (native symbol). "
+          "So if your external module defines Foo for example, either put (native Foo) somewhere in your lib or if you have many libraries that need that symbol, create an export lib lets say external-exports, put the (native Foo) in that one and have your libraries import external-exports instead. ")
+        (<division> name: faq.jazz.repositorypackagealiases title: "Is there an easy way to refer to files inside repositories and packages?"
+          "Yes. "
+          "An important role of packages in to enable code location transparency. "
+          "The module system makes it so packages can be moved from one repository to another (for example, a package downloaded from an internet repository to a local repository) without having to change any code refering to them. "
+          "This is great, but to be complete, a way must be available to refer transparently to files located inside a package, for example source files and image resources. "
+          (<p>)
+          "For this, every repository and package automatically register an alias so that for example an image resource in the myorg.mypackage package can be specified as: "
+          (<p>)
+          (<pre> class: "code_light"
+            "{File myorg.mypackage \"images\" \"someimage.png\"}")
+          (<p>)
+          "and if myorg.mypackage is moved, all file references will still be valid as the myorg.mypackage alias is dynamically determined by the module system. "
+          (<p>)
+          "Also, as every file / directory created through the Jedi IDE goes through an 'anchorize' mecanism to determine the most specific alias available, it means that everything created by the IDE containing filesystem references, like the catalogs, will automatically use aliases for files located inside packages making them 100% movable with no change. ")
+        (<division> name: faq.jazz.todo title: "Is there a todo file for Jazz developers somewhere?"
+          "devel/Todo.txt is the main todo file. ")
+        (<division> name: faq.jazz.webframework title: "Does Jazz include a web framework?"
+          "Yes, Jazz has a webserver module. "
+          (<p>)
+          "For an example you can look at the jazz.sample.gameserver that comes preinstalled. "
+          "It is a webserver that implements 2 simple games, Connect-4 and Gomoku. "
+          (<p>)
+          "To try it out, use the menu item \"Project / Select...\" and select \"Game Server\". "
+          "Then, although it can run interpreted, I suggest you start by building the project: \"Project / Build\" as the AI is pretty demanding. "
+          (<p>)
+          "To run the game server accessible at : http://localhost:8080 there are actually 3 methods : "
+          (<p>)
+          (<ordered>
+            (<span>
+              "From inside the IDE, select the \"View / Servers\" palette and from there simply double-click the server to start or stop it. ")
+            (<span>
+              "Launch the Game Server project by \"Project / Debug\". "
+              "The launched process will start the webserver and also you will notice that the webserver's control panel is accessible in the Console's \"Game Server primordial\" tab. ")
+            (<span>
+              "As you would do in production: double-click the \"bin/gameserver.exe\" executable that building the project generated. "
+              "In this case, the webserver's control panel will use the OS console as the process is not connected to the Jedi remote debugger "))
+          (<p>)
+          "PS: This webserver is a very naive implementation not meant for production. "
+          "It would need alot more work to be used seriously to serve high volumes. ")))
+    (<article> title: "Jedi IDE"
+      (<description>
+        (<division> name: faq.jedi.console title: "Can I evaluate pure Scheme code at the console?"
+          "Yes, the Jedi console supports both the Scheme and the Jazz language. "
+          "What language is used for evaluation is determined by the current context that can be obtained by evaluating ,(in). "
+          "Note that as Jazz is pretty much a superset of Scheme, usually the default context of evaluating as Jazz code works nicely. "
+          (<p>)
+          "The various context related command are"
+          (<br>)
+          (<node>
+            ",(in) to display the current context"
+            ",(in context) sets the current context to the result of evaluating context where the result can be :"
+            (<node>
+              "#f to set the context to Scheme"
+              "a symbol to set the context to that module"
+              "an object will enable code to access internal fields of that object"
+              "some special objects have aliases to set them"
+              (<node>
+                ":me for your profile class"
+                ":process for the current process"
+                "..."))))
+        (<division> name: faq.jedi.gambitrepl title: "Does the console support the same set of command as the Gambit REPL?"
+          "No. "
+          "The Jazz console doesn't implement the same ,cmd text based behaviors than the Gambit console. "
+          "It might some day but it is a low priority project as almost every command has a Jedi equivalent. "
+          (<p>)
+          "Note that because it is so useful to have a quick way to clear an error when you already know what's the problem without having to go to the Debugger workspace, the console supports ctrl-d to clear one level of error. ")
+        (<division> name: faq.jedi.gettingstarted title: "What are the code introspection tools available in Jedi to help me get started?"
+          "Getting started in Jazz can indeed be challenging. "
+          (<p>)
+          "The good news is that once you get over the first bump it is extremely easy to further learn by example using all the code introspection tools available in the Jedi IDE as almost everything available in Jazz is used somewhere in Jedi. "
+          "For instance : "
+          (<p>)
+          (<node>
+            (<span>
+              "You see a button that does something and are wondering how it works:"
+              (<node>
+                "Press F8, move your mouse over the button, right-click and select \"Edit    Action\" (or \"Edit Action Handler\" depending) and you'll be taken to the source code implementing that button. "))
+            (<span>
+              "Same thing for menu items:"
+              (<node>
+                (<span>
+                  "Just open the menu, press F8, move your mouse over the item, right-click, ... ")))
+            (<span>
+              "If the code you are looking for happens through a shortcut:"
+             (<node>
+              (<span>
+                "Go to the Tools / View Shortcut Bindings... "
+                "menu item (ctrl-shift-k), press the shortcut and double-click the desired binding and you'll be taken to the source code that implements that binding. "))))
+          (<p>)
+          "Once in the code, as Jazz catalogs all source code for definitions and references, it should be very easy to navigate further. "
+          "First, you might want to make sure your catalogs are up-to-date by going to the Tools / Catalogs Manager window and pressing Update (note that once this is done, the IDE will maintain your catalogs up-to-date automatically with any change    you make to the source code, you just have to do this after pulling new    changes). "
+          "This done, just put the text selection in any symbol you want and press:"
+          (<node>
+            "F12 to edit that definition or"
+            "shift-F12 to view a list of all definitions using that symbol. "))
+        (<division> name: faq.jedi.profileproblems title: "Why doesn't my profile load anymore?"
+          "When you can't load Jedi due to profile problems, the first thing you should do is consult the NEWS file at the root of the Jazz source tree to see if there where breaking changes to the profiles. "
+          "If not, a solution that will always work is to simply create a new profile and then compare its directory content (you can use Jedi's Compare Directories tool) to your broken one. "
+          "This should help you find out what changed that is creating problems. ")
+        (<division> name: faq.jedi.customfonts title: "Can I customize text styles?"
+          "Here is an example in your Preferences.jml file inside your profile directory :"
+          (<p>)
+          (<pre> class: "code_light"
+            "(&lt;Jedi-Preferences&gt;\n"
+            "  ...\n"
+            "  (&lt;jazz-text~&gt;\n"
+            "    background: {Color name: Black}\n"
+            "    default-style: {Text-Style-Preference font: Heading0 color: White}\n"
+            "    base-styles: ({Text-Style-Preference name: Aaa color: Orange}\n"
+            "                  {Text-Style-Preference name: Bbb base: Aaa frame: Light-Blue})\n"
+            "    title-style: {Text-Style-Preference base: Bbb highlight: Light-Green}\n"
+            "    comment-style: {Text-Style-Preference base: Bbb highlight: Light-Red})\n"
+            "  ...\n"
+            ")")
+          (<p>)
+          "Properties available for Text-Style-Preference are :"
+          (<p>)
+          (<node>
+            " name - The name of the style"
+            " base - The optional name of the style from which to inherit"
+            " font - The font of the text"
+            " color - The color of the text"
+            " highlight - The color of the text background"
+            " frame - The color of the text frame"))
+        (<division> name: faq.jedi.customworkspaces title: "Can I customize my workspaces?"
+          "Yes, Jedi workspaces are fully user configurable. "
+          (<p>)
+          "First, locate the &lt;workspaces~&gt; in your profile's Preferences.jml. "
+          "It should look something like this :"
+          (<p>)
+          (<pre> class: "code_light"
+            "(&lt;workspaces~&gt; active: home\n"
+            "  (&lt;Home-Workspace&gt;)\n"
+            "  (&lt;Text-Workspace&gt;)\n"
+            "  (&lt;Debugger-Workspace&gt;)\n"
+            "  (&lt;Groupware-Workspace&gt;)\n"
+            "  (&lt;SQL-Workspace&gt;)) ")
+          (<p>)
+          "You can now remove any unwanted workspace, change the one active on startup or create completely new custom ones. "))))
   ;; (<section> name: forums title: "Forums")
   ;; (<section> name: blogs title: "Blogs")
-  ;; (<section> name: wiki title: "Wiki")
   ;; (<section> name: resources title: "Resources"
   ;;   (<article> name: external-links title: "External Links"))
-  ;; (<section> name: faq title: "FAQ")
   )

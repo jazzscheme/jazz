@@ -3219,9 +3219,9 @@
 
 (define (jazz.add-declaration-child walker resume namespace-declaration child)
   (let ((name (%%get-lexical-binding-name child)))
-    (let ((children (%%get-namespace-declaration-children namespace-declaration)))
-      (%%when (%%not (%%memq child (jazz.queue-list children)))
-        (jazz.enqueue children child)))
+    ;; not 100% sure about this change
+    (%%when (%%not (jazz.find-named-declaration namespace-declaration name))
+      (jazz.enqueue (%%get-namespace-declaration-children namespace-declaration) child))
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
     ;; for now everything not private is considered public
     (%%when (%%neq? (%%get-declaration-access child) 'private)
@@ -3235,13 +3235,14 @@
       declaration)))
 
 
+(define (jazz.find-named-declaration namespace-declaration name)
+  (jazz.find-if (lambda (decl)
+                  (%%eq? (%%get-lexical-binding-name decl) name))
+                (jazz.queue-list (%%get-namespace-declaration-children namespace-declaration))))
+
+
 (define (jazz.find-typed-declaration namespace-declaration class name)
-  (define (find-declaration)
-    (jazz.find-if (lambda (decl)
-                    (%%eq? (%%get-lexical-binding-name decl) name))
-                  (jazz.queue-list (%%get-namespace-declaration-children namespace-declaration))))
-  
-  (let ((declaration (find-declaration)))
+  (let ((declaration (jazz.find-named-declaration namespace-declaration name)))
     (if (and declaration (%%class-is? declaration class))
         declaration
       #f)))

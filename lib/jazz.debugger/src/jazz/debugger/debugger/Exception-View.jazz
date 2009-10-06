@@ -52,8 +52,8 @@
   
   (property thread initialize {})
   
-  
-  (slot stop initialize {})
+  (slot manager initialize {})
+  (slot stop    initialize {})
   
 
   (form
@@ -98,6 +98,17 @@
 
   
   ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method override (install rest)
+    (nextmethod rest)
+    (set! manager (get-debug-manager~ (get-application)))
+    (set-exceptions-view~ manager self))
+
+  
+  ;;;
   ;;;; Access
   ;;;
   
@@ -118,6 +129,21 @@
     
     (set! thread value)
     (set! stop (thread-stop thread))
+    (update))
+  
+  
+  (method public (thread-changed new-thread)
+    (define (thread-stop)
+      (when thread
+        (let ((object (get-active-stop~ thread)))
+          (if (not object)
+              {}
+            (let ((debugger (get-debugger~ thread))
+                  (process (get-process~ thread)))
+              (new Debugged-Stop debugger process object))))))
+    
+    (set! thread new-thread)
+    (set! stop (thread-stop))
     (update))
 
   

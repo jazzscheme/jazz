@@ -54,6 +54,8 @@
 
   (property process initialize {} getter get-process setter set-process)
   
+  (slot manager initialize {})
+  
 
   (form
     (<install>                                 layout-type: border
@@ -110,6 +112,8 @@
 
   (method override (install rest)
     (nextmethod rest)
+    (set! manager (get-debug-manager~ (get-application)))
+    (set-threads-view~ manager self)
     (update))
 
   
@@ -129,6 +133,11 @@
   
   (method (show-detailed?)
     (get-selected?~ (locate 'detailed)))
+  
+  
+  (method public (process-changed new-process)
+    (set! process new-process)
+    (update))
 
   
   ;;;
@@ -335,15 +344,9 @@
   
   (method (thread-change)
     (let ((thread (selected-thread)))
+      (thread-changed~ manager thread)
       (when thread
-        (set-debugged-visit? thread #f)
-        (highlight-thread thread))
-      (let ((view (get-frames-view)))
-        (set-process~ view process)
-        (set-thread~ view thread)
-        (select-first-frame~ view))
-      (let ((view (get-exception-view)))
-        (set-thread~ view thread))))
+        (highlight-thread thread))))
   
   
   ;;;
@@ -358,13 +361,10 @@
   
   
   (method (selected-row)
-    (let* ((tree (locate 'threads))
-           (n (get-single-selection~ tree)))
-      (when n
-        (get-row~ tree n))))
+    (get-selected-row~ (locate 'threads)))
   
   
-  (method (set-selected-thread thread)
+  (method public (set-selected-thread thread)
     (let ((tree (locate 'threads)))
       (let ((row (thread-row tree thread)))
         (when row

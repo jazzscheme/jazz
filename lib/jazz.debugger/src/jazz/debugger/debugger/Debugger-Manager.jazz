@@ -1,0 +1,111 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Debugger Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library protected jazz.debugger.debugger.Debugger-Manager jazz
+
+
+(import (jazz.debugger)
+        (jazz.graphic))
+
+
+(class Debugger-Manager extends Object
+  
+  
+  (slot processes-view  initialize '() accessors generate)
+  (slot threads-view    initialize '() accessors generate)
+  (slot frames-view     initialize '() accessors generate)
+  (slot exceptions-view initialize '() accessors generate)
+  (slot variables-view  initialize '() accessors generate)
+  
+  (slot process      initialize {} getter generate)
+  (slot thread       initialize {} getter generate)
+  (slot frame        initialize {} getter generate)
+  
+  
+  ;;;
+  ;;;; Facade
+  ;;;
+  
+  
+  
+  
+  
+  ;;;
+  ;;;; Change
+  ;;;
+  
+  
+  (method public (process-changed new-process)
+    (unless (eq? process new-process)
+      (set! process new-process)
+      (when threads-view
+        (process-changed~ threads-view process))))
+  
+  
+  (method public (thread-changed new-thread)
+    (unless (eq? thread new-thread)
+      (set! thread new-thread)
+      (when thread
+        (set-debugged-visit? thread #f))
+      (when frames-view
+        (thread-changed~ frames-view thread))
+      (when exceptions-view
+        (thread-changed~ exceptions-view thread))))
+  
+  
+  (method public (frame-changed new-frame)
+    (unless (eq? frame new-frame)
+      (set! frame new-frame)
+      (when variables-view
+        (frame-changed~ variables-view frame))
+      (when (and thread (get-active-stop~ thread))
+        (set-repl-frame~ thread (essay frame (get-reference~ frame))))
+      (edit-frame frame)))
+  
+  
+  ;;;
+  ;;;; Indicator
+  ;;;
+  
+  
+  (definition *frame-indicator*
+    (new Frame-Indicator color: {Color name: Light-Green}))
+  
+  
+  (method (edit-frame frame)
+    (let ((location (essay frame (get-location~ frame))))
+      (edit~ *frame-indicator* location)))))

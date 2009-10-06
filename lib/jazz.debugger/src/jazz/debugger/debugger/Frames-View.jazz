@@ -42,6 +42,7 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -50,6 +51,8 @@
   
   (property process initialize {} accessors generate)
   (property thread  initialize {})
+  
+  (slot manager initialize {})
   
 
   (form
@@ -94,6 +97,17 @@
 
   
   ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method override (install rest)
+    (nextmethod rest)
+    (set! manager (get-debug-manager~ (get-application)))
+    (set-frames-view~ manager self))
+
+  
+  ;;;
   ;;;; Access
   ;;;
   
@@ -105,6 +119,13 @@
   (method public (set-thread value)
     (set! thread value)
     (update))
+  
+  
+  (method public (thread-changed new-thread)
+    (set! process (get-process~ manager))
+    (set! thread new-thread)
+    (update)
+    (select-first-frame))
 
   
   ;;;
@@ -204,7 +225,7 @@
     
   
   (method (frame-change)
-    (process-frame-change (selected-frame) process)
+    (frame-changed~ manager (selected-frame))
     @convert
     (let ((frame (selected-frame)))
       (when (or (not frame)

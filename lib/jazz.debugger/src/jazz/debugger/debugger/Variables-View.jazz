@@ -43,6 +43,7 @@
         (jazz.editor.jazz.inspector)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -51,6 +52,8 @@
   
   (property process            initialize {} getter get-process            setter set-process)
   (property continuation-frame initialize {} getter get-continuation-frame setter set-continuation-frame)
+  
+  (slot manager initialize {})
 
 
   (form
@@ -98,6 +101,8 @@
   
   (method override (install rest)
     (nextmethod rest)
+    (set! manager (get-debug-manager~ (get-application)))
+    (set-variables-view~ manager self)
     (let ((listener (new Event-Handler target: self method-name: 'on-frame-change)))
       (add-debugger-listener listener)
       (destroy-mandatory)))
@@ -129,6 +134,11 @@
   (method public (set-continuation-frame frm)
     (set! continuation-frame frm)
     (set-client~ (locate 'variables) (essay continuation-frame (cons continuation-frame :frame))))
+  
+  
+  (method public (frame-changed new-frame)
+    (set-process (get-process~ manager))
+    (set-continuation-frame new-frame))
 
   
   ;;;

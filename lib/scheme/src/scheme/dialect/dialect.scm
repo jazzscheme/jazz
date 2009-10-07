@@ -312,7 +312,8 @@
     (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
             (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #f #f))))
-        (let ((new-declaration (jazz.new-define-declaration name type declaration signature)))
+        (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                   (jazz.new-define-declaration name type declaration signature))))
           (%%set-declaration-source new-declaration form-src)
           (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
@@ -321,7 +322,7 @@
 (define (jazz.walk-define walker resume declaration environment form-src)
   (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (jazz.source-code form-src)))
     (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
-      (let* ((new-declaration (jazz.find-form-declaration declaration name))
+      (let* ((new-declaration (jazz.require-declaration declaration name))
              (new-environment (%%cons new-declaration environment)))
         (%%set-define-declaration-value new-declaration
           (jazz.walk walker resume new-declaration new-environment value))
@@ -346,7 +347,8 @@
 (define (jazz.walk-define-special-form-declaration walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz.parse-define-special-form walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
-      (let ((new-declaration (jazz.new-define-special-form-declaration name type declaration signature)))
+      (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                 (jazz.new-define-special-form-declaration name type declaration signature))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
@@ -354,7 +356,7 @@
 
 (define (jazz.walk-define-special-form walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz.parse-define-special-form walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
+    (let* ((new-declaration (jazz.require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-special-form-signature new-declaration signature)
         (%%set-define-special-form-body new-declaration
@@ -380,7 +382,8 @@
 (define (jazz.walk-define-macro-declaration walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
-      (let ((new-declaration (jazz.new-define-macro-declaration name type declaration signature)))
+      (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                 (jazz.new-define-macro-declaration name type declaration signature))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
@@ -388,7 +391,7 @@
 
 (define (jazz.walk-define-macro walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
+    (let* ((new-declaration (jazz.require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-signature new-declaration signature)
         (%%set-define-macro-body new-declaration

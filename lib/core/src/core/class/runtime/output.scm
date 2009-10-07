@@ -102,20 +102,22 @@
 
 
 (define (jazz.debug . rest)
-  (%%when (%%not-null? rest)
-    (display (jazz.->string (%%car rest)))
-    (for-each (lambda (expr)
-                (display " ")
-                (display (jazz.->string expr)))
-              (%%cdr rest)))
-  (newline)
-  (force-output))
+  (let ((port (console-port)))
+    (%%when (%%not-null? rest)
+      (display (jazz.->string (%%car rest)) port)
+      (for-each (lambda (expr)
+                  (display " " port)
+                  (display (jazz.->string expr) port))
+                (%%cdr rest)))
+    (newline port)
+    (force-output port)))
 
 
 (define (jazz.debug-string str)
-  (display str)
-  (newline)
-  (force-output))
+  (let ((port (console-port)))
+    (display str port)
+    (newline port)
+    (force-output port)))
 
 
 (define jazz.terminal

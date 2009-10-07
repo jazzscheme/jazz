@@ -76,7 +76,7 @@
         ((jazz.primitive? value)
          (jazz.print value output detail))
         (else
-         (jazz.write-jazz output value))))
+         (jazz.print-jazz value output detail))))
 
 
 (define (jazz.output-list lst output detail)
@@ -173,7 +173,8 @@
 
 (cond-expand
   (gambit
-    (set! jazz.write-jazz
-          (lambda (port object)
-            (jazz.print-jazz object port jazz.output-mode))))
+    (set! jazz.print-hook
+          (lambda (object port style)
+            (let ((detail (if (eq? style 'display) ':human ':reader)))
+              (jazz.print-jazz object port detail)))))
   (else)))

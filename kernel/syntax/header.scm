@@ -237,6 +237,9 @@
 (define (jazz.writeenv-port we)
   (macro-writeenv-port we))
 
+(define (jazz.writeenv-style we)
+  (macro-writeenv-style we))
+
 
 ;;;
 ;;;; Thread

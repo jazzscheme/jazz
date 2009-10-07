@@ -563,6 +563,7 @@
 (native jazz.require-service)
 (native jazz.global-variable?)
 (native jazz.global-value)
+(native jazz.test?)
 (native main)
 
 

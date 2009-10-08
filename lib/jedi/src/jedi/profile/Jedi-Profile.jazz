@@ -233,6 +233,19 @@
                 (get-content~ text))))
     
   
+  (method (remove-trailing-whitespace text)
+    (let ((count 0))
+      (for-each (function (row)
+                  (let ((str (paragraph-string~ text row)))
+                    (let ((trailer (extract-trailer str whitespace?)))
+                      (when (not (empty-string? trailer))
+                        (let ((end (cardinality str)))
+                          (delete-range~ text (new Range$Cell$ (new Cell row (- end (cardinality trailer))) (new Cell row end)))
+                          (increase! count))))))
+                (selected-lines~ text))
+      (user-message "Remove {a} trailing whitespace" (downcase (format-cardinality count)))))
+    
+  
   ;;;
   ;;;; Modules
   ;;;
@@ -265,6 +278,147 @@
   
   ;;;
   ;;;; Doc
+  ;;;
+  
+  
+  (method (selection->doc text)
+    (define (collect-runs text)
+      (let ((queue (new-queue)))
+        (for-each-range~ text (if (has-selection?~ text) (get-selection~ text) (text-range~ text))
+          (function (paragraph start end)
+            (let ((runs (range-runs~ paragraph start end)))
+              (enqueue queue runs))))
+        (queue-list queue)))
+    
+    (define (color-class color)
+      (when color
+        (case (get-name~ color)
+          ((Dark-Blue) "blue")
+          ((Dark-Green) "green")
+          ((Dark-Red) "red")
+          ((Dark-Purple) "purple")
+          ((Purple) "purple")
+          ((Ochre) "ochre")
+          ((Dark-Orange) "orange")
+          ((Text-Gray) "gray")
+          (else (debug 'unknown 'color color) {}))))
+    
+    (define (encode-string str)
+      (substitute-alist '((#\\ . "\\\\")
+                          (#\" . "\\\"")
+                          (#\< . "&lt;")
+                          (#\> . "&gt;"))
+                        str))
+    
+    (let ((output (open-output-string)))
+      (format output "(<pre> class: \"code\"{%}")
+      (let (iterate (scan (collect-runs text)))
+        (unless (null? scan)
+          (format output "  ")
+          (let ((runs (car scan))
+                (next (cdr scan)))
+            (let ((first? #t))
+              (for-each (function (run)
+                          (if first?
+                              (set! first? #f)
+                            (format output " "))
+                          (let ((str (encode-string (coerce (get-string~ run) String)))
+                                (class (color-class (get-color~ (get-style~ run)))))
+                            (if (not class)
+                                (format output "\"{a}\"" str)
+                              (format output "(<span> class: {s} \"{a}\")" class str))))
+                        runs))
+            (unless (null? next)
+              (format output " \"\\n\"{%}"))
+            (iterate next))))
+      (format output ")")
+      (set-clipboard-text (get-output-string output))))
+  
+  
+  (method (file->doc file)
+    (define (process-line-char status in-string? input output)
+      (let ((c (read-char input)))
+        (cond ((eof-object? c)
+               (values #f in-string?))
+              ((eqv? c #\newline)
+               (let ((c (peek-char input)))
+                 (case status
+                   ((space)
+                    (values (if (eqv? c #\newline) #f 'none) #t))
+                   ((period-space)
+                    (values (if (eqv? c #\newline) #f 'none) #f))
+                   (else
+                    (values #f in-string?)))))
+              ((and (eqv? c #\space) (eq? status 'period))
+               (write-char c output)
+               (write-char #\double-quote output)
+               (newline output)
+               (values 'period-space #f))
+              (else
+               (unless in-string?
+                 (write-char #\double-quote output))
+               (let ((status (case c
+                               ((#\double-quote #\backslash)
+                                (write-char #\backslash output)
+                                'none)
+                               ((#\period)
+                                'period)
+                               ((#\space)
+                                'space)
+                               (else
+                                'none))))
+                 (write-char c output)
+                 (values status #t))))))
+    
+    (define (process-line input output)
+      (let (iterate (status 'newline)
+                    (in-string? #f))
+        (if status
+            (receive (status in-string?) (process-line-char status in-string? input output)
+              (iterate status in-string?))
+          (when in-string?
+            (write-char #\double-quote output)
+            (newline output)))))
+    
+    (define (process-nodes input output)
+      (display "(<node>" output)
+      (newline output)
+      (let (iterate)
+        (display "(<span>" output)
+        (newline output)
+        (read-char input)           ; #\minus
+        (process-line input output) ; #\newline OR #!eof
+        (let ((c (peek-char input)))
+          (display ")" output)
+          (if (eq? c #\minus)
+              (iterate)
+            (display ")" output)
+            (newline output)))))
+    
+    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+      (function (input)
+        (let ((output (open-output-string)))
+          (let (iterate)
+            (let ((c (peek-char input)))
+              (unless (eof-object? c)
+                (case c
+                  ((#\minus)
+                   (process-nodes input output))
+                  (else
+                   (process-line input output)
+                   (case (peek-char input)
+                     ((#\newline)
+                      (read-char input)
+                      (display "(<p>)" output))
+                     (else
+                      (display "(<br>)" output)))
+                   (newline output)))
+                (iterate))))
+          (get-output-string output)))))
+    
+  
+  ;;;
+  ;;;; Doc Generation
   ;;;
   
   

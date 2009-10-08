@@ -550,6 +550,7 @@
 (native jazz.module-loaded?)
 (native jazz.module-uptodate-binary?)
 (native jazz.load-module)
+(native jazz.unload-module)
 (native jazz.reload-module)
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)

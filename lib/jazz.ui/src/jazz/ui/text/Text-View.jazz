@@ -649,7 +649,7 @@
               (if (not actual)
                   (replace-clipboard)
                 (append-clipboard actual))))
-          (replace range (list ""))))))
+          (delete-range range)))))
   
   
   (method (on-open-line evt)
@@ -2560,9 +2560,8 @@
     (when (write-allowed?)
       (unless (at-beginning?)
         (if (has-selection?)
-            (replace-selection (list ""))
-          (let ((range (new Range$Cell$ (move-backward (get-start) word?) (get-end))))
-            (replace range (list "")))))))
+            (delete-selection)
+          (delete-range (new Range$Cell$ (move-backward (get-start) word?) (get-end)))))))
   
   
   (method public virtual (delete-char)
@@ -2577,9 +2576,12 @@
     (when (write-allowed?)
       (unless (at-end?)
         (if (has-selection?)
-            (replace-selection (list ""))
-          (let ((range (new Range$Cell$ (get-start) (move-forward (get-end) word?))))
-            (replace range (list "")))))))
+            (delete-selection)
+          (delete-range (new Range$Cell$ (get-start) (move-forward (get-end) word?)))))))
+  
+  
+  (method public (delete-range range)
+    (replace range (list "")))
   
   
   (method public (replace-selection strings)
@@ -2623,7 +2625,7 @@
                       (set! contiguous-undo-range range)
                       (register-undo~ undoer
                         (function ()
-                          (replace range (list "")))))
+                          (delete-range range))))
                   (if (= (get-end~ contiguous-undo-range) (- caret 1))
                       (set-end~ contiguous-undo-range caret)
                     (set! contiguous-undo-range {})))
@@ -4297,7 +4299,7 @@
 
   (method (remove-completion)
     (when completion-active?
-      (replace-selection (list ""))
+      (delete-selection)
       (set! completion-active? #f)))
 
 
@@ -4444,7 +4446,7 @@
           (insert-char c)
         ; remove competion before doing backspace
         (when completion-active?
-          (replace-selection (list "")))
+          (delete-selection))
         (backspace word?)
         (flash-matching-character))))
 

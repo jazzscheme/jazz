@@ -691,32 +691,39 @@
 (definition public (find-palette class)
   (let ((toplevel (get-toplevel)))
     (when toplevel
-      (either (find-type~ toplevel class)
-              (find-palette~ toplevel class)))))
+      (continuation-capture
+        (function (return)
+          (for-each (function (window)
+                      (let ((palette (either (find-type~ window class)
+                                             (find-palette~ window class))))
+                        (when palette
+                          (continuation-return return palette))))
+                    (cons toplevel (get-windows~ toplevel)))
+          {})))))
 
 
 (definition public (select-palette class (name: name {}) (workspace: workspace 'home) (focus?: focus? #f))
-  (let ((guest (find-palette class))
-        (proc
-          (function (view)
-            (when view
-              (let* ((host (get-host~ view))
-                     (parent (get-parent~ host)))
-                (when (is? parent Pad-View)
-                  (set-selection~ parent host))
-                (for-each-splitter (if (is? parent Splitter-View) host parent)
-                  (function (splitter view)
-                    (when (and (eq? (get-state~ splitter) 'zoom)
-                               (neq? (get-target~ splitter) view))
-                      (unzoom~ splitter))))
-                (when focus?
-                  (focus-host~ host))
-                view)))))
+  (define (select-view view)
+    (when view
+      (let* ((host (get-host~ view))
+             (parent (get-parent~ host)))
+        (when (is? parent Pad-View)
+          (set-selection~ parent host))
+        (for-each-splitter (if (is? parent Splitter-View) host parent)
+                           (function (splitter view)
+                             (when (and (eq? (get-state~ splitter) 'zoom)
+                                        (neq? (get-target~ splitter) view))
+                               (unzoom~ splitter))))
+        (when focus?
+          (focus-host~ host))
+        view)))
+  
+  (let ((guest (find-palette class)))
     (if guest
-        (proc guest)
+        (select-view guest)
       (when workspace
         (apply-preferences~ (get-workspace workspace))
-        (proc (find-palette class))))))
+        (select-view (find-palette class))))))
 
 
 (definition public (for-each-docked proc)
@@ -770,20 +777,6 @@
 ;;;
 
 
-;; It is critical that this variable be used instead of calling get-window-focus
-;; because on X11 the callback to focus-gain is asynchronous and we want to know
-;; the window that has actually received and processed the focus-gain event.
-(definition *focused-window*
-  {})
-
-
-(definition public (get-focused-window)
-  *focused-window*)
-
-(definition public (set-focused-window window)
-  (set! *focused-window* window))
-
-
 (definition *focus*
   {})
 
@@ -795,9 +788,10 @@
 (definition public (set-focus view)
   (when (neq? view *focus*)
     (let ((player (essay view (get-player~ view))))
-      (if (and player (neq? player *focused-window*))
+      (if (and player (neq? player (get-focused-window)))
           (begin
             (set-previously-focused-view~ player view)
+            (bring-to-front~ player)
             (set-window-focus player))
         (let ((old *focus*))
           (when *focus*

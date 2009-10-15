@@ -267,10 +267,10 @@
   (let ((ref (either name (type-name guest-class))))
     (either (table-ref Palettes ref {})
             (let ((palette
-                    ;; quick until I decide on the right solution
+                    ;; quick solution until we decide on the right approach
                     (if (procedure? guest-class)
                         (guest-class)
-                      (new-palette guest-class host-visible?: #f))))
+                      (apply new-palette guest-class host-visible?: #f rest))))
               (table-set! Palettes ref palette)
               palette))))
 
@@ -300,21 +300,19 @@
 
 
 (definition public (show-palette guest-class . rest)
-  (let ((palette (find-host~ (get-root~ (get-toplevel)) guest-class)))
-    (if (not palette)
-        (apply new-palette guest-class rest)
-      (let ((host (get-root~ palette))
-            (guest (get-guest~ palette))
-            (initialize (getf rest :initialize)))
-        (when initialize
-          (initialize palette guest))
-        (client-activate~ guest)
-        (let ((visible? (get-visible?~ palette)))
-          (bring-to-front~ palette)
-          (unless visible?
-            (fade-in~ palette))
-          (focus-host~ host))
-        palette))))
+  (let* ((host (apply singleton-palette guest-class (external-name~ guest-class) rest))
+         (guest (get-guest~ host))
+         (palette (get-player~ host))
+         (initialize (getf rest initialize:)))
+    (when initialize
+      (initialize palette guest))
+    (client-activate~ guest)
+    (let ((visible? (get-visible?~ palette)))
+      (bring-to-front~ palette)
+      (unless visible?
+        (fade-in~ palette))
+      (focus-host~ host))
+    palette))
 
 
 (definition public (collect-palettes)

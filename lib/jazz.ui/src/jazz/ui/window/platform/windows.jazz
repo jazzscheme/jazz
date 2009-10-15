@@ -273,6 +273,30 @@
   (BringWindowToTop hwnd))
 
 
+(definition package (window-state handle)
+  (let ((placement (WINDOWPLACEMENT-make)))
+    (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
+    (GetWindowPlacement handle placement)
+    (prog1 (ecase (WINDOWPLACEMENT-showCmd-ref placement)
+             ((SW_SHOWMINIMIZED) 'minimized)
+             ((SW_SHOWMAXIMIZED) 'maximized)
+             (else 'restored))
+      (WINDOWPLACEMENT-free placement))))
+
+
+(definition package (set-window-placement handle position size)
+  (let ((placement (WINDOWPLACEMENT-make)))
+    (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
+    (WINDOWPLACEMENT-showCmd-set! placement SW_SHOWNORMAL)
+    (let ((rect (WINDOWPLACEMENT-rcNormalPosition-ref placement)))
+      (RECT-left-set! rect (get-h~ position))
+      (RECT-top-set! rect (get-v~ position))
+      (RECT-right-set! rect (+ (get-h~ position) (get-width~ size)))
+      (RECT-bottom-set! rect (+ (get-v~ position) (get-height~ size))))
+    (SetWindowPlacement handle placement)
+    (WINDOWPLACEMENT-free placement)))
+
+
 (definition package (show-window handle)
   (ShowWindow handle SW_SHOWNORMAL))
 
@@ -1072,7 +1096,7 @@
       (RECT-free area))))
 
 
-;; Because fucking Window's SPI_GETWORKAREA doesn't take autohide into account!
+;; Because Window's SPI_GETWORKAREA doesn't take autohide into account
 (definition (adjust-work-area-with-taskbar rect)
   rect
   @convert

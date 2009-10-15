@@ -51,14 +51,10 @@
 (class undocumented Workspace-Preferences extends Figure-Preferences
 
 
-  (property shortcut             initialize {} accessors generate)
-  (property frame-model          initialize {} accessors generate)
-  (property fullscreen?          initialize #f accessors generate)
-  (property maximized?           initialize #f accessors generate)
-  (property preserve-visibility? initialize #f accessors generate)
-  
-  
-  (slot to-restore initialize {})
+  (property shortcut    initialize {} accessors generate)
+  (property frame-model initialize {} accessors generate)
+  (property fullscreen? initialize #f accessors generate)
+  (property maximized?  initialize #f accessors generate)
   
   
   (form
@@ -86,22 +82,23 @@
   
   
   (method (activate)
-    (define (collect-visibility)
-      (let* ((stage (get-stage))
-             (frames (get-children~ stage)))
+    (define (close-palettes)
+      (for-each close~ (collect-palettes)))
+    
+    (define (collect-visibilities)
+      (let ((frames (get-children~ (get-stage))))
         (collect (function (frame)
                    (let ((visible? (get-visible?~ frame))
                          (guest (get-guest~ frame)))
                      (when guest
-                       (let* ((ws (get-workspace~ frame))
-                              (lst (if ws (list ws) (effective-host-workspaces~ guest))))
-                         (if (or (and (memq? name lst) (or visible? (not preserve-visibility?) (memq? frame to-restore)))
-                                 (and (null? lst) visible?))
-                             (cons frame #t)
-                           (cons frame #f))))))
+                       (let ((ws (get-workspace~ frame)))
+                         (let ((lst (if ws (list ws) (effective-host-workspaces~ guest))))
+                           (cons frame
+                                 (or (memq? name lst)
+                                     (and (null? lst) visible?))))))))
                  frames)))
     
-    (define (process-frames visibility flag)
+    (define (process-frames visibilities flag)
       (for-each (function (info)
                   (bind (frame . visible?) info
                     (when (eq? visible? flag)
@@ -109,7 +106,7 @@
                       @wait-bug-fix-on-x11
                       (unless maximized?
                         (ensure-displayed~ frame)))))
-                visibility))
+                visibilities))
     
     (define (process-activation)
       (let* ((stage (get-stage))
@@ -127,52 +124,48 @@
                           (position (get-position~ preferences))
                           (size (get-size~ preferences))
                           (root-preferences (first-child~ preferences))
-                          (palette (new Palette visible?: #f)))
+                          (palette (new Palette close-behavior: 'detach-root visible?: #f)))
                       (apply-root~ root-preferences palette)
                       (when title
                         (set-title~ palette title))
-                      (when position
-                        (set-position~ palette position))
-                      (when size
-                        (set-size~ palette size))
+                      (if (and position size)
+                          (set-placement~ palette position size)
+                        (maximize~ palette))
                       (set-visible?~ palette #t))))
                 children))
     
     (let ((appl (get-application))
           (stage (get-stage))
-          (toplevel (get-toplevel)))
+          (toplevel (get-toplevel))
+          (visibilities (collect-visibilities)))
       (with-locked-update
         (function ()
           (close-palettes)
           (full-screen-stage~ appl #f)
-          (let ((visibility (collect-visibility)))
-            (process-frames visibility #f)
-            (let ((previous-root (get-root~ toplevel))
-                  (root-preferences (find-child-located 'root)))
-              (when root-preferences
-                (apply-root~ root-preferences toplevel)
-                ;; quick solution to the memory leak that needs some thinking through
+          (process-frames visibilities #f)
+          (let ((root-preferences (find-child-located 'root)))
+            (when root-preferences
+              (let ((previous-root (get-root~ toplevel)))
                 (when previous-root
-                  (let ((offscreen (slot-value previous-root 'offscreen)))
-                    (when offscreen
-                      (close~ offscreen))))))
-            (set-workspace-preferences self)
-            (set-selected-workspace self)
-            (set-maximized?~ stage maximized?)
-            (process-frames visibility #t))
+                  (set-offscreen?~ previous-root #f)))
+              (apply-root~ root-preferences toplevel)))
+          (set-workspace-preferences self)
+          (set-selected-workspace self)
+          (set-maximized?~ stage maximized?)
           (process-activation)
           (update-menubar-buttons~ appl)
           (update-status)
           (process-application-event~ appl 'workspace 'activate self workspace: self)
+          (full-screen-stage~ appl fullscreen?)
+          (process-palettes)
+          (if (and position size)
+              (set-placement~ toplevel position size)
+            (when (get-visible?~ toplevel)
+              (maximize~ toplevel)))
+          (process-frames visibilities #t)
           (let ((first (first-view~ stage)))
             (when first
-              (focus-host~ first)))
-          (full-screen-stage~ appl fullscreen?)
-          (when position
-            (set-position~ toplevel (either position {Point -4 -4})))
-          (when size
-            (set-size~ toplevel size))
-          (process-palettes)))))
+              (focus-host~ first)))))))
   
   
   (method public (update-status)
@@ -185,13 +178,7 @@
   
   
   (method (deactivate)
-    (process-application-event~ (get-application) 'workspace 'deactivate self workspace: self)
-    (when preserve-visibility?
-      (let* ((stage (get-stage))
-             (frames (get-children~ stage)))
-        (set! to-restore (collect-if (function (frame)
-                                       (get-visible?~ frame))
-                                     frames)))))
+    (process-application-event~ (get-application) 'workspace 'deactivate self workspace: self))
 
 
   ;;;
@@ -201,7 +188,7 @@
   
   (method meta override (get-domain property)
     (case (field-name property)
-      ((fullscreen? maximized? preserve-visibility?) (new Boolean-Domain))
+      ((fullscreen? maximized?) (new Boolean-Domain))
       (else (nextmethod property))))
 
   
@@ -211,7 +198,6 @@
       ((maximized?) "Maximized?")
       ((shortcut) "Shortcut")
       ((frame-model) "Frame Model")
-      ((preserve-visibility?) "Preserve Visibility?")
       (else (nextmethod property))))
   
   
@@ -225,10 +211,10 @@
     
   
   (method override (get-categorized-properties)
-    '(title icon fullscreen? maximized? shortcut frame-model preserve-visibility?))
+    '(title icon fullscreen? maximized? shortcut frame-model))
 
   
   (method override (get-row-instance property)
     (case (field-name property)
-      ((fullscreen? maximized? preserve-visibility?) (new Boolean-Row))
+      ((fullscreen? maximized?) (new Boolean-Row))
       (else (nextmethod property))))))

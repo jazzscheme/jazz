@@ -48,7 +48,10 @@
 (class View-Player extends Window
 
 
-  (property close-root? initialize #t getter get-close-root? setter set-close-root?)
+  ;; close-root  : close the root view
+  ;; detach-root : detach the root without closing it
+  ;; hide        : hide the player window
+  (property close-behavior initialize 'close-root accessors generate)
 
   
   (slot root                    initialize {})
@@ -89,16 +92,28 @@
   ;;;
   
   
+  (method override (close)
+    (if (eq? close-behavior 'hide)
+        (set-visible? #f)
+      (nextmethod)))
+  
+  
   (method override (destroy)
-    (close-root)
-    (nextmethod))
-  
-  
-  (method protected virtual (close-root)
-    (if close-root?
+    (define (close-root)
+      (when root
         (close~ root)
-      (set-player~ root {}))
-    (set! root {}))
+        (set! root {})))
+  
+    (define (detach-root)
+      (when root
+        (set-player~ root {})
+        (set-offscreen?~ root #f)
+        (set! root {})))
+    
+    (if (eq? close-behavior 'detach-root)
+        (detach-root)
+      (close-root))
+    (nextmethod))
 
   
   ;;;
@@ -113,16 +128,8 @@
 
   
   ;;;
-  ;;;; Access
+  ;;;; Root
   ;;;
-
-
-  (method public (get-close-root?)
-    close-root?)
-
-
-  (method public (set-close-root? value)
-    (set! close-root? value))
   
   
   (method public (get-root)

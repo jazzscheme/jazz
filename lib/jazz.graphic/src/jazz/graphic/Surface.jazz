@@ -74,32 +74,35 @@
 
 
   (method override (destroy)
-    (glyph-array-free glyph-array)
+    (destroy-glyph-array)
     (destroy-surface)
     (destroy-context)
     (nextmethod))
   
   
-  (method public (new-context)
-    (destroy-context)
-    (set! context (cairo_create surface)))
+  (method (destroy-glyph-array)
+    (when glyph-array
+      (glyph-array-free glyph-array)
+      (set! glyph-array {})))
   
   
-  (method protected virtual (destroy-surface)
+  (method (destroy-surface)
     (when surface
+      (cairo_surface_destroy surface)
+      @wait
       (let ((err (cairo-surface-status)))
         (when (/= err 0)
-          (error "Cairo Surface Error {t}" err)))
-      (cairo_surface_destroy surface)
+          (error "Cairo surface error: {t}" (cairo_status_to_string err))))
       (set! surface {})))
   
   
-  (method protected virtual (destroy-context)
+  (method (destroy-context)
     (when context
+      (cairo_destroy context)
+      @wait
       (let ((err (cairo-status)))
         (when (/= err 0)
-          (error "Cairo Context Error {t}" err)))
-      (cairo_destroy context)
+          (error "Cairo context error: {t}" (cairo_status_to_string err))))
       (set! context {})))
   
   
@@ -108,7 +111,7 @@
   
   
   (method public (show-page)
-    @a
+    @wait
     (cairo_surface_show_page surface))
   
   
@@ -372,8 +375,7 @@
           (len (cardinality str)))
       (if (< array-length len)
           (begin
-            (when glyph-array
-              (glyph-array-free glyph-array))
+            (destroy-glyph-array)
             (set! glyph-array (glyph-array-make (* len 2)))
             (set! array-length (* len 2))))
       (cairo_font_extents context font-ext)
@@ -403,8 +405,7 @@
           (len (cardinality str)))
       (if (< array-length len)
           (begin
-            (when glyph-array
-              (glyph-array-free glyph-array))
+            (destroy-glyph-array)
             (set! glyph-array (glyph-array-make (* len 2)))
             (set! array-length (* len 2))))
       (cairo_font_extents context font-ext)

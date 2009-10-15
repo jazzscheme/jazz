@@ -313,6 +313,14 @@
 (jazz.define-virtual-runtime (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration))
 
 
+(jazz.define-method (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration)
+  (or (%%get-declaration-reference-declaration declaration-reference)
+      (receive (name symbol) (jazz.parse-exported-symbol library-declaration (%%get-declaration-reference-name declaration-reference))
+        (let ((declaration (jazz.new-export-declaration name #f 'public 'uptodate '() #f symbol)))
+          (%%set-declaration-reference-declaration declaration-reference declaration)
+          declaration))))
+
+
 (jazz.encapsulate-class jazz.Declaration-Reference)
 
 
@@ -350,12 +358,13 @@
   (jazz.allocate-export-reference jazz.Export-Reference name declaration library-reference))
 
 
-(jazz.define-method (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration)
+(jazz.define-method (jazz.resolve-reference (jazz.Export-Reference declaration-reference) library-declaration)
   (or (%%get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz.parse-exported-symbol library-declaration (%%get-declaration-reference-name declaration-reference))
-        (let ((declaration (jazz.new-export-declaration name #f 'public 'uptodate '() #f symbol)))
-          (%%set-declaration-reference-declaration declaration-reference declaration)
-          declaration))))
+        (let ((locator (jazz.compose-name (%%get-lexical-binding-name library-declaration) name)))
+          (let ((declaration (jazz.new-export-declaration name #f 'public 'uptodate '() #f locator)))
+            (%%set-declaration-reference-declaration declaration-reference declaration)
+            declaration)))))
 
 
 (define (jazz.parse-exported-symbol library-declaration name)
@@ -528,7 +537,7 @@
     (cond (only
            (for-each (lambda (declaration-reference)
                        (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                         (%%table-set! public name declaration-reference)))
+                         (%%table-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
                      only))
           (autoload
            (let ((exported-library-reference (%%get-library-invoice-library library-invoice)))

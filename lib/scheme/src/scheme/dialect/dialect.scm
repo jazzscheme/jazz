@@ -440,14 +440,14 @@
 
 
 (define (jazz.walk-let walker resume declaration environment form-src)
-  (if (%%symbol? (jazz.source-code (%%cadr (jazz.source-code form-src))))
+  (if (%%symbol? (unwrap-syntactic-closure (%%cadr (unwrap-syntactic-closure form-src))))
       (jazz.walk-named-let walker resume declaration environment form-src)
-    (let* ((bindings-src (%%cadr (jazz.source-code form-src)))
-           (bindings (jazz.source-code bindings-src))
+    (let* ((bindings-src (%%cadr (unwrap-syntactic-closure form-src)))
+           (bindings (unwrap-syntactic-closure bindings-src))
            (body (%%cddr (jazz.source-code form-src))))
-      (if (and (%%pair? bindings) (%%symbol? (jazz.source-code (%%car bindings))))
+      (if (and (%%pair? bindings) (%%symbol? (unwrap-syntactic-closure (%%car bindings))))
           (jazz.signature-named-let walker resume declaration environment form-src bindings body)
-        (%%assertion (or (%%null? bindings) (%%pair? bindings)) (jazz.walk-error walker resume declaration bindings-src "Ill-formed bindings")
+        (%%assertion (or (%%null? bindings) (%%pair? bindings)) (jazz.walk-error walker resume declaration bindings-src "Ill-formed let bindings: {s}" bindings)
           (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
             (let ((augmented-environment environment)
                   (expanded-bindings (jazz.new-queue)))
@@ -464,7 +464,7 @@
 
 
 (define (jazz.walk-letstar walker resume declaration environment form-src)
-  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+  (let ((bindings (unwrap-syntactic-closure (%%cadr (unwrap-syntactic-closure form-src))))
         (body (%%cddr (jazz.source-code form-src))))
     (let ((augmented-environment environment)
           (expanded-bindings (jazz.new-queue)))
@@ -481,7 +481,7 @@
 
 
 (define (jazz.walk-letrec walker resume declaration environment form-src)
-  (let ((bindings (jazz.source-code (%%cadr (jazz.source-code form-src))))
+  (let ((bindings (unwrap-syntactic-closure (%%cadr (unwrap-syntactic-closure form-src))))
         (body (%%cddr (jazz.source-code form-src))))
     (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (jazz.source-code (%%car (jazz.source-code binding-form))) #f)) bindings))
            (augmented-environment (%%append new-variables environment))
@@ -511,8 +511,8 @@
                   (jazz.enqueue queue (jazz.new-variable expr type))
                   (iter rest)))))))))
   
-  (let* ((parameters (%%desourcify (%%cadr (jazz.source-code form-src))))
-         (expression (%%car (%%cddr (jazz.source-code form-src))))
+  (let* ((parameters (%%desourcify (%%cadr (unwrap-syntactic-closure form-src))))
+         (expression (%%car (%%cddr (unwrap-syntactic-closure form-src))))
          (body (%%cdr (%%cddr (jazz.source-code form-src))))
          (variables (walk-parameters parameters))
          (new-environment (%%append variables environment)))

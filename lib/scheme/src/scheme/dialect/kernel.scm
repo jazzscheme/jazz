@@ -359,4 +359,20 @@
 (native write-char <char^opt<port>:void>)
 (native load <string:void>)
 (native transcript-on <string:void>)
-(native transcript-off <:void>))
+(native transcript-off <:void>)
+
+;;;
+;;;; Syntactic Closures
+;;;
+
+(native make-syntactic-closure)
+(native syntactic-closure?)
+(native syntactic-closure-form)
+(native unwrap-syntactic-closure)
+(native strip-syntactic-closures)
+(native strip-source-info)
+(native identifier?)
+(native identifier=?)
+(native er-macro-transformer)
+(native sc-macro-transformer)
+(native rsc-macro-transformer))

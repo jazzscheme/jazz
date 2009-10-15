@@ -49,6 +49,7 @@
 
 (jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration))
 (jazz.define-virtual (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
+(jazz.define-virtual (jazz.emit-binding-symbol (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments form-src))
 (jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
@@ -268,6 +269,15 @@
 (jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-syntax-declaration
   ((signature %%get-syntax-declaration-signature %%set-syntax-declaration-signature)
    (body      %%get-syntax-declaration-body      %%set-syntax-declaration-body)))
+
+
+;;;
+;;;; Define-Syntax
+;;;
+
+
+(jazz.define-class jazz.Define-Syntax-Declaration jazz.Syntax-Declaration (name type hits access compatibility attributes toplevel parent locator source signature body) jazz.Object-Class jazz.allocate-define-syntax-declaration
+  ())
 
 
 ;;;
@@ -716,6 +726,26 @@
 
 (jazz.define-class jazz.Syntax-Form jazz.Form-Binding (name type hits) jazz.Object-Class jazz.allocate-syntax-form
   ((expander %%get-syntax-form-expander ())))
+
+
+;;;
+;;;; Define-Syntax Form
+;;;
+
+
+(jazz.define-class jazz.Define-Syntax-Form jazz.Syntax-Form (name type hits expander) jazz.Object-Class jazz.allocate-define-syntax-form
+  ((environment %%get-define-syntax-form-environment ())))
+
+
+;;;
+;;;; Syntactic-Closure
+;;;
+
+
+(jazz.define-class jazz.Syntactic-Closure jazz.Object () jazz.Object-Class jazz.allocate-syntactic-closure
+  ((environment %%get-syntactic-closure-environment ())
+   (variables   %%get-syntactic-closure-variables ())
+   (form        %%get-syntactic-closure-form ())))
 
 
 ;;;

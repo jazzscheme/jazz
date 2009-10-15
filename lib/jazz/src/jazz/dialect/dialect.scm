@@ -73,7 +73,7 @@
                             (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
                               (jazz.new-code
                                 `(let ,(map (lambda (parameter argument)
-                                              `(,(%%get-lexical-binding-name parameter)
+                                              `(,(jazz.emit-binding-symbol parameter source-declaration environment)
                                                 ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                             (%%get-signature-positional signature)
                                             arguments)
@@ -646,6 +646,9 @@
          (offset-locator (jazz.compose-helper locator 'offset))
          (getter (%%get-property-declaration-getter declaration))
          (setter (%%get-property-declaration-setter declaration)))
+    ;; XXXX hack in a literal self instead of the hygienically renamed self
+    (define (fix-self expr)
+      (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr))))
     (jazz.sourcify-if
       `(begin
          ,@(if allocate?
@@ -654,8 +657,8 @@
              '())
          (define ,slot-locator
            (jazz.add-property ,class-locator ',name ,initialize-locator ,allocate?
-             ,(jazz.sourcified-form (jazz.emit-expression getter declaration environment))
-             ,(jazz.sourcified-form (jazz.emit-expression setter declaration environment))))
+             ,(fix-self (jazz.sourcified-form (jazz.emit-expression getter declaration environment)))
+             ,(fix-self (jazz.sourcified-form (jazz.emit-expression setter declaration environment)))))
          (define ,offset-locator
            (%%get-slot-offset ,slot-locator))
          ,@(jazz.declaration-result))
@@ -758,7 +761,7 @@
                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
                              (jazz.new-code
                                `(let ,(map (lambda (parameter argument)
-                                             `(,(%%get-lexical-binding-name parameter)
+                                             `(,(jazz.emit-binding-symbol parameter source-declaration environment)
                                                ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                            (%%get-signature-positional signature)
                                            arguments)
@@ -1019,7 +1022,7 @@
 
 
 (jazz.define-method (jazz.walk-symbol (jazz.Jazz-Walker walker) resume declaration environment symbol-src)
-  (let ((symbol (jazz.source-code symbol-src)))
+  (let ((symbol (unwrap-syntactic-closure symbol-src)))
     (jazz.split-tilde symbol
       (lambda (tilde? name self/class-name)
         (if tilde?
@@ -1370,7 +1373,7 @@
                              (jazz.new-code
                                `(let ,(%%cons `(self ,(jazz.sourcified-form object))
                                               (map (lambda (parameter argument)
-                                                     `(,(%%get-lexical-binding-name parameter)
+                                                     `(,(jazz.emit-binding-symbol parameter source-declaration environment)
                                                        ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                                    (%%get-signature-positional signature)
                                                    arguments))

@@ -5168,7 +5168,6 @@
 ;;;; Walk
 ;;;
 
-
 (define (jazz.walk walker resume declaration environment form-src)
   (let ((form (jazz.source-code form-src)))
     (cond ((identifier? form)

@@ -777,39 +777,25 @@
 ;;;
 
 
-(definition *focus*
-  {})
-
-
 (definition public (get-focus)
-  *focus*)
+  (let ((player (get-focused-window)))
+    (when player
+      (get-view-focus~ player))))
 
 
-(definition public (set-focus view)
-  (when (neq? view *focus*)
-    (let ((player (essay view (get-player~ view))))
-      (if (and player (neq? player (get-focused-window)))
-          (begin
-            (set-previously-focused-view~ player view)
-            (bring-to-front~ player)
-            (set-window-focus player))
-        (let ((old *focus*))
-          (when *focus*
-            (let ((old-host (essay old (get-host~ old))))
-              (when old-host
-                (deactivate-focus~ old-host)))
-            (let ((focus *focus*))
-              (set! *focus* {})
-              (call-focus-lose~ focus view)))
-          (set! *focus* {})
-          (when view
-            (set! *focus* view)
-            (call-focus-gain~ view old))
-          (let ((host (essay view (get-host~ view))))
-            (when host
-              (activate-focus~ host)))
-          (when (process-active?)
-            (process-focus-change~ (get-application) old view)))))))
+(definition public (set-focus new-focus)
+  (let ((old-focus (get-focus)))
+    (when (neq? new-focus old-focus)
+      (let ((old-player (get-focused-window))
+            (new-player (get-player~ new-focus)))
+        (assert new-player)
+        (if (eq? old-player new-player)
+            (begin
+              (unfocus-view~ old-player)
+              (focus-view~ new-player new-focus))
+          (set-view-focus~ new-player new-focus)
+          (bring-to-front~ new-player)
+          (set-window-focus new-player))))))
 
 
 (definition public (get-focus-actions view)

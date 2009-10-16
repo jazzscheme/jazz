@@ -40,6 +40,7 @@
 
 (import (jazz.graphic)
         (jazz.platform)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window))
@@ -54,8 +55,8 @@
   (property close-behavior initialize 'close-root accessors generate)
 
   
-  (slot root                    initialize {})
-  (slot previously-focused-view initialize {} accessors generate)
+  (slot root       initialize {})
+  (slot view-focus initialize {} accessors generate)
 
   
   ;;;
@@ -332,18 +333,33 @@
   
   (method override (focus-gain)
     (set-focused-window self)
-    (when (and previously-focused-view (eq? (get-player~ previously-focused-view) self))
-      (acquire-focus~ previously-focused-view))
+    (when view-focus
+      (focus-view view-focus))
     processed)
   
   
-  (method override (focus-lose receiving)
-    (let ((focus (get-focus)))
-      (when (and focus (eq? (get-player~ focus) self))
-        (set! previously-focused-view focus)
-        @quick-hack-to-be-thought-out (set-focus {})))
+  (method override (focus-lose)
+    (unfocus-view)
     (set-focused-window {})
     processed)
+  
+  
+  (method package (focus-view new-focus)
+    (set! view-focus new-focus)
+    (call-focus-gain~ view-focus)
+    (let ((host (get-host~ view-focus)))
+      (when host
+        (activate-focus~ host)))
+    (when (process-active?)
+      (process-focus-change~ (get-application) view-focus)))
+  
+  
+  (method package (unfocus-view)
+    (when view-focus
+      (let ((host (get-host~ view-focus)))
+        (when host
+          (deactivate-focus~ host)))
+      (call-focus-lose~ view-focus)))
   
   
   ;;;

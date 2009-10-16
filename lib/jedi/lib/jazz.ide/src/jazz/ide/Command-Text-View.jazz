@@ -82,15 +82,20 @@
   ;;;
   
   
-  (method override (focus-gain old)
-    (nextmethod old)
-    (set! client old)
+  (method override (focus-gain)
+    (define (determine-client)
+      (let ((guest (current-document)))
+        (when (is? guest Text-View)
+          guest)))
+    
+    (nextmethod)
+    (set! client (determine-client))
     (set! client-selection (essay (and client (is? client Text-View)) (get-selection~ client))))
   
   
-  (method override (focus-lose view)
-    (nextmethod view)
-    (cleanup~ mode)
+  (method override (focus-lose)
+    (nextmethod)
+    (cleanup~ mode #t)
     (set! mode {}))
   
   
@@ -280,10 +285,11 @@
     (cleanup))
   
   
-  (method virtual (cleanup)
+  (method virtual (cleanup (lose-focus? #f))
     (let ((client (get-client)))
       (when client
-        (acquire-focus~ client)))
+        (unless lose-focus?
+          (acquire-focus~ client))))
     (clear-user-message)))
 
 
@@ -484,11 +490,12 @@
         (set-selection~ client client-selection))))
   
   
-  (method override (cleanup)
+  (method override (cleanup (lose-focus? #f))
     (let ((client (get-client)))
       (when client
         (remove-highlights)
-        (acquire-focus~ client)))
+        (unless lose-focus?
+          (acquire-focus~ client))))
     (clear-user-message)))
 
 
@@ -581,11 +588,12 @@
     (cleanup))
   
   
-  (method override (cleanup)
+  (method override (cleanup (lose-focus? #f))
     (set-string-content~ text "")
     (let ((client (get-client)))
       (when client
-        (acquire-focus~ client)))
+        (unless lose-focus?
+          (acquire-focus~ client))))
     (clear-user-message)))
 
 

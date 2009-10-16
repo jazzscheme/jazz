@@ -38,68 +38,194 @@
 (library protected jazz.debugger.debugger.Debugger-Manager jazz
 
 
-(import (jazz.debugger)
-        (jazz.graphic))
+(import (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.graphic)
+        (jazz.io)
+        (jazz.media)
+        (jazz.system.access))
+
+
+(constant stopped-frame-color     {Color name: Dark-Red})
+(constant visited-highlight-color {Color red: 255 green: 205 blue: 205})
 
 
 (class Debugger-Manager extends Object
   
   
-  (slot processes-view  initialize '() accessors generate)
-  (slot threads-view    initialize '() accessors generate)
-  (slot frames-view     initialize '() accessors generate)
-  (slot exceptions-view initialize '() accessors generate)
-  (slot variables-view  initialize '() accessors generate)
+  (slot debugged-stops    initialize (make-table test: debugged=?))
+  (slot debugged-to-visit initialize (make-table test: debugged=?))
+  (slot focused-process   initialize {} getter generate)
   
-  (slot process      initialize {} getter generate)
-  (slot thread       initialize {} getter generate)
-  (slot frame        initialize {} getter generate)
+  (slot process           initialize {} getter generate)
+  (slot thread            initialize {} getter generate)
+  (slot frame             initialize {} getter generate)
   
   
   ;;;
-  ;;;; Facade
+  ;;;; Status
   ;;;
   
   
+  (method public (visit-debugged debugged)
+    (unless (debugged-visited? debugged)
+      (table-set! debugged-to-visit debugged)
+      (update-status)
+      #t))
   
+  
+  (method public (update-status)
+    (let ((button (find-component~ (find-toolbar~ (get-application)) 'debugger))
+          (visited? (> (table-length debugged-to-visit) 0))
+          (stopped? (> (table-length debugged-stops) 0)))
+      (when button
+        (notify~ button visited? stopped?))))
+  
+  
+  (method public (get-stopped-frame-color debugged)
+    (when (debugged-stopped? debugged)
+      stopped-frame-color))
+  
+  
+  (method public (get-visited-highlight-color debugged)
+    (unless (debugged-visited? debugged)
+      visited-highlight-color))
+  
+  
+  (method (debugged-stopped? debugged)
+    (not-null? (table-ref debugged-stops debugged '())))
+  
+  
+  (method (debugged-visited? debugged)
+    (not (table-ref debugged-to-visit debugged #f)))
   
   
   ;;;
-  ;;;; Change
+  ;;;; Focused Process
   ;;;
+  
+  
+  (method public (focus-process process)
+    (unless (debugged=? focused-process process)
+      (set-focus-process process)
+      (update-processes~ (get-processes-view))))
+  
+  
+  (method (set-focus-process process)
+    (set! focused-process process)
+    (let ((focus-status-view (find-status-bar~ (get-application))))
+      (when focus-status-view
+        (update-focused-process~ focus-status-view))))
+  
+  
+  ;;;
+  ;;;; Processes
+  ;;;
+  
+  
+  (method public (attach-process process focus?)
+    (when (or focus? (not focused-process))
+      (set-focus-process process))
+    (update-processes~ (get-processes-view)))
+  
+  
+  (method public (detach-process process best-process)
+    (when (and best-process (debugged=? focused-process process))
+      (set-focus-process best-process))
+    (update-processes~ (get-processes-view)))
+  
+  
+  (method public (for-each-process proc)
+    (for-each (function (debugger)
+                (for-each (function (process)
+                            (let ((debugged (new Debugged-Process debugger process process)))
+                              (let ((live? (live?~ debugged))
+                                    (focused? (debugged=? focused-process debugged)))
+                                (proc debugger debugged live? focused?))))
+                          (get-processes~ debugger)))
+              (get-debuggers)))
   
   
   (method public (process-changed new-process)
-    (unless (eq? process new-process)
+    (unless (debugged=? process new-process)
       (set! process new-process)
-      (when threads-view
-        (process-changed~ threads-view process))))
+      (when (visit-debugged process)
+        (update-processes-highlight process))
+      (process-changed~ (get-threads-view) process)))
+  
+  
+  (method (update-processes-highlight process)
+    (update-highlight~ (get-processes-view) process))
+  
+  
+  ;;;
+  ;;;; Threads
+  ;;;
+  
+  
+  (method public (for-each-thread proc (detailed?: detailed? #f))
+    (define system-threads
+      '(message-pump
+         debuggee-console-pump
+         debugger-console-pump
+         remote-listener
+         remote-connection
+         catalog
+         pulse))
+    
+    (define (system-thread? thread)
+      (let ((name (get-name~ thread)))
+        (or (memq? name system-threads)
+            (and (symbol? name)
+                 (starts-with? (symbol->string name) "repl")))))
+    
+    (when process
+      (let ((debugger (get-debugger~ process)))
+        (for-each (function (thread)
+                    (let ((thread (new Debugged-Thread debugger process thread)))
+                      (when (or detailed? (not (system-thread? thread)))
+                        (let ((stop (get-active-stop~ thread)))
+                          (proc thread stop detailed?)))))
+                  (get-threads~ process)))))
   
   
   (method public (thread-changed new-thread)
-    (unless (eq? thread new-thread)
+    (unless (debugged=? thread new-thread)
       (set! thread new-thread)
-      (when thread
-        (set-debugged-visit? thread #f))
-      (when frames-view
-        (thread-changed~ frames-view thread))
-      (when exceptions-view
-        (thread-changed~ exceptions-view thread))))
+      (when (visit-debugged thread)
+        (update-threads-highlight thread))
+      (thread-changed~ (get-frames-view) thread)
+      (thread-changed~ (get-exception-view) thread)))
+  
+  
+  (method (update-threads-highlight thread)
+    (update-highlight~ (get-threads-view) thread))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method public (for-each-frame proc)
+    (when (and process thread)
+      (let ((debugger (get-debugger~ process)) 
+            (stop (get-active-stop~ thread)))
+        (when stop
+          (for-each (function (frame)
+                      (let ((frame (new Debugged-Frame debugger process frame)))
+                        (proc frame)))
+                    (get-frames~ stop))))))
   
   
   (method public (frame-changed new-frame)
-    (unless (eq? frame new-frame)
+    (unless (debugged=? frame new-frame)
       (set! frame new-frame)
-      (when variables-view
-        (frame-changed~ variables-view frame))
+      (frame-changed~ (get-variables-view) frame)
       (when (and thread (get-active-stop~ thread))
         (set-repl-frame~ thread (essay frame (get-reference~ frame))))
-      (edit-frame frame)))
-  
-  
-  ;;;
-  ;;;; Indicator
-  ;;;
+      (when (view-visible?~ (get-frames-view))
+        (edit-frame frame))))
   
   
   (definition *frame-indicator*
@@ -108,4 +234,62 @@
   
   (method (edit-frame frame)
     (let ((location (essay frame (get-location~ frame))))
-      (edit~ *frame-indicator* location)))))
+      (edit~ *frame-indicator* location)))
+  
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (definition debugger-sound
+    {File Jazz "lib" "jazz" "resources" "sounds" "Debugger.wav"})
+  
+  
+  (method (update-views process thread)
+    (update-processes-highlight process)
+    (when (debugged=? process process~self)
+      (process-changed~ (get-threads-view) process))
+    (when (debugged=? thread thread~self)
+      (thread-changed~ (get-frames-view) thread)
+      (thread-changed~ (get-exception-view) thread))
+    (update-status))
+  
+  
+  (method public (register-stop process thread stop)
+    (define (add-debugged-stop debugged stop)
+      (table-add debugged-stops debugged stop))
+    
+    (define (add-debugged-to-visit debugged)
+      (table-set! debugged-to-visit debugged #t))
+    
+    (add-debugged-stop process stop)
+    (add-debugged-stop thread stop)
+    (add-debugged-to-visit process)
+    (add-debugged-to-visit thread)
+    (play-sound debugger-sound)
+    (unless process~self
+      (set-selected-process~ (get-processes-view) process)
+      (process-changed process))
+    (update-views process thread))
+  
+  
+  (method public (unregister-stop process thread stop)
+    (define (remove-debugged-stop debugged stop)
+      (let ((stops (remove! stop (table-ref debugged-stops debugged '()) test: debugged=?)))
+        (if (not-null? stops)
+            (table-set! debugged-stops debugged stops)
+          (table-set! debugged-stops debugged))))
+    
+    (define (remove-debugged-to-visit debugged)
+      (unless (and (table-ref debugged-to-visit debugged #f)
+                   (some? (function (stop)
+                            (table-ref debugged-to-visit debugged #f))
+                          (table-ref debugged-stops debugged '())))
+        (table-set! debugged-to-visit debugged)))
+    
+    (remove-debugged-stop process stop)
+    (remove-debugged-stop thread stop)
+    (remove-debugged-to-visit process)
+    (remove-debugged-to-visit thread)
+    (update-views process thread))))

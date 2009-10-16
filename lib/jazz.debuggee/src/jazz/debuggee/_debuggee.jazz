@@ -658,29 +658,30 @@
 (definition (invoke-debugger kind reason detail continuation)
   (release-load-mutex!)
   (release-catalog-entries)
-  (let* ((thread (current-thread))
-         (port (get-console-port))
-         (level (+ (current-repl-level) 1))
-         (restarts (compute-restarts thread))
-         (stop (new Debuggee-Stop thread kind reason detail continuation restarts)))
-    (dynamic-wind
+  (let ((thread (current-thread))
+        (port (get-console-port))
+        (level (+ (current-repl-level) 1)))
+    (with-repl-thread thread reason port level
       (function ()
-        (register-stop stop))
-      (function ()
-        (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
-              (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-          (with-repl-thread thread reason port level
-            (function ()
-              (parameterize ((current-repl-frame (box {})))
-                (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
-                (with-current-loop
-                  (function ()
-                    (let ((process (get-process)))
-                      (if (not process)
-                          (debuggee-loop)
-                        (process-debuggee-loop~ process))))))))))
-      (function ()
-        (unregister-stop stop)))))
+        (parameterize ((current-repl-frame (box {})))
+          (let ((stop (new Debuggee-Stop thread kind reason detail continuation (compute-restarts thread))))
+            (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
+                  (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
+              (dynamic-wind
+                (function ()
+                  (register-stop stop)
+                  (register-stop~ controller-debugger local-process thread-proxy stop-proxy))
+                (function ()
+                  (with-current-loop
+                    (function ()
+                      (let ((process (get-process)))
+                        (if (not process)
+                            (debuggee-loop)
+                          (process-debuggee-loop~ process))))))
+                (function ()
+                  (unregister-stop stop)
+                  (when controller-debugger ;; #f when quit while in error
+                    (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy)))))))))))
 
 
 ;; this is a temporary solution to threads keeping the load-mutex locked

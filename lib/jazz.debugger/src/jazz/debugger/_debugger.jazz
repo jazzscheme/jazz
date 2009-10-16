@@ -55,6 +55,23 @@
 
 
 ;;;
+;;;; Manager
+;;;
+
+
+(definition *debugger-manager*
+  {})
+
+
+(definition public (get-debugger-manager)
+  *debugger-manager*)
+
+
+(definition public (set-debugger-manager debugger-manager)
+  (set! *debugger-manager* debugger-manager))
+
+
+;;;
 ;;;; Debugger
 ;;;
 
@@ -173,57 +190,6 @@
               (close-resource~ resource))
             (get-debugger-resources process))
   (table-clear *debugger-resources* process))
-
-
-;;;
-;;;; State
-;;;
-
-
-(definition package *debugged-visits*
-  (make-table test: debugged=? weak-keys: #t))
-
-(definition package *debugged-problems*
-  (make-table test: debugged=? weak-keys: #t))
-
-
-(definition public (get-debugged-visit? debugged)
-  (table-ref *debugged-visits* debugged #f))
-
-(definition public (set-debugged-visit? debugged flag)
-  (table-set! *debugged-visits* debugged flag))
-
-
-(definition public (get-debugged-problem? debugged)
-  (table-ref *debugged-problems* debugged #f))
-
-(definition public (set-debugged-problem? debugged flag)
-  (table-set! *debugged-problems* debugged flag))
-
-
-;;;
-;;;; Focus
-;;;
-
-
-(definition *focused-process*
-  {})
-
-
-(definition public (get-focused-process)
-  *focused-process*)
-
-(definition public (set-focused-process process)
-  (set! *focused-process* process))
-
-
-(definition public (focus-process process)
-  (when (not (debugged=? process *focused-process*))
-    (set! *focused-process* process)
-    (let ((view (get-processes-view)))
-      (when view
-        (update~ view)))
-    (update-process~ (find-status-bar~ (get-application)))))
 
 
 ;;;
@@ -535,29 +501,4 @@
              (message-box (exception-reason err)))
       (receive (frame text range) break-indicator
         (unfill~ text (get-start~ range)))
-      (set! break-indicator {}))))
-
-
-;;;
-;;;; Listeners
-;;;
-
-
-(definition listeners
-  '())
-
-
-(definition public (add-debugger-listener listener)
-  (set! listeners (add-listener listener listeners)))
-
-
-(definition public (remove-debugger-listener listener)
-  (set! listeners (remove-listener listener listeners)))
-
-
-(definition public (process-frame-change frame process)
-  (when listeners
-    (let ((evt (new Event :frame-change (current-debugger) frame: frame process: process)))
-      (for-each (function (listener)
-                  (invoke~ listener (current-debugger) evt))
-                listeners)))))
+      (set! break-indicator {})))))

@@ -52,8 +52,6 @@
   (property process initialize {} accessors generate)
   (property thread  initialize {})
   
-  (slot manager initialize {})
-  
 
   (form
     (<install>                                layout-type: border
@@ -97,17 +95,6 @@
 
   
   ;;;
-  ;;;; Component
-  ;;;
-
-
-  (method override (install rest)
-    (nextmethod rest)
-    (set! manager (get-debug-manager~ (get-application)))
-    (set-frames-view~ manager self))
-
-  
-  ;;;
   ;;;; Access
   ;;;
   
@@ -118,13 +105,13 @@
   
   (method public (set-thread value)
     (set! thread value)
-    (update))
+    (update-frames))
   
   
   (method public (thread-changed new-thread)
-    (set! process (get-process~ manager))
+    (set! process (get-process~ (get-debugger-manager)))
     (set! thread new-thread)
-    (update)
+    (update-frames)
     (select-first-frame))
 
   
@@ -163,15 +150,7 @@
   ;;;
   
   
-  (method (with-preserving-update tree thunk)
-    (with-preserved-selection~ tree
-      thunk
-      use: 'data
-      test: debugged=?
-      generate-event?: #t))
-
-
-  (method protected (update)
+  (method (update-frames)
     (define (frame-title frame)
       (let ((name (get-name~ frame)))
         (cond ((not name)
@@ -191,20 +170,16 @@
         (let ((tree (locate 'frames)))
           (with-update-locked~ tree
             (function ()
-              (with-preserving-update tree
+              (with-preserved-selection~ tree
                 (function ()
                   (remove-every-row~ tree)
-                  (when thread
-                    (let ((debugger (get-debugger~ thread))
-                          (process (get-process~ thread)))
-                      (let ((stop (get-active-stop~ thread)))
-                        (when stop
-                          (for-each (function (frame)
-                                      (let ((title (frame-title frame))
-                                            (image (frame-image frame))
-                                            (debugged (new Debugged-Frame debugger process frame)))
-                                        (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: debugged)))
-                                    (get-frames~ stop))))))))))))))
+                  (for-each-frame~ (get-debugger-manager)
+                    (function (frame)
+                      (let ((title (frame-title frame))
+                            (image (frame-image frame)))
+                        (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: frame)))))
+                use: 'data
+                test: debugged=?)))))))
 
   
   ;;;
@@ -225,12 +200,7 @@
     
   
   (method (frame-change)
-    (frame-changed~ manager (selected-frame))
-    @convert
-    (let ((frame (selected-frame)))
-      (when (or (not frame)
-                (is? frame Frame-Snapshot))
-        (process-frame-change frame))))
+    (frame-changed~ (get-debugger-manager) (selected-frame)))
   
   
   (method public (select-first-frame)

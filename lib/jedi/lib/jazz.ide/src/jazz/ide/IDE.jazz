@@ -69,7 +69,6 @@
 
 
   (slot local-debugger  initialize {})
-  (slot debug-manager   initialize (new Debugger-Manager) accessors generate)
   (slot cataloguer      initialize (new Cataloguer))
   (slot catalog-context initialize {})
   (slot catalog-file    initialize {})
@@ -100,6 +99,7 @@
   
   
   (method override (finish-process)
+    (set-debugger-manager (new Debugger-Manager)) ;; hack!!!!!
     (nextmethod)
     (load-catalogs~ (get-workbench)))
 
@@ -571,31 +571,33 @@
   
   
   (method package (on-focus-next-process evt)
-    (let ((focused (get-focused-process))
+    (let ((focused (get-focused-process~ (get-debugger-manager)))
           (processes (collect-processes)))
+      (define (next-process rank)
+        (if (not rank)
+            (first processes)
+          (let ((next-rank (modulo (+ rank 1) (length processes))))
+            (element processes next-rank))))
+      
       (unless (null? processes)
-        (let ((rank (find processes focused test: debugged=?)))
-          (if (not rank)
-              (focus-process (first processes))
-            (let ((next-rank (modulo (+ rank 1) (length processes))))
-              (when (/= next-rank rank)
-                (focus-process (element processes next-rank)))))))))
+        (focus-process~ (get-debugger-manager) (next-process (find processes focused test: debugged=?))))))
   
   
   (method package (on-focus-previous-process evt)
-    (let ((focused (get-focused-process))
+    (let ((focused (get-focused-process~ (get-debugger-manager)))
           (processes (collect-processes)))
+      (define (previous-process rank)
+        (if (not rank)
+            (last processes)
+          (let ((previous-rank (modulo (- rank 1) (length processes))))
+            (element processes previous-rank))))
+      
       (unless (null? processes)
-        (let ((rank (find processes focused test: debugged=?)))
-          (if (not rank)
-              (focus-process (last processes))
-            (let ((next-rank (modulo (- rank 1) (length processes))))
-              (when (/= next-rank rank)
-                (focus-process (element processes next-rank)))))))))
+        (focus-process~ (get-debugger-manager) (previous-process (find processes focused test: debugged=?))))))
 
 
   (method package (on-reload-process evt)
-    (let ((debugged (get-focused-process)))
+    (let ((debugged (get-focused-process~ (get-debugger-manager))))
       (if (not debugged)
           (bell)
         (reload-process~ debugged))))

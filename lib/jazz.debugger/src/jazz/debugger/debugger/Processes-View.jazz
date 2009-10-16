@@ -54,8 +54,6 @@
 
   (property snapshots initialize '() accessors generate)
   
-  (slot manager initialize {})
-  
 
   (form
     (<install>                                   layout-type: border
@@ -112,9 +110,7 @@
 
   (method override (install rest)
     (nextmethod rest)
-    (set! manager (get-debug-manager~ (get-application)))
-    (set-processes-view~ manager self)
-    (update))
+    (update-processes))
 
   
   ;;;
@@ -169,15 +165,15 @@
   
   
   (method (on-update evt)
-    (let ((keep-only-live? (get-shift?~ evt)))
-      (update keep-only-live?: keep-only-live?)))
+    (when (get-shift?~ evt)
+      (for-each (function (debugger)
+                  (validate-processes~ debugger))
+                (get-debuggers)))
+    (update-processes))
   
   
   (method (process-change)
-    (let ((process (selected-process)))
-      (process-changed~ manager process)
-      (when process
-        (highlight-process process))))
+    (process-changed~ (get-debugger-manager) (selected-process)))
   
   
   (method (update-tools)
@@ -189,62 +185,49 @@
   ;;;
   
   
-  (method (with-preserving-update tree thunk)
-    (with-preserved-selection~ tree
-      thunk
-      use: 'data
-      test: debugged=?
-      generate-event?: #t))
-
-
-  (method protected (update (keep-only-live?: keep-only-live? #t))
+  (method public (update-processes)
+    (define (process-image process live? focused?)
+      (cond ((not live?)
+             {Bitmap-Resource "ProcessDead"})
+            ((not focused?)
+             (either (get-icon~ process) {Bitmap-Resource "Process"}))
+            (else
+             {Bitmap-Resource "Script"})))
+    
     (with-system-exception-debugger
       (function ()
         (let ((tree (locate 'processes)))
           (with-update-locked~ tree
             (function ()
-              (with-preserving-update tree
+              (with-preserved-selection~ tree
                 (function ()
                   (remove-every-row~ tree)
-                  (update-processes tree keep-only-live?)
-                  @convert (update-snapshots tree snapshots)))))))))
+                  (let ((manager (get-debugger-manager)))
+                    (for-each-process~ manager
+                      (function (debugger process live? focused?)
+                        (let ((title (get-title~ process))
+                              (image (process-image process live? focused?))
+                              (frame-color (get-stopped-frame-color~ manager process))
+                              (background (get-visited-highlight-color~ manager process)))
+                          (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
+                use: 'data
+                test: debugged=?
+                generate-event?: #t)))))))
   
   
-  (method (update-processes tree keep-only-live?)
-    (let ((focused-process (get-focused-process)))
-      (define (process-title process live?)
-        (get-title~ process))
-      
-      (define (process-image process live?)
-        (if live?
-            (if (and focused-process (debugged=? process focused-process))
-                {Bitmap-Resource "Script"}
-              (either (get-icon~ process) {Bitmap-Resource "Process"}))
-          {Bitmap-Resource "ProcessDead"}))
-      
-      (define (process-frame-color process)
-        (if (get-debugged-problem? process)
-            {Color name: Dark-Red}
-          {}))
-      
-      (define (process-background process)
-        (if (get-debugged-visit? process)
-            (get-visit-highlight)
-          {}))
-    
-      (for-each (function (debugger)
-                  (for-each (function (process)
-                              (let ((live? (live?~ process))
-                                    (debugged (new Debugged-Process debugger process process)))
-                                (when (not live?)
-                                  (close-process-debugger-resources debugged))
-                                (let ((title (process-title debugged live?))
-                                      (image (process-image debugged live?))
-                                      (frame-color (process-frame-color debugged))
-                                      (background (process-background debugged)))
-                                  (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: (and live? debugged)))))
-                            (get-processes~ debugger validate-liveness?: keep-only-live?)))
-                (get-debuggers))))
+  (method public (update-highlight process)
+    (let ((manager (get-debugger-manager)))
+      (let ((selected-process (selected-process)))
+        (when (debugged=? process selected-process)
+          (visit-debugged~ manager process)))
+      (let ((tree (locate 'processes)))
+        (let ((row (process-row tree process)))
+          (when row
+            (let ((cell (new Cell (row-rank~ tree row) 0)))
+              (let ((data (get-cell-data~ tree cell)))
+                (set-frame-color~ data (get-stopped-frame-color~ manager process))
+                (set-background~ data (get-visited-highlight-color~ manager process)))
+              (invalidate-cell~ tree cell)))))))
   
   
   ;;;
@@ -269,7 +252,7 @@
         (get-row~ tree n))))
   
   
-  (method (set-selected-process process)
+  (method public (set-selected-process process)
     (let ((tree (locate 'processes)))
       (let ((row (process-row tree process)))
         (when row
@@ -284,27 +267,6 @@
             (when (debugged=? (get-user-data~ row) process)
               (continuation-return return row))))
         {})))
-  
-  
-  (method (highlight-process process)
-    (let ((tree (locate 'processes)))
-      (let ((row (process-row tree process)))
-        (when row
-          (let ((cell (new Cell (row-rank~ tree row) 0)))
-            (let ((data (get-cell-data~ tree cell)))
-              (set-frame-color~ data (if (get-debugged-problem? process) {Color name: Dark-Red} #f))
-              (set-background~ data (if (get-debugged-visit? process) (get-visit-highlight) #f)))
-            (invalidate-cell~ tree cell)))))
-    ;; quick try
-    (let ((button (find-component~ (find-toolbar~ (get-application)) 'debugger)))
-      (when button
-        (let ((problem? (some? (function (info)
-                                 (let ((debugged (car info))
-                                       (flag (cdr info)))
-                                   (and (is? debugged Debugged-Process)
-                                        flag)))
-                               (table->list *debugged-problems*))))
-          (set-problem?~ button problem?)))))
   
   
   ;;;
@@ -328,12 +290,11 @@
   (method (close-selected-snapshot)
     (let ((object (selected-object)))
       (set! snapshots (remove! object snapshots))
-      (update)))
+      (update-processes)))
   
   
   (method (focus-selected-process)
-    (let ((process (selected-process)))
-      (focus-process process)))
+    (focus-process~ (get-debugger-manager) (selected-process)))
   
   
   @convert/wait
@@ -356,7 +317,7 @@
   
   (method public (add-snapshot snapshot file executable)
     (set! snapshots (cons (list snapshot file executable) snapshots))
-    (update)))
+    (update-processes)))
 
 
 ;;;

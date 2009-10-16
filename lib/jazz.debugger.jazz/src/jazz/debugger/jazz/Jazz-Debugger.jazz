@@ -87,7 +87,7 @@
                 processes)))
   
   
-  (method (validate-processes)
+  (method public (validate-processes)
     (let ((valid (new-queue)))
       (for-each (function (process)
                   (if (live-process? process)
@@ -305,9 +305,7 @@
       (execute-event
         (function ()
           (set! processes (append! processes (list process-proxy)))
-          (when (or select? (not (get-focused-process)))
-            (focus-process (new Debugged-Process self process-proxy process-proxy)))
-          (update~ (get-processes-view))
+          (attach-process~ (get-debugger-manager) (new Debugged-Process self process-proxy process-proxy) select?)
           (when cookie
             (let ((proc (get-registered-cookie cookie)))
               (when proc
@@ -321,8 +319,8 @@
           (set-values~ actual (get-values~ process-proxy))
           (execute-event
             (function ()
-              (update~ (get-processes-view))
-              (update-process~ (find-status-bar~ (get-application)))))))))
+              (update-processes~ (get-processes-view))
+              (update-focused-process~ (find-status-bar~ (get-application)))))))))
 
 
   (method (detach-process process-proxy)
@@ -331,13 +329,10 @@
         (function ()
           (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
           (set! processes (remove! process-proxy processes test: process=?))
-          (let ((focused-process (get-focused-process)))
-            (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
-              (if (null? processes)
-                  (focus-process {})
-                (let ((new-focused (last processes)))
-                  (focus-process (new Debugged-Process self new-focused new-focused))))))
-          (update~ (get-processes-view))))))
+          (let ((process (new Debugged-Process self process-proxy process-proxy))
+                (best-process (unless (proxy=? process-proxy (get-local-process))
+                                (new Debugged-Process self (get-local-process) (get-local-process)))))
+            (detach-process~ (get-debugger-manager) process best-process))))))
   
   
   ;;;
@@ -397,38 +392,19 @@
   ;;;
   
   
-  (definition debugger-sound
-    {File Jazz "lib" "jazz" "resources" "sounds" "Debugger.wav"})
+  (method public (register-stop process-proxy thread-proxy stop-proxy)
+    (let ((process (new Debugged-Process self process-proxy process-proxy))
+          (thread (new Debugged-Thread self process-proxy thread-proxy))
+          (stop (new Debugged-Stop self process-proxy stop-proxy)))
+      (execute-event
+        (function ()
+          (register-stop~ (get-debugger-manager) process thread stop)))))
   
   
-  (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
-    (execute-event
-      (function ()
-        (play-sound debugger-sound)
-        (with-locked-update
-          (function ()
-            (let ((button (find-component~ (find-toolbar~ (get-application)) 'debugger)))
-              (when button
-                (let ((visit? (neq? (get-name~ (selected-workspace)) 'debugger))
-                      (problem? #t))
-                  (notify~ button visit? problem?))))
-            (let ((processes-view (get-processes-view))
-                  (process (new Debugged-Process self process-proxy process-proxy))
-                  (threads-view (get-threads-view))
-                  (thread (new Debugged-Thread self process-proxy thread-proxy))
-                  (frames-view (get-frames-view)))
-              (set-debugged-visit? process #t)
-              (set-debugged-problem? process #t)
-              (set-debugged-visit? thread #t)
-              (set-debugged-problem? thread #t)
-              (highlight-process~ processes-view process)
-              (let ((selection (selected-process~ processes-view)))
-                (when (or (not selection) (debugged=? process selection))
-                  (if (not selection)
-                      (set-selected-process~ processes-view process)
-                    (process-change~ processes-view))
-                  (let ((selection (selected-thread~ threads-view)))
-                    (when (or (not selection) (debugged=? thread selection))
-                      (if (not selection)
-                          (set-selected-thread~ threads-view thread)
-                        (thread-change~ threads-view))))))))))))))
+  (method public (unregister-stop process-proxy thread-proxy stop-proxy)
+    (let ((process (new Debugged-Process self process-proxy process-proxy))
+          (thread (new Debugged-Thread self process-proxy thread-proxy))
+          (stop (new Debugged-Stop self process-proxy stop-proxy)))
+      (execute-event
+        (function ()
+          (unregister-stop~ (get-debugger-manager) process thread stop)))))))

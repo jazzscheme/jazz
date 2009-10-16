@@ -54,8 +54,6 @@
 
   (property process initialize {} getter get-process setter set-process)
   
-  (slot manager initialize {})
-  
 
   (form
     (<install>                                 layout-type: border
@@ -112,9 +110,7 @@
 
   (method override (install rest)
     (nextmethod rest)
-    (set! manager (get-debug-manager~ (get-application)))
-    (set-threads-view~ manager self)
-    (update))
+    (update-threads))
 
   
   ;;;
@@ -128,7 +124,7 @@
 
   (method public (set-process value)
     (set! process value)
-    (update))
+    (update-threads))
   
   
   (method (show-detailed?)
@@ -137,7 +133,7 @@
   
   (method public (process-changed new-process)
     (set! process new-process)
-    (update))
+    (update-threads))
 
   
   ;;;
@@ -166,7 +162,7 @@
   
   
   (method (on-toggle-detailed evt)
-    (update))
+    (update-threads))
 
 
   (method (on-select-thread evt)
@@ -190,7 +186,7 @@
   
   
   (method (on-update evt)
-    (update))
+    (update-threads))
   
   
   (method (with-thread-refresh thread thunk)
@@ -200,7 +196,7 @@
           (sleep .1)
           (execute-event
             (function ()
-              (update))))))
+              (update-threads))))))
     (thunk))
   
   
@@ -238,103 +234,71 @@
   ;;;
   
   
-  (definition System-Threads
-    '(message-pump
-      debuggee-console-pump
-      debugger-console-pump
-      remote-listener
-      remote-connection
-      catalog
-      pulse))
-  
-  
-  (definition (system-thread? thread)
-    (let ((name (get-name~ thread)))
-      (or (memq? name System-Threads)
-          (and (symbol? name)
-               (starts-with? (symbol->string name) "repl")))))
-  
-  
-  (method (with-preserving-update tree thunk)
-    (with-preserved-selection~ tree
-      thunk
-      use: 'data
-      test: debugged=?
-      generate-event?: #t))
-
-
-  (method protected (update)
-    (with-system-exception-debugger
-      (function ()
-        (let ((detailed? (show-detailed?))
-              (tree (locate 'threads)))
-          (with-update-locked~ tree
-            (function ()
-              (with-preserving-update tree
-                (function ()
-                  (remove-every-row~ tree)
-                  (let ((problem? (update-threads tree detailed?: detailed?)))
-                    (when process
-                      (set-debugged-problem? process problem?)
-                      (highlight-process~ (get-processes-view) process)))))))))))
-  
-  
-  (method (update-threads tree (detailed?: detailed? #f))
-    (define (debugged-threads debugger process threads)
-      (map (function (object)
-             (new Debugged-Thread debugger process object))
-           threads))
-    
-    (define (thread-title thread stop)
-      (let ((name (present-thread-name (get-name~ thread)))
-            (state (get-state~ thread)))
-        (if (not detailed?)
-            (if stop
-                (format "{a} - {a}" name (stop-title stop))
-              (->string name))
-          (format "{a} - {a}" name state))))
+  (method protected (update-threads)
+    (define (thread-title thread stop detailed?)
+      (define (stop-title stop)
+        (let ((reason (get-reason~ stop)))
+          (if reason
+              (car (split reason "\n"))
+            "Break")))
+      
+      (let ((name (present-thread-name (get-name~ thread))))
+        (if stop
+            (format "{a} - {a}" name (stop-title stop))
+          (if detailed?
+              (format "{a} - {a}" name (get-state~ thread))
+            (->string name)))))
     
     (define (thread-image thread stop)
-      (if (not stop)
-          {Bitmap-Resource "ThreadRun"}
-        (case (get-kind~ stop)
-          ((exception) {Bitmap-Resource "ThreadError"})
-          (else {Bitmap-Resource "ThreadBreak"}))))
+      (case (and stop (get-kind~ stop))
+        ((exception) {Bitmap-Resource "ThreadError"})
+        ((#f)        {Bitmap-Resource "ThreadRun"})
+        (else        {Bitmap-Resource "ThreadBreak"})))
     
-    (define (thread-frame-color thread)
-      (if (get-debugged-problem? thread)
-          {Color name: Dark-Red}
-        {}))
-    
-    (define (thread-background thread)
-      (if (get-debugged-visit? thread)
-          (get-visit-highlight)
-        {}))
-    
-    (define (stop-title stop)
-      (let ((reason (get-reason~ stop)))
-        (if (not reason)
-            "Break"
-          (let ((line (car (split reason "\n"))))
-            line))))
-    
-    (when process
-      (let ((debugger (get-debugger~ process))
-            (problem? #f))
-        (for-each (function (thread)
-                    ;; quicky until a cleaner solution
-                    (when (or detailed? (not (system-thread? thread)))
-                      (let ((stop (get-active-stop~ thread)))
-                        (set-debugged-problem? thread (boolean stop))
-                        (let ((title (thread-title thread stop))
+    (let ((manager (get-debugger-manager)))
+      (with-system-exception-debugger
+        (function ()
+          (let ((tree (locate 'threads)))
+            (with-update-locked~ tree
+              (function ()
+                (with-preserved-selection~ tree
+                  (function ()
+                    (remove-every-row~ tree)
+                    (for-each-thread~ manager
+                      (function (thread stop detailed?)
+                        (let ((title (thread-title thread stop detailed?))
                               (image (thread-image thread stop))
-                              (frame-color (thread-frame-color thread))
-                              (background (thread-background thread)))
-                          (when stop
-                            (set! problem? #t))
-                          (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))))
-                  (debugged-threads debugger process (get-threads~ process)))
-        problem?)))
+                              (frame-color (get-stopped-frame-color~ manager thread))
+                              (background (get-visited-highlight-color~ manager thread)))
+                          (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
+                      detailed?: (show-detailed?)))
+                  use: 'data
+                  test: debugged=?
+                  generate-event?: #t)
+                (unless (selected-thread)
+                  (continuation-capture
+                    (function (return)
+                      (for-each-thread~ manager
+                        (function (thread stop detailed?)
+                          (unless (debugged-visited?~ manager thread)
+                            (set-selected-thread thread)
+                            (thread-change)
+                            (continuation-return return))))))))))))))
+  
+  
+  (method public (update-highlight thread)
+    (let ((manager (get-debugger-manager)))
+      (let ((selected-thread (selected-thread)))
+        (when (debugged=? thread selected-thread)
+          (visit-debugged~ manager thread)))
+      (let ((tree (locate 'threads)))
+        (let ((row (thread-row tree thread)))
+          (when row
+            (let ((cell (new Cell (row-rank~ tree row) 0)))
+              (let ((data (get-cell-data~ tree cell)))
+                (set-frame-color~ data (get-stopped-frame-color~ manager thread))
+                (set-background~ data (get-visited-highlight-color~ manager thread)))
+              (invalidate-cell~ tree cell)))))))
 
   
   ;;;
@@ -343,10 +307,7 @@
   
   
   (method (thread-change)
-    (let ((thread (selected-thread)))
-      (thread-changed~ manager thread)
-      (when thread
-        (highlight-thread thread))))
+    (thread-changed~ (get-debugger-manager) (selected-thread)))
   
   
   ;;;
@@ -379,17 +340,6 @@
             (when (debugged=? (get-user-data~ row) thread)
               (continuation-return return row))))
         {})))
-  
-  
-  (method (highlight-thread thread)
-    (let ((tree (locate 'threads)))
-      (let ((row (thread-row tree thread)))
-        (when row
-          (let ((cell (new Cell (row-rank~ tree row) 0)))
-            (let ((data (get-cell-data~ tree cell)))
-              (set-frame-color~ data (if (get-debugged-problem? thread) {Color name: Dark-Red} #f))
-              (set-background~ data (if (get-debugged-visit? thread) (get-visit-highlight) #f)))
-            (invalidate-cell~ tree cell))))))
   
   
   ;;;

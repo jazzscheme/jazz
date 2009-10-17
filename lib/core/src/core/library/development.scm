@@ -50,16 +50,16 @@
 (define (jazz.parse module-name)
   (let ((src (jazz.find-module-src module-name #f)))
     (let ((form (jazz.read-toplevel-form src)))
-      (pretty-print form))))
+      (pretty-print
+        (jazz.desourcify-all form-src)))))
 
 
 (define (jazz.parse-source module-name)
   (parameterize ((jazz.walk-for 'walk))
     (let* ((src (jazz.find-module-src module-name #f))
-           (syntax (jazz.read-toplevel-form src read-source?: #t)))
+           (form-src (jazz.read-toplevel-form src)))
       (pretty-print
-        (jazz.present-source
-          syntax)))))
+        (jazz.present-source form-src)))))
 
 
 ;;;
@@ -70,7 +70,7 @@
 (define (jazz.expand-module module-name #!key (walk-for #f))
   (parameterize ((jazz.walk-for (or walk-for 'walk)))
     (let* ((src (jazz.find-module-src module-name #f))
-           (form (jazz.read-toplevel-form src read-source?: #t))
+           (form (jazz.read-toplevel-form src))
            (kind (jazz.source-code (car (jazz.source-code form))))
            (rest (cdr (jazz.source-code form))))
       (parameterize ((jazz.requested-module-name module-name)

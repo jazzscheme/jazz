@@ -3007,7 +3007,7 @@
                (actual (jazz.get-catalog-entry name))
                (declaration (jazz.call-with-catalog-entry-lock name
                               (lambda ()
-                                (let ((declaration (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice (jazz.desourcify-all body))))
+                                (let ((declaration (jazz.walk-library-declaration walker actual name access dialect-name dialect-invoice body)))
                                   (jazz.set-catalog-entry name declaration)
                                   declaration))))
                (environment (%%cons declaration (jazz.walker-environment walker)))
@@ -5857,7 +5857,7 @@
   (make-parameter #f))
 
 
-(define (jazz.outline-module module-name #!key (use-catalog? #t) (read-source? #f) (error? #t))
+(define (jazz.outline-module module-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
     (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
       (if (and (%%not src) (%%not error?))
@@ -5865,7 +5865,7 @@
         (jazz.with-verbose (jazz.outline-verbose?) "outlining" (jazz.resource-pathname src)
           (lambda ()
             ;; not reading the literals is necessary as reading a literal will load modules
-            (let ((form (jazz.read-toplevel-form src read-literals?: #f read-source?: read-source?)))
+            (let ((form (jazz.read-toplevel-form src read-literals?: #f)))
               (parameterize ((jazz.requested-module-name module-name)
                              (jazz.requested-module-resource src))
                 (let ((kind (jazz.source-code (%%car (jazz.source-code form)))))
@@ -5897,8 +5897,8 @@
                     declaration)))))))))
 
 
-(define (jazz.outline-library module-name #!key (read-source? #f) (error? #t))
-  (let ((declaration (jazz.outline-module module-name read-source?: read-source? error?: error?)))
+(define (jazz.outline-library module-name #!key (error? #t))
+  (let ((declaration (jazz.outline-module module-name error?: error?)))
     (if (%%not error?)
         declaration
       (%%assert (%%class-is? declaration jazz.Library-Declaration)
@@ -5909,34 +5909,33 @@
   (make-parameter #t))
 
 
-(define (jazz.read-toplevel-form resource #!key (read-literals? #t) (read-source? #f))
+(define (jazz.read-toplevel-form resource #!key (read-literals? #t))
   (let ((source (jazz.resource-pathname resource)))
-    (receive (form extraneous?)
-        (jazz.with-extension-reader (jazz.pathname-extension source)
-          (lambda ()
-            (let ((char-encoding (jazz.resource-char-encoding resource))
-                  (eol-encoding 'cr-lf))
-              (call-with-input-file (%%list path: source char-encoding: char-encoding eol-encoding: eol-encoding)
-                (lambda (port)
-                  (parameterize ((jazz.read-literals? read-literals?))
-                    (if (%%not read-source?)
-                        (let ((form (read port))
-                              (extraneous? (%%not (%%eof-object? (read port)))))
-                          (values form extraneous?))
-                      (values (jazz.read-source-first port) #f))))))))
-      (if (or read-source? (and (%%pair? form) (%%memq (%%car form) '(module library))))
-          (if (%%not extraneous?)
-              form
-            (jazz.error "Found extraneous expressions after {a} definition in: {a}" (%%car form) source))
-        (jazz.error "Invalid module declaration in {a}: {s}" source form)))))
+    (jazz.with-extension-reader (jazz.pathname-extension source)
+      (lambda ()
+        (let ((char-encoding (jazz.resource-char-encoding resource))
+              (eol-encoding 'cr-lf))
+          (call-with-input-file (%%list path: source char-encoding: char-encoding eol-encoding: eol-encoding)
+            (lambda (port)
+              (parameterize ((jazz.read-literals? read-literals?))
+                (let ((all (jazz.read-source-all port)))
+                  (if (%%null? all)
+                      (jazz.error "Found empty module declaration in {a}" source)
+                    (let ((form-src (%%car all))
+                          (extraneous? (%%not-null? (%%cdr all))))
+                      (if (and (%%pair? (jazz.source-code form-src)) (%%memq (jazz.source-code (%%car (jazz.source-code form-src))) '(module library)))
+                          (if (%%not extraneous?)
+                              form-src
+                            (jazz.error "Found extraneous expressions after module declaration in {a}" source))
+                        (jazz.error "Found invalid module declaration in {a}" source)))))))))))))
 
 
-(define (jazz.walk-module module-name #!key (read-source? #f))
+(define (jazz.walk-module module-name)
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (parameterize ((jazz.requested-module-name module-name)
                    (jazz.requested-module-resource src)
                    (jazz.walk-for 'walk))
-      (let ((form (jazz.read-toplevel-form src read-source?: read-source?)))
+      (let ((form (jazz.read-toplevel-form src)))
         (case (jazz.source-code (%%car (jazz.source-code form)))
           ((module)
            #f)

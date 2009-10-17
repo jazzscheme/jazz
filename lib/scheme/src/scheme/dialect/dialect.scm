@@ -75,10 +75,10 @@
     #f))
 
 
-(jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Define-Declaration declaration) walker resume source-declaration)
-  (nextmethod declaration walker resume source-declaration)
+(jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Define-Declaration declaration) walker resume source-declaration symbol-src)
+  (nextmethod declaration walker resume source-declaration symbol-src)
   (%%when (%%neq? (%%get-declaration-toplevel declaration) (%%get-declaration-toplevel source-declaration))
-    (jazz.walk-error walker resume source-declaration "Illegal inter-module assignment to: {s}" (%%get-lexical-binding-name declaration))))
+    (jazz.walk-error walker resume source-declaration symbol-src "Illegal inter-library assignment to: {s}" (%%get-lexical-binding-name declaration))))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Define-Declaration declaration))
@@ -124,7 +124,7 @@
   (let ((form (%%desourcify form-src)))
     (let ((locator (%%get-declaration-locator binding)))
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-          (jazz.walk-error walker resume declaration "Special forms cannot be used from within the same file: {s}" locator)
+          (jazz.walk-error walker resume declaration #f "Special forms cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
           (jazz.load-module (%%get-declaration-locator parent-declaration))
           (let ((expander (jazz.need-macro locator)))
@@ -175,7 +175,7 @@
   (let ((form (%%desourcify form-src)))
     (let ((locator (%%get-declaration-locator binding)))
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-          (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
+          (jazz.walk-error walker resume declaration #f "Macros cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
           (jazz.load-module (%%get-declaration-locator parent-declaration))
           (let ((expander (jazz.need-macro locator)))
@@ -557,7 +557,7 @@
 
 (define (jazz.walk-if walker resume declaration environment form-src)
   (if (%%fx< (%%length (jazz.source-code form-src)) 3)
-      (jazz.walk-error walker resume declaration "Ill-formed if: {s}" (%%desourcify form-src))
+      (jazz.walk-error walker resume declaration form-src "Ill-formed if: {s}" (%%desourcify form-src))
     (let ((test (%%cadr (jazz.source-code form-src)))
           (yes (%%car (%%cddr (jazz.source-code form-src))))
           (no (%%cdr (%%cddr (jazz.source-code form-src)))))
@@ -609,7 +609,7 @@
                                        (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                                   (if (or (%%eq? tries 'else) (%%pair? tries))
                                       (%%cons tries (jazz.walk-implicit-begin walker resume declaration environment clause effective-body))
-                                    (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries)))))))
+                                    (jazz.walk-error walker resume declaration #f "Ill-formed selector list: {s}" tries)))))))
                         clauses))))
 
 

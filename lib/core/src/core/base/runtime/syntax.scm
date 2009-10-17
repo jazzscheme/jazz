@@ -48,8 +48,10 @@
     expr))
 
 
-(define (jazz.source-locat src)
-  (%%source-locat src))
+(define (jazz.source-locat expr)
+  (if (%%source? expr)
+      (%%source-locat expr)
+    #f))
 
 
 (define (jazz.desourcify expr)

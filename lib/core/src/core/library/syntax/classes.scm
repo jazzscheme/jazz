@@ -53,7 +53,7 @@
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration))
+(jazz.define-virtual (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration symbol-src))
 (jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))

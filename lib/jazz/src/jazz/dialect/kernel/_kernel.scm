@@ -228,6 +228,7 @@
 
 (native jazz.exception-reason)
 (native jazz.exception-detail)
+(native jazz.exception-location)
 (native jazz.display-exception)
 (native jazz.display-continuation-backtrace)
 (native jazz.get-exception-hook)

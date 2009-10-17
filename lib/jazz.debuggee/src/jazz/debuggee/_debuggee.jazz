@@ -176,12 +176,12 @@
 (definition public (post-stop exc)
   (continuation-capture
     (function (continuation)
-      (let* ((reason (exception-reason exc))
-             (detail (exception-detail exc)))
+      (let ((reason (exception-reason exc))
+            (detail (exception-detail exc)))
         (thread-write
           (current-thread)
           (function ()
-            (invoke-debugger 'exception reason detail continuation)))))))
+            (invoke-debugger 'exception reason detail exc continuation)))))))
 
 
 ;;;
@@ -603,7 +603,7 @@
             (function (continuation)
               (let ((reason (exception-reason exc))
                     (detail (exception-detail exc)))
-                (invoke-debugger 'exception reason detail continuation)))))))))
+                (invoke-debugger 'exception reason detail exc continuation)))))))))
 
 
 (definition public (with-jazz-exception-debugger thunk)
@@ -614,7 +614,7 @@
 (definition public (break (reason: reason {}))
   (continuation-capture
     (function (continuation)
-      (invoke-debugger 'break reason {} continuation))))
+      (invoke-debugger 'break reason {} {} continuation))))
 
 
 (definition public (start-repl (reason: reason {}) (select?: select? #t))
@@ -655,7 +655,7 @@
                   (process-debuggee-loop~ process))))))))))
 
 
-(definition (invoke-debugger kind reason detail continuation)
+(definition (invoke-debugger kind reason detail exc continuation)
   (release-load-mutex!)
   (release-catalog-entries)
   (let ((thread (current-thread))
@@ -664,7 +664,7 @@
     (with-repl-thread thread reason port level
       (function ()
         (parameterize ((current-repl-frame (box {})))
-          (let ((stop (new Debuggee-Stop thread kind reason detail continuation (compute-restarts thread))))
+          (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread))))
             (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
               (dynamic-wind

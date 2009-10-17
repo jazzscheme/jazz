@@ -62,7 +62,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Detail-Tree> name: detail     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-edit-detail #t})))))))
+              (<Detail-Tree> name: detail     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-edit-stop/detail #t})))))))
 
   
   (method meta override (external-name . rest)
@@ -140,27 +140,51 @@
   ;;;
   
 
-  (definition *detail*
-    {})
-
-  (definition *detail-indicators*
+  (definition *indicators*
     {})
 
 
-  (method (edit-detail)
-    (let ((detail (selected-detail)))
-      (if (not detail)
-          (uninstall-active-detail-indicators)
-        (let ((locations (collect-locations detail)))
-          (if (null? locations)
-              (begin
-                (uninstall-active-detail-indicators)
-                (bell))
-            (install-detail-indicators locations))))))
+  (method (edit-stop/detail)
+    (define (detail-locations detail)
+      (collect (function (detail)
+                 (let ((location (get-location~ detail)))
+                   (when location
+                     (locat->file/line/col (get-locat~ location)))))
+               (detail-subdetails detail)))
+    
+    ;; when all this works, I think stop details
+    ;; should really be just a linear list...
+    (define (detail-subdetails detail)
+      (let ((queue (new-queue)))
+        (define (recurse detail)
+          (when detail
+            (enqueue queue detail)
+            (for-each recurse (get-children~ detail))))
+        
+        (recurse detail)
+        (queue-list queue)))
+    
+    (let ((data (selected-data)))
+      (cond ((not data)
+             (uninstall-active-indicators))
+            ((is? data Debugged-Stop)
+             (let ((location (get-location~ data)))
+               (if (not location)
+                   (begin
+                     (uninstall-active-indicators)
+                     (bell))
+                 (install-indicators (list (locat->file/line/col location))))))
+            ((is? data Exception-Detail)
+             (let ((locations (detail-locations data)))
+               (if (null? locations)
+                   (begin
+                     (uninstall-active-indicators)
+                     (bell))
+                 (install-indicators locations)))))))
   
   
-  (method (install-detail-indicators locations)
-    (uninstall-active-detail-indicators)
+  (method (install-indicators locations)
+    (uninstall-active-indicators)
     (for-each (function (location)
                 (receive (frame text range) (find-location location)
                   (apply-style~ text 'Walk-Fatal (get-start~ range) (get-end~ range))
@@ -169,10 +193,10 @@
                   (bring-to-front~ frame)
                   (set-visible?~ frame #t)))
               locations)
-    (set! *detail-indicators* locations))
+    (set! *indicators* locations))
   
   
-  (method (uninstall-detail-indicators locations)
+  (method (uninstall-indicators locations)
     (for-each (function (location)
                 (receive (frame text range) (find-location location)
                   (apply-style~ text (get-default-style~ text) (get-start~ range) (get-end~ range))
@@ -180,10 +204,10 @@
               locations))
 
 
-  (method protected (uninstall-active-detail-indicators)
-    (when *detail-indicators*
-      (uninstall-detail-indicators *detail-indicators*)
-      (set! *detail-indicators* {})))
+  (method protected (uninstall-active-indicators)
+    (when *indicators*
+      (uninstall-indicators *indicators*)
+      (set! *indicators* {})))
   
   
   (method (find-location location)
@@ -194,27 +218,6 @@
         (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
               (range (new Range$Cell$ start end)))
           (values frame (get-guest~ frame) range)))))
-  
-  
-  (method (collect-locations detail)
-    (collect (function (detail)
-               (let ((location (get-location~ detail)))
-                 (when location
-                   (locat->file/line/col (get-locat~ location)))))
-             (collect-details detail)))
-  
-  
-  ;; when all this works, I think stop details
-  ;; should really be just a linear list...
-  (method (collect-details detail)
-    (let ((queue (new-queue)))
-      (define (recurse detail)
-        (when detail
-          (enqueue queue detail)
-          (for-each recurse (get-children~ detail))))
-      
-      (recurse detail)
-      (queue-list queue)))
 
   
   ;;;
@@ -227,8 +230,8 @@
     (size-figure~ (locate 'scroller) dh dv))
   
   
-  (method (on-edit-detail evt)
-    (edit-detail))
+  (method (on-edit-stop/detail evt)
+    (edit-stop/detail))
 
   
   ;;;
@@ -288,12 +291,10 @@
   ;;;
   
   
-  (method public (selected-detail)
+  (method (selected-data)
     (let ((row (selected-row)))
       (when row
-        (let ((data (get-user-data~ row)))
-          (when (is? data Exception-Detail)
-            data)))))
+        (get-user-data~ row))))
   
   
   (method (selected-row)

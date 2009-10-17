@@ -129,6 +129,10 @@
     #f))
 
 
+(define (jazz.exception-location exc cont)
+  (##exception->locat exc cont))
+
+
 ;;;
 ;;;; Gambit Hook
 ;;;

@@ -117,7 +117,7 @@
 (jazz.define-virtual-runtime (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration))
 (jazz.define-virtual-runtime (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual-runtime (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
-(jazz.define-virtual-runtime (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
+(jazz.define-virtual-runtime (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments form-src))
 (jazz.define-virtual-runtime (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual-runtime (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration symbol-src))
@@ -141,7 +141,7 @@
   (jazz.error "Unable to emit binding reference for: {s}" binding))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments form-src)
   (jazz.unspecified))
 
 
@@ -160,7 +160,7 @@
 
 (jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration symbol-src)
   (%%when (%%not (jazz.walk-binding-assignable? binding))
-    (jazz.walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" binding)))
+    (jazz.walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (%%get-lexical-binding-name binding))))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Walk-Binding binding))
@@ -254,8 +254,8 @@
   (jazz.lookup-declaration binding symbol jazz.private-access source-declaration))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration operator arguments)
-  (jazz.walk-error walker resume source-declaration #f "{a} is not callable" (%%get-declaration-locator declaration)))
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration operator arguments form-src)
+  (jazz.walk-error walker resume source-declaration form-src "{a} is not callable" (%%get-lexical-binding-name declaration)))
 
 
 (jazz.define-virtual-runtime (jazz.lookup-declaration (jazz.Declaration declaration) symbol access source-declaration))
@@ -816,7 +816,7 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Declaration declaration) walker resume source-declaration operator arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Declaration declaration) walker resume source-declaration operator arguments form-src)
   (jazz.unspecified))
 
 
@@ -852,7 +852,7 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Syntax-Declaration declaration) walker resume source-declaration operator arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Syntax-Declaration declaration) walker resume source-declaration operator arguments form-src)
   (jazz.unspecified))
 
 
@@ -903,8 +903,8 @@
           decl))))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Autoload-Declaration declaration) walker resume source-declaration operator arguments)
-  (jazz.walk-binding-validate-call (jazz.resolve-binding declaration) walker resume source-declaration operator arguments))
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Autoload-Declaration declaration) walker resume source-declaration operator arguments form-src)
+  (jazz.walk-binding-validate-call (jazz.resolve-binding declaration) walker resume source-declaration operator arguments form-src))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Autoload-Declaration declaration) source-declaration environment)
@@ -1663,7 +1663,7 @@
   (let ((form (%%desourcify form-src)))
     (let ((locator (%%get-declaration-locator binding)))
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-          (jazz.walk-error walker resume declaration #f "Macros cannot be used from within the same file: {s}" locator)
+          (jazz.walk-error walker resume declaration form-src "Macros cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
           (jazz.load-module (%%get-declaration-locator parent-declaration))
           (let ((expander (jazz.need-macro locator)))
@@ -1713,7 +1713,7 @@
 (jazz.define-method (jazz.walk-binding-expand-form (jazz.Syntax-Declaration binding) walker resume declaration environment form-src)
   (let ((locator (%%get-declaration-locator binding)))
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-        (jazz.walk-error walker resume declaration #f "Syntaxes cannot be used from within the same file: {s}" locator)
+        (jazz.walk-error walker resume declaration form-src "Syntaxes cannot be used from within the same file: {s}" locator)
       (let ((parent-declaration (%%get-declaration-parent binding)))
         (jazz.load-module (%%get-declaration-locator parent-declaration))
         (let ((expander (jazz.need-macro locator)))
@@ -1795,10 +1795,10 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.C-Definition-Declaration declaration) walker resume source-declaration operator arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.C-Definition-Declaration declaration) walker resume source-declaration operator arguments form-src)
   (let ((signature (%%get-c-definition-declaration-signature declaration)))
     (if signature
-        (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
+        (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.C-Definition-Declaration declaration) environment)
@@ -5100,7 +5100,7 @@
                 ((%%pair? literal/constant)
                  `(cons ',(%%car literal/constant) ',(%%cdr literal/constant)))
                 (else
-                 (jazz.error "Unable to walk constant: {s}" literal/constant))))))
+                 (jazz.walk-error walker resume declaration #f "Unable to walk constant: {s}" literal/constant))))))
 
     ;; calling jazz.get-registered-literal to only register when not already there
     ;; doesnt work directly because some literals are interned and thus can be shared
@@ -5206,11 +5206,11 @@
 
 
 (define (jazz.walk-setbang walker resume declaration environment form-src)
-  (let ((form (%%cadr (jazz.source-code form-src)))
+  (let ((variable (%%cadr (jazz.source-code form-src)))
         (value (%%car (%%cddr (jazz.source-code form-src)))))
-    (if (%%symbol? (jazz.source-code form))
-        (jazz.walk-symbol-assignment walker resume declaration environment form value)
-      (jazz.error "Illegal set! of {s}" (%%desourcify form)))))
+    (if (%%symbol? (jazz.source-code variable))
+        (jazz.walk-symbol-assignment walker resume declaration environment variable value)
+      (jazz.walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable)))))
 
 
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
@@ -5222,7 +5222,7 @@
               (if (%%is? decl jazz.Autoload-Declaration)
                   decl
                 (jazz.new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz.new-library-reference library-name #f)))
-            (jazz.error "Unable to find {s} in module {s}" name library-name))))))
+            (jazz.walk-error walker resume declaration symbol-src "Unable to find {s} in module {s}" name library-name))))))
   
   (define (lookup walker environment symbol)
     (if (jazz.composite-name? symbol)
@@ -5345,7 +5345,7 @@
   (let ((operator (%%car (jazz.source-code form-src)))
         (arguments (%%cdr (jazz.source-code form-src))))
     (if procedure-binding
-        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-all arguments)))
+        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator (jazz.desourcify-all arguments) form-src))
     (jazz.new-call form-src
                    (continuation-capture
                      (lambda (resume)
@@ -5353,22 +5353,22 @@
                    (jazz.walk-list walker resume declaration environment arguments))))
 
 
-(jazz.define-virtual-runtime (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
+(jazz.define-virtual-runtime (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments form-src))
 
 
-(jazz.define-method (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments)
+(jazz.define-method (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments form-src)
   (let ((mandatory (%%get-signature-mandatory signature))
         (rest (%%get-signature-rest signature))
         (passed (%%length arguments))
-        (locator (%%get-declaration-locator declaration))
+        (name (%%get-lexical-binding-name declaration))
         ;; todo improve handling of optional and named parameters
         (rest? (or (%%get-signature-rest signature)
                    (%%not-null? (%%get-signature-optional signature))
                    (%%not-null? (%%get-signature-named signature)))))
     (cond ((and (%%not rest?) (%%fx> passed mandatory))
-           (jazz.walk-error walker resume source-declaration #f "Too many arguments for {a}" locator))
+           (jazz.walk-error walker resume source-declaration form-src "Too many arguments for: {a}" name))
           ((%%fx< passed mandatory)
-           (jazz.walk-error walker resume source-declaration #f "Not enough arguments for {a}" locator)))))
+           (jazz.walk-error walker resume source-declaration form-src "Not enough arguments for: {a}" name)))))
 
 
 ;;;
@@ -5469,7 +5469,7 @@
 
 (jazz.define-method (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src)
   (if (%%not (%%class-is? declaration jazz.Library-Declaration))
-      (jazz.walk-error walker resume declaration #f "For now, proclaim can only be used at the library level")))
+      (jazz.walk-error walker resume declaration form-src "For now, proclaim can only be used at the library level")))
 
 
 (define (jazz.walk-proclaim walker resume declaration environment form-src)
@@ -5682,12 +5682,12 @@
       
       (cond ((%%pair? scan)
              (let* ((parameter-src (%%car scan))
-                    (parameter (jazz.source-code (%%car scan)))
+                    (parameter (jazz.source-code parameter-src))
                     (section (parameter-section parameter)))
                (cond ((not (allowed? section))
-                      (jazz.walk-error walker resume declaration #f "Ill-formed lambda parameter: {s}" (jazz.desourcify parameter-src)))
+                      (jazz.walk-error walker resume declaration parameter-src "Ill-formed lambda parameter: {s}" (jazz.desourcify parameter-src)))
                      ((not (memq section sections))
-                      (jazz.walk-error walker resume declaration #f "Misplaced {s} parameter {s} in {s}" section (jazz.desourcify parameter-src) (jazz.desourcify parameters))))
+                      (jazz.walk-error walker resume declaration parameter-src "Misplaced {s} parameter {s} in {s}" section (jazz.desourcify parameter-src) (jazz.desourcify parameters))))
                (case section
                  ((dynamic)
                   ;; should compare specifier to dynamic specifier
@@ -5710,7 +5710,7 @@
                   (jazz.parse-specifier (%%cdr parameter)
                     (lambda (specifier rest)
                       (%%when (not (= (length rest) 1))
-                        (jazz.walk-error walker resume declaration #f "Ill-formed optional parameter: {s}" (jazz.desourcify parameter-src)))
+                        (jazz.walk-error walker resume declaration parameter-src "Ill-formed optional parameter: {s}" (jazz.desourcify parameter-src)))
                       (let ((variable (jazz.source-code (%%car parameter)))
                             (type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
                             (default (%%car rest)))
@@ -5720,17 +5720,17 @@
                   (iterate-parameters (%%cdr scan) (memq section sections)))
                  ((keyword)
                   (%%when (not (%%pair? (%%cdr parameter)))
-                    (jazz.walk-error walker resume declaration #f "Ill-formed keyword parameter: {s}" (jazz.desourcify parameter-src)))
+                    (jazz.walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz.desourcify parameter-src)))
                   (jazz.parse-specifier (%%cddr parameter)
                     (lambda (specifier rest)
                       (%%when (not (= (length rest) 1))
-                        (jazz.walk-error walker resume declaration #f "Ill-formed keyword parameter: {s}" (jazz.desourcify parameter-src)))
+                        (jazz.walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz.desourcify parameter-src)))
                       (let ((keyword (jazz.source-code (%%car parameter)))
                             (variable (jazz.source-code (%%cadr parameter)))
                             (type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
                             (default (%%car rest)))
                         (%%when (not (%%eq? (%%string->symbol (%%keyword->string keyword)) variable))
-                          (jazz.walk-error walker resume declaration #f "Mismatched key/name for keyword parameter: {s}" (jazz.desourcify parameter-src)))
+                          (jazz.walk-error walker resume declaration parameter-src "Mismatched key/name for keyword parameter: {s}" (jazz.desourcify parameter-src)))
                         (let ((keyword-parameter (jazz.new-named-parameter variable type (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
                           (jazz.enqueue keywords keyword-parameter)
                           (augment-environment keyword-parameter)))))
@@ -5738,7 +5738,7 @@
             ((not (%%null? scan))
              (let ((rest (jazz.desourcify scan)))
                (%%when (not (%%symbol? rest))
-                 (jazz.walk-error walker resume declaration #f "Ill-formed rest parameter: {s}" rest))
+                 (jazz.walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
                (let ((parameter-expression (jazz.new-rest-parameter rest jazz.List)))
                  (augment-environment parameter-expression)
                  parameter-expression)))

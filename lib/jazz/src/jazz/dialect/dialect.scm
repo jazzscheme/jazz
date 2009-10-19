@@ -1663,8 +1663,7 @@
              (cond ((and generic-dynamic? specific-dynamic?)
                     (let ((generic-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
                           (specific-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
-                      (if ;; temp commented because it creates a problem in compiling Document-Moniker
-                            #t ;; (jazz.of-subtype? generic-class specific-class)
+                      (if (jazz.of-subtype? generic-class specific-class)
                           (iter (%%cdr generic-parameters)
                                 (%%cdr specific-parameters)
                                 (%%eq? generic-class specific-class))
@@ -1673,7 +1672,7 @@
                           (%%get-declaration-locator generic-class)
                           (%%cons name parameters)))))
                    ((or generic-dynamic? specific-dynamic?)
-                    (jazz.walk-error walker resume declaration form-src "Specific {s} must dispatch on the same number of dynamic parameters" (%%cons name parameters)))
+                    (jazz.walk-error walker resume declaration form-src "Specific must dispatch on the same number of dynamic parameters: {s}" (%%cons name parameters)))
                    (else
                     root?))))))
   
@@ -2088,9 +2087,7 @@
            (root-method-declaration (%%get-method-declaration-root new-declaration))
            (root-method-propagation (and root-method-declaration (%%get-method-declaration-propagation root-method-declaration)))
            (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
-      (cond ((%%eq? category-declaration root-category-declaration)
-             (jazz.walk-error walker resume declaration form-src "Method already exists: {s}" name))
-            ((and root-category-declaration (%%eq? root-method-propagation 'final))
+      (cond ((and root-category-declaration (%%eq? root-method-propagation 'final))
              (jazz.walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
             ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'override))
              (case propagation

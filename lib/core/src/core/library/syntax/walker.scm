@@ -5380,6 +5380,9 @@
   (let ((form (%%desourcify form-src)))
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (let ((requires (jazz.filter-features (%%cdr form))))
+        ;; so modules with errors are not added to the library when evaluating code
+        (%%when (%%eq? (jazz.walk-for) 'eval)
+          (for-each jazz.load-module requires))
         (for-each (lambda (require)
                     (jazz.add-library-require library-declaration (jazz.listify require)))
                   requires)))))
@@ -5450,6 +5453,12 @@
   (let ((form (%%desourcify form-src)))
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (let ((import-invoices (walk-imports (jazz.filter-features (%%cdr form)))))
+        ;; so modules with errors are not added to the library when evaluating code
+        (%%when (%%eq? (jazz.walk-for) 'eval)
+          (for-each (lambda (import-invoice)
+                      (let ((library-declaration (%%get-library-invoice-library import-invoice)))
+                        (jazz.load-module (%%get-lexical-binding-name library-declaration))))
+                    import-invoices))
         (for-each (lambda (import-invoice)
                     (jazz.add-library-import library-declaration import-invoice #t))
                   import-invoices)))))

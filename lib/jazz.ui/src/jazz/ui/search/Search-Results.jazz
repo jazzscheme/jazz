@@ -170,7 +170,7 @@
     (let ((selection (get-selection~ (get-tree))))
       (define (edit)
         (for-each (function (item)
-                    (edit-item item forward? #t))
+                    (edit-item item forward? #t #t))
                   selection)
         (focus-host~ (first-view~ (get-stage))))
       
@@ -182,9 +182,9 @@
                   (edit)))))))
 
 
-  (method public (edit-item item forward? focus?)
+  (method public (edit-item item forward? focus? visible?)
     (let ((definition (get-user-data~ (get-row~ (get-tree) item))))
-      (edit-document definition forward? focus?)))
+      (edit-document definition forward? focus? visible?)))
 
 
   ;;;
@@ -192,7 +192,7 @@
   ;;;
 
 
-  (method (edit-document info forward? focus?)
+  (method (edit-document info forward? focus? visible?)
     (with-cursor :wait
       (function ()
         (if (is? info Catalog-Entry)
@@ -219,8 +219,9 @@
                                (if forward?
                                    (select-expr~ guest targets)
                                  (select-expr-backward~ guest targets))))
-                           (bring-to-front~ frame)
-                           (set-visible?~ frame #t)
+                           (when visible?
+                             (bring-to-front~ frame)
+                             (set-visible?~ frame #t))
                            (values frame new?)))))))
               (if (is? (car info) Moniker)
                   (bind (source results targets) info

@@ -63,7 +63,7 @@
     (let ((catalog (find-catalog~ (get-cataloguer~ (get-application)) catalog-name)))
       (let ((fact (new List-Factory)))
         (iterate-definitions~ catalog
-          (function (name definitions)
+          (lambda (name definitions)
             (when (search name target)
               (put~ fact name))))
         (sort ci<? (get-output~ fact)))))
@@ -78,7 +78,7 @@
             (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "mnf"))
             (directory-feedback (make-directory-feedback)))
         (iterate-directory~ directory
-          (function (file)
+          (lambda (file)
             (directory-feedback file)
             (when (and (not (member? (get-extension~ file) ignored-extensions test: ci=?))
                        (time>? (get-modification-time~ file) from))
@@ -97,12 +97,12 @@
           (queue (new-queue))
           (directory-feedback (make-directory-feedback)))
       (iterate-directory~ {Directory Jazz}
-        (function (file)
+        (lambda (file)
           (let ((ext (get-extension~ file)))
             (when (member? ext '("jazz") test: ci=?)
               (directory-feedback file)
               (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-                (function (port)
+                (lambda (port)
                   (let ((line (read-line port)))
                     (when (and (not (eof-object? line))
                                (not (equal? line ";;;==============")))
@@ -123,13 +123,13 @@
             (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "cxx" "swg" "mnf" "jpg" "png" "ppt" "ttf" "wav"))
             (directory-feedback (make-directory-feedback)))
         (iterate-directory~ directory
-          (function (file)
+          (lambda (file)
             (directory-feedback file)
             (when (not (member? (get-extension~ file) ignored-extensions test: ci=?))
               (let ((lines (load-lines~ file char-encoding-errors: #f)))
-                (for-each (function (line rank)
+                (for-each (lambda (line rank)
                             (continuation-capture
-                              (function (done)
+                              (lambda (done)
                                 (let ((trailing-whitespace #f))
                                   (loop (for n from (- (cardinality line) 1) downto 0)
                                         (do (let ((c (element line n)))
@@ -151,7 +151,7 @@
   
   (method (inspect-binary file)
     (call-with-input-file (parse~ file)
-      (function (port)
+      (lambda (port)
         (debug (read-all port read-u8)))))
 
   
@@ -183,7 +183,7 @@
     (unimplemented)
     @convert
     (bind (name . arguments) form
-      (let* ((try (function (object) (category-field (class-of object) name)))
+      (let* ((try (lambda (object) (category-field (class-of object) name)))
              (definition (either (try Language) (try Java))))
         (if (null? definition)
             (begin
@@ -200,7 +200,7 @@
     (unimplemented)
     @convert
     (bind (name . arguments) form
-      (let* ((try (function (package) (category-field (class-of package) name)))
+      (let* ((try (lambda (package) (category-field (class-of package) name)))
              (macro (definition-value (either (try Kernel)))))
         (cond ((syntax-macro? macro) (debug (apply macro arguments)))
               ((macro? macro) (debug (macro arguments))))
@@ -224,8 +224,8 @@
   
   (method (utf8 text)
     (let ((count 1))
-      (for-each (function (line)
-                  (when (some? (function (char)
+      (for-each (lambda (line)
+                  (when (some? (lambda (char)
                                  (>= (char->integer char) 128))
                                line)
                     (debug count line (map char->integer (coerce line List))))
@@ -235,7 +235,7 @@
   
   (method (remove-trailing-whitespace text)
     (let ((count 0))
-      (for-each (function (row)
+      (for-each (lambda (row)
                   (let ((str (paragraph-string~ text row)))
                     (let ((trailer (extract-trailer str whitespace?)))
                       (when (not (empty-string? trailer))
@@ -271,7 +271,7 @@
     (load-module 'core.module.builder)
     (let ((submodules '()))
       (for-each-submodule module-name
-        (function (submodule-name declaration phase)
+        (lambda (submodule-name declaration phase)
           (set! submodules (cons submodule-name submodules))))
       submodules))
     
@@ -285,7 +285,7 @@
     (define (collect-runs text)
       (let ((queue (new-queue)))
         (for-each-range~ text (if (has-selection?~ text) (get-selection~ text) (text-range~ text))
-          (function (paragraph start end)
+          (lambda (paragraph start end)
             (let ((runs (range-runs~ paragraph start end)))
               (enqueue queue runs))))
         (queue-list queue)))
@@ -318,7 +318,7 @@
           (let ((runs (car scan))
                 (next (cdr scan)))
             (let ((first? #t))
-              (for-each (function (run)
+              (for-each (lambda (run)
                           (if first?
                               (set! first? #f)
                             (format output " "))
@@ -396,7 +396,7 @@
             (newline output)))))
     
     (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-      (function (input)
+      (lambda (input)
         (let ((output (open-output-string)))
           (let (iterate)
             (let ((c (peek-char input)))
@@ -482,7 +482,7 @@
       (let ((reference-dir {Directory jazz.website "reference"}))
         (create-directories~ reference-dir)
         (call-with-output-file (list path: (parse~ (new-file~ reference-dir (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
-          (function (port)
+          (lambda (port)
             (let ((node (parse-jml (extract-module/library-doc name modules))))
               (pretty-print~ node port)
               (newline port)))))))
@@ -502,7 +502,7 @@
   
   (method (extract-library-doc name declaration)
     (let ((declarations (filter-access/compatibility-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
-      (let ((sorted (sort string<? declarations key: (function (decl) (symbol->string (get-name~ decl))))))
+      (let ((sorted (sort string<? declarations key: (lambda (decl) (symbol->string (get-name~ decl))))))
         `(<Library-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
   
@@ -637,13 +637,13 @@
   
   
   (definition (resolve-declarations declarations)
-    (map (function (decl)
+    (map (lambda (decl)
            (resolve-binding decl))
          declarations))
   
   
   (definition (filter-access/compatibility-declarations declarations)
-    (collect-if (function (decl)
+    (collect-if (lambda (decl)
                   (and (let ((access (get-access~ decl)))
                          (or (eq? access 'public)
                              (and (eq? access 'protected) (memq? (get-propagation~ decl) '(virtual chained)))))
@@ -672,7 +672,7 @@
     (let* ((site (load-jml JazzWebsite-Site))
            (site (transform-jml site (new JazzWebsite-Transformation)))
            (pages (get-children~ site)))
-      (for-each (function (page)
+      (for-each (lambda (page)
                   (user-message "Rendering {a}..." (get-property~ page 'path))
                   (render-jazzwebsite-page page))
                 pages)
@@ -687,7 +687,7 @@
            (html (first-child~ page)))
       ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
       (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: (get-eol-encoding))
-        (function (printer)
+        (lambda (printer)
           (render~ renderer html printer)))))
   
   
@@ -721,7 +721,7 @@
         
         (define (render-text text)
           (let ((words (remove-empty-strings (split text " "))))
-            (for-each (function (word)
+            (for-each (lambda (word)
                         (let ((right (+ column (cardinality word))))
                           (cond ((>= right right-margin)
                                  (break))
@@ -736,7 +736,7 @@
             (print (upcase title))
             (paragraph)
             (with-margins left-margin #f
-              (function ()
+              (lambda ()
                 (render-children node)))))
         
         (define (render-paragraph node)
@@ -749,10 +749,10 @@
           (break))
         
         (define (render-node node)
-          (for-each (function (subnode)
+          (for-each (lambda (subnode)
                       (print "-")
                       (with-margins (+ left-margin 2) #f
-                        (function ()
+                        (lambda ()
                           (render subnode)
                           (break))))
                     (get-children~ node)))
@@ -857,7 +857,7 @@
       (create-directories~ dst)
       (let ((digests '()))
         (iterate-directory~ {Directory Jazz "lib" "jazz" "resources" "bitmaps"}
-          (function (file)
+          (lambda (file)
             (let ((name (get-name~ file))
                   (digest (digest-file (parse~ file) 'sha-1)))
               (user-message "Processing {a}..." name)
@@ -882,7 +882,7 @@
       (let ((grayscale (format "_grayscale_.{a}" extension))
             (disabled (format "{a}_.{a}" base extension)))
         (with-current-directory (parse~ directory)
-          (function ()
+          (lambda ()
             (unwind-protect
                 (begin
                   (image-convert (format "-fx G {a} {a}" name grayscale))
@@ -894,7 +894,7 @@
   
   (method (generate-all-disabled directory extensions)
     (iterate-directory~ directory
-      (function (file)
+      (lambda (file)
         (when (member? (get-extension~ file) extensions test: ci=?)
           (user-message "Generating disabled for {a}..." (get-name~ file))
           (generate-disabled file))))
@@ -903,7 +903,7 @@
   
   (method (delete-all-disabled directory extensions)
     (iterate-directory~ directory
-      (function (file)
+      (lambda (file)
         (when (and (member? (get-extension~ file) extensions test: ci=?)
                    (ends-with? (get-base~ file) "_"))
           (user-message "Deleting disabled {a}..." (get-name~ file))
@@ -928,7 +928,7 @@
     (let ((expander (new Template-Expander))
           (template {File Builder-Module "Templates" "Project.jazz"}))
       (call-with-output-file (parse~ {File Builder-Module "Templates" "Test.jazz"})
-        (function (output)
+        (lambda (output)
           (expand~ expander template Template-AList output))))
     (user-message "Done"))
   
@@ -1025,7 +1025,7 @@
       (insert-node~ dispatcher {} (list A A A))
       (insert-node~ dispatcher {} (list A A B))
       (let ((test
-             (function signature
+             (lambda signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test X X)
@@ -1044,7 +1044,7 @@
       (insert-node~ dispatcher {} (list Rect))
       (insert-node~ dispatcher {} (list Point))
       (let ((test
-             (function signature
+             (lambda signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test Object)
@@ -1060,7 +1060,7 @@
       (insert-node~ dispatcher {} (list))
       (insert-node~ dispatcher {} (list <javaint>))
       (let ((test
-             (function signature
+             (lambda signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test )
@@ -1138,7 +1138,7 @@
   (method (collect-maxes explorer)
     (let* ((maxes '())
            (update-maxes
-            (function (sizes)
+            (lambda (sizes)
               (set! maxes (if (null? maxes)
                               sizes
                             (map max maxes sizes))))))
@@ -1155,7 +1155,7 @@
   (method (tabulate-columns text explorer maxes)
     (let ((undoer (get-undoer~ text)))
       (with-atomic-undo~ undoer
-        (function ()
+        (lambda ()
           (while (enter-composite~ explorer)
             (let ((maxes maxes))
               (while (forward-expr~ explorer)
@@ -1184,9 +1184,9 @@
       (if (/= char #\-)
           (bell)
         (with-locked-update
-          (function ()
+          (lambda ()
             (delete-range~ text (new Range$Cell$ (new Cell start 0) (new Cell start (+ col 2))))
-            (for-each (function (row)
+            (for-each (lambda (row)
                         (remove-spaces~ text (new Cell row (paragraph-length~ text row))
                           keep: 'one))
                       (naturals start end))
@@ -1203,7 +1203,7 @@
   @wait
   (method (test-for-each-page)
     (for-each-page~ % 0 (+ (get-limit~ %) 1) 360
-     (function (page top bottom)
+     (lambda (page top bottom)
        (let ((t (get-bottom~ (get-row~ % top)))
               (b (get-top~ (get-row~ % bottom))))
          (debug (- b t))))))
@@ -1214,7 +1214,7 @@
     (message-box
       (list "Hello World"
             (list :bulleted "This message-box")
-            (list :bulleted indent: 2 "really" " " (list :hyperlink (function () (close-modal-dialog (function () (debug 'yo)))) "really") " " (list image: {Bitmap-Resource "BlueRed"}) " " (list highlight: 'Light-Red "really"))
+            (list :bulleted indent: 2 "really" " " (list :hyperlink (lambda () (close-modal-dialog (lambda () (debug 'yo)))) "really") " " (list image: {Bitmap-Resource "BlueRed"}) " " (list highlight: 'Light-Red "really"))
             (list :bulleted indent: 1 "rocks!"))
       sound: {}))
   
@@ -1223,7 +1223,7 @@
   (method (hide-paragraphs)
     (let ((text (get-focus)))
       (for-each-selected-paragraph~ text
-       (function (row paragraph)
+       (lambda (row paragraph)
          (hide~ paragraph)))))
 
   
@@ -1255,16 +1255,16 @@
   @wait
   (method (test-context)
     (with-execution-context
-      (function ()
+      (lambda ()
         (with-progress
-          (function (reporter)
+          (lambda (reporter)
             @wait
             (with-restart
-              (function ()
+              (lambda ()
                 (to-fix)))
-            (for-each (function (n)
+            (for-each (lambda (n)
                         (with-continue
-                          (function ()
+                          (lambda ()
                             (foo n))))
                       (naturals 0 10))
             (car 'a))
@@ -1281,7 +1281,7 @@
   @wait
   (method (foo n)
     (with-execution-node
-      (function ()
+      (lambda ()
         (goo n))
       title: "hello we are doing..."
       details: '("a" "b" "c")))
@@ -1290,7 +1290,7 @@
   @wait
   (method (goo n)
     (with-execution-node
-      (function ()
+      (lambda ()
         (hoo n))
       title: "goo"
       details: '("x" "y")))
@@ -1299,7 +1299,7 @@
   @wait
   (method (hoo n)
     (with-execution-node
-      (function ()
+      (lambda ()
         (car n))
       title: "hoo"))
 
@@ -1314,7 +1314,7 @@
     (set-parameter 'test 2)
     (new Thread
       context: self
-      execute: (function (thread)
+      execute: (lambda (thread)
                  (debug 'thread (get-parameter 'test))
                  (set-parameter 'test 3)
                  (debug 'thread (get-parameter 'test))))
@@ -1330,7 +1330,7 @@
   @wait
   (method (test)
     (with-log (new Log name: 'test file: {File Bin "Logs" "Test.jml"})
-      (function ()
+      (lambda ()
         (log-entry name: "hello")
         (log-entry name: "world"))))
   
@@ -1355,12 +1355,12 @@
   @wait
   (method (test)
     (with-log (new Log name: 'test file: {File Bin "Logs" "Test.jml"})
-      (function ()
+      (lambda ()
         (log-entry name: "hello")
         (log-entry name: "world")
         (log-properties (list :a 2 :b 3 :c 5) name: "test")
         (with-profile
-          (function (node)
+          (lambda (node)
             (+ 2 3))
           name: "resources"))))
 
@@ -1379,7 +1379,7 @@
   @wait
   (method (test-resources)
     (with-log (new Log name: "Resources" file: {File Bin "Logs" "Resources.jml"})
-      (function ()
+      (lambda ()
         (test-bitmap)
         (test-dc)
         (test-file-printer)
@@ -1400,7 +1400,7 @@
   @wait
   (method (test-bitmap)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Bitmap :dc (desktop-dc) width: 16 height: 16))
       name: "Bitmap"))
   
@@ -1408,7 +1408,7 @@
   @wait
   (method (test-image)
     (with-profile
-      (function (node)
+      (lambda (node)
         (load-image~ Image 'bitmap {Bitmap-Resource "Break"})
         (load-image~ Image 'icon {Icon-Resource "Jazz"} width: 16 height: 16)
         (load-image~ Image 'cursor {Cursor-Resource "Move"}))
@@ -1418,7 +1418,7 @@
   @wait
   (method (test-picture)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Picture))
       name: "Picture"))
   
@@ -1426,7 +1426,7 @@
   @wait
   (method (test-portfolio)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Portfolio))
       name: "Portfolio"))
   
@@ -1434,7 +1434,7 @@
   @wait
   (method (test-pseudo-handle)
     (with-profile
-      (function (node)
+      (lambda (node)
         (GetCurrentProcess))
       name: "Pseudo Handle"))
   
@@ -1442,7 +1442,7 @@
   @wait
   (method (test-region)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Region rect: {Rect 0 0 100 100}))
       name: "Region"))
   
@@ -1450,7 +1450,7 @@
   @wait
   (method (test-registry-key)
     (with-profile
-      (function (node)
+      (lambda (node)
         (let ((key1 (new Registry-Key key: HKEY_CLASSES_ROOT))
               (key2 (new Registry-Key key: HKEY_CURRENT_USER)))
           (open-key~ key1 "TypeLib")
@@ -1458,7 +1458,7 @@
           (open-key~ key1 "TypeLib"))
         (with-closed ((key (new Registry-Key key: HKEY_CLASSES_ROOT)))
           (with-profile
-            (function (node)
+            (lambda (node)
               (with-closed ((subkey (open-key~ key "TypeLib")))
                 ))
             name: "open-key")))
@@ -1468,7 +1468,7 @@
   @wait
   (method (test-socket)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Socket))
       name: "Socket"))
   
@@ -1476,10 +1476,10 @@
   @wait
   (method (test-stack)
     (with-node
-      (function (node)
+      (lambda (node)
         (log-profile name: 'before)
         (letrec ((proc
-                  (function (n)
+                  (lambda (n)
                     (if (= n 0)
                         (log-profile name: 'after)
                       (proc (- n 1))))))
@@ -1490,7 +1490,7 @@
   @wait
   (method (test-synchronizer)
     (with-profile
-      (function (node)
+      (lambda (node)
         (new Impulse)
         (new Mutex)
         (new Semaphore))
@@ -1500,7 +1500,7 @@
   @wait
   (method (test-user-name)
     (with-profile
-      (function (node)
+      (lambda (node)
         (get-system-user-name))
       name: "User Name"))
   
@@ -1534,7 +1534,7 @@
   (method (blend x)
     (pick-figure
       click:
-      (function (view pos)
+      (lambda (view pos)
         (set-alpha-blending~ (get-player~ view) x))))
   
   
@@ -1553,7 +1553,7 @@
         (let* ((designer (new Designer form: form))
                (output (saved-form~ designer #f 0 space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
-            (function ()
+            (lambda ()
               (set-selection~ text range)
               (insert-string~ text output)))))))
   
@@ -1569,7 +1569,7 @@
         (let* ((designer (new Designer form: form))
                (output (saved-form~ designer #t (+ 1 (length classes)) space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
-            (function ()
+            (lambda ()
               (set-selection~ text range)
               (insert-string~ text output)))))))
   
@@ -1584,7 +1584,7 @@
         (let* ((designer (new Designer form: form))
                (output (saved-form~ designer #f 0 space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
-            (function ()
+            (lambda ()
               (set-selection~ text range)
               (insert-string~ text output)))))))
 
@@ -1597,7 +1597,7 @@
   (method (clear-activities)
     (let* ((manager (get-activity-manager))
            (reporters (get-reporters~ manager)))
-      (for-each (function (reporter)
+      (for-each (lambda (reporter)
                   (unregister-activity~ manager reporter))
                 reporters)))
 
@@ -1620,10 +1620,10 @@
       (let* ((x 2)
              (z self)
              (proc
-              (function (n flag)
+              (lambda (n flag)
                 (let* ((y (+ x x))
                        (p
-                        (function ()
+                        (lambda ()
                           (let ((v y))
                             (break)
                             (message-box n)))))
@@ -1672,8 +1672,8 @@
         
         
         (method (foo list)
-          (for-each (function (x)
-                      (map (function (y)
+          (for-each (lambda (x)
+                      (map (lambda (y)
                              (car y))
                            (naturals 0 x)))
                     list))
@@ -1738,7 +1738,7 @@
         ((a)
          (f ((mode "1") (title (<-xml x)))
             (xml>>
-             (for-each (function (n)
+             (for-each (lambda (n)
                          (>>xml
                           (p (<-xml n))))
                        (cdr node)))))))
@@ -1767,7 +1767,7 @@
           (f
            (xml>>
             (for-each
-             (function (n)
+             (lambda (n)
                (>>xml
                 (p (<-xml n))))
              (children~ node)))))))))
@@ -1849,7 +1849,7 @@
   (method (test-activities)
     (new Activity
       context: self
-      execute: (function (activity)
+      execute: (lambda (activity)
                  (let ((max (+ 5 (random 50)))
                        (wait (+ .3 (/ (random 500) 1000.)))
                        (keep? (zero? (random 2)))
@@ -1883,7 +1883,7 @@
   (method (collect-extensions dir)
     (let ((extensions '()))
       (iterate-directory~ dir
-        (function (file)
+        (lambda (file)
           (let ((ext (get-extension~ file)))
             (when (and ext (not (member? ext extensions test: ci=?)))
               (set! extensions (cons (downcase ext) extensions))))))
@@ -1921,7 +1921,7 @@
     (let* ((table (get-aliases))
            (aliases (table-keys/values table)))
       (newline)
-      (for-each (function (info)
+      (for-each (lambda (info)
                   (bind (key . value) info
                     (format :console "{s} : {l}{%}" key value)))
                 (sort < aliases key: car)))

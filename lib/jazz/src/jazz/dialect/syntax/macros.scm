@@ -113,9 +113,9 @@
   (let ((body (cadr (source-code form-src)))
         (protection (cddr (source-code form-src))))
     (sourcify-if
-      `(dynamic-wind (function () #f)
-                     (function () ,body)
-                     (function () ,@protection))
+      `(dynamic-wind (lambda () #f)
+                     (lambda () ,body)
+                     (lambda () ,@protection))
       form-src)))
 
 

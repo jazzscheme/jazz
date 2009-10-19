@@ -70,11 +70,11 @@
                         `(set! ,variable ,(caddr (source-code binding)))
                       `(set! ,variable ,(cadr (source-code binding))))))
                 bindings)
-         (dynamic-wind (function () #f)
-                       (function () ,@body)
-                       (function () ,@(map (lambda (binding)
-                                             (let ((variable (source-code (car (source-code binding)))))
-                                               `(if ,variable
-                                                    (close~ ,variable))))
-                                           bindings))))
+         (dynamic-wind (lambda () #f)
+                       (lambda () ,@body)
+                       (lambda () ,@(map (lambda (binding)
+                                           (let ((variable (source-code (car (source-code binding)))))
+                                             `(if ,variable
+                                                  (close~ ,variable))))
+                                         bindings))))
       form-src))))

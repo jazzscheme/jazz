@@ -134,7 +134,7 @@
   
   (method override (print printer readably)
     (print-unreadable self printer
-      (function (printer)
+      (lambda (printer)
         (format printer "{?{a} ~}{?{s} ~}{a} {a}" name title position size))))
   
   
@@ -203,7 +203,7 @@
       (set-mouse-in {})
       (call-mouse-leave))
     (for-each-view
-      (function (view)
+      (lambda (view)
         (set-player~ view player))
       include-invisibles?: #t))
   
@@ -342,13 +342,13 @@
   
   (method (filter-inexistant-workspaces pref workspaces)
     (let ((names (map get-name~ (get-children~ pref))))
-      (collect-if (function (name)
+      (collect-if (lambda (name)
                     (memq? name names))
                   workspaces)))
   
   
   (method public (for-each-palette proc)
-    (for-each (function (child)
+    (for-each (lambda (child)
                 (cond ((is? child Splitter-View)
                        (for-each-palette~ child proc))
                       ((is? child Pad-View)
@@ -360,9 +360,9 @@
   
   (method public (find-palette type)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-palette
-          (function (palette)
+          (lambda (palette)
             (when (is? palette Host-View)
               (let ((view (get-guest~ palette)))
                 (when (is? view type)
@@ -371,7 +371,7 @@
   
   
   (method public (find-host guest-type)
-    (find-if (function (view)
+    (find-if (lambda (view)
                (and (is? view Host-View)
                     (is? (get-guest~ view) guest-type)))
              children))
@@ -384,7 +384,7 @@
   
   
   (method public (collect-guest guest-type)
-    (collect (function (view)
+    (collect (lambda (view)
                (when (is? view Host-View)
                  (let ((guest (get-guest~ view)))
                    (when (is? guest guest-type)
@@ -1024,7 +1024,7 @@
   
   (method public virtual (print-layout (from-preview?: from-preview? #f))
     (with-locked-update
-      (function ()
+      (lambda ()
         (let* ((client (current-document))
                (current (selected-workspace))
                (ws (new Page-Workspace name: 'page previous: current)))
@@ -1040,7 +1040,7 @@
 
   (method public virtual (print-preview (from-layout?: from-layout? #f))
     (with-locked-update
-      (function ()
+      (lambda ()
         (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" host-visible?: #f client: self))
                (pane (get-guest~ frame))
                (current (selected-workspace))
@@ -1065,8 +1065,8 @@
            (cols (fxceiling/ width page-width))
            (rows (fxceiling/ height page-height))
            (pages (new List-Factory)))
-      (for-each (function (row)
-                  (for-each (function (col)
+      (for-each (lambda (row)
+                  (for-each (lambda (col)
                               (let* ((h (+ (get-left~ area) (* col page-width)))
                                      (v (+ (get-top~ area) (* row page-height)))
                                      (page (new Rect h v (+ h page-width) (+ v page-height))))
@@ -1119,18 +1119,18 @@
     ;; the savefile dialog can disrupt the context (ex: popups closing)
     (let ((file (case where ((clipboard) {}) ((file) (create-temporary-file)))))
       (with-cursor :wait
-        (function ()
+        (lambda ()
           (let ((metafile))
             (with-closed ((picture (new Picture file: file)))
               (with-printing
-                (function ()
+                (lambda ()
                   (let* ((area (get-print-area context))
                          (lie (get-lie))
                          (lh (get-h~ lie))
                          (lv (get-v~ lie)))
                     (let ((content (offset-rect area lh lv)))
                       (with-clipper~ picture content
-                        (function ()
+                        (lambda ()
                           (paint-drawing picture context lh lv (get-left~ content) (get-top~ content) 1.0 #f)))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
@@ -1381,7 +1381,7 @@
               ;; it is important to update scrollbars first as this can change
               ;; the scrollee size and we do not want to layout twice for nothing
               (with-scrollee-locked
-                (function ()
+                (lambda ()
                   (update-scrollbars)))
               (layout-scrollee-content)))))))
   
@@ -1524,11 +1524,11 @@
     (let ((display-pos (get-display-position))
           (display-size (get-display-size))
           (needed
-            (function (start end context pos size force-direction center?)
+            (lambda (start end context pos size force-direction center?)
               (let* ((start-offset (- pos start))
                      (end-offset (- (+ pos size) end))
                      (big-range? (> (- end start) size))
-                     (proc (function (use-head?)
+                     (proc (lambda (use-head?)
                              (let ((context (if context (fxround (* size context)) 0)))
                                (if use-head? (+ start-offset context) (- end-offset context))))))
                 (cond
@@ -1632,7 +1632,7 @@
   
   (method public (for-each-view-reversed proc (include-invisibles?: include-invisibles? #f))
     (let ((proc
-            (function (child)
+            (lambda (child)
               (when (and (is? child View)
                          (or include-invisibles? (get-visible?~ child)))
                 (proc child)))))
@@ -1678,7 +1678,7 @@
   (method public (get-views (include-invisibles?: include-invisibles? #f))
     (reverse!
       (collect-if
-        (function (child)
+        (lambda (child)
           (and (is? child View)
                (or include-invisibles? (get-visible?~ child)))) (get-children))))
   
@@ -2327,7 +2327,7 @@
     (let ((start (mouse-position))
           (period (/ time Hovering-Steps)))
       (set! hover-history '())
-      (set! hover-pulse (new Pulse period (function () (check-hovering start)) delay: 0))))
+      (set! hover-pulse (new Pulse period (lambda () (check-hovering start)) delay: 0))))
   
   
   (method public (cancel-hovering)
@@ -2344,7 +2344,7 @@
         (let ((pos (mouse-position)))
           (if (< (length hover-history) Hovering-Steps)
               (set! hover-history (cons pos hover-history))
-            (if (every? (function (point)
+            (if (every? (lambda (point)
                           (< (distance point pos) Hovering-Tolerance))
                         hover-history)
                 (begin
@@ -2485,7 +2485,7 @@
   
   (method public (get-selected-element (class: class Radio-Button) (group: group {}))
     (let ((element
-            (find-if (function (child)
+            (find-if (lambda (child)
                        (and (is? child class)
                             (or (not group) (eq? (get-group~ child) group))
                             (get-selected?~ child)))
@@ -2496,7 +2496,7 @@
   
   (method public (set-selected-element name (class: class Radio-Button) (group: group {}))
     (let ((found? #f))
-      (for-each (function (child)
+      (for-each (lambda (child)
                   (when (and (is? child class)
                              (or (not group) (eq? (get-group~ child) group)))
                     (let ((selected? (eq? (get-name~ child) name)))
@@ -2509,7 +2509,7 @@
   
   
   (method public (unselect-elements (class: class Radio-Button) (group: group {}))
-    (for-each (function (child)
+    (for-each (lambda (child)
                 (when (and (is? child class)
                            (or (not group) (eq? (get-group~ child) group)))
                   (unselect~ child)))
@@ -2537,7 +2537,7 @@
   
   
   (method (all-invisible? menu)
-    (every? (function (item)
+    (every? (lambda (item)
               (not (get-visible?~ item)))
             (get-children~ menu)))
 
@@ -2801,7 +2801,7 @@
            (drag-over (get-view~ drag-drop))
            (drag-info (cons drag-start drag-over)))
       (if (neq? drag-start drag-over)
-          (let ((criteria (find-if (function (criteria) (accepts?~ criteria drag-info)) acceptance)))
+          (let ((criteria (find-if (lambda (criteria) (accepts?~ criteria drag-info)) acceptance)))
             (if criteria
                 (new Drop-Target handler: handler view: sender position: pos criteria: criteria)
               (current-drop~ sender drag-drop pos)))

@@ -210,7 +210,7 @@
     (let* ((current-directory? (get-shift?~ evt))
            (parent (selected-object))
            (file (with-import-directory current-directory? parent
-                   (function (directory)
+                   (lambda (directory)
                      (choose-file extensions: '(("Jazz Files" . "jazz")) directory: directory)))))
       (install-project file parent #f)))
   
@@ -315,7 +315,7 @@
   
   (method (edit-selection)
     (let ((objects (selected-objects)))
-      (for-each (function (object)
+      (for-each (lambda (object)
                   (typecase object
                     ((Workbench) (edit-workbench))
                     ((Project) (edit-project object))))
@@ -386,16 +386,16 @@
               (let ((package-file (new-file~ destination (list package ".package"))))
                 (repository-add-package repository (load-package repository #f package-name (parse~ package-file)))))
             (with-update-locked~ tree
-              (function ()
+              (lambda ()
                 (let ((project-file (new-file~ destination (append (list package "src" "project") package-parts (list (format "{a}-Manifest.jazz" project))))))
                   (let ((project-component (install-project project-file parent #f)))
                     (let ((src-directory (new-directory~ destination (list package "src"))))
-                      (let ((src-content (collect-if (function (dir)
+                      (let ((src-content (collect-if (lambda (dir)
                                                        (not (member? (get-name~ dir) '("project") test: ci=?)))
                                                      (get-content~ src-directory nodes?: #t leaves?: #f))))
                         (when (not-null? src-content)
                           (let ((src-component (import-pathname project-component src-directory project-component #t recursive?: #f)))
-                            (for-each (function (dir)
+                            (for-each (lambda (dir)
                                         (import-pathname project-component dir src-component #t))
                                       src-content)))))
                     (save~ (get-project-designer~ designer project-component))
@@ -483,9 +483,9 @@
     (let* ((parent (selected-object))
            (project (ascendant-project parent))
            (directory (with-import-directory current-directory? parent
-                        (function (directory)
+                        (lambda (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory filter: (function (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
+           (count (count-files~ directory filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
@@ -498,17 +498,17 @@
     (let* ((parent (selected-object))
            (project (ascendant-project parent))
            (files (with-import-directory current-directory? parent
-                    (function (directory)
+                    (lambda (directory)
                       (choose-file multiple-selection?: #t directory: directory)))))
       (import-pathnames project files parent)))
   
   
   (method protected (import-pathnames project pathnames parent)
     (when (validate-pathnames project pathnames)
-      (for-each (function (pathname)
+      (for-each (lambda (pathname)
                   (let ((component (import-pathname project pathname parent #f)))
                     (process-refresh~ designer component 'descendants)))
-                (sort nu<? pathnames key: (function (pathname) (get-name~ pathname))))
+                (sort nu<? pathnames key: (lambda (pathname) (get-name~ pathname))))
       (let ((count (length pathnames)))
         (user-message "{a} file{a} imported"
                       (format-cardinality count)
@@ -527,7 +527,7 @@
                (set-property~ designer subgroup 'directory pathname design-events?: (not descendant?))
                (when recursive?
                  (iterate-directory~ pathname
-                   (function (pathname)
+                   (lambda (pathname)
                      ;; not the cleanest test but good enough for now
                      (unless (and (not descendant?) (string=? (get-name~ pathname) "project"))
                        (import-pathname project pathname subgroup #t)))
@@ -536,7 +536,7 @@
                    sort?: #t
                    recursive?: #f)
                  (iterate-directory~ pathname
-                   (function (pathname)
+                   (lambda (pathname)
                      (import-pathname project pathname subgroup #t))
                    files?: #t
                    directories?: #f
@@ -577,7 +577,7 @@
   
   (method (default-import-directory object (must-exist?: must-exist? #t))
     (letrec ((default
-               (function (object)
+               (lambda (object)
                  (typecase object
                    ((Project)
                     {})
@@ -594,7 +594,7 @@
     (let ((default-directory (essay (not current-directory?) (default-import-directory object))))
       (if (and default-directory (exists?~ default-directory))
           (with-preserved-current-directory
-            (function ()
+            (lambda ()
               (proc default-directory)))
         (proc {}))))
   
@@ -630,16 +630,16 @@
           (error "Directory {s} not found" directory)
         (let ((fact (new List-Factory))
               (component-name
-               (function (component)
+               (lambda (component)
                  (->string (get-name~ component))))
               (pathname-name
-               (function (pathname)
+               (lambda (pathname)
                  (get-name~ pathname))))
           (letrec ((fold
-                    (function (component pathname path)
+                    (lambda (component pathname path)
                       (let ((children (get-children~ component))
                             (content (get-content~ pathname)))
-                        (merge-ordered (function (what key left right)
+                        (merge-ordered (lambda (what key left right)
                                          (let ((path (cons key path)))
                                            (case what
                                              ((:left) (put~ fact (list what path)))
@@ -659,10 +659,10 @@
                 (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
                        (tree (locate~ border 'tree))
                        (add
-                        (function (what path)
+                        (lambda (what path)
                           (let ((c0 (new Tree-Node title: (join path "/") image: {Bitmap-Resource "OpenedFolder"})))
                             (add-row~ tree children: (list c0 {} {} {}))))))
-                  (for-each (function (info)
+                  (for-each (lambda (info)
                               (bind (what path) info
                                 (add what (reverse path))))
                             out-of-synch)
@@ -677,10 +677,10 @@
   (method (validate-pathnames project pathnames)
     @convert-to-checking-conflicts-with-an-understanding-of-the-module-hierarchy
     (validate
-      (function (report)
+      (lambda (report)
         (letrec ((workbench (get-workbench))
                  (iterate
-                  (function (pathname)
+                  (lambda (pathname)
                     (typecase pathname
                       ((Directory)
                        (iterate-directory~ pathname iterate
@@ -703,7 +703,7 @@
     (let ((workbench (get-workbench))
           (already-defined (new List-Factory)))
       (iterate
-        (function (jazz-file)
+        (lambda (jazz-file)
           (put~ already-defined jazz-file)))
       (let ((already-defined (get-output~ already-defined)))
         (if (null? already-defined)
@@ -719,12 +719,12 @@
                  (text
                   `(,header
                     ()
-                    ,@(map (function (jazz-file)
+                    ,@(map (lambda (jazz-file)
                              (let ((project (get-project~ jazz-file))
                                    (action
-                                    (function ()
+                                    (lambda ()
                                       (close-modal-dialog
-                                        (function ()
+                                        (lambda ()
                                           (highlight-document-component jazz-file))))))
                                (list :bulleted
                                      (list :hyperlink action
@@ -750,9 +750,9 @@
   (method (activate-object object)
     (define (find-concrete-descendant)
       (continuation-capture
-        (function (return)
+        (lambda (return)
           (for-each-descendant~ object
-            (function (descendant level)
+            (lambda (descendant level)
               (when (and (is? descendant Project)
                          (concrete?~ descendant))
                 (continuation-return return descendant)))
@@ -798,7 +798,7 @@
          (for-each update (get-children~ object)))))
     
     (with-cursor :wait
-      (function ()
+      (lambda ()
         (let ((objects (selected-objects)))
           (for-each update objects)))))
   
@@ -806,7 +806,7 @@
   (method (update-project-catalog project)
     (let ((catalog (require-catalog~ project)))
       (post-catalog
-        (function ()
+        (lambda ()
           (activate~ catalog report?: #f)
           (update~ catalog)))))
     
@@ -865,7 +865,7 @@
   (method public (launch-selection)
     (let ((appl (get-application))
           (tree (get-tree)))
-      (for-each (function (component)
+      (for-each (lambda (component)
                   (typecase component
                     ((Project)
                      (debug-project component))
@@ -947,7 +947,7 @@
   
   (method (preprocess-file moniker file)
     (let ((proc
-           (function (thread)
+           (lambda (thread)
              (let ((project (get-project~ file)))
                (prepare-maps~ project)
                (prepare-directories~ project)
@@ -1010,7 +1010,7 @@
            (extensions   (list))
            (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: #f)))
       (with-cursor :wait
-        (function ()
+        (lambda ()
           (compare-trees~ (get-guest~ frame))
           (bring-to-front~ frame)
           (set-visible?~ frame #t)))))
@@ -1128,9 +1128,9 @@
     (let ((workbench (get-workbench)))
       (format :console "{%}active-project = {s}" (get-active-project))
       (format :console "{%}project-designers =")
-      (let* ((pairs (sort < (get-project-designers~ designer) key: (function (pair) (type-name (class-of (car pair))))))
+      (let* ((pairs (sort < (get-project-designers~ designer) key: (lambda (pair) (type-name (class-of (car pair))))))
              (more? (> (length pairs) 5)))
-        (for-each (function (pair)
+        (for-each (lambda (pair)
                     (bind (project . designer) pair
                       (format :console "{%}  {a} {a}" (type-name (class-of project)) designer)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1139,7 +1139,7 @@
       (format :console "{%}projects-table =")
       (let* ((pairs (sort < (table-keys/values (get-projects-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function (pair)
+        (for-each (lambda (pair)
                     (bind (name . project) pair
                       (format :console "{%}  {a} {a}" name project)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1148,7 +1148,7 @@
       (format :console "{%}categories-table =")
       (let* ((pairs (sort < (table-keys/values (get-categories-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function (pair)
+        (for-each (lambda (pair)
                     (bind (name . category) pair
                       (format :console "{%}  {a} {a}" name category)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1157,7 +1157,7 @@
       (format :console "{%}resources-table =")
       (let* ((pairs (sort < (table-keys/values (get-resources-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function (pair)
+        (for-each (lambda (pair)
                     (bind (name . resource) pair
                       (format :console "{%}  {a} {a}" name resource)))
                   (if more? (subseq pairs 0 5) pairs))

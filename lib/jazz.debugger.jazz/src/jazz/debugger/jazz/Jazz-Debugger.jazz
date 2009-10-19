@@ -81,7 +81,7 @@
   (method override (detach-processes)
     (validate-processes)
     (let ((local-process (get-local-process)))
-      (for-each (function (process-proxy)
+      (for-each (lambda (process-proxy)
                   (when (not (proxy=? process-proxy local-process))
                     (detach-process~ process-proxy)))
                 processes)))
@@ -89,7 +89,7 @@
   
   (method public (validate-processes)
     (let ((valid (new-queue)))
-      (for-each (function (process)
+      (for-each (lambda (process)
                   (if (live-process? process)
                       (enqueue valid process)
                     (close-process-debugger-resources (new Debugged-Process self process process))))
@@ -292,7 +292,7 @@
   
   (method public (inspect process-proxy info)
     (post-event
-      (function ()
+      (lambda ()
         (bind (serial presented more? mutable? kind) info
           (let ((title (format "Inspector - {a}" presented))
                 (client (cons info :remote)))
@@ -307,7 +307,7 @@
   (method (attach-process process-proxy cookie select?)
     (unless (member? process-proxy processes test: process=?)
       (execute-event
-        (function ()
+        (lambda ()
           (set! processes (append! processes (list process-proxy)))
           (attach-process~ (get-debugger-manager) (new Debugged-Process self process-proxy process-proxy) select?)
           (when cookie
@@ -322,7 +322,7 @@
         (when (and actual (remote-proxy? actual))
           (set-values~ actual (get-values~ process-proxy))
           (execute-event
-            (function ()
+            (lambda ()
               (update-processes~ (get-processes-view))
               (update-focused-process~ (find-status-bar~ (get-application)))))))))
 
@@ -330,7 +330,7 @@
   (method (detach-process process-proxy)
     (when (member? process-proxy processes test: process=?)
       (execute-event
-        (function ()
+        (lambda ()
           (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
           (set! processes (remove! process-proxy processes test: process=?))
           (let ((process (new Debugged-Process self process-proxy process-proxy))
@@ -346,13 +346,13 @@
   
   (method public (register-console process-proxy thread-proxy select?)
     (call-event
-      (function ()
+      (lambda ()
         (let ((process (new Debugged-Process self process-proxy process-proxy))
               (text (register-debugger-console process-proxy thread-proxy select?)))
           (let ((console (new Debugger-Resource
                            process
                            text
-                           (function ()
+                           (lambda ()
                              (unregister-debugger-console text)))))
             (register-debugger-resource process console)
             (object->serial console))))))
@@ -401,7 +401,7 @@
           (thread (new Debugged-Thread self process-proxy thread-proxy))
           (stop (new Debugged-Stop self process-proxy stop-proxy)))
       (execute-event
-        (function ()
+        (lambda ()
           (register-stop~ (get-debugger-manager) process thread stop)))))
   
   
@@ -410,5 +410,5 @@
           (thread (new Debugged-Thread self process-proxy thread-proxy))
           (stop (new Debugged-Stop self process-proxy stop-proxy)))
       (execute-event
-        (function ()
+        (lambda ()
           (unregister-stop~ (get-debugger-manager) process thread stop)))))))

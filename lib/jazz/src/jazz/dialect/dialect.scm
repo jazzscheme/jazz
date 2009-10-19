@@ -927,7 +927,6 @@
     (jazz.new-special-form 'c-function           jazz.walk-c-function)
     (jazz.new-special-form 'c-type               jazz.walk-c-type)
     (jazz.new-special-form 'c-definition         jazz.walk-c-definition)
-    (jazz.new-special-form 'function             jazz.walk-function)
     (jazz.new-macro-form   'specialize           jazz.expand-specialize)
     (jazz.new-special-form '%specialize          jazz.walk-specialize)
     (jazz.new-special-form 'parameterize         jazz.walk-parameterize)
@@ -1085,7 +1084,7 @@
                            (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
                              (jazz.new-method-reference method-declaration)))))))
                   ((and name (not self/class-name))
-                   (jazz.walk walker resume declaration environment `(function (object) (,symbol-src object))))
+                   (jazz.walk walker resume declaration environment `(lambda (object) (,symbol-src object))))
                   ((and (not name) self/class-name)
                    (jazz.walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
                   (else
@@ -2337,7 +2336,7 @@
                           (jazz.enqueue remotes `(method override (,name ,@parameters)
                                                    ,(let ((call (if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional))))
                                                       (if value-keyword
-                                                          `(proxy-value ,value-keyword (function () ,call))
+                                                          `(proxy-value ,value-keyword (lambda () ,call))
                                                         call)))))))))
                 body)
       (let* ((values-list (jazz.queue-list values))
@@ -2521,7 +2520,7 @@
            '())))
   
   (let ((out-list (generate-cotype-transform generate-out)))
-    `(function (coptr ,@(generate-cotype-transform generate-in))
+    `(lambda (coptr ,@(generate-cotype-transform generate-in))
                (let (,@(generate-cotype-transform generate-encode/enref))
                  (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
                    ,(if hresult?
@@ -3060,26 +3059,6 @@
            (let* ((,string-param pt)
                   (result (,ext-s-name ,@new-params)))
              (values result (WCHAR-string ,string-param))))))))
-
-
-;;;
-;;;; Function
-;;;
-
-
-(define (jazz.parse-function walker resume declaration form-src)
-  (let* ((rest (%%cdr (jazz.source-code form-src)))
-         (parameters (%%desourcify (%%car rest)))
-         (body (%%cdr rest))
-         (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-    (values parameters effective-body)))
-
-
-(define (jazz.walk-function walker resume declaration environment form-src)
-  (receive (parameters body) (jazz.parse-function walker resume declaration form-src)
-    (jazz.walk-lambda walker resume declaration environment
-      `(lambda ,parameters
-         ,@body))))
 
 
 

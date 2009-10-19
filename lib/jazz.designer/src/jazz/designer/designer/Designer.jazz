@@ -133,7 +133,7 @@
   
   (method public virtual (save (default-extension: default-extension {}) (extensions: extensions '()))
     (with-cursor :wait
-      (function ()
+      (lambda ()
         (let ((origin (get-origin~ form)))
           (if (not origin)
               (save-as default-extension: default-extension extensions: extensions)
@@ -186,7 +186,7 @@
       (set-class-form~ class form)
       (receive (frame text range) (find-location~ code-location)
         (with-update-locked~ text
-          (function ()
+          (lambda ()
             (set-selection~ text range)
             (when (eq? where :new-form)
               (insert-string~ text (format "{%}{%}{%}  ")))
@@ -204,7 +204,7 @@
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Unable to save to read-only file: {s}" file))
       (call-with-output-file (list path: (parse~ file) char-encoding: 'UTF-8 eol-encoding: (get-eol-encoding))
-        (function (printer)
+        (lambda (printer)
           (output-header (get-model-name~ form) printer)
           (format printer "{%}{%}")
           (print-to #f 0 printer)))))
@@ -212,7 +212,7 @@
 
   (method public (saved-form class-form? level (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (with-jazz-readtable
-      (function ()
+      (lambda ()
         (let ((printer (open-output-string)))
           (print-to class-form? level printer space-properties?: space-properties? align-name?: align-name?)
           (get-output-string printer)))))
@@ -240,7 +240,7 @@
            (old-name (get-name~ component))
            (old-presentation (get-presentation~ component)))
       (for-each-branch~ (either branch reference)
-        (function (branch)
+        (lambda (branch)
           (let ((form (get-client-form~ branch)))
             (when form
               (let* ((ancestry (component-ancestry component))
@@ -344,7 +344,7 @@
         (set-creator~ child reference)
         (add-to-index~ reference (get-name~ child) child)
         (when properties
-          (for-each-property (function (property value)
+          (for-each-property (lambda (property value)
                                (set-property child property value branch: branch design-events?: design-events?))
             properties))
         ;; the two sexpr where toggled so that the event occurs
@@ -370,7 +370,7 @@
                    (parent-form (find-form parent branch))
                    (form (find-form child branch))
                    (purge-references
-                     (function (form)
+                     (lambda (form)
                        (when form
                          (let* ((parent-ancestry (component-ancestry parent))
                                 (parent-form (owned-form form parent-ancestry)))
@@ -379,7 +379,7 @@
                                (when child-form
                                  (remove-child~ parent-form child-form)))))))))
               (for-each-branch~ effective
-                (function (branch)
+                (lambda (branch)
                   (purge-references (get-client-form~ branch))
                   (purge-references (get-restore-form~ branch))))
               (close~ child)
@@ -390,7 +390,7 @@
   
   
   (method public (remove-children parent (branch: branch #t) (design-events?: design-events? #t))
-    (for-each (function (child)
+    (for-each (lambda (child)
                 (remove-child child branch: branch design-events?: design-events?))
               (get-children~ parent)))
   
@@ -458,12 +458,12 @@
           (output (open-output-string))
           (parcels (package-components components branch: branch)))
       (format output "(")
-      (for-each (function (parcel)
+      (for-each (lambda (parcel)
                   (format output "~{{a} " (type-name (class-of parcel)))
                   (format output "{a} " (get-process-id~ parcel))
                   (format output "{a} " (get-object-id~ parcel))
                   (format output "(")
-                  (for-each (function (form)
+                  (for-each (lambda (form)
                               (print-form~ printer form 0 output))
                             (get-content~ parcel))
                   (format output ")")
@@ -492,8 +492,8 @@
   
   (method public (paste-parcel-properties parcel components (branch: branch #t) (design-events?: design-events? #t))
     (let ((forms (get-content~ parcel)))
-      (for-each (function (component)
-                  (for-each (function (form)
+      (for-each (lambda (component)
+                  (for-each (lambda (form)
                               (instantiate-properties component (get-properties~ form) branch design-events?))
                             forms))
                 components)
@@ -502,7 +502,7 @@
   
   (method public virtual (delete-components components (branch: branch #t) (design-events?: design-events? #t))
     (let ((components (remove-redundant-descendants components)))
-      (for-each (function (component)
+      (for-each (lambda (component)
                   (delete-component component branch: branch design-events?: design-events?))
                 components)))
   
@@ -517,8 +517,8 @@
     components
     ;; waiting for a bug fix in the tree selection update that this have uncovered
     @wait
-    (collect-if (function (component)
-                  (not (some? (function (target)
+    (collect-if (lambda (component)
+                  (not (some? (lambda (target)
                                 (and (neq? component target)
                                      (has-parent?~ component target)))
                               components)))
@@ -531,7 +531,7 @@
   
   
   (method (package-components components (branch: branch {}))
-    (map (function (component)
+    (map (lambda (component)
            (package-component component branch: branch))
          components))
   
@@ -540,7 +540,7 @@
     (let ((ancestry (component-ancestry component))
           (forms '()))
       (iterate-branch-spine~ reference
-        (function (owner form)
+        (lambda (owner form)
           (let ((form (owned-form form ancestry)))
             (when form
               (set! forms (cons form forms)))))
@@ -556,7 +556,7 @@
   
   
   (method public virtual (instantiate-parcels parcels parent (branch: branch #t) (name-resolution: name-resolution {}) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter {}))
-    (map (function (parcel)
+    (map (lambda (parcel)
            (when reporter
              (user-message~ reporter "Pasting {a}..." (get-master-name~ parcel)))
            (prog1 (instantiate-parcel parcel parent branch: branch name-resolution: name-resolution design-events?: design-events? descendant?: descendant?)
@@ -576,13 +576,13 @@
         (when conflict?
           (case name-resolution
             ((rename) (set! name (unique-name name domain))
-             (for-each (function (form)
+             (for-each (lambda (form)
                          (set-name~ form name))
                        forms))
             ((override) (let ((conflicts (name-conflicts (list name) brothers)))
                           (delete-components conflicts branch: branch))))))
       (let ((component (instantiate-form name name-resolution master parent branch design-events? descendant?)))
-        (for-each (function (form)
+        (for-each (lambda (form)
                     (instantiate-form name {} form parent branch design-events? descendant?))
                   (cdr forms))
         component)))
@@ -611,13 +611,13 @@
   
   
   (method public virtual (instantiate-properties component properties branch design-events?)
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (set-property component property value branch: branch design-events?: design-events? undoable?: #f))
                        properties))
 
   
   (method public virtual (instantiate-children component children branch design-events?)
-    (for-each (function (form)
+    (for-each (lambda (form)
                 (instantiate-form (get-name~ form) {} form component branch design-events? #t))
               children))
   
@@ -644,7 +644,7 @@
   
   
   (method public (verify-name-conflicts parcels destination)
-    (let* ((names (map (function (parcel) (get-master-name~ parcel)) parcels))
+    (let* ((names (map (lambda (parcel) (get-master-name~ parcel)) parcels))
            (children (get-children~ destination))
            (conflicts (name-conflicts names children)))
       (when conflicts
@@ -653,21 +653,21 @@
   
   (method (name-conflicts names children)
     (let ((equal (sort-predicate 'equal)))
-      (collect-if (function (child)
-                    (some? (function (name)
+      (collect-if (lambda (child)
+                    (some? (lambda (name)
                              (equal (get-name~ child) name))
                            names))
                   children)))
   
   
   (method protected virtual (confirm-name-resolution parcels children conflicts)
-    (if (every? (function (parcel)
+    (if (every? (lambda (parcel)
                   (let ((equal (sort-predicate 'equal))
                         (process-id (get-process-id~ parcel))
                         (component-id (get-object-id~ parcel))
                         (name (get-master-name~ parcel)))
                     (and (= process-id (GetCurrentProcessId))
-                         (some? (function (child)
+                         (some? (lambda (child)
                                   (and (= component-id (object->serial child))
                                        (equal name (get-name~ child))))
                                 children))))
@@ -684,7 +684,7 @@
   (method (present-conflicts header conflicts)
     (let ((fact (new List-Factory)))
       (put~ fact header)
-      (for-each (function (conflict)
+      (for-each (lambda (conflict)
                   (put~ fact (list :bulleted (->string (get-name~ conflict)))))
                 conflicts)
       (get-output~ fact)))
@@ -728,14 +728,14 @@
   
 
   (method (embed-form form ancestry)
-    (for-each (function (cpn)
+    (for-each (lambda (cpn)
                 (let ((children (get-children~ form))
                       (cpn-form (get-form~ cpn)))
                   (if (not cpn-form)
                       (embed-new-form form {})
                     (if (memq? cpn-form children)
                         (set! form cpn-form)
-                      (let ((restore-form (find-in children cpn key: (function (form) (essay (is? form Restore-Form) (get-component~ form))))))
+                      (let ((restore-form (find-in children cpn key: (lambda (form) (essay (is? form Restore-Form) (get-component~ form))))))
                         (if restore-form
                             (set! form restore-form)
                           (let ((name (get-name~ cpn)))
@@ -780,9 +780,9 @@
   (method public (find-owner component (property {}))
     (let ((ancestry (component-ancestry component)))
       (continuation-capture
-        (function (return)
+        (lambda (return)
           (iterate-branch-spine~ reference
-            (function (owner form)
+            (lambda (owner form)
               (when form
                 (let ((form (owned-form form ancestry)))
                   (when (and form
@@ -798,8 +798,8 @@
       (let ((lower (get-installed-branches~ (either branch reference)))
             (ancestry (component-ancestry component)))
         (continuation-capture
-          (function (return)
-            (for-each (function (branch)
+          (lambda (return)
+            (for-each (lambda (branch)
                         (let ((client-form (get-client-form~ branch)))
                           (when client-form
                             (let ((form (owned-form client-form ancestry)))
@@ -811,8 +811,8 @@
   
   (method (owned-form form ancestry)
     (continuation-capture
-      (function (return)
-        (for-each (function (cpn)
+      (lambda (return)
+        (for-each (lambda (cpn)
                     (let ((children (get-children~ form))
                           (cpn-form (get-form~ cpn)))
                       (if (not cpn-form)
@@ -880,37 +880,37 @@
   
   
   (method (fire-name-change component name old-name undoable?)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-name-change~ designer component name old-name undoable?))
               (get-designers~ component)))
   
   
   (method (fire-presentation-change component presentation old-presentation undoable?)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-presentation-change~ designer component presentation old-presentation undoable?))
               (get-designers~ component)))
   
   
   (method (fire-property-change branch component property value undoable?)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-property-change~ designer branch component property value undoable?))
               (get-designers~ component)))
   
   
   (method (fire-child-add child parent descendant?)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-child-add~ designer child parent descendant?))
               (get-designers~ parent)))
   
   
   (method (fire-child-remove child parent)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-child-remove~ designer child parent))
               (get-designers~ child)))
   
   
   (method (fire-send-before child parent target)
-    (for-each (function (designer)
+    (for-each (lambda (designer)
                 (process-send-before~ designer child parent target))
               (get-designers~ child)))
   
@@ -931,7 +931,7 @@
   (method (process-name-change component name old-name undoable?)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :name-change self component: component name: name old-name: old-name undoable?: undoable?)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -939,7 +939,7 @@
   (method (process-presentation-change component presentation old-presentation undoable?)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :presentation-change self component: component presentation: presentation old-presentation: old-presentation undoable?: undoable?)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -947,7 +947,7 @@
   (method (process-property-change branch component property value undoable?)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :property-change self branch: branch component: component property: property value: value undoable?: undoable?)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -955,7 +955,7 @@
   (method (process-child-add child parent descendant?)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :child-add self child: child parent: parent descendant?: descendant?)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -963,7 +963,7 @@
   (method (process-child-remove child parent)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :child-remove self child: child parent: parent)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -971,7 +971,7 @@
   (method (process-send-before child parent target)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :send-before self child: child parent: parent target: target)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
@@ -979,13 +979,13 @@
   (method public (process-refresh component what)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :refresh self component: component what: what)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
   
   (method public (process-user-event event)
     (when (not-null? listeners)
-      (for-each (function (listener)
+      (for-each (lambda (listener)
                   (invoke~ listener self event))
                 listeners)))))

@@ -87,12 +87,12 @@
   
   (method override (print output detail)
     (print-unreadable self output
-      (function (output)
+      (lambda (output)
         (system-format output "{s}" (get-name))))))
 
 
 (definition public (typed? obj category-name)
-  (some? (function (category)
+  (some? (lambda (category)
            (eq? (get-name~ category) category-name))
          (get-ancestors~ (class-of obj))))
 
@@ -173,7 +173,7 @@
   
   (method override (print output detail)
     (print-unreadable self output
-      (function (output)
+      (lambda (output)
         (system-format output "{s}" (get-name))))))
 
 
@@ -199,7 +199,7 @@
 ;; naive draft
 (definition public (object-method object name)
   (let ((impl (get-implementation~ (find-field (class-of object) name))))
-    (function rest
+    (lambda rest
       (apply impl object rest))))
 
 
@@ -1021,7 +1021,7 @@
 
 (definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
   (let ((min (car lst)))
-    (for-each (function (object)
+    (for-each (lambda (object)
                 (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
                   (set! min object)))
               (cdr lst))
@@ -1030,7 +1030,7 @@
 
 (definition public (maximum lst <pair> (key: key {}) (compare: compare compare))
   (let ((max (car lst)))
-    (for-each (function (object)
+    (for-each (lambda (object)
                 (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
                   (set! max object)))
               (cdr lst))
@@ -1067,10 +1067,10 @@
 (definition public (contiguous-range lst)
   (when (not-null? lst)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (let* ((first (car lst))
                (second first))
-          (for-each (function (n)
+          (for-each (lambda (n)
                       (if (= n (+ second 1))
                           (set! second n)
                         (continuation-return return {})))
@@ -1414,7 +1414,7 @@
   
   
   (method override (copy-object deep? <bool>)
-    (let* ((subcopy (if deep? (function (x) (subcopy x deep?)) identity))
+    (let* ((subcopy (if deep? (lambda (x) (subcopy x deep?)) identity))
            (len (cardinality self))
            (new-seq (allocate-sequence~ (class-of self) len)))
       (let (iter (i <fx> 0))
@@ -1464,7 +1464,7 @@
   (method override (object-capitalize)
     (let ((break? #t))
       (accumulate self
-                  (function (object)
+                  (lambda (object)
                     (if (alphanumeric? object)
                         (if (not break?)
                             object
@@ -1680,7 +1680,7 @@
 (definition public (collect-sections lst (separator: separator {}) (test: test {}))
   (let ((sections (new List-Factory))
         (section (new List-Factory)))
-    (for-each (function (value)
+    (for-each (lambda (value)
                 (if (apply-test test separator value)
                     (begin
                       (put~ sections (get-output~ section))
@@ -1722,16 +1722,16 @@
       (when start
         (set-position~ iterator start))
       (continuation-capture
-        (function (exit)
+        (lambda (exit)
           (iterate iterator
-                   (function (object)
+                   (lambda (object)
                      (when (apply-test test target (apply-key key object))
                        (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
           {})))))
 
 
 (definition (list-find list target key test start)
-  (let ((key (if (not key) (function (x) x) key))
+  (let ((key (if (not key) (lambda (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iter (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
@@ -1756,16 +1756,16 @@
       (when start
         (set-position~ iterator start))
       (continuation-capture
-        (function (exit)
+        (lambda (exit)
           (iterate iterator
-                   (function (object)
+                   (lambda (object)
                      (when (apply-test test target (apply-key key object))
                        (continuation-return exit object))))
           {})))))
 
 
 (definition (list-find-in list target key test start)
-  (let ((key (if (not key) (function (x) x) key))
+  (let ((key (if (not key) (lambda (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iter (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
@@ -1781,9 +1781,9 @@
     (when start
       (set-position~ iterator start))
     (continuation-capture
-      (function (exit)
+      (lambda (exit)
         (iterate iterator
-                 (function (object)
+                 (lambda (object)
                    (cond ((apply-test test open (apply-key key object))
                           (increase! count))
                          ((apply-test test close (apply-key key object))
@@ -1800,12 +1800,12 @@
   (if (and (null/pair? seq) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
     (continuation-capture
-      (function (exit)
+      (lambda (exit)
         (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
           (when start
             (set-position~ iterator start))
           (iterate iterator
-                   (function (object)
+                   (lambda (object)
                      (when (predicate (apply-key key object))
                        (case return
                          ((item) (continuation-return exit object))
@@ -1820,12 +1820,12 @@
     (if (and (string? seq) (not start))
         (string-find seq target reversed?)
       (continuation-capture
-        (function (exit)
+        (lambda (exit)
           (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
             (when start
               (set-position~ iterator start))
             (iterate iterator
-                     (function (object)
+                     (lambda (object)
                        (when (apply-test test target (apply-key key object))
                          (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
             {}))))))
@@ -1833,11 +1833,11 @@
 
 (definition public (skip predicate <procedure> seq <Object> (key: key {}) (start: start 0))
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (let ((iterator (iterate-sequence seq)))
         (set-position~ iterator start)
         (iterate iterator
-                 (function (object)
+                 (lambda (object)
                    (when (not (predicate (apply-key key object)))
                      (continuation-return return (- (get-position~ iterator) 1)))))
         (get-position~ iterator)))))
@@ -1845,9 +1845,9 @@
 
 (definition public (some? predicate <procedure> seq <Object> (key: key {}))
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (iterate (iterate-sequence seq)
-               (function (object)
+               (lambda (object)
                  (when (predicate (apply-key key object))
                    (continuation-return return #t))))
       #f)))
@@ -1855,9 +1855,9 @@
 
 (definition public (every? predicate <procedure> seq <Object> (key: key {}))
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (iterate (iterate-sequence seq)
-               (function (object)
+               (lambda (object)
                  (when (not (predicate (apply-key key object)))
                    (continuation-return return #f))))
       #t)))
@@ -1869,7 +1869,7 @@
     (let ((fact (new List-Factory)))
       (let* ((first (car rest))
              (list? (null/pair? first)))
-        (for-each (function (sequence)
+        (for-each (lambda (sequence)
                     (put-sequence~ fact sequence))
                   rest)
         (let ((output (get-output~ fact)))
@@ -1884,7 +1884,7 @@
 
 (definition public (subset? set1 set2)
   (or (null? set1)
-      (every? (function (element)
+      (every? (lambda (element)
                 (memv? element set2))
               set1)))
 
@@ -1899,9 +1899,9 @@
     (let ((first (car lst))
           (dst (new List-Factory)))
       (put-sequence~ dst first)
-      (for-each (function (set)
+      (for-each (lambda (set)
                   (iterate (iterate-sequence set)
-                           (function (object)
+                           (lambda (object)
                              (when (not (member? object (get-output~ dst) test: test))
                                (put~ dst object)))))
                 (cdr lst))
@@ -1919,8 +1919,8 @@
           (lst (cdr lst))
           (dst (new List-Factory)))
       (iterate (iterate-sequence first)
-               (function (object)
-                 (when (every? (function (set)
+               (lambda (object)
+                 (when (every? (lambda (set)
                                  (member? object set test: test))
                                lst)
                    (put~ dst object))))
@@ -1932,7 +1932,7 @@
       x
     (let ((dst (new List-Factory)))
       (iterate (iterate-sequence x)
-               (function (object)
+               (lambda (object)
                  (when (not (member? object y test: test))
                    (put~ dst object))))
       (coerce (get-output~ dst) (class-of x)))))
@@ -1946,7 +1946,7 @@
 (definition public (remove target <Object> seq <Object> (test: test eqv?))
   (let ((dst (new List-Factory)))
     (iterate (iterate-sequence seq)
-             (function (object)
+             (lambda (object)
                (when (not (apply-test test object target))
                  (put~ dst object))))
     (coerce (get-output~ dst) (class-of seq))))
@@ -1974,7 +1974,7 @@
 (definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
   (let ((result '())
         (trailing? #t))
-    (for-each (function (element)
+    (for-each (lambda (element)
                 (unless (and trailing? (apply-test test target element))
                   (set! result (cons element result))
                   (set! trailing? #f)))
@@ -1997,7 +1997,7 @@
 (definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
   (let ((dst (new List-Factory)))
     (iterate (iterate-sequence seq)
-             (function (object)
+             (lambda (object)
                (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
                  (put~ dst object))))
     (coerce (get-output~ dst) (class-of seq))))
@@ -2008,7 +2008,7 @@
 
 
 (definition public (remove-empty-strings seq <Object>)
-  (collect-if (function (obj)
+  (collect-if (lambda (obj)
                 (not (empty-string? obj)))
               seq))
 
@@ -2019,13 +2019,13 @@
 
 (definition public (trim-whitespace seq)
   (remove-enclosing {} seq
-    test: (function (c ignore)
+    test: (lambda (c ignore)
             (whitespace? c))))
 
 
 (definition public (mismatch target <Object> seq <Object> (test: test equal?))
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (let ((srce (iterate-sequence seq))
             (targ (iterate-sequence target))
             (pos 0))
@@ -2043,7 +2043,7 @@
       '()
     (let ((ref (car sequences))
           (min <Object> {}))
-      (for-each (function (object)
+      (for-each (lambda (object)
                   (let ((n (mismatch object ref test: test)))
                     (when (and n (or (not min) (< n min)))
                       (set! min n))))
@@ -2055,7 +2055,7 @@
 
 (definition public (prefix? target <Object> seq <Object>)
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (let ((targ (iterate-sequence target))
             (iter (iterate-sequence seq)))
         (while (and (not (done?~ targ)) (not (done?~ iter)))
@@ -2264,7 +2264,7 @@
                (join-strings sequences separator)
              (let ((dst (new List-Factory)))
                (put~ dst first)
-               (for-each (function (seq)
+               (for-each (lambda (seq)
                            (put~ dst separator)
                            (put~ dst seq))
                          (cdr sequences))
@@ -2274,7 +2274,7 @@
 (definition public (inject sequence inserted)
   (let ((fact (new List-Factory))
         (first? #t))
-    (for-each (function (element)
+    (for-each (lambda (element)
                 (if first?
                     (set! first? #f)
                   (put-sequence~ fact inserted))
@@ -2302,7 +2302,7 @@
     (while (not (done?~ src))
       (let ((object (get-next~ src))
             (found? #f))
-        (for-each (function (replacement)
+        (for-each (lambda (replacement)
                     (unless found?
                       (bind (old . new) replacement
                         (when (apply-test test old (apply-key key object))
@@ -2376,7 +2376,7 @@
       (let* ((min (minimum (map car (remove-nils scan)) key: key :compare compare))
              (min-key (apply-key key min))
              (res (new List-Factory)))
-        (for-each-pair (function (pair)
+        (for-each-pair (lambda (pair)
                          (let* ((list (car pair))
                                 (object (car list)))
                            (if (or (not object)
@@ -2394,14 +2394,14 @@
 
 (definition public (partition sequence (key: key identity) (test: test {}))
   (let ((result '()))
-    (for-each (function (element)
+    (for-each (lambda (element)
                 (let* ((category (key element))
                        (pair (associate category result test: test)))
                   (if (not pair)
                       (set! result (cons (cons category (list element)) result))
                     (set-cdr! pair (cons element (cdr pair))))))
               sequence)
-    (reverse! (map (function (partition)
+    (reverse! (map (lambda (partition)
                      (bind (key . elements) partition
                        (cons key (reverse! elements))))
                    result))))
@@ -2410,7 +2410,7 @@
 (definition public (partition-binary lst predicate)
   (let ((yes '())
         (no '()))
-    (for-each (function (elem)
+    (for-each (lambda (elem)
                 (if (predicate elem)
                     (set! yes (cons elem yes))
                   (set! no (cons elem no))))
@@ -2446,7 +2446,7 @@
 
 
 (definition (find-if-list predicate list key start returned)
-  (let ((key (if (not key) (function (x) x) key)))
+  (let ((key (if (not key) (lambda (x) x) key)))
     (let (iter (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
              ((predicate (key (car rest)))
@@ -2562,7 +2562,7 @@
   
   
   (method override (copy-object deep?)
-    (map (function (x)
+    (map (lambda (x)
            (if deep?
                (subcopy x deep?)
              x))
@@ -2711,7 +2711,7 @@
 
 (definition public (append! . rest)
   (let ((queue (new-queue)))
-    (for-each (function (lst)
+    (for-each (lambda (lst)
                 (enqueue-list queue lst))
               rest)
     (queue-list queue)))
@@ -2719,7 +2719,7 @@
 
 (definition public (position element lst)
   (letrec ((position
-             (function (lst pos)
+             (lambda (lst pos)
                (cond ((null? lst)
                       #f)
                      ((eqv? (car lst) element)
@@ -2944,7 +2944,7 @@
 
 (definition public (map-property proc lst)
   (let ((queue (new-queue)))
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (enqueue queue (proc property value)))
                        lst)
     (queue-list queue)))
@@ -2958,9 +2958,9 @@
   (if (null? lst)
       lst
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (let ((first (apply-key key (car lst))))
-          (for-each (function (object)
+          (for-each (lambda (object)
                       (let ((value (apply-key key object)))
                         (unless (apply-test test first value)
                           (continuation-return return {}))))
@@ -2970,7 +2970,7 @@
 
 (definition public (sort-property-list prop-list <Object>)
   (let* ((factory (new List-Factory))
-         (proc    (function (property value)
+         (proc    (lambda (property value)
                     (put~ factory (list property value))))
          (alist   (begin
                     (for-each-property proc prop-list)
@@ -3142,7 +3142,7 @@
 
   (method override (print printer readably)
     (print-unreadable self printer
-      (function (printer)
+      (lambda (printer)
         (system-format printer "{a} entries"
           (table-length self))))))
 
@@ -3162,7 +3162,7 @@
 (definition public (table-keys table)
   (let ((list '()))
     (iterate-table table
-      (function (key value)
+      (lambda (key value)
         (set! list (cons key list))))
     list))
 
@@ -3170,7 +3170,7 @@
 (definition public (table-values table)
   (let ((list '()))
     (iterate-table table
-      (function (key value)
+      (lambda (key value)
         (set! list (cons value list))))
     list))
 
@@ -3178,14 +3178,14 @@
 (definition public (table-keys/values table)
   (let ((list '()))
     (iterate-table table
-      (function (key value)
+      (lambda (key value)
         (set! list (cons (cons key value) list))))
     list))
 
 
 (definition public (table-load table file error-on-duplicates?)
   (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-    (function (reader)
+    (lambda (reader)
       (let (iterate)
         (let ((name (read reader))
               (object (read reader)))
@@ -3234,7 +3234,7 @@
 (definition public (symbolize-properties properties <Object>)
   (let ((fact (new List-Factory)))
     (for-each-property
-      (function (property value)
+      (lambda (property value)
         (put~ fact (symbolize-property property))
         (put~ fact value))
       properties)
@@ -3250,7 +3250,7 @@
 (definition public (keywordize-properties properties <Object>)
   (let ((fact (new List-Factory)))
     (for-each-property
-      (function (property value)
+      (lambda (property value)
         (put~ fact (keywordize-property property))
         (put~ fact value))
       properties)
@@ -3413,7 +3413,7 @@
 
 (definition public (wi= s1 <Object> s2 <Object>)
   (continuation-capture
-    (function (return)
+    (lambda (return)
       (let* ((n1 <fx> 0)
              (n2 <fx> 0)
              (l1 <fx> (cardinality s1))
@@ -3456,7 +3456,7 @@
       name
     (let* ((common-prefix (if (not separator) name (append name separator)))
            (common-length (cardinality common-prefix))
-           (suffixes (collect (function (string)
+           (suffixes (collect (lambda (string)
                                 (when (starts-with? string common-prefix)
                                   (subseq string common-length)))
                               domain))
@@ -3472,7 +3472,7 @@
 
 
 (definition public (remove-numeric-suffix string)
-  (let ((pos (find-if (function (c) (not (numeric? c))) string reversed?: #t return: 'position)))
+  (let ((pos (find-if (lambda (c) (not (numeric? c))) string reversed?: #t return: 'position)))
     (if (not pos)
         ""
       (subseq string 0 (+ pos 1)))))
@@ -3571,16 +3571,16 @@
 
 (definition public (present-object object)
   (with-exception-catcher
-    (function (exc)
+    (lambda (exc)
       ;; add the exception reason somehow!?
       (let ((class-string
               (with-exception-catcher
-                (function (exc)
+                (lambda (exc)
                   "")
-                (function ()
+                (lambda ()
                   (string-append " " (symbol->string (identifier-name (type-name (class-of object)))))))))
         (string-append "#<unprintable" class-string " #" (number->string (object->serial object)) ">")))
-    (function ()
+    (lambda ()
       (->string object :reader))))
 
 
@@ -3652,7 +3652,7 @@
     (let ((mutex (make-mutex name)))
       (mutex-lock! mutex)
       (thread-write thread
-        (function ()
+        (lambda ()
           (unwind-protect
               (thunk)
             (mutex-unlock! mutex))))
@@ -3675,7 +3675,7 @@
         (mutex-lock! mutex)
         (mutex-specific-set! mutex thread-call-noresult)
         (thread-write thread
-          (function ()
+          (lambda ()
             (unwind-protect
                 (mutex-specific-set! mutex (thunk))
               (mutex-unlock! mutex))))
@@ -3800,7 +3800,7 @@
   
   (method override (print output detail)
     (print-unreadable self output
-      (function (output)
+      (lambda (output)
         (system-format output "{s} {s}" size content))))
   
   
@@ -4084,7 +4084,7 @@
   (car content))
 
 (definition public undocumented (iterate-u8-content content proc)
-  (for-each (function (chunk)
+  (for-each (lambda (chunk)
               (bind (u8vector . size) chunk
                 (proc u8vector size)))
             (cdr content)))
@@ -4105,7 +4105,7 @@
 
 (definition public undocumented (write-u8-content content port)
   (iterate-u8-content content
-    (function (u8vector size)
+    (lambda (u8vector size)
       (write-subu8vector u8vector 0 size port))))
 
 
@@ -4144,13 +4144,13 @@
 
 (definition public (read-string-content string)
   (call-with-input-string string
-    (function (reader)
+    (lambda (reader)
       (read-until eof-object? reader))))
 
 
 (definition public (read-delimited-string string char)
   (call-with-input-string string
-    (function (reader)
+    (lambda (reader)
       (let ((fact (new List-Factory)))
         (let (iterate)
           (let ((lst (read-delimited reader "delimited" char #t)))
@@ -4412,7 +4412,7 @@
 
 
 (definition public inline (compose f g)
-  (function (x)
+  (lambda (x)
     (f (g x))))
 
 
@@ -4445,7 +4445,7 @@
         (loop (for n from start below (+ start size))
               (do (write-char (string-ref sequence n) output)))
       (print-unreadable self output
-        (function (output)
+        (lambda (output)
           (system-format output "{s} {s} {s}" sequence start size)))))
   
   
@@ -4521,7 +4521,7 @@
       (if (eq? detail :human)
           (print~ str output detail)
         (print-unreadable self output
-          (function (output)
+          (lambda (output)
             (system-format output "{s}" str))))))
   
   

@@ -180,10 +180,10 @@
     (add-save-environment-listener self)
     (when profile
       (with-safe-execution "initing the profile"
-        (function ()
+        (lambda ()
           (init~ profile))
         continue-handler:
-        (function (err)
+        (lambda (err)
           )))
     (reload-session)
     (remove-splash-screen))
@@ -204,10 +204,10 @@
       (select-foreground-window (get-handle~ toplevel)))
     (when profile
       (with-safe-execution "finalizing the profile"
-        (function ()
+        (lambda ()
           (finalize~ profile))
         continue-handler:
-        (function (err)
+        (lambda (err)
           ))))
   
   
@@ -493,11 +493,11 @@
   
   (method (create-profile)
     (with-safe-execution "creating the profile"
-      (function ()
+      (lambda ()
         (set! profile (new (load-profile-class profile-class))))
       continue-text: (list (format "to bypass this problem by using a generic profile class"))
       continue-handler:
-      (function (err)
+      (lambda (err)
         (set! profile (new Me)))))
 
 
@@ -526,14 +526,14 @@
   (method public (confirm-all-close)
     (let ((stage (get-stage))
           (frame-dependent-document?
-           (function (frame)
+           (lambda (frame)
              (and (is? frame Host-View)
                   (let ((guest (get-guest~ frame)))
                     (and (is? guest Document)
                          (let ((controller (get-controller~ guest)))
                            (dependent-document?~ controller))))))))
       (when stage
-        (for-each (function (frame)
+        (for-each (lambda (frame)
                     (unless (frame-dependent-document? frame)
                       (confirm-close~ frame)))
                   (get-children~ stage)))))
@@ -635,7 +635,7 @@
   
   
   (method public (call-exit-listeners)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (prepare-exit~ listener))
               exit-listeners))
 
@@ -660,14 +660,14 @@
     ;; Necessary because verify-reloads can pop a dialog
     (if (mouse-clicked?)
         (set-delayed-mouse-action
-          (function ()
+          (lambda ()
             (verify-reloads)))
       (verify-reloads)))
   
   
   (method public (verify-reloads)
     (when stage
-      (for-each (function (view)
+      (for-each (lambda (view)
                   (when (is? view Frame-Host)
                     (let ((guest (get-guest~ view)))
                       (when (is? guest Document)
@@ -699,7 +699,7 @@
   
   
   (method public (call-save-environment-listeners)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (save-environment~ listener))
               save-environment-listeners))
   
@@ -737,7 +737,7 @@
     @wait
     (let ((stage (get-stage)))
       (when stage
-        (for-each (function (frame)
+        (for-each (lambda (frame)
                     (when (is? frame Host-Frame)
                       (let ((guest (get-guest~ frame)))
                         (when guest
@@ -778,7 +778,7 @@
   (method package (process-focus-change new-focus)
     (when focus-listeners
       (let ((evt (new Focus-Event :focus-change self new-focus)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   focus-listeners)))
     (update-focus-actions))
@@ -840,7 +840,7 @@
     (set! selected new-selected)
     (when (and selected-listeners (not (exiting-process?)))
       (let ((evt (new Selected-Event :selected-change self owner old-selected new-selected force?: force?)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   selected-listeners))))
 
@@ -861,7 +861,7 @@
   (method package (process-application-event category kind sender . properties)
     (let ((listeners (get-application-listeners category)))
       (let ((evt (apply new Application-Event kind sender properties)))
-        (for-each (function (listener)
+        (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
   
@@ -968,8 +968,8 @@
   
   (method (register-actions-shortcuts old-actions new-actions)
     (when shortcut-table
-      (for-each (function (actions)
-                  (for-each (function (action-item)
+      (for-each (lambda (actions)
+                  (for-each (lambda (action-item)
                               (when (get-visible?~ action-item)
                                 (let ((shortcut (get-shortcut~ action-item)))
                                   ;; the second test is necessary because bindings can be changed on-the-fly in the ide
@@ -977,8 +977,8 @@
                                     (table-remove! shortcut-table shortcut action-item)))))
                             (get-children~ actions)))
                 old-actions)
-      (for-each-reversed (function (actions)
-                           (for-each (function (action-item)
+      (for-each-reversed (lambda (actions)
+                           (for-each (lambda (action-item)
                                        (when (get-visible?~ action-item)
                                          (let ((shortcut (get-shortcut~ action-item)))
                                            (when shortcut
@@ -1005,7 +1005,7 @@
   
   (method public (get-bound-actions shortcut)
     (define (filter-enabled actions)
-      (collect-if (function (action)
+      (collect-if (lambda (action)
                     (get-enabled?~ action))
                   actions))
     
@@ -1041,7 +1041,7 @@
       (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings)))
     
     (with-safe-execution "loading the bindings"
-      (function ()
+      (lambda ()
         (let ((bindings (load-bindings)))
           (set-bindings/designer bindings)
           (let ((active (either (get-active-bindings~ (get-preferences #f)) 'jazz)))
@@ -1049,7 +1049,7 @@
               (when (is? branch Branch)
                 (set-active-branch~ bindings branch))))))
       continue-handler:
-      (function (err)
+      (lambda (err)
         (set-bindings/designer (default-bindings)))))
   
   
@@ -1130,7 +1130,7 @@
           (set! Undisplayed-Message msg)
         (set! Undisplayed-Message {})
         (post-event
-          (function ()
+          (lambda ()
             (set-title~ message (cond ((not msg) "")
                                       ((is? msg Locales) msg)
                                       (else (->string msg))))
@@ -1356,12 +1356,12 @@
   
   (method package (on-zoom-horizontally evt)
     (with-locked-update
-      (function ()
+      (lambda ()
         (let ((started? #f))
           (continuation-capture
-            (function (return)
+            (lambda (return)
               (for-each-splitter (get-stage-border)
-                (function (splitter host)
+                (lambda (splitter host)
                   (if (eq? (get-orientation~ splitter) 'vert)
                       (when started?
                         (continuation-return return))
@@ -1375,13 +1375,13 @@
   
   (method package (on-zoom-vertically evt)
     (with-locked-update
-      (function ()
+      (lambda ()
         (let ((started? #f)
               (border (get-stage-border)))
           (continuation-capture
-            (function (return)
+            (lambda (return)
               (for-each-splitter border
-                (function (splitter host)
+                (lambda (splitter host)
                   (if (eq? (get-orientation~ splitter) 'horz)
                       (when started?
                         (continuation-return return))
@@ -1433,11 +1433,11 @@
           (stage (get-stage)))
       (when (neq? fullscreen? (get-fullscreen?~ toplevel))
         (with-locked-update
-          (function ()
+          (lambda ()
             (set-fullscreen?~ toplevel fullscreen?)
             (set-fullscreen?~ stage fullscreen?)
             (for-each-splitter host
-              (function (splitter host)
+              (lambda (splitter host)
                 (let ((preferences (get-preferences~ splitter)))
                   (when (and preferences (eq? (get-name~ preferences) 'top))
                     (fix-top-splitter-insets splitter)))
@@ -1495,7 +1495,7 @@
   (method (setup-resources-directory type directory extension)
     (when (exists?~ directory)
       (iterate-directory~ directory
-        (function (file)
+        (lambda (file)
           (when (ci=? (get-extension~ file) extension)
             (register-resource type (get-base~ file) file))))))
   
@@ -1773,7 +1773,7 @@
             (set-search-domain~ (get-search~ manager) domain))))
       (bring-to-front~ player)
       (set-visible?~ player #t)
-      (for-each (function (search)
+      (for-each (lambda (search)
                   (let ((targets (get-search-targets~ search)))
                     (unless (or (not string)
                                 (and (not-null? targets)
@@ -1920,7 +1920,7 @@
     (let ((search (active-search)))
       (if (not search)
           (make-multi-search-context
-            (map (function (target)
+            (map (lambda (target)
                    (make-search-context (first target)
                      whole-words?: (get-whole-words?)
                      ignore-case?: (get-ignore-case?)))
@@ -1986,7 +1986,7 @@
   (method public (open-files (directory: directory {}))
     (let ((files (choose-file directory: directory extensions: (open-extensions) multiple-selection?: #t)))
       (for-each edit-file
-                (sort string>? files key: (function (file) (get-name~ file))))))
+                (sort string>? files key: (lambda (file) (get-name~ file))))))
   
   
   (method public virtual (receive-files pos pathnames)
@@ -1997,7 +1997,7 @@
       (let ((class (cond ((alt-down?) (autoload-class 'Jazz-Plain-Text-View))
                          ((shift-down?) (autoload-class 'Jazz-Text-View))
                          (else {}))))
-        (for-each (function (pathname)
+        (for-each (lambda (pathname)
                     (when (file? pathname)
                       (if class
                           (edit-document pathname class: class)
@@ -2015,7 +2015,7 @@
 
 
   (method public (find-document moniker)
-    (find-if (function (frame)
+    (find-if (lambda (frame)
                (and (is? frame Frame-Host)
                     (let ((guest (get-guest~ frame)))
                       (and (is? guest Document)
@@ -2040,16 +2040,16 @@
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
           (let* ((frame (if force-new? {} (find-document file)))
-                 (result (function (frame new?) (if return-new? (values frame new?) frame))))
+                 (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
             (if (not frame)
                 (let ((class (either class (file-frame-class file))))
                   (with-cursor :wait
-                    (function ()
+                    (lambda ()
                       (result (new-frame class
                                          host-workspace: workspace
                                          host-visible?: visible?
                                          host-focus?: activate-focus?
-                                         initialize: (function (host document)
+                                         initialize: (lambda (host document)
                                                        (set-char-encoding~ document char-encoding)
                                                        (set-moniker~ (get-controller~ document) moniker)
                                                        (when wrap?
@@ -2096,7 +2096,7 @@
 
   
   (method package virtual (on-close-all evt)
-    (for-each (function (view)
+    (for-each (lambda (view)
                 (when (is? view Frame-Host)
                   (let ((guest (get-guest~ view)))
                     (when (or (is-not? guest Document) (close-on-close-all?~ (get-controller~ guest)))
@@ -2130,8 +2130,8 @@
   
   (method public (save-all (class: class Document) (save-unanchored?: save-unanchored? #t))
     (let ((save-documents
-            (function (main-documents?)
-              (for-each (function (host)
+            (lambda (main-documents?)
+              (for-each (lambda (host)
                           (when (is? host Frame-Host)
                             (let ((guest (get-guest~ host)))
                               (when (is? guest Document)
@@ -2176,7 +2176,7 @@
     (let ((pref (get-preferences 'catalogs error?: #f)))
       (when pref
         (let ((cataloguer (get-cataloguer)))
-          (for-each (function (config)
+          (for-each (lambda (config)
                       (let* ((name (get-name~ config))
                              (catalog (get-catalog~ cataloguer name error?: #f)))
                         (when (and catalog (get-active?~ config))
@@ -2205,10 +2205,10 @@
   
   (method override (setup-preferences)
     (with-safe-execution "loading the preferences"
-      (function ()
+      (lambda ()
         (setup-preferences/designer))
       continue-handler:
-      (function (err)
+      (lambda (err)
         (set-preferences/designer (default-preferences)))))
   
   
@@ -2323,7 +2323,7 @@
   
   (method (on-capture-document evt)
     (pick-figure
-      click: (function (view pos) (capture-document view))
+      click: (lambda (view pos) (capture-document view))
       highlight: #t
       highlight-root-only?: #t
       obscure-unhighlighted?: #f
@@ -2350,7 +2350,7 @@
   
   (method (on-capture-host evt)
     (pick-figure
-      click: (function (view pos) (capture-host view))
+      click: (lambda (view pos) (capture-host view))
       highlight: #t
       highlight-root-only?: #t
       obscure-unhighlighted?: #f
@@ -2437,9 +2437,9 @@
            (h (quotient height count))
            (t 0))
       (with-locked-update
-        (function ()
+        (lambda ()
           (restore~ stage)
-          (for-each (function (frame)
+          (for-each (lambda (frame)
                       (set-position~ frame (new Point 0 t))
                       (set-size~ frame (new Dimension width h))
                       (increase! t h))
@@ -2455,9 +2455,9 @@
            (w (quotient width count))
            (l 0))
       (with-locked-update
-        (function ()
+        (lambda ()
           (restore~ stage)
-          (for-each (function (frame)
+          (for-each (lambda (frame)
                       (set-position~ frame (new Point l 0))
                       (set-size~ frame (new Dimension w height))
                       (increase! l w))

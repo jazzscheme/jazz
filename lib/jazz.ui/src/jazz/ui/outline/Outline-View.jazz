@@ -184,7 +184,7 @@
   (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
     (when root-row
       (letrec ((proc
-                 (function (row)
+                 (lambda (row)
                    (let ((title (get-title~ (first-child~ row)))
                          (state (get-state~ row))
                          (sons (get-sons~ row)))
@@ -201,7 +201,7 @@
   (method public (set-expand-state state)
     (when root-row
       (letrec ((proc
-                (function (row info)
+                (lambda (row info)
                   (bind (title state . children) info
                     (let ((subrow (find-by-title~ row title)))
                       (when subrow
@@ -211,10 +211,10 @@
                                 (expand/collapse subrow))
                             (when (and (eq? actual 'dynamic) children)
                               (update-row subrow))))
-                        (for-each (function (info)
+                        (for-each (lambda (info)
                                     (proc subrow info))
                                   children)))))))
-        (for-each (function (info)
+        (for-each (lambda (info)
                     (proc root-row info))
                   state))))
   
@@ -227,7 +227,7 @@
   (method public (expand-spine spine)
     (when root-row
       (letrec ((proc
-                (function (row spine)
+                (lambda (row spine)
                   (bind (title . subspine) spine
                     (let ((subrow (find-by-title~ row title)))
                       (when subrow
@@ -562,9 +562,9 @@
   
   (method public (get-visible-row n)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-visible-row
-          (function (row rank)
+          (lambda (row rank)
             (when (= rank n)
               (continuation-return return row))))
         {})))
@@ -581,9 +581,9 @@
   
   (method public (row-rank target)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-visible-row
-          (function (row rank)
+          (lambda (row rank)
             (when (eq? row target)
               (continuation-return return rank))))
         {})))
@@ -744,7 +744,7 @@
           (when visible?
             (increase! rank))
           (iterate (get-sons~ row)
-                   (function (row)
+                   (lambda (row)
                      (recurse row son-visible?)))))
       
       (recurse root-row (row-visible?~ root-row))))
@@ -773,7 +773,7 @@
   (method public (collect-visible-rows)
     (let ((queue (new-queue)))
       (for-each-visible-row
-        (function (row rank)
+        (lambda (row rank)
           (enqueue queue row)))
       (queue-list queue)))
 
@@ -806,7 +806,7 @@
              (height 0)
              (level (+ (get-level~ row) 1))
              (previous {})
-             (rows (map (function (info)
+             (rows (map (lambda (info)
                           (let ((subrow (proc info)))
                             (set-father~ subrow row)
                             (set-level~ subrow level)
@@ -867,7 +867,7 @@
   
   (method public (expand-all row)
     (with-update-locked
-      (function ()
+      (lambda ()
         (unless (eq? (get-state~ row) 'expanded)
           (expand/collapse row))
         (iterate (get-sons~ row) expand-all))))
@@ -897,7 +897,7 @@
   
   (method public (collapse-all row)
     (with-update-locked
-      (function ()
+      (lambda ()
         (iterate (get-sons~ row) collapse-all)
         (when (eq? (get-state~ row) 'expanded)
           (expand/collapse row)))))
@@ -939,7 +939,7 @@
   (method public (set-visibilities predicate)
     (let ((previous root-row))
       (iterate (get-sons~ root-row)
-               (function (row)
+               (lambda (row)
                  (let ((visible? (predicate row)))
                    (when visible?
                      (link-rows previous row)
@@ -1088,7 +1088,7 @@
 
   (method protected (v->row v)
     (call-with-v->row v
-      (function (rank v height)
+      (lambda (rank v height)
         rank)))
 
 

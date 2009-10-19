@@ -47,7 +47,7 @@
 
 @w
 (call-with-output-file "~/walk.jazz"
-  (function (port)
+  (lambda (port)
     (pp (fold-declaration (walk-module 'jazz.sample.library) cons cons '())
         port)))
 
@@ -65,20 +65,20 @@
   (define (walk module-name)
     (catch (Walk-Problems exc
              (let ((problems (append (get-warnings~ exc) (get-errors~ exc))))
-               (for-each (function (problem)
+               (for-each (lambda (problem)
                            (when (is? problem Unresolved-Error)
                              (table-add unresolved (get-symbol~ problem) module-name)))
                          problems)))
       (walk-module module-name)))
   
   (iterate-modules walk repositories: (list (find-repository 'Jazz)) feedback:
-    (function (module-name)
+    (lambda (module-name)
       (if module-name
           (terminal 'walking module-name)
         (terminal 'done))))
   
   (call-with-output-file "~/unresolved.jazz"
-    (function (port)
+    (lambda (port)
       (pp (table-keys unresolved) port)
       (pp (remove-duplicates (apply append (table-values unresolved))) port))))
 
@@ -241,7 +241,7 @@
       (new-thread
         thread-loop
         'delegated))
-    (function ()
+    (lambda ()
       (sleep 1)
       (debug 'delegated (current-thread))))
   (debug 'delegator (current-thread)))
@@ -256,7 +256,7 @@
         (new-thread
           thread-loop
           'delegated))
-      (function ()
+      (lambda ()
         (sleep 1)
         (debug 'delegated (current-thread))
         23))))
@@ -271,7 +271,7 @@
         (new-thread
           thread-loop
           'delegated))
-      (function ()
+      (lambda ()
         (sleep 1)
         (debug 'delegated (current-thread))
         (error "ouch")))))
@@ -284,7 +284,7 @@
            (new-thread
              thread-loop
              'delegated))
-         (function ()
+         (lambda ()
            (sleep .1)
            2))
        (thread-call
@@ -292,7 +292,7 @@
            (new-thread
              thread-loop
              'delegated))
-         (function ()
+         (lambda ()
            (sleep .1)
            3)))))
 
@@ -593,7 +593,7 @@
 
 (definition (iter-node node proc)
   (letrec ((iter
-             (function (node)
+             (lambda (node)
                (proc node)
                (for-each iter (get-children~ node)))))
     (iter node)))
@@ -618,7 +618,7 @@
 
 (definition (foldl-node x f s)
   (foldl (get-children~ x)
-         (function (c s)
+         (lambda (c s)
            (foldl-node c f s))
          (f x s)))
 
@@ -629,7 +629,7 @@
 
 (definition (foldl-component x f s)
   (foldl (get-children~ x)
-         (function (c s)
+         (lambda (c s)
            (foldl-component c f s))
          (f x s)))
 
@@ -653,7 +653,7 @@
 (definition (iter-map proc obj)
   (let ((fact (new List-Factory)))
     (iter obj
-          (function (x)
+          (lambda (x)
             (put~ fact (proc x))))
     (get-output~ fact)))
 
@@ -664,14 +664,14 @@
 
 (definition (fold-map proc obj)
   (foldr obj
-         (function (x lst)
+         (lambda (x lst)
            (cons (proc x) lst))
          {}))
 
 
 (definition (foldl-map proc obj)
   (foldl obj
-         (function (x lst)
+         (lambda (x lst)
            (cons (proc x) lst))
          {}))
 
@@ -688,7 +688,7 @@
 
 (definition (fold-node x f s)
   (let ((ps (f x s)))
-    (for-each (function (c)
+    (for-each (lambda (c)
                 (fold-node c f ps))
               (get-children~ x))
     ps))
@@ -696,7 +696,7 @@
 
 (definition (fold-component x f s)
   (let ((ps (f x s)))
-    (for-each (function (c)
+    (for-each (lambda (c)
                 (fold-component c f ps))
               (get-children~ x))
     ps))
@@ -704,7 +704,7 @@
 
 (definition (component->jml x)
   (fold x
-        (function (c p)
+        (lambda (c p)
           (new JML-Element p (identifier-name (type-name (class-of c))) properties: (list 'name (get-name~ c) 'position (get-position~ c) 'size (get-size~ c) 'serial (object->serial c))))
         {}))
 

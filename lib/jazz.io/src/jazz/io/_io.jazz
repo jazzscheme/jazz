@@ -147,7 +147,7 @@
           (directory (remove-trailing-char (repository-directory repository) #\/)))
       (register-alias name (tokenise-filename directory))
       (unless (repository-binary? repository)
-        (for-each (function (package)
+        (for-each (lambda (package)
                     (let ((package-name (package-name package))
                           (package-root (package-root package)))
                       (register-alias package-name
@@ -410,7 +410,7 @@
   (definition (validate-component object)
     (let ((original object))
       (letrec ((validate
-                 (function (object)
+                 (lambda (object)
                    (cond ((null? object))
                          ((string? object))
                          ((symbol? object))
@@ -429,7 +429,7 @@
             (first? #t)
             (aliases '()))
         (letrec ((parse
-                   (function (path)
+                   (lambda (path)
                      (cond ((null? path))
                            ((eq? path :root)
                             (display "/" printer))
@@ -491,9 +491,9 @@
   
   (method public (valid-aliases?)
     (letrec ((valid?
-              (function (list)
+              (lambda (list)
                 (or (eq? list #t)
-                    (every? (function (item)
+                    (every? (lambda (item)
                               (or (not (symbol? item))
                                   (and (is-alias? item)
                                        (valid? (get-alias item)))))
@@ -504,7 +504,7 @@
   (method public (expand)
     (let ((fact (new List-Factory)))
       (letrec ((expand
-                (function (object)
+                (lambda (object)
                   (cond ((eq? object #t))
                         ((eq? object :root) (put~ fact :root))
                         ((string? object) (put~ fact object))
@@ -610,7 +610,7 @@
       (while scan
         (set! dirs (cons scan dirs))
         (set! scan (get-parent~ scan)))
-      (for-each (function (dir)
+      (for-each (lambda (dir)
                   (unless (exists?~ dir)
                     (create~ dir)))
                 dirs)))
@@ -629,7 +629,7 @@
            (rank (mismatch base-expd expd test: ci=?))
            (result-list (unspecified)))
       (continuation-capture
-        (function (return)
+        (lambda (return)
           (cond ((not rank)
                  (set! result-list base-list))
                 ((< rank base-length)
@@ -643,8 +643,8 @@
   
   (method public (anchorize (anchors: anchors {}) (ignored-anchors: ignored-anchors {}))
     (let* ((anchors (difference (either anchors (default-anchors)) (either ignored-anchors '())))
-           (anchored (collect (function (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
-           (sorted (sort < anchored key: (function (path) (length (get-list~ path))))))
+           (anchored (collect (lambda (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
+           (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
         (car sorted))))
@@ -739,7 +739,7 @@
       (create-directories)
       ;; is there any smarter way to do this in gambit?
       (call-with-output-file (parse)
-        (function (output)
+        (lambda (output)
           ))))
 
 
@@ -783,7 +783,7 @@
       ;; this is ugly big time...
       (set-read/write)
       (call-with-output-file (list (parse) mode: 'append)
-        (function (printer)
+        (lambda (printer)
           (SetFileTime (get-handle~ printer) NULL NULL ft)))
       (set-attributes at)))
   
@@ -832,7 +832,7 @@
 
   (method override (save-lines lines (char-encoding: char-encoding {}) (eol-encoding: eol-encoding {}))
     (call-with-output-file (list path: (parse) char-encoding: (either char-encoding 'UTF-8) eol-encoding: (either eol-encoding (get-eol-encoding)))
-      (function (printer)
+      (lambda (printer)
         (write-lines printer lines)))))
 
 
@@ -940,10 +940,10 @@
       (feedback self))
     (create-directories~ dst)
     (let ((destination
-            (function (path)
+            (lambda (path)
               (append (get-list~ dst) (list (get-name~ path))))))
       (iterate-directory
-        (function (path)
+        (lambda (path)
           (when (or (eq? copy? #t) (copy? path))
             (if (is? path File)
                 (let ((dest (new File (destination path))))
@@ -966,7 +966,7 @@
   
   (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
     (iterate-directory
-      (function (path)
+      (lambda (path)
         (if (is? path File)
             (delete-file~ path overwrite-read-only?: overwrite-read-only?)
           (delete-directory~ path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
@@ -988,7 +988,7 @@
   
   (method (collect-nodes fact)
     (iterate-directory
-      (function (item)
+      (lambda (item)
         (put~ fact item))
       files?: #f
       directories?: #t
@@ -997,7 +997,7 @@
   
   (method (collect-leaves fact)
     (iterate-directory
-      (function (item)
+      (lambda (item)
         (put~ fact item))
       files?: #t
       directories?: #f
@@ -1021,7 +1021,7 @@
   (method public (collect-files predicate)
     (let ((fact (new List-Factory)))
       (iterate-directory
-        (function (file)
+        (lambda (file)
           (when (predicate file)
             (put~ fact file)))
         recursive?: #f)
@@ -1036,7 +1036,7 @@
   (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
     (let ((directory (if full? (get-list) {})))
       (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
-        (function (list kind)
+        (lambda (list kind)
           (case kind
             ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
             ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory))))))))
@@ -1044,13 +1044,13 @@
   
   (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
     (iterate-content base 'directories sort? ignored-directories
-      (function (name)
+      (lambda (name)
         (when recursive?
           (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "/" name) proc))
         (when directories?
           (proc (append prefix (list name)) 'directory))))
     (iterate-content base 'files sort? ignored-directories
-      (function (name)
+      (lambda (name)
         (when files?
           (proc (concatenate prefix (list name)) 'file)))))
   
@@ -1060,14 +1060,14 @@
         (iterate-content-unsorted base kind ignored-directories proc)
       (let ((list '()))
         (iterate-content-unsorted base kind ignored-directories
-          (function (object)
+          (lambda (object)
             (set! list (cons object list))))
         (let ((sorted (sort ci<? list)))
           (for-each proc sorted)))))
   
   
   (method (iterate-content-unsorted base kind ignored-directories proc)
-    (for-each (function (name)
+    (for-each (lambda (name)
                 (let ((path (string-append base "/" name)))
                   ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
                   (when (file-exists? path)
@@ -1092,9 +1092,9 @@
   (method public (count-files (filter: filter {}) (max-count: max-count #f))
     (let ((count 0))
       (continuation-capture
-        (function (return)
+        (lambda (return)
           (iterate-directory
-            (function (file)
+            (lambda (file)
               (when (or (not filter) (filter file))
                 (increase! count)
                 (when (and max-count (> count max-count))
@@ -1135,7 +1135,7 @@
       (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
         (let ((fact (new List-Factory)))
           (when nodes?
-            (for-each (function (letter)
+            (for-each (lambda (letter)
                         (put~ fact (new Directory (list (string letter #\:)))))
                       (enumerate-drives)))
           (get-output~ fact)))

@@ -122,10 +122,10 @@
   (method (update)
     (let ((tree (get-tree)))
       (with-update-locked~ tree
-        (function ()
+        (lambda ()
           (remove-every-row~ tree)
           (let ((repositories-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: "Repositories" image: {Bitmap-Resource "Repositories"})) user-data: {})))
-            (for-each (function (repository)
+            (for-each (lambda (repository)
                         (add-repository tree repositories-row 'collapsed repository))
                       (get-repositories)))))))
   
@@ -135,9 +135,9 @@
       (let ((title (->string name))
             (image {Bitmap-Resource "Repository"}))
         (let ((repository-row (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: repository)))
-          (for-each (function (package)
+          (for-each (lambda (package)
                       (add-package tree repository-row package))
-                    (sort string<=? (repository-packages repository) key: (function (package) (->string (package-name package)))))
+                    (sort string<=? (repository-packages repository) key: (lambda (package) (->string (package-name package)))))
           repository-row))))
   
   
@@ -174,7 +174,7 @@
   (method (on-register-repository evt)
     (define (load-repository-name file)
       (call-with-input-file (parse~ file)
-        (function (input)
+        (lambda (input)
           (let ((form (read input)))
             (cadr form)))))
     
@@ -201,14 +201,14 @@
   (method (save-repositories)
     (let ((pref (get-preferences 'repositories))
           (repositories (collect-user-repositories)))
-      (let ((directories (map (function (repository)
+      (let ((directories (map (lambda (repository)
                                 (anchorize~ (new Directory (tokenise-filename (repository-directory repository)))))
                               repositories)))
         (set-preferences-property~ (get-application) pref 'repositories directories))))
   
   
   (method (collect-user-repositories)
-    (collect-if (function (repository)
+    (collect-if (lambda (repository)
                   (not (system-repository? repository)))
                 (get-repositories)))
   
@@ -265,12 +265,12 @@
           (if (null? packages)
               (user-message "No new packages found")
             (let ((tree (get-tree)))
-              (let ((rows (map (function (package)
+              (let ((rows (map (lambda (package)
                                  (let ((package-row (add-package tree repository-row package)))
                                    (ensure-expanded~ tree package-row)
                                    package-row))
                                packages)))
-                (set-selection~ tree (map (function (row)
+                (set-selection~ tree (map (lambda (row)
                                             (row-rank~ tree row))
                                           rows)))
               (let ((count (length packages)))
@@ -306,7 +306,7 @@
     (let ((workbench-manager (get-workbench-manager~ (get-application)))
           (workbench (get-workbench))
           (tree (get-tree)))
-      (for-each (function (row)
+      (for-each (lambda (row)
                   (install-in-workbench workbench-manager workbench tree row))
                 (selected-rows))))
   
@@ -389,7 +389,7 @@
            (pos (get-position~ evt))
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
-        (function ()
+        (lambda ()
           (let ((menu (new-menu)))
             (when menu
               (track-popup-menu menu acquired)))))))

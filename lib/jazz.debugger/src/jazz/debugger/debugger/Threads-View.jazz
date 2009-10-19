@@ -151,7 +151,7 @@
            (pos (get-position~ evt))
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
-        (function ()
+        (lambda ()
           (let ((menu (new-context-menu (selected-thread))))
             (when menu
               (track-popup-menu menu acquired)))))))
@@ -173,7 +173,7 @@
   (method (on-break evt)
     (let ((thread (selected-thread)))
       (with-thread-refresh thread
-        (function ()
+        (lambda ()
           (break-thread~ process (get-reference~ thread))))))
   
   
@@ -181,7 +181,7 @@
     (let ((thread (selected-thread)))
       (let ((stop (get-active-stop~ thread)))
         (with-thread-refresh thread
-          (function ()
+          (lambda ()
             (continue-stop~ process stop))))))
   
   
@@ -192,10 +192,10 @@
   (method (with-thread-refresh thread thunk)
     (thread-start!
       (new-thread
-        (function ()
+        (lambda ()
           (sleep .1)
           (execute-event
-            (function ()
+            (lambda ()
               (update-threads))))))
     (thunk))
   
@@ -211,7 +211,7 @@
   (method (restart-stop restart)
     (let ((thread (selected-thread)))
       (with-thread-refresh thread
-        (function ()
+        (lambda ()
           (restart-stop~ process restart)))))
   
   
@@ -257,15 +257,15 @@
     
     (let ((manager (get-debugger-manager)))
       (with-system-exception-debugger
-        (function ()
+        (lambda ()
           (let ((tree (locate 'threads)))
             (with-update-locked~ tree
-              (function ()
+              (lambda ()
                 (with-preserved-selection~ tree
-                  (function ()
+                  (lambda ()
                     (remove-every-row~ tree)
                     (for-each-thread~ manager
-                      (function (thread stop detailed?)
+                      (lambda (thread stop detailed?)
                         (let ((title (thread-title thread stop detailed?))
                               (image (thread-image thread stop))
                               (frame-color (get-stopped-frame-color~ manager thread))
@@ -277,9 +277,9 @@
                   generate-event?: #t)
                 (unless (selected-thread)
                   (continuation-capture
-                    (function (return)
+                    (lambda (return)
                       (for-each-thread~ manager
-                        (function (thread stop detailed?)
+                        (lambda (thread stop detailed?)
                           (unless (debugged-visited?~ manager thread)
                             (set-selected-thread thread)
                             (thread-change)
@@ -334,9 +334,9 @@
   
   (method (thread-row tree thread)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-row~ tree
-          (function (row rank)
+          (lambda (row rank)
             (when (debugged=? (get-user-data~ row) thread)
               (continuation-return return row))))
         {})))
@@ -358,10 +358,10 @@
           (stop (get-active-stop~ thread)))
       (if (not stop)
           #f @wait (new Label-Item parent: menu title: "Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})
-        (for-each (function (restart)
+        (for-each (lambda (restart)
                     (let ((title (get-message~ restart))
                           (icon {Bitmap-Resource "Restart"}))
-                      (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (function (event) (restart-stop restart))))))
+                      (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (lambda (event) (restart-stop restart))))))
                   (get-restarts~ stop))
         @wait
         (new Separator-Item parent: menu)

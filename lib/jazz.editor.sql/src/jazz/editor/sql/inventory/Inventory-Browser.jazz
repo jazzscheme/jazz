@@ -116,7 +116,7 @@
   (method (on-refresh)
     (let ((inventory-tree (locate 'inventory)))
       (with-preserved-selection~ inventory-tree
-        (function ()
+        (lambda ()
           (let ((state (get-expand-state~ inventory-tree)))
             (insert-inventory inventory-tree (essay connection (get-inventory~ connection)))
             (set-expand-state~ inventory-tree state)))
@@ -140,7 +140,7 @@
     (let ((sender (get-sender~ evt))
           (pos (get-position~ evt)))
       (with-context-click~ sender pos
-        (function ()
+        (lambda ()
           (let ((element (selected-element)))
             (when element
               (let ((menu (typecase element
@@ -212,10 +212,10 @@
       (when (get-sizeable?~ systype)
         (set! size (parse-integer (request-string title: "Enter field size" initial-value: "12"))))
       (execute-sql-commit-preserve
-       (function ()
+       (lambda ()
          (generate-sql-header-script)))
       (execute-sql-commit-preserve
-       (function ()
+       (lambda ()
          (generate-sql-create-table table-name (list column-name (new Datatype (get-name~ systype) size) "NULL")))
        reload-inventory?: #t)))
   
@@ -372,10 +372,10 @@
   
   
   (method (update-tables tree row tables)
-    (for-each (function (table)
+    (for-each (lambda (table)
                 (let ((title (get-title~ table)))
                   (add-row~ tree father: row state: 'dynamic children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignTable"})) user-data: table)))
-              (sort ci<? tables key: (function (table) (get-title~ table)))))
+              (sort ci<? tables key: (lambda (table) (get-title~ table)))))
   
   
   (method (update-table tree row table)
@@ -389,7 +389,7 @@
  (method (insert-constraints tree row table)
     (when (is? table SQLServer-Inventory-Table)
       (let ((constraints (get-constraints~ table)))
-        (for-each (function (constraint)
+        (for-each (lambda (constraint)
                     (let ((title (get-title~ constraint)))
                       (add-row~ tree father: row state: 'collapsed children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignConstraint"})) user-data: constraint)))
                   constraints))))
@@ -404,7 +404,7 @@
   
   (method (insert-columns tree row table)
     (let ((columns (get-columns~ table)))
-      (for-each (function (column)
+      (for-each (lambda (column)
                   (let ((title (get-title~ column)))
                     (add-row~ tree father: row state: 'collapsed children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignColumn"})) user-data: column)))
                 columns)))
@@ -412,7 +412,7 @@
   
   (method (insert-indexes tree row table)
     (let ((indexes (get-indexes~ table)))
-      (for-each (function (index)
+      (for-each (lambda (index)
                   (let ((title (get-title~ index)))
                     (add-row~ tree father: row state: 'collapsed children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignIndex"})) user-data: index)))
                 indexes)))
@@ -420,7 +420,7 @@
   
   (method (insert-triggers tree row table)
     (let ((triggers (get-triggers~ table)))
-      (for-each (function (trigger)
+      (for-each (lambda (trigger)
                   (let ((title (get-title~ trigger)))
                     (add-row~ tree father: row state: 'collapsed children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignTrigger"})) user-data: trigger)))
                 triggers)))
@@ -431,10 +431,10 @@
   
   
   (method (update-views tree row views)
-    (for-each (function (view)
+    (for-each (lambda (view)
                 (let ((title (get-title~ view)))
                   (add-row~ tree father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignView"})) user-data: view)))
-              (sort ci<? views key: (function (view) (get-title~ view)))))
+              (sort ci<? views key: (lambda (view) (get-title~ view)))))
   
   
   (method (insert-relations tree relations)
@@ -442,10 +442,10 @@
 
   
   (method (update-relations tree row relations)
-    (for-each (function (relation)
+    (for-each (lambda (relation)
                 (let ((title (get-title~ relation)))
                   (add-row~ tree father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignRelation"})) user-data: relation)))
-              (sort ci<? relations key: (function (relation) (get-title~ relation)))))
+              (sort ci<? relations key: (lambda (relation) (get-title~ relation)))))
   
   
   (method (insert-procedures tree procedures)
@@ -453,10 +453,10 @@
   
   
   (method (update-procedures tree row procedures)
-    (for-each (function (procedure)
+    (for-each (lambda (procedure)
                 (let ((title (get-title~ procedure)))
                   (add-row~ tree father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "DesignProcedure"})) user-data: procedure)))
-              (sort ci<? procedures key: (function (procedure) (get-title~ procedure)))))
+              (sort ci<? procedures key: (lambda (procedure) (get-title~ procedure)))))
 
 
   (method (update-info-row row)
@@ -703,7 +703,7 @@
     (let* ((user "dbo")
            (partition "PRIMARY")
            @tempo(fields-list (join (create-fields-list (sort < (get-columns~ object)
-                                                              key: (function (column)
+                                                              key: (lambda (column)
                                                                      (either (third (get-property~ column ordinal-position:)) -1)))) ", "))
            (field-name (first column))
            (datatype (get-native~ (second column)))
@@ -731,7 +731,7 @@
   
   
   (method (create-fields-list list)
-    (map (function (field)
+    (map (lambda (field)
            (let ((field-name (get-name~ field))
                   (datatype (get-native~ (third (get-datatype~ field))))
                   (ordinal-position (third (get-property~ field ordinal-position:)))
@@ -810,7 +810,7 @@
            (c18 (when (is? table Access-Inventory-Table) (new Data-Column name: "ValidationText" datatype: {Datatype "text" 1})))
            (output (new Data-Table name: "Fields" columns: (remove-nils (list c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17 c18)))))
       (with-closed ((columns (get-columns~ table)))
-        (for-each (function (column)
+        (for-each (lambda (column)
                     (let ((title (get-title~ column))
                            (datatype (present~ (get-datatype~ column)))
                            (length (get-size~ column))
@@ -855,7 +855,7 @@
            (output (new Data-Table name: "Properties" columns: (list c1 c2)))
            (title (get-title~ primary-key))
            (fields/orders (get-fields/orders~ primary-key))
-           (fields/orders-list (map (function (field/order)
+           (fields/orders-list (map (lambda (field/order)
                                       (bind (field order) field/order
                                         (format "{a} {a}" field (case order ((ascending) "asc") ((descending) "desc")))))
                                     fields/orders))
@@ -930,7 +930,7 @@
            (required? (get-required?~ index))
            (ignore-nulls? (get-ignore-nulls?~ index))
            (fields (get-fields~ index))
-           (fields-list (map (function (field)
+           (fields-list (map (lambda (field)
                                (let ((order (get-order~ field)))
                                  (format "{a} {a}" (get-title~ field) (case order ((ascending) "asc") ((descending) "desc")))))
                              fields)))

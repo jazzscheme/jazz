@@ -93,7 +93,7 @@
       (if (not component)
           (bell)
         (with-cursor :wait
-          (function ()
+          (lambda ()
             (export-text~ component)
             (user-message "Done"))))))
   
@@ -221,7 +221,7 @@
   (method override (can-cut?)
     (let ((components (selected-components)))
       (and components
-           (every? (function (component)
+           (every? (lambda (component)
                      (and (neq? component client)
                           (is? component Component)
                           (can-cut-component?~ component)
@@ -232,7 +232,7 @@
   (method override (can-copy?)
     (let ((components (selected-components)))
       (and components
-           (every? (function (component)
+           (every? (lambda (component)
                      (and (is? component Component)
                           (can-copy-component?~ component)
                           (not (redundant-descendant? component components))))
@@ -241,7 +241,7 @@
   
   (method override (can-paste?)
     (let ((components (selected-components)))
-      (and (every? (function (component)
+      (and (every? (lambda (component)
                      (is? component Component))
                    components)
            (determine-unique-paster components))))
@@ -256,7 +256,7 @@
               (let* ((parcel (car parcels))
                      (parcel-model (get-master-model~ parcel)))
                 (when parcel-model
-                  (every? (function (component)
+                  (every? (lambda (component)
                             (subtype? (class-of component) parcel-model))
                           components)))))))))
   
@@ -264,7 +264,7 @@
   (method override (can-delete?)
     (let ((components (selected-components)))
       (and components
-           (every? (function (component)
+           (every? (lambda (component)
                      (and (neq? component client)
                           (is? component Component)
                           (can-delete-component?~ component)
@@ -286,7 +286,7 @@
   
   ;; This is a temporary patch until a bug fix in the tree selection update
   (method (redundant-descendant? component components)
-    (some? (function (target)
+    (some? (lambda (target)
              (and (neq? component target)
                   (has-parent?~ component target)))
            components))
@@ -297,9 +297,9 @@
       (if (null? components)
           (bell)
         (with-update-locked
-          (function ()
+          (lambda ()
             (with-deleted-selection (get-selection)
-              (function ()
+              (lambda ()
                 (cut-components~ designer components))
               can-survive?: #t))))))
   
@@ -309,7 +309,7 @@
       (if (null? components)
           (bell)
         (with-cursor :wait
-          (function ()
+          (lambda ()
             (copy-components~ designer components)
             (update-focus-actions~ (get-application)))
           duration: .150))))
@@ -336,17 +336,17 @@
       ;; Todo: the override confirm should be done all at once and before the progress bar!
       ;;       a possible solution would be to call explicitly verify-name-conflicts before pasting
       (with-progress
-        (function (reporter)
+        (lambda (reporter)
           (set-range~ reporter (new Range 0 (length parcels)))
           (with-update-locked
-            (function ()
+            (lambda ()
               (with-cursor :wait
-                (function ()
+                (lambda ()
                   ;; because of relocation parcels may go to different parents...
-                  (for-each (function (info)
+                  (for-each (lambda (info)
                               (bind (model . parcels) info
                                 (paste-parcels~ designer parcels (relocation-parent parent model) reporter: reporter)))
-                            (partition parcels key: (function (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))))
+                            (partition parcels key: (lambda (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))))
           (user-message~ reporter "Completed")
           (set-done~ reporter))
         threaded?: #t
@@ -367,7 +367,7 @@
         (let ((components (get-selected-data)))
           (when (confirm-close components)
             (with-deleted-selection selection
-              (function ()
+              (lambda ()
                 (delete-components~ designer components))
               can-survive?: #t))))))
   
@@ -440,7 +440,7 @@
         {}
       (let* ((name-mandatory? (get-name-mandatory?~ class))
              (name-unicity? (get-name-unicity?~ class))
-             (unicity-domain (essay name-unicity? (map (function (component) (get-presentation~ component)) brothers)))
+             (unicity-domain (essay name-unicity? (map (lambda (component) (get-presentation~ component)) brothers)))
              (name-validator (component-name-validator))
              (pres (localize (get-class-presentation~ class)))
              (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
@@ -464,7 +464,7 @@
           (set-name~ child name))
         (set! last-class class)
         (with-update-locked
-          (function ()
+          (lambda ()
             (install-new-component designer child parent presentation added-properties extra-properties)))
         child)))
   
@@ -481,7 +481,7 @@
   
   
   (method protected virtual (add-properties component properties)
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (set-property~ designer component property value))
                        properties))
 
@@ -509,7 +509,7 @@
   
   (method (end-rename component cell presentation)
     (with-update-locked
-      (function ()
+      (lambda ()
         (set-title~ (get-cell-data cell) presentation)
         (set-presentation~ component designer presentation)
         (let ((parent (get-parent~ component)))
@@ -531,9 +531,9 @@
            (part (get-part~ target))
            (destination (get-user-data~ dst)))
       (with-update-locked
-        (function ()
+        (lambda ()
           (if (eq? part 'row)
-              (let ((parent (uniform components key: (function (component) (relocation-parent destination (class-of component))))))
+              (let ((parent (uniform components key: (lambda (component) (relocation-parent destination (class-of component))))))
                 (if (not parent)
                     (bell)
                   (move-components~ designer components parent)))
@@ -543,7 +543,7 @@
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (cardinality sons)) (element sons position) {}))
                    (target-data (essay target (get-user-data~ target))))
-              (for-each (function (component)
+              (for-each (lambda (component)
                           (send-before~ designer component (essay target (send-component-before component target-data))))
                         components)))
           (select-components components)))))
@@ -555,7 +555,7 @@
              (destination (either (get-user-data~ father) client))
              (sort? (sort-components?~ destination)))
         (move-row row father
-          position: (either position (function ()
+          position: (either position (lambda ()
                                        (if (not sort?)
                                            {}
                                          (find-component-position source row father))))))))
@@ -587,9 +587,9 @@
   (method override (get-row-reorder-target drag-drop row quarter)
     (let* ((src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
            (src-range (contiguous-range src-selection))
-           (src (map (function (n) (get-user-data~ (get-row n))) src-selection))
+           (src (map (lambda (n) (get-user-data~ (get-row n))) src-selection))
            (src-types (remove-duplicates (map class-of src)))
-           (src-parent (uniform src key: (function (component) (parent-relocation (get-parent~ component)))))
+           (src-parent (uniform src key: (lambda (component) (parent-relocation (get-parent~ component)))))
            (dst (get-user-data~ row))
            (dst-father (get-father~ row))
            (dst-rank (row-rank row))
@@ -598,7 +598,7 @@
            (before-last (row-rank (last (get-sons~ dst-father))))
            (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) {} (+ dst-rank 1)))))
            (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) {})))
-           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (function (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
+           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
            (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
@@ -647,7 +647,7 @@
            (parent (get-user-data~ (get-row~ target)))
            (child (new model visible?: #f)))
       (with-update-locked
-        (function ()
+        (lambda ()
           (add-view~ (get-designer) child parent position: {Point 0 0} centered?: #f)
           (rename-component child)))))
   

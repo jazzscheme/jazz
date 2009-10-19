@@ -147,7 +147,7 @@
            (menu (get-context-menu)))
       (when menu
         (with-context-click~ sender pos
-          (function ()
+          (lambda ()
             (track-popup-menu menu acquired))))))
   
   
@@ -169,7 +169,7 @@
   (method override (edit-selection forward?)
     (let ((selection (get-selection~ (get-tree))))
       (define (edit)
-        (for-each (function (item)
+        (for-each (lambda (item)
                     (edit-item item forward? #t #t))
                   selection)
         (focus-host~ (first-view~ (get-stage))))
@@ -178,7 +178,7 @@
         ((0))
         ((1) (edit))
         (else (with-locked-update
-                (function ()
+                (lambda ()
                   (edit)))))))
 
 
@@ -194,7 +194,7 @@
 
   (method (edit-document info forward? focus? visible?)
     (with-cursor :wait
-      (function ()
+      (lambda ()
         (if (is? info Catalog-Entry)
             (case mode
               ((references)
@@ -209,7 +209,7 @@
                   (else
                    (edit~ entry activate-focus?: focus?))))
             (let ((edit
-                   (function (source results targets)
+                   (lambda (source results targets)
                      (let* ((appl (get-application)))
                        (receive (frame new?) (edit-document~ appl source visible?: #f return-new?: #t)
                          (let ((guest (get-guest~ frame)))
@@ -319,7 +319,7 @@
   
   (method (update-stack-combo)
     (let ((combo (locate 'stack)))
-      (set-choices~ combo (map (function (info)
+      (set-choices~ combo (map (lambda (info)
                                  (bind (results targets target) info
                                    (list info (join (map first targets) ", "))))
                                results-stack))
@@ -331,20 +331,20 @@
       (let ((appl (get-application))
             (tree (get-tree)))
         (with-update-locked~ tree
-          (function ()
+          (lambda ()
             (let ((flag
                    (case mode
                      ((references) #t)
                      (else #f))))
               (set-toplevel-controls?~ (get-node-column~ tree) flag))
             (remove-every-row~ tree)
-            (for-each (function (info)
+            (for-each (lambda (info)
                         (add-item info target: target))
                       (sort string<? results key: present-info))))
         (when (and results (> (get-visible-count~ tree) 0))
           (set-selection~ tree (either selection (list 0))))
         (with-locked-update
-          (function ()
+          (lambda ()
             (select-palette Search-Results)))
         (update-search-actions~ appl))))
   
@@ -367,7 +367,7 @@
                  (appl (get-application))
                  (cataloguer (get-cataloguer~ appl))
                  (definitions (get-references~ cataloguer name context: context)))
-            (for-each (function (info)
+            (for-each (lambda (info)
                         (add-item info father: row target: name))
                       (sort string<? definitions key: present-info)))))))
   
@@ -375,7 +375,7 @@
   (method (selected-files)
     (let* ((tree (locate 'results))
            (selection (get-selection~ tree)))
-      (collect (function (rank)
+      (collect (lambda (rank)
                  (let ((info (get-user-data~ (get-row~ tree rank))))
                    (when (and (is? info Pair) (is? (car info) File))
                      (car info))))

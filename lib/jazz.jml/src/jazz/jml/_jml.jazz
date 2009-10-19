@@ -151,7 +151,7 @@
 (definition public (get-jml-property list property (not-found: not-found '()))
   (let ((scan list))
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (while (not-null? scan)
           (when (eqv? (car scan) property)
             (continuation-return return (cadr scan)))
@@ -186,7 +186,7 @@
 
 (definition public (node->form node)
   (letrec ((node->form
-             (function (node parent)
+             (lambda (node parent)
                (if (is? node JML-Text)
                    node
                  (let* ((tag (get-tag~ node))
@@ -200,7 +200,7 @@
                         (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) {} tag))
                         (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
                         (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-module: (get-property~ node 'tag-module #f) properties: (extract-node-properties node)))
-                        (children (map (function (node)
+                        (children (map (lambda (node)
                                          (node->form node form))
                                        (get-children~ node))))
                    (set-parent-value~ form parent)
@@ -219,7 +219,7 @@
 
 (definition (extract-node-properties node)
   (let ((fact (new List-Factory)))
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (when (not (memq? property '(name tag-symbolic? tag-module)))
                            (put~ fact property)
                            (put~ fact value)))
@@ -229,7 +229,7 @@
 
 (definition public (form->node form)
   (letrec ((form->node
-             (function (form parent)
+             (lambda (form parent)
                (if (is? form JML-Text)
                    form
                  (let* ((action (get-action~ form))
@@ -241,7 +241,7 @@
                                (case action ((install) 'install) ((new) model-name) ((modify) '!) ((locate) '~))))
                         (element (new JML-Element parent tag))
                         (properties (extract-form-properties form symbolic?))
-                        (children (map (function (form)
+                        (children (map (lambda (form)
                                          (form->node form element))
                                        (get-children~ form))))
                    (set-properties~ element properties)
@@ -271,7 +271,7 @@
     (when tag-module
       (put~ fact 'tag-module)
       (put~ fact tag-module))
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (let ((name (if (property? property) (field-name property) property)))
                            (when (neq? name 'client-form)
                              (put~ fact name)
@@ -287,7 +287,7 @@
 
 (definition public (load-jml file)
   (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-    (function (reader)
+    (lambda (reader)
       (let* ((pref (new JML-Preferences))
              (parser (new JML-Parser preferences: pref)))
         (parse~ parser reader))))))

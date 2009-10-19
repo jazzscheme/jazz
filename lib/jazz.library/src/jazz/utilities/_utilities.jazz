@@ -86,7 +86,7 @@
 
 
 (definition package (set-actions-enabled? actions enabled?)
-  (for-each (function (action)
+  (for-each (lambda (action)
               (set-action-enabled? action enabled?))
             actions))
 
@@ -123,7 +123,7 @@
   (unimplemented 'for-each-definition)
   @field-creator
   (letrec ((process
-             (function (model)
+             (lambda (model)
                (when model
                  (let ((definition (category-field model definition)))
                    (when definition
@@ -381,7 +381,7 @@
   (unimplemented 'extract-jazz-file-toplevel)
   @convert
   (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-    (function (reader)
+    (lambda (reader)
       (catch (Read-Error err {})
         (let ((in/toplevel (read reader)))
           (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
@@ -433,7 +433,7 @@
 
 (definition public (dispatch->name dispatch)
   (let ((extract
-          (function (string)
+          (lambda (string)
             (subseq string 0 (- (cardinality string) 1)))))
     (if (string? dispatch)
         (extract dispatch)
@@ -458,7 +458,7 @@
 
 (definition public (tag->name tag)
   (let ((extract
-          (function (string <string>)
+          (lambda (string <string>)
             (subseq string 1 (- (cardinality string) 1)))))
     (if (string? tag)
         (extract tag)
@@ -550,7 +550,7 @@
 (definition public undocumented (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
   (let ((printer (open-output-string))
         (first? #t))
-    (for-each-property (function (property value)
+    (for-each-property (lambda (property value)
                          (if first?
                              (set! first? #f)
                            (format printer ", "))
@@ -573,7 +573,7 @@
   (unimplemented 'with-profile)
   @Profiling-later
   (with-node
-    (function (node)
+    (lambda (node)
       (let ((result))
         (log-profile name: 'before log: log)
         ;; this is ugly but necessary not to change stack depth
@@ -602,10 +602,10 @@
   @later
   (let ((nodes '()))
     (iterate-table (get-profiles)
-      (function (name profile)
+      (lambda (name profile)
         (when (not (profile-parent profile))
           (set! nodes (cons (profile->jml {} profile) nodes)))))
-    (sort < nodes key: (function (node) (get-property~ node 'name)))))
+    (sort < nodes key: (lambda (node) (get-property~ node 'name)))))
 
 
 (definition (profile->jml parent profile)
@@ -628,7 +628,7 @@
 (definition (insert-profile-children parent profile)
   (unimplemented 'insert-profile-children)
   @later
-  (map (function (child)
+  (map (lambda (child)
          (profile->jml parent child))
        (collect-profile-children profile)))
 
@@ -853,7 +853,7 @@
 (definition public (bits->symbolic bits enumeration)
   (let ((entries (get-entries~ enumeration)))
     (let ((fact (new List-Factory)))
-      (for-each (function (entry)
+      (for-each (lambda (entry)
                   (bind (name value) entry
                     (when (mask-bit-set? bits value)
                       (put~ fact name))))
@@ -862,7 +862,7 @@
 
 
 (definition public (copy-into! seq1 seq2)
-  (for-each (function (element rank)
+  (for-each (lambda (element rank)
               (set-element! seq2 rank element))
             seq1
             (naturals 0 (cardinality seq1))))
@@ -877,12 +877,12 @@
   (unimplemented 'present-context-actions)
   @?self?
   (present-context-text title
-                        (map (function (action)
+                        (map (lambda (action)
                                (let* ((image (get-image~ action))
                                       (title (get-title~ action))
                                       (handler (get-handler~ action))
                                       (action
-                                        (function ()
+                                        (lambda ()
                                           (when handler
                                             (invoke~ handler self {})))))
                                  (list (list image: image) "  " (list :hyperlink action title))))
@@ -914,8 +914,8 @@
                                      (new Display-Column display)
                                    (new Aligned-Column display border-after: 1 alignment: 'left))))))
     (add-columns~ display columns)
-    (for-each (function (row)
-                (for-each (function (object column)
+    (for-each (lambda (row)
+                (for-each (lambda (object column)
                             (output~ column (->string object)))
                           row
                           columns)
@@ -1135,7 +1135,7 @@
 
 (definition public (justify inner outer justification)
   (let ((proc
-          (function (i o j)
+          (lambda (i o j)
             (if (integer? j)
                 (if (>= j 0)
                     j
@@ -1215,7 +1215,7 @@
          (start (modulo (+ parity count) count))
          (end (+ start extra -1))
          (end2 (- end count)))
-    (map (function (n)
+    (map (lambda (n)
            (+ base (if (or (between? n start end) (<= n end2)) 1 0)))
          (naturals 0 count))))
 
@@ -1262,7 +1262,7 @@
   (let* ((next (case direction
                  ((forward) next-cell)
                  ((backward) previous-cell)))
-         (advance (function (cell) (next cell top-left bottom-right 'horizontal)))
+         (advance (lambda (cell) (next cell top-left bottom-right 'horizontal)))
          (cell (advance (either start (case direction
                                         ((forward) top-left)
                                         ((backward) bottom-right))))))
@@ -1312,7 +1312,7 @@
 
 (definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? #t))
   (with-printer printer
-    (function (printer)
+    (lambda (printer)
       (let* ((system (either system (system-title~ (get-process))))
              (system-padding (make-string (string-length system) #\=))
              (comment (case language ((jazz) ";;;") ((c) "//")))
@@ -1343,7 +1343,7 @@
            (format printer #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
            (format printer #"{a}{%}"# comment)
            (format printer #"{a}  Contributor(s):{%}"# comment)
-           (for-each (function (contributor)
+           (for-each (lambda (contributor)
                        (format printer #"{a}    {a}{%}"# comment contributor))
                      contributors)
            (format printer #"{a}{%}"# comment)
@@ -1458,7 +1458,7 @@
 
 (definition public undocumented (read-tab-delimited file)
   (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-    (function (reader)
+    (lambda (reader)
       (let ((tab (string #\tab))
             (fact (new List-Factory))
             (done? #f))
@@ -1488,7 +1488,7 @@
          (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
     (call-with-output-file (list path: (parse~ output) char-encoding: 'UTF-8)
-      (function (printer)
+      (lambda (printer)
         (pretty-print~ jml printer)))
     (user-message "{a} converted to {a}" (get-name~ input) (get-name~ output))
     (let ((appl (get-application)))
@@ -1499,10 +1499,10 @@
   (unimplemented 'save-tab-delimited)
   @File-Printer
   (call-with-output-file (parse~ file)
-    (function (printer)
-      (for-each (function (line)
+    (lambda (printer)
+      (for-each (lambda (line)
                   (let ((first? #t))
-                    (for-each (function (text)
+                    (for-each (lambda (text)
                                 (if first?
                                     (set! first? #f)
                                   (format printer "{&}"))
@@ -1535,7 +1535,7 @@
 
 (definition public undocumented (make-directory-feedback)
   (let ((directory {}))
-    (function (file)
+    (lambda (file)
       (let ((dir (get-parent~ file)))
         (when (or (not directory) (not (pathname=? dir directory)))
           (let ((expanded (expand~ dir)))
@@ -1568,7 +1568,7 @@
   (let* ((size (cardinality seq))
          (len (- (quotient size 2) 1))
          (string (make-string len)))
-    (for-each (function (i)
+    (for-each (lambda (i)
                 (let* ((n (* i 2))
                        (c (make-word (element seq n) (element seq (+ n 1)))))
                   (set-element! string i c)))
@@ -1580,7 +1580,7 @@
   (let* ((len (cardinality string))
          (size (* (+ len 1) 2))
          (seq (new type size: size)))
-    (for-each (function (i)
+    (for-each (lambda (i)
                 (let ((n (* i 2))
                       (c (char->integer (element string i))))
                   (set-element! seq n (lobyte c))
@@ -1624,9 +1624,9 @@
            (member? (get-extension~ file2) Text-Extensions test: ci=?))
       (different-text-file-content? file1 file2)
     (call-with-input-file (parse~ file1)
-      (function (input1)
+      (lambda (input1)
         (call-with-input-file (parse~ file2)
-          (function (input2)
+          (lambda (input2)
             (or @convert
                 (/= (get-size~ input1)
                     (get-size~ input2))
@@ -1644,9 +1644,9 @@
 
 (definition public (different-file-content-no-whitespace? file1 file2)
   (call-with-input-file (list path: (parse~ file1) char-encoding: 'UTF char-encoding-errors: #f)
-    (function (input1)
+    (lambda (input1)
       (call-with-input-file (list path: (parse~ file2) char-encoding: 'UTF char-encoding-errors: #f)
-        (function (input2)
+        (lambda (input2)
           (not (wi= (read-content-string input1)
                     (read-content-string input2))))))))
 
@@ -1672,9 +1672,9 @@
 
 (definition package (extract-actions actions-list)
   (let ((fact (new List-Factory)))
-    (for-each (function (action-list)
+    (for-each (lambda (action-list)
                 (let ((context-name (get-name~ action-list)))
-                  (for-each (function (action-item)
+                  (for-each (lambda (action-item)
                               (let* ((action-name (get-name~ action-item))
                                      (shortcut (get-shortcut~ action-item)))
                                 (when shortcut
@@ -1704,13 +1704,13 @@
 
 (definition (with-logger-output proc)
   (call-with-output-file (list path: (parse~ (logger-file)) append: #t eol-encoding: (get-eol-encoding))
-    (function (port)
+    (lambda (port)
       (proc port))))
 
 
 (definition (logger-log . rest)
   (with-logger-output
-    (function (port)
+    (lambda (port)
       (apply format port rest))))
 
 
@@ -1724,13 +1724,13 @@
 
 (definition (logger-exception exc)
   (with-logger-output
-    (function (port)
+    (lambda (port)
       (display-exception exc port))))
 
 
 (definition (logger-backtrace cont)
   (with-logger-output
-    (function (port)
+    (lambda (port)
       (display-continuation-backtrace cont port))))
 
 
@@ -1747,7 +1747,7 @@
   (let ((file (timestamped-file *snapshots-directory* {} "snapshot")))
     (create-directories~ file)
     (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
-      (function (printer)
+      (lambda (printer)
         (apply print-process-snapshot printer rest)))
     file))
 
@@ -1782,7 +1782,7 @@
     (if continuation
         (print-thread (current-thread) continuation)
       (continuation-capture
-        (function (continuation)
+        (lambda (continuation)
           (print-thread (current-thread) continuation))))
     (loop (for thread in (top-threads))
           (do (when (neq? thread (current-thread))
@@ -1825,11 +1825,11 @@
 
 
 (definition public (snapshot-exception-debugger (feedback: feedback {}))
-  (function (exception)
+  (lambda (exception)
     (with-system-exception-debugger
-      (function ()
+      (lambda ()
         (continuation-capture
-          (function (continuation)
+          (lambda (continuation)
             (let ((snapshot (snapshot-process continuation: continuation exception: exception)))
               (when feedback
                 (feedback exception snapshot)))))

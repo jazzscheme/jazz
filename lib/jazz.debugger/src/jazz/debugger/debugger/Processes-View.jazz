@@ -128,7 +128,7 @@
            (pos (get-position~ evt))
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
-        (function ()
+        (lambda ()
           (let ((menu (new-context-menu (selected-object))))
             (when menu
               (track-popup-menu menu acquired)))))))
@@ -146,10 +146,10 @@
   
   (method (on-open-snapshot evt)
     (with-cursor :wait
-      (function ()
+      (lambda ()
         (let ((file (if (get-shift?~ evt)
                         (with-preserved-current-directory
-                          (function ()
+                          (lambda ()
                             (choose-file directory: {Directory Bin} extensions: Snapshot-Extensions)))
                       (choose-file extensions: Snapshot-Extensions))))
           (open-snapshot file)))))
@@ -166,7 +166,7 @@
   
   (method (on-update evt)
     (when (get-shift?~ evt)
-      (for-each (function (debugger)
+      (for-each (lambda (debugger)
                   (validate-processes~ debugger))
                 (get-debuggers)))
     (update-processes))
@@ -195,16 +195,16 @@
              {Bitmap-Resource "Script"})))
     
     (with-system-exception-debugger
-      (function ()
+      (lambda ()
         (let ((tree (locate 'processes)))
           (with-update-locked~ tree
-            (function ()
+            (lambda ()
               (with-preserved-selection~ tree
-                (function ()
+                (lambda ()
                   (remove-every-row~ tree)
                   (let ((manager (get-debugger-manager)))
                     (for-each-process~ manager
-                      (function (debugger process live? focused?)
+                      (lambda (debugger process live? focused?)
                         (let ((title (get-title~ process))
                               (image (process-image process live? focused?))
                               (frame-color (get-stopped-frame-color~ manager process))
@@ -261,9 +261,9 @@
   
   (method (process-row tree process)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-row~ tree
-          (function (row rank)
+          (lambda (row rank)
             (when (debugged=? (get-user-data~ row) process)
               (continuation-return return row))))
         {})))
@@ -306,7 +306,7 @@
   
   (method public (open-snapshot file . rest)
     (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (function (reader)
+      (lambda (reader)
         (let* ((snapshot (read reader))
                (crash-file? (ci=? (get-extension~ file) "crash"))
                (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))

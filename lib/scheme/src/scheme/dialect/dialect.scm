@@ -449,9 +449,10 @@
     (jazz.parse-specifier (%%cddr (jazz.source-code form-src))
       (lambda (specifier body)
         (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-          (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+          (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
+                (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
             (jazz.new-lambda type form-src signature
-              (jazz.walk-body walker resume declaration augmented-environment body))))))))
+              (jazz.walk-body walker resume declaration augmented-environment effective-body))))))))
 
 
 ;;;

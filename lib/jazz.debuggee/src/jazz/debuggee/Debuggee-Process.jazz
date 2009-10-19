@@ -73,7 +73,7 @@
           (primordial (primordial-thread)))
       (if (and process (thread-loop? primordial))
           (thread-post primordial 'exit-process
-            (function ()
+            (lambda ()
               (exit-process~ process)))
         (detach-from-controller)
         (exit))))
@@ -95,7 +95,7 @@
   
   
   (method (get-threads)
-    (map (function (thread)
+    (map (lambda (thread)
            (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
          (top-threads)))
   
@@ -108,7 +108,7 @@
   (method (break-thread thread-proxy)
     (let ((thread (get-thread~ (get-object~ thread-proxy))))
       (thread-interrupt! thread
-        (function ()
+        (lambda ()
           (break)))))
   
   
@@ -122,7 +122,7 @@
       (let ((thread (get-thread~ debuggee-restart))
             (restart (get-restart~ debuggee-restart)))
         (thread-post thread 'restart-stop
-          (function ()
+          (lambda ()
             (invoke-restart restart))))))
   
   
@@ -136,7 +136,7 @@
       (let ((thread (get-thread~ stop))
             (continuation (get-continuation~ stop)))
         (thread-post thread 'continue-stop
-          (function ()
+          (lambda ()
             (continuation-return continuation #f))))))
   
   
@@ -167,22 +167,22 @@
   (method (evaluate-expressions syntax str container line col)
     (define (present result)
       (when (specified? result)
-        (let ((values (call-with-values (function () result) list)))
-          (for-each (function (value)
+        (let ((values (call-with-values (lambda () result) list)))
+          (for-each (lambda (value)
                       (format :console #"\($\)\(color Ochre {s}\){%}"# value))
                     values))
         (display-prompt (get-console-port) (current-repl-level))
         (force-output (get-console-port))))
     
     (thread-call (primordial-thread) 'evaluate-expressions
-      (function ()
+      (lambda ()
         (let ((expr (parameterize ((walk-for 'eval))
                       (with-readtable (case syntax
                                         ((scheme) scheme-readtable)
                                         ((jazz) jazz-readtable))
-                        (function ()
+                        (lambda ()
                           (call-with-input-string str
-                            (function (port)
+                            (lambda (port)
                               (read-source-first port container line col))))))))
           (if (module/library-form? expr)
               (receive (module-name access) (parse-module/library (cdr (source-code expr)))

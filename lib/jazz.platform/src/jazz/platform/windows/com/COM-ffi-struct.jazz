@@ -61,8 +61,8 @@ end-c-code
 
 (definition IUnknown*-enref
   (let ((decast (c-function (IUnknown*) ulong "___result = (unsigned long) ___arg1;"))
-        (decast2 (function (coptr) (typed-foreign->ulong 'IUnknown* coptr))))
-    (function (coptr)
+        (decast2 (lambda (coptr) (typed-foreign->ulong 'IUnknown* coptr))))
+    (lambda (coptr)
       (let ((coptr* (make-u32vect 1)))
         (u32vect-set! coptr* 0 (decast coptr))
         coptr*))))
@@ -70,8 +70,8 @@ end-c-code
 
 (definition IUnknown*-deref
   (let ((encast (c-function (ulong) IUnknown* "___result = (IUnknown*) ___arg1;"))
-        (encast2 (function (u) (ulong->typed-foreign 'IUnknown* u))))
-    (function (coptr*)
+        (encast2 (lambda (u) (ulong->typed-foreign 'IUnknown* u))))
+    (lambda (coptr*)
       (encast (u32vect-ref coptr* 0)))))
 
 
@@ -84,7 +84,7 @@ end-c-code
                 ; }
                 ; end-c-code
                 )))
-    (function (coptr)
+    (lambda (coptr)
       (let ((low$1 (IUnknown*-enref #f)))
         (let ((res (proc coptr low$1)))
           (let ((out$1 (IUnknown*-deref low$1)))
@@ -103,7 +103,7 @@ end-c-code
 (definition INT-enref
   (let ((decast (c-function (int) ulong "___result = *(unsigned long*) &___arg1;"))
         (decast2 recast-int->ulong))
-    (function (int)
+    (lambda (int)
       (let ((int* (make-u32vect 1)))
         (u32vect-set! int* 0 (decast int))
         int*))))
@@ -112,13 +112,13 @@ end-c-code
 (definition INT-deref
   (let ((encast (c-function (ulong) int "___result = *(signed int*) &___arg1;"))
         (encast2 recast-ulong->int))
-    (function (int*)
+    (lambda (int*)
       (encast (u32vect-ref int* 0)))))
 
 
 (definition ffi-foo-INT
   (let ((proc (c-function (U32PTR) HRESULT "___result = foo((INT*)___arg1);")))
-    (function ()
+    (lambda ()
       (let ((low$1 (INT-enref 0)))
         (let ((res (proc low$1)))
           (let ((out$1 (INT-deref low$1)))
@@ -189,18 +189,18 @@ end-c-code
   (GUID-Data2-set! guid (string->number (substring str 9 13) 16))
   (GUID-Data3-set! guid (string->number (substring str 14 18) 16))
   (let ((data4+ (GUID-Data4-ref guid))
-        (string->byte (function (offset)
+        (string->byte (lambda (offset)
                         (string->number (substring str offset (+ 2 offset)) 16))))
-    (for-each (function (n byte) (byte*-set! data4+ n byte))
+    (for-each (lambda (n byte) (byte*-set! data4+ n byte))
               (naturals 0 8)
               (map string->byte '(19 21 24 26 28 30 32 34)))))
 
 
 (definition (GUID-ref guid)
-  (let* ((proc (function (i n)
+  (let* ((proc (lambda (i n)
                  (zero-fill (number->string i 16) n)))
          (data4+ (GUID-Data4-ref guid))
-         (proc4 (function (n) (proc (byte*-ref data4+ n) 2))))
+         (proc4 (lambda (n) (proc (byte*-ref data4+ n) 2))))
     (apply string-append
            (proc (GUID-Data1-ref guid) 8) "-"
            (proc (GUID-Data2-ref guid) 4) "-"

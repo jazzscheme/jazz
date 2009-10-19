@@ -57,7 +57,7 @@
   
   (method override (print printer readably)
     (print-unreadable self printer
-      (function (printer)
+      (lambda (printer)
         (write string printer))))
   
 
@@ -91,7 +91,7 @@
   
   (method public (compute-width) <fx>
     (let ((width (get-left-margin~ format)))
-      (for-each (function (run <Run>)
+      (for-each (lambda (run <Run>)
                   (increase! width (compute-width~ run)))
                 runs)
       width))
@@ -128,7 +128,7 @@
                    (w (+ left-padding (- width left)))
                    (region (new Region)))
                (for-each-logical-range s e 0
-                 (function (line <Line> beginning limit)
+                 (lambda (line <Line> beginning limit)
                    (with-closed ((sub (range-region~ line left top w beginning (if (not end) {} limit) self dh dv sc)))
                      (combine!~ region sub 'or))))
                region)))))
@@ -168,9 +168,9 @@
   
   (method public (get-run col <fx>) <Run+>
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-run runs
-          (function (run <Run> offset <fx> limit <fx>)
+          (lambda (run <Run> offset <fx> limit <fx>)
             (when (and (> col offset) (<= col limit))
               (continuation-return return run))))
         {})))
@@ -185,10 +185,10 @@
   (method protected (range-runs start <fx> end <fx>)
     (let ((fact (new List-Factory))
           (make
-           (function (run <Run> s <fx> e <fx>)
+           (lambda (run <Run> s <fx> e <fx>)
              (new Run (subseq! string s e) (get-style~ run)))))
       (for-each-range-run start end
-        (function (where run offset limit)
+        (lambda (where run offset limit)
           (case where
             ((inside)
              (put~ fact run))
@@ -203,7 +203,7 @@
   
   (method (for-each-run runs <list> proc)
     (let ((offset 0))
-      (for-each (function (run <Run>)
+      (for-each (lambda (run <Run>)
                   (let* ((len (get-length~ run))
                          (limit (+ offset len)))
                     (proc run offset limit)
@@ -221,7 +221,7 @@
   ;;
   (method (for-each-range-run start <fx> end <fx> proc)
     (for-each-run runs
-      (function (run <Run> offset <fx> limit <fx>)
+      (lambda (run <Run> offset <fx> limit <fx>)
         (proc (cond ((or (<= limit start) (>= offset end))
                      'outside)
                     ((and (>= offset start) (<= limit end))
@@ -244,13 +244,13 @@
   
   (method protected (set-style start <fx> end <fx> style)
     (modify-style start end
-      (function (s)
+      (lambda (s)
         style)))
   
   
   (method protected (set-text-alignment start <fx> end <fx> alignment)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-alignment~ style alignment)
           style))))
@@ -258,7 +258,7 @@
   
   (method protected (set-text-font start <fx> end <fx> font)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-font~ style font)
           style))))
@@ -266,7 +266,7 @@
   
   (method protected (set-text-color start <fx> end <fx> color)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-color~ style color)
           style))))
@@ -274,7 +274,7 @@
   
   (method protected (set-highlight-color start <fx> end <fx> color)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-highlight~ style color)
           style))))
@@ -282,7 +282,7 @@
   
   (method protected (set-font-name start <fx> end <fx> name)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (when (supports?~ style font:)
           (let* ((style <Text-Style> (extend~ style))
                  (font (extend-font-name~ (get-font~ style) name)))
@@ -292,7 +292,7 @@
   
   (method protected (set-point-size start <fx> end <fx> size)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (when (supports?~ style font:)
           (let* ((style <Text-Style> (extend~ style))
                  (font (extend-point-size~ (get-font~ style) size)))
@@ -302,7 +302,7 @@
   
   (method protected (toggle-bold start <fx> end <fx>)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-bold~ (get-font~ style))))
           (set-font~ style font)
@@ -311,7 +311,7 @@
   
   (method protected (toggle-italic start <fx> end <fx>)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-italic~ (get-font~ style))))
           (set-font~ style font)
@@ -320,7 +320,7 @@
   
   (method protected (toggle-underline start <fx> end <fx>)
     (modify-style start end
-      (function (style <Style>)
+      (lambda (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-underline~ (get-font~ style))))
           (set-font~ style font)
@@ -333,15 +333,15 @@
            (end <fx> (either end (cardinality string)))
            (fact (new List-Factory))
            (split
-            (function (run <Run> s <fx> e <fx>)
+            (lambda (run <Run> s <fx> e <fx>)
               (new Run (subseq! string s e) (get-style~ run))))
            (make
-            (function (run <Run> s <fx> e <fx>)
+            (lambda (run <Run> s <fx> e <fx>)
               (let* ((style (get-style~ run))
                      (new-style (either (proc style) style)))
                 (new Run (subseq! string s e) (intern-style~ text new-style))))))
       (for-each-range-run start end
-        (function (where run offset limit)
+        (lambda (where run offset limit)
           (case where
             ((outside)
              (put~ fact run))
@@ -363,7 +363,7 @@
   (method protected (remove-coloring default-style <Style>)
     (let ((text <Text-View> parent)
           (modified? #f))
-      (for-each (function (run <Run>)
+      (for-each (lambda (run <Run>)
                   (let ((style (get-style~ run)))
                     (when (and (is? style Text-Style) (get-color~ style))
                       (set-style~ run default-style)
@@ -411,15 +411,15 @@
            (tabs (get-tabs~ text))
            (lines (new List-Factory))
            (lruns (new List-Factory))
-           (place (function (run)
+           (place (lambda (run)
                     (put~ lruns run)))
            (break-line
-            (function (right)
+            (lambda (right)
               (let* ((runs (get-output~ lruns))
                      (line-left (case justification ((() left) 0) ((centered) (center right width)) ((right) (justify right width 'tail))))
                      (line (new Line text runs rank offset line-left top right))
                      (height (get-height~ line)))
-                (for-each (function (run <Run>) (height-update~ run height)) runs)
+                (for-each (lambda (run <Run>) (height-update~ run height)) runs)
                 (put~ lines line)
                 (reset~ lruns)
                 (set! left margin)
@@ -427,7 +427,7 @@
                 (increase! rank)
                 (increase! offset (get-length~ line))
                 top))))
-      (for-each (function (run <Run>)
+      (for-each (lambda (run <Run>)
                   (set! left (wrap~ run context margin left top width tabs place break-line)))
                 runs)
       (break-line left)
@@ -455,7 +455,7 @@
            (v 0))
       (when (get-bulleted?~ format)
         (draw-bullet surface h v left))
-      (for-each (function (line <Line>)
+      (for-each (lambda (line <Line>)
                   (draw-line~ line surface context h v tabs left)
                   (increase! v (get-height~ line)))
                 lines)))
@@ -494,10 +494,10 @@
       (let* ((replacement (new Run (subseq! string start new-end) style))
              (replacement-list (if (> (get-length~ replacement) 0) (list replacement) '())))
         (for-each-run before
-          (function (run <Run> offset <fx> limit <fx>)
+          (lambda (run <Run> offset <fx> limit <fx>)
             (set-string~ run (subseq! string offset limit))))
         (for-each-run after
-          (function (run <Run> offset <fx> limit <fx>)
+          (lambda (run <Run> offset <fx> limit <fx>)
             (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
         (set! runs (coalesce-runs (append! before replacement-list after))))))
   
@@ -512,24 +512,24 @@
            (after (range-runs end (get-length))))
       (set! string (replace-subseq! string start end str))
       (for-each-run before
-        (function (run <Run> offset <fx> limit <fx>)
+        (lambda (run <Run> offset <fx> limit <fx>)
           (set-string~ run (subseq! string offset limit))))
       (for-each-run replacement
-        (function (run <Run> offset <fx> limit <fx>)
+        (lambda (run <Run> offset <fx> limit <fx>)
           (let ((style (get-style~ run)))
             (when (is? style View-Style)
               (set-parent~ (get-view~ style) self)))
           (set-string~ run (subseq! string (+ start offset) (+ start limit)))))
       (for-each-run after
-        (function (run <Run> offset <fx> limit <fx>)
+        (lambda (run <Run> offset <fx> limit <fx>)
           (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
       (set! runs (coalesce-runs (append! before replacement after)))))
   
   
   (method (find-propagatable-style runs <list>)
     (continuation-capture
-      (function (return)
-        (for-each-reversed (function (run <Run>)
+      (lambda (return)
+        (for-each-reversed (lambda (run <Run>)
                              (let ((style (get-style~ run)))
                                (when (propagate?~ style)
                                  (continuation-return return style))))
@@ -548,7 +548,7 @@
   
   (method (runs->str runs <list>) <string>
     (let ((printer (open-output-string)))
-      (for-each (function (run <Run>)
+      (for-each (lambda (run <Run>)
                   (display (get-string~ run) printer))
                 runs)
       (get-output-string printer)))
@@ -563,8 +563,8 @@
   (method protected (view->col view <Point>) <fx>
     (let ((view (new Point (- (get-h~ view) (get-left-margin~ format)) (get-v~ view))))
       (continuation-capture
-        (function (return)
-          (for-each (function (line <Line>)
+        (lambda (return)
+          (for-each (lambda (line <Line>)
                       (let ((col (view->col~ line view)))
                         (when col
                           (continuation-return return (+ (get-offset~ line) col)))))
@@ -575,8 +575,8 @@
   (method protected (col->view col <fx>) <Point>
     (let ((last (last lines)))
       (continuation-capture
-        (function (return)
-          (for-each (function (line <Line>)
+        (lambda (return)
+          (for-each (lambda (line <Line>)
                       (let* ((strict? (neq? line last))
                              (view (col->view~ line (- col (get-offset~ line)) strict?)))
                         (when view
@@ -587,8 +587,8 @@
   (method protected (col->text col <fx>) <Cell>
     (let ((last {}))
       (continuation-capture
-        (function (return)
-          (for-each (function (line <Line>)
+        (lambda (return)
+          (for-each (lambda (line <Line>)
                       (let ((text (col->text~ line col)))
                         (when text
                           (continuation-return return text)))

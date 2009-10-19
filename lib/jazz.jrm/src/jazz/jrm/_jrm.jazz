@@ -135,9 +135,9 @@
           (terminal '***client*** 'live? remote-proxy))
         (let ((port (open-tcp-client (list server-address: host port-number: service))))
           (with-exception-catcher
-            (function (exc)
+            (lambda (exc)
               #f)
-            (function ()
+            (lambda ()
               (parameterize ((send-timeout live-timeout)
                              (receive-timeout live-timeout))
                 (send-remote-message live-request port)
@@ -179,7 +179,7 @@
       (when *debug?*
         (terminal '***client*** kind method-name remote-proxy (and *debug-arguments?* arguments)))
       (call-with-tcp-client (list server-address: host port-number: service)
-        (function (port)
+        (lambda (port)
           (send-remote-message (list kind method-name proxy-ior arguments) port)
           (case kind
             ((post)
@@ -250,17 +250,17 @@
   (if *debug-locally?*
       (values #f (dispatch-remote method-name proxy-ior arguments))
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (with-exception-handler
-          (function (exc)
+          (lambda (exc)
             (continuation-capture
-              (function (cont)
+              (lambda (cont)
                 (when *debug?*
                   (terminal '***server*** 'exception method-name)
                   (display-exception exc)
                   (display-continuation-backtrace cont))
                 (return (values (exception-reason exc) #f)))))
-          (function ()
+          (lambda ()
             (values #f (dispatch-remote method-name proxy-ior arguments))))))))
 
 
@@ -622,7 +622,7 @@
          (receive (kind info) (decode-info object)
            (if (not kind)
                (with-jazz-readtable
-                 (function ()
+                 (lambda ()
                    (read-string-element (car info))))
              (case kind
                ((false) #f)

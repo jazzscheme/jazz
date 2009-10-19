@@ -52,10 +52,10 @@
   (method (convert-form proc (extensions: extensions '()))
     (let ((file (choose-file extensions: extensions)))
       (with-cursor :wait
-        (function ()
+        (lambda ()
           (let ((form (file-form file)))
             (letrec ((convert
-                       (function (form)
+                       (lambda (form)
                          (proc form)
                          (for-each convert (get-children~ form)))))
               (convert form))
@@ -83,10 +83,10 @@
       (ensure-read/write file)
       (let ((back (essay backup? (backup-file file))))
         (with-cursor :wait
-          (function ()
+          (lambda ()
             (let ((book (load-book file literal-hook))
                   (fact (new List-Factory)))
-              (for-each-property (function (keyword section)
+              (for-each-property (lambda (keyword section)
                                    (let ((section-name (if (null? section-proc) keyword (section-proc keyword))))
                                      (put~ fact section-name)
                                      (case keyword
@@ -99,7 +99,7 @@
                                         (if (null? property-proc)
                                             (put~ fact section)
                                           (let ((f (new List-Factory)))
-                                            (for-each-property (function (property value)
+                                            (for-each-property (lambda (property value)
                                                                  (receive (property value) (property-proc property value)
                                                                    (put~ f property)
                                                                    (put~ f value)))
@@ -107,9 +107,9 @@
                                             (put~ fact (get-output~ f)))))
                                        (else
                                         (letrec ((convert
-                                                   (function (parent-form form)
+                                                   (lambda (parent-form form)
                                                      (proc section-name parent-form form)
-                                                     (for-each (function (subform)
+                                                     (for-each (lambda (subform)
                                                                  (convert form subform))
                                                                (get-children~ form))
                                                      (let ((client-form (get-property~ form 'client-form)))
@@ -141,9 +141,9 @@
     (when (in-manifest? 'Depot)
       (ensure-read/write file))
     (call-with-output-file (list path: (parse~ file) char-encoding: 'UTF-8)
-      (function (printer)
+      (lambda (printer)
         (output-header (get-base~ file) printer)
-        (for-each-property (function (keyword section)
+        (for-each-property (lambda (keyword section)
                              (case keyword
                                ((version: properties:) (format printer "{%}{%}{s}{%}{%}{s}{%}" keyword section))
                                (else (format printer "{%}{%}{s}{%}{%}" keyword)

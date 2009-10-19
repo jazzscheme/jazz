@@ -52,7 +52,7 @@
 
 (definition public initialize-com
   (let ((initialized? #f))
-    (function ()
+    (lambda ()
       (unless initialized?
         (LoadLibrary "ole32")
         (CoInitializeEx #f COINIT_APARTMENTTHREADED)
@@ -94,7 +94,7 @@
   
   (method override (print printer readably)
     (print-unreadable self printer
-      (function (printer)
+      (lambda (printer)
         (format printer "#x{x}{? {a}~}" code message))))
   
   
@@ -168,7 +168,7 @@
 
 (definition public BSTR*-ref
   (let ((ref (c-function (BSTR*) BSTR "___result_voidstar = *___arg1;")))
-    (function (BSTR*)
+    (lambda (BSTR*)
       (BSTR-decode (ref BSTR*)))))
 
 
@@ -199,19 +199,19 @@
 
 (definition public BSTR-free
   (let ((SysFreeString (c-function (BSTR) void "SysFreeString")))
-    (function (bstr)
+    (lambda (bstr)
       (SysFreeString bstr))))
 
 
 (definition public BSTR-ref
   (let ((cast (c-function (BSTR) wchar_t-string "___result = (wchar_t*)___arg1;")))
-    (function (bstr)
+    (lambda (bstr)
       (cast bstr))))
 
 
 (definition public BSTR-encode
   (let ((SysAllocString (c-function (wchar_t-string) BSTR "SysAllocString")))
-    (function (str)
+    (lambda (str)
       (SysAllocString str))))
 
 
@@ -245,18 +245,18 @@
   (GUID-Data2-set! guid (string->number (substring str 9 13) 16))
   (GUID-Data3-set! guid (string->number (substring str 14 18) 16))
   (let ((data4+ (GUID-Data4-ref guid))
-        (string->byte (function (offset)
+        (string->byte (lambda (offset)
                         (string->number (substring str offset (+ 2 offset)) 16))))
-    (for-each (function (n byte) (byte*-set! data4+ n byte))
+    (for-each (lambda (n byte) (byte*-set! data4+ n byte))
               (naturals 0 8)
               (map string->byte '(19 21 24 26 28 30 32 34)))))
 
 
 (definition public (GUID-ref guid)
-  (let* ((proc (function (i n)
+  (let* ((proc (lambda (i n)
                  (zero-fill (number->string i 16) n)))
          (data4+ (GUID-Data4-ref guid))
-         (proc4 (function (n) (proc (byte*-ref data4+ n) 2))))
+         (proc4 (lambda (n) (proc (byte*-ref data4+ n) 2))))
     (apply string-append
            (proc (GUID-Data1-ref guid) 8) "-"
            (proc (GUID-Data2-ref guid) 4) "-"
@@ -507,7 +507,7 @@
 
 
 (definition public VARIANT_BOOL*-ref
-  (function (vtbool*)
+  (lambda (vtbool*)
     (VARIANT_BOOL-decode
       ((c-function (VARIANT_BOOL*) VARIANT_BOOL
          "___result = *___arg1;")

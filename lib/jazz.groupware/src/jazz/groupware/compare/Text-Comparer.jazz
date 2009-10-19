@@ -68,16 +68,16 @@
           (let* ((line <Compare-Line> (car set1))
                  (string <string> (get-string~ line))
                  (proc <procedure>
-                  (function (line <Compare-Line>)
+                  (lambda (line <Compare-Line>)
                     (insert-line root line))))
             (set! root (new Compare-Node (list line) (string-ref string 0)))
             (for-each proc (cdr set1))
             (for-each proc set2)
             (set! matches (append! commons (collect-matches root))))
         (set! matches commons))
-      (let* ((sames (map (function (node <Compare-Node>) (extract-diff~ node moniker1 moniker2)) matches))
-             (sames1 (sort < sames key: (function (diff <list>) (get-rank~ (element diff 0)))))
-             (sames2 (sort < sames key: (function (diff <list>) (get-rank~ (element diff 1))))))
+      (let* ((sames (map (lambda (node <Compare-Node>) (extract-diff~ node moniker1 moniker2)) matches))
+             (sames1 (sort < sames key: (lambda (diff <list>) (get-rank~ (element diff 0)))))
+             (sames2 (sort < sames key: (lambda (diff <list>) (get-rank~ (element diff 1))))))
         (collect-lines sames1 sames2 initial-set1 initial-set2))))
   
   
@@ -92,10 +92,10 @@
            (next1 (essay (not-null? sames1) (car sames1)))
            (next2 (essay (not-null? sames2) (car sames2)))
            (fact (new List-Factory))
-           (green (function (rank <fx> lines <list>) (list rank {} (element lines rank) 'green)))
-           (blue (function (rank <fx> lines <list>) (list {} rank (element lines rank) 'blue)))
+           (green (lambda (rank <fx> lines <list>) (list rank {} (element lines rank) 'green)))
+           (blue (lambda (rank <fx> lines <list>) (list {} rank (element lines rank) 'blue)))
            (proc
-            (function (rank <fx> end <fx> lines <list> create <procedure>)
+            (lambda (rank <fx> end <fx> lines <list> create <procedure>)
               (while (< rank end)
                 (put~ fact (create rank lines))
                 (increase! rank))
@@ -133,7 +133,7 @@
   
   (method (collect-commons set1 set2)
     (let ((proc
-           (function (set1 set2)
+           (lambda (set1 set2)
              (let ((line1 (and (not-null? set1) (car set1)))
                    (line2 (and (not-null? set2) (car set2)))
                    (commons '()))
@@ -163,7 +163,7 @@
   (method (insert-line node <Compare-Node> line <Compare-Line>)
     (letrec ((string (get-string~ line))
              (proc
-              (function (subnode <Compare-Node> n <fx>)
+              (lambda (subnode <Compare-Node> n <fx>)
                 (let* ((lines (get-lines~ subnode))
                        (baseline (if (null? lines) #f (car lines))))
                   (if baseline
@@ -176,7 +176,7 @@
                             (add-child~ subnode newnode)
                             (proc subnode n))))
                     (let* ((c (string-ref string n))
-                           (matchnode (find-in (get-children~ subnode) c key: (function (node <Compare-Node>) (get-key~ node)))))
+                           (matchnode (find-in (get-children~ subnode) c key: (lambda (node <Compare-Node>) (get-key~ node)))))
                       (if (not matchnode)
                           (add-child~ subnode (new Compare-Node (list line) c))
                         (proc matchnode (+ n 1)))))))))
@@ -185,14 +185,14 @@
   
   (method (collect-matches node <Compare-Node>)
     (let ((children (get-children~ node)))
-      (append! (collect-if (function (subnode <Compare-Node>)
+      (append! (collect-if (lambda (subnode <Compare-Node>)
                              (let ((lines (get-lines~ subnode)))
                                (and (not-null? lines)
                                     (= (length lines) 2)
                                     (neq? (get-moniker~ (first lines))
                                           (get-moniker~ (second lines))))))
                            children)
-               (apply append! (map collect-matches (collect-if (function (subnode <Compare-Node>)
+               (apply append! (map collect-matches (collect-if (lambda (subnode <Compare-Node>)
                                                                  (null? (get-lines~ subnode)))
                                                                children))))))
 
@@ -220,9 +220,9 @@
   
   (method public (print-tree node <Compare-Node> printer)
     (letrec ((proc
-              (function (node <Compare-Node> level <fx>)
+              (lambda (node <Compare-Node> level <fx>)
                 (format printer "{_ :v}{s}{%}" (* level 2) node)
-                (for-each (function (subnode <Compare-Node>)
+                (for-each (lambda (subnode <Compare-Node>)
                             (proc subnode (+ level 1)))
                           (get-children~ node)))))
       (proc node 0)))))

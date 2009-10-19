@@ -429,7 +429,7 @@
           (height 0)
           (first? #t))
       (for-each-visible-row
-        (function (row rank)
+        (lambda (row rank)
           (increase! count)
           (increase! height (get-effective-height~ row))
           (if first?
@@ -447,7 +447,7 @@
         ;; a quick not too clean solution for now...
         (when (is? node-column Tree-Node-Column)
           (for-each-visible-row
-            (function (row rank)
+            (lambda (row rank)
               (let* ((highlight-border 3)
                      (nw (+ (either (get-node-width~ row) 0) highlight-border))
                      (w (+ (text-h~ node-column (get-level~ row)) nw)))
@@ -500,7 +500,7 @@
   
   
   (method (draw-highlighted surface)
-    (for-each-reversed (function (highlight)
+    (for-each-reversed (lambda (highlight)
                          (let ((row (get-row~ highlight))
                                (col (get-col~ highlight))
                                (insert (get-insert~ highlight)))
@@ -547,7 +547,7 @@
   
   
   (method public (set-highlighted value)
-    (assert (every? (function (object) (is? object Tree-Highlight)) value))
+    (assert (every? (lambda (object) (is? object Tree-Highlight)) value))
     (when (not (equal? value highlighted))
       (let ((old highlighted))
         (set! highlighted value)
@@ -556,7 +556,7 @@
   
   
   (method (invalidate-highlighted highlighted)
-    (for-each (function (highlight)
+    (for-each (lambda (highlight)
                 (let ((row (get-row~ highlight))
                       (col (get-col~ highlight))
                       (insert (get-insert~ highlight)))
@@ -591,7 +591,7 @@
                          ((eq? insert 'after) half-spacing)
                          (else (- half-spacing row-spacing))))
            (proc
-            (function (v)
+            (lambda (v)
               (let* ((top (+ v offset))
                      (bottom (+ top 2)))
                 (new Rect (get-left~ rect) top (get-right~ rect) bottom)))))
@@ -784,14 +784,14 @@
     (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
     (receive (equal smaller greater) (sort-predicates)
       (letrec ((direction (if sort-ascending? smaller greater))
-               (proc (function (row)
+               (proc (lambda (row)
                        (let ((sorted (sort-rows (get-sons~ row) column equal direction)))
                          (reorder-sons~ row sorted)
                          (iterate (get-sons~ row) proc)))))
         (with-preserved-selection
-          (function ()
+          (lambda ()
             (with-update-locked
-              (function ()
+              (lambda ()
                 (proc root-row))))
           ensure-displayed?: #f))))
   
@@ -799,10 +799,10 @@
   (method (sort-rows rows column equal direction)
     (let ((dual? (/= column 0))
           (get-node
-            (function (row children n)
+            (lambda (row children n)
               (let ((data (element children n)))
                 (either (sort-value~ (get-column n) row data) "")))))
-      (sort (function (rx ry)
+      (sort (lambda (rx ry)
               (let* ((cx (get-children~ rx))
                      (cy (get-children~ ry))
                      (nx (localize (get-node rx cx column)))
@@ -877,16 +877,16 @@
         (set-visible?~ path-column (not flattened?))
         (fill-column (get-display-size))
         (with-preserved-selection
-          (function ()
+          (lambda ()
             (with-update-locked
-              (function ()
+              (lambda ()
                 (if flattened?
                     (unflatten)
                   (flatten)))))))))
   
   
   (method public (get-path-column)
-    (find-if (function (column)
+    (find-if (lambda (column)
                (is? column Tree-Path-Column))
              columns))
   
@@ -898,23 +898,23 @@
   (method public (flatten)
     (let ((sons (get-sons~ root-row)))
       (iterate sons
-               (function (son)
+               (lambda (son)
                  (if (flatten-row? son)
                      (disconnect~ son)
                    (flatten~ son root-row))))
       (iterate sons
-               (function (son)
+               (lambda (son)
                  (unless (disconnected?~ son)
                    (set-visible?~ son #f))))))
   
   
   (method public (unflatten)
     (iterate (get-sons~ root-row)
-             (function (son)
+             (lambda (son)
                (when (disconnected?~ son)
                  (reconnect~ son))))
     (iterate (get-sons~ root-row)
-             (function (son)
+             (lambda (son)
                (unless (get-visible?~ son)
                  (set-visible?~ son #t)))))
   
@@ -1066,7 +1066,7 @@
   
   (method (get-reorder-target drag-drop pos)
     (call-with-view->tree pos
-      (function (cell v height)
+      (lambda (cell v height)
         (when cell
           (let* ((rank (get-row~ cell))
                  (quarter (get-row-quarter v height))
@@ -1105,7 +1105,7 @@
   
   (method protected (get-tree-row-target drag-drop pos)
     (call-with-view->tree pos
-      (function (cell v height)
+      (lambda (cell v height)
         (when cell
           (let ((row (get-row (get-row~ cell)))
                 (current (get-target~ drag-drop)))
@@ -1116,7 +1116,7 @@
     
   (method public (get-tree-data-target drag-drop pos)
     (call-with-view->tree pos
-      (function (cell v height)
+      (lambda (cell v height)
         (when cell
           (let ((row (get-row (get-row~ cell)))
                 (col (get-col~ cell))
@@ -1353,7 +1353,7 @@
                      (delta (max (- (borders-width filled-borders)) (- (get-width~ size) (space-after-column rank) (borders-right filled-borders))))
                      (old-right (cdr filled-borders))
                      (new-right (+ old-right delta)))
-                (for-each (function (pair)
+                (for-each (lambda (pair)
                             (set-car! pair (+ (car pair) delta))
                             (set-cdr! pair (+ (cdr pair) delta)))
                           (tail columns-borders (+ rank 1)))
@@ -1372,14 +1372,14 @@
   (method (find-filled-column name)
     (cond ((integer? name) (element columns name))
           ((eq? name #t) (essay (not-null? columns) (last columns)))
-          (else (find-if (function (column)
+          (else (find-if (lambda (column)
                            (eq? (get-name~ column) name))
                          columns))))
   
   
   (method (space-after-column rank)
     (let ((total 0))
-      (for-each (function (borders)
+      (for-each (lambda (borders)
                   (increase! total (borders-width borders)))
                 (tail columns-borders (+ rank 1)))
       total))
@@ -1426,7 +1426,7 @@
   
   (method (remove-columns-preserving preserve-node-column? preserve)
     (remove-every-row)
-    (for-each (function (column)
+    (for-each (lambda (column)
                 (unless (or (and preserve-node-column? (is? column Tree-Node-Column))
                             (memq? (get-name~ column) preserve))
                   (remove-column column)))
@@ -1441,7 +1441,7 @@
   
   
   (method (invalidate-node-column)
-    (set! node-column (find-if (function (column)
+    (set! node-column (find-if (lambda (column)
                                  (is? column Tree-Node-Column))
                                columns)))
 
@@ -1449,7 +1449,7 @@
   (method protected (invalidate-borders)
     (let ((left 0))
       (set! columns-borders
-            (map (function (column)
+            (map (lambda (column)
                    (let* ((width (get-width~ column))
                           (right (+ left width)))
                      (prog1 (cons left right)
@@ -1503,14 +1503,14 @@
   
   (method override (add-empty-row (father: father {}))
     (let ((father (either father root-row)))
-      (add-row father: father children: (map (function (column)
+      (add-row father: father children: (map (lambda (column)
                                                (new-empty-cell~ column))
                                              columns))))
   
   
   (method override (row-selected? row)
     (case selection-mode
-      ((cell) (some? (function (cell) (= (get-row~ cell) row)) selection))
+      ((cell) (some? (lambda (cell) (= (get-row~ cell) row)) selection))
       (else (memq? row selection))))
   
   
@@ -1526,9 +1526,9 @@
   
   (method public (row-index target)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-visible-row
-          (function (row rank)
+          (lambda (row rank)
             (when (eq? row target)
               (continuation-return return rank))))
         {})))
@@ -1536,9 +1536,9 @@
 
   (method public (user-data-row data (test: test eqv?) (visible?: visible? #t))
     (continuation-capture
-      (function (return)
+      (lambda (return)
         ((if visible? for-each-visible-row for-each-row)
-         (function (row rank)
+         (lambda (row rank)
            (when (test (get-user-data~ row) data)
              (continuation-return return row))))
         {})))
@@ -1547,7 +1547,7 @@
   (method public (user-data-rows data-list (test: test eqv?) (visible?: visible? #t))
     (let ((fact (new List-Factory)))
       ((if visible? for-each-visible-row for-each-row)
-       (function (row rank)
+       (lambda (row rank)
          (let ((user-data (get-user-data~ row)))
            (when (member? user-data data-list test: test)
              (put~ fact row)))))
@@ -1557,9 +1557,9 @@
   ;; Because it returns the rank, this method only makes sense on visible rows
   (method public (user-data-index data (test: test eqv?))
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (for-each-visible-row
-          (function (row rank)
+          (lambda (row rank)
             (when (test (get-user-data~ row) data)
               (continuation-return return rank))))
         {})))
@@ -1569,7 +1569,7 @@
   (method public (user-data-indexes data-list (test: test eqv?))
     (let ((fact (new List-Factory)))
       (for-each-visible-row
-        (function (row rank)
+        (lambda (row rank)
           (let ((user-data (get-user-data~ row)))
             (when (member? user-data data-list test: test)
               (put~ fact rank)))))
@@ -1677,7 +1677,7 @@
   
   (method public (auto-expand/collapse row (close-auto-expanded?: close-auto-expanded? #t) (auto-toggle?: auto-toggle? #f))
     (with-update-locked
-      (function ()
+      (lambda ()
         (let ((selected-rows (selection->rows selection)))
           (cond
             ((mouse-down?~ selection-manager)
@@ -1717,7 +1717,7 @@
       (let ((old-spine (get-spine~ delayed-autorow))
             (done? #f))
         (set! delayed-autorow {})
-        (for-each-reversed (function (row)
+        (for-each-reversed (lambda (row)
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
@@ -1730,7 +1730,7 @@
       (let ((old-spine (get-spine~ auto-expanded-row))
             (done? #f))
         (set! auto-expanded-row {})
-        (for-each-reversed (function (row)
+        (for-each-reversed (lambda (row)
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
@@ -1851,7 +1851,7 @@
   
   (method protected virtual (selection-change old-selection force? user-origin?)
     (with-locked-operation~ selection-manager
-      (function ()
+      (lambda ()
         (call-selection-handler old-selection selection force? user-origin?))))
   
   
@@ -1859,9 +1859,9 @@
     (let ((proc (case use
                   ((row) get-row)
                   ((rank) identity)
-                  ((data) (function (row) (get-user-data~ (get-row row)))))))
+                  ((data) (lambda (row) (get-user-data~ (get-row row)))))))
       (case selection-mode
-        ((cell) (map (function (cell)
+        ((cell) (map (lambda (cell)
                      (cons (proc (get-row~ cell)) (get-col~ cell)))
                    selection))
         (else (map proc selection)))))
@@ -1871,10 +1871,10 @@
     (let ((proc (case use
                   ((row) row-rank)
                   ((rank) identity)
-                  ((data) (function (data) (user-data-index data test: test))))))
+                  ((data) (lambda (data) (user-data-index data test: test))))))
       (remove-nils
        (case selection-mode
-         ((cell) (map (function (pair)
+         ((cell) (map (lambda (pair)
                       (bind (row . col) pair
                         (let ((row (proc row)))
                           (when row
@@ -1922,7 +1922,7 @@
   (method (selected-row-proc)
     (case selection-mode
       ((cell)
-       (function (cell)
+       (lambda (cell)
          (get-row (get-row~ cell))))
       (else
        get-row)))
@@ -1939,7 +1939,7 @@
   
   
   (method public (get-selected-data)
-    (map (function (row)
+    (map (lambda (row)
            (get-user-data~ row))
          (get-selected-rows)))
   
@@ -1951,7 +1951,7 @@
   
   
   (method public (get-selection-data selection)
-    (map (function (n)
+    (map (lambda (n)
            (let ((row (get-row n)))
              (get-user-data~ row)))
          selection))
@@ -1972,7 +1972,7 @@
   (method (selection->rows selection)
     (case selection-mode
       ((cell)
-       (map (function (cell)
+       (map (lambda (cell)
               (cons (get-visible-row (get-row~ cell)) (get-col~ cell)))
             selection))
       (else
@@ -1982,7 +1982,7 @@
   (method (rows->selection rows)
     (case selection-mode
       ((cell)
-       (remove-nils (map (function (pair)
+       (remove-nils (map (lambda (pair)
                            (bind (row . col) pair
                              (new Cell (row-index row) col)))
                          rows)))
@@ -1995,12 +1995,12 @@
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
     (let ((proc (case selection-mode
-                  ((cell) (function (cell)
+                  ((cell) (lambda (cell)
                             (let ((r (get-row~ cell)))
                               (if (>= r rank)
                                   (new Cell (+ r count) (get-col~ cell))
                                 cell))))
-                  (else (function (r)
+                  (else (lambda (r)
                           (if (>= r rank)
                               (+ r count)
                             r))))))
@@ -2018,7 +2018,7 @@
     (let ((end-rank (+ rank count))
           (removed #f))
       (let ((proc (case selection-mode
-                    ((cell) (function (cell)
+                    ((cell) (lambda (cell)
                               (let ((r (get-row~ cell)))
                                 (cond ((< r rank)
                                        cell)
@@ -2026,14 +2026,14 @@
                                        (new Cell (- r count) (get-col~ cell)))
                                       (else
                                        #f)))))
-                    (else (function (r)
+                    (else (lambda (r)
                             (cond ((< r rank)
                                    r)
                                   ((>= r end-rank)
                                    (- r count))
                                   (else
                                    #f)))))))
-        (set! selection (collect (function (old)
+        (set! selection (collect (lambda (old)
                                    (let ((new (proc old)))
                                      (unless (or new removed)
                                        (set! removed old))
@@ -2177,7 +2177,7 @@
 
   (method public (call-with-view->tree pos <Point> proc)
     (call-with-v->row (get-v~ pos)
-      (function (row v height)
+      (lambda (row v height)
         (if row
             (let ((col (h->col (get-h~ pos))))
               (if (and row col (>= row 0))
@@ -2197,7 +2197,7 @@
 
   (method public (h->col h)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (loop (for borders in columns-borders)
               (for n from 0 below (get-columns-count))
               (bind (left . right) borders
@@ -2400,7 +2400,7 @@
   (method override (iterate proc)
     (bind (row . proc2) (prepare-iterate)
       (for-each-visible-row~ tree
-        (function (row rank)
+        (lambda (row rank)
           (let* ((node (proc2 row))
                  (title (get-title~ node)))
             (proc title rank)))
@@ -2420,7 +2420,7 @@
         ((cell)
          (set! column (if sel (get-col~ sel) 0))
          (cons (essay sel (get-row~ tree (get-row~ sel)))
-               (function (row) (element (get-children~ row) column))))
+               (lambda (row) (element (get-children~ row) column))))
         (else
          (cons (essay sel (get-row~ tree sel))
-               (function (row) (car (get-children~ row))))))))))
+               (lambda (row) (car (get-children~ row))))))))))

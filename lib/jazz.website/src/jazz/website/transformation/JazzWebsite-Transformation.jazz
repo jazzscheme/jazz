@@ -107,8 +107,8 @@
   
   
   (method (collect-sections website)
-    (map (function (section)
-           (cons section (collect-if (function (node)
+    (map (lambda (section)
+           (cons section (collect-if (lambda (node)
                                        (eq? (get-tag~ node) 'section))
                                      (get-children~ section))))
          (get-children~ website)))
@@ -118,14 +118,14 @@
     @wait
     (let ((fact (new List-Factory)))
       (iterate-table anchor-names
-        (function (name lst)
+        (lambda (name lst)
           (when (> (length lst) 1)
             (put~ fact name))))
       (let ((ambiguities (get-output~ fact)))
         (when (not-null? ambiguities)
           (let ((message
                  (cons "The following anchors are multiply defined:"
-                       (map (function (name)
+                       (map (lambda (name)
                               (list :bulleted (->string name)))
                             ambiguities))))
             (message-box message))))))
@@ -137,10 +137,10 @@
   
   
   (method (process-sections sections pages)
-    (for-each (function (info)
+    (for-each (lambda (info)
                 (bind (section . subsections) info
                   (process-section section sections pages)
-                  (for-each (function (subsection)
+                  (for-each (lambda (subsection)
                               (process-section subsection sections pages))
                             subsections)))
               sections))
@@ -189,7 +189,7 @@
   
   (method (section-content-output section)
     (let ((output (new List-Factory)))
-      (for-each (function (node)
+      (for-each (lambda (node)
                   (if (is? node JML-Element)
                       (case (get-tag~ node)
                         ((section)) ;; section will get its own page
@@ -207,7 +207,7 @@
   
   (method (navigation-output section sections)
     (let ((output (new List-Factory)))
-      (for-each (function (info)
+      (for-each (lambda (info)
                   (bind (sec . subsecs) info
                     (let ((name (get-property~ sec 'name))
                           (path (format "{a}.htm" (section-path sec)))
@@ -215,7 +215,7 @@
                           (selected? (eq? sec section)))
                       (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
                       (when (or (eq? sec section) (memq? section subsecs))
-                        (for-each (function (subsec)
+                        (for-each (lambda (subsec)
                                     (let ((name (get-property~ subsec 'name))
                                           (path (format "{a}.htm" (section-path subsec)))
                                           (title (get-property~ subsec 'title))
@@ -234,7 +234,7 @@
   (method (manual-output section)
     (define (new-projects-cataloguer projects)
       (let ((cataloguer (new Cataloguer)))
-        (for-each (function (project)
+        (for-each (lambda (project)
                     (let ((name (get-name~ project)))
                       (let ((catalog (new Component-Catalog name project)))
                         (add-catalog~ cataloguer catalog))))
@@ -257,7 +257,7 @@
   
   (method (manual-content-output cataloguer projects)
     (let ((output (new List-Factory)))
-      (for-each (function (project)
+      (for-each (lambda (project)
                   ;; quicky
                   (if (or (is? project Module-Doc)
                           (is? project Library-Doc))
@@ -328,7 +328,7 @@
     (output-doc-description doc output)
     (output-manual-doc-children cataloguer doc level path output
       sort?: #t
-      key: (function (child)
+      key: (lambda (child)
              (cons (if (is? child Category-Doc)
                        2
                      1)
@@ -367,7 +367,7 @@
         (put~ output `(<p>))
         (put~ output "extends")
         (let ((first? #t))
-          (for-each (function (ascendant-doc)
+          (for-each (lambda (ascendant-doc)
                       (if first?
                           (set! first? #f)
                         (put~ output ", "))
@@ -397,7 +397,7 @@
         (put~ output `(<p>))
         (put~ output "implements")
         (let ((first? #t))
-          (for-each (function (interface-doc)
+          (for-each (lambda (interface-doc)
                       (if first?
                           (set! first? #f)
                         (put~ output ", "))
@@ -483,7 +483,7 @@
         (put~ output `(<p>))
         (put~ output `(<p> "Examples"))
         (put~ output `(<node>
-                       ,@(map (function (example)
+                       ,@(map (lambda (example)
                                 (bind (tag . rest) (->jml~ (form->node example))
                                   `(<span> ,@rest)))
                               (get-children~ examples)))))))
@@ -495,7 +495,7 @@
            (sorted (if sort?
                        (sort nu<? children key: (either key present-doc-title))
                      children)))
-      (for-each (function (doc rank)
+      (for-each (lambda (doc rank)
                   (output-manual-doc cataloguer doc (+ level 1) (cons (+ rank 1) path) output))
                 sorted
                 (naturals 0 (length sorted)))))
@@ -503,7 +503,7 @@
   
   (method (effective-manual-doc-children doc)
     (let ((fact (new List-Factory)))
-      (for-each (function (child)
+      (for-each (lambda (child)
                   (if (is? child Doc-Insert)
                       (let* ((path (get-path~ child))
                              (docs (find-docs path)))
@@ -522,7 +522,7 @@
             (let ((reference-dir {Directory jazz.website "reference"}))
               (when (exists?~ reference-dir)
                 (iterate-directory~ reference-dir
-                  (function (file)
+                  (lambda (file)
                     (when (ci=? (get-extension~ file) "jml")
                       (put~ docs (instantiate~ (read-from-file file))))))))
           (let ((catalog (find-catalog~ cataloguer name)))
@@ -531,7 +531,7 @@
                    (put~ docs (get-client~ catalog)))
                   ((equal? rest '(*))
                    (let ((parent (get-project~ catalog)))
-                     (for-each (function (catalog)
+                     (for-each (lambda (catalog)
                                  (when (eq? (get-parent-project~ (get-project~ catalog)) parent)
                                    (put~ docs (get-client~ catalog))))
                                (get-catalogs~ cataloguer))))
@@ -568,7 +568,7 @@
             `((<div> class: "summary_index" (<a> href: "#INDEX" "Index")))
           `((<p>)))
       ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
-          (map (function (doc rank)
+          (map (lambda (doc rank)
                  (doc-summary-output doc 1 (list (+ rank 1))))
                docs
                (naturals 0 (length docs))))))
@@ -584,7 +584,7 @@
          ,@(if (null? children)
                '()
              `((<div>
-                 ,@(map (function (child rank)
+                 ,@(map (lambda (child rank)
                           (doc-summary-output child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
@@ -599,7 +599,7 @@
   (method (has-project-descendant? doc)
     (let ((has? #f))
       (letrec ((iter
-                (function (doc)
+                (lambda (doc)
                   (typecase doc
                     ((Project-Doc) (set! has? #t))
                     ((Section-Doc) (for-each iter (effective-manual-doc-children doc)))))))
@@ -616,7 +616,7 @@
     (user-message "Generating Table of Contents...")
     `((<a> name: "TOC" (<h3> class: "toc" "Table of Contents"))
       ,@(let ((docs (if (= (length projects) 1) (get-children~ (car projects)) projects)))
-          (map (function (doc rank)
+          (map (lambda (doc rank)
                  (doc-toc-output doc 1 (list (+ rank 1))))
                docs
                (naturals 0 (length docs))))))
@@ -634,7 +634,7 @@
          ,@(if (null? children)
                '()
              `((<div>
-                 ,@(map (function (child rank)
+                 ,@(map (lambda (child rank)
                           (doc-toc-output child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
@@ -650,7 +650,7 @@
   
   (method (collect-toc-children doc)
     (let ((children (effective-manual-doc-children doc)))
-      (collect-if (function (child)
+      (collect-if (lambda (child)
                     (or (is? child Project-Doc)
                         (is? child Section-Doc)
                         (is? child Package-Doc)
@@ -670,7 +670,7 @@
     (let ((letters (sort nu<? (letters-partition) key: car))
           (letter-anchors (make-table test: eq?))
           (output (new List-Factory)))
-      (for-each (function (letter)
+      (for-each (lambda (letter)
                   (output-letter letter letter-anchors output))
                 letters)
       `((<a> name: "INDEX" (<h3> class: "index" "Index"))
@@ -683,7 +683,7 @@
     (bind (char . infos) letter
       (let ((anchor (register-anchor letter {} letter-anchors)))
         (put~ output `(<tr> (<td> colspan: "2" (<div> class: "index-letter" (<a> name: ,anchor ,(string char)))))))
-      (for-each (function (info)
+      (for-each (lambda (info)
                   (bind (doc anchor title) info
                     (let ((anchor (format "#{a}" anchor)))
                       (put~ output `(<tr>
@@ -693,13 +693,13 @@
   
   
   (method (letters-partition)
-    (partition (gather-anchors) key: (function (info) (upcase (first (third info))))))
+    (partition (gather-anchors) key: (lambda (info) (upcase (first (third info))))))
   
   
   (method (gather-anchors)
     (let ((lst '()))
       (iterate-table anchors
-        (function (doc anchor)
+        (lambda (doc anchor)
           (when (get-name~ doc)
             (let ((title (get-effective-title~ doc)))
               (set! lst (cons (list doc anchor title) lst))))))
@@ -712,8 +712,8 @@
            (alpha (assv-value #t partition '()))
            (output (new List-Factory))
            (process-letter-set
-            (function (letter-set)
-              (for-each (function (letter)
+            (lambda (letter-set)
+              (for-each (lambda (letter)
                           (let ((char (car letter))
                                 (anchor (format "#{a}" (table-ref letter-anchors letter #f))))
                             (put~ output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(string char))))
@@ -728,7 +728,7 @@
   
   
   (method (alphabetic-partition letters)
-    (partition letters key: (function (letter)
+    (partition letters key: (lambda (letter)
                               (let ((char (car letter)))
                                 (alphabetic? char)))))
   
@@ -739,7 +739,7 @@
   
   
   (method (output-article article level output)
-    (for-each (function (node)
+    (for-each (lambda (node)
                 (if (is? node JML-Element)
                     (case (get-tag~ node)
                       ((description) (output-article-description article node level output))

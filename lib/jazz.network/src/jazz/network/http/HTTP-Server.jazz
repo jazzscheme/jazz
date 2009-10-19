@@ -82,7 +82,7 @@
     (let ((request (new HTTP-Request port: port)))
       (call-listeners-receive-request request)
       (with-error-reporting request
-        (function ()
+        (lambda ()
           (set-server~ request self)
           (setup-session request)
           (let* ((response/html (generate-response request))
@@ -96,9 +96,9 @@
   
   (method (with-error-reporting request thunk)
     (continuation-capture
-      (function (return)
+      (lambda (return)
         (with-exception-handler
-          (function (exc)
+          (lambda (exc)
             (display (exception-reason exc))
             (pretty-print (execution-stack lexical-environment?: #t depth: 5))
             (let ((html '(<html>
@@ -112,7 +112,7 @@
     @convert
     (let ((html {}))
       (call-with-catch Exception
-            (function (exc)
+            (lambda (exc)
               (if (not debug?)
                   (set! html (present-error exc {}))
                 (let ((stack (print-stack :string)))
@@ -122,7 +122,7 @@
                     (when (is? appl IDE)
                       (add-snapshot~ (get-processes-view) (read-string-element stack) {} {})
                       (select-workspace~ appl 'debugger))))))
-          (function (exc)
+          (lambda (exc)
             (request-response request html code: 'server-error))
         thunk)))
   
@@ -280,25 +280,25 @@
   
   
   (method (call-listeners-hit)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (hit~ listener self))
               listeners))
   
   
   (method (call-listeners-receive-request request)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (receive-request~ listener self request))
               listeners))
   
   
   (method (call-listeners-receive-pages-request request resource pages-class)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (receive-pages-request~ listener self request resource pages-class))
               listeners))
   
   
   (method (call-listeners-process-request request response)
-    (for-each (function (listener)
+    (for-each (lambda (listener)
                 (process-request~ listener self request response))
               listeners))
 
@@ -357,7 +357,7 @@
            (<td> "headers")
            (<td> (<table>
                    ,@(map-table headers
-                                (function (name value)
+                                (lambda (name value)
                                   `(<tr>
                                      (<td> ,name)
                                      (<td> ,value)))))))
@@ -365,7 +365,7 @@
            (<td> "cookies")
            (<td> (<table>
                    ,@(map-table cookies
-                                (function (name cookie)
+                                (lambda (name cookie)
                                   (let ((value (get-value~ cookie)))
                                     `(<tr>
                                        (<td> ,name)
@@ -375,7 +375,7 @@
              `((<tr>
                  (<td> "parameters")
                  (<td> (<table>
-                         ,@(map (function (parameter)
+                         ,@(map (lambda (parameter)
                                   (bind (name . value) parameter
                                     `(<tr>
                                        (<td> ,name)
@@ -401,7 +401,7 @@
          (<tr>
            (<td> "properties")
            (<td> (<table>
-                   ,@(map-property (function (property value)
+                   ,@(map-property (lambda (property value)
                                      `(<tr>
                                         (<td> ,(->string property))
                                         (<td> ,(->string value))))

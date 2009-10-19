@@ -100,7 +100,7 @@
   (method override (finish rest)
     (nextmethod rest)
     (let ((tree (locate 'targets)))
-      (for-each (function (column)
+      (for-each (lambda (column)
                   (set-justification~ column '(1 1)))
                 (get-columns~ tree))))
 
@@ -159,7 +159,7 @@
       ;; to-convert temp patch
       (if (in-edition?~ tree)
           '()
-        (for-each (function (row)
+        (for-each (lambda (row)
                     (let ((find (get-title~ (get-cell-data~ tree (new Cell row 0))))
                           (repl (get-title~ (get-cell-data~ tree (new Cell row 1)))))
                       (unless (and (empty-string? find) (empty-string? repl))
@@ -175,9 +175,9 @@
       (let ((width (get-columns-count~ tree))
             (height (get-visible-count~ tree)))
         (with-update-locked~ tree
-          (function ()
-            (for-each (function (line row)
-                        (for-each (function (target col)
+          (lambda ()
+            (for-each (lambda (line row)
+                        (for-each (lambda (target col)
                                     (let ((cell (new Cell row col)))
                                       (set-cell-title~ tree cell target)
                                       (invalidate-cell~ tree cell)))
@@ -185,8 +185,8 @@
                                   (naturals 0 (length line))))
                       targets
                       (naturals 0 (length targets)))
-            (for-each (function (row)
-                        (for-each (function (col)
+            (for-each (lambda (row)
+                        (for-each (lambda (col)
                                     (let ((cell (new Cell row col)))
                                       (set-cell-title~ tree cell "")
                                       (invalidate-cell~ tree cell)))
@@ -199,7 +199,7 @@
           (ignore-case? (get-ignore-case?))
           (regexp? (get-regexp?)))
       (make-multi-search-context
-        (map (function (target)
+        (map (lambda (target)
                (make-search-context (first target)
                  whole-words?: whole-words?
                  ignore-case?: ignore-case?
@@ -213,7 +213,7 @@
   
   (method public (get-search-domain)
     (let ((group (get-content~ (locate 'domain))))
-      (find-if (function (name)
+      (find-if (lambda (name)
                  (let ((radio (find-component~ group name)))
                    (when (and radio (get-selected?~ radio))
                      name)))
@@ -224,7 +224,7 @@
     (let* ((group (get-content~ (locate 'domain)))
            (radio (find-component~ group domain)))
       (when radio
-        (for-each (function (child)
+        (for-each (lambda (child)
                     (when (is? child Radio-Button)
                       (set-selected?~ child (eq? child radio))))
                   (get-children~ group)))))
@@ -410,7 +410,7 @@
                (tree (locate~ results 'results))
                (selection (get-selection~ tree))
                (modified-count 0))
-          (for-each (function (item)
+          (for-each (lambda (item)
                       (receive (frame new?) (edit-item~ results item #t #f #f)
                         (let* ((guest (get-guest~ frame))
                                (target (get-text-view~ guest))
@@ -479,7 +479,7 @@
   
   (method (replace target find-list repl-list ignore-case? case? play? expression?)
     (let* ((str (get-selected-string~ target))
-           (rank (if expression? 0 (find find-list str key: (function (context) (get-target~ context)) test: (if ignore-case? ci=? nu=?)))))
+           (rank (if expression? 0 (find find-list str key: (lambda (context) (get-target~ context)) test: (if ignore-case? ci=? nu=?)))))
       (when rank
         (let ((repl (element repl-list rank)))
           (if (not play?)
@@ -528,7 +528,7 @@
   
   
   (method protected (search-in-directories multi-search-context directories extensions expression? factory reporter)
-    (for-each (function (directory)
+    (for-each (lambda (directory)
                 (search-in-directory multi-search-context directory extensions expression? factory reporter))
               directories))
     
@@ -536,7 +536,7 @@
   (method protected (search-in-directory multi-search-context directory extensions expression? factory reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
       (iterate-directory~ directory
-        (function (file)
+        (lambda (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
              ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
@@ -551,7 +551,7 @@
       (let ((ext (get-extension~ file)))
         (if (not expression?)
             (call-with-input-file (list path: (parse~ file) char-encoding-errors: #f eol-encoding: 'cr-lf)
-              (function (reader)
+              (lambda (reader)
                 (let ((content (read-content-string reader))
                       (constituent-test (extension-constituent-test ext)))
                   (multisearch content multi-search-context constituent-test: constituent-test))))
@@ -628,7 +628,7 @@
   
   (method override (add-empty-row (father: father {}))
     (let ((father (either father root-row))
-          (children (map (function (column)
+          (children (map (lambda (column)
                            (new-empty-cell~ column))
                          columns)))
       (add-row father: father children: children)))
@@ -645,7 +645,7 @@
         (set-string-content~ text (get-title~ data)))
       (edit-cell cell
                  editor: editor
-                 after-end: (function () (set-title~ (get-cell-data cell) (get-string-content~ text))))
+                 after-end: (lambda () (set-title~ (get-cell-data cell) (get-string-content~ text))))
       (set-client~ scroller text)
       (set-tree~ text self)
       (layout-scrollee~ text)

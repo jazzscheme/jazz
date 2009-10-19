@@ -159,7 +159,7 @@
 
 (definition public (parse-patch-file patch-file proc)
   (call-with-input-file (list path: (parse~ patch-file) eol-encoding: 'cr-lf)
-    (function (reader)
+    (lambda (reader)
       (define (read-diff line)
         (let (iter (line line))
           (unless (not line)
@@ -337,7 +337,7 @@
     (let ((output (open-output-string)))
       (git (list "rev-list" "HEAD" path) output)
       (let ((commits (get-output-string output)))
-        (collect-if (function (str)
+        (collect-if (lambda (str)
                       (not (empty-string? str)))
                     (split-lines commits)))))
   
@@ -345,7 +345,7 @@
   (method public (git-extract path)
     (let ((history (git-history path))
           (version 1))
-      (for-each (function (commit)
+      (for-each (lambda (commit)
                   (user-message "Extracting {a}..." commit)
                   (let ((filename (extract-name path)))
                     (let ((base (extract-base filename))
@@ -353,7 +353,7 @@
                       (let ((file (new File (list "C:" "Merge" (string-append base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)))))
                         (create-directories~ file)
                         (call-with-output-file (parse~ file)
-                          (function (output)
+                          (lambda (output)
                             (git-show (string-append commit ":" path) output))))))
                   (increase! version))
                 (reverse history))
@@ -366,11 +366,11 @@
   
   (method public (prepare-merge merge-dir)
     (iterate-directory~ merge-dir
-      (function (file)
+      (lambda (file)
         (let ((ext (get-extension~ file)))
           (when (ci=? ext "patch")
             (parse-patch-file file
-              (function (base-name base-index right-name right-index deltas)
+              (lambda (base-name base-index right-name right-index deltas)
                 (let ((name (either base-name right-name)))
                   (let ((name-path (split name "/")))
                     (define (setup-base)
@@ -380,7 +380,7 @@
                             (user-message "Extracting base/{a}..." base-name)
                             (create-directories~ base-file)
                             (call-with-output-file (parse~ base-file)
-                              (function (printer)
+                              (lambda (printer)
                                 (git-show base-index printer)))))))
                     
                     (define (setup-left)
@@ -405,9 +405,9 @@
                                (user-message "Adding right/{a}..." name)
                                (create-directories~ right-file)
                                (call-with-output-file (parse~ right-file)
-                                 (function (printer)
+                                 (lambda (printer)
                                    (let ((lines (fifth (car deltas))))
-                                     (for-each (function (info)
+                                     (for-each (lambda (info)
                                                  (bind (what . line) info
                                                    (write-line line printer)))
                                                lines)))))
@@ -427,11 +427,11 @@
                                                                          (ext (get-extension~ target-file)))
                                                                      (format "{a}_merged.{a}" base ext)))))
                         (call-with-input-file (list path: (parse~ target-file) eol-encoding: 'cr-lf)
-                          (function (target-input)
+                          (lambda (target-input)
                             (call-with-output-file (parse~ merged-file)
-                              (function (merged-output)
+                              (lambda (merged-output)
                                 (let ((target-rank 1))
-                                  (for-each (function (delta)
+                                  (for-each (lambda (delta)
                                               (bind (target-line target-count result-line result-count lines) delta
                                                 ;; output target common lines
                                                 (loop (repeat (- target-line target-rank))
@@ -442,7 +442,7 @@
                                                       (do (read-line target-input)
                                                           (increase! target-rank)))
                                                 ;; output new lines
-                                                (for-each (function (info)
+                                                (for-each (lambda (info)
                                                             (bind (what . line) info
                                                               (when (or (eq? what 'b) (eq? what 'both))
                                                                 (write-line line merged-output))))

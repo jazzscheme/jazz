@@ -144,7 +144,7 @@
 
 (definition with-stops-mutex
   (let ((mutex (make-mutex 'stops)))
-    (function (thunk)
+    (lambda (thunk)
       (mutex-lock! mutex)
       (thunk)
       (mutex-unlock! mutex))))
@@ -152,21 +152,21 @@
 
 (definition (register-stop stop)
   (with-stops-mutex
-    (function ()
+    (lambda ()
       (set! *stops* (append *stops* (list stop))))))
 
 
 (definition (unregister-stop stop)
   (with-stops-mutex
-    (function ()
+    (lambda ()
       (set! *stops* (remove! stop *stops*)))))
 
 
 (definition package (get-thread-stops thread)
   (let ((queue (new-queue)))
     (with-stops-mutex
-      (function ()
-        (for-each (function (stop)
+      (lambda ()
+        (for-each (lambda (stop)
                     (when (eq? (get-thread~ stop) thread)
                       (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
                   *stops*)))
@@ -175,12 +175,12 @@
 
 (definition public (post-stop exc)
   (continuation-capture
-    (function (continuation)
+    (lambda (continuation)
       (let ((reason (exception-reason exc))
             (detail (exception-detail exc)))
         (thread-write
           (current-thread)
-          (function ()
+          (lambda ()
             (invoke-debugger 'exception reason detail exc continuation)))))))
 
 
@@ -243,7 +243,7 @@
 
 (definition with-consoles-mutex
   (let ((mutex (make-mutex 'consoles)))
-    (function (thunk)
+    (lambda (thunk)
       (mutex-lock! mutex)
       (prog1 (thunk)
         (mutex-unlock! mutex)))))
@@ -253,7 +253,7 @@
   (if (not controller-debugger)
       {}
     (with-consoles-mutex
-      (function ()
+      (lambda ()
         (either (table-ref *consoles* thread #f)
                 (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
                   (table-set! *consoles* thread console)
@@ -299,8 +299,8 @@
     (table-clear *consoles* thread))
   
   (with-consoles-mutex
-    (function ()
-      (for-each (function (pair)
+    (lambda ()
+      (for-each (lambda (pair)
                   (bind (thread . console) pair
                     (detach-console thread console)))
                 (table-keys/values *consoles*)))))
@@ -314,9 +314,9 @@
 (definition (start-debuggee-console-pump console port)
   (thread-start!
     (new-system-thread
-      (function ()
+      (lambda ()
         (start-pump port
-          (function (str)
+          (lambda (str)
             (when controller-debugger
               (console-output~ controller-debugger console str)))))
       'debuggee-console-pump)))
@@ -361,7 +361,7 @@
 (definition public (start-repl-thread thread reason port (level 0))
   (thread-start!
     (new-system-thread
-      (function ()
+      (lambda ()
         (when (= level 0)
           (display-banner port))
         (when reason
@@ -401,7 +401,7 @@
   (declare (proper-tail-calls))
   (let (iterate)
     (continuation-capture
-      (function (resume)
+      (lambda (resume)
         (read-eval-print thread resume port level)))
     (iterate)))
 
@@ -410,20 +410,20 @@
   (let ((console (thread-console thread)))
     (let ((expr (parameterize ((walk-for 'eval))
                   (with-readtable (either (essay console (get-readtable~ console)) scheme-readtable)
-                    (function ()
+                    (lambda ()
                       (with-exception-filter
-                        (function (exc)
+                        (lambda (exc)
                           #t)
-                        (function (exc)
+                        (lambda (exc)
                           (thread-post thread 'exception
-                            (function ()
+                            (lambda ()
                               (throw exc)))
                           (continuation-return resume {}))
-                        (function ()
+                        (lambda ()
                           (read port))))))))
       (if (eof-object? expr)
           (thread-post thread 'resume-loop
-            (function ()
+            (lambda ()
               (let ((restarts (find-restarts 'resume-loop)))
                 (when (> (length restarts) 1)
                   (newline port)
@@ -432,13 +432,13 @@
                     (invoke-restart restart))))))
         (let ((result
                 (thread-call thread 'evaluate
-                  (function ()
+                  (lambda ()
                     (evaluate expr)))))
           (when (and (thread-call-result? result)
                      (specified? result))
             (repl-result-history-add result)
-            (let ((values (call-with-values (function () result) list)))
-              (for-each (function (value)
+            (let ((values (call-with-values (lambda () result) list)))
+              (for-each (lambda (value)
                           (format port "{s}" value)
                           (format port "{%}"))
                         values)))
@@ -499,9 +499,9 @@
   (define (frame-evaluator frame)
     (if frame
         (let ((cont (serial->object (get-continuation~ frame))))
-          (function (runner expr)
+          (lambda (runner expr)
             (eval-within-no-winding runner expr cont)))
-      (function (runner expr)
+      (lambda (runner expr)
         (runner
           (lambda ()
             (eval expr))))))
@@ -527,12 +527,12 @@
 
 (definition (evaluate-in-context context frame evaluator expr)
   (define (local-names variables)
-    (map (function (var)
+    (map (lambda (var)
            (string->symbol (car var)))
           variables))
   
   (define (local-self variables)
-    (find-object (function (var)
+    (find-object (lambda (var)
                    (when (string=? (car var) "self")
                      (let ((serial (cadr var)))
                        (when serial
@@ -544,7 +544,7 @@
   @debugging
   (let ((ev evaluator))
     (set! evaluator
-          (function (runner expr)
+          (lambda (runner expr)
             (pp (current-console-context))
             (pp expr)
             (ev runner expr))))
@@ -555,7 +555,7 @@
             (local-self (local-self local-variables)))
         (let ((effective-context (either local-self context)))
           (cond ((not effective-context)
-                 (evaluator (function (thunk)
+                 (evaluator (lambda (thunk)
                               (thunk))
                             expr))
                 ((symbol? effective-context)
@@ -563,7 +563,7 @@
                    (load-module module-name)
                    (let ((library-declaration (outline-module module-name)))
                      (parameterize ((requested-module-name #f))
-                       (evaluator (function (thunk)
+                       (evaluator (lambda (thunk)
                                     (parameterize ((current-console-context module-name))
                                       (thunk)))
                          `(library ,module-name ,(get-dialect-name~ library-declaration)
@@ -575,7 +575,7 @@
                      (load-module module-name)
                      (let ((library-declaration (outline-module module-name)))
                        (parameterize ((requested-module-name #f))
-                         (evaluator (function (thunk)
+                         (evaluator (lambda (thunk)
                                       (parameterize ((current-console-context effective-context))
                                         (thunk)))
                            `(library ,module-name ,(get-dialect-name~ library-declaration)
@@ -596,11 +596,11 @@
     (if (or (not debugger) (not use))
         (invoke-exception-hook system-exception-hook exc)
       (with-system-exception-debugger
-        (function ()
+        (lambda ()
           (when (eq? use 'once)
             (use-debugger? #f))
           (continuation-capture
-            (function (continuation)
+            (lambda (continuation)
               (let ((reason (exception-reason exc))
                     (detail (exception-detail exc)))
                 (invoke-debugger 'exception reason detail exc continuation)))))))))
@@ -613,13 +613,13 @@
 
 (definition public (break (reason: reason {}))
   (continuation-capture
-    (function (continuation)
+    (lambda (continuation)
       (invoke-debugger 'break reason {} {} continuation))))
 
 
 (definition public (start-repl (reason: reason {}) (select?: select? #t))
   (continuation-capture
-    (function (continuation)
+    (lambda (continuation)
       (when select?
         (select-console))
       (invoke-repl reason {} continuation))))
@@ -645,10 +645,10 @@
         (port (get-console-port))
         (level (if (not (current-loop)) 0 (+ (current-repl-level) 1))))
     (with-repl-thread thread reason port level
-      (function ()
+      (lambda ()
         (parameterize ((current-repl-frame (box {})))
           (with-current-loop
-            (function ()
+            (lambda ()
               (let ((process (get-process)))
                 (if (not process)
                     (debuggee-loop)
@@ -662,23 +662,23 @@
         (port (get-console-port))
         (level (+ (current-repl-level) 1)))
     (with-repl-thread thread reason port level
-      (function ()
+      (lambda ()
         (parameterize ((current-repl-frame (box {})))
           (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread))))
             (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
               (dynamic-wind
-                (function ()
+                (lambda ()
                   (register-stop stop)
                   (register-stop~ controller-debugger local-process thread-proxy stop-proxy))
-                (function ()
+                (lambda ()
                   (with-current-loop
-                    (function ()
+                    (lambda ()
                       (let ((process (get-process)))
                         (if (not process)
                             (debuggee-loop)
                           (process-debuggee-loop~ process))))))
-                (function ()
+                (lambda ()
                   (unregister-stop stop)
                   (when controller-debugger ;; #f when quit while in error
                     (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy)))))))))))
@@ -696,7 +696,7 @@
 
 
 (definition (compute-restarts thread)
-  (map (function (restart)
+  (map (lambda (restart)
          (new Debuggee-Restart-Local-Proxy (new Debuggee-Restart thread restart)))
        (current-restarts)))
 
@@ -704,7 +704,7 @@
 (definition package (debuggee-loop)
   (let (loop)
     (with-restart-catcher 'resume-loop (present-loop-restart) {}
-      (function ()
+      (lambda ()
         (let ((thunk (thread-read)))
           (with-jazz-exception-debugger
             thunk))))

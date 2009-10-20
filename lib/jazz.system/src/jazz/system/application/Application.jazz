@@ -75,7 +75,6 @@
 
 
   (slot toplevel                 initialize {})
-  (slot stage                    initialize {})
   (slot profile-name             initialize {})
   (slot profile-module           initialize {})
   (slot profile-class            initialize {})
@@ -113,7 +112,7 @@
 
 
   (method public (get-stage)
-    stage)
+    (find-stage {}))
 
 
   (method public (get-profile)
@@ -165,8 +164,8 @@
     (nextmethod)
     (set-cursor :arrow)
     (splash-screen)
-    (when stage
-      (install-wallpaper~ stage)))
+    (when (get-stage)
+      (install-wallpaper~ (get-stage))))
 
   
   (method override (setup-profile)
@@ -224,7 +223,6 @@
     (when toplevel
       (close~ toplevel)
       (set! toplevel {})
-      (set! stage {})
       (set! profile-name {})
       (set! profile-module {})
       (set! profile-class {})
@@ -665,13 +663,13 @@
   
   
   (method public (verify-reloads)
-    (when stage
+    (when (get-stage)
       (for-each (lambda (view)
                   (when (is? view Frame-Host)
                     (let ((guest (get-guest~ view)))
                       (when (is? guest Document)
                         (verify-reload~ (get-controller~ guest))))))
-                (get-views~ stage include-invisibles?: #t))))
+                (get-views~ (get-stage) include-invisibles?: #t))))
   
   
   (method public (verify-reload moniker)
@@ -945,7 +943,7 @@
   
   
   (method (initialize-stage)
-    (set! stage (new-stage)))
+    (singleton-stage {}))
   
   
   (method public virtual (new-stage)
@@ -1810,7 +1808,7 @@
   (method package (on-find-forward evt)
     (let ((search (active-search)))
       (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-view~ stage)))))
+          (let ((text (get-text-view~ (get-guest~ (first-view~ (get-stage))))))
             (let ((multi-search-context (get-find-targets)))
               (unless (select-next~ text multi-search-context)
                 (bell))))
@@ -1820,7 +1818,7 @@
   (method package (on-find-backward evt)
     (let ((search (active-search)))
       (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-view~ stage)))))
+          (let ((text (get-text-view~ (get-guest~ (first-view~ (get-stage))))))
             (let ((multi-search-context (get-find-targets)))
               (unless (select-previous~ text multi-search-context)
                 (bell))))
@@ -2021,7 +2019,7 @@
                            (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
                              (and guest-moniker
                                   (pathname=? guest-moniker moniker)))))))
-             (get-children~ stage)))
+             (get-children~ (get-stage))))
   
   
   (method public (edit-document moniker
@@ -2089,7 +2087,7 @@
   
   
   (method package virtual (on-close evt)
-    (let ((frame (first-view~ stage)))
+    (let ((frame (first-view~ (get-stage))))
       (when frame
         (close-with-confirm~ frame))))
 
@@ -2101,7 +2099,7 @@
                     (when (or (is-not? guest Document) (close-on-close-all?~ (get-controller~ guest)))
                       (confirm-close~ view)
                       (close~ view)))))
-              (get-views~ stage)))
+              (get-views~ (get-stage))))
         
     
   (method package virtual (on-save-all evt)
@@ -2140,7 +2138,7 @@
                                              (xor main-documents? (dependent-document?~ controller))
                                              (get-modified?~ (get-controller~ guest)))
                                     (save~ guest)))))))
-                        (get-views~ stage include-invisibles?: #t)))))
+                        (get-views~ (get-stage) include-invisibles?: #t)))))
       ;; saving dependent documents will make their main document modified
       (save-documents #f)
       (save-documents #t)))
@@ -2408,22 +2406,19 @@
   
   
   (method package virtual (on-next-frame evt)
-    (let* ((stage (get-stage))
-           (first (first-view~ stage)))
+    (let ((first (first-view~ (get-stage))))
       (send-to-back~ first)
       (focus-host~ (current-frame))))
   
   
   (method package virtual (on-previous-frame evt)
-    (let* ((stage (get-stage))
-           (last (last-view~ stage)))
+    (let ((last (last-view~ (get-stage))))
       (bring-to-front~ last)
       (focus-host~ (current-frame))))
   
   
   (method package virtual (on-current-frame evt)
-    (let* ((stage (get-stage))
-           (first (first-view~ stage)))
+    (let ((first (first-view~ (get-stage))))
       (focus-host~ first)))
   
   

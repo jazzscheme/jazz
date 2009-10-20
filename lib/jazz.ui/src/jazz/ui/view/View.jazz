@@ -523,8 +523,13 @@
   
   
   (method override (set-parent parent)
-    (nextmethod parent)
-    (set-player (if parent (get-player~ parent) {})))
+    (let ((previous-invalidater (essay player (invalidater))))
+      (nextmethod parent)
+      (set-player (if parent (get-player~ parent) {}))
+      (when previous-invalidater
+        (previous-invalidater))
+      (when parent
+        (invalidate-view))))
   
   
   ;;;
@@ -3367,6 +3372,13 @@
       (when player
         (set-effect effect)
         (update-window~ player))))
+  
+  
+  (method public (invalidater)
+    (let ((rect (acquire~ (get-root) self (get-rect)))
+          (player player))
+      (lambda ()
+        (invalidate-rect~ player rect))))
 
   
   ;;;

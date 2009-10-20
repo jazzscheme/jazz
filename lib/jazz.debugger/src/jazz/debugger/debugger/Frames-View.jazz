@@ -52,7 +52,7 @@
   (property process initialize {} accessors generate)
   (property thread  initialize {})
   
-
+  
   (form
     (<install>                                layout-type: border
       (<Layout-View>         name: tools)
@@ -61,11 +61,11 @@
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
               (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-frame #t} context-menu-handler: {Event-Handler :form on-context-menu})))))))
-
+  
   
   (method meta override (external-name . rest)
     'frames-view)
-
+  
   
   ;;;
   ;;;; Host
@@ -92,7 +92,7 @@
   (method override (focus-default)
     (let ((tree (locate 'frames)))
       (acquire-focus~ tree)))
-
+  
   
   ;;;
   ;;;; Access
@@ -113,13 +113,13 @@
     (set! thread new-thread)
     (update-frames)
     (select-first-frame))
-
+  
   
   ;;;
   ;;;; Events
   ;;;
-
-
+  
+  
   (method override (resize dh dv)
     (nextmethod dh dv)
     (size-figure~ (locate 'scroller) dh dv))
@@ -134,16 +134,12 @@
           (let ((menu (new-context-menu (selected-frame))))
             (when menu
               (track-popup-menu menu acquired)))))))
-
-
+  
+  
   (method (on-select-frame evt)
     (let ((user-origin? (get-user-origin?~ evt)))
-      (when (and thread (get-active-stop~ thread))
-        (let ((frame (selected-frame)))
-          (set-repl-frame~ thread (essay frame (get-reference~ frame)))))
-      (frame-change)
-      (edit-frame user-origin?: user-origin?)))
-
+      (frame-changed~ (get-debugger-manager) (selected-frame) user-origin?: user-origin?)))
+  
   
   ;;;
   ;;;; Update
@@ -181,38 +177,17 @@
                 use: 'data
                 test: debugged=?
                 generate-event?: #t)))))))
-
+  
   
   ;;;
-  ;;;; Edition
+  ;;;; Selection
   ;;;
-  
-  
-  (definition *frame-indicator*
-    (new Frame-Indicator color: {Color name: Light-Green}))
-
-
-  (method (edit-frame (user-origin?: user-origin? #f) (activate-focus?: activate-focus? #f))
-    (let ((frame (selected-frame)))
-      (let ((location (if (and frame user-origin?)
-                          (get-location~ frame)
-                        {})))
-        (edit~ *frame-indicator* location activate-focus?: activate-focus?))))
-    
-  
-  (method (frame-change)
-    (frame-changed~ (get-debugger-manager) (selected-frame)))
   
   
   (method public (select-first-frame)
     (let ((tree (locate 'frames)))
       (when (and (not (get-single-selection~ tree)) (> (get-visible-count~ tree) 0))
         (set-single-selection~ tree 0))))
-  
-  
-  ;;;
-  ;;;; Selection
-  ;;;
   
   
   (method public (selected-frame)
@@ -268,4 +243,4 @@
   
   
   (method (on-edit evt)
-    )))
+    (edit-selected-frame~ (get-debugger-manager)))))

@@ -108,7 +108,8 @@
   (method public (focus-process process)
     (unless (debugged=? focused-process process)
       (set-focus-process process)
-      (update-processes~ (get-processes-view))))
+      (when (get-processes-view)
+        (update-processes~ (get-processes-view)))))
   
   
   (method (set-focus-process process)
@@ -126,13 +127,15 @@
   (method public (attach-process process focus?)
     (when (or focus? (not focused-process))
       (set-focus-process process))
-    (update-processes~ (get-processes-view)))
+    (when (get-processes-view)
+      (update-processes~ (get-processes-view))))
   
   
   (method public (detach-process process best-process)
     (when (and best-process (debugged=? focused-process process))
       (set-focus-process best-process))
-    (update-processes~ (get-processes-view)))
+    (when (get-processes-view)
+      (update-processes~ (get-processes-view))))
   
   
   (method public (for-each-process proc)
@@ -151,11 +154,13 @@
       (set! process new-process)
       (when (visit-debugged process)
         (update-processes-highlight process))
-      (process-changed~ (get-threads-view) process)))
+      (when (get-threads-view)
+        (process-changed~ (get-threads-view) process))))
   
   
   (method (update-processes-highlight process)
-    (update-highlight~ (get-processes-view) process))
+    (when (get-processes-view)
+      (update-highlight~ (get-processes-view) process)))
   
   
   ;;;
@@ -192,14 +197,18 @@
   (method public (thread-changed new-thread)
     (unless (debugged=? thread new-thread)
       (set! thread new-thread)
-      (when (visit-debugged thread)
-        (update-threads-highlight thread))
-      (thread-changed~ (get-frames-view) thread)
-      (thread-changed~ (get-exception-view) thread)))
+      (when (and (get-threads-view) (view-visible?~ (get-threads-view)))
+        (when (visit-debugged thread)
+          (update-threads-highlight thread)))
+      (when (get-frames-view)
+        (thread-changed~ (get-frames-view) thread))
+      (when (get-exception-view)
+        (thread-changed~ (get-exception-view) thread))))
   
   
   (method (update-threads-highlight thread)
-    (update-highlight~ (get-threads-view) thread))
+    (when (get-threads-view)
+      (update-highlight~ (get-threads-view) thread)))
   
   
   ;;;
@@ -221,11 +230,12 @@
   (method public (frame-changed new-frame (user-origin?: user-origin? #f))
     (unless (debugged=? frame new-frame)
       (set! frame new-frame)
-      (frame-changed~ (get-variables-view) frame)
+      (when (and (get-frames-view) (view-visible?~ (get-frames-view)))
+        (when (get-variables-view)
+          (frame-changed~ (get-variables-view) frame))
+        (edit-frame frame))
       (when (and thread (get-active-stop~ thread))
-        (set-repl-frame~ thread (essay frame (get-reference~ frame))))
-      (when (or user-origin? (not frame))
-        (edit-frame frame))))
+        (set-repl-frame~ thread (essay frame (get-reference~ frame))))))
   
   
   (definition *frame-indicator*
@@ -233,6 +243,8 @@
   
   
   (method public (edit-selected-frame)
+    (when (get-variables-view)
+      (frame-changed~ (get-variables-view) frame))
     (edit-frame frame))
   
   
@@ -252,10 +264,13 @@
   
   (method (update-views process thread)
     (when (debugged=? process process~self)
-      (process-changed~ (get-threads-view) process))
+      (when (get-threads-view)
+        (process-changed~ (get-threads-view) process)))
     (when (debugged=? thread thread~self)
-      (thread-changed~ (get-frames-view) thread)
-      (thread-changed~ (get-exception-view) thread))
+      (when (get-frames-view)
+        (thread-changed~ (get-frames-view) thread))
+      (when (get-exception-view)
+        (thread-changed~ (get-exception-view) thread)))
     (update-status))
   
   
@@ -266,18 +281,23 @@
     (define (add-debugged-to-visit debugged)
       (table-set! debugged-to-visit debugged #t))
     
+    (begin ; debugged-visited? in update-threads must return false until the singleton is created
+      (get-threads-view))
     (add-debugged-stop process stop)
     (add-debugged-stop thread stop)
     (add-debugged-to-visit process)
     (add-debugged-to-visit thread)
     (play-sound debugger-sound)
     (unless process~self
-      (set-selected-process~ (get-processes-view) process)
+      (when (get-processes-view)
+        (set-selected-process~ (get-processes-view) process))
       (process-changed process))
-    (when (visit-debugged process)
-      (update-processes-highlight process))
-    (when (visit-debugged thread)
-      (update-threads-highlight thread))
+    (when (and (get-processes-view) (view-visible?~ (get-processes-view)))
+      (when (visit-debugged process)
+        (update-processes-highlight process)))
+    (when (and (get-threads-view) (view-visible?~ (get-threads-view)))
+      (when (visit-debugged thread)
+        (update-threads-highlight thread)))
     (update-views process thread))
   
   

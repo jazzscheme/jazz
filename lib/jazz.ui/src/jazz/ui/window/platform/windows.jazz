@@ -564,12 +564,17 @@
 ;;;
 
 
-(definition get-x-lparam signed-loword)
-(definition get-y-lparam signed-hiword)
-(definition get-wheel-delta-wparam signed-hiword)
-
-
 (definition (process-window-message window msg <int> wparam <int> lparam <int>)
+  (define get-x-lparam signed-loword)
+  (define get-y-lparam signed-hiword)
+  (define get-wheel-delta-wparam signed-hiword)
+  
+  (define (convert-state wparam)
+    (ecase wparam
+      ((SIZE_MINIMIZED) 'minimized)
+      ((SIZE_MAXIMIZED) 'maximized)
+      (else             'restored)))
+  
   (ecase msg
     ((WM_ERASEBKGND)      (erase-background~ window wparam))
     ((WM_PAINT)           (with-closed ((region (platform-get-update-region (get-handle~ window))))
@@ -591,13 +596,13 @@
     ((WM_KEYUP)           (key-up~ window wparam))
     ((WM_CHAR)            (call-key-press~ window (integer->char wparam)))
     ((WM_MOVE)            (call-position-change~ window (get-x-lparam lparam) (get-y-lparam lparam)))
-    ((WM_SIZE)            ;; Windows sends a size message with both the width
-                          ;; and the height equal to zero when minimizing a window...
-                          (let ((width (get-x-lparam lparam))
-                                (height (get-y-lparam lparam)))
-                            (if (or (/= width 0) (/= height 0))
-                                (call-size-change~ window width height)
-                              unprocessed)))
+    ((WM_SIZE)            (let ((state (convert-state wparam)))
+                            (unless (eq? state 'minimized)
+                              (let ((width (get-x-lparam lparam))
+                                    (height (get-y-lparam lparam)))
+                                (if (or (/= width 0) (/= height 0))
+                                    (call-size-change~ window state width height)
+                                  unprocessed)))))
     ((WM_MOUSELEAVE)      (mouse-leave~ window))
     ((WM_MOUSEACTIVATE)   (if (mouse-activate?~ window)
                               (on-mouse-activate~ window)

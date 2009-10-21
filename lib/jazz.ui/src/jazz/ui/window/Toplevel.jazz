@@ -50,10 +50,13 @@
 (class Toplevel extends Overlapped
 
   
-  (property fullscreen? initialize #f getter get-fullscreen?  setter set-fullscreen?)
+  (property fullscreen? initialize #f getter get-fullscreen? setter set-fullscreen?)
 
 
-  (slot workspace-preferences initialize {})
+  (slot previous-state        initialize {} getter generate)
+  (slot previous-position     initialize {} getter generate)
+  (slot previous-size         initialize {} getter generate)
+  (slot workspace-preferences initialize {} accessors generate)
 
 
   (form
@@ -78,19 +81,6 @@
   
   (method override (prepare-root)
     )
-
-  
-  ;;;
-  ;;;; Workspace
-  ;;;
-  
-  
-  (method public (get-workspace-preferences)
-    workspace-preferences)
-  
-  
-  (method public (set-workspace-preferences preferences)
-    (set! workspace-preferences preferences))
   
   
   ;;;
@@ -109,6 +99,22 @@
             (deactivate~ appl)
           (activate~ appl))))
     processed)
+  
+  
+  (method override (position-change position)
+    (let ((pref (get-workspace-preferences)))
+      (when (and pref (or (not (get-position~ pref)) (not (get-size~ pref))))
+        (set! previous-position (get-position))))
+    (nextmethod position))
+  
+  
+  (method override (size-change state size)
+    (let ((pref (get-workspace-preferences)))
+      (when (and pref (or (not (get-position~ pref)) (not (get-size~ pref))))
+        (set! previous-state state)
+        (when (eq? state 'restored)
+          (set! previous-size (get-window-size)))))
+    (nextmethod state size))
 
 
   (method override (show)
@@ -116,8 +122,14 @@
     (let ((pref (get-preferences {} error?: #f)))
       (assert handle)
       (case (if pref (get-toplevel-state~ pref) 'restored)
-        ((maximized) (show-maximized handle))
-        ((restored) (show-restored handle))))
+        ((maximized)
+         (show-maximized handle)
+         (set! previous-state 'maximized))
+        ((restored)
+         (show-restored handle)
+         (set! previous-state 'restored)
+         (set! previous-position (get-position))
+         (set! previous-size (get-window-size)))))
     (let ((appl (get-application)))
       (show-undisplayed-message~ appl)
       (workspace-installed~ appl))
@@ -127,6 +139,17 @@
   
   (method override (close-with-confirm)
     (exit-process~ (get-process)))
+    
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method package (restore-state)
+    (case previous-state
+      ((maximized) (maximize))
+      ((restored) (set-placement previous-position previous-size))))
     
   
   ;;;

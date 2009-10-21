@@ -39,6 +39,7 @@
 
 
 (import (jazz.graphic)
+        (jazz.locale)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -53,10 +54,13 @@
   ;; detach-root : detach the root without closing it
   ;; hide        : hide the player window
   (property close-behavior initialize 'close-root accessors generate)
+  (property caption-base   initialize {} getter get-caption-base setter set-caption-base)
+  (property caption        initialize {} getter get-caption      setter set-caption)
+  (property caption?       initialize #f getter get-caption?     setter set-caption?)
 
   
-  (slot root       initialize {})
-  (slot view-focus initialize {} accessors generate)
+  (slot root             initialize {})
+  (slot view-focus       initialize {} accessors generate)
 
   
   ;;;
@@ -109,6 +113,55 @@
         (detach-root)
       (close-root))
     (nextmethod))
+    
+  
+  ;;;
+  ;;;; Caption
+  ;;;
+  
+  
+  (method public (get-caption-base)
+    caption-base)
+  
+
+  (method public (set-caption-base value)
+    (set! caption-base value)
+    (invalidate-title))
+  
+  
+  (method public (get-caption)
+    caption)
+  
+  
+  (method public (set-caption value)
+    (set! caption value)
+    (invalidate-title))
+  
+  
+  (method public (get-caption?)
+    caption?)
+  
+  
+  (method public (set-caption? value)
+    (set! caption? value)
+    (when caption?
+      (set! caption-base (get-title)))
+    (invalidate-title))
+    
+  
+  ;;;
+  ;;;; Title
+  ;;;
+  
+  
+  (method (invalidate-title)
+    (set-title (effective-title)))
+  
+  
+  (method (effective-title)
+    (if (or (not caption) (not caption?))
+        (localize caption-base)
+      (format "{a} - {a}" (localize caption-base) caption)))
 
   
   ;;;

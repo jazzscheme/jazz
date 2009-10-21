@@ -89,6 +89,12 @@
     "Processes")
   
   
+  (method override (client-activate)
+    (let ((selected-process (selected-process)))
+      (when selected-process
+        (update-highlight selected-process))))
+  
+  
   ;;;
   ;;;; Docked
   ;;;
@@ -216,18 +222,18 @@
   
   
   (method public (update-highlight process)
-    (let ((manager (get-debugger-manager)))
-      (let ((selected-process (selected-process)))
-        (when (debugged=? process selected-process)
-          (visit-debugged~ manager process)))
-      (let ((tree (locate 'processes)))
-        (let ((row (process-row tree process)))
-          (when row
-            (let ((cell (new Cell (row-rank~ tree row) 0)))
-              (let ((data (get-cell-data~ tree cell)))
-                (set-frame-color~ data (get-stopped-frame-color~ manager process))
-                (set-background~ data (get-visited-highlight-color~ manager process)))
-              (invalidate-cell~ tree cell)))))))
+    (let ((selected-process (selected-process)))
+      (when (debugged=? process selected-process)
+        (visit-debugged~ (get-debugger-manager) process)))
+    (let ((tree (locate 'processes)))
+      (let ((row (process-row tree process)))
+        (when row
+          (let ((cell (new Cell (row-rank~ tree row) 0)))
+            (let ((data (get-cell-data~ tree cell))
+                  (manager (get-debugger-manager)))
+              (set-frame-color~ data (get-stopped-frame-color~ manager process))
+              (set-background~ data (get-visited-highlight-color~ manager process)))
+            (invalidate-cell~ tree cell))))))
   
   
   ;;;
@@ -260,6 +266,7 @@
   
   
   (method (process-row tree process)
+    (assert process)
     (continuation-capture
       (lambda (return)
         (for-each-row~ tree

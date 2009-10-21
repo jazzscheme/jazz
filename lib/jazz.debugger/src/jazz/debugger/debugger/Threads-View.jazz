@@ -89,6 +89,12 @@
     "Threads")
   
   
+  (method override (client-activate)
+    (let ((selected-thread (selected-thread)))
+      (when selected-thread
+        (update-highlight selected-thread))))
+  
+  
   ;;;
   ;;;; Docked
   ;;;
@@ -281,24 +287,26 @@
                       (for-each-thread~ manager
                         (lambda (thread stop detailed?)
                           (unless (debugged-visited?~ manager thread)
-                            (set-selected-thread thread)
-                            (thread-change)
+                            (when (get-installed?)
+                              ;; this will recursively call (get-threads-view) when called from (install)
+                              (set-selected-thread thread)
+                              (thread-change))
                             (continuation-return return))))))))))))))
   
   
   (method public (update-highlight thread)
-    (let ((manager (get-debugger-manager)))
-      (let ((selected-thread (selected-thread)))
-        (when (debugged=? thread selected-thread)
-          (visit-debugged~ manager thread)))
-      (let ((tree (locate 'threads)))
-        (let ((row (thread-row tree thread)))
-          (when row
-            (let ((cell (new Cell (row-rank~ tree row) 0)))
-              (let ((data (get-cell-data~ tree cell)))
-                (set-frame-color~ data (get-stopped-frame-color~ manager thread))
-                (set-background~ data (get-visited-highlight-color~ manager thread)))
-              (invalidate-cell~ tree cell)))))))
+    (let ((selected-thread (selected-thread)))
+      (when (debugged=? thread selected-thread)
+        (visit-debugged~ (get-debugger-manager) thread)))
+    (let ((tree (locate 'threads)))
+      (let ((row (thread-row tree thread)))
+        (when row
+          (let ((cell (new Cell (row-rank~ tree row) 0)))
+            (let ((data (get-cell-data~ tree cell))
+                  (manager (get-debugger-manager)))
+              (set-frame-color~ data (get-stopped-frame-color~ manager thread))
+              (set-background~ data (get-visited-highlight-color~ manager thread)))
+            (invalidate-cell~ tree cell))))))
 
   
   ;;;
@@ -333,6 +341,7 @@
   
   
   (method (thread-row tree thread)
+    (assert thread)
     (continuation-capture
       (lambda (return)
         (for-each-row~ tree

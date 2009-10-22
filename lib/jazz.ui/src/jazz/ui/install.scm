@@ -46,4 +46,5 @@
 (jazz.define-literal Hyperlink-Style       jazz.ui.literals.construct-hyperlink-style)
 (jazz.define-literal Text                  jazz.ui.literals.construct-text)
 (jazz.define-literal Formatted-Text        jazz.ui.literals.construct-formatted-text)
+(jazz.define-literal Action-Event          jazz.ui.literals.construct-action-event)
 (jazz.define-literal Selection-Handler     jazz.ui.literals.construct-selection-handler))

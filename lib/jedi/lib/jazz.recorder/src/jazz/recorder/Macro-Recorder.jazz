@@ -117,21 +117,22 @@
   
   (method (on-register-recording evt)
     (let ((no (parse-integer (request-string title: "Register Recording" prefix: "No:" initial-value: "1"))))
-      (assert (between? no 1 6))
+      (assert (between? no 1 5))
       (let ((recording (get-output~ Recording-Factory)))
         (register-recording no recording)
         (user-message "Recording {a} registered" no))))
   
   
   (method (on-set-active-recording evt)
-    (let ((name (read-string-element (request-string title: "Enter Recording Name"))))
-      (if (null? name)
+    (let ((name (request-string title: "Enter Recording Name")))
+      (if (not name)
           (begin
             (set! Active-Recording {})
             (user-message "Active recording reset to default"))
-        (get-recording name)
-        (set! Active-Recording name)
-        (user-message "Active recording set to {a}" name))))
+        (let ((no (read-string-element name)))
+          (get-recording no)
+          (set! Active-Recording no)
+          (user-message "Active recording set to {a}" no)))))
   
   
   (method (coalesce-actions actions)
@@ -148,8 +149,7 @@
                   (bind (action/handler . event) action
                     (if (and (eq? (get-target-name action/handler) :focus)
                              (eq? (get-action/method-name action/handler) 'on-insert))
-                        (let* ((char (get-property~ event content:))
-                               (added (string char)))
+                        (let ((added (string (get-property~ event content:))))
                           (if (not result)
                               (set! result added)
                             (set! result (string-append result added))))
@@ -240,7 +240,9 @@
   
   (method public (get-recording name)
     (either (table-ref Registered-Recordings name #f)
-            (error "No recording {a} is registered" name)))
+            (begin
+              (message-box (format "No recording {a} registered" name))
+              (throw-cancel))))
     
   
   ;;;

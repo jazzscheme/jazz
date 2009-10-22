@@ -964,22 +964,28 @@
       
   
   (method (register-actions-shortcuts old-actions new-actions)
+    (define (unregister-shortcut action-item shortcut)
+      ;; the second test is necessary because bindings can be changed on-the-fly in the ide
+      (when (and shortcut (table-ref shortcut-table shortcut #f))
+        (table-remove! shortcut-table shortcut action-item)))
+    
+    (define (register-shortcut action-item shortcut)
+      (when shortcut
+        (table-add shortcut-table shortcut action-item)))
+    
     (when shortcut-table
       (for-each (lambda (actions)
                   (for-each (lambda (action-item)
                               (when (get-visible?~ action-item)
-                                (let ((shortcut (get-shortcut~ action-item)))
-                                  ;; the second test is necessary because bindings can be changed on-the-fly in the ide
-                                  (when (and shortcut (table-ref shortcut-table shortcut #f))
-                                    (table-remove! shortcut-table shortcut action-item)))))
+                                (unregister-shortcut action-item (get-shortcut~ action-item))
+                                (unregister-shortcut action-item (get-alternate-shortcut~ action-item))))
                             (get-children~ actions)))
                 old-actions)
       (for-each-reversed (lambda (actions)
                            (for-each (lambda (action-item)
                                        (when (get-visible?~ action-item)
-                                         (let ((shortcut (get-shortcut~ action-item)))
-                                           (when shortcut
-                                             (table-add shortcut-table shortcut action-item)))))
+                                         (register-shortcut action-item (get-shortcut~ action-item))
+                                         (register-shortcut action-item (get-alternate-shortcut~ action-item))))
                                      (get-children~ actions)))
                          new-actions)))
   

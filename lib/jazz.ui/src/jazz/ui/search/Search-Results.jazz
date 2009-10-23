@@ -103,11 +103,6 @@
   
   
   ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  ;;;
   ;;;; Events
   ;;;
   
@@ -165,41 +160,42 @@
 
 
   (method (edit-document info forward? focus? visible?)
+    (define (edit-source source results targets)
+      (let* ((appl (get-application)))
+        (receive (frame new?) (edit-document~ appl source visible?: #f return-new?: #t)
+          (let ((guest (get-guest~ frame)))
+            (when (and targets (is? guest Text-View))
+              (if (number? targets)
+                  (set-caret~ guest (new Cell results targets))
+                (if forward?
+                    (select-expr~ guest targets)
+                  (select-expr-backward~ guest targets))))
+            (when visible?
+              (bring-to-front~ frame)
+              (set-visible?~ frame #t))
+            (values frame new?)))))
+    
     (with-cursor :wait
       (lambda ()
-        (if (is? info Catalog-Entry)
-            (case mode
-              ((references)
-               (edit-reference~ info references-target activate-focus?: focus?))
+        (cond ((is? info Catalog-Entry)
+               (case mode
+                 ((references)
+                  (edit-reference~ info references-target activate-focus?: focus?))
+                 (else
+                  (edit~ info activate-focus?: focus?))))
+              ((and (pair? info) (is? (car info) Catalog-Entry))
+               (bind (entry . target) info
+                 (case mode
+                   ((references)
+                    (edit-reference~ entry target activate-focus?: focus?))
+                   (else
+                    (edit~ entry activate-focus?: focus?)))))
+              ((is? (car info) Moniker)
+               (bind (source results targets) info
+                 (edit-source source results targets)))
               (else
-               (edit~ info activate-focus?: focus?)))
-          (if (and (pair? info) (is? (car info) Catalog-Entry))
-              (bind (entry . target) info
-                (case mode
-                  ((references)
-                   (edit-reference~ entry target activate-focus?: focus?))
-                  (else
-                   (edit~ entry activate-focus?: focus?))))
-            (let ((edit
-                   (lambda (source results targets)
-                     (let* ((appl (get-application)))
-                       (receive (frame new?) (edit-document~ appl source visible?: #f return-new?: #t)
-                         (let ((guest (get-guest~ frame)))
-                           (when (and targets (is? guest Text-View))
-                             (if (number? targets)
-                                 (set-caret~ guest (new Cell results targets))
-                               (if forward?
-                                   (select-expr~ guest targets)
-                                 (select-expr-backward~ guest targets))))
-                           (when visible?
-                             (bring-to-front~ frame)
-                             (set-visible?~ frame #t))
-                           (values frame new?)))))))
-              (if (is? (car info) Moniker)
-                  (bind (source results targets) info
-                    (edit source results targets))
-                (bind (class source results targets) info
-                  (edit source results targets)))))))))
+               (bind (class source results targets) info
+                 (edit-source source results targets)))))))
 
 
   ;;;

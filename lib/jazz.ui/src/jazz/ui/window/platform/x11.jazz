@@ -887,8 +887,19 @@
 
 
 (definition package (platform-get-position handle parent-handle)
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
+  (define (top-parent)
+    (let ((root (XQueryTree-root default-x11-display handle)))
+      (if (neq? root handle)
+          (let (iterate (handle handle))
+            (let ((parent (XQueryTree-parent default-x11-display handle)))
+              (if (neq? root parent)
+                  (iterate parent)
+                handle)))
+        handle)))
+  
+  (let ((top-parent (top-parent))
+        (infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display top-parent infos)
     (let ((x (XWindowAttributes-x-ref infos))
           (y (XWindowAttributes-y-ref infos)))
       (XWindowAttributes-free infos)

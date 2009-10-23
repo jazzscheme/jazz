@@ -752,6 +752,7 @@
 ;;;
 
 
+(native current-readtable)
 (native jazz.with-readtable)
 (native jazz.scheme-readtable)
 (native jazz.jazz-readtable)

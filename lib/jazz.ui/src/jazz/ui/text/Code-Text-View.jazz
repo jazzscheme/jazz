@@ -283,13 +283,6 @@
     #t)
   
   
-  (method (header-string? form)
-    (and (string? form)
-         (>= (string-length form) 2)
-         (eqv? (first form) #\double-quote)
-         (eqv? (last form) #\double-quote)))
-  
-  
   (method protected virtual (edition-workspace)
     {})
 
@@ -298,8 +291,8 @@
     (let ((form (current-expr))
           (appl (get-application)))
       (when form
-        (cond ((header-string? form)
-               (edit-filename~ appl (subseq form 1 (- (string-length form) 1))))
+        (cond ((string? form)
+               (edit-document~ appl (new File (tokenise-filename form))))
               ((file? form)
                (edit-document~ appl form workspace: (edition-workspace)))
               (else
@@ -332,10 +325,10 @@
   (method protected (edit-definitions pos)
     (let ((form (expr-at (view->text pos))))
       (when form
-        (cond ((header-string? form)
-               (edit-filename~ (get-application) (subseq form 1 (- (string-length form) 1))))
+        (cond ((string? form)
+               (edit-document~ (get-application) (new File (tokenise-filename form))))
               ((file? form)
-               (edit-document~ (get-application) form))
+               (edit-document~ (get-application) form workspace: (edition-workspace)))
               (else
                (let* ((appl (get-application))
                       (cataloguer (get-cataloguer~ appl)))
@@ -634,7 +627,7 @@
   
   
   (method protected virtual (get-readtable)
-    )
+    (current-readtable))
   
   
   (method (read-text-form range (string: string {}) (readtable: readtable (get-readtable)))

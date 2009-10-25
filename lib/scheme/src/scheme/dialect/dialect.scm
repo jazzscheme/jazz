@@ -213,7 +213,7 @@
 
 
 (define (jazz.new-scheme-dialect)
-  (jazz.allocate-scheme-dialect jazz.Scheme-Dialect))
+  (jazz.allocate-scheme-dialect jazz.Scheme-Dialect '()))
 
 
 (jazz.define-method (jazz.dialect-name (jazz.Scheme-Dialect dialect))
@@ -266,40 +266,9 @@
 ;;;
 
 
-(define (jazz.scheme-bindings)
-  (%%list
-    (jazz.new-special-form 'define              jazz.walk-define)
-    (jazz.new-special-form 'define-macro        jazz.walk-define-macro)
-    (jazz.new-special-form 'define-special-form jazz.walk-define-special-form)
-    (jazz.new-special-form 'quote               jazz.walk-quote)
-    (jazz.new-special-form 'if                  jazz.walk-if)
-    (jazz.new-special-form 'case                jazz.walk-case)
-    (jazz.new-special-form 'cond                jazz.walk-cond)
-    (jazz.new-special-form 'begin               jazz.walk-begin)
-    (jazz.new-special-form 'lambda              jazz.walk-lambda)
-    (jazz.new-special-form 'let                 jazz.walk-let)
-    (jazz.new-special-form 'let*                jazz.walk-letstar)
-    (jazz.new-special-form 'letrec              jazz.walk-letrec)
-    (jazz.new-special-form 'let-macro           jazz.walk-let-macro)
-    (jazz.new-special-form 'let-symbol          jazz.walk-let-symbol)
-    (jazz.new-special-form 'receive             jazz.walk-receive)
-    (jazz.new-special-form 'set!                jazz.walk-setbang)
-    (jazz.new-special-form 'and                 jazz.walk-and)
-    (jazz.new-special-form 'or                  jazz.walk-or)
-    (jazz.new-special-form 'do                  jazz.walk-do)
-    (jazz.new-special-form 'delay               jazz.walk-delay)
-    (jazz.new-special-form 'quasiquote          jazz.walk-quasiquote)))
-
-
-(define jazz.scheme-environment
-  #f)
-
-
-(jazz.define-method (jazz.walker-environment (jazz.Scheme-Walker walker))
-  (or jazz.scheme-environment
-      (begin
-        (set! jazz.scheme-environment (%%list (jazz.new-walk-frame (append (jazz.core-bindings) (jazz.scheme-bindings)))))
-        jazz.scheme-environment)))
+(jazz.define-method (jazz.walker-bindings (jazz.Scheme-Walker walker))
+  (append (%%get-dialect-bindings (jazz.get-dialect 'scheme))
+          (nextmethod walker)))
 
 
 ;;;
@@ -738,4 +707,28 @@
 ;;;
 
 
-(jazz.register-dialect 'scheme (jazz.new-scheme-dialect)))
+(jazz.define-dialect scheme
+  (jazz.new-scheme-dialect))
+
+
+(jazz.define-walker-special define              scheme jazz.walk-define)
+(jazz.define-walker-special define-macro        scheme jazz.walk-define-macro)
+(jazz.define-walker-special define-special-form scheme jazz.walk-define-special-form)
+(jazz.define-walker-special quote               scheme jazz.walk-quote)
+(jazz.define-walker-special if                  scheme jazz.walk-if)
+(jazz.define-walker-special case                scheme jazz.walk-case)
+(jazz.define-walker-special cond                scheme jazz.walk-cond)
+(jazz.define-walker-special begin               scheme jazz.walk-begin)
+(jazz.define-walker-special lambda              scheme jazz.walk-lambda)
+(jazz.define-walker-special let                 scheme jazz.walk-let)
+(jazz.define-walker-special let*                scheme jazz.walk-letstar)
+(jazz.define-walker-special letrec              scheme jazz.walk-letrec)
+(jazz.define-walker-special let-macro           scheme jazz.walk-let-macro)
+(jazz.define-walker-special let-symbol          scheme jazz.walk-let-symbol)
+(jazz.define-walker-special receive             scheme jazz.walk-receive)
+(jazz.define-walker-special set!                scheme jazz.walk-setbang)
+(jazz.define-walker-special and                 scheme jazz.walk-and)
+(jazz.define-walker-special or                  scheme jazz.walk-or)
+(jazz.define-walker-special do                  scheme jazz.walk-do)
+(jazz.define-walker-special delay               scheme jazz.walk-delay)
+(jazz.define-walker-special quasiquote          scheme jazz.walk-quasiquote))

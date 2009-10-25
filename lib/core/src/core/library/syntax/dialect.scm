@@ -75,4 +75,30 @@
 
 
 (define (jazz.register-dialect name dialect)
-  (%%table-set! jazz.Dialects name dialect)))
+  (%%table-set! jazz.Dialects name dialect))
+
+
+(jazz.define-macro (jazz.define-dialect name dialect)
+  `(jazz.register-dialect ',name ,dialect))
+
+
+;;;
+;;;; Bindings
+;;;
+
+
+(define (jazz.register-binding dialect-name binding)
+  (let ((dialect (jazz.get-dialect dialect-name)))
+    (%%set-dialect-bindings dialect (%%cons binding (%%get-dialect-bindings dialect)))))
+
+
+(jazz.define-macro (jazz.define-walker-special name dialect-name method)
+  `(jazz.register-binding ',dialect-name (jazz.new-special-form ',name ,method)))
+
+
+(jazz.define-macro (jazz.define-walker-syntax name dialect-name method)
+  `(jazz.register-binding ',dialect-name (jazz.new-syntax-form ',name ,method)))
+
+
+(jazz.define-macro (jazz.define-walker-macro name dialect-name method)
+  `(jazz.register-binding ',dialect-name (jazz.new-macro-form ',name ,method))))

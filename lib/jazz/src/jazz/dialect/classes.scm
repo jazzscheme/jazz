@@ -211,7 +211,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-jazz-dialect
+(jazz.define-class jazz.Jazz-Dialect jazz.Dialect (bindings) jazz.Object-Class jazz.allocate-jazz-dialect
   ())
 
 

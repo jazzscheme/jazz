@@ -448,6 +448,7 @@
    (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
 
 
+(jazz.define-virtual (jazz.walker-bindings (jazz.Walker walker)))
 (jazz.define-virtual (jazz.walker-environment (jazz.Walker walker)))
 (jazz.define-virtual (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form-src))
 (jazz.define-virtual (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol-src))
@@ -1086,7 +1087,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-core-dialect
+(jazz.define-class jazz.Core-Dialect jazz.Dialect (bindings) jazz.Object-Class jazz.allocate-core-dialect
   ())
 
 

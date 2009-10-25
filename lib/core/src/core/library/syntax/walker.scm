@@ -3169,11 +3169,18 @@
     (jazz.new-special-form 'syntax        jazz.walk-syntax)))
 
 
+(jazz.define-virtual-runtime (jazz.walker-bindings (jazz.Walker walker)))
+
+
+(jazz.define-method (jazz.walker-bindings (jazz.Walker walker))
+  (jazz.core-bindings))
+
+
 (jazz.define-virtual-runtime (jazz.walker-environment (jazz.Walker walker)))
 
 
 (jazz.define-method (jazz.walker-environment (jazz.Walker walker))
-  (%%list (jazz.new-walk-frame (jazz.core-bindings))))
+  (%%list (jazz.new-walk-frame (jazz.walker-bindings walker))))
 
 
 ;;;
@@ -5961,7 +5968,7 @@
 
 
 (define (jazz.new-core-dialect)
-  (jazz.allocate-core-dialect jazz.Core-Dialect))
+  (jazz.allocate-core-dialect jazz.Core-Dialect '()))
 
 
 (jazz.define-method (jazz.dialect-name (jazz.Core-Dialect dialect))
@@ -5995,4 +6002,15 @@
 ;;;
 
 
-(jazz.register-dialect 'core (jazz.new-core-dialect)))
+(jazz.define-dialect core
+  (jazz.new-core-dialect))
+
+
+(jazz.define-walker-special require       core jazz.walk-require)
+(jazz.define-walker-special export        core jazz.walk-export)
+(jazz.define-walker-special import        core jazz.walk-import)
+(jazz.define-walker-special proclaim      core jazz.walk-proclaim)
+(jazz.define-walker-special native        core jazz.walk-native)
+(jazz.define-walker-special native-syntax core jazz.walk-native-syntax)
+(jazz.define-walker-special macro         core jazz.walk-macro)
+(jazz.define-walker-special syntax        core jazz.walk-syntax))

@@ -73,7 +73,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-scheme-dialect
+(jazz.define-class jazz.Scheme-Dialect jazz.Dialect (bindings) jazz.Object-Class jazz.allocate-scheme-dialect
   ())
 
 

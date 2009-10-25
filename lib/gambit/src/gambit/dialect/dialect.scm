@@ -47,7 +47,7 @@
 
 
 (define (jazz.new-gambit-dialect)
-  (jazz.allocate-gambit-dialect jazz.Gambit-Dialect))
+  (jazz.allocate-gambit-dialect jazz.Gambit-Dialect '()))
 
 
 (jazz.define-method (jazz.dialect-name (jazz.Gambit-Dialect dialect))
@@ -81,19 +81,9 @@
 ;;;
 
 
-(define (jazz.gambit-bindings)
-  (%%list))
-
-
-(define jazz.gambit-environment
-  #f)
-
-
-(jazz.define-method (jazz.walker-environment (jazz.Gambit-Walker walker))
-  (or jazz.gambit-environment
-      (begin
-        (set! jazz.gambit-environment (%%list (jazz.new-walk-frame (append (jazz.core-bindings) (jazz.scheme-bindings) (jazz.gambit-bindings)))))
-        jazz.gambit-environment)))
+(jazz.define-method (jazz.walker-bindings (jazz.Gambit-Walker walker))
+  (append (%%get-dialect-bindings (jazz.get-dialect 'gambit))
+          (nextmethod walker)))
 
 
 ;;;
@@ -101,4 +91,5 @@
 ;;;
 
 
-(jazz.register-dialect 'gambit (jazz.new-gambit-dialect)))
+(jazz.define-dialect gambit
+  (jazz.new-gambit-dialect)))

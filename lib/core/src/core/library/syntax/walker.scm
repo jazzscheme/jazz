@@ -5883,7 +5883,8 @@
             ;; not reading the literals is necessary as reading a literal will load modules
             (let ((form (jazz.read-toplevel-form src read-literals?: #f)))
               (parameterize ((jazz.requested-module-name module-name)
-                             (jazz.requested-module-resource src))
+                             (jazz.requested-module-resource src)
+                             (jazz.walk-for 'interpret))
                 (let ((kind (jazz.source-code (%%car (jazz.source-code form)))))
                   (case kind
                     ((module)
@@ -5950,7 +5951,7 @@
   (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (parameterize ((jazz.requested-module-name module-name)
                    (jazz.requested-module-resource src)
-                   (jazz.walk-for 'walk))
+                   (jazz.walk-for 'interpret))
       (let ((form (jazz.read-toplevel-form src)))
         (case (jazz.source-code (%%car (jazz.source-code form)))
           ((module)

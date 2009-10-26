@@ -1509,7 +1509,7 @@
     (proc)))
 
 
-;; #f walk load compile eval
+;; #f interpret compile eval
 (define jazz.walk-for
   (make-parameter #f))
 
@@ -1530,7 +1530,7 @@
                        (jazz.feedback "Warning: Loading {a} interpreted" module-name)
                        (if (and (%%pair? warn) (%%memq module-name warn))
                            (pp jazz.Load-Stack)))))
-               (parameterize ((jazz.walk-for 'load))
+               (parameterize ((jazz.walk-for 'interpret))
                  (jazz.with-extension-reader (%%resource-extension src)
                    (lambda ()
                      (jazz.load-resource src)))))

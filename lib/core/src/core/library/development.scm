@@ -55,7 +55,7 @@
 
 
 (define (jazz.parse-source module-name)
-  (parameterize ((jazz.walk-for 'walk))
+  (parameterize ((jazz.walk-for 'interpret))
     (let* ((src (jazz.find-module-src module-name #f))
            (form-src (jazz.read-toplevel-form src)))
       (pretty-print

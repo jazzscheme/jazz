@@ -230,7 +230,7 @@
   (method public (frame-changed new-frame (user-origin?: user-origin? #f))
     (unless (debugged=? frame new-frame)
       (set! frame new-frame)
-      (when (and (get-frames-view) (view-visible?~ (get-frames-view)))
+      (when (and (get-frames-view) (or (not frame) (view-visible?~ (get-frames-view))))
         (when (get-variables-view)
           (frame-changed~ (get-variables-view) frame))
         (edit-frame frame))
@@ -262,19 +262,38 @@
     {File Jazz "lib" "jazz" "resources" "sounds" "Debugger.wav"})
   
   
-  (method (update-views process thread)
-    (when (debugged=? process process~self)
-      (when (get-threads-view)
-        (process-changed~ (get-threads-view) process)))
-    (when (debugged=? thread thread~self)
-      (when (get-frames-view)
-        (thread-changed~ (get-frames-view) thread))
-      (when (get-exception-view)
-        (thread-changed~ (get-exception-view) thread)))
-    (update-status))
-  
-  
   (method public (register-stop process thread stop)
+    (define (update-process)
+      (let ((empty? (not process~self))
+            (view (get-processes-view)))
+        (when empty?
+          (if view
+              (set-selected-process~ view process)
+            (process-changed process)))
+        (when (and view (view-visible?~ view))
+          (when (visit-debugged process)
+            (update-processes-highlight process)))))
+    
+    (define (update-thread)
+      (when (debugged=? process process~self)
+        (let ((empty? (not thread~self))
+              (view (get-threads-view)))
+          (when empty?
+            (if view
+                (set-selected-thread~ view thread)
+              (thread-changed process)))
+          (when (and view (view-visible?~ view))
+            (when (visit-debugged thread)
+              (update-threads-highlight thread))))))
+    
+    (define (update-others)
+      (when (debugged=? thread thread~self)
+        (when (get-frames-view)
+          (thread-changed~ (get-frames-view) thread))
+        (when (get-exception-view)
+          (thread-changed~ (get-exception-view) thread)))
+      (update-status))
+    
     (define (add-debugged-stop debugged stop)
       (table-add debugged-stops debugged stop))
     
@@ -286,20 +305,20 @@
     (add-debugged-to-visit process)
     (add-debugged-to-visit thread)
     (play-sound debugger-sound)
-    (unless process~self
-      (when (get-processes-view)
-        (set-selected-process~ (get-processes-view) process))
-      (process-changed process))
-    (when (and (get-processes-view) (view-visible?~ (get-processes-view)))
-      (when (visit-debugged process)
-        (update-processes-highlight process)))
-    (when (and (get-threads-view) (view-visible?~ (get-threads-view)))
-      (when (visit-debugged thread)
-        (update-threads-highlight thread)))
-    (update-views process thread))
+    (update-process)
+    (update-thread)
+    (update-others))
   
   
   (method public (unregister-stop process thread stop)
+    (define (update-others)
+      (when (debugged=? thread thread~self)
+        (when (get-frames-view)
+          (thread-changed~ (get-frames-view) thread))
+        (when (get-exception-view)
+          (thread-changed~ (get-exception-view) thread)))
+      (update-status))
+    
     (define (remove-debugged-stop debugged stop)
       (let ((stops (remove! stop (table-ref debugged-stops debugged '()) test: debugged=?)))
         (if (not-null? stops)
@@ -319,4 +338,5 @@
     (remove-debugged-to-visit thread)
     (update-processes-highlight process)
     (update-threads-highlight thread)
-    (update-views process thread))))
+    (update-views process thread)
+    (update-others))))

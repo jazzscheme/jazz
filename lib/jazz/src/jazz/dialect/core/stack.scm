@@ -69,21 +69,27 @@
     
     
     (define (jazz.collect-var-val var val-or-box cte queue)
-      (define (collect-var-val var val mutable? cte queue)
-        (jazz.enqueue queue
-                      (%%list (##object->string var)
-                              (cond ((jazz.absent-object? val)
-                                     '<absent>)
-                                    ((jazz.unbound-object? val)
-                                     '<unbound>)
-                                    ((##procedure? val)
-                                     (remove-quote
-                                       (if (##cte-top? cte)
-                                           (##inverse-eval-in-env val cte)
-                                         (##inverse-eval-in-env val (##cte-parent-cte cte)))))
-                                    (else
-                                     val))
-                              mutable?)))
+      (cond ((##var-i? var)
+             (jazz.collect-var-val-aux (##var-i-name var)
+                                       val-or-box
+                                       #t
+                                       cte
+                                       queue))
+            ((##var-c-boxed? var)
+             (jazz.collect-var-val-aux (##var-c-name var)
+                                       (##unbox val-or-box)
+                                       #t
+                                       cte
+                                       queue))
+            (else
+             (jazz.collect-var-val-aux (##var-c-name var)
+                                       val-or-box
+                                       #f
+                                       cte
+                                       queue))))
+    
+    
+    (define (jazz.collect-var-val-aux var val mutable? cte queue)
       
       (define (remove-quote val)
         (if (and (pair? val)
@@ -92,24 +98,20 @@
             (##cadr val)
           val))
       
-      (cond ((##var-i? var)
-             (collect-var-val (##var-i-name var)
-                              val-or-box
-                              #t
-                              cte
-                              queue))
-            ((##var-c-boxed? var)
-             (collect-var-val (##var-c-name var)
-                              (##unbox val-or-box)
-                              #t
-                              cte
-                              queue))
-            (else
-             (collect-var-val (##var-c-name var)
-                              val-or-box
-                              #f
-                              cte
-                              queue))))
+      (jazz.enqueue queue
+                    (%%list (##object->string var)
+                            (cond ((jazz.absent-object? val)
+                                   '<absent>)
+                                  ((jazz.unbound-object? val)
+                                   '<unbound>)
+                                  ((##procedure? val)
+                                   (remove-quote
+                                     (if (##cte-top? cte)
+                                         (##inverse-eval-in-env val cte)
+                                       (##inverse-eval-in-env val (##cte-parent-cte cte)))))
+                                  (else
+                                   val))
+                            mutable?)))
     
     
     (define (jazz.get-continuation-dynamic-environment cont)
@@ -123,7 +125,7 @@
                    (if (%%not (##hidden-parameter? param))
                        (let ((x
                                (##inverse-eval-in-env param cte)))
-                         (jazz.collect-var-val (%%list x) val cte queue)))
+                         (jazz.collect-var-val-aux (%%list x) val #t cte queue)))
                    (iter (%%cdr lst))))))
       
       (let ((queue (jazz.new-queue)))
@@ -131,8 +133,7 @@
              (collect-parameters
                (##dynamic-env->list (jazz.continuation-denv cont))
                (if (%%interp-continuation? cont)
-                   (let (($code (##interp-continuation-code cont))
-                         (rte (##interp-continuation-rte cont)))
+                   (let (($code (##interp-continuation-code cont)))
                      (jazz.code-cte $code))
                  ##interaction-cte)
                queue))

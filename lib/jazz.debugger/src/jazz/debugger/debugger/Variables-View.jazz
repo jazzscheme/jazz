@@ -55,8 +55,10 @@
 
 
   (form
-    (<install>                                       layout-type: fill
-      (<Scroller-View>               name: scroller  vscroll?: #t hscroll?: #t flat?: #t
+    (<install>                                       layout-type: border
+      (<Layout-View>                 name: tools
+        (<Toggle-Tool>               name: dynamic   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Dynamic Environment" image-name: {Bitmap-Resource "All"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-dynamic}))
+      (<Scroller-View>               name: scroller  location: center vscroll?: #t hscroll?: #t flat?: #t
         (<!>                         name: content   layout-type: fill
           (<Tree-Header>                             flat?: #t
             (<!>                     name: content
@@ -87,6 +89,10 @@
   ;;;
   
   
+  (method override (get-tools-view)
+    (locate 'tools))
+  
+  
   (method override (focus-default)
     (let ((tree (locate 'variables)))
       (acquire-focus~ tree)))
@@ -111,12 +117,22 @@
 
   (method public (set-continuation-frame frm)
     (set! continuation-frame frm)
-    (set-client~ (locate 'variables) (essay continuation-frame (cons continuation-frame :frame))))
+    (set-client~ (locate 'variables) (determine-frame-client)))
   
   
   (method public (frame-changed new-frame)
     (set-process (get-process~ (get-debugger-manager)))
     (set-continuation-frame new-frame))
+  
+  
+  (method (determine-frame-client)
+    (when continuation-frame
+      (let ((kind (if (show-dynamic?) :all :lexical)))
+        (cons continuation-frame kind))))
+  
+  
+  (method (show-dynamic?)
+    (get-selected?~ (locate 'dynamic)))
 
   
   ;;;
@@ -141,7 +157,12 @@
          (set-continuation-frame frame))
         (else
          (set-process {})
-         (set-continuation-frame {}))))))
+         (set-continuation-frame {})))))
+  
+  
+  (method (on-toggle-dynamic evt)
+    (when continuation-frame
+      (set-client~ (locate 'variables) (determine-frame-client)))))
 
 
 ;;;
@@ -154,7 +175,7 @@
   
   (method override (inspect data kind)
     (if (is? data Debugged-Frame)
-        (get-variables~ data)
+        (get-variables~ data kind)
       (case kind
         ((frame:) (inspect-frame data))
         (else (nextmethod data kind)))))

@@ -691,9 +691,13 @@
   (method override (current-expr)
     (let ((range (current-expr-range)))
       (when range
-        (with-readtable (get-readtable)
-          (lambda ()
-            (read-string-element (get-string range)))))))
+        (range-expr range))))
+  
+  
+  (method override (range-expr range)
+    (with-readtable (get-readtable)
+      (lambda ()
+        (read-string-element (get-string range)))))
   
   
   (method (current-symbol)
@@ -801,14 +805,17 @@
   
   
   (method (on-highlight-selection evt)
-    (let ((range (declaration-range (get-start)))
-          (constant (current-expr)))
-      (if (or (not range) (not (constant? constant)))
+    (let ((declaration-range (declaration-range (get-start)))
+          (expr-range (current-expr-range)))
+      (if (or (not declaration-range) (not expr-range))
           (bell)
-        (let ((style (get-style-at (get-end))))
-          (if (highlight-style? style)
-              (unhighlight-expression range constant)
-            (highlight-expression range constant))))))
+        (let ((constant (range-expr expr-range)))
+          (if (not (constant? constant))
+              (bell)
+            (let ((style (get-style-at (get-end~ expr-range))))
+              (if (highlight-style? style)
+                  (unhighlight-expression declaration-range constant)
+                (highlight-expression declaration-range constant))))))))
   
   
   (method (on-remove-highlights evt)

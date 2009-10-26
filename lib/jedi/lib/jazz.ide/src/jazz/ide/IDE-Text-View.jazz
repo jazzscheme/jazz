@@ -151,6 +151,13 @@
       ((jazz) (current-jazz-expr))
       ((c) (current-c-expr))
       ((sql) (current-sql-expr))))
+  
+  
+  (method override (range-expr range)
+    (case (catalog-context)
+      ((jazz) (jazz-range-expr range))
+      ((c) (c-range-expr range))
+      ((sql) (sql-range-expr range))))
    
 
   ;;;
@@ -161,9 +168,7 @@
   (method (current-jazz-expr)
     (let ((range (current-jazz-expr-range)))
       (when range
-        (with-jazz-readtable
-          (lambda ()
-            (read-string-element (get-string range)))))))
+        (jazz-range-expr range))))
   
   
   (method protected (current-jazz-symbol)
@@ -176,6 +181,12 @@
     (if (and (not completion-active?) (has-selection?))
         (get-selection)
       (jazz-expr-range (get-end))))
+  
+  
+  (method (jazz-range-expr range)
+    (with-jazz-readtable
+      (lambda ()
+        (read-string-element (get-string range)))))
   
   
   (method (jazz-expr-range pos)
@@ -210,6 +221,10 @@
       (c-expr-range (get-end))))
   
   
+  (method (c-range-expr range)
+    (get-string range))
+  
+  
   (method (c-expr-range pos)
     (let ((expl (new C-Explorer self start: pos end: pos)))
       (outer-expr~ expl)
@@ -241,6 +256,10 @@
     (if (and (not completion-active?) (has-selection?))
         (get-selection)
       (sql-expr-range (get-end))))
+  
+  
+  (method (sql-range-expr range)
+    (get-string range))
   
   
   (method (sql-expr-range pos)

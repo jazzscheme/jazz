@@ -119,7 +119,7 @@
 (jazz.define-virtual-runtime (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments form-src))
 (jazz.define-virtual-runtime (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual-runtime (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
+(jazz.define-virtual-runtime (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments call source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration symbol-src))
 (jazz.define-virtual-runtime (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-runtime (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
@@ -154,7 +154,7 @@
       #f)))
 
 
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments call source-declaration environment)
   #f)
 
 
@@ -3979,10 +3979,10 @@
                      #f))
           (arguments-codes (jazz.emit-expressions arguments declaration environment)))
       (jazz.sourcify-code
-        (or (jazz.emit-specialized-call operator locator arguments arguments-codes declaration environment)
+        (or (jazz.emit-specialized-call operator locator arguments arguments-codes expression declaration environment)
             (jazz.emit-primitive-new-call operator locator arguments arguments-codes declaration environment)
             (jazz.emit-primitive-call operator locator arguments arguments-codes declaration environment)
-            (jazz.emit-inlined-call operator arguments-codes declaration environment)
+            (jazz.emit-inlined-call operator arguments-codes expression declaration environment)
             (jazz.emit-call operator arguments-codes declaration environment))
         (%%get-expression-source expression)))))
 
@@ -4021,7 +4021,7 @@
   (%%table-ref jazz.specializers binding '()))
 
 
-(define (jazz.emit-specialized-call operator locator arguments arguments-codes declaration environment)
+(define (jazz.emit-specialized-call operator locator arguments arguments-codes call declaration environment)
   (if (%%not locator)
       #f
     (or (jazz.emit-specialized-locator locator arguments-codes environment)
@@ -4051,7 +4051,7 @@
                       (let ((specializer (%%car scan)))
                         (let ((function-type (%%get-lexical-binding-type specializer)))
                           (if (jazz.match-signature? arguments types function-type)
-                              (or (jazz.emit-inlined-binding-call specializer arguments-codes declaration environment)
+                              (or (jazz.emit-inlined-binding-call specializer arguments-codes call declaration environment)
                                   (jazz.new-code
                                     (let ((locator (%%get-declaration-locator specializer)))
                                       `(,locator ,@(jazz.codes-forms arguments-codes)))
@@ -4200,10 +4200,10 @@
 ;;;
 
 
-(define (jazz.emit-inlined-call operator arguments declaration environment)
+(define (jazz.emit-inlined-call operator arguments call declaration environment)
   (if (%%class-is? operator jazz.Reference)
       (let ((binding (%%get-reference-binding operator)))
-        (jazz.emit-inlined-binding-call binding arguments declaration environment))
+        (jazz.emit-inlined-binding-call binding arguments call declaration environment))
     #f))
 
 

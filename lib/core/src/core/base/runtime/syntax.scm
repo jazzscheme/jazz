@@ -110,6 +110,12 @@
     expr))
 
 
+(define (jazz.sourcify-list lst src)
+  (map (lambda (expr)
+         (jazz.sourcify-if (jazz.desourcify-all expr) src))
+       lst))
+
+
 (define (jazz.locat-container locat)
   (%%locat-container locat))
 

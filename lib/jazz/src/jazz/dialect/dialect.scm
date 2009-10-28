@@ -58,7 +58,7 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments call source-declaration environment)
   (let ((value (%%get-definition-declaration-value declaration)))
     (if (%%class-is? value jazz.Lambda)
         (if (and (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
@@ -77,7 +77,7 @@
                                                 ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                             (%%get-signature-positional signature)
                                             arguments)
-                                   ,@(jazz.sourcified-form body-code))
+                                   ,@(jazz.sourcify-list (%%get-code-form body-code) (%%get-expression-source call)))
                                 (jazz.call-return-type (%%get-lexical-binding-type declaration))
                                 #f)))))
                     (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
@@ -742,7 +742,7 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Method-Declaration declaration) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Method-Declaration declaration) arguments call source-declaration environment)
   ;; mostly copy/pasted and adapted from definition declaration. need to unify the code
   (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
       (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
@@ -762,7 +762,7 @@
                                                ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                            (%%get-signature-positional signature)
                                            arguments)
-                                  ,(jazz.sourcified-form body-code))
+                                  ,(jazz.sourcify-if (jazz.desourcify-all (%%get-code-form body-code)) (%%get-expression-source call)))
                                (jazz.call-return-type (%%get-lexical-binding-type declaration))
                                #f)))))
                    (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
@@ -1374,7 +1374,7 @@
                                                        ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                                    (%%get-signature-positional signature)
                                                    arguments))
-                                  ,(jazz.sourcified-form body-code))
+                                  ,(jazz.sourcify-if (jazz.desourcify-all (%%get-code-form body-code)) (%%get-expression-source expression)))
                                (jazz.call-return-type (%%get-lexical-binding-type declaration))
                                #f)))))
                    (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
@@ -2022,7 +2022,7 @@
                                       (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature))))
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-              (%%when (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))
+              (%%when inline?
                 (%%set-method-declaration-signature effective-declaration signature)
                 (%%set-method-declaration-body effective-declaration
                   (jazz.walk walker resume effective-declaration augmented-environment

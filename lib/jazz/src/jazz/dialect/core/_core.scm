@@ -53,6 +53,7 @@
          (jazz.dialect.core.reader)
          (jazz.dialect.core.repository)
          (jazz.dialect.core.stack)
+         (jazz.dialect.core.step)
          (jazz.dialect.core.structure)
          (jazz.dialect.core.system)
          (jazz.dialect.core.table)

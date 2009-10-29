@@ -138,18 +138,22 @@
                        (##vector-ref ,obj ,n)))))))
         `(##vector-ref ,object ,n)))
     
-    (jazz.define-macro (%%object-set! object n value)
-      (if jazz.debug-core?
-          (jazz.with-uniqueness object
-            (lambda (obj)
-              (jazz.with-uniqueness n
-                (lambda (rnk)
-                  `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
-                     (##vector-set! ,obj ,n ,value)
-                     #; ;; costly test for a very low probability class of bugs
-                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
-                       (##vector-set! ,obj ,n ,value)))))))
-        `(##vector-set! ,object ,n ,value))))
+    (jazz.define-syntax %%object-set!
+      (lambda (src)
+        (let ((object (%%cadr (%%source-code src)))
+              (n (%%car (%%cddr (%%source-code src))))
+              (value (%%cadr (%%cddr (%%source-code src)))))
+          (if jazz.debug-core?
+              (jazz.with-uniqueness object
+                (lambda (obj)
+                  (jazz.with-uniqueness n
+                    (lambda (rnk)
+                      `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+                         (##vector-set! ,obj ,n ,value)
+                         #; ;; costly test for a very low probability class of bugs
+                         (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
+                           (##vector-set! ,obj ,n ,value)))))))
+            `(##vector-set! ,object ,n ,value))))))
   
   (else
    (jazz.define-macro (%%object? expr)
@@ -173,12 +177,4 @@
      `(%%vector-ref ,vector ,n))
    
    (jazz.define-macro (%%object-set! vector n value)
-     `(%%vector-set! ,vector ,n ,value))))
-
-
-(jazz.define-macro (%%get-object-slot object slot-offset)
-  `(%%object-ref ,object ,slot-offset))
-
-
-(jazz.define-macro (%%set-object-slot object slot-offset value)
-  `(%%object-set! ,object ,slot-offset ,value)))
+     `(%%vector-set! ,vector ,n ,value)))))

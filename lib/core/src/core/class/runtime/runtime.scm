@@ -384,14 +384,14 @@
 (define (jazz.get-object-slot object slot-offset)
   (%%debug-assert (%%object? object)
     (if (%%integer? slot-offset)
-        (%%get-object-slot object slot-offset)
+        (%%object-ref object slot-offset)
       (jazz.unspecified))))
 
 
 (define (jazz.set-object-slot object slot-offset value)
   (%%debug-assert (%%object? object)
     (%%debug-assert (%%integer? slot-offset)
-      (%%set-object-slot object slot-offset value))))
+      (%%object-set! object slot-offset value))))
 
 
 (define (jazz.classname->string class)
@@ -2106,7 +2106,7 @@
                 (let ((offset (%%get-slot-offset slot))
                       (initialize (%%get-slot-initialize slot)))
                   (%%when initialize
-                    (%%set-object-slot object offset (initialize object)))))
+                    (%%object-set! object offset (initialize object)))))
               slots)))
 
 

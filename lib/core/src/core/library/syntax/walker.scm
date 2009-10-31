@@ -1782,7 +1782,7 @@
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
                            (%%list
                             (jazz.get-catalog-entry ',current-module-name)
-                            (jazz.new-walk-frame (jazz.core-bindings))
+                            (jazz.new-walk-frame (%%get-dialect-bindings (jazz.get-dialect 'core)))
                             (jazz.new-walk-frame
                              (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))))
                  (jazz.register-macro ',locator tmp)

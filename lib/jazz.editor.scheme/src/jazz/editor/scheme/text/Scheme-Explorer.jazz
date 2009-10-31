@@ -97,6 +97,7 @@
         ((:define)           walk-define)
         ((:generic/specific) walk-generic/specific)
         ((:define-macro)     walk-define-macro)
+        ((:define-syntax)    walk-define-syntax)
         ((:macro)            walk-macro)
         ((:define-class)     walk-define-class)
         ((:type)             walk-type)
@@ -248,6 +249,24 @@
   (method (walk-define-macro context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
+      (forward-whites)
+      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'define-macro symbol start end (get-marked) #f)))
+        (when list?
+          (walk-expressions entry expression 'code #f))
+        (when list?
+          (exit-list)))
+      (walk-declarations entry declaration keyword expression doc)
+      entry))
+  
+  
+  (method (walk-define-syntax context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword (get-modifiers~ form))
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?

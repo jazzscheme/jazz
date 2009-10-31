@@ -3157,23 +3157,11 @@
 ;;;
 
 
-(define (jazz.core-bindings)
-  (%%list
-    (jazz.new-special-form 'require       jazz.walk-require)
-    (jazz.new-special-form 'export        jazz.walk-export)
-    (jazz.new-special-form 'import        jazz.walk-import)
-    (jazz.new-special-form 'proclaim      jazz.walk-proclaim)
-    (jazz.new-special-form 'native        jazz.walk-native)
-    (jazz.new-special-form 'native-syntax jazz.walk-native-syntax)
-    (jazz.new-special-form 'macro         jazz.walk-macro)
-    (jazz.new-special-form 'syntax        jazz.walk-syntax)))
-
-
 (jazz.define-virtual-runtime (jazz.walker-bindings (jazz.Walker walker)))
 
 
 (jazz.define-method (jazz.walker-bindings (jazz.Walker walker))
-  (jazz.core-bindings))
+  (%%get-dialect-bindings (jazz.get-dialect 'core)))
 
 
 (jazz.define-virtual-runtime (jazz.walker-environment (jazz.Walker walker)))

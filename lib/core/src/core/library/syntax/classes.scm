@@ -744,8 +744,8 @@
 
 (jazz.define-class jazz.Syntactic-Closure jazz.Object () jazz.Object-Class jazz.allocate-syntactic-closure
   ((environment %%get-syntactic-closure-environment ())
-   (variables   %%get-syntactic-closure-variables ())
-   (form        %%get-syntactic-closure-form ())))
+   (variables   %%get-syntactic-closure-variables   ())
+   (form        %%get-syntactic-closure-form        ())))
 
 
 ;;;

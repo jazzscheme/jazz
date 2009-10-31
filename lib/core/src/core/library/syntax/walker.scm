@@ -2129,14 +2129,14 @@
 (jazz.define-method (jazz.emit-binding-symbol (jazz.Symbol-Binding binding) declaration environment)
   (let ((gensym (%%get-symbol-binding-gensym binding)))
     (if gensym
-        (if (not (eq? 'gensym gensym))
+        (if (%%not (%%eq? 'gensym gensym))
             gensym
-            (let* ((name (%%get-lexical-binding-name binding))
-                   (sym (unwrap-syntactic-closure name))
-                   (res (jazz.generate-symbol (symbol->string sym))))
-              (%%set-symbol-binding-gensym binding res)
-              res))
-        (%%get-lexical-binding-name binding))))
+          (let* ((name (%%get-lexical-binding-name binding))
+                 (sym (unwrap-syntactic-closure name))
+                 (res (jazz.generate-symbol (%%symbol->string sym))))
+            (%%set-symbol-binding-gensym binding res)
+            res))
+      (%%get-lexical-binding-name binding))))
 
 
 (jazz.encapsulate-class jazz.Symbol-Binding)
@@ -2157,7 +2157,9 @@
 
 (define (jazz.variable-name-valid? name)
   (jazz.variable-name-valid-symbol?
-   (if (syntactic-closure? name) (%%get-syntactic-closure-form name) name)))
+    (if (syntactic-closure? name)
+        (%%get-syntactic-closure-form name)
+      name)))
 
 
 (define (jazz.variable-name-valid-symbol? name)
@@ -2171,9 +2173,9 @@
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Variable binding) source-declaration environment)
   (jazz.new-code
-   (jazz.emit-binding-symbol binding source-declaration environment)
-   (jazz.find-annotated-type binding environment)
-   #f))
+    (jazz.emit-binding-symbol binding source-declaration environment)
+    (jazz.find-annotated-type binding environment)
+    #f))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Variable declaration))
@@ -2186,10 +2188,10 @@
       (%%when (%%class-is? annotated-variable jazz.Annotated-Variable)
         (jazz.extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code))))
     (jazz.new-code
-     `(set! ,(jazz.emit-binding-symbol binding source-declaration environment)
-            ,(jazz.sourcified-form value-code))
-     jazz.Any
-     #f)))
+      `(set! ,(jazz.emit-binding-symbol binding source-declaration environment)
+             ,(jazz.sourcified-form value-code))
+      jazz.Any
+      #f)))
 
 
 (jazz.encapsulate-class jazz.Variable)
@@ -5129,6 +5131,7 @@
 ;;;; Walk
 ;;;
 
+
 (define (jazz.walk walker resume declaration environment form-src)
   (let ((form (jazz.source-code form-src)))
     (cond ((identifier? form)
@@ -5899,6 +5902,7 @@
 ;;;
 ;;;; Define-Syntax
 ;;;
+
 
 (define (jazz.walk-define-syntax-declaration walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.syntax-modifiers (%%cdr (jazz.source-code form-src)))

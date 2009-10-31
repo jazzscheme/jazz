@@ -38,9 +38,6 @@
 (library protected jazz.locale jazz
 
 
-(import (jazz.system.access))
-
-
 ;;;
 ;;;; Locales
 ;;;
@@ -101,10 +98,22 @@
   (let ((loc (standardize-locale loc)))
     (when (neq? loc Active-Locale)
       (set! Active-Locale loc)
-      (let ((appl (get-application)))
-        (select-locale~ appl loc)
-        (when update?
-          (locale-update~ appl))))))
+      (call-locale-changes loc update?))))
+
+
+(definition locale-changes
+  '())
+
+(definition public (register-locale-change proc)
+  (set! locale-changes (cons proc locale-changes)))
+
+(definition public (unregister-locale-change proc)
+  (set! locale-changes (remove! proc locale-changes)))
+
+(definition (call-locale-changes loc update?)
+  (for-each (lambda (proc)
+              (proc loc update?))
+            locale-changes))
 
 
 (definition (standardize-locale loc)

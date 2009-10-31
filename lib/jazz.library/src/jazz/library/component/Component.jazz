@@ -41,9 +41,7 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
-        (jazz.locale)
-        (jazz.system)
-        (jazz.ui.clipboard))
+        (jazz.locale))
 
 
 (class Component extends Object implements Event-Consumer
@@ -75,7 +73,7 @@
   (slot index                    initialize {})
   (slot flags          <fx>      initialize Visible-Flag)
   
- 
+  
   (property before                      initialize {}  getter get-before     setter set-before)
   (property children                    initialize '() getter get-children   setter set-children)
   (property visible?          <void>                   getter get-visible?   setter set-visible?)
@@ -640,7 +638,9 @@
       ((:self) self)
       ((:parent) parent)
       ((:creator) creator)
-      (else (process-alias~ (get-process) name))))
+      (else (let ((process (find-process)))
+              (when process
+                (process-alias~ process name))))))
 
 
   (method public (find-child name <Object>)
@@ -1300,6 +1300,8 @@
   
   
   (method public (determine-paster (try-parent? #t))
+    self
+    @convert
     (when (and (can-paste-component?) (clipboard-format-available? 'jazz-parcels))
       (let* ((parcels (read-string-element (get-clipboard-text format: 'jazz-parcels)))
              (models (remove-duplicates (map (lambda (parcel) (get-master-model~ parcel)) parcels))))
@@ -1321,8 +1323,8 @@
     #f)
   
   
-  (method public virtual (sort-components components)
-    (sort (sort-predicate 'smaller) components key: (lambda (component) (get-presentation~ component))))
+  (method public virtual (sort-components predicate components)
+    (sort predicate components key: (lambda (component) (get-presentation~ component))))
   
   
   (method public virtual (indexable?)

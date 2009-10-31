@@ -1058,6 +1058,12 @@
         (%%cdr pair)
       #f)))
 
+(define (jazz.product-descriptor-test descriptor)
+  (let ((pair (%%assq 'test (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
 (define (jazz.product-descriptor-update descriptor)
   (let ((pair (%%assq 'update (%%cdr descriptor))))
     (if pair
@@ -1130,8 +1136,8 @@
           #f))))
 
 
-(define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
-  (%%table-set! jazz.Products-Table name (%%make-product name title icon run update build (jazz.find-product-descriptor name))))
+(define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f))
+  (%%table-set! jazz.Products-Table name (%%make-product name title icon run test update build (jazz.find-product-descriptor name))))
 
 
 (define (jazz.get-registered-product name)
@@ -1157,6 +1163,7 @@
         (let ((title (jazz.product-descriptor-title descriptor))
               (icon (jazz.product-descriptor-icon descriptor)))
           (%%make-product name title icon
+            #f
             #f
             jazz.update-product-descriptor
             jazz.build-product-descriptor
@@ -1196,6 +1203,15 @@
         (jazz.run-product-descriptor descriptor)))))
 
 
+(define (jazz.test-product name)
+  (let ((product (jazz.setup-product name)))
+    (let ((test (%%product-test product))
+          (descriptor (%%product-descriptor product)))
+      (if test
+          (test descriptor)
+        (jazz.test-product-descriptor descriptor)))))
+
+
 (define (jazz.run-product-descriptor descriptor)
   (let ((name (jazz.product-descriptor-name descriptor))
         (run (jazz.product-descriptor-run descriptor)))
@@ -1205,6 +1221,14 @@
           (let ((proc (jazz.get-registered-run name)))
             (proc descriptor)))
       (jazz.error "Product is not runnable: {s}" name))))
+
+
+(define (jazz.test-product-descriptor descriptor)
+  (let ((name (jazz.product-descriptor-name descriptor))
+        (test (jazz.product-descriptor-test descriptor)))
+    (if test
+        (for-each jazz.load-module test)
+      (jazz.error "Product is not testable: {s}" name))))
 
 
 (define (jazz.update-product name)

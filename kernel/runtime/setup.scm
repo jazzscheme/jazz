@@ -166,9 +166,10 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "test" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
+            (test (jazz.get-option "test" options))
             (update (jazz.get-option "update" options))
             (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
@@ -186,6 +187,8 @@
             (jazz.debug-build? #t))
         (cond (run
                (jazz.run-product (%%string->symbol run)))
+              (test
+               (jazz.test-product (%%string->symbol test)))
               (jazz.product
                (jazz.run-product jazz.product))
               (compile

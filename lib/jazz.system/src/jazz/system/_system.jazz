@@ -44,7 +44,9 @@
         (jazz.system.platform.x11     (cond x11)))
 
 (import (jazz.io)
-        (jazz.platform))
+        (jazz.locale)
+        (jazz.platform)
+        (jazz.system.access))
 
 
 ;;;
@@ -251,20 +253,168 @@
 
 
 ;;;
-;;;; Bindings
+;;;; Preferences
 ;;;
 
 
-(definition *bindings*
-  {})
+(definition public (get-preferences name (error?: error? #t))
+  (let ((root (get-preferences-root~ (get-process))))
+    (if (not root)
+        (when error?
+          (error "Could not find preferences"))
+      (get-preferences-child root name error?: error?))))
 
 
-(definition public (get-bindings)
-  *bindings*)
+(definition public (get-preferences-child preferences name (error?: error? #t))
+  (if (not name)
+      preferences
+    (either (find-component~ preferences name)
+            (when error?
+              (error "Could not find preferences: {t}" name)))))
 
 
-(definition public (set-bindings bindings)
-  (set! *bindings* bindings))
+(definition public (set-preference preferences property value)
+  (let ((designer (get-preferences-designer~ (get-process))))
+    (set-property~ designer preferences property value)))
+
+
+(definition public (sort-case-sensitive?)
+  (let ((pref (get-preferences '(interface tree) error?: #f)))
+    (and pref (get-sort-case-sensitive?~ pref))))
+
+
+(definition public (sort-predicates)
+  (if (sort-case-sensitive?)
+      (values nu=? nu<? nu>?)
+    (values ci=? ci<? ci>?)))
+
+
+(definition public (sort-predicate name)
+  (let ((case-sensitive? (sort-case-sensitive?)))
+    (case name
+      ((equal)         (if case-sensitive? nu=?  ci=?))
+      ((smaller)       (if case-sensitive? nu<?  ci<?))
+      ((smaller/equal) (if case-sensitive? nu<=? ci<=?))
+      ((greater)       (if case-sensitive? nu>?  ci>?))
+      ((greater/equal) (if case-sensitive? nu>=? ci>=?))
+      ((compare)       (if case-sensitive? compare ci-compare))
+      (else (error "Unknown sort predicate: {t}" name)))))
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(definition public undocumented (ensure-read/write moniker (cancel-action: cancel-action 'throw))
+  @convert
+  (let ((file (get-file~ moniker)))
+    (if (or (not (exists?~ file)) (read/write?~ file))
+        'no-action
+      (let ((code (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
+                                     title: "File Status"
+                                     type: 'question
+                                     process-keys?: #f)
+                    ((yes) 'set-read/write)
+                    ((no) 'cancel))))
+        (case code
+          ((set-read/write)
+           (set-read/write~ file)
+           'read/write)
+          ((cancel)
+           (throw-cancel)))))))
+
+
+(definition public undocumented (backup-file file)
+  (new-unique-file~ (get-parent~ file) (format "{a}.back.{a}" (get-base~ file) (get-extension~ file)) separator: {}))
+
+
+(definition public undocumented (fail-safe-save file proc)
+  (unimplemented 'fail-safe-save)
+  @unwind-protect
+  (let ((temp (clone-file~ file "tmp"))
+        (back (backup-file file))
+        (completed? #f))
+    (unwind-protect
+        (begin
+          (proc temp)
+          (set! completed? #t))
+      (cond ((not completed?)
+             (delete-file~ temp error?: #f))
+            ((exists?~ file)
+             (move-pathname~ file back)
+             (move-pathname~ temp file)
+             (delete-file~ back))
+            (else
+             (move-pathname~ temp file))))))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? #t))
+  (with-printer printer
+    (lambda (printer)
+      (let* ((system (either system (system-title~ (get-process))))
+             (system-padding (make-string (string-length system) #\=))
+             (comment (case language ((jazz) ";;;") ((c) "//")))
+             (toplevel-comment (case language ((jazz) ";;;;") ((c) "///"))))
+        (format printer #"{a}=={a}=={%}"# comment system-padding)
+        (format printer #"{a}  {a}{%}"# comment system)
+        (format printer #"{a}=={a}=={%}"# comment system-padding)
+        (format printer #"{a}{%}"# comment)
+        (format printer #"{a} {a}{%}"# toplevel-comment title)
+        (format printer #"{a}"# comment)
+        (case license
+          ((jazzscheme)
+           (format printer "{%}")
+           (format printer #"{a}  The contents of this file are subject to the Mozilla Public License Version{%}"# comment)
+           (format printer #"{a}  1.1 (the "License"); you may not use this file except in compliance with{%}"# comment)
+           (format printer #"{a}  the License. You may obtain a copy of the License at{%}"# comment)
+           (format printer #"{a}  http://www.mozilla.org/MPL/{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Software distributed under the License is distributed on an "AS IS" basis,{%}"# comment)
+           (format printer #"{a}  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License{%}"# comment)
+           (format printer #"{a}  for the specific language governing rights and limitations under the{%}"# comment)
+           (format printer #"{a}  License.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  The Original Code is JazzScheme.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  The Initial Developer of the Original Code is {a}.{%}"# comment author)
+           (format printer #"{a}  Portions created by the Initial Developer are Copyright (C) {a}{%}"# comment copyright)
+           (format printer #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Contributor(s):{%}"# comment)
+           (for-each (lambda (contributor)
+                       (format printer #"{a}    {a}{%}"# comment contributor))
+                     contributors)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Alternatively, the contents of this file may be used under the terms of{%}"# comment)
+           (format printer #"{a}  the GNU General Public License Version 2 or later (the "GPL"), in which{%}"# comment)
+           (format printer #"{a}  case the provisions of the GPL are applicable instead of those above. If{%}"# comment)
+           (format printer #"{a}  you wish to allow use of your version of this file only under the terms of{%}"# comment)
+           (format printer #"{a}  the GPL, and not to allow others to use your version of this file under the{%}"# comment)
+           (format printer #"{a}  terms of the MPL, indicate your decision by deleting the provisions above{%}"# comment)
+           (format printer #"{a}  and replace them with the notice and other provisions required by the GPL.{%}"# comment)
+           (format printer #"{a}  If you do not delete the provisions above, a recipient may use your version{%}"# comment)
+           (format printer #"{a}  of this file under the terms of any one of the MPL or the GPL.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  See www.jazzscheme.org for details."# comment)))
+        (when end-proper?
+          (format printer "{%}"))))))
+
+
+(definition public (output-section title printer (language: language 'jazz) (level: level 0))
+  (let ((comment (case language ((jazz) ";;;") ((c) "//")))
+        (toplevel (case language ((jazz) ";;;;") ((c) "///")))
+        (extra (case language ((jazz) "") ((c) (make-string (+ (string-length title) 4) #\-)))))
+    (format printer "{%}{%}")
+    (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format printer "{_ :v}{a} {a}{%}" (* level 2) toplevel title)
+    (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format printer "{%}{%}")))
 
 
 ;;;
@@ -311,6 +461,38 @@
    
    (definition package (toggle-terminal)
      )))
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition public (user-message obj . rest)
+  (let ((appl (get-application)))
+    (when appl
+      (set-status-message~ appl (if (is? obj Locales) obj (apply format obj rest)) {}))))
+
+
+(definition public (user-message/action-handler message action-handler)
+  (let ((appl (get-application)))
+    (when appl
+      (set-status-message~ appl message action-handler))))
+
+
+(definition public (clear-user-message)
+  (user-message ""))
+
+
+(definition public undocumented (make-directory-feedback)
+  (let ((directory {}))
+    (lambda (file)
+      (let ((dir (get-parent~ file)))
+        (when (or (not directory) (not (pathname=? dir directory)))
+          (let ((expanded (expand~ dir)))
+            (let ((len (length expanded)))
+            (user-message "Searching {l detail: :human}..." (subseq expanded (max 0 (- len 3)) len))
+            (set! directory dir))))))))
 
 
 ;;;

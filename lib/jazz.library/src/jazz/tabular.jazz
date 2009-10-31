@@ -1,0 +1,96 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tabular Data
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.tabular jazz
+
+
+(import (jazz.io))
+
+
+(definition public undocumented (read-tab-delimited file)
+  (define (patch-for-excel line)
+    (if (and (starts-with? line "\"")
+             (ends-with? line "\""))
+        (subseq line 1 (- (string-length line) 1))
+      line))
+  
+  (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+    (lambda (reader)
+      (let ((tab (string #\tab))
+            (fact (new List-Factory))
+            (done? #f))
+        (while (not done?)
+          (let ((line (read-line reader)))
+            (if (not line)
+                (set! done? #t)
+              (let ((values (split line tab)))
+                (put~ fact (map patch-for-excel values))))))
+        (get-output~ fact)))))
+
+
+(definition public undocumented (convert-tab-delimited->jml input parser)
+  (unimplemented 'convert-tab-delimited->jml)
+  @JML
+  (let* ((output (new-file~ (get-parent~ input) (format "{a}.jml" (get-base~ input))))
+         (content (read-tab-delimited input))
+         (jml (parser content))
+         (pref (new JML-Preferences))
+         (parser (new JML-Parser preferences: pref))
+         (jml (parse~ parser jml)))
+    (call-with-output-file (list path: (parse~ output) char-encoding: 'UTF-8)
+      (lambda (printer)
+        (pretty-print~ jml printer)))
+    (user-message "{a} converted to {a}" (get-name~ input) (get-name~ output))
+    (let ((appl (get-application)))
+      (verify-reload~ appl output))))
+
+
+(definition public undocumented (save-tab-delimited content file)
+  (unimplemented 'save-tab-delimited)
+  @File-Printer
+  (call-with-output-file (parse~ file)
+    (lambda (printer)
+      (for-each (lambda (line)
+                  (let ((first? #t))
+                    (for-each (lambda (text)
+                                (if first?
+                                    (set! first? #f)
+                                  (format printer "{&}"))
+                                (format printer "{a}" text))
+                              line))
+                  (format printer "{%}"))
+                content)))))

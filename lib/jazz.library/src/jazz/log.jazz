@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Logs
+;;;; Highlevel Logger
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.library.log.Log jazz
+(library jazz.log jazz
 
 
-(import (jazz.jml)
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
         (jazz.ui.view))
+
+
+;;;
+;;;; Log
+;;;
 
 
 (class undocumented Log extends Object
@@ -186,4 +193,179 @@
   
   (method public (clear)
     ;; clear memory and file content
-    (unimplemented 'clear))))
+    (unimplemented 'clear)))
+
+
+;;;
+;;;; Logging
+;;;
+
+
+(definition public undocumented Logs
+  (new List-Factory))
+
+
+(definition public undocumented (get-logs)
+  (get-list~ Logs))
+
+@unimplemented
+(definition public undocumented Add-Log-Lock
+  (new Lock))
+
+
+(definition public undocumented (add-log log)
+  (unimplemented 'add-log)
+  @Mutex?
+  (synchronize Add-Log-Lock
+    (unless (memq? log (get-logs))
+      (put~ Logs log))))
+
+
+(definition public undocumented (current-log)
+  (either (get-current-log)
+          (let ((log (default-log)))
+            (set-current-log log)
+            (add-log log)
+            log)))
+
+
+(definition (default-log)
+  (unimplemented 'default-log)
+  @Logs
+  (new Log name: "Default"))
+
+
+(definition public undocumented (get-current-log)
+  (unimplemented 'get-current-log)
+  @Parameters
+  (get-parameter 'current-log))
+
+
+(definition public undocumented (set-current-log log)
+  (unimplemented 'set-current-log)
+  @Parameters
+  (set-parameter 'current-log log))
+
+
+(definition public undocumented (with-log log proc (name: name {}) (file: file {}))
+  (unimplemented 'with-log)
+  @unwind-protect
+  (let ((preserved (get-current-log)))
+    (unwind-protect
+        (begin
+          (set-current-log log)
+          (proc))
+      (set-current-log preserved))
+    (let ((name (get-name~ log)))
+      (when (and name (not file))
+        (add-log log)))))
+
+
+(definition public undocumented (with-node proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (let ((node (either node (new-entry~ log tag name message data))))
+    (with-node~ log node proc)))
+
+
+(definition public undocumented (log-node node (log: log (current-log)))
+  (log-node~ log node))
+
+
+(definition public undocumented (log-entry (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (log-entry~ log tag name message data))
+
+
+(definition public undocumented (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (let ((printer (open-output-string))
+        (first? #t))
+    (for-each-property (lambda (property value)
+                         (if first?
+                             (set! first? #f)
+                           (format printer ", "))
+                         (format printer "{a}: {a}" (keyword->symbol property) value))
+      properties)
+    (let ((message (get-output-string printer)))
+      (log-entry tag: tag name: name message: message data: data log: log))))
+
+
+(definition public undocumented (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (new-entry~ log tag name message data))
+
+
+;;;
+;;;; Profiling
+;;;
+
+
+(definition public undocumented (with-profile proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (unimplemented 'with-profile)
+  @Profiling-later
+  (with-node
+    (lambda (node)
+      (let ((result))
+        (log-profile name: 'before log: log)
+        ;; this is ugly but necessary not to change stack depth
+        (set! result (proc node))
+        (log-profile name: 'after log: log)
+        result))
+    node: (either node (new-entry~ log tag name message data))))
+
+
+(definition public undocumented (log-profile (name: name {}) (log: log (current-log)))
+  (unimplemented 'log-profile)
+  @Profiling-later (
+  (gc)
+  (log-node (resources-snapshot~ Performance name: name) log: log)))
+
+
+(definition public undocumented (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (current-log)))
+  (unimplemented 'log-stack)
+  @later
+  (let ((data (new Stack-Snapshot)))
+    (log-entry tag: tag name: name message: message data: data log: log)))
+
+
+(definition public undocumented (profiles->jml profiles)
+  (unimplemented 'profiles->jml)
+  @later
+  (let ((nodes '()))
+    (iterate-table (get-profiles)
+      (lambda (name profile)
+        (when (not (profile-parent profile))
+          (set! nodes (cons (profile->jml {} profile) nodes)))))
+    (sort < nodes key: (lambda (node) (get-property~ node 'name)))))
+
+
+(definition (profile->jml parent profile)
+  (unimplemented 'profile->jml)
+  @later
+  (let ((node (profile-content parent profile)))
+    (insert-profile-children node profile)
+    node))
+
+
+(definition (profile-content parent profile)
+  (unimplemented 'profile-content)
+  @later
+  (let ((name (profile-name profile))
+        (count (profile-count profile 0))
+        (total (profile-total profile 0)))
+    (new JML-Element parent 'profile properties: (list 'name name 'count count 'total total))))
+
+
+(definition (insert-profile-children parent profile)
+  (unimplemented 'insert-profile-children)
+  @later
+  (map (lambda (child)
+         (profile->jml parent child))
+       (collect-profile-children profile)))
+
+
+(definition (collect-profile-children profile)
+  (unimplemented 'collect-profile-children)
+  @later
+  (let ((children '())
+        (child (profile-last-child profile)))
+    (while child
+      (set! children (cons child children))
+      (set! child (profile-previous-brother child)))
+    children)))

@@ -38,4 +38,318 @@
 (library jazz.library jazz
 
 
-(export (jazz.library.autoload)))
+(export (jazz.library.autoload))
+(import (jazz.library.autoload)
+        (jazz.io)
+        (time))
+
+
+;;;
+;;;; Resource
+;;;
+
+
+(definition public inline (resource? object)
+  (is? object Resource))
+
+
+;;;
+;;;; Execution
+;;;
+
+
+(definition public undocumented (with-execution-context proc (title: title {}) (details: details '()) (reporter: reporter {}))
+  (proc)
+  ;; to convert
+  @unimp
+  (with-closed ((context (new Execution-Context title: title details: details reporter: reporter)))
+    (proc)))
+
+
+(definition public undocumented (with-execution-node proc (title: title {}) (details: details '()) (reporter: reporter {}))
+  (proc)
+  ;; to convert
+  @unimp
+  (with-closed ((node (new Execution-Node title: title details: details reporter: reporter)))
+    (proc)))
+
+
+(definition public undocumented (get-execution-context)
+  (unimplemented 'get-execution-context)
+  @active-thread
+  (let ((thread (current-thread)))
+    (get-active-context~ thread)))
+
+
+(definition public undocumented (get-execution-stack)
+  (unimplemented 'get-execution-stack)
+  @active-thread
+  (let* ((thread (current-thread))
+         (node (get-active-node~ thread))
+         (lst '()))
+    (while node
+      (set! lst (cons node lst))
+      (set! node (essay (is-not? node Execution-Context) (get-previous-node~ node))))
+    lst))
+
+@unimplemented
+(class Execution-Node extends Object
+  
+  
+  (slot title)
+  (slot details)
+  (slot reporter)
+  (slot previous-node)
+  
+  
+  (definition (initialize (title: title {}) (details: details '()) (reporter: reporter {}))
+    (nextmethod)
+    (set! title~self title)
+    (set! details~self details)
+    (set! reporter~self reporter)
+    (let ((thread (current-thread)))
+      (set! previous-node~self (get-active-node~ thread))
+      (set-active-node~ thread self))
+    (destroy-mandatory))
+  
+  
+  (definition (destroy)
+    (let ((thread (current-thread)))
+      (set-active-node~ thread previous-node))
+    (nextmethod))
+  
+  
+  (definition public (get-title)
+    title)
+  
+  
+  (definition public (get-details)
+    details)
+  
+  
+  (definition public (get-reporter)
+    reporter))
+
+@unimplemented
+(class Execution-Context extends Execution-Node
+  
+  
+  (slot previous-context)
+  (slot continuable?     initialize #f)
+  (slot auto-continue?   initialize #f)
+  
+  
+  (definition (initialize . rest)
+    (apply nextmethod rest)
+    (let ((thread (current-thread)))
+      (set! previous-context~self (get-active-context~ thread))
+      (set-active-context~ thread self))
+    (destroy-mandatory))
+  
+  
+  (definition (destroy)
+    (let ((thread (current-thread)))
+      (set-active-context~ thread previous-context))
+    (nextmethod))
+  
+  
+  (definition public (get-continuable?)
+    continuable?)
+  
+  
+  (definition public (set-continuable? value)
+    (set! continuable? value))
+  
+  
+  (definition public (get-auto-continue?)
+    auto-continue?)
+  
+  
+  (definition public (set-auto-continue? value)
+    (set! auto-continue? value)))
+
+
+;;;
+;;;; Continue
+;;;
+
+
+@convert
+(definition public (with-continue proc)
+  (unimplemented 'with-continue)
+  @call-cc?
+  (let ((context (get-execution-context)))
+    (if (not context)
+        (error "Registering a continuable error outside an execution context is not allowed")
+      (let ((preserved (get-continuable?~ context)))
+        (unwind-protect
+            (begin
+              (set-continuable?~ context #t)
+              (catch Continue
+                (proc)))
+          (set-continuable?~ context preserved))))))
+
+
+@convert
+(definition public (continuable? exception)
+  (unimplemented 'continuable?)
+  @call-cc?
+  (let ((context (get-execution-context)))
+    (and context (get-continuable?~ context))))
+
+
+@convert
+(definition public (continue-exception exception)
+  (unimplemented 'continue)
+  @call-cc
+  (throw (new Continue)))
+
+
+;;;
+;;;; Restart
+;;;
+
+
+@convert
+(definition public Restartable?
+  #f)
+
+
+@convert
+(definition public (with-restart proc (cleanup {}))
+  (unimplemented 'with-restart)
+  @call-cc?
+  (let ((preserved Restartable?))
+    (unwind-protect
+        (begin
+          (set! Restartable? #t)
+          (while #t
+            (catch Restart
+              (proc)
+              (return))
+            (when cleanup
+              (cleanup))))
+      (set! Restartable? preserved))))
+
+
+@convert
+(definition public (restartable? exception)
+  Restartable?)
+
+
+@convert
+(definition public (restart (exception {}))
+  (unimplemented 'restart)
+  @call-cc?
+  (throw (new Restart)))
+
+
+;;;
+;;;; Time
+;;;
+
+
+(definition public (different-times? time1 time2 (tolerance: tolerance 2))
+  (> (abs (- (time->seconds time1) (time->seconds time2)))
+     tolerance))
+
+
+(definition public (different-file-content? file1 file2)
+  (define (different-text-file-content? file1 file2)
+    (not (equal? (load-lines~ file1 char-encoding-errors: #f)
+                 (load-lines~ file2 char-encoding-errors: #f))))
+  
+  (if (and (member? (get-extension~ file1) Text-Extensions test: ci=?)
+           (member? (get-extension~ file2) Text-Extensions test: ci=?))
+      (different-text-file-content? file1 file2)
+    (call-with-input-file (parse~ file1)
+      (lambda (input1)
+        (call-with-input-file (parse~ file2)
+          (lambda (input2)
+            (or @convert
+                (/= (get-size~ input1)
+                    (get-size~ input2))
+                (let (iterate)
+                  (let ((u1 (read-u8 input1))
+                        (u2 (read-u8 input2)))
+                    (cond ((and (eof-object? u1)
+                                (eof-object? u2))
+                           #f)
+                          ((eqv? u1 u2)
+                           (iterate))
+                          (else
+                           #t)))))))))))
+
+
+(definition public (different-file-content-no-whitespace? file1 file2)
+  (call-with-input-file (list path: (parse~ file1) char-encoding: 'UTF char-encoding-errors: #f)
+    (lambda (input1)
+      (call-with-input-file (list path: (parse~ file2) char-encoding: 'UTF char-encoding-errors: #f)
+        (lambda (input2)
+          (not (wi= (read-content-string input1)
+                    (read-content-string input2))))))))
+
+
+;;;
+;;;; Descriptors
+;;;
+
+
+;; I think that all this is a bit of a kludge... because there will always be only one
+;; instance of a class descriptor for any class, using forms and instantiating them seems
+;; a bit overkill. On the other hand it could enable a subclass to modify its inherited
+;; descriptor! Note that this paragraph also applies to class actions...
+
+
+(definition Class-Descriptors
+  (make-table test: eq?))
+
+
+(definition public undocumented (get-descriptor model)
+  (let ((name (type-name model)))
+    (either (table-ref Class-Descriptors name #f)
+            (let ((form (get-class-descriptor~ model)))
+              (when form
+                (let ((descriptor (instantiate~ form)))
+                  (set-name~ descriptor name)
+                  (table-set! Class-Descriptors name descriptor)
+                  descriptor))))))
+
+
+(definition public undocumented (get-properties-descriptor model)
+  (let ((class-descriptor (get-descriptor model)))
+    (when class-descriptor
+      (find-component~ class-descriptor 'properties))))
+
+
+(definition public undocumented (get-property-descriptor model name)
+  (let ((properties-descriptor (get-properties-descriptor model)))
+    (when properties-descriptor
+      (find-component~ properties-descriptor name))))
+
+
+;;;
+;;;; Tabulated
+;;;
+
+
+(definition public undocumented (display-tabulated data printer)
+  (unimplemented 'display-tabulated)
+  @Column-Display-Display-Column
+  (let* ((display (new Columns-Display))
+         (sample (car data))
+         (last (- (length sample) 1))
+         (columns (loop (for ignore in sample)
+                        (for n from 0)
+                        (collect (if (= n last)
+                                     (new Display-Column display)
+                                   (new Aligned-Column display border-after: 1 alignment: 'left))))))
+    (add-columns~ display columns)
+    (for-each (lambda (row)
+                (for-each (lambda (object column)
+                            (output~ column (->string object)))
+                          row
+                          columns)
+                (newline~ display))
+              data)
+    (print-to~ display printer))))

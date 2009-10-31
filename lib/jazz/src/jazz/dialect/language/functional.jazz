@@ -2063,6 +2063,13 @@
         (done?~ targ)))))
 
 
+(definition public (copy-into! seq1 seq2)
+  (for-each (lambda (element rank)
+              (set-element! seq2 rank element))
+            seq1
+            (naturals 0 (cardinality seq1))))
+
+
 (class package Search-Context extends Object
   
   
@@ -3490,6 +3497,15 @@
     sum))
 
 
+(definition public (split-lines string)
+  (call-with-input-string string
+    read-lines))
+
+
+(definition public (join-lines lines)
+  (join lines "\n"))
+
+
 ;;;
 ;;;; Thread
 ;;;
@@ -3676,6 +3692,10 @@
 
 (definition public (thread-exit)
   (continuation-return pristine-thread-continuation #f))
+
+
+(definition public (sleep delay)
+  (thread-sleep! delay))
 
 
 ;;;
@@ -3948,6 +3968,29 @@
 
 
 ;;;
+;;;; Dispatch
+;;;
+
+
+(definition public (dispatch? expr)
+  (and (symbol? expr)
+       (ends-with? (symbol->string expr) "~")))
+
+
+(definition public (dispatch-string? string)
+  (ends-with? string "~"))
+
+
+(definition public (dispatch->name dispatch)
+  (define (extract string)
+    (subseq string 0 (- (cardinality string) 1)))
+  
+  (if (string? dispatch)
+      (extract dispatch)
+    (string->symbol (extract (symbol->string dispatch)))))
+
+
+;;;
 ;;;; Enumeration
 ;;;
 
@@ -4034,6 +4077,17 @@
   (unimplemented 'set-enumeration!)
   @unimplemented
   (set-value~ enumeration name value))
+
+
+(definition public (bits->symbolic bits enumeration)
+  (let ((entries (get-entries~ enumeration)))
+    (let ((fact (new List-Factory)))
+      (for-each (lambda (entry)
+                  (bind (name value) entry
+                    (when (mask-bit-set? bits value)
+                      (put~ fact name))))
+                entries)
+      (get-output~ fact))))
 
 
 ;;;

@@ -56,7 +56,6 @@
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view)
-        (jazz.utilities)
         (jedi)
         (jedi.builder)
         (jedi.builder.workbench))
@@ -573,6 +572,53 @@
             (receive (package type name extends) info
               (when (in-manifest? extends)
                 (subtype? (autoload extends) Project))))))))
+  
+  
+  @convert-manifest
+  (definition (extract-jazz-file-category file)
+    (define (extract-jazz-file-toplevel file)
+      (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+        (lambda (reader)
+          (catch (Read-Error err {})
+            (let ((in/toplevel (read reader)))
+              (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
+                  (values in/toplevel (read reader))
+                (values {} in/toplevel)))))))
+    
+    (define (extract-package in)
+      (when (pair? (cdr in))
+        (let ((package (cadr in)))
+          (when (symbol? package)
+            package))))
+    
+    (define (extract-category toplevel)
+      (when (pair? toplevel)
+        (let ((type (car toplevel)))
+          (when (memq? type '(class interface package))
+            (let ((scan (cdr toplevel)))
+              (when (pair? scan)
+                (let ((name (car scan)))
+                  (when (symbol? name)
+                    (if (or (and (eq? type 'class) (eq? name 'Object))
+                            (and (eq? type 'interface) (eq? name 'Unknown))
+                            (and (eq? type 'package) (eq? name 'Common)))
+                        (values type name {})
+                      (let ((scan (cdr scan)))
+                        (when (and (pair? scan) (eq? (car scan) 'extends))
+                          (let ((scan (cdr scan)))
+                            (when (pair? scan)
+                              (let ((extends (car scan)))
+                                (when (symbol? extends)
+                                  (values type name extends))))))))))))))))
+    
+    (let ((in/toplevel (extract-jazz-file-toplevel file)))
+      (when in/toplevel
+        (receive (in toplevel) in/toplevel
+          (let ((package (extract-package in))
+                (type/name/extends (extract-category toplevel)))
+            (when type/name/extends
+              (receive (type name extends) type/name/extends
+                (values package type name extends))))))))
   
   
   (method (default-import-directory object (must-exist?: must-exist? #t))

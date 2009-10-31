@@ -1,0 +1,362 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Geometry
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.geometry jazz
+
+
+;; Best way to think of rectangle and intervals is that they are between the pixels.
+;; This is consistant with the mathematical definition of an interval [start end) as
+;; to enclose the pixels no 0 1 2 3, the lines in between have to go from 0 to 4.
+
+
+(definition public (size-rect size <Dimension>) <Rect>
+  (new Rect 0 0 (get-width~ size) (get-height~ size)))
+
+
+(definition public (position/size->rect position <Point> size <Dimension>) <Rect>
+  (h/v/size->rect (get-h~ position) (get-v~ position) size))
+
+
+(definition public (h/v/size->rect h <fx> v <fx> size <Dimension>) <Rect>
+  (new Rect h v (+ h (get-width~ size)) (+ v (get-height~ size))))
+
+
+(definition public (h/v/width/height h <fx> v <fx> width <fx> height <fx>) <Rect>
+  (new Rect h v (+ h width) (+ v height)))
+
+
+(definition public (corners->rect top-left <Point> bottom-right <Point>) <Rect>
+  (new Rect (get-h~ top-left) (get-v~ top-left) (get-h~ bottom-right) (get-v~ bottom-right)))
+
+
+(definition public (normalize-rect rect <Rect>) <Rect>
+  (let ((l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
+    (new Rect
+      (if (<= l r) l r)
+      (if (<= t b) t b)
+      (if (<= l r) r l)
+      (if (<= t b) b t))))
+
+
+(definition public (rect-position rect <Rect>) <Point>
+  (new Point (get-left~ rect) (get-top~ rect)))
+
+
+(definition public (rect-size rect <Rect>) <Dimension>
+  (new Dimension
+    (rect-width rect)
+    (rect-height rect)))
+
+
+(definition public (rect-width rect <Rect>) <fx>
+  (- (get-right~ rect) (get-left~ rect)))
+
+
+(definition public (rect-height rect <Rect>) <fx>
+  (- (get-bottom~ rect) (get-top~ rect)))
+
+
+(definition public (offset-rect rect <Rect> h <fx> v <fx>) <Rect>
+  (new Rect
+    (+ (get-left~ rect)   h)
+    (+ (get-top~ rect)    v)
+    (+ (get-right~ rect)  h)
+    (+ (get-bottom~ rect) v)))
+
+
+(definition public (inflate-rect rect <Rect> w <number> h <number>) <Rect>
+  (new Rect
+    (- (get-left~ rect)   w)
+    (- (get-top~ rect)    h)
+    (+ (get-right~ rect)  w)
+    (+ (get-bottom~ rect) h)))
+
+
+(specialize (inflate-rect rect <Rect> w <fx> h <fx>) <Rect>
+  (new Rect
+    (- (get-left~ rect)   w)
+    (- (get-top~ rect)    h)
+    (+ (get-right~ rect)  w)
+    (+ (get-bottom~ rect) h)))
+
+
+(definition public (expand-rect rect <Rect> l <fx> t <fx> r <fx> b <fx>) <Rect>
+  (new Rect
+    (+ (get-left~ rect)   l)
+    (+ (get-top~ rect)    t)
+    (+ (get-right~ rect)  r)
+    (+ (get-bottom~ rect) b)))
+
+
+(definition public (base-rect rect <Rect>) <Rect>
+  (offset-rect rect (- (get-left~ rect)) (- (get-top~ rect))))
+
+
+(definition public (fit-rects src dst mode)
+  (let* ((dw (rect-width dst))
+         (dh (rect-height dst))
+         (sw (rect-width src))
+         (sh (rect-height src))
+         (rw (/ dw sw))
+         (rh (/ dh sh)))
+    (case mode
+      ((width) rw)
+      ((height) rh)
+      ((both) (if (> rw rh) rh rw)))))
+
+
+(definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))
+  (let* ((size (rect-size rect))
+         (position (rect-position rect))
+         (width  (max (get-width~ minimum-size)  (min (get-width~ size) (- (get-width~ outer) padding padding))))
+         (height (max (get-height~ minimum-size) (min (get-height~ size)(- (get-height~ outer) padding padding))))
+         (new-size (new Dimension width height))
+         (min-position (new Point padding padding))
+         (max-position (new Point (- (get-width~ outer) (get-width~ new-size) padding) (- (get-height~ outer) (get-height~ new-size) padding)))
+         (new-position (new Point (between (get-h~ min-position) (get-h~ position) (get-h~ max-position)) (between (get-v~ min-position) (get-v~ position) (get-v~ max-position)))))
+    (values new-position new-size)))
+
+
+(definition public (rect-union x <Rect> y <Rect>) <Rect>
+  (new Rect
+    (if (< (get-left~ x) (get-left~ y)) (get-left~ x) (get-left~ y))
+    (if (< (get-top~ x) (get-top~ y)) (get-top~ x) (get-top~ y))
+    (if (> (get-right~ x) (get-right~ y)) (get-right~ x) (get-right~ y))
+    (if (> (get-bottom~ x) (get-bottom~ y)) (get-bottom~ x) (get-bottom~ y))))
+
+
+(definition public (rect-intersection x <Rect> y <Rect>) <Rect>
+  (if (rect-intersect? x y)
+      (new Rect
+        (if (> (get-left~ x) (get-left~ y)) (get-left~ x) (get-left~ y))
+        (if (> (get-top~ x) (get-top~ y)) (get-top~ x) (get-top~ y))
+        (if (< (get-right~ x) (get-right~ y)) (get-right~ x) (get-right~ y))
+        (if (< (get-bottom~ x) (get-bottom~ y)) (get-bottom~ x) (get-bottom~ y)))
+    (new Rect 0 0 0 0)))
+
+
+(definition public (rect-intersect? x <Rect> y <Rect>) <bool>
+  (and (< (get-left~ x) (get-right~ y))
+       (< (get-top~ x) (get-bottom~ y))
+       (> (get-right~ x) (get-left~ y))
+       (> (get-bottom~ x) (get-top~ y))))
+
+
+(definition public (rects-intersect? rect <Rect> position <Point> size <Dimension>) <bool>
+  (and (< (get-left~ rect) (+ (get-h~ position) (get-width~ size)))
+       (< (get-top~ rect) (+ (get-v~ position) (get-height~ size)))
+       (> (get-right~ rect) (get-h~ position))
+       (> (get-bottom~ rect) (get-v~ position))))
+
+
+(definition public (in-rect? pt <Point> rect <Rect>) <bool>
+  (and (>= (get-h~ pt) (get-left~ rect))
+       (>= (get-v~ pt) (get-top~ rect))
+       (<  (get-h~ pt) (get-right~ rect))
+       (<  (get-v~ pt) (get-bottom~ rect))))
+
+
+(definition public (rect-in-rect? r <Rect> rect <Rect>) <bool>
+  (and (>= (get-left~ r) (get-left~ rect))
+       (>= (get-top~ r) (get-top~ rect))
+       (<= (get-right~ r) (get-right~ rect))
+       (<= (get-bottom~ r) (get-bottom~ rect))))
+
+
+(definition public (in-size? pt <Point> size <Dimension>) <bool>
+  (and (>= (get-h~ pt) 0)
+       (>= (get-v~ pt) 0)
+       (<  (get-h~ pt) (get-width~ size))
+       (<  (get-v~ pt) (get-height~ size))))
+
+
+(definition public (add-rects r1 <Rect> r2 <Rect>) <Rect>
+  (new Rect
+    (+ (get-left~ r1) (get-left~ r2))
+    (+ (get-top~ r1) (get-top~ r2))
+    (+ (get-right~ r1) (get-right~ r2))
+    (+ (get-bottom~ r1) (get-bottom~ r2))))
+
+
+(definition public (subtract-rects r1 <Rect> r2 <Rect>) <Rect>
+  (new Rect
+    (- (get-left~ r1) (get-left~ r2))
+    (- (get-top~ r1) (get-top~ r2))
+    (- (get-right~ r1) (get-right~ r2))
+    (- (get-bottom~ r1) (get-bottom~ r2))))
+
+
+(definition public (inverse-rect rect <Rect>) <Rect>
+  (new Rect
+    (get-top~ rect)
+    (get-left~ rect)
+    (get-bottom~ rect)
+    (get-right~ rect)))
+
+
+(definition public (positive-rect? rect <Rect>) <bool>
+  (and (>= (get-top~ rect) 0)
+       (>= (get-left~ rect) 0)
+       (>= (get-bottom~ rect) 0)
+       (>= (get-right~ rect) 0)))
+
+
+(definition public (center inner outer)
+  (justify inner outer 'center))
+
+
+(definition public (justify inner outer justification)
+  (let ((proc
+          (lambda (i o j)
+            (if (integer? j)
+                (if (>= j 0)
+                    j
+                  (+ o j))
+              (case j
+                ((head) 0)
+                ((center) (quotient (- o i) 2))
+                ((tail) (- o i))
+                (else (error "Unknown justification: {t}" j)))))))
+    (cond ((and (is? inner Dimension) (is? outer Dimension))
+           (new Point
+             (proc (get-width~ inner) (get-width~ outer) (if (pair? justification) (first justification) justification))
+             (proc (get-height~ inner) (get-height~ outer) (if (pair? justification) (second justification) justification))))
+          ((and (number? inner) (number? outer))
+           (proc inner outer justification))
+          (else
+           (error "Unable to justify a {t} into a {t}"
+                  (type-name (class-of inner))
+                  (type-name (class-of outer)))))))
+
+
+(definition public (cycle-naturals cycle subcycle)
+  (let* ((fact (new List-Factory))
+         (cardinality (* cycle subcycle))
+         (inc (quotient cardinality cycle)))
+    (loop (for n from 0 below subcycle)
+          (do (loop (for m from 0 below cardinality by inc)
+                    (do (put~ fact (+ n m))))))
+    (get-output~ fact)))
+
+
+(definition public (fit pos <fx> alternate <fx+> size <fx> max <fx> padding <fx>)
+  (cond ((> size max) 0)
+        ((<= (+ pos size padding) max) (+ pos padding))
+        ((and alternate (<= (+ alternate size padding) max)) (+ alternate padding))
+        ((>= (- pos size) 0) (- pos size))
+        ((and alternate (>= (- alternate size) 0)) (- alternate size))
+        (else (- max size))))
+
+
+(definition public (fit-point pos <Point> alternate <Point+> size <Dimension> max <Dimension> padding <Dimension>)
+  (new Point
+    (fit (get-h~ pos) (essay alternate (get-h~ alternate)) (get-width~ size) (get-width~ max) (get-width~ padding))
+    (fit (get-v~ pos) (essay alternate (get-v~ alternate)) (get-height~ size) (get-height~ max) (get-height~ padding))))
+
+
+(definition public (scalar-product a <Point> b <Point>)
+  (+ (* (get-h~ a) (get-h~ b)) (* (get-v~ a) (get-v~ b))))
+
+
+(definition public (line-distance point <Point> start <Point> end <Point>)
+  (let ((divider (sqrt (+ (sqr (- (get-h~ start) (get-h~ end)))
+                          (sqr (- (get-v~ start) (get-v~ end)))))))
+    (if (= divider 0)
+        {}
+      (abs
+        (/ (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
+                           (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end))))
+           divider)))))
+
+
+;; For any questions, call Stephane!
+;; divide delta into count parts, but since we're doing integer maths...
+;; constraints: must be reversible, transitive and commutative
+;; reversible: (f w d N) + (f w+d -d N) == no change == all zeroes
+;; transitive: (f w a N) + (f w+a b N) == (f w a+b N)
+;;
+;; forex: (resize-parts 7 1 3) returns (0 1 0)
+;; because 7 is split (3 2 2) while 8 is split (3 3 2)
+;;
+;; the original definition didn't make this clear, nor does this one
+(definition package (resize-parts size delta count)
+  (let* ((offset (if (< delta 0) count 0))
+         (base (quotient (- delta offset) count))
+         (extra (+ (modulo delta count) offset))
+         (parity (modulo size count))
+         (start (modulo (+ parity count) count))
+         (end (+ start extra -1))
+         (end2 (- end count)))
+    (map (lambda (n)
+           (+ base (if (or (between? n start end) (<= n end2)) 1 0)))
+         (naturals 0 count))))
+
+
+(definition public (scale shape sc)
+  (let ((sc (exact->inexact sc)))
+    (typecase shape
+      ((Point)
+       (let ((h <fx> (get-h~ shape))
+             (v <fx> (get-v~ shape)))
+         (new Point
+           (fxround (* h sc))
+           (fxround (* v sc)))))
+      ((Dimension)
+       (let ((width <fx> (get-width~ shape))
+             (height <fx> (get-height~ shape)))
+         (new Dimension
+           (fxround (* width sc))
+           (fxround (* height sc)))))
+      ((Rect)
+       (let ((left <fx> (get-left~ shape))
+             (top <fx> (get-top~ shape))
+             (right <fx> (get-right~ shape))
+             (bottom <fx> (get-bottom~ shape)))
+         (new Rect
+           (fxround (* left sc))
+           (fxround (* top sc))
+           (fxround (* right sc))
+           (fxround (* bottom sc)))))
+      ((Number)
+       (fxround (* shape sc))))))
+
+
+(definition public (get-area size)
+  (* (get-width~ size) (get-height~ size))))

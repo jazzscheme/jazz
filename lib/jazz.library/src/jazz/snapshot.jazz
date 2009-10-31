@@ -1,0 +1,169 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Process Snapshots
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.snapshot jazz
+
+
+(import (jazz.io)
+        (jazz.locale)
+        (jazz.platform)
+        (jazz.system)
+        (time))
+
+
+(definition *snapshots-directory*
+  {Directory Home ".jazz"})
+
+
+(definition public (snapshot-process . rest)
+  (let ((file (timestamped-file *snapshots-directory* {} "snapshot")))
+    (create-directories~ file)
+    (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
+      (lambda (printer)
+        (apply print-process-snapshot printer rest)))
+    file))
+
+
+(definition (print-process-snapshot printer (continuation: continuation {}) (reason: reason {}) (exception: exception {}))
+  (define (print-process)
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; PROCESS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  process: {s}{%}" (either (current-process-present) "{}"))
+    (format printer "  date: {s}{%}" (present-date (current-date)))
+    (when reason
+      (format printer "  reason: {s}{%}" reason)))
+  
+  (define (print-exception)
+    (when exception
+      (format printer "{%}")
+      (format printer "  ;;;{%}")
+      (format printer "  ;;;; EXCEPTION{%}")
+      (format printer "  ;;;{%}{%}")
+      (format printer "  exception:{%}")
+      (format printer "  ~{Exception-Snapshot{%}")
+      (format printer "   reason: {s}}{%}" (exception-reason exception))))
+  
+  (define (print-threads)
+    (format printer "{%}")
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; THREADS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  threads:{%}")
+    (format printer "  (")
+    (if continuation
+        (print-thread (current-thread) continuation)
+      (continuation-capture
+        (lambda (continuation)
+          (print-thread (current-thread) continuation))))
+    (loop (for thread in (top-threads))
+          (do (when (neq? thread (current-thread))
+                (format printer "{%}{%}   ")
+                (print-thread thread {}))))
+    (format printer ")"))
+  
+  (define (print-thread thread continuation)
+    (format printer "~{Thread-Snapshot{%}")
+    (format printer "    name: {s}{%}" (present-thread-name (thread-name thread)))
+    (format printer "    state: {s}" (present-thread-state (thread-state thread)))
+    (when continuation
+      (format printer "{%}")
+      (format printer "    stack:{%}")
+      (format printer "    (")
+      (print-stack continuation)
+      (format printer ")"))
+    (format printer "}"))
+  
+  (define (print-stack continuation)
+    (let ((stack (get-continuation-stack continuation #f)))
+      (loop (for first? first #t then #f)
+            (for cont in stack)
+            (do (when (not first?)
+                  (format printer "{%}     "))
+                (let ((name (get-continuation-name cont))
+                      (variables (get-continuation-lexical-environment cont)))
+                  (format printer "({a}" name)
+                  (loop (for variable in variables)
+                        (do (format printer "{%}       ")
+                            (bind (name value mutable?) variable
+                              (format printer "({s} {s})" name (present-object value)))))
+                  (format printer ")"))))))
+  
+  (format printer "~{Process-Snapshot{%}{%}")
+  (print-process)
+  (print-exception)
+  (print-threads)
+  (format printer "}{%}"))
+
+
+(definition public (snapshot-exception-debugger (feedback: feedback {}))
+  (lambda (exception)
+    (with-system-exception-debugger
+      (lambda ()
+        (continuation-capture
+          (lambda (continuation)
+            (let ((snapshot (snapshot-process continuation: continuation exception: exception)))
+              (when feedback
+                (feedback exception snapshot)))))
+        (exit 1)))))
+
+
+(definition public (application-exception-debugger)
+  (snapshot-exception-debugger
+    feedback: application-exception-feedback))
+
+
+(definition public (application-exception-feedback exception snapshot)
+  (let ((process (get-process)))
+    (system-message (format "{a} {a}:{%}{%}{a}.{%}{a}.{%}{%}{a}{%}    {a}{a}"
+                            (localize {Locales english: "An unexpected problem occured while executing" french: "Une erreur imprévue s'est produite lors de l'exécution de"})
+                            (current-process-present)
+                            (localize {Locales english: "This will terminate the application immediately" french: "Ceci entraine la terminaision immédiate de l'application"})
+                            (localize {Locales english: "Unsaved work currently in progress will be lost" french: "Tout travaux en cours non sauvegardés seront perdus"})
+                            (localize {Locales english: "A log file has been generated at" french: "Un fichier de log a été généré à"})
+                            (parse~ snapshot)
+                            (if process
+                                (let ((email (process-email~ process)))
+                                  (if email
+                                      (format "{%}{%}{a}{%}{a}: {a}."
+                                              (localize {Locales english: "Help us fix this problem by sending the log file and any comments" french: "Aidez nous à corriger ce problème en fesant parvenir le fichier de log"})
+                                              (localize {Locales english: "about how the problem occured to" french: "ainsi que tout commentaires explicatifs à"})
+                                              email)
+                                    ""))
+                              ""))
+                    title: (localize {Locales english: "Application Error" french: "Erreur d'application"})
+                    type: 'problem))))

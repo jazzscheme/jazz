@@ -94,6 +94,88 @@
 
 
 ;;;
+;;;; Bindings
+;;;
+
+
+(definition *bindings*
+  {})
+
+
+(definition public (get-bindings)
+  *bindings*)
+
+
+(definition public (set-bindings bindings)
+  (set! *bindings* bindings))
+
+
+;;;
+;;;; Actions
+;;;
+
+
+(definition package (find-actions context)
+  (let ((bindings (get-bindings)))
+    (if (not bindings)
+        (error "No bindings registered")
+      (either (find-component~ bindings context)
+              (error "Unable to find bindings for: {s}" context)))))
+
+
+(definition package (find-action-item context name)
+  (find-component~ (find-actions context) name))
+
+
+(definition package (require-action-item action)
+  (either (find-action-item (get-action-context~ action) (get-action-name~ action))
+          (error "Unable to find action: {t}" action)))
+
+
+(definition package (call-action action sender properties (event: event {}))
+  (let ((action-item (require-action-item action)))
+    (invoke~ action-item sender properties action: action event: event)))
+
+
+(definition package (get-action-enabled? action)
+  (let ((action-item (require-action-item action)))
+    (get-enabled?~ action-item)))
+
+
+(definition package (set-action-enabled? action enabled?)
+  (let ((action-item (require-action-item action)))
+    (set-enabled?~ action-item enabled?)))
+
+
+(definition package (set-actions-enabled? actions enabled?)
+  (for-each (lambda (action)
+              (set-action-enabled? action enabled?))
+            actions))
+
+
+(definition package (get-class-actions object)
+  (class-actions~ object))
+
+
+(definition package (get-guest-actions view)
+  (guest-actions~ view))
+
+
+(definition package (extract-actions actions-list)
+  (let ((fact (new List-Factory)))
+    (for-each (lambda (action-list)
+                (let ((context-name (get-name~ action-list)))
+                  (for-each (lambda (action-item)
+                              (let* ((action-name (get-name~ action-item))
+                                     (shortcut (get-shortcut~ action-item)))
+                                (when shortcut
+                                  (put~ fact action-item))))
+                            (get-children~ action-list))))
+              actions-list)
+    (get-output~ fact)))
+
+
+;;;
 ;;;; Completions
 ;;;
 
@@ -114,4 +196,56 @@
 
 
 (definition public (get-user-completion prefix)
-  (table-ref user-completions prefix {})))
+  (table-ref user-completions prefix {}))
+
+
+;;;
+;;;; Cell
+;;;
+
+
+(definition (iterate-cells top-left bottom-right start direction proc)
+  (let* ((next (case direction
+                 ((forward) next-cell)
+                 ((backward) previous-cell)))
+         (advance (lambda (cell) (next cell top-left bottom-right 'horizontal)))
+         (cell (advance (either start (case direction
+                                        ((forward) top-left)
+                                        ((backward) bottom-right))))))
+    (while cell
+      (proc cell)
+      (set! cell (advance cell)))))
+
+
+(definition (previous-cell cell min-cell max-cell direction)
+  (case direction
+    ((vertical) (let ((info (loop-cell (get-col~ cell) (get-row~ cell) (get-col~ max-cell) (get-row~ max-cell) (get-col~ min-cell) (get-row~ min-cell) -1 >)))
+                  (when info
+                    (receive (major minor) info
+                      (new Cell minor major)))))
+    ((horizontal) (let ((info (loop-cell (get-row~ cell) (get-col~ cell) (get-row~ max-cell) (get-col~ max-cell) (get-row~ min-cell) (get-col~ min-cell) -1 >)))
+                    (when info
+                      (receive (major minor) info
+                        (new Cell major minor)))))))
+
+
+(definition (next-cell cell min-cell max-cell direction)
+  (case direction
+    ((vertical) (let ((info (loop-cell (get-col~ cell) (get-row~ cell) (get-col~ min-cell) (get-row~ min-cell) (get-col~ max-cell) (get-row~ max-cell) 1 <)))
+                  (when info
+                    (receive (major minor) info
+                      (new Cell minor major)))))
+    ((horizontal) (let ((info (loop-cell (get-row~ cell) (get-col~ cell) (get-row~ min-cell) (get-col~ min-cell) (get-row~ max-cell) (get-col~ max-cell) 1 <)))
+                    (when info
+                      (receive (major minor) info
+                        (new Cell major minor)))))))
+
+
+;; caveat: step must be +1 or -1
+(definition (loop-cell major minor start-major start-minor end-major end-minor step test)
+  (cond ((test major start-major) (values start-major start-minor))
+        ((test end-major major) {})
+        ((test minor start-minor) (values major start-minor))
+        ((test minor end-minor) (values major (+ minor step)))
+        ((test major end-major) (values (+ major step) start-minor))
+        (else {}))))

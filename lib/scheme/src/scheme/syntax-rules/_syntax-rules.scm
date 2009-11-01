@@ -1,6 +1,10 @@
 
 (library scheme.syntax-rules scheme
 
+(native private jazz.generate-symbol)
+(native private jazz.source?)
+(native private jazz.error)
+
 (define-syntax public syntax-rules
   (rsc-macro-transformer
    (lambda (expr mac-env)
@@ -27,12 +31,12 @@
            (_reverse (rename 'reverse))
            (_vector->list (rename 'vector->list))
            (_list->vector (rename 'list->vector))
-           (_expr (jazz.generate-symbol "expr"))
-           (_rename (jazz.generate-symbol "rename"))
-           (_compare (jazz.generate-symbol "compare")))
+           (_expr (generate-symbol "expr"))
+           (_rename (generate-symbol "rename"))
+           (_compare (generate-symbol "compare")))
        (define (next-v)
          (set! count (+ count 1))
-         (jazz.generate-symbol
+         (generate-symbol
           (string-append "v_" (number->string count))))
        (define (any pred ls)
          (and (pair? ls) (or (pred (car ls)) (any pred (cdr ls)))))
@@ -55,7 +59,7 @@
                       ((ellipse? p)
                        (cond
                         ((not (null? (cddr p)))
-                         (jazz.error "syntax-rules: non-trailing ellipse: {s}" pat))
+                         (error "syntax-rules: non-trailing ellipse: {s}" pat))
                         ((identifier? (car p))
                          `(,_and (,_list? (,_unwrap-syntactic-closure ,v))
                                  (,_let ((,(car p) ,v))
@@ -64,7 +68,7 @@
                          (let* ((w (next-v))
                                 (new-vars (all-vars (car p) (+ dim 1)))
                                 (ls-vars (map (lambda (x)
-                                                (jazz.generate-symbol
+                                                (generate-symbol
                                                  (string-append
                                                   (symbol->string
                                                    (unwrap-syntactic-closure (car x)))
@@ -132,7 +136,7 @@
                   (if (any (lambda (l) (compare x l)) lits)
                       vars
                       (cons (cons x dim) vars)))
-                 ((or (syntactic-closure? x) (jazz.source? x))
+                 ((or (syntactic-closure? x) (source? x))
                   (lp (unwrap-syntactic-closure x) dim vars))
                  ((ellipse? x) (lp (car x) (+ dim 1) vars))
                  ((pair? x) (lp (car x) dim (lp (cdr x) dim vars)))
@@ -147,7 +151,7 @@
                         (and cell (>= (cdr cell) dim))))
                  (cons x free)
                  free))
-            ((or (syntactic-closure? x) (jazz.source? x))
+            ((or (syntactic-closure? x) (source? x))
              (lp (unwrap-syntactic-closure x) free))
             ((pair? x) (lp (car x) (lp (cdr x) free)))
             ((vector? x) (lp (vector->list x) free))
@@ -162,9 +166,9 @@
                    (if cell
                        (if (<= (cdr cell) dim)
                            t
-                           (jazz.error "syntax-rules: too few ...'s: {s}" tmpl))
+                           (error "syntax-rules: too few ...'s: {s}" tmpl))
                        `(,_rename (,_quote ,t))))))
-            ((or (syntactic-closure? t) (jazz.source? t))
+            ((or (syntactic-closure? t) (source? t))
              (lp (unwrap-syntactic-closure t) dim))
             ((pair? t)
              (if (ellipse? t)
@@ -172,7 +176,7 @@
                         (ell-dim (+ dim depth))
                         (ell-vars (free-vars (car t) vars ell-dim)))
                    (if (null? ell-vars)
-                       (jazz.error "syntax-rules: too many ...'s: {s} in {s}" t tmpl)
+                       (error "syntax-rules: too many ...'s: {s} in {s}" t tmpl)
                        (let* ((once (lp (car t) ell-dim))
                               (nest (if (and (null? (cdr ell-vars))
                                              (identifier? once)
@@ -199,11 +203,10 @@
                           (lambda (clause)
                             (let ((clause (unwrap-syntactic-closure clause)))
                               (if (not (and (pair? clause) (pair? (cdr clause))))
-                                  (jazz.error "syntax-rules: bad clause: {s}" clause)
+                                  (error "syntax-rules: bad clause: {s}" clause)
                                   (expand-pattern (car clause) (cadr clause)))))
                           forms)
-                       (jazz.error "syntax-rules: no expansion: {s}" ,_expr))
+                       (error "syntax-rules: no expansion: {s}" ,_expr))
                       ))))
          ;;(display "expansion: ") (write (strip-syntactic-closures res)) (newline)
          res))))))
-

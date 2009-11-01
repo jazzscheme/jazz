@@ -166,7 +166,7 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "test" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "test" "update" "build" "make" "compile" "load" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((run (jazz.get-option "run" options))
             (test (jazz.get-option "test" options))
@@ -174,6 +174,7 @@
             (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
+            (load (jazz.get-option "load" options))
             (debugger (jazz.get-option "debugger" options))
             (jobs (number-argument (jazz.get-option "jobs" options))))
         ;; until the library syntax doesn't generate global defines
@@ -194,6 +195,8 @@
               (compile
                (process-buildini-file)
                (jazz.compile-module (%%string->symbol compile)))
+              (load
+               (jazz.load-module (%%string->symbol load)))
               (update
                (process-buildini-file)
                (jazz.update-product (%%string->symbol update)))

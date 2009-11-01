@@ -38,7 +38,8 @@
 (library protected jazz.dialect.syntax.macros scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel)
+        #; (scheme.syntax-rules (phase syntax)))
 
 
 (native private jazz.->string)
@@ -75,6 +76,24 @@
       form-src)))
 
 
+#;
+(define-syntax package expand-body
+  (syntax-rules ()
+    ((_)
+     (unspecified))
+    ((_ expr ...)
+     (begin expr ...))))
+
+
+#;
+(define-syntax public when
+  (syntax-rules ()
+    ((when test expr ...)
+     (if test
+         (begin expr ...)
+       #f))))
+
+
 (syntax public (unless form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
@@ -83,6 +102,13 @@
            (begin ,@body)
          #f)
       form-src)))
+
+
+#;
+(define-syntax public unless
+  (syntax-rules ()
+    ((unless test expr ...)
+     (when (not test) expr ...))))
 
 
 (syntax public (prog1 form-src)
@@ -94,6 +120,15 @@
          (begin ,@body)
          ,value)
       form-src)))
+
+
+#;
+(define-syntax public prog1
+  (syntax-rules ()
+    ((prog1 returned expr ...)
+     (let ((value returned))
+       (begin expr ...)
+       value))))
 
 
 (syntax public (while form-src)
@@ -109,6 +144,17 @@
       form-src)))
 
 
+#;
+(define-syntax public while
+  (syntax-rules ()
+    ((while test expr ...)
+     (let (iterate)
+       (if test
+           (begin
+             expr ...
+             (iterate)))))))
+
+
 (syntax public (unwind-protect form-src)
   (let ((body (cadr (source-code form-src)))
         (protection (cddr (source-code form-src))))
@@ -117,6 +163,15 @@
                      (lambda () ,body)
                      (lambda () ,@protection))
       form-src)))
+
+
+#;
+(define-syntax public unwind-protect
+  (syntax-rules ()
+    ((unwind-protect body protection ...)
+     (dynamic-wind (lambda () #f)
+                   (lambda () body)
+                   (lambda () protection ...)))))
 
 
 ;; @syntax (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))

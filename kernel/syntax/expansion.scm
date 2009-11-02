@@ -46,7 +46,7 @@
     (lambda rest
       (let ((prefix (if (##null? rest) "sym" (##car rest))))
         (let lp ()
-          (let ((name (##string-append "__" prefix (##number->string unique))))
+          (let ((name (##string-append "__" prefix "." (##number->string unique))))
             (set! unique (##fixnum.+ unique 1))
             (if (##find-interned-symbol name)
                 (lp)

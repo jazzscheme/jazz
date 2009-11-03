@@ -195,7 +195,7 @@
     (define (insert-jml-self father level node)
       (let* ((model (get-jml-model father node))
              (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
-             (title (either (get-property~ node 'title) (->string (get-name~ node))))
+             (title (cond ((get-property~ node 'title) => identity) ((get-name~ node) => ->string) (else (->string (get-model-name~ node)))))
              (state (if (< level 1) 'expanded 'collapsed)))
         (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
     
@@ -214,11 +214,15 @@
                   ordered)))
     
     (define (get-jml-named-children node)
+      (define (named? node)
+        (and (is? node JML-Element)
+             (or (get-name~ node)
+                 (get-property~ node 'title))))
+      
       (when (is? node JML-Element)
         (collect-if (lambda (child)
-                      (and (is? child JML-Element)
-                           (or (get-name~ child)
-                               (get-property~ child 'title))))
+                      (or (named? child)
+                          (some? named? (get-children~ child))))
                     (get-children~ node))))
     
     (define (sort-jml-definitions definitions)

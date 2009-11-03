@@ -554,13 +554,16 @@
                   (%%assertion (%%pair? (jazz.source-code clause)) (jazz.walk-error walker resume declaration clause "Ill-formed cond clause: {s}" (%%desourcify clause))
                     (let ((test (%%car (jazz.source-code clause)))
                           (body (%%cdr (jazz.source-code clause))))
-                      (jazz.enqueue expanded-clauses
-                        (%%cons (if (%%eq? (jazz.source-code test) 'else)
-                                    #f
-                                  (continuation-capture
-                                    (lambda (resume)
-                                      (jazz.walk walker resume declaration environment test))))
-                                (jazz.walk-implicit-begin walker resume declaration environment clause body))))))
+                      (continuation-capture
+                        (lambda (resume)
+                          (jazz.enqueue expanded-clauses
+                            (if (%%eq? (jazz.source-code (%%car body)) '=>)
+                                (%%cons (jazz.walk walker resume declaration environment test)
+                                        (%%cons #t (jazz.walk walker resume declaration environment (%%cadr body))))
+                              (%%cons (if (%%eq? (jazz.source-code test) 'else)
+                                          #f
+                                        (jazz.walk walker resume declaration environment test))
+                                      (%%cons #f (jazz.walk-implicit-begin walker resume declaration environment clause body))))))))))
                 clauses)
       (jazz.new-cond form-src (jazz.queue-list expanded-clauses)))))
 

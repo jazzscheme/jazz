@@ -4730,17 +4730,19 @@
                     (if (%%null? clauses) '()
                       (let ((clause (%%car clauses)))
                         (let ((test (%%car clause))
-                              (body (%%cdr clause)))
+                              (arrow? (%%cadr clause))
+                              (body (%%cddr clause)))
                           (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
                             (let ((output
                                     `(,(if (%%not test)
                                            'else
                                          (jazz.sourcified-form (jazz.emit-expression test declaration environment)))
+                                      ,@(if arrow? `(=>) '())
                                       ,(jazz.sourcified-form (jazz.emit-expression body declaration yes-environment)))))
                               (%%cons output (recurse (%%cdr clauses) no-environment)))))))))
       (jazz.extend-types (map (lambda (clause)
                                 (%%get-code-type
-                                  (let ((body (%%cdr clause)))
+                                  (let ((body (%%cddr clause)))
                                     (jazz.emit-expression body declaration environment))))
                               clauses))
       (%%get-expression-source expression))))

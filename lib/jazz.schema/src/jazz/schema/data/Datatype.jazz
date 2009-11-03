@@ -41,27 +41,13 @@
 (import (jazz.schema))
 
 
-(class Datatype extends Object)
-
-
-@wait
-
-
 (class Datatype extends Object
   
   
-  (slot name)
-  (slot size)
-  (slot precision)
-  (slot scale)
-  
-  
-  @convert-literal
-  (method meta (construct-literal context name size (precision {}) (scale {}))
-    (assert (or (integer? size) (null? size)))
-    (assert (or (integer? precision) (null? precision)))
-    (assert (or (integer? scale) (null? scale)))
-    (new self name size precision scale))
+  (slot name      getter generate)
+  (slot size      getter generate)
+  (slot precision getter generate)
+  (slot scale     getter generate)
   
   
   (method meta public (new-datatype name size (precision {}) (scale {}))
@@ -71,7 +57,7 @@
          (if (get-scalable?~ (find-systype name)) scale {})))
   
   
-  (method (initialize name size (precision {}) (scale {}))
+  (method override (initialize name size (precision {}) (scale {}))
     (nextmethod)
     (set! name~self name)
     (set! size~self size)
@@ -79,7 +65,7 @@
     (set! scale~self scale))
   
   
-  (method (compare-object target)
+  (method override (compare-object target)
     (cond ((is-not? target Datatype)
            :incompatible)
           ((and (= name (get-name~ target))
@@ -91,7 +77,7 @@
            :not-equal)))
   
   
-  (method (print printer readably)
+  (method override (print printer readably)
     (format printer "~{{a} {s} {s}{? {s}~}{? {s}~}}"
             (identifier-name (type-name (class-of self)))
             name
@@ -105,46 +91,20 @@
   ;;;
   
   
-  (method public (get-name)
-    name)
-  
-  
-  (method public (get-size)
-    size)
-  
-  
-  (method public (get-precision)
-    precision)
-  
-  
-  ;; this method is temp for a design convertion utility
-  (method public (set-precision value)
-    (set! precision value))
-  
-  
-  (method public (get-scale)
-    scale)
-  
-  
-  ;; this method is temp for a design convertion utility
-  (method public (set-scale value)
-    (set! scale value))
-  
-  
   (method public (has-size?)
-    (not-null? size))
+    (boolean size))
   
   
   (method public (has-precision?)
-    (not-null? precision))
+    (boolean precision))
   
   
   (method public (has-scale?)
-    (not-null? scale))
+    (boolean scale))
   
 
   (method public virtual (get-native-with-value value (indirect?: indirect? #f))
-    (let* ((default-value (get-default-value~ (find-systype name)))
+    (let* ((default-value (get-default-value~ (find-systype~ (class-of self) name)))
            (value (either (let ((len (length value)))
                             (if (and (>= len 2)
                                      (= (subseq value 0 1) "(")
@@ -194,12 +154,12 @@
   
   
   (method public (get-defaultable?)
-    (let ((systype (find-systype name)))
+    (let ((systype (find-systype~ (class-of self) name)))
       (and systype (get-defaultable?~ systype))))
   
   
   (method public (get-default-value)
-    (let ((systype (find-systype name)))
+    (let ((systype (find-systype~ (class-of self) name)))
       (essay systype (get-default-value~ systype))))
   
   

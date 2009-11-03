@@ -1037,7 +1037,8 @@
                            (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
                              (jazz.new-method-reference method-declaration)))))))
                   ((and name (not self/class-name))
-                   (jazz.walk walker resume declaration environment `(lambda (object) (,symbol-src object))))
+                   (let ((method-symbol-src (jazz.sourcify-if (jazz.dispatch->symbol (jazz.source-code symbol-src)) symbol-src)))
+                     (jazz.walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
                   ((and (not name) self/class-name)
                    (jazz.walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
                   (else

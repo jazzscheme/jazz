@@ -208,11 +208,6 @@
     form))
 
 
-(definition public (read-jml file)
-  (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-    read))
-
-
 (definition public (node->form node)
   (letrec ((node->form
              (lambda (node parent)
@@ -314,9 +309,12 @@
 ;;;
 
 
+(definition public (read-jml file)
+  (parameterize ((walk-for #f))
+    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
+      read)))
+
+
 (definition public (load-jml file)
-  (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-    (lambda (reader)
-      (let* ((pref (new JML-Preferences))
-             (parser (new JML-Parser preferences: pref)))
-        (parse~ parser reader))))))
+  (let ((parser (new JML-Parser preferences: (new JML-Preferences))))
+    (parse~ parser (read-jml file)))))

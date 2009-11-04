@@ -85,7 +85,6 @@
 ;;;; Compile
 ;;;
 
-
 (define (jazz.compile-module-internal module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (jazz.with-module-src/bin module-name #f
     (lambda (src bin bin-uptodate?)
@@ -103,9 +102,10 @@
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
               (bindir (jazz.resource-build-dir src)))
-          (let ((build-package (jazz.find-build-package (%%package-name package))))
+          (let ((build-package (jazz.find-build-package (%%package-name package))))        
             (display "; compiling ")
-            (display path)
+            ;(display path)
+            (display manifest-name)
             (display "...")
             (newline)
             (force-output)
@@ -113,7 +113,8 @@
             (jazz.with-extension-reader (%%resource-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
+                  ;(compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
+                  (jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options module-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((library-declaration (jazz.get-catalog-entry manifest-name)))
@@ -126,6 +127,29 @@
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
+(define (jazz.compile-file src #!key (options #f) (cc-options #f) (ld-options #f) (module-name #f) (platform jazz.kernel-platform))
+  (let* ((pathname (jazz.resource-pathname src))
+         (bin- (jazz.binary-with-extension src ""))
+         (bin-c (string-append bin- ".c"))
+         (bin-o (string-append bin- ".o"))
+         (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
+         (linkfile (string-append bin-o1 ".c")))
+
+    (compile-file-to-c pathname output: bin-c options: options module-name: (symbol->string module-name))
+    (compile-file bin-c options: (cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
+    (link-flat (list bin-) output: linkfile warnings?: #f)
+ 
+    (##gambc-cc
+      'dyn
+      (jazz.resource-build-dir src)
+      (list linkfile bin-o)
+      bin-o1
+      cc-options
+      ""
+      ld-options
+      #f))) 
+
+  
 (define (jazz.find-build-package name)
   (jazz.repository-find-package jazz.Bin-Repository name))
 
@@ -144,6 +168,13 @@
 ;;;
 ;;;; Module
 ;;;
+
+(define (jazz.get-submodule-names-internal parent-name)
+  (let* ((sub-modules '())
+         (proc (lambda (module-name declaration phase)
+                 (set! sub-modules (cons module-name sub-modules)))))
+    (jazz.for-each-submodule parent-name proc)
+    sub-modules))
 
 
 (define (jazz.for-each-submodule parent-name proc)

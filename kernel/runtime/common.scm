@@ -51,6 +51,9 @@
 (define jazz.build-image #f)
 (set! jazz.build-image #f)
 
+(define jazz.build-library  #f)
+(set! jazz.build-library #f)
+
 
 ;;;
 ;;;; Feedback

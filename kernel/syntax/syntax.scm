@@ -174,8 +174,8 @@
 ;; A product is the runtime implementation of some user level entity that can be run and updated / built.
 
 
-(jazz.define-macro (%%make-product name title icon run test update build descriptor)
-  `(%%vector 'product ,name ,title ,icon ,run ,test ,update ,build ,descriptor))
+(jazz.define-macro (%%make-product name title icon run test update build build-library descriptor)
+  `(%%vector 'product ,name ,title ,icon ,run ,test ,update ,build ,build-library ,descriptor))
 
 
 (jazz.define-macro (%%product-name product)
@@ -199,8 +199,11 @@
 (jazz.define-macro (%%product-build product)
   `(%%vector-ref ,product 7))
 
-(jazz.define-macro (%%product-descriptor product)
+(jazz.define-macro (%%product-build-library product)
   `(%%vector-ref ,product 8))
+
+(jazz.define-macro (%%product-descriptor product)
+  `(%%vector-ref ,product 9))
 
 
 ;;;
@@ -225,6 +228,21 @@
 
 (jazz.define-macro (%%resource-extension resource)
   `(%%vector-ref ,resource 3))
+
+
+;;;
+;;;; Cached module
+;;;
+
+  
+(jazz.define-macro (%%make-image-module load-proc compile-time-hash)
+  `(%%vector 'cached-module ,load-proc ,compile-time-hash))
+
+(jazz.define-macro (%%image-module-load-proc cached-module)
+  `(%%vector-ref ,cached-module 1))
+
+(jazz.define-macro (%%image-module-compile-time-hash cached-module)
+  `(%%vector-ref ,cached-module 2))
 
 
 ;;;

@@ -557,7 +557,7 @@
                       (continuation-capture
                         (lambda (resume)
                           (jazz.enqueue expanded-clauses
-                            (if (%%eq? (jazz.source-code (%%car body)) '=>)
+                            (if (and (%%not-null? body) (%%eq? (jazz.source-code (%%car body)) '=>))
                                 (%%cons (jazz.walk walker resume declaration environment test)
                                         (%%cons #t (jazz.walk walker resume declaration environment (%%cadr body))))
                               (%%cons (if (%%eq? (jazz.source-code test) 'else)

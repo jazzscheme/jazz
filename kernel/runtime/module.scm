@@ -863,7 +863,7 @@
 
 
 (define (jazz.with-module-src/bin module-name extensions proc #!key (pass-manifest? #f))
-          
+  
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
       (if (%%boolean? interpreted?)
@@ -889,16 +889,16 @@
  
   
 (define (jazz.with-module-src/bin/lib module-name extensions proc)
-  (jazz.with-module-src/bin module-name extensions 
+  (jazz.with-module-src/bin module-name extensions
     (lambda (src bin bin-uptodate? manifest)
-      (let* ((cached-module (jazz.get-image-module module-name))
+      (let* ((image-module (jazz.get-image-module module-name))
              (lib-uptodate?
-               (cond ((and cached-module bin-uptodate?)
-                      (jazz.cached-module-uptodate? cached-module manifest))
-                     ((not (or src bin))
-                      cached-module)
+               (cond ((and image-module bin-uptodate?)
+                      (jazz.image-module-uptodate? image-module manifest))
+                     ((%%not (or src bin))
+                      image-module)
                      (else #f))))
-        (proc src bin (if cached-module (%%image-module-load-proc cached-module) #f) bin-uptodate? lib-uptodate?)))
+        (proc src bin (if image-module (%%image-module-load-proc image-module) #f) bin-uptodate? lib-uptodate?)))
     pass-manifest?: #t))
 
 
@@ -907,7 +907,8 @@
     (lambda (src bin bin-uptodate?)
       bin-uptodate?)))
 
-(define (jazz.cached-module-uptodate? image-module manifest)
+
+(define (jazz.image-module-uptodate? image-module manifest)
   (let ((digest (%%manifest-digest manifest)))
     (%%string=? (%%image-module-compile-time-hash image-module) (%%digest-compile-time-hash digest))))
 
@@ -1289,6 +1290,7 @@
       (if build
           (build descriptor)
         (jazz.build-product-descriptor descriptor))
+      #;
       (if build-library
           (build-library descriptor)
         (jazz.build-library-descriptor descriptor)))))
@@ -1306,8 +1308,8 @@
 (define (jazz.build-library-descriptor descriptor)
   (jazz.update-product-descriptor descriptor)
   (let ((library (jazz.product-descriptor-library descriptor)))
-    (if (list? library)
-        (jazz.build-library descriptor (car library) options: (cdr library)))))
+    (if library
+        (jazz.build-library descriptor (%%car library) options: (%%cdr library)))))
       
 
 (define jazz.end-make-marker
@@ -1345,7 +1347,7 @@
                (let ((process (open-process
                                 (list
                                   path: (kernel-path)
-                                  arguments: `("-:dq-" "-build" ,(number->string active-count) "-jobs 1")
+                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) "-jobs 1")
                                   directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t
@@ -1358,7 +1360,6 @@
                (grab-build-process)))))
     
     (define (build name)
-
       (let ((process (grab-build-process)))
         (define (atomic-output line)
           (mutex-lock! output-mutex)
@@ -1380,7 +1381,7 @@
             (if (and key-product? product-modified?)
                 (begin
                   (set! outdated-processes active-processes))))
-          (if (memq process outdated-processes)
+          (if (%%memq process outdated-processes)
               (begin
                   (set! active-processes (jazz.remove process active-processes))
                   (set! outdated-processes (jazz.remove process outdated-processes))
@@ -1395,7 +1396,7 @@
             (send-command process name)
             (let iter ((product-modified? #f))
                  (let ((line (read-line process)))
-                   (if (%%not (or (eof-object? line) (equal? line jazz.end-make-marker)))
+                   (if (%%not (or (eof-object? line) (%%equal? line jazz.end-make-marker)))
                        (let ((count (%%string-length line)))
                          (if (%%fx> count 0)
                              (begin
@@ -1408,7 +1409,7 @@
     
     (define (local-make name)
       (for-each (lambda (subname)
-                  (if (not (%%table-ref subproduct-table subname #f))
+                  (if (%%not (%%table-ref subproduct-table subname #f))
                       (begin
                         (make subname)
                         (%%table-set! subproduct-table subname #t))))
@@ -1509,17 +1510,18 @@
          
 
 (define (jazz.probe-numbered-pathname pathname n)
-  (let ((candidate (string-append pathname (number->string n))))
-    (if (not (file-exists? candidate))
+  (let ((candidate (string-append pathname (%%number->string n))))
+    (if (%%not (file-exists? candidate))
         candidate
-      (jazz.probe-numbered-pathname pathname (+ n 1)))))
+      (jazz.probe-numbered-pathname pathname (%%fx+ n 1)))))
 
 
-(define (jazz.with-numbered-pathname pathname n proc #!key (exists? #f))
-  (let ((candidate (string-append pathname (number->string n))))
-    (if (not (file-exists? candidate))
-        (proc candidate exists?)
-      (jazz.with-numbered-pathname pathname (+ n 1) proc exists?: #t))))
+(define (jazz.with-numbered-pathname pathname n proc)
+  (let iter ((n n) (exists? #f))
+       (let ((candidate (string-append pathname (%%number->string n))))
+         (if (%%not (file-exists? candidate))
+             (proc candidate exists?)
+           (iter (%%fx+ n 1) #t)))))
 
 
 ;;;
@@ -1600,17 +1602,18 @@
   (make-parameter #f))
 
 
+;; bypass check of lib-uptodate?
 (define (jazz.load-module-src/bin-fast-load module-name)
-  (or (let ((cached-module (jazz.get-image-module module-name)))
-        (and cached-module
+  (or (let ((image-module (jazz.get-image-module module-name)))
+        (and image-module
              (parameterize ((jazz.requested-module-name module-name)
                             (jazz.requested-module-resource (jazz.find-module-bin module-name)))
                ;(display ".")
-               ((%%image-module-load-proc cached-module))
+               ((%%image-module-load-proc image-module))
                #t)))
           
       (jazz.with-module-src/bin/lib module-name #f
-        (lambda (src bin load-proc bin-uptodate? lib-uptodate?)    
+        (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
           (parameterize ((jazz.requested-module-name module-name)
                          (jazz.requested-module-resource (if bin-uptodate? bin src)))
             (cond (lib-uptodate? (load-proc))
@@ -1635,12 +1638,14 @@
                    (jazz.error "Unable to find module: {s}" module-name))))))))
 
 
-(define (jazz.load-module-src/bin module-name)          
+(define (jazz.load-module-src/bin module-name)
   (jazz.with-module-src/bin/lib module-name #f
-    (lambda (src bin load-proc bin-uptodate? lib-uptodate?)    
+    (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
       (parameterize ((jazz.requested-module-name module-name)
                      (jazz.requested-module-resource (if bin-uptodate? bin src)))
-        (cond (lib-uptodate? (load-proc))
+        (cond (lib-uptodate?
+               ;(display ".")
+               (load-proc))
               (bin-uptodate?
                (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
                                                (and ext (%%string=? ext "jazz"))))))
@@ -1869,7 +1874,7 @@
     `(jazz.register-literal-constructor ',name ',contructor-name
        (lambda (arguments)
          (jazz.load-module ',contructor-library)
-         (apply (jazz.global-value ',contructor-name) arguments)))))
+         (%%apply (jazz.global-value ',contructor-name) arguments)))))
 
 
 (define (jazz.construct-literal name arguments)

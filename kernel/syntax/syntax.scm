@@ -231,18 +231,18 @@
 
 
 ;;;
-;;;; Cached module
+;;;; Image module
 ;;;
 
   
 (jazz.define-macro (%%make-image-module load-proc compile-time-hash)
-  `(%%vector 'cached-module ,load-proc ,compile-time-hash))
+  `(%%vector 'image-module ,load-proc ,compile-time-hash))
 
-(jazz.define-macro (%%image-module-load-proc cached-module)
-  `(%%vector-ref ,cached-module 1))
+(jazz.define-macro (%%image-module-load-proc image-module)
+  `(%%vector-ref ,image-module 1))
 
-(jazz.define-macro (%%image-module-compile-time-hash cached-module)
-  `(%%vector-ref ,cached-module 2))
+(jazz.define-macro (%%image-module-compile-time-hash image-module)
+  `(%%vector-ref ,image-module 2))
 
 
 ;;;

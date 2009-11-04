@@ -47,6 +47,7 @@
 (jazz.define-variable jazz.build-module-internal)
 (jazz.define-variable jazz.get-submodule-names-internal)
 
+
 (define (jazz.compile-module . rest)
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.builder)
@@ -61,7 +62,6 @@
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.builder)
   (%%apply jazz.get-submodule-names-internal rest))
-
 
 
 ;;;
@@ -147,69 +147,73 @@
 
 (define jazz.currently-loading-library-procs)
 
-(define (jazz.load-dynamic-libraries)
+(define (jazz.load-composite-libraries)
   (define (get-object-serial ext)
-    (and (>= (string-length ext) 3)
-         (let* ((ns (substring ext 2 (string-length ext)))
+    (and (%%fx>= (%%string-length ext) 3)
+         (let* ((ns (%%substring ext 2 (%%string-length ext)))
                 (n (string->number ns)))
-           (and (string=? ".o" (substring ext 0 2))
-                (number? n)
+           (and (%%string=? ".o" (%%substring ext 0 2))
+                (%%number? n)
                 n))))
   
   (define (for-each-file-in-directory dir proc)
     (let ((p (open-directory dir)))
       (let loop ()
            (let ((filename (read p)))
-             (if (string? filename)
+             (if (%%string? filename)
                  (begin
                    (proc filename)
                    (loop)))))
       (close-input-port p)))
-           
+  
   (define libraries (make-table))
-      
+  
   ; scan the directory for library files
   (for-each-file-in-directory jazz.kernel-install
-     (lambda (filename)
-       (let ((lib-name (path-strip-extension filename))
-             (serial (get-object-serial (path-extension filename))))
-         (if serial
-             (let ((prev (table-ref libraries lib-name #f)))
-               (if (or (and prev (> serial prev))
-                       (not prev))
-                   (table-set! libraries lib-name serial)))))))
+    (lambda (filename)
+      (let ((lib-name (path-strip-extension filename))
+            (serial (get-object-serial (path-extension filename))))
+        (if serial
+            (let ((prev (%%table-ref libraries lib-name #f)))
+              (if (or (and prev (%%fx> serial prev))
+                      (%%not prev))
+                  (%%table-set! libraries lib-name serial)))))))
   
   ; register all the libraries found
-  (table-for-each 
+  (table-for-each
     (lambda (lib serial)
-      (let* ((pathname (path-normalize (string-append jazz.kernel-install "/" lib ".o" (number->string serial))))
+      (let* ((pathname (path-normalize (string-append jazz.kernel-install "/" lib ".o" (%%number->string serial))))
              (lib (##load-object-file pathname #t)))
-        (if (and (vector? lib) 
-                 (vector? (vector-ref lib 0)))
-            (begin          
-              (set! jazz.currently-loading-library-procs (vector-ref lib 0))
-              ((vector-ref (vector-ref (vector-ref lib 0) 0) 1)))
+        (if (and (%%vector? lib)
+                 (%%vector? (%%vector-ref lib 0)))
+            (begin
+              (set! jazz.currently-loading-library-procs (%%vector-ref lib 0))
+              ((%%vector-ref (%%vector-ref (%%vector-ref lib 0) 0) 1)))
           (jazz.feedback "WARNING: failed to load library " pathname))))
     libraries))
 
 
-; this functions is called from the library header when loading
+; this function is called from the library header when loading
 (define (jazz.register-image-modules lib-name modules)
   (define (index-for-each proc args n)
-    (if (not (null? args))
-        (begin 
-          (proc (car args) n)
-          (index-for-each proc (cdr args) (+ n 1)))))
+    (if (%%not (%%null? args))
+        (begin
+          (proc (%%car args) n)
+          (index-for-each proc (%%cdr args) (%%fx+ n 1)))))
   
   (index-for-each
-         (lambda (module i)
-           (jazz.set-image-module 
-             (car module) 
-             (vector-ref (vector-ref jazz.currently-loading-library-procs i) 1)
-             (cadr module)))
-         modules 1)
-   
-  ;(jazz.feedback (string-append "LIB: " (symbol->string lib-name) " (" (number->string (length modules)) " modules)"))
+    (lambda (module i)
+      (let ((name (%%car module))
+            (load-proc (%%vector-ref (%%vector-ref jazz.currently-loading-library-procs i) 1))
+            (compile-time-hash (%%cadr module)))
+        (jazz.set-image-module
+          name
+          load-proc
+          compile-time-hash)))
+    modules
+    1)
+  
+  ;(jazz.feedback (string-append "LIB: " (%%symbol->string lib-name) " (" (%%number->string (%%length modules)) " modules)"))
 )
 
 
@@ -244,15 +248,15 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("run" "test" "update" "build" "make" "compile" "load" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("load" "test" "run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
     (lambda (options remaining)
-      (let ((run (jazz.get-option "run" options))
+      (let ((load (jazz.get-option "load" options))
             (test (jazz.get-option "test" options))
+            (run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
             (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
-            (load (jazz.get-option "load" options))
             (debugger (jazz.get-option "debugger" options))
             (jobs (number-argument (jazz.get-option "jobs" options))))
         ;; until the library syntax doesn't generate global defines
@@ -262,35 +266,34 @@
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)
         (if (or (jazz.get-option "debug" options)
-                (eqv? jobs 0))
-            (jazz.debug-build? #t))     
-        
-        (cond (run
-               (begin 
-                 (jazz.load-dynamic-libraries)
-                 (jazz.run-product (%%string->symbol run))))
+                (%%eqv? jobs 0))
+            (jazz.debug-build? #t))
+        (cond (load
+                (jazz.load-composite-libraries)
+                (jazz.load-module (%%string->symbol load)))
               (test
-               (jazz.test-product (%%string->symbol test)))
+                (jazz.load-composite-libraries)
+                (jazz.test-product (%%string->symbol test)))
+              (run
+                (jazz.load-composite-libraries)
+                (jazz.run-product (%%string->symbol run)))
               (jazz.product
-               (begin
-                 (jazz.load-dynamic-libraries)
-                 (jazz.run-product jazz.product)))
+                (jazz.load-composite-libraries)
+                (jazz.run-product jazz.product))
               (compile
-               (process-buildini-file)
-               (jazz.compile-module (%%string->symbol compile)))
-              (load
-               (jazz.load-module (%%string->symbol load)))
+                (process-buildini-file)
+                (jazz.compile-module (%%string->symbol compile)))
               (update
-               (process-buildini-file)
-               (jazz.update-product (%%string->symbol update)))
+                (process-buildini-file)
+                (jazz.update-product (%%string->symbol update)))
               (make
-               (process-buildini-file)
-               (jazz.make-product (%%string->symbol make)))
+                (process-buildini-file)
+                (jazz.make-product (%%string->symbol make)))
               (build
                 (process-buildini-file)
                 (jazz.subprocess-build-products))
               (else
-               (jazz.repl-main)))))))
+                (jazz.repl-main)))))))
 
 
 (define (jazz.repl-main)

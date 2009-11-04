@@ -70,7 +70,7 @@
                                                         (else
                                                          declaration)))
                                            (jazz.find-declaration library-declaration symbol))))
-                              (and found 
+                              (and found
                                    (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) library-locator)
                                    (%%neq? (%%get-declaration-access found) 'private))))
                           library-references)))))
@@ -84,6 +84,7 @@
 ;;;
 ;;;; Compile
 ;;;
+
 
 (define (jazz.compile-module-internal module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (jazz.with-module-src/bin module-name #f
@@ -102,10 +103,9 @@
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
               (bindir (jazz.resource-build-dir src)))
-          (let ((build-package (jazz.find-build-package (%%package-name package))))        
+          (let ((build-package (jazz.find-build-package (%%package-name package))))
             (display "; compiling ")
-            ;(display path)
-            (display manifest-name)
+            (display path)
             (display "...")
             (newline)
             (force-output)
@@ -135,19 +135,21 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    (compile-file-to-c pathname output: bin-c options: options module-name: (symbol->string module-name))
-    (compile-file bin-c options: (cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
-    (link-flat (list bin-) output: linkfile warnings?: #f)
+    (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string module-name))
+    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
+    (link-flat (%%list bin-) output: linkfile warnings?: #f)
  
     (##gambc-cc
       'dyn
       (jazz.resource-build-dir src)
-      (list linkfile bin-o)
+      (%%list linkfile bin-o)
       bin-o1
       cc-options
       ""
       ld-options
-      #f))) 
+      #f)
+    
+    (delete-file linkfile)))
 
   
 (define (jazz.find-build-package name)
@@ -172,7 +174,7 @@
 (define (jazz.get-submodule-names-internal parent-name)
   (let* ((sub-modules '())
          (proc (lambda (module-name declaration phase)
-                 (set! sub-modules (cons module-name sub-modules)))))
+                 (set! sub-modules (%%cons module-name sub-modules)))))
     (jazz.for-each-submodule parent-name proc)
     sub-modules))
 

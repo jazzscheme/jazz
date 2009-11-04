@@ -204,33 +204,6 @@
       (values major minor build))))
 
 
-(define (jazz.pkg-config what libname)
-  (let ((string-port (open-output-string))
-        (process-port (open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
-    (if (%%fx= (process-status process-port) 0)
-        (begin
-          (jazz.pipe-no-return process-port string-port)
-          (get-output-string string-port))
-      (jazz.error "failed"))))
-
-(define (jazz.pkg-config-cflags libname)
-  (jazz.pkg-config "--cflags" libname))
-
-(define (jazz.pkg-config-libs libname)
-  (jazz.pkg-config "--libs" libname))
-
-(define (jazz.pkg-config-version libname)
-  (jazz.pkg-config "--modversion" libname))
-
-(define (jazz.pipe-no-return input output)
-  (let iterate ()
-    (let ((c (read-char input)))
-      (if (%%not (or (eof-object? c) (%%eq? #\newline c)))
-          (begin
-            (write-char c output)
-            (iterate))))))
-
-
 ;;;
 ;;;; Register
 ;;;

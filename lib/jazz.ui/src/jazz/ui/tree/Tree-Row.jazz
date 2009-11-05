@@ -37,18 +37,20 @@
 
 (library protected jazz.ui.tree.Tree-Row jazz
 
-
-(import (jazz.locale)
+(import (jazz.graphic)
+	    (jazz.locale)
+        (jazz.geometry)
         (jazz.ui))
-
 
 (class Tree-Row extends Outline-Row
   
   
   (property protected user-data initialize {} accessors generate)
+  (property protected background    initialize {}     getter get-background      setter set-background)
   
   
   (slot protected node-width initialize {} getter generate)
+  (slot protected down? initialize #f)
   
   
   (method override (default-size)
@@ -81,6 +83,15 @@
   
   (method public (get-tree)
     parent)
+  
+  
+  (method public (get-background)
+    background)
+  
+  
+  (method public (set-background value)
+    (set! background value)
+    (invalidate-view~ parent))
   
   
   ;;;
@@ -216,6 +227,24 @@
     )
   
   
+  (method public virtual (selector-down)
+    (set! down? #t)
+    (acquire-capture~ (get-header~ parent))
+    (invalidate-row-selector~ (get-header~ parent) self)
+    (selector-click~ parent self))
+
+
+  (method public virtual (selector-up)
+    (set! down? #f)
+    (release-capture~ (get-header~ parent))
+    (invalidate-row-selector~ (get-header~ parent) self))
+
+  
+  (method public virtual (selector-move initial-row)
+    (invalidate-row-selector~ (get-header~ parent) self)
+    (selector-multi-select~ parent self initial-row))
+
+  
   ;;;
   ;;;; Drawing
   ;;;
@@ -246,7 +275,37 @@
   
   (method override (draw-selection surface)
     )
+  
+  
+  (method public virtual (draw-selector surface context h v width height flat?)
+    (draw-selector-at surface h v width height flat?))
+  
+   
+  (method (draw-selector-at surface h v width height flat?)
+    (if down?  
+        (draw-sunken-button surface h v width height flat?)
+      (draw-raised-button surface h v width height flat?)))
 
+  
+  (method (draw-sunken-button surface h v width height flat?)
+    (let* ((outer (new Rect h v (+ h width) (+ v height)))
+           (inner (inflate-rect outer -1 -1)))
+      (set-color~ surface {Color name: Dark})
+      (frame-rect~ surface outer {Color name: Dark})
+      (fill-rect~ surface inner (either background (header-color~ parent)))
+      (set-text-color~ surface {Color name: Black})))
+  
+  
+  (method (draw-raised-button surface h v width height flat?)
+    (let ((thick (if flat? -1 -2)))
+      ;; when spaced, it's the background that draws the right side shadow
+      (let* ((outer (new Rect h v (+ h width) (+ v height)))
+             (inner (expand-rect outer 1 1 thick thick)))
+        (let ((smaller (expand-rect outer 0 0 0 -1)))
+             (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
+        (fill-rect~ surface inner (either background (header-color~ parent)))
+        (set-text-color~ surface {Color name: Black}))))
+  
   
   ;;;
   ;;;; Content

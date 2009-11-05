@@ -58,6 +58,7 @@
   (slot protected resize-last-h      initialize {})
   (slot protected resized-column     initialize {})
   (slot protected resized-column-ref initialize 0)
+  (slot protected initial-row        initialize {})
 
   
   (method override (finish rest)
@@ -135,8 +136,25 @@
     (when client
       (layout-scrollee~ client)
       (invalidate-view~ client)))
-
-
+  
+  ;;;
+  ;;;; Selector
+  ;;;
+  
+  (method (get-rows)
+    (get-rows~ client))
+  
+  
+  (method public (invalidate-row-selector row)
+    (when (get-finished?)
+      (let ((rect (selector-rect row)))
+        (invalidate-rect rect))))
+  
+  
+  (method public (selector-rect row)
+    (let ((height (get-height~ parent)))
+      (new Rect 0 0 (get-selector-width) (+ height (get-selector-width)))))
+  
   ;;;
   ;;;; Events
   ;;;
@@ -162,9 +180,13 @@
   
   
   (method (get-hscroll-amount)
-    (if client (get-h~ (get-position~ client)) 0))
+    (if client (+ (get-selector-width) (get-h~ (get-position~ client)) 0)))
 
 
+  (method (get-vscroll-amount)
+    (if client (+ (get-header-height) (get-v~ (get-position~ client)) 0)))
+  
+  
   ;; most probably not called as it was missing the orientation parameter in the old jazz!
   (method override (on-vscroll code thumb-pos orientation)
     (when client
@@ -201,8 +223,27 @@
                             (draw-header~ column surface context h 0 width height sorted spaced? flat?)
                             (increase! h (+ width cs))
                             (increase! rank)))
-                        (get-columns))))))))
+                        (get-columns))))
+            (let* ((v (get-vscroll-amount))
+                   (cs (get-row-spacing~ client)))
+              (iterate (get-rows)
+                       (lambda (row)
+                         (let ((row-height (get-height~ row)))
+                           (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
+                           (increase! v (+ row-height cs))))))
+            (draw-intersection surface 0 0 (get-selector-width) (get-header-height))
+            )
+        )))
 
+  
+  (method public virtual (draw-intersection surface h v width height)
+    (let ((thick (if (flat-look?) -1 -2)))
+      (let* ((outer (new Rect h v (+ h width) (+ v height)))
+             (inner (expand-rect outer 1 1 thick thick)))
+        (let ((smaller (expand-rect outer 0 0 0 -1)))
+          (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
+        (fill-rect~ surface inner (either background (header-color~ client)))
+        (set-text-color~ surface {Color name: Black}))))
 
   ;;;
   ;;;; Cursor
@@ -250,16 +291,14 @@
 
 
   ;;;
-  ;;;; Mouse
-  ;;;
-  
+  ;;;; 
   
   (method override (mouse-down pos)
     (when pos
       (acquire-capture)
       (set! autofiting? #f)
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (get-v~ pos)))
+            (v (- (get-v~ pos) (get-vscroll-amount))))
         (let ((col (resized-col h)))
           (if (not col)
               (let ((col (h->col h)))
@@ -269,13 +308,19 @@
             (set! resizing? #t)
             (set! resize-last-h h)
             (set! resized-column (get-column col))
-            (set! resized-column-ref col))))))
+            (set! resized-column-ref col)))
+        (let ((tree client))
+        (let ((row-no (v->row~ tree v)))
+          (when row-no
+            (let ((row (get-row~ tree row-no)))
+              (set! initial-row row-no)
+              (selector-down~ row))))))))
   
   
   (method override (drag-move pos)
     (when pos
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (get-v~ pos)))
+            (v (- (get-v~ pos) (get-vscroll-amount))))
         (if (not resizing?)
             (let ((col (h->col h)))
               (when col
@@ -284,19 +329,26 @@
           (let ((delta (- h resize-last-h)))
             (when (/= delta 0)
               (set! resize-last-h h)
-              (resize-column resized-column (+ (get-width~ resized-column) delta))))))))
+              (resize-column resized-column (+ (get-width~ resized-column) delta)))))
+        (let ((row-no (v->row~ client v)))
+          (when row-no
+            (let ((row (get-row~ client row-no)))
+              (selector-move~ row initial-row)))))))
   
   
   (method override (drag-up pos . rest)
     (when pos
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (get-v~ pos)))
+            (v (- (get-v~ pos) (get-vscroll-amount))))
         (if (not resizing?)
             (unless autofiting?
               (let ((col (h->col h)))
                 (when col
                   (let ((column (get-column col)))
-                    (header-up~ column (header-coordinates col pos))))))
+                    (header-up~ column (header-coordinates col pos)))))
+              (let ((tree client))
+                (let ((row (get-row~ tree initial-row)))
+                  (selector-up~ row))))
           (set! resizing? #f)
           (set! resized-column {})
           (set-filled-column~ (get-client) #f)
@@ -387,7 +439,6 @@
   
   (method (header-position col)
     (new Point (borders-left (get-borders col)) 0))
-  
 
   (method (h->col h)
     (continuation-capture

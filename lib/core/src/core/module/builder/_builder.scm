@@ -113,8 +113,8 @@
             (jazz.with-extension-reader (%%resource-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  ;(compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
-                  (jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options module-name: manifest-name))))
+                  (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
+                  #;(jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options module-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((library-declaration (jazz.get-catalog-entry manifest-name)))
@@ -144,7 +144,7 @@
       (jazz.resource-build-dir src)
       (%%list linkfile bin-o)
       bin-o1
-      cc-options
+      "" ;cc-options
       ""
       ld-options
       #f)

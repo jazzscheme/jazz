@@ -49,7 +49,7 @@
 
 (define (jazz.parse module-name)
   (let ((src (jazz.find-module-src module-name #f)))
-    (let ((form (jazz.read-toplevel-form src)))
+    (let ((form-src (jazz.read-toplevel-form src)))
       (pretty-print
         (jazz.desourcify-all form-src)))))
 

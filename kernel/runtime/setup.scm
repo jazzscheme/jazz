@@ -113,6 +113,9 @@
 (define jazz.debugger
   #f)
 
+(define jazz.link
+  #f)
+
 (define jazz.jobs
   #f)
 
@@ -248,7 +251,7 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("load" "test" "run" "update" "build" "make" "compile" "debugger" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((load (jazz.get-option "load" options))
             (test (jazz.get-option "test" options))
@@ -258,10 +261,12 @@
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options))
+            (link (symbol-argument (jazz.get-option "link" options)))
             (jobs (number-argument (jazz.get-option "jobs" options))))
         ;; until the library syntax doesn't generate global defines
         (set! ##allow-inner-global-define? #t)
         (set! jazz.debugger debugger)
+        (set! jazz.link link)
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)

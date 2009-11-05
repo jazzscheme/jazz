@@ -710,27 +710,36 @@
                    (else
                     (iter (cdr scan) (cons obj syms) options)))))))
   
-  (define (make-symbol symbol jobs)
+  (define (make-symbol symbol link jobs)
     (let ((name (symbol->string symbol)))
       (parse-target/configuration/image name
         (lambda (target configuration image)
-          (make-target target configuration image jobs local?)))))
+          (make-target target configuration image link jobs local?)))))
   
-  (define (make-target target configuration image jobs local?)
+  (define (make-target target configuration image link jobs local?)
     (case target
       ((clean) (jazz.make-clean configuration))
       ((cleankernel) (jazz.make-cleankernel configuration))
       ((kernel) (jazz.make-kernel configuration image local?))
       ((install) (jazz.make-install configuration))
-      (else (jazz.make-product target configuration jobs))))
+      (else (jazz.make-product target configuration link jobs))))
   
   (parse-symbols
     (lambda (symbols options)
-      (let ((jobs #f))
+      (let ((link #f)
+            (jobs #f))
         (for-each (lambda (option)
                     (case (car option)
+                      ((link: -link)
+                       (let ((value (cdr option)))
+                         (if (memq value '(objects libraries all))
+                             (set! link value)
+                           (jazz.error "Invalid link option: {s}" value))))
                       ((j: jobs: -j -jobs)
-                       (set! jobs (cdr option)))
+                       (let ((value (cdr option)))
+                         (if (and (fixnum? value) (>= value 1))
+                             (set! jobs value)
+                           (jazz.error "Invalid jobs option: {s}" value))))
                       (else
                        (jazz.error "Invalid make option: {s}" (car option)))))
                   options)
@@ -739,7 +748,7 @@
                            symbols)))
              (if (not (null? scan))
                  (let ((symbol (car scan)))
-                   (make-symbol symbol jobs)
+                   (make-symbol symbol link jobs)
                    (let ((tail (cdr scan)))
                      (if (not (null? tail))
                          (newline (console-port)))
@@ -854,7 +863,7 @@
 ;;;
 
 
-(define (jazz.make-product product configuration jobs)
+(define (jazz.make-product product configuration link jobs)
   (define (product-make product configuration jobs)
     (let ((destdir (jazz.configuration-directory configuration))
           (platform (jazz.configuration-platform configuration)))
@@ -868,7 +877,11 @@
           (else
            "./kernel")))
       
-      (jazz.call-process (kernel-path) `("-:dq-" "-make" ,(symbol->string product) ,@(if jobs `("-jobs" ,(number->string jobs)) '())) destdir)))
+      (jazz.call-process (kernel-path) `("-:dq-" "-make"
+                                         ,(symbol->string product)
+                                         ,@(if link `("-link" ,(symbol->string link)) '())
+                                         ,@(if jobs `("-jobs" ,(number->string jobs)) '()))
+        destdir)))
   
   (jazz.make-kernel configuration #f #f)
   (product-make product configuration jobs))

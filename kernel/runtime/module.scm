@@ -885,7 +885,7 @@
               bin)))
       (if pass-manifest?
           (proc src bin bin-uptodate? manifest)
-          (proc src bin bin-uptodate?)))))
+        (proc src bin bin-uptodate?)))))
  
   
 (define (jazz.with-module-src/bin/lib module-name extensions proc)
@@ -1347,7 +1347,7 @@
                (let ((process (open-process
                                 (list
                                   path: (kernel-path)
-                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) "-jobs 1")
+                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) ,@(if jazz.link `("-link" ,(symbol->string jazz.link)) '()) "-jobs" "1")
                                   directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t

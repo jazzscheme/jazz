@@ -235,15 +235,16 @@
   
   (method (remove-trailing-whitespace text)
     (let ((count 0))
-      (for-each (lambda (row)
-                  (let ((str (paragraph-string~ text row)))
-                    (let ((trailer (extract-trailer str whitespace?)))
-                      (when (not (empty-string? trailer))
-                        (let ((end (cardinality str)))
-                          (delete-range~ text (new Range$Cell$ (new Cell row (- end (cardinality trailer))) (new Cell row end)))
-                          (increase! count))))))
-                (selected-lines~ text))
-      (user-message "Remove {a} trailing whitespace" (downcase (format-cardinality count)))))
+      (for-each-paragraph~ text
+        (lambda (line row)
+          (let ((str (paragraph-string~ text line)))
+            (unless (whitespace? str)
+              (let ((trailer (extract-trailer str whitespace?)))
+                (unless (empty-string? trailer)
+                  (let ((end (cardinality str)))
+                    (delete-range~ text (new Range$Cell$ (new Cell line (- end (cardinality trailer))) (new Cell line end)))
+                    (increase! count))))))))
+      (user-message "Removed {a} trailing whitespace" (downcase (format-cardinality count)))))
     
   
   ;;;

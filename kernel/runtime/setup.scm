@@ -116,6 +116,9 @@
 (define jazz.link
   #f)
 
+(define jazz.link-options
+  #f)
+
 (define jazz.jobs
   #f)
 
@@ -266,7 +269,8 @@
         ;; until the library syntax doesn't generate global defines
         (set! ##allow-inner-global-define? #t)
         (set! jazz.debugger debugger)
-        (set! jazz.link link)
+        (set! jazz.link (or link (jazz.build-link)))
+        (set! jazz.link-options (jazz.parse-link jazz.link))
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)

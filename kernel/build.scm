@@ -732,9 +732,8 @@
                     (case (car option)
                       ((link: -link)
                        (let ((value (cdr option)))
-                         (if (memq value '(objects libraries all))
-                             (set! link value)
-                           (jazz.error "Invalid link option: {s}" value))))
+                         (jazz.parse-link value) ;; for early validation
+                         (set! link value)))
                       ((j: jobs: -j -jobs)
                        (let ((value (cdr option)))
                          (if (and (fixnum? value) (>= value 1))

@@ -94,6 +94,9 @@
 (jazz.define-setting jazz.debug-build?
   #f)
 
+(jazz.define-setting jazz.build-link
+  'images)
+
 (jazz.define-setting jazz.build-jobs
   1)
 

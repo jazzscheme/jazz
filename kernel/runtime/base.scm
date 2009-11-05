@@ -234,6 +234,39 @@
 
 
 ;;;
+;;;; Link
+;;;
+
+
+(define (jazz.parse-link link)
+  (define link-options
+    '(("executables" executables)
+      ("libraries" libraries)
+      ("objects" objects)
+      ("images" executables libraries)
+      ("all" executables libraries objects)))
+  
+  (define (invalid option)
+    (jazz.error "Invalid link option: {a}" option))
+  
+  (if (symbol? link)
+      (let ((lst (jazz.split-string (symbol->string link) #\/))
+            (result '()))
+        (for-each (lambda (option)
+                    (let ((pair (assoc option link-options)))
+                      (if pair
+                          (let ((options (cdr pair)))
+                            (for-each (lambda (option)
+                                        (if (not (member option result))
+                                            (set! result (cons option result))))
+                                      options))
+                        (invalid option))))
+                  lst)
+        result)
+    (invalid link)))
+
+
+;;;
 ;;;; Destination
 ;;;
 

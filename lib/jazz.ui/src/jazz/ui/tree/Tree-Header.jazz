@@ -141,8 +141,9 @@
   ;;;; Selector
   ;;;
   
+
   (method (get-rows)
-    (get-rows~ client))
+    (get-root-rows~ client))
   
   
   (method public (invalidate-row-selector row)
@@ -155,6 +156,7 @@
     (let ((height (get-height~ parent)))
       (new Rect 0 0 (get-selector-width) (+ height (get-selector-width)))))
   
+
   ;;;
   ;;;; Events
   ;;;
@@ -224,19 +226,17 @@
                             (increase! h (+ width cs))
                             (increase! rank)))
                         (get-columns))))
-            (let* ((v (get-vscroll-amount))
-                   (cs (get-row-spacing~ client)))
-              (iterate (get-rows)
-                       (lambda (row)
-                         (let ((row-height (get-height~ row)))
-                           (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
-                           (increase! v (+ row-height cs))))))
-            (draw-intersection surface 0 0 (get-selector-width) (get-header-height))
-            )
-        )))
+          (let ((v (get-vscroll-amount))
+                (cs (get-row-spacing~ client)))
+            (iterate (get-rows)
+                     (lambda (row)
+                       (let ((row-height (get-height~ row)))
+                         (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
+                         (increase! v (+ row-height cs))))))
+          (draw-intersection surface 0 0 (get-selector-width) (get-header-height))))))
 
   
-  (method public virtual (draw-intersection surface h v width height)
+  (method (draw-intersection surface h v width height)
     (let ((thick (if (flat-look?) -1 -2)))
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
              (inner (expand-rect outer 1 1 thick thick)))
@@ -244,6 +244,7 @@
           (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
         (fill-rect~ surface inner (either background (header-color~ client)))
         (set-text-color~ surface {Color name: Black}))))
+
 
   ;;;
   ;;;; Cursor
@@ -291,7 +292,9 @@
 
 
   ;;;
-  ;;;; 
+  ;;;; Mouse
+  ;;;
+  
   
   (method override (mouse-down pos)
     (when pos
@@ -310,11 +313,11 @@
             (set! resized-column (get-column col))
             (set! resized-column-ref col)))
         (let ((tree client))
-        (let ((row-no (v->row~ tree v)))
-          (when row-no
-            (let ((row (get-row~ tree row-no)))
-              (set! initial-row row-no)
-              (selector-down~ row))))))))
+          (let ((row-no (v->row~ tree v)))
+            (when row-no
+              (let ((row (get-row~ tree row-no)))
+                (set! initial-row row-no)
+                (selector-down~ row))))))))
   
   
   (method override (drag-move pos)
@@ -439,6 +442,7 @@
   
   (method (header-position col)
     (new Point (borders-left (get-borders col)) 0))
+
 
   (method (h->col h)
     (continuation-capture

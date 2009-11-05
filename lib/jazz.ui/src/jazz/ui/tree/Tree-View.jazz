@@ -428,11 +428,9 @@
   (definition Highlighted-Outer-Color
     (new Color red: 0 green: 0 blue: 128))
   
-  
   (definition Highlighted-Inner-Color
     (new Color red: 218 green: 218 blue: 255))
-  
-  
+    
   (definition Highlighted-Insert-Color
     {Color name: Dark-Red})
 
@@ -726,7 +724,8 @@
     (sort-column (column-rank column))
     (ensure-displayed))
   
-  (method public virtual (selector-click row)
+
+  (method public (selector-click row)
     (acquire-focus)
     (case selection-mode
       ((cell)
@@ -739,28 +738,22 @@
        (set-selection (list (row-rank row))))))
   
   
-  (method public virtual (selector-multi-select row initial-row)
+  (method public (selector-multi-select row initial-row)
     (let ((new-row-rank (row-rank row)))
-      (case selection-mode
-        ((cell)
-         (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
+      (let ((from-row (min initial-row new-row-rank))
+            (to-row (max initial-row new-row-rank)))
+        (case selection-mode
+          ((cell)
            (let ((select-list (new-queue)))
-                   (if (<= initial-row new-row-rank)
-                         (loop (for row-num from initial-row to new-row-rank)
-                               (loop (for col-num from 0 below (get-columns-count))
-                                     (enqueue select-list (new Cell row-num col-num))))
-                       (loop (for row-num from initial-row downto new-row-rank)
-                             (loop (for col-num from 0 below (get-columns-count))
-                                   (enqueue select-list (new Cell row-num col-num))))) 
-             (set-selection (queue-list select-list)))))
-        (else
-         (let ((select-list
-                 (if (<= initial-row new-row-rank)
-                     (loop (for n from initial-row to new-row-rank)
-                           (collect n))
-                   (loop (for n from initial-row downto new-row-rank)
-                         (collect n)))))
-           (set-selection select-list))))))
+             (loop (for row-num from from-row to to-row)
+                   (loop (for col-num from 0 below (get-columns-count))
+                         (enqueue select-list (new Cell row-num col-num))))
+             (set-selection (queue-list select-list))))
+          (else
+           (let ((select-list
+                   (loop (for n from from-row to to-row)
+                         (collect n))))
+             (set-selection select-list)))))))
 
   
   (method (set-sorted column ascending?)
@@ -1338,7 +1331,6 @@
   
   
   (method public (fill-column size)
-
     (when (and filled-column (not-null? columns-borders))
       (let ((column (find-filled-column filled-column)))
         (when column
@@ -1452,7 +1444,7 @@
                          (set! left (+ right column-spacing))))))
                  columns))
       (set! columns-right (+ (borders-right (last columns-borders)) column-spacing))))
- 
+    
   
   (method public (get-columns-count)
     (length columns))

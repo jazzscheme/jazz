@@ -1626,10 +1626,12 @@
                     (display "!!") (display unit-name) (newline)
                     (let ((warn (jazz.warn-interpreted?)))
                       (if warn
-                          (begin
-                            (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
-                            (if (and (%%pair? warn) (%%memq unit-name warn))
-                                (pp jazz.Load-Stack)))))
+                          (if (%%eq? warn 'error)
+                              (jazz.error "Loading {a} interpreted" unit-name)
+                            (begin
+                              (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
+                              (if (and (%%pair? warn) (%%memq unit-name warn))
+                                  (pp jazz.Load-Stack))))))
                     (parameterize ((jazz.walk-for 'interpret))
                       (jazz.with-extension-reader (%%resource-extension src)
                                                   (lambda ()
@@ -1653,10 +1655,12 @@
               (src
                (let ((warn (jazz.warn-interpreted?)))
                  (if warn
-                     (begin
-                       (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
-                       (if (and (%%pair? warn) (%%memq unit-name warn))
-                           (pp jazz.Load-Stack)))))
+                     (if (%%eq? warn 'error)
+                         (jazz.error "Loading {a} interpreted" unit-name)
+                       (begin
+                         (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
+                         (if (and (%%pair? warn) (%%memq unit-name warn))
+                             (pp jazz.Load-Stack))))))
                (parameterize ((jazz.walk-for 'interpret))
                  (jazz.with-extension-reader (%%resource-extension src)
                    (lambda ()

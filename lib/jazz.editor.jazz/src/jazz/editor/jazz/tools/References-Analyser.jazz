@@ -158,18 +158,19 @@
         (lambda ()
           (remove-every-row~ tree)
           (analyse-all)
-          (iterate-table autoload-references
-            (lambda (locator autoload)
-              (let ((declaration (resolve-binding autoload)))
-                (let ((hits (get-hits~ autoload))
-                      (declaration-hits (get-hits~ declaration)))
-                  (when (not declaration-hits)
-                    (let ((table (make-table test: eq?)))
-                      (set-hits~ declaration table)
-                      (set! declaration-hits table)))
-                  (iterate-table hits
-                    (lambda (name decl)
-                      (table-set! declaration-hits name decl)))))))
+          (iterate-table analysis-data
+            (lambda (locator data)
+              (let ((autoload (get-autoload-reference~ data)))
+                (let ((declaration (resolve-binding autoload)))
+                  (let ((hits (get-hits~ autoload))
+                        (declaration-hits (get-hits~ declaration)))
+                    (when (not declaration-hits)
+                      (let ((table (make-table test: eq?)))
+                        (set-hits~ declaration table)
+                        (set! declaration-hits table)))
+                    (iterate-table hits
+                      (lambda (name decl)
+                        (table-set! declaration-hits name decl))))))))
           (iterate-units
             (lambda (unit-name)
               (let ((declaration (jazz.get-catalog-entry unit-name)))

@@ -1057,6 +1057,16 @@
                 (if (%%fx< (%%fx+ n 1) len) (%%string->symbol (%%substring str (%%fx+ n 1) len)) #f)))))))
 
 
+(jazz.define-method (jazz.lookup-analyse (jazz.Jazz-Walker walker) declaration symbol-src referenced-declaration)
+  (if (and (%%is? declaration jazz.Method-Declaration)
+           (%%eq? (%%get-method-declaration-propagation declaration) 'final)
+           (or (%%eq? (jazz.source-code symbol-src) 'self)
+               (%%is? referenced-declaration jazz.Slot-Declaration)
+               (%%is? referenced-declaration jazz.Method-Declaration)))
+      (let ((data (jazz.get-analysis-data (%%get-declaration-locator declaration))))
+        (%%set-analysis-data-declaration-references data (%%cons referenced-declaration (%%get-analysis-data-declaration-references data))))))
+
+
 ;;;
 ;;;; Assignment
 ;;;
@@ -2054,6 +2064,10 @@
             ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
              (jazz.walk-error walker resume declaration form-src "Interface method must be virtual: {s}" name))
             (else
+             (if (and (jazz.analysis-mode?)
+                      (%%eq? (%%get-method-declaration-propagation new-declaration) 'final))
+                 (let ((data (jazz.get-analysis-data (%%get-declaration-locator new-declaration))))
+                   (%%set-analysis-data-declaration-references data '())))
              (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                (let ((body-expression
                        (cond (root-category-declaration

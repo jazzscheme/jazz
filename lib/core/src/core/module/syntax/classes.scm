@@ -470,6 +470,7 @@
 (jazz.define-virtual (jazz.validate-proclaim (jazz.Walker walker) resume declaration environment form-src))
 (jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments form-src))
 (jazz.define-virtual (jazz.runtime-export (jazz.Walker walker) declaration))
+(jazz.define-virtual (jazz.lookup-analyse (jazz.Walker walker) declaration symbol-src referenced-declaration))
 
 
 ;; provide virtual access to some walker slots via the module-declaration
@@ -1111,6 +1112,16 @@
 
 (jazz.define-class jazz.Time-Special jazz.Expression (type source) jazz.Object-Class jazz.allocate-time
   ((expressions %%get-time-special-expressions ())))
+
+
+;;;
+;;;; Analysis Data
+;;;
+
+
+(jazz.define-class jazz.Analysis-Data jazz.Object () jazz.Object-Class jazz.allocate-analysis-data
+  ((autoload-reference     %%get-analysis-data-autoload-reference     %%set-analysis-data-autoload-reference)
+   (declaration-references %%get-analysis-data-declaration-references %%set-analysis-data-declaration-references)))
 
 
 ;;;

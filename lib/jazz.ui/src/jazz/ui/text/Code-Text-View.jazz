@@ -295,8 +295,11 @@
               ((file? form)
                (edit-document~ appl form workspace: (edition-workspace)))
               (else
-               (let ((form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
-                 (edit-definitions~ appl form workspace: (edition-workspace) history-item: (current-history-item) context: (get-context))))))))
+               (let ((item (current-history-item))
+                     (form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
+                 (if (composite-name? form)
+                     (edit-composite appl item form)
+                   (edit-definitions~ appl form workspace: (edition-workspace) history-item: item context: (get-context)))))))))
 
   
   (method (on-edit-references evt)
@@ -332,13 +335,15 @@
                (let* ((appl (get-application))
                       (cataloguer (get-cataloguer~ appl)))
                  (when cataloguer
-                   (let* ((item (current-history-item))
-                          (form (standardize-form (if (keyword? form) (keyword->symbol form) form)))
-                          (list (get-coalesced-definitions~ cataloguer form context: (get-context))))
-                     (case (length list)
-                       ((0) (bell))
-                       ((1) (add-history~ appl item) (edit~ (car list)))
-                       (else (track-popup-menu (new Definitions-Menu history-item: item definitions: list) pos)))))))))))
+                   (let ((item (current-history-item))
+                         (form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
+                     (if (composite-name? form)
+                         (edit-composite appl item form)
+                       (let ((list (get-coalesced-definitions~ cataloguer form context: (get-context))))
+                         (case (length list)
+                           ((0) (bell))
+                           ((1) (add-history~ appl item) (edit~ (car list)))
+                           (else (track-popup-menu (new Definitions-Menu history-item: item definitions: list) pos)))))))))))))
 
 
   (method protected (edit-references pos)
@@ -354,6 +359,36 @@
                 ((0) (bell))
                 ((1) (add-history~ appl item) (edit-reference~ (car list) form))
                 (else (track-popup-menu (new References-Menu history-item: item target: form definitions: list) pos)))))))))
+  
+  
+  (definition (edit-composite appl item form)
+    (let ((entry (locator->entry form)))
+      (if (not entry)
+          (bell)
+        (add-history~ appl item)
+        (edit~ entry))))
+
+  
+  (definition (locator->entry locator)
+    (define (child definition name)
+      (if (null? name)
+          definition
+        (let ((def (find-definition~ definition (symbol->string (car name)))))
+          (if def
+              (child def (cdr name))
+            #f))))
+    
+    (let ((cataloguer (get-cataloguer~ (get-application))))
+      (let (iterate (scan (reverse (split-identifier locator)))
+                    (name '()))
+        (if (not-null? scan)
+            (let ((root (apply compose-name (reverse scan))))
+              (let ((definition (get-definition~ cataloguer root)))
+                (if definition
+                    (or (child definition name)
+                        (iterate (cdr scan) (cons (car scan) name)))
+                  (iterate (cdr scan) (cons (car scan) name)))))
+          #f))))
 
   
   ;;;

@@ -70,7 +70,8 @@
   (make-parameter #f))
 
 
-(define jazz.autoload-references
+;; declarations analysis table
+(define jazz.analysis-data
   (%%make-table test: eq?))
 
 
@@ -453,7 +454,7 @@
       (let ((hits-table (jazz.get-lexical-binding-hits declaration)))
         (%%table-set! hits-table (%%get-declaration-locator source-declaration) source-declaration))
       (%%when (%%is? declaration jazz.Autoload-Declaration)
-        (%%table-set! jazz.autoload-references (%%get-declaration-locator declaration) declaration))))
+        (%%set-analysis-data-autoload-reference (jazz.get-analysis-data (%%get-declaration-locator declaration)) declaration))))
   
   (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
     (add-to-module-references found)
@@ -5087,6 +5088,28 @@
 
 
 ;;;
+;;;; Analysis Data
+;;;
+
+
+(jazz.define-class-runtime jazz.Analysis-Data)
+
+
+(define (jazz.new-analysis-data)
+  (jazz.allocate-analysis-data jazz.Analysis-Data #f #f))
+
+
+(jazz.encapsulate-class jazz.Analysis-Data)
+
+
+(define (jazz.get-analysis-data locator)
+  (or (%%table-ref jazz.analysis-data locator #f)
+      (let ((data (jazz.new-analysis-data)))
+        (%%table-set! jazz.analysis-data locator data)
+        data)))
+
+
+;;;
 ;;;; Statement
 ;;;
 
@@ -5476,13 +5499,22 @@
                  (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz.source-code (syntactic-closure-form symbol-src)))
                  ;;(lookup walker environment (jazz.source-code (syntactic-closure-form symbol-src)))
                  )
-             (lookup walker environment (jazz.source-code symbol-src)))))
+           (lookup walker environment (jazz.source-code symbol-src)))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
         (validate-compatibility walker declaration referenced-declaration))
     (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((module (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration module referenced-declaration)))
+    (if (jazz.analysis-mode?)
+        (jazz.lookup-analyse walker declaration symbol-src referenced-declaration))
     referenced-declaration))
+
+
+(jazz.define-virtual-runtime (jazz.lookup-analyse (jazz.Walker walker) declaration symbol-src referenced-declaration))
+
+
+(jazz.define-method (jazz.lookup-analyse (jazz.Walker walker) declaration symbol-src referenced-declaration)
+  #f)
 
 
 ;;;

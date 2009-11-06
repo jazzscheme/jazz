@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Libraries
+;;;; Autoload Support
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,49 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.initialize
+;; The global autoload table is a temporary solution to Jazz needing global access
+;; to classes by name for forms. This problem has to be well thought out...
 
 
-(jazz.initialize-primitive-patterns))
+(unit protected core.module.runtime.autoload
+
+
+(define jazz.Autoloads
+  (%%make-table test: eq?))
+
+
+(define (jazz.get-autoloads)
+  jazz.Autoloads)
+
+
+(define (jazz.get-autoload name)
+  (%%table-ref jazz.Autoloads name #f))
+
+
+(define (jazz.set-autoload name unit-name loader)
+  (%%table-set! jazz.Autoloads name (%%cons unit-name loader)))
+
+
+(define (jazz.require-autoload name)
+  (or (jazz.get-autoload name)
+      (jazz.error "Unable to find autoload {s}" name)))
+
+
+(define (jazz.register-autoload name unit-name loader)
+  (let ((actual (jazz.get-autoload name)))
+    (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
+        (jazz.set-autoload name unit-name loader)
+      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name)))
+  (let ((package (%%resource-package (jazz.requested-unit-resource))))
+    (jazz.register-package-autoload package name unit-name loader)))
+
+
+(define (jazz.autoload name)
+  (let ((autoload-info (jazz.require-autoload name)))
+    ((%%cdr autoload-info))))
+
+
+(define (jazz.autoreload name)
+  (let ((autoload-info (jazz.require-autoload name)))
+    (jazz.reload-unit (%%car autoload-info))
+    ((%%cdr autoload-info)))))

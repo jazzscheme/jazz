@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.dialect.syntax.ecase scheme
+(module protected jazz.dialect.syntax.ecase scheme
 
 
 (import (jazz.dialect.kernel))

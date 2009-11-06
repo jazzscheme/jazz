@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Doc
+;;;; Modules
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.doc.doc.Library-Doc jazz
+(unit core.module
 
 
-(import (jazz.doc))
-
-
-(class Library-Doc extends Doc))
+(require (core.class)
+         (core.generic)
+         (core.exception)
+         
+         (core.module.syntax)
+         (core.module.runtime)
+         (core.module.initialize)))

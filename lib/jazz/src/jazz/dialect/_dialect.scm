@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.dialect scheme
+(module protected jazz.dialect scheme
 
 
-(require (core.library)
+(require (core.module)
          (jazz.dialect.core (phase syntax))
          (jazz.dialect.classes (phase syntax))
          (jazz.dialect.dialect))

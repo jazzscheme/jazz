@@ -116,7 +116,7 @@
 (jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Definition-Declaration declaration) walker resume source-declaration symbol-src)
   (nextmethod declaration walker resume source-declaration symbol-src)
   (%%when (%%neq? (%%get-declaration-toplevel declaration) (%%get-declaration-toplevel source-declaration))
-    (jazz.walk-error walker resume source-declaration symbol-src "Illegal inter-library assignment to: {s}" (%%get-lexical-binding-name declaration))))
+    (jazz.walk-error walker resume source-declaration symbol-src "Illegal inter-module assignment to: {s}" (%%get-lexical-binding-name declaration))))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Definition-Declaration declaration))
@@ -304,9 +304,9 @@
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
-          (let ((same-library? (%%eq? (%%get-declaration-toplevel class-declaration)
-                                      (%%get-declaration-toplevel ascendant))))
-            (%%table-merge! private (%%get-access-lookup ascendant (if same-library? jazz.private-access jazz.public-access)) #t)))
+          (let ((same-module? (%%eq? (%%get-declaration-toplevel class-declaration)
+                                     (%%get-declaration-toplevel ascendant))))
+            (%%table-merge! private (%%get-access-lookup ascendant (if same-module? jazz.private-access jazz.public-access)) #t)))
       (for-each (lambda (interface)
                   (%%table-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
@@ -1312,7 +1312,7 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (if (and (jazz.warnings?) (jazz.get-library-warn? (%%get-declaration-toplevel declaration) 'optimizations))
+              (if (and (jazz.warnings?) (jazz.get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations))
                   (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
               #f)
         method-declaration)))
@@ -1562,7 +1562,7 @@
 
 (define (jazz.walk-generic-declaration walker resume declaration environment form-src)
   (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Library-Declaration)
+    (if (%%class-is? declaration jazz.Module-Declaration)
         (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
               (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
                                                  (jazz.lookup-reference walker resume declaration environment dynamic-parameter-type))
@@ -1572,7 +1572,7 @@
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))
-      (jazz.walk-error walker resume declaration form-src "Generics can only be defined at the library level: {s}" name))))
+      (jazz.walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name))))
 
 
 (define (jazz.walk-generic walker resume declaration environment form-src)
@@ -1631,7 +1631,7 @@
                     root?))))))
   
   (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Library-Declaration)
+    (if (%%class-is? declaration jazz.Module-Declaration)
         (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access declaration)))
           (if (%%class-is? generic-declaration jazz.Generic-Declaration)
               (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
@@ -1643,7 +1643,7 @@
                   (%%set-declaration-source new-declaration form-src)
                   new-declaration))
             (jazz.walk-error walker resume declaration form-src "Cannot find generic declaration for {s}" (%%cons name parameters))))
-      (jazz.walk-error walker resume declaration form-src "Specifics can only be defined at the library level: {s}" name))))
+      (jazz.walk-error walker resume declaration form-src "Specifics can only be defined at the module level: {s}" name))))
 
 
 ;;;
@@ -1707,7 +1707,7 @@
 
 (define (jazz.walk-%class-declaration walker resume declaration environment form-src)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Library-Declaration)
+    (if (%%class-is? declaration jazz.Module-Declaration)
         ;; explicit test on Object-Class is to break circularity
         (receive (ascendant ascendant-relation ascendant-base) (jazz.lookup-ascendant walker resume declaration environment ascendant-name)
           (let ((metaclass (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name))
@@ -1720,7 +1720,7 @@
                 (let ((new-environment (%%cons effective-declaration environment)))
                   (jazz.walk-declarations walker resume effective-declaration new-environment body)
                   effective-declaration)))))
-      (jazz.walk-error walker resume declaration form-src "Classes can only be defined at the library level: {s}" name))))
+      (jazz.walk-error walker resume declaration form-src "Classes can only be defined at the module level: {s}" name))))
 
 
 (define (jazz.walk-%class walker resume declaration environment form-src)
@@ -1800,7 +1800,7 @@
 (define (jazz.walk-interface-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (receive (name type access compatibility implementor metaclass-name ascendant-names attributes body) (jazz.parse-interface walker resume declaration (%%cdr form))
-      (if (%%class-is? declaration jazz.Library-Declaration)
+      (if (%%class-is? declaration jazz.Module-Declaration)
           (let ((metaclass (if (or (jazz.unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz.lookup-reference walker resume declaration environment metaclass-name)))
                 (ascendants (if (jazz.unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz.lookup-reference walker resume declaration environment ascendant-name)) (jazz.listify ascendant-names)))))
             (let ((new-declaration (or (jazz.find-child-declaration declaration name)
@@ -1811,7 +1811,7 @@
                 (let ((new-environment (%%cons effective-declaration environment)))
                   (jazz.walk-declarations walker resume effective-declaration new-environment body)
                   effective-declaration))))
-        (jazz.walk-error walker resume declaration form-src "Interfaces can only be defined at the library level: {s}" name)))))
+        (jazz.walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)))))
 
 
 (define (jazz.walk-interface walker resume declaration environment form-src)
@@ -2186,9 +2186,9 @@
 
 
 (jazz.define-method (jazz.validate-proclaim (jazz.Jazz-Walker walker) resume declaration environment form-src)
-  (if (and (%%not (%%class-is? declaration jazz.Library-Declaration))
+  (if (and (%%not (%%class-is? declaration jazz.Module-Declaration))
            (%%not (%%class-is? declaration jazz.Category-Declaration)))
-      (jazz.walk-error walker resume declaration form-src "For now, proclaim can only be used at the library or category level")))
+      (jazz.walk-error walker resume declaration form-src "For now, proclaim can only be used at the module or category level")))
 
 
 ;;;
@@ -2716,7 +2716,7 @@
 
 (define (jazz.walk-c-type-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr (%%desourcify form-src)))
-    (if (%%class-is? declaration jazz.Library-Declaration)
+    (if (%%class-is? declaration jazz.Module-Declaration)
         (receive (kind expansion base-type-declaration inclusions) (jazz.resolve-c-type walker resume declaration environment c-type)
           (let ((inclusions (if declare
                                 (if (%%string? expansion)
@@ -2729,7 +2729,7 @@
                 (%%set-c-type-declaration-pointer-types base-type-declaration (%%cons new-declaration (%%get-c-type-declaration-pointer-types base-type-declaration))))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 effective-declaration))))
-      (jazz.walk-error walker resume declaration form-src "C types can only be defined at the library level: {s}" name))))
+      (jazz.walk-error walker resume declaration form-src "C types can only be defined at the module level: {s}" name))))
 
 
 (define (jazz.walk-c-type walker resume declaration environment form-src)
@@ -2787,8 +2787,8 @@
 
 (define (jazz.expand-c-type-reference walker resume declaration environment type)
   (receive (kind expansion base-type-declaration inclusions) (jazz.resolve-c-type walker resume declaration environment type)
-    (let ((library-declaration (%%get-declaration-toplevel declaration)))
-      (%%set-library-declaration-inclusions library-declaration (%%append (%%get-library-declaration-inclusions library-declaration) inclusions))
+    (let ((module-declaration (%%get-declaration-toplevel declaration)))
+      (%%set-module-declaration-inclusions module-declaration (%%append (%%get-module-declaration-inclusions module-declaration) inclusions))
       expansion)))
 
 

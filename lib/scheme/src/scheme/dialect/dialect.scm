@@ -78,7 +78,7 @@
 (jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Define-Declaration declaration) walker resume source-declaration symbol-src)
   (nextmethod declaration walker resume source-declaration symbol-src)
   (%%when (%%neq? (%%get-declaration-toplevel declaration) (%%get-declaration-toplevel source-declaration))
-    (jazz.walk-error walker resume source-declaration symbol-src "Illegal inter-library assignment to: {s}" (%%get-lexical-binding-name declaration))))
+    (jazz.walk-error walker resume source-declaration symbol-src "Illegal inter-module assignment to: {s}" (%%get-lexical-binding-name declaration))))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Define-Declaration declaration))

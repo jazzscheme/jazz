@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Libraries
+;;;; Modules
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.syntax.library
+(unit protected core.module.initialize
 
 
-(jazz.define-syntax library
-  (lambda (form-src)
-    (jazz.expand-library-source (%%cdr (jazz.source-code form-src))))))
+(jazz.initialize-primitive-patterns))

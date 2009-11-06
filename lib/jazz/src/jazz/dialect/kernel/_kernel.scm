@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.dialect.kernel scheme
+(module protected jazz.dialect.kernel scheme
 
 
 ;;;
@@ -556,10 +556,10 @@
 (native jazz.reload-unit)
 (native jazz.get-load-mutex)
 (native jazz.get-load-stack)
-(native jazz.get-library)
-(native jazz.require-library)
-(native jazz.library-get)
-(native jazz.library-ref)
+(native jazz.get-module)
+(native jazz.require-module)
+(native jazz.module-get)
+(native jazz.module-ref)
 (native jazz.walk-for)
 (native jazz.register-service)
 (native jazz.get-service)

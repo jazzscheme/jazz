@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jazz.dialect.syntax.either scheme
+(module protected jazz.dialect.syntax.either scheme
 
 
 (import (jazz.dialect.kernel)

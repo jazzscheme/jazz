@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Runtime
+;;;; Module Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,60 +35,60 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.runtime
+(unit protected core.module.runtime
 
 
-(require (core.library.runtime.autoload))
-
-
-;;;
-;;;; Library
-;;;
-
-
-(jazz.define-class jazz.Library jazz.Object () jazz.Object-Class jazz.allocate-library
-  ((name    %%get-library-name    ())
-   (exports %%get-library-exports ())))
-
-
-(jazz.define-class-runtime jazz.Library)
-
-
-(define (jazz.new-library name exports)
-  (jazz.allocate-library jazz.Library name exports))
-
-
-(jazz.encapsulate-class jazz.Library)
+(require (core.module.runtime.autoload))
 
 
 ;;;
-;;;; Libraries
+;;;; Module
 ;;;
 
 
-(define jazz.Libraries
+(jazz.define-class jazz.Module jazz.Object () jazz.Object-Class jazz.allocate-module
+  ((name    %%get-module-name    ())
+   (exports %%get-module-exports ())))
+
+
+(jazz.define-class-runtime jazz.Module)
+
+
+(define (jazz.new-module name exports)
+  (jazz.allocate-module jazz.Module name exports))
+
+
+(jazz.encapsulate-class jazz.Module)
+
+
+;;;
+;;;; Modules
+;;;
+
+
+(define jazz.Modules
   (%%make-table test: eq?))
 
 
-(define (jazz.register-library name exports-list)
-  (let ((library (jazz.new-library name (%%list->table exports-list test: eq?))))
-    (%%table-set! jazz.Libraries name library)
-    library))
+(define (jazz.register-module name exports-list)
+  (let ((module (jazz.new-module name (%%list->table exports-list test: eq?))))
+    (%%table-set! jazz.Modules name module)
+    module))
 
 
-(define (jazz.get-library name)
+(define (jazz.get-module name)
   (jazz.load-unit name)
-  (%%table-ref jazz.Libraries name #f))
+  (%%table-ref jazz.Modules name #f))
 
 
-(define (jazz.require-library name)
-  (or (jazz.get-library name)
-      (jazz.error "Unknown public library: {s}" name)))
+(define (jazz.require-module name)
+  (or (jazz.get-module name)
+      (jazz.error "Unknown public module: {s}" name)))
 
 
-(define (jazz.library-get library-name name #!key (not-found #f))
-  (let ((library (jazz.require-library library-name)))
-    (let ((info (%%table-ref (%%get-library-exports library) name #f)))
+(define (jazz.module-get module-name name #!key (not-found #f))
+  (let ((module (jazz.require-module module-name)))
+    (let ((info (%%table-ref (%%get-module-exports module) name #f)))
       (if info
           (if (%%symbol? info)
               (jazz.global-value info)
@@ -98,12 +98,12 @@
         not-found))))
 
 
-(define jazz.library-ref
+(define jazz.module-ref
   (let ((not-found (box #f)))
-    (lambda (library-name name)
-      (let ((obj (jazz.library-get library-name name not-found: not-found)))
+    (lambda (module-name name)
+      (let ((obj (jazz.module-get module-name name not-found: not-found)))
         (if (%%eq? obj not-found)
-            (jazz.error "Unable to find '{s} in: {s}" name library-name)
+            (jazz.error "Unable to find '{s} in: {s}" name module-name)
           obj)))))
 
 

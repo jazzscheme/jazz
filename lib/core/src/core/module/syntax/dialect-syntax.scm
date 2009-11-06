@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.syntax.dialect-syntax
+(unit protected core.module.syntax.dialect-syntax
 
 
 (jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class ()

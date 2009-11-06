@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library scheme core
+(module scheme core
 
 
 (export (scheme.dialect)

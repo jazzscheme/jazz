@@ -1008,7 +1008,7 @@
 
 
 (define (jazz.setup-debuggee)
-  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.module)
   (jazz.load-unit 'jazz)
   (jazz.load-unit 'jazz.debuggee)
   (jazz.load-unit 'jazz.debuggee.Debuggee-Frame)
@@ -1167,7 +1167,7 @@
           #f))))
 
 
-(define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f)  (library #f))
+(define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library #f))
   (%%table-set! jazz.Products-Table name (%%make-product name title icon run test update build library (jazz.find-product-descriptor name))))
 
 
@@ -1285,7 +1285,7 @@
           (build-library (%%product-build-library product))
           (descriptor (%%product-descriptor product)))
       (jazz.feedback "make {a}" name)
-      (jazz.load-unit 'core.library)
+      (jazz.load-unit 'core.module)
       (jazz.load-unit 'core.unit.builder)
       (if build
           (build descriptor)
@@ -1870,10 +1870,10 @@
 
 
 (jazz.define-macro (jazz.define-literal name contructor-name)
-  (receive (contructor-library ignore) (jazz.split-composite contructor-name)
+  (receive (contructor-module ignore) (jazz.split-composite contructor-name)
     `(jazz.register-literal-constructor ',name ',contructor-name
        (lambda (arguments)
-         (jazz.load-unit ',contructor-library)
+         (jazz.load-unit ',contructor-module)
          (%%apply (jazz.global-value ',contructor-name) arguments)))))
 
 

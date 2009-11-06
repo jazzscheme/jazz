@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz scheme
+(module jazz scheme
 
 
 (export (scheme)

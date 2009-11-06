@@ -320,10 +320,10 @@
                   (begin
                     (display " " output)
                     (write (%%car references) output)
-                    (for-each (lambda (library-references)
+                    (for-each (lambda (module-references)
                                 (newline output)
                                 (display "              " output)
-                                (write library-references output))
+                                (write module-references output))
                               (%%cdr references))))))
         (display "))" output)
         (newline output)))))

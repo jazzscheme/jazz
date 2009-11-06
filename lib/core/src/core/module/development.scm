@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit core.library.development
+(unit core.module.development
 
 
 (require (core.base))
@@ -77,7 +77,7 @@
                      (jazz.requested-unit-resource src))
         (case kind
           ((unit) (jazz.expand-unit-source rest))
-          ((library) (jazz.expand-library-source rest)))))))
+          ((module) (jazz.expand-module-source rest)))))))
 
 
 (define (jazz.expand unit-name . rest)
@@ -107,5 +107,5 @@
 ;;;
 
 
-(define (jazz.lookup library-name name access)
-  (jazz.lookup-declaration (jazz.walk-unit library-name) name access #f)))
+(define (jazz.lookup module-name name access)
+  (jazz.lookup-declaration (jazz.walk-unit module-name) name access #f)))

@@ -49,17 +49,17 @@
 
 
 (define (jazz.compile-unit . rest)
-  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.module)
   (jazz.load-unit 'core.unit.builder)
   (%%apply jazz.compile-unit-internal rest))
 
 (define (jazz.build-unit . rest)
-  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.module)
   (jazz.load-unit 'core.unit.builder)
   (%%apply jazz.build-unit-internal rest))
 
 (define (jazz.get-subunit-names . rest)
-  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.module)
   (jazz.load-unit 'core.unit.builder)
   (%%apply jazz.get-subunit-names-internal rest))
 
@@ -148,7 +148,7 @@
 
 
 ;;;
-;;;; DynLibs
+;;;; Libraries
 ;;;
 
 (define jazz.currently-loading-library-procs)
@@ -266,7 +266,7 @@
             (debugger (jazz.get-option "debugger" options))
             (link (symbol-argument (jazz.get-option "link" options)))
             (jobs (number-argument (jazz.get-option "jobs" options))))
-        ;; until the library syntax doesn't generate global defines
+        ;; until the module syntax doesn't generate global defines
         (set! ##allow-inner-global-define? #t)
         (set! jazz.debugger debugger)
         (set! jazz.link (or link (jazz.build-link)))

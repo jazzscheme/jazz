@@ -40,7 +40,7 @@
 
 
 (require (core.base)
-         (core.library))
+         (core.module))
 
 
 ;;;
@@ -54,30 +54,30 @@
       (let ((manifest (jazz.load-manifest manifest-filepath)))
         (and manifest (%%manifest-references manifest)))))
   
-  (define (library-references-valid? lst)
-    (let ((library-locator (%%car lst))
-          (library-references (%%cdr lst)))
-      (let ((library-declaration (jazz.outline-library library-locator error?: #f)))
-        (and library-declaration
+  (define (module-references-valid? lst)
+    (let ((module-locator (%%car lst))
+          (module-references (%%cdr lst)))
+      (let ((module-declaration (jazz.outline-module module-locator error?: #f)))
+        (and module-declaration
              (jazz.every? (lambda (symbol)
                             (let ((found (if (%%pair? symbol)
                                              (let iter ((symbols symbol)
-                                                        (declaration library-declaration))
+                                                        (declaration module-declaration))
                                                   (cond ((%%not declaration)
                                                          #f)
                                                         ((%%pair? symbols)
                                                          (iter (%%cdr symbols) (jazz.find-declaration declaration (%%car symbols))))
                                                         (else
                                                          declaration)))
-                                           (jazz.find-declaration library-declaration symbol))))
+                                           (jazz.find-declaration module-declaration symbol))))
                               (and found
-                                   (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) library-locator)
+                                   (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator)
                                    (%%neq? (%%get-declaration-access found) 'private))))
-                          library-references)))))
+                          module-references)))))
   
   (let ((references (get-manifest-references)))
     (if references
-        (jazz.every? library-references-valid? references)
+        (jazz.every? module-references-valid? references)
       #f)))
 
 
@@ -117,10 +117,10 @@
                   #;(jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
-                  (references (let ((library-declaration (jazz.get-catalog-entry manifest-name)))
-                                (cond ((%%is? library-declaration jazz.Library-Declaration)
-                                       (jazz.generate-reference-list library-declaration))
-                                      ((%%is? library-declaration jazz.Unit-Declaration)
+                  (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
+                                (cond ((%%is? module-declaration jazz.Module-Declaration)
+                                       (jazz.generate-reference-list module-declaration))
+                                      ((%%is? module-declaration jazz.Unit-Declaration)
                                        '())
                                       (else ; pure scheme
                                        '())))))
@@ -201,11 +201,11 @@
                     (if (jazz.is? declaration jazz.Unit-Declaration)
                         (for-each process-require (%%get-unit-declaration-requires declaration))
                       (begin
-                        (for-each process-require (%%get-library-declaration-requires declaration))
+                        (for-each process-require (%%get-module-declaration-requires declaration))
                         (for-each (lambda (export)
-                                    (let ((reference (%%get-library-invoice-library export)))
+                                    (let ((reference (%%get-module-invoice-module export)))
                                       (if reference
                                           (let ((name (%%get-declaration-reference-name reference))
-                                                (phase (%%get-library-invoice-phase export)))
+                                                (phase (%%get-module-invoice-phase export)))
                                             (iter name phase #f)))))
-                                  (%%get-library-declaration-exports declaration)))))))))))))
+                                  (%%get-module-declaration-exports declaration)))))))))))))

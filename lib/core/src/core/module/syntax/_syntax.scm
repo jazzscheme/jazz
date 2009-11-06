@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Syntax
+;;;; Module Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.syntax
+(unit protected core.module.syntax
 
 
-(require (core.library.syntax.classes)
-         (core.library.syntax.dialect-syntax)
-         (core.library.syntax.dialect)
-         (core.library.syntax.walker)
-         (core.library.syntax.library)))
+(require (core.module.syntax.classes)
+         (core.module.syntax.dialect-syntax)
+         (core.module.syntax.dialect)
+         (core.module.syntax.walker)
+         (core.module.syntax.module)))

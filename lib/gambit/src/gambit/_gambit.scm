@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library gambit scheme
+(module gambit scheme
 
 
 (export (scheme)

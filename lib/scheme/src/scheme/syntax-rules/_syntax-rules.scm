@@ -1,5 +1,5 @@
 
-(library scheme.syntax-rules scheme
+(module scheme.syntax-rules scheme
 
 (native private jazz.generate-symbol)
 (native private jazz.source?)

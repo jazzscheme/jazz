@@ -59,6 +59,6 @@
 
 (jazz.register-reader-extension "jazz"
   (lambda ()
-    (jazz.load-unit 'core.library)
+    (jazz.load-unit 'core.module)
     (jazz.load-unit 'jazz.dialect)
     (jazz.global-value 'jazz.jazz-readtable))))

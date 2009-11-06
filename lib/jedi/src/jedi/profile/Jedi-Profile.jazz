@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library protected jedi.profile.Jedi-Profile jazz
+(module protected jedi.profile.Jedi-Profile jazz
 
 
 (import (jazz.designer)
@@ -483,27 +483,27 @@
         (create-directories~ reference-dir)
         (call-with-output-file (list path: (parse~ (new-file~ reference-dir (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
           (lambda (port)
-            (let ((node (parse-jml (extract-unit/library-doc name units))))
+            (let ((node (parse-jml (extract-unit/module-doc name units))))
               (pretty-print~ node port)
               (newline port)))))))
   
   
-  (method (extract-unit/library-doc name units)
+  (method (extract-unit/module-doc name units)
     (load-unit 'core.unit.builder)
     (let ((unit (outline-unit (if (null? units) name (car units)))))
       (typecase unit
         ((Unit-Declaration) (extract-unit-doc name unit))
-        ((Library-Declaration) (extract-library-doc name unit)))))
+        ((Module-Declaration) (extract-module-doc name unit)))))
   
   
   (method (extract-unit-doc name declaration)
     `(<Unit-Doc> name: ,name title: ,(symbol->string name)))
   
   
-  (method (extract-library-doc name declaration)
+  (method (extract-module-doc name declaration)
     (let ((declarations (filter-access/compatibility-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
       (let ((sorted (sort string<? declarations key: (lambda (decl) (symbol->string (get-name~ decl))))))
-        `(<Library-Doc> name: ,name title: ,(symbol->string name)
+        `(<Module-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
   
   
@@ -623,7 +623,7 @@
           ,@(if (not rest) '() (list rest: (extract-name rest)))))))
   
   
-  ;; temp hack to obtain the same format as when sub-libraries are well integrated
+  ;; temp hack to obtain the same format as when sub-modules are well integrated
   (definition (extract-locator declaration)
     (let ((locator (get-locator~ declaration)))
       (let ((names (reverse! (split-identifier locator))))

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.library.syntax.classes
+(unit protected core.module.syntax.classes
 
 
 ;;;
@@ -110,15 +110,15 @@
    (declaration %%get-declaration-reference-declaration %%set-declaration-reference-declaration)))
 
 
-(jazz.define-virtual (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration))
+(jazz.define-virtual (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) module-declaration))
 
 
 ;;;
-;;;; Library Reference
+;;;; Module Reference
 ;;;
 
 
-(jazz.define-class jazz.Library-Reference jazz.Declaration-Reference (name declaration) jazz.Object-Class jazz.allocate-library-reference
+(jazz.define-class jazz.Module-Reference jazz.Declaration-Reference (name declaration) jazz.Object-Class jazz.allocate-module-reference
   ())
 
 
@@ -128,7 +128,7 @@
 
 
 (jazz.define-class jazz.Export-Reference jazz.Declaration-Reference (name declaration) jazz.Object-Class jazz.allocate-export-reference
-  ((library-reference %%get-export-reference-library-reference ())))
+  ((module-reference %%get-export-reference-module-reference ())))
 
 
 ;;;
@@ -136,7 +136,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Reference jazz.Export-Reference (name declaration library-reference) jazz.Object-Class jazz.allocate-autoload-reference
+(jazz.define-class jazz.Autoload-Reference jazz.Export-Reference (name declaration module-reference) jazz.Object-Class jazz.allocate-autoload-reference
   ())
 
 
@@ -165,33 +165,34 @@
 
 
 ;;;
-;;;; Library
+;;;; Module
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body) jazz.Object-Class jazz.allocate-library-declaration
-  ((walker          %%get-library-declaration-walker          %%set-library-declaration-walker)
-   (dialect-name    %%get-library-declaration-dialect-name    ())
-   (dialect-invoice %%get-library-declaration-dialect-invoice ())
-   (requires        %%get-library-declaration-requires        %%set-library-declaration-requires)
-   (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
-   (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
-   (proclaims       %%get-library-declaration-proclaims       ())))
+(jazz.define-class jazz.Module-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body) jazz.Object-Class jazz.allocate-module-declaration
+  ((walker          %%get-module-declaration-walker          %%set-module-declaration-walker)
+   (dialect-name    %%get-module-declaration-dialect-name    ())
+   (dialect-invoice %%get-module-declaration-dialect-invoice ())
+   (requires        %%get-module-declaration-requires        %%set-module-declaration-requires)
+   (exports         %%get-module-declaration-exports         %%set-module-declaration-exports)
+   (imports         %%get-module-declaration-imports         %%set-module-declaration-imports)
+   (proclaims       %%get-module-declaration-proclaims       ())))
+
 
 ;;;
-;;;; Library Invoice
+;;;; Module Invoice
 ;;;
 
 
-(jazz.define-class jazz.Library-Invoice jazz.Object () jazz.Object-Class ()
-  ((name       %%get-library-invoice-name    ())
-   (library    %%get-library-invoice-library ())
-   (phase      %%get-library-invoice-phase   ())
-   (version    %%get-library-invoice-version ())
-   (only       %%get-library-invoice-only    ())
-   (except     %%get-library-invoice-except  ())
-   (prefix     %%get-library-invoice-prefix  ())
-   (rename     %%get-library-invoice-rename  ())))
+(jazz.define-class jazz.Module-Invoice jazz.Object () jazz.Object-Class ()
+  ((name       %%get-module-invoice-name    ())
+   (module     %%get-module-invoice-module ())
+   (phase      %%get-module-invoice-phase   ())
+   (version    %%get-module-invoice-version ())
+   (only       %%get-module-invoice-only    ())
+   (except     %%get-module-invoice-except  ())
+   (prefix     %%get-module-invoice-prefix  ())
+   (rename     %%get-module-invoice-rename  ())))
 
 
 ;;;
@@ -199,7 +200,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Invoice jazz.Library-Invoice (name library phase version only except prefix rename) jazz.Object-Class jazz.allocate-export-invoice
+(jazz.define-class jazz.Export-Invoice jazz.Module-Invoice (name module phase version only except prefix rename) jazz.Object-Class jazz.allocate-export-invoice
   ((autoload %%get-export-invoice-autoload %%set-export-invoice-autoload)))
 
 
@@ -208,7 +209,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Import-Invoice jazz.Library-Invoice (name library phase version only except prefix rename) jazz.Object-Class jazz.allocate-import-invoice
+(jazz.define-class jazz.Import-Invoice jazz.Module-Invoice (name module phase version only except prefix rename) jazz.Object-Class jazz.allocate-import-invoice
   ((hit? %%get-import-invoice-hit? %%set-import-invoice-hit?)))
 
 
@@ -236,8 +237,8 @@
 
 
 (jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-autoload-declaration
-  ((library          %%get-autoload-declaration-library          ())
-   (exported-library %%get-autoload-declaration-exported-library ())
+  ((module           %%get-autoload-declaration-module           ())
+   (exported-module  %%get-autoload-declaration-exported-module  ())
    (declaration      %%get-autoload-declaration-declaration      %%set-autoload-declaration-declaration)))
 
 
@@ -471,23 +472,23 @@
 (jazz.define-virtual (jazz.runtime-export (jazz.Walker walker) declaration))
 
 
-;; provide virtual access to some walker slots via the library-declaration
-(define (%%get-library-declaration-literals lib-decl)
-  (%%get-walker-literals (%%get-library-declaration-walker lib-decl)))
-(define (%%set-library-declaration-literals lib-decl value)
-  (%%set-walker-literals (%%get-library-declaration-walker lib-decl) value))
-(define (%%get-library-declaration-variables lib-decl)
-  (%%get-walker-variables (%%get-library-declaration-walker lib-decl)))
-(define (%%get-library-declaration-references lib-decl)
-  (%%get-walker-references (%%get-library-declaration-walker lib-decl)))
-(define (%%get-library-declaration-inclusions lib-decl)
-  (%%get-walker-inclusions (%%get-library-declaration-walker lib-decl)))
-(define (%%set-library-declaration-inclusions lib-decl value)
-  (%%set-walker-inclusions (%%get-library-declaration-walker lib-decl) value))
-(define (%%get-library-declaration-autoloads lib-decl)
-  (%%get-walker-autoloads (%%get-library-declaration-walker lib-decl)))
-(define (%%set-library-declaration-autoloads lib-decl value)
-  (%%set-walker-autoloads (%%get-library-declaration-walker lib-decl) value))
+;; provide virtual access to some walker slots via the module-declaration
+(define (%%get-module-declaration-literals lib-decl)
+  (%%get-walker-literals (%%get-module-declaration-walker lib-decl)))
+(define (%%set-module-declaration-literals lib-decl value)
+  (%%set-walker-literals (%%get-module-declaration-walker lib-decl) value))
+(define (%%get-module-declaration-variables lib-decl)
+  (%%get-walker-variables (%%get-module-declaration-walker lib-decl)))
+(define (%%get-module-declaration-references lib-decl)
+  (%%get-walker-references (%%get-module-declaration-walker lib-decl)))
+(define (%%get-module-declaration-inclusions lib-decl)
+  (%%get-walker-inclusions (%%get-module-declaration-walker lib-decl)))
+(define (%%set-module-declaration-inclusions lib-decl value)
+  (%%set-walker-inclusions (%%get-module-declaration-walker lib-decl) value))
+(define (%%get-module-declaration-autoloads lib-decl)
+  (%%get-walker-autoloads (%%get-module-declaration-walker lib-decl)))
+(define (%%set-module-declaration-autoloads lib-decl value)
+  (%%set-walker-autoloads (%%get-module-declaration-walker lib-decl) value))
 
 
 ;;;

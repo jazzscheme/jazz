@@ -2076,23 +2076,23 @@
            (bottom 0)
            (together {}))
       (for-each-paragraph
-       (lambda (rank <fx> paragraph <Paragraph>)
-         (when (and (>= rank start) (< rank end))
-           (let* ((paragraph-top bottom)
-                  (string (get-string~ paragraph))
-                  (format (get-format~ paragraph))
-                  (height (get-height~ paragraph))
-                  (bot (+ bottom height)))
-             (if (<= bot (+ top page-height))
-                 (set! bottom bot)
-               (let ((effective-bottom (either together bottom)))
-                 (put~ pages (new Rect 0 top page-width effective-bottom))
-                 (set! top effective-bottom))
-               (set! bottom bot))
-             (when (and together (not (empty-string? string)))
-               (set! together {}))
-             (when (and (not together) (get-keep-with-next?~ format))
-               (set! together paragraph-top))))))
+        (lambda (rank <fx> paragraph <Paragraph>)
+          (when (and (>= rank start) (< rank end))
+            (let* ((paragraph-top bottom)
+                   (string (get-string~ paragraph))
+                   (format (get-format~ paragraph))
+                   (height (get-height~ paragraph))
+                   (bot (+ bottom height)))
+              (if (<= bot (+ top page-height))
+                  (set! bottom bot)
+                (let ((effective-bottom (either together bottom)))
+                  (put~ pages (new Rect 0 top page-width effective-bottom))
+                  (set! top effective-bottom))
+                (set! bottom bot))
+              (when (and together (not (empty-string? string)))
+                (set! together {}))
+              (when (and (not together) (get-keep-with-next?~ format))
+                (set! together paragraph-top))))))
       (put~ pages (new Rect 0 top page-width bottom))
       (get-output~ pages)))
   
@@ -3452,9 +3452,11 @@
         (invalidate-drawing~ paragraph))))
   
   
-  (method public (for-each-paragraph proc (start: start 0) (end: end (get-length)))
-    (let ((paragraphs (get-paragraphs)))
-      (loop (for row from start below end)
+  (method public (for-each-paragraph proc (start: start 0) (end: end (get-limit)))
+    (let ((start (either start 0))
+          (end (either end (get-limit)))
+          (paragraphs (get-paragraphs)))
+      (loop (for row from start to end)
             (proc row (element paragraphs row)))))
   
   
@@ -3462,7 +3464,7 @@
     (let ((selection (get-selection)))
       (for-each-paragraph proc
                           start: (get-row~ (get-start~ selection))
-                          end: (+ (get-row~ (get-end~ selection)) 1))))
+                          end: (get-row~ (get-end~ selection)))))
   
   
   ;;;
@@ -3708,10 +3710,10 @@
   (method public (compute-width) <fx>
     (let ((width 0))
       (for-each-paragraph
-       (lambda (rank <fx> paragraph <Paragraph>)
-         (let ((w (compute-width~ paragraph)))
-           (when (> w width)
-             (set! width w)))))
+        (lambda (rank <fx> paragraph <Paragraph>)
+          (let ((w (compute-width~ paragraph)))
+            (when (> w width)
+              (set! width w)))))
       width))
   
   
@@ -4076,18 +4078,18 @@
       (when style
         (cond ((or (empty-selection?) span?)
                (for-each-paragraph
-                (lambda (row <fx> paragraph <Paragraph>)
-                  (set-text-style (new Range$Cell$ (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
+                 (lambda (row <fx> paragraph <Paragraph>)
+                   (set-text-style (new Range$Cell$ (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
                 start: (get-row~ start)
-                end: (+ (get-row~ end) 1)))
+                end: (get-row~ end)))
               (else
                (set-text-style selection style))))
       (when format
         (for-each-paragraph
-         (lambda (row <fx> paragraph <Paragraph>)
-           (set-paragraph-format paragraph format))
+          (lambda (row <fx> paragraph <Paragraph>)
+            (set-paragraph-format paragraph format))
          start: (get-row~ start)
-         end: (+ (get-row~ end) 1)))
+         end: (get-row~ end)))
       (set-modified? #t)
       (layout-scrollee)
       (invalidate-view)))
@@ -4466,7 +4468,7 @@
   ;;;
   
   
-  (method public (text-multisearch search-context (start: start {}) (end: end (get-limit)) (reversed?: reversed? #f))
+  (method public (text-multisearch search-context (start: start {}) (end: end {}) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test))
           (multi-search-context (maybe-make-multi-search-context search-context)))
       ;; Quick solution to multi-line string search
@@ -4479,11 +4481,11 @@
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
         (let ((pos (either start (if reversed? (text-ending) (text-beginning))))
-              (limit (get-limit)))
+              (end (either end (get-limit))))
           (let ((row (get-row~ pos))
                 (col (get-col~ pos)))
             (let (iter (n row) (start col))
-              (if (if reversed? (>= n 0) (<= n limit))
+              (if (if reversed? (>= n 0) (<= n end))
                   (let ((string (paragraph-string n)))
                     (let ((found (multisearch string multi-search-context constituent-test: constituent-test start: start reversed?: reversed?)))
                       (if found
@@ -4493,7 +4495,7 @@
                 #f)))))))
 
   
-  (method public (text-multisearch-all search-context)
+  (method public (text-multisearch-all search-context (start: start {}) (end: end {}))
     (let ((queue (new-queue))
           (constituent-test (get-constituent-test))
           (multi-search-context (maybe-make-multi-search-context search-context)))
@@ -4503,7 +4505,9 @@
             (for-each (lambda (found)
                         (bind (from . to) found
                           (enqueue queue (cons (new Cell row from) (new Cell row to)))))
-                      (multisearch-all line multi-search-context constituent-test: constituent-test)))))
+                      (multisearch-all line multi-search-context constituent-test: constituent-test))))
+        start: start
+        end: end)
       (queue-list queue)))
   
   

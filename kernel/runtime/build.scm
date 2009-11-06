@@ -264,7 +264,7 @@
           (compile-source-file "runtime/" "settings")
           (compile-source-file "runtime/" "install")
           (compile-source-file "runtime/" "digest")
-          (compile-source-file "runtime/" "module")
+          (compile-source-file "runtime/" "unit")
           (compile-source-file "runtime/" "setup")))
       
       (define (generate-architecture rebuild? rebuild-architecture?)
@@ -330,7 +330,7 @@
                                ,(kernel-file "runtime/settings")
                                ,(kernel-file "runtime/install")
                                ,(kernel-file "runtime/digest")
-                               ,(kernel-file "runtime/module")
+                               ,(kernel-file "runtime/unit")
                                ,(kernel-file "runtime/setup")
                                ,(product-file (main-filename)))))
                   (feedback-message "; creating link file...")
@@ -491,7 +491,7 @@
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
-            ,(jazz.quote-gcc-pathname (kernel-file "runtime/module.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/unit.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/setup.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append (main-filename) ".c")) platform)
             ,(jazz.quote-gcc-pathname (link-file) platform)
@@ -649,56 +649,56 @@
         (%%apply append (map expand-link-option raw-options)))))
  
   ; is the lib up-to-date according to the lib manifest?
-  (define (library-manifest-uptodate? header sub-modules)
+  (define (library-manifest-uptodate? header sub-units)
     (define sha1-table (%%make-table test: eq?))
       
-    (define (load-image-modules-manifest)
+    (define (load-image-units-manifest)
       (if (jazz.file-exists? header)
           (begin
-            (set! jazz.register-image-modules
-                  (lambda (lib-name modules)
+            (set! jazz.register-image-units
+                  (lambda (lib-name units)
                     (for-each
-                      (lambda (module)
-                        (%%table-set! sha1-table (%%car module) (%%cadr module)))
-                      modules)))
+                      (lambda (unit)
+                        (%%table-set! sha1-table (%%car unit) (%%cadr unit)))
+                      units)))
             (load header))))
     
-    (define (module-uptodate? module-name)
-      (let ((image-module-compile-time-hash (%%table-ref sha1-table module-name #f)))
-        (and image-module-compile-time-hash
-             (jazz.with-module-src/bin module-name #f
+    (define (unit-uptodate? unit-name)
+      (let ((image-unit-compile-time-hash (%%table-ref sha1-table unit-name #f)))
+        (and image-unit-compile-time-hash
+             (jazz.with-unit-src/bin unit-name #f
                (lambda (src bin bin-uptodate? manifest)
                  (and (jazz.manifest-uptodate? manifest)
                       (%%not (jazz.manifest-needs-rebuild? manifest))
-                      (%%string=? image-module-compile-time-hash
+                      (%%string=? image-unit-compile-time-hash
                                   (%%digest-compile-time-hash (%%manifest-digest manifest)))))
                pass-manifest?: #t))))
       
-    (define (submodules-uptodate? modules)
-      (or (%%null? modules)
-          (and (module-uptodate? (%%car modules))
-               (submodules-uptodate? (%%cdr modules)))))
+    (define (subunits-uptodate? units)
+      (or (%%null? units)
+          (and (unit-uptodate? (%%car units))
+               (subunits-uptodate? (%%cdr units)))))
             
-    (load-image-modules-manifest)
-    (submodules-uptodate? sub-modules))
+    (load-image-units-manifest)
+    (subunits-uptodate? sub-units))
   
-  (define (make-library-header header- library sub-modules)
+  (define (make-library-header header- library sub-units)
     (with-output-to-file header-
       (lambda ()
-        (display (string-append "(jazz.register-image-modules '" (%%symbol->string library) " '("))
+        (display (string-append "(jazz.register-image-units '" (%%symbol->string library) " '("))
         (newline)
         (for-each
-          (lambda (module-name)
-            (jazz.with-module-src/bin module-name #f
+          (lambda (unit-name)
+            (jazz.with-unit-src/bin unit-name #f
               (lambda (src bin bin-uptodate?)
                 (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
-                       (manifest (jazz.load/create-manifest module-name mnf))
+                       (manifest (jazz.load/create-manifest unit-name mnf))
                        (digest (%%manifest-digest manifest)))
-                  (display (string-append "  (" (%%symbol->string module-name) " "))
+                  (display (string-append "  (" (%%symbol->string unit-name) " "))
                   (write (%%digest-compile-time-hash digest))
                   (display ")")
                   (newline)))))
-          sub-modules)
+          sub-units)
         (display "))")
         (newline))))
   
@@ -710,38 +710,38 @@
                (header (string-append library-base "." jazz.Manifest-Extension))
                (header-c (string-append header ".c"))
                (header-o (string-append header ".o"))
-               (sub-modules ;; hack for testing
-                            (if (%%assq 'no-submodules options)
-                                (remove-duplicates update)
-                              (remove-duplicates (%%apply append (map jazz.get-submodule-names update))))))
+               (sub-units ;; hack for testing
+                          (if (%%assq 'no-subunits options)
+                              (remove-duplicates update)
+                            (remove-duplicates (%%apply append (map jazz.get-subunit-names update))))))
           
           (define (build-library)
-            (make-library-header header library sub-modules)
+            (make-library-header header library sub-units)
             (compile-file-to-c header output: header-c)
             (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
       
             (feedback-message "; creating link file...")
             (link-flat (%%cons header
-                               (map (lambda (submodule-name)
-                                      (jazz.with-module-src/bin submodule-name #f
+                               (map (lambda (subunit-name)
+                                      (jazz.with-unit-src/bin subunit-name #f
                                         (lambda (src bin bin-uptodate?)
                                           (jazz.binary-with-extension src ""))))
-                                    sub-modules))
+                                    sub-units))
                        output: linkfile
                        warnings?: #f)
       
-            (feedback-message "; linking library... ({a} sub-modules)" (%%number->string (%%length sub-modules)))
+            (feedback-message "; linking library... ({a} sub-units)" (%%number->string (%%length sub-units)))
             (jazz.call-process
               "gcc"
               `(,@(case platform
                     ((windows) '("-shared" "-D___DYNAMIC"))
                     (else '("-bundle" "-D___DYNAMIC")))
                 ,header-o
-                ,@(map (lambda (submodule-name)
-                         (jazz.with-module-src/bin submodule-name #f
+                ,@(map (lambda (subunit-name)
+                         (jazz.with-unit-src/bin subunit-name #f
                            (lambda (src bin bin-uptodate?)
                              (jazz.binary-with-extension src ".o"))))
-                       sub-modules)
+                       sub-units)
                 ,linkfile
                 "-o" ,library-o1
                 ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
@@ -751,7 +751,7 @@
             (map delete-file (%%list header-c header-o linkfile))
             #t)
 
-          (or (and o1-exists? (library-manifest-uptodate? header sub-modules))
+          (or (and o1-exists? (library-manifest-uptodate? header sub-units))
               (build-library)))))))
 
 

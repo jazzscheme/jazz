@@ -39,11 +39,11 @@
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(define (jazz.expand-module-source rest)
+(define (jazz.expand-unit-source rest)
   (define (parse rest proc)
     (let ((first (jazz.source-code (%%car rest))))
       (if (%%memq first '(protected public))
@@ -52,10 +52,10 @@
   
   (parse rest
     (lambda (name access body)
-      (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
-          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+      (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
+          (jazz.error "Unit at {s} is defining {s}" (jazz.requested-unit-name) name)
         `(begin
-           ,@(jazz.declares 'module)
+           ,@(jazz.declares 'unit)
            ,@body)))))
 
 
@@ -69,8 +69,8 @@
     `(begin
        ,@(map (lambda (require)
                 (jazz.parse-require (jazz.listify require)
-                  (lambda (module-name feature-requirement phase)
-                    `(jazz.load-module ',module-name))))
+                  (lambda (unit-name feature-requirement phase)
+                    `(jazz.load-unit ',unit-name))))
               (jazz.filter-features (map (lambda (src) (%%desourcify src)) rest))))))
 
 

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.editor.lisp.install
+(unit jazz.editor.lisp.install
 
 
 (jazz.define-literal Lisp-File-Entry jazz.editor.lisp.literals.construct-lisp-file-entry)

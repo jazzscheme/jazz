@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.generic.runtime.generic
+(unit protected core.generic.runtime.generic
 
 
 (define (jazz.new-generic locator dynamic-signature root-proc)

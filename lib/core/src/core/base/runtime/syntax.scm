@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.syntax
+(unit protected core.base.runtime.syntax
 
 
 (define (jazz.source? obj)

@@ -1,4 +1,4 @@
-(module test.performance.b
+(unit test.performance.b
 
 
 (declare (block)

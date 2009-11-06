@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.core.profile
+(unit protected jazz.dialect.core.profile
 
 
 (jazz.define-variable active-profile)
@@ -61,7 +61,7 @@
 (define (jazz.load-statprof)
   (if (%%not jazz.statprof-loaded?)
       (begin
-        (jazz.load-module 'statprof)
+        (jazz.load-unit 'statprof)
         (set! jazz.statprof-loaded? #t))))
 
 

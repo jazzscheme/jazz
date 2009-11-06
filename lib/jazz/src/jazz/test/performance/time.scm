@@ -1,4 +1,4 @@
-(module test.performance.time
+(unit test.performance.time
 
 
 (define iterations

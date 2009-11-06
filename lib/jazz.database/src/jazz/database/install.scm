@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.database.install
+(unit jazz.database.install
 
 
 (jazz.define-literal Systype jazz.database.literals.construct-systype))

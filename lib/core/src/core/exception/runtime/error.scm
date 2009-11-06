@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.exception.runtime.error
+(unit protected core.exception.runtime.error
 
 
 (jazz.define-class-runtime jazz.Error)

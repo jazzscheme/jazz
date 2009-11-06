@@ -75,7 +75,7 @@
 
   (slot toplevel                 initialize {})
   (slot profile-name             initialize {})
-  (slot profile-module           initialize {})
+  (slot profile-unit             initialize {})
   (slot profile-class            initialize {})
   (slot profile-bindings         initialize {})
   (slot profile                  initialize {} getter generate)
@@ -216,7 +216,7 @@
       (close~ toplevel)
       (set! toplevel {})
       (set! profile-name {})
-      (set! profile-module {})
+      (set! profile-unit {})
       (set! profile-class {})
       (set! profile-bindings {})
       (set! profile {})))
@@ -413,12 +413,12 @@
   (method (log-profile)
     (let ((use-logging? (use-profile-logging?)))
       (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (argument/setting "profile" 'profile)))))
-        (receive (name module) (cond (profile-arg (standard-profile (->string profile-arg)))
-                                     (use-logging? (login-profile))
-                                     (else (system-profile)))
+        (receive (name unit) (cond (profile-arg (standard-profile (->string profile-arg)))
+                                   (use-logging? (login-profile))
+                                   (else (system-profile)))
           (set! profile-name name)
-          (set! profile-module module)
-          (set! profile-class (compose-name module name))
+          (set! profile-unit unit)
+          (set! profile-class (compose-name unit name))
           (install-profile)
           (load-profile-jazzini)))))
   
@@ -431,8 +431,8 @@
   
   (method (standard-profile title)
     (let ((name (string->symbol title))
-          (module-name (string->symbol (format "profile.{a}" (downcase title)))))
-      (values name module-name)))
+          (unit-name (string->symbol (format "profile.{a}" (downcase title)))))
+      (values name unit-name)))
   
   
   (method (system-profile)
@@ -442,7 +442,7 @@
 
   
   (method (login-profile)
-    (receive (name module bindings always-use?) ((require-service 'choose-login))
+    (receive (name unit bindings always-use?) ((require-service 'choose-login))
       (set! profile-bindings bindings)
       (when settings
         (set-setting~ settings 'profile (if always-use? name #f))
@@ -450,33 +450,33 @@
         (when always-use?
           (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
                                name))))
-      (values name module)))
+      (values name unit)))
 
   
   (method (install-profile)
-    (let ((source (find-module-source profile-class)))
+    (let ((source (find-unit-source profile-class)))
       (when (not source)
         (install-new-profile)
-        (set! source (find-module-source profile-class)))
+        (set! source (find-unit-source profile-class)))
       (register-alias 'Profile (get-list~ (get-parent~ source)))))
 
   
   (method (install-new-profile)
     (let ((associations (list (cons 'profile profile-name)
                               (cons 'profile-lowercase (downcase (symbol->string profile-name)))
-                              (cons 'profile-module profile-module)
+                              (cons 'profile-unit profile-unit)
                               (cons 'profile-bindings (either profile-bindings 'jazz)))))
       (copy-template {Directory Jazz "lib" "jedi" "templates" "profile"}
                      {Directory Home}
                      associations
                      non-expanded-nodes: '("catalogs")))
     (let ((repository (find-repository 'User)))
-      (let ((package-name profile-module)
-            (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-module))))
+      (let ((package-name profile-unit)
+            (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-unit))))
         (repository-add-package repository (load-package repository #f package-name package-path)))))
   
   
-  (method (standard-manifest-module name)
+  (method (standard-manifest-unit name)
     (string->symbol (format "profile.{a}.{a}-Manifest" name name)))
 
   

@@ -1,6 +1,6 @@
 ;;; simple test procedures
 
-(module time.tests
+(unit time.tests
 
 (require (time.implementation))
 

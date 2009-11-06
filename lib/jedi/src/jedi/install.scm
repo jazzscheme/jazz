@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jedi.install
+(unit jedi.install
 
 
 (jazz.register-service 'workbench 'jedi.services)

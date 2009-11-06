@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.symbol
+(unit protected core.base.runtime.symbol
 
 
 ;;;
@@ -43,7 +43,7 @@
 ;;;
 
 
-(define (jazz.identifier-module identifier)
+(define (jazz.identifier-unit identifier)
   (%%assert (%%symbol? identifier)
     (let* ((str (%%symbol->string identifier))
            (pos (jazz.string-find-reversed str #\.)))

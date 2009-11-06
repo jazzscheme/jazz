@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.library.initialize
+(unit protected core.library.initialize
 
 
 (jazz.initialize-primitive-patterns))

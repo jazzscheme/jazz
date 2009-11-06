@@ -43,25 +43,25 @@
 ;;;
 
 
-(jazz.define-variable jazz.compile-module-internal)
-(jazz.define-variable jazz.build-module-internal)
-(jazz.define-variable jazz.get-submodule-names-internal)
+(jazz.define-variable jazz.compile-unit-internal)
+(jazz.define-variable jazz.build-unit-internal)
+(jazz.define-variable jazz.get-subunit-names-internal)
 
 
-(define (jazz.compile-module . rest)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.builder)
-  (%%apply jazz.compile-module-internal rest))
+(define (jazz.compile-unit . rest)
+  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.unit.builder)
+  (%%apply jazz.compile-unit-internal rest))
 
-(define (jazz.build-module . rest)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.builder)
-  (%%apply jazz.build-module-internal rest))
+(define (jazz.build-unit . rest)
+  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.unit.builder)
+  (%%apply jazz.build-unit-internal rest))
 
-(define (jazz.get-submodule-names . rest)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.builder)
-  (%%apply jazz.get-submodule-names-internal rest))
+(define (jazz.get-subunit-names . rest)
+  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'core.unit.builder)
+  (%%apply jazz.get-subunit-names-internal rest))
 
 
 ;;;
@@ -70,8 +70,8 @@
 
 
 (define (jazz.path->container-hook path)
-  ;; store module name instead of path if available
-  (jazz.find-pathname-module path))
+  ;; store unit name instead of path if available
+  (jazz.find-pathname-unit path))
 
 
 (define (jazz.container->path-hook container)
@@ -84,9 +84,9 @@
                           (%%substring container
                                        (%%string-length jazz.kernel-source-built)
                                        (%%string-length container))))
-        ;; find path from module name
+        ;; find path from unit name
         ((%%symbol? container)
-         (let ((src (jazz.find-module-src container #f #f)))
+         (let ((src (jazz.find-unit-src container #f #f)))
            (if src
                (jazz.resource-pathname src)
              #f)))
@@ -200,7 +200,7 @@
 
 
 ; this function is called from the library header when loading
-(define (jazz.register-image-modules lib-name modules)
+(define (jazz.register-image-units lib-name units)
   (define (index-for-each proc args n)
     (if (%%not (%%null? args))
         (begin
@@ -208,18 +208,18 @@
           (index-for-each proc (%%cdr args) (%%fx+ n 1)))))
   
   (index-for-each
-    (lambda (module i)
-      (let ((name (%%car module))
+    (lambda (unit i)
+      (let ((name (%%car unit))
             (load-proc (%%vector-ref (%%vector-ref jazz.currently-loading-library-procs i) 1))
-            (compile-time-hash (%%cadr module)))
-        (jazz.set-image-module
+            (compile-time-hash (%%cadr unit)))
+        (jazz.set-image-unit
           name
           load-proc
           compile-time-hash)))
-    modules
+    units
     1)
   
-  ;(jazz.feedback (string-append "LIB: " (%%symbol->string lib-name) " (" (%%number->string (%%length modules)) " modules)"))
+  ;(jazz.feedback (string-append "LIB: " (%%symbol->string lib-name) " (" (%%number->string (%%length units)) " units)"))
 )
 
 
@@ -279,7 +279,7 @@
             (jazz.debug-build? #t))
         (cond (load
                 (jazz.load-composite-libraries)
-                (jazz.load-module (%%string->symbol load)))
+                (jazz.load-unit (%%string->symbol load)))
               (test
                 (jazz.load-composite-libraries)
                 (jazz.test-product (%%string->symbol test)))
@@ -291,7 +291,7 @@
                 (jazz.run-product jazz.product))
               (compile
                 (process-buildini-file)
-                (jazz.compile-module (%%string->symbol compile)))
+                (jazz.compile-unit (%%string->symbol compile)))
               (update
                 (process-buildini-file)
                 (jazz.update-product (%%string->symbol update)))

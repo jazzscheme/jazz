@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.editor.c.install
+(unit jazz.editor.c.install
 
 
 (jazz.define-literal C-File-Entry       jazz.editor.c.literals.construct-c-file-entry)

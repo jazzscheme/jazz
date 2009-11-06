@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base
+(unit core.base
 
 
 (require (core.base.syntax (phase syntax))

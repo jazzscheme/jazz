@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.class.runtime.output-hook
+(unit protected core.class.runtime.output-hook
 
 
 (cond-expand

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.schema.install
+(unit jazz.schema.install
 
 
 ;;;

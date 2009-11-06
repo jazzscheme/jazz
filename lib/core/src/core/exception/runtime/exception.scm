@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.exception.runtime.exception
+(unit protected core.exception.runtime.exception
 
 
 ;;;

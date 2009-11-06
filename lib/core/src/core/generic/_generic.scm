@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.generic
+(unit core.generic
 
 
 (require (core.class)

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.network.install
+(unit jazz.network.install
 
 
 (jazz.define-literal Host jazz.network.literals.construct-host))

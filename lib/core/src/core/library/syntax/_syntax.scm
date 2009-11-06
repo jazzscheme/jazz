@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.library.syntax
+(unit protected core.library.syntax
 
 
 (require (core.library.syntax.classes)

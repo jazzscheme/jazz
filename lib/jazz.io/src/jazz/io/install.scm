@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.io.install
+(unit jazz.io.install
 
 
 (jazz.define-literal File      jazz.io.literals.construct-file)

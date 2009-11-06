@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.class.syntax.define-method-expander
+(unit protected core.class.syntax.define-method-expander
 
 
 (define (jazz.expand-define-virtual signature bootstrap-type?)

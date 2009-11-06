@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.core.debug
+(unit protected jazz.dialect.core.debug
 
 
 ;; inspect a Jazz object

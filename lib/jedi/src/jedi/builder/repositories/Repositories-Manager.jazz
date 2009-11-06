@@ -142,10 +142,10 @@
   
   (method (add-package tree father package)
     (let ((name (package-name package)))
-      (receive (project-name project-module) (parse-package-project package)
+      (receive (project-name project-unit) (parse-package-project package)
         (let ((title (->string name))
               (image (cond ((not project-name) {Bitmap-Resource "NoProjectPackage"})
-                           ((find-project~ (get-workbench) (library-ref project-module project-name)) {Bitmap-Resource "Package"})
+                           ((find-project~ (get-workbench) (library-ref project-unit project-name)) {Bitmap-Resource "Package"})
                            (else {Bitmap-Resource "UninstalledPackage"}))))
           (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package)))))
   
@@ -244,7 +244,7 @@
              (destination directory)
              (associations (list (cons 'package package)
                                  (cons 'project project)
-                                 (cons 'project-module (format "project.{a}" package))
+                                 (cons 'project-unit (format "project.{a}" package))
                                  (cons 'project-directories (cons "project" package-parts)))))
         (copy-template template destination associations)
         (let* ((file (new-file~ destination (list package ".package")))
@@ -312,8 +312,8 @@
   
   (method (install-in-workbench workbench-manager workbench tree row)
     (let ((package (get-user-data~ row)))
-      (receive (name module) (parse-package-project package)
-        (let ((file (find-module-source module)))
+      (receive (name unit) (parse-package-project package)
+        (let ((file (find-unit-source unit)))
           (install-project~ workbench-manager file workbench #f)
           (let ((rank (row-rank~ tree row)))
             (let ((cell (new Cell rank 0)))
@@ -328,13 +328,13 @@
       (if (or (not project) (eq? (repository-name repository) 'Bin))
           (values {} {})
         (let ((name (car project))
-              (module (cadr (assq 'module (cdr project)))))
-          (values name module)))))
+              (unit (cadr (assq 'unit (cdr project)))))
+          (values name unit)))))
   
   
   (method (package-project-installable? package)
-    (receive (name module) (parse-package-project package)
-      (and name (not (find-project~ (get-workbench) (library-ref module name))))))
+    (receive (name unit) (parse-package-project package)
+      (and name (not (find-project~ (get-workbench) (library-ref unit name))))))
   
   
   ;;;

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.core.time
+(unit protected jazz.dialect.core.time
 
 
 (define jazz.current-systime current-time)

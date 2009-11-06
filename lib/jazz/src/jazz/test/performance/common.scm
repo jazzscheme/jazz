@@ -1,4 +1,4 @@
-(module test.performance.common
+(unit test.performance.common
 
 
 (require (test.performance.syntax (phase syntax)))

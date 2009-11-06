@@ -35,13 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.database.ado.product
+(unit jazz.database.ado.product
 
 
 (cond-expand
   (windows
     (define (jazz.build-ado descriptor)
-      (jazz.compile-module 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+      (jazz.compile-unit 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
       (jazz.update-product-descriptor descriptor)))
   (else
     (define (jazz.build-ado descriptor)

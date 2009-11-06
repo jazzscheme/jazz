@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.library
+(unit core.library
 
 
 (require (core.class)

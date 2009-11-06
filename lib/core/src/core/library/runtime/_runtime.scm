@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.library.runtime
+(unit protected core.library.runtime
 
 
 (require (core.library.runtime.autoload))
@@ -77,7 +77,7 @@
 
 
 (define (jazz.get-library name)
-  (jazz.load-module name)
+  (jazz.load-unit name)
   (%%table-ref jazz.Libraries name #f))
 
 
@@ -92,8 +92,8 @@
       (if info
           (if (%%symbol? info)
               (jazz.global-value info)
-            (jazz.bind (module-name . locator) info
-              (jazz.load-module module-name)
+            (jazz.bind (unit-name . locator) info
+              (jazz.load-unit unit-name)
               (jazz.global-value locator)))
         not-found))))
 

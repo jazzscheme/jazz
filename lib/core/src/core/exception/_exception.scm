@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.exception
+(unit core.exception
 
 
 (require (core.class)

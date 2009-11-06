@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.syntax
+(unit protected core.base.syntax
 
 
 (require (core.base.syntax.macros)))

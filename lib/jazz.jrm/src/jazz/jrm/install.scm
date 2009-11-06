@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.jrm.install
+(unit jazz.jrm.install
 
 
 (jazz.define-literal IOR jazz.jrm.literals.construct-ior))

@@ -1,4 +1,4 @@
-(module test.performance.syntax
+(unit test.performance.syntax
 
 
 (jazz.define-class Z jazz.Object () jazz.Object-Class allocate-z

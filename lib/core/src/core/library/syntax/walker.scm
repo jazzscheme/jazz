@@ -47,7 +47,7 @@
 ;;   to ensure that runtime problems are detected at compile time exactly as they would occur
 ;; - Autoload declarations are treated specially as they are the only case where different
 ;;   references to the same declaration generate different code: direct access will expand to
-;;   just the locator while an autoload access must add code to load the module
+;;   just the locator while an autoload access must add code to load the unit
 ;;
 ;; Todo
 ;; - Is the extra indirection level of having declaration references really necessary?
@@ -57,7 +57,7 @@
 ;;   things working
 
 
-(module protected core.library.syntax.walker
+(unit protected core.library.syntax.walker
 
 
 ;;;
@@ -411,24 +411,24 @@
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(jazz.define-class-runtime jazz.Module-Declaration)
+(jazz.define-class-runtime jazz.Unit-Declaration)
 
 
-(define (jazz.new-module-declaration name access parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f requires)))
+(define (jazz.new-unit-declaration name access parent requires)
+  (let ((new-declaration (jazz.allocate-unit-declaration jazz.Unit-Declaration name #f #f access 'uptodate '() #f parent #f #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.fold-declaration (jazz.Module-Declaration expression) f k s)
+(jazz.define-method (jazz.fold-declaration (jazz.Unit-Declaration expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.Module-Declaration)
+(jazz.encapsulate-class jazz.Unit-Declaration)
 
 
 ;;;
@@ -495,9 +495,9 @@
 
 (define (jazz.add-library-require library-declaration require)
   (jazz.parse-require require
-    (lambda (module-name feature-requirement phase)
+    (lambda (unit-name feature-requirement phase)
       (%%when (%%eq? phase 'syntax)
-        (jazz.load-module module-name))))
+        (jazz.load-unit unit-name))))
   (%%set-library-declaration-requires library-declaration (%%append (%%get-library-declaration-requires library-declaration) (%%list require))))
 
 
@@ -508,7 +508,7 @@
   
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (%%get-library-invoice-library library-invoice)))
-      (jazz.load-module (%%get-lexical-binding-name library-declaration))))
+      (jazz.load-unit (%%get-lexical-binding-name library-declaration))))
   (if register?
       (let ((imports (%%get-library-declaration-imports library-declaration)))
         (let ((actual (jazz.find-library-invoice imports library-invoice)))
@@ -534,7 +534,7 @@
   
   (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
     (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) library-declaration)))
-      (jazz.load-module (%%get-lexical-binding-name library-declaration))))
+      (jazz.load-unit (%%get-lexical-binding-name library-declaration))))
   (let ((exports (%%get-library-declaration-exports library-declaration)))
     (let ((actual (jazz.find-library-invoice exports library-invoice)))
       (if actual
@@ -664,14 +664,14 @@
            ((eval) '())
            (else (jazz.declares 'library)))
        ,@(let ((queue (jazz.new-queue)))
-           (jazz.enqueue queue `(jazz.load-module 'core.library))
+           (jazz.enqueue queue `(jazz.load-unit 'core.library))
            (let ((dialect-name (%%get-library-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'core)
-               (jazz.enqueue queue `(jazz.load-module ',dialect-name))))
+               (jazz.enqueue queue `(jazz.load-unit ',dialect-name))))
            (for-each (lambda (spec)
                        (jazz.parse-require spec
-                         (lambda (module-name feature-requirement phase)
-                           (jazz.enqueue queue `(jazz.load-module ',module-name)))))
+                         (lambda (unit-name feature-requirement phase)
+                           (jazz.enqueue queue `(jazz.load-unit ',unit-name)))))
                      (%%get-library-declaration-requires declaration))
            (for-each (lambda (library-invoice)
                        (let ((only (%%get-library-invoice-only library-invoice))
@@ -679,26 +679,26 @@
                          (cond (only
                                  )
                                (autoload
-                                 (let ((module-name (%%get-declaration-reference-name (%%get-library-invoice-library library-invoice))))
+                                 (let ((unit-name (%%get-declaration-reference-name (%%get-library-invoice-library library-invoice))))
                                    (for-each (lambda (decl)
                                                (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
-                                                 (let ((symbol-name (jazz.compose-name module-name name)))
-                                                   (jazz.enqueue queue `(jazz.register-autoload ',name ',module-name
+                                                 (let ((symbol-name (jazz.compose-name unit-name name)))
+                                                   (jazz.enqueue queue `(jazz.register-autoload ',name ',unit-name
                                                                           (lambda ()
-                                                                            (jazz.load-module ',module-name)
+                                                                            (jazz.load-unit ',unit-name)
                                                                             ,symbol-name))))))
                                              autoload)))
                                (else
                                 (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) declaration))
                                       (phase (%%get-library-invoice-phase library-invoice)))
                                   (%%when (and (%%neq? library-declaration declaration) (%%neq? phase 'syntax))
-                                    (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration)))))))))
+                                    (jazz.enqueue queue `(jazz.load-unit ',(%%get-lexical-binding-name library-declaration)))))))))
                      (%%get-library-declaration-exports declaration))
            (for-each (lambda (library-invoice)
                        (let ((library-declaration (%%get-library-invoice-library library-invoice))
                              (phase (%%get-library-invoice-phase library-invoice)))
                          (%%when (and library-declaration (%%neq? phase 'syntax))
-                           (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
+                           (jazz.enqueue queue `(jazz.load-unit ',(%%get-lexical-binding-name library-declaration))))))
                      (%%get-library-declaration-imports declaration))
            (jazz.queue-list queue))
        ,@inclusions-expansion
@@ -907,7 +907,7 @@
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (name (%%get-lexical-binding-name declaration))
              (decl (jazz.lookup-declaration exported-library name jazz.public-access declaration)))
-        (%%assertion decl (jazz.error "Unable to find autoload {s} in module {s}" name (%%get-declaration-locator exported-library))
+        (%%assertion decl (jazz.error "Unable to find autoload {s} in unit {s}" name (%%get-declaration-locator exported-library))
           (%%set-autoload-declaration-declaration declaration decl)
           decl))))
 
@@ -1674,7 +1674,7 @@
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
           (jazz.walk-error walker resume declaration form-src "Macros cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
-          (jazz.load-module (%%get-declaration-locator parent-declaration))
+          (jazz.load-unit (%%get-declaration-locator parent-declaration))
           (let ((expander (jazz.need-macro locator)))
             (%%apply expander (%%cdr form))))))))
 
@@ -1724,7 +1724,7 @@
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-error walker resume declaration form-src "Syntaxes cannot be used from within the same file: {s}" locator)
       (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-module (%%get-declaration-locator parent-declaration))
+        (jazz.load-unit (%%get-declaration-locator parent-declaration))
         (let ((expander (jazz.need-macro locator)))
           (expander form-src))))))
 
@@ -1772,7 +1772,7 @@
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment))
-              (current-module-name
+              (current-unit-name
                (%%get-declaration-locator
                 (%%get-declaration-toplevel declaration))))
           (jazz.sourcify-if
@@ -1781,7 +1781,7 @@
                            ',locator
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
                            (%%list
-                            (jazz.get-catalog-entry ',current-module-name)
+                            (jazz.get-catalog-entry ',current-unit-name)
                             (jazz.new-walk-frame (%%get-dialect-bindings (jazz.get-dialect 'core)))
                             (jazz.new-walk-frame
                              (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))))
@@ -1795,7 +1795,7 @@
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-warning walker resume declaration "Syntaxes shouldn't be used from within the same file: {s}" locator))
     (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-module (%%get-declaration-locator parent-declaration))
+        (jazz.load-unit (%%get-declaration-locator parent-declaration))
         (let* ((define-syntax-form (jazz.need-macro locator))
                (expander (%%get-syntax-form-expander define-syntax-form))
                (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
@@ -1954,8 +1954,8 @@
 (jazz.define-class-runtime jazz.Walk-Location)
 
 
-(define (jazz.new-walk-location module-locator declaration-locator locat)
-  (jazz.allocate-walk-location jazz.Walk-Location module-locator declaration-locator locat))
+(define (jazz.new-walk-location unit-locator declaration-locator locat)
+  (jazz.allocate-walk-location jazz.Walk-Location unit-locator declaration-locator locat))
 
 
 (define (jazz.walk-location walker declaration locat)
@@ -2001,22 +2001,22 @@
     (let ((all (%%append (%%get-walk-problems-warnings problems)
                          (%%get-walk-problems-errors problems))))
       (map (lambda (partition)
-             (jazz.bind (module-locator . problems) partition
-               (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
-                 (jazz.new-exception-detail "Document" (or module-locator "<console>") #f
-                   (let ((module-details (jazz.new-queue)))
+             (jazz.bind (unit-locator . problems) partition
+               (let ((prefix (if (%%not unit-locator) -1 (%%string-length (%%symbol->string unit-locator)))))
+                 (jazz.new-exception-detail "Document" (or unit-locator "<console>") #f
+                   (let ((unit-details (jazz.new-queue)))
                      (for-each (lambda (partition)
                                  (jazz.bind (declaration-locator . problems) partition
                                    (if (%%fx= (%%string-length declaration-locator) prefix)
-                                       (add-details problems module-details)
-                                     (jazz.enqueue module-details
+                                       (add-details problems unit-details)
+                                     (jazz.enqueue unit-details
                                        (jazz.new-exception-detail "Project" (%%substring declaration-locator (%%fx+ prefix 1) (%%string-length declaration-locator)) #f
                                          (let ((declaration-details (jazz.new-queue)))
                                            (add-details problems declaration-details)
                                            (jazz.queue-list declaration-details)))))))
                                (jazz.partition-walk-problems-declaration problems))
-                     (jazz.queue-list module-details))))))
-           (jazz.partition-walk-problems-module all)))))
+                     (jazz.queue-list unit-details))))))
+           (jazz.partition-walk-problems-unit all)))))
 
 
 (jazz.encapsulate-class jazz.Walk-Problems)
@@ -3027,9 +3027,9 @@
             (all (%%append warnings errors)))
         (jazz.format output "Walk problems encountered{%}")
         (for-each (lambda (partition)
-                    (jazz.bind (module-locator . problems) partition
-                      (jazz.format output "  In {a}" (or module-locator "<console>"))
-                      (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
+                    (jazz.bind (unit-locator . problems) partition
+                      (jazz.format output "  In {a}" (or unit-locator "<console>"))
+                      (let ((prefix (if (%%not unit-locator) -1 (%%string-length (%%symbol->string unit-locator)))))
                         (for-each (lambda (partition)
                                     (jazz.bind (declaration-locator . problems) partition
                                       (let ((toplevel? (%%fx= (%%string-length declaration-locator) prefix)))
@@ -3042,15 +3042,15 @@
                                                       (jazz.present-exception problem)))
                                                   problems))))
                                   (jazz.partition-walk-problems-declaration problems)))))
-                  (jazz.partition-walk-problems-module all))
+                  (jazz.partition-walk-problems-unit all))
         (let ((message (get-output-string output)))
           (raise (jazz.new-walk-problems message warnings errors)))))))
 
 
-(define (jazz.partition-walk-problems-module problems)
+(define (jazz.partition-walk-problems-unit problems)
   (jazz.partition problems
                   (lambda (problem)
-                    (%%get-walk-location-module-locator (%%get-walk-problem-location problem)))
+                    (%%get-walk-location-unit-locator (%%get-walk-problem-location problem)))
                   assv))
 
 
@@ -3093,11 +3093,11 @@
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(define (jazz.parse-module-declaration partial-form)
+(define (jazz.parse-unit-declaration partial-form)
   (define (parse rest proc)
     (let ((first (jazz.source-code (%%car rest))))
       (if (%%memq first '(protected public))
@@ -3115,10 +3115,10 @@
   
   (parse partial-form
     (lambda (name access body)
-      (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
-          (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+      (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
+          (jazz.error "Unit at {s} is defining {s}" (jazz.requested-unit-name) name)
         (let ((requires (collect-requires body)))
-          (jazz.new-module-declaration name access #f requires))))))
+          (jazz.new-unit-declaration name access #f requires))))))
 
 
 ;;;
@@ -3185,8 +3185,8 @@
 
 (define (jazz.parse-library-declaration partial-form)
   (receive (name access dialect-name body) (jazz.parse-library partial-form)
-    (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
-        (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
+    (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
+        (jazz.error "Library at {s} is defining {s}" (jazz.requested-unit-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
                (dialect (jazz.require-dialect dialect-name))
@@ -3230,8 +3230,8 @@
 
 (define (jazz.walk-library partial-form)
   (receive (name access dialect-name body) (jazz.parse-library partial-form)
-    (if (and (jazz.requested-module-name) (%%neq? name (jazz.requested-module-name)))
-        (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
+    (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
+        (jazz.error "Library at {s} is defining {s}" (jazz.requested-unit-name) name)
       (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
         (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
                (dialect (jazz.require-dialect dialect-name))
@@ -3350,7 +3350,7 @@
                              (lambda ()
                                (if (%%not loaded?)
                                    (begin
-                                     (jazz.load-module ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
+                                     (jazz.load-unit ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
                                      (set! loaded? #t)))
                                ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration library-declaration environment))))))))))
               (%%get-library-declaration-autoloads library-declaration))
@@ -5455,7 +5455,7 @@
               (if (%%is? decl jazz.Autoload-Declaration)
                   decl
                 (jazz.new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz.new-library-reference library-name #f)))
-            (jazz.walk-error walker resume declaration symbol-src "Unable to find {s} in module {s}" name library-name))))))
+            (jazz.walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name library-name))))))
   
   (define (lookup walker environment symbol)
     (if (jazz.composite-name? symbol)
@@ -5632,9 +5632,9 @@
   (let ((form (%%desourcify form-src)))
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (let ((requires (jazz.filter-features (%%cdr form))))
-        ;; so modules with errors are not added to the library when evaluating code
+        ;; so units with errors are not added to the library when evaluating code
         (%%when (%%eq? (jazz.walk-for) 'eval)
-          (for-each jazz.load-module requires))
+          (for-each jazz.load-unit requires))
         (for-each (lambda (require)
                     (jazz.add-library-require library-declaration (jazz.listify require)))
                   requires)))))
@@ -5705,11 +5705,11 @@
   (let ((form (%%desourcify form-src)))
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (let ((import-invoices (walk-imports (jazz.filter-features (%%cdr form)))))
-        ;; so modules with errors are not added to the library when evaluating code
+        ;; so units with errors are not added to the library when evaluating code
         (%%when (%%eq? (jazz.walk-for) 'eval)
           (for-each (lambda (import-invoice)
                       (let ((library-declaration (%%get-library-invoice-library import-invoice)))
-                        (jazz.load-module (%%get-lexical-binding-name library-declaration))))
+                        (jazz.load-unit (%%get-lexical-binding-name library-declaration))))
                     import-invoices))
         (for-each (lambda (import-invoice)
                     (jazz.add-library-import library-declaration import-invoice #t))
@@ -6138,90 +6138,90 @@
   jazz.Catalog)
 
 
-(define (jazz.get-catalog-entry module-name)
-  (%%table-ref jazz.Catalog module-name #f))
+(define (jazz.get-catalog-entry unit-name)
+  (%%table-ref jazz.Catalog unit-name #f))
 
 
-(define (jazz.set-catalog-entry module-name entry)
-  (%%table-set! jazz.Catalog module-name entry))
+(define (jazz.set-catalog-entry unit-name entry)
+  (%%table-set! jazz.Catalog unit-name entry))
 
 
-(define (jazz.set-catalog-entry-status module-name status)
-  (let ((declaration (let ((entry (jazz.get-catalog-entry module-name)))
+(define (jazz.set-catalog-entry-status unit-name status)
+  (let ((declaration (let ((entry (jazz.get-catalog-entry unit-name)))
                        (if (%%pair? entry)
                            (%%cdr entry)
                          entry))))
-    (jazz.set-catalog-entry module-name (if status (%%cons status declaration) declaration))))
+    (jazz.set-catalog-entry unit-name (if status (%%cons status declaration) declaration))))
 
 
 (define (jazz.release-catalog-entries)
   (%%iterate-table jazz.Catalog
-    (lambda (module-name entry)
+    (lambda (unit-name entry)
       (if (%%pair? entry)
-          (jazz.set-catalog-entry module-name (%%cdr entry))))))
+          (jazz.set-catalog-entry unit-name (%%cdr entry))))))
 
 
-(define (jazz.call-with-catalog-entry-lock module-name thunk)
+(define (jazz.call-with-catalog-entry-lock unit-name thunk)
   (jazz.call-with-load-lock
     (lambda ()
       (dynamic-wind
         (lambda ()
-          (jazz.set-catalog-entry-status module-name ':walking)
-          (jazz.push-load-stack ':walk module-name))
+          (jazz.set-catalog-entry-status unit-name ':walking)
+          (jazz.push-load-stack ':walk unit-name))
         thunk
         (lambda ()
           (jazz.pop-load-stack)
-          (if (%%pair? (jazz.get-catalog-entry module-name))
-              (jazz.set-catalog-entry-status module-name #f)))))))
+          (if (%%pair? (jazz.get-catalog-entry unit-name))
+              (jazz.set-catalog-entry-status unit-name #f)))))))
 
 
 (define jazz.outline-feedback
   (make-parameter #f))
 
 
-(define (jazz.outline-module module-name #!key (use-catalog? #t) (error? #t))
+(define (jazz.outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
-    (let ((src (jazz.find-module-src module-name '("jazz" "scm") error?)))
+    (let ((src (jazz.find-unit-src unit-name '("jazz" "scm") error?)))
       (if (and (%%not src) (%%not error?))
           #f
         (jazz.with-verbose (jazz.outline-verbose?) "outlining" (jazz.resource-pathname src)
           (lambda ()
-            ;; not reading the literals is necessary as reading a literal will load modules
+            ;; not reading the literals is necessary as reading a literal will load units
             (let ((form (jazz.read-toplevel-form src read-literals?: #f)))
-              (parameterize ((jazz.requested-module-name module-name)
-                             (jazz.requested-module-resource src)
+              (parameterize ((jazz.requested-unit-name unit-name)
+                             (jazz.requested-unit-resource src)
                              (jazz.walk-for 'interpret))
                 (let ((kind (jazz.source-code (%%car (jazz.source-code form)))))
                   (case kind
-                    ((module)
-                     (jazz.parse-module-declaration (%%cdr (jazz.source-code form))))
+                    ((unit)
+                     (jazz.parse-unit-declaration (%%cdr (jazz.source-code form))))
                     ((library)
                      (jazz.parse-library-declaration (%%cdr (jazz.source-code form)))))))))))))
   
   (if (not use-catalog?)
       (load-toplevel-declaration)
-    (let ((entry (jazz.get-catalog-entry module-name)))
+    (let ((entry (jazz.get-catalog-entry unit-name)))
       (let ((status (if (%%pair? entry) (%%car entry) #f))
             (declaration (if (%%pair? entry) (%%cdr entry) entry)))
         (if status
             (jazz.error "Circular dependency detected: {a}"
                         (jazz.join-strings (reverse (map symbol->string (map cdr jazz.Load-Stack))) " -> "))
           (or declaration
-              (jazz.call-with-catalog-entry-lock module-name
+              (jazz.call-with-catalog-entry-lock unit-name
                 (lambda ()
                   (let ((feedback (jazz.outline-feedback)))
                     (if feedback
-                        (feedback module-name)))
+                        (feedback unit-name)))
                   (let ((declaration (load-toplevel-declaration)))
                     (if (%%not declaration)
                         (if error?
-                            (jazz.error "Unable to locate module declaration: {s}" module-name))
-                      (jazz.set-catalog-entry module-name declaration))
+                            (jazz.error "Unable to locate unit declaration: {s}" unit-name))
+                      (jazz.set-catalog-entry unit-name declaration))
                     declaration)))))))))
 
 
-(define (jazz.outline-library module-name #!key (error? #t))
-  (let ((declaration (jazz.outline-module module-name error?: error?)))
+(define (jazz.outline-library unit-name #!key (error? #t))
+  (let ((declaration (jazz.outline-unit unit-name error?: error?)))
     (if (%%not error?)
         declaration
       (%%assert (%%class-is? declaration jazz.Library-Declaration)
@@ -6243,24 +6243,24 @@
               (parameterize ((jazz.read-literals? read-literals?))
                 (let ((all (jazz.read-source-all port)))
                   (if (%%null? all)
-                      (jazz.error "Found empty module declaration in {a}" source)
+                      (jazz.error "Found empty unit declaration in {a}" source)
                     (let ((form-src (%%car all))
                           (extraneous? (%%not-null? (%%cdr all))))
-                      (if (and (%%pair? (jazz.source-code form-src)) (%%memq (jazz.source-code (%%car (jazz.source-code form-src))) '(module library)))
+                      (if (and (%%pair? (jazz.source-code form-src)) (%%memq (jazz.source-code (%%car (jazz.source-code form-src))) '(unit library)))
                           (if (%%not extraneous?)
                               form-src
-                            (jazz.error "Found extraneous expressions after module declaration in {a}" source))
-                        (jazz.error "Found invalid module declaration in {a}" source)))))))))))))
+                            (jazz.error "Found extraneous expressions after unit declaration in {a}" source))
+                        (jazz.error "Found invalid unit declaration in {a}" source)))))))))))))
 
 
-(define (jazz.walk-module module-name)
-  (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
-    (parameterize ((jazz.requested-module-name module-name)
-                   (jazz.requested-module-resource src)
+(define (jazz.walk-unit unit-name)
+  (let ((src (jazz.find-unit-src unit-name '("jazz" "scm"))))
+    (parameterize ((jazz.requested-unit-name unit-name)
+                   (jazz.requested-unit-resource src)
                    (jazz.walk-for 'interpret))
       (let ((form (jazz.read-toplevel-form src)))
         (case (jazz.source-code (%%car (jazz.source-code form)))
-          ((module)
+          ((unit)
            #f)
           ((library)
            (jazz.walk-library (%%cdr (jazz.source-code form)))))))))

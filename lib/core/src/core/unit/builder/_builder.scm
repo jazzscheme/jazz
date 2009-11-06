@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.module.builder
+(unit protected core.unit.builder
 
 
 (require (core.base)
@@ -86,12 +86,12 @@
 ;;;
 
 
-(define (jazz.compile-module-internal module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz.with-module-src/bin module-name #f
+(define (jazz.compile-unit-internal unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+  (jazz.with-unit-src/bin unit-name #f
     (lambda (src bin bin-uptodate?)
-      (parameterize ((jazz.requested-module-name module-name)
-                     (jazz.requested-module-resource src))
-        (jazz.compile-source src bin bin-uptodate? module-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
+      (parameterize ((jazz.requested-unit-name unit-name)
+                     (jazz.requested-unit-resource src))
+        (jazz.compile-source src bin bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
 
 
 (define (jazz.compile-source src bin bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
@@ -114,20 +114,20 @@
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
                   (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
-                  #;(jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options module-name: manifest-name))))
+                  #;(jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((library-declaration (jazz.get-catalog-entry manifest-name)))
                                 (cond ((%%is? library-declaration jazz.Library-Declaration)
                                        (jazz.generate-reference-list library-declaration))
-                                      ((%%is? library-declaration jazz.Module-Declaration)
+                                      ((%%is? library-declaration jazz.Unit-Declaration)
                                        '())
                                       (else ; pure scheme
                                        '())))))
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
-(define (jazz.compile-file src #!key (options #f) (cc-options #f) (ld-options #f) (module-name #f) (platform jazz.kernel-platform))
+(define (jazz.compile-file src #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
   (let* ((pathname (jazz.resource-pathname src))
          (bin- (jazz.binary-with-extension src ""))
          (bin-c (string-append bin- ".c"))
@@ -135,7 +135,7 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string module-name))
+    (compile-file-to-c pathname output: bin-c options: options unit-name: (%%symbol->string unit-name))
     (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
     (link-flat (%%list bin-) output: linkfile warnings?: #f)
  
@@ -161,45 +161,45 @@
 ;;;
 
 
-(define (jazz.build-module-internal module-name)
-  (jazz.for-each-submodule module-name
-    (lambda (module-name declaration phase)
-      (jazz.compile-module module-name))))
+(define (jazz.build-unit-internal unit-name)
+  (jazz.for-each-subunit unit-name
+    (lambda (unit-name declaration phase)
+      (jazz.compile-unit unit-name))))
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
-(define (jazz.get-submodule-names-internal parent-name)
-  (let* ((sub-modules '())
-         (proc (lambda (module-name declaration phase)
-                 (set! sub-modules (%%cons module-name sub-modules)))))
-    (jazz.for-each-submodule parent-name proc)
-    sub-modules))
+(define (jazz.get-subunit-names-internal parent-name)
+  (let* ((sub-units '())
+         (proc (lambda (unit-name declaration phase)
+                 (set! sub-units (%%cons unit-name sub-units)))))
+    (jazz.for-each-subunit parent-name proc)
+    sub-units))
 
 
-(define (jazz.for-each-submodule parent-name proc)
+(define (jazz.for-each-subunit parent-name proc)
   ;; temporary solution to the fact that exports can be present multiple times
-  ;; if the module is loaded interpreted or if dynamic evaluations where done
-  (let ((submodules '()))
-    (let iter ((module-name parent-name) (phase #f) (toplevel? #t))
+  ;; if the unit is loaded interpreted or if dynamic evaluations where done
+  (let ((subunits '()))
+    (let iter ((unit-name parent-name) (phase #f) (toplevel? #t))
       (define (process-require require)
         (jazz.parse-require require
-          (lambda (module-name feature-requirement phase)
-            (iter module-name phase #f))))
+          (lambda (unit-name feature-requirement phase)
+            (iter unit-name phase #f))))
       
-      (if (%%not (%%memq module-name submodules))
+      (if (%%not (%%memq unit-name subunits))
           (begin
-            (set! submodules (%%cons module-name submodules))
-            (let ((declaration (jazz.outline-module module-name)))
+            (set! subunits (%%cons unit-name subunits))
+            (let ((declaration (jazz.outline-unit unit-name)))
               (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
                   (begin
-                    (if (and (%%not toplevel?) (%%not (jazz.descendant-module? parent-name module-name)))
-                        (jazz.error "Illegal access from {a} to protected module {a}" parent-name module-name))
-                    (proc module-name declaration phase)
-                    (if (jazz.is? declaration jazz.Module-Declaration)
-                        (for-each process-require (%%get-module-declaration-requires declaration))
+                    (if (and (%%not toplevel?) (%%not (jazz.descendant-unit? parent-name unit-name)))
+                        (jazz.error "Illegal access from {a} to protected unit {a}" parent-name unit-name))
+                    (proc unit-name declaration phase)
+                    (if (jazz.is? declaration jazz.Unit-Declaration)
+                        (for-each process-require (%%get-unit-declaration-requires declaration))
                       (begin
                         (for-each process-require (%%get-library-declaration-requires declaration))
                         (for-each (lambda (export)

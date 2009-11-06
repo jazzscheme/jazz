@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.boolean
+(unit protected core.base.runtime.boolean
 
 
 (define (jazz.boolean expr)

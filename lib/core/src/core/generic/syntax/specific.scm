@@ -43,7 +43,7 @@
 ;; descendant-specifics - reverse relation
 
 
-(module protected core.generic.syntax.specific
+(unit protected core.generic.syntax.specific
 
 
 (jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class jazz.allocate-specific

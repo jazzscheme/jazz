@@ -39,7 +39,7 @@
 ;; to classes by name for forms. This problem has to be well thought out...
 
 
-(module protected core.library.runtime.autoload
+(unit protected core.library.runtime.autoload
 
 
 (define jazz.Autoloads
@@ -54,8 +54,8 @@
   (%%table-ref jazz.Autoloads name #f))
 
 
-(define (jazz.set-autoload name module-name loader)
-  (%%table-set! jazz.Autoloads name (%%cons module-name loader)))
+(define (jazz.set-autoload name unit-name loader)
+  (%%table-set! jazz.Autoloads name (%%cons unit-name loader)))
 
 
 (define (jazz.require-autoload name)
@@ -63,13 +63,13 @@
       (jazz.error "Unable to find autoload {s}" name)))
 
 
-(define (jazz.register-autoload name module-name loader)
+(define (jazz.register-autoload name unit-name loader)
   (let ((actual (jazz.get-autoload name)))
-    (if (or (%%not actual) (%%eq? (%%car actual) module-name))
-        (jazz.set-autoload name module-name loader)
-      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) module-name)))
-  (let ((package (%%resource-package (jazz.requested-module-resource))))
-    (jazz.register-package-autoload package name module-name loader)))
+    (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
+        (jazz.set-autoload name unit-name loader)
+      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name)))
+  (let ((package (%%resource-package (jazz.requested-unit-resource))))
+    (jazz.register-package-autoload package name unit-name loader)))
 
 
 (define (jazz.autoload name)
@@ -79,5 +79,5 @@
 
 (define (jazz.autoreload name)
   (let ((autoload-info (jazz.require-autoload name)))
-    (jazz.reload-module (%%car autoload-info))
+    (jazz.reload-unit (%%car autoload-info))
     ((%%cdr autoload-info)))))

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.graphic.install
+(unit jazz.graphic.install
 
 
 (jazz.define-literal Color jazz.graphic.literals.construct-color)

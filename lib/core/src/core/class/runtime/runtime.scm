@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.class.runtime.runtime
+(unit protected core.class.runtime.runtime
 
 
 (define jazz.new-interface-rank
@@ -1594,7 +1594,7 @@
 
 (jazz.define-method (jazz.of-subtype? (jazz.Procedure-Class class) subtype)
   (or (nextmethod class subtype)
-      #; ;; fix because it is defined only is a later module
+      #; ;; fix because it is defined only is a later unit
       (%%is? subtype jazz.Function-Type)))
 
 

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.core.step
+(unit protected jazz.dialect.core.step
 
 
 (define (install-step-handler proc)

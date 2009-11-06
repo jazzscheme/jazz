@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.platform.product
+(unit jazz.platform.product
 
 
 ;;;
@@ -44,8 +44,8 @@
   
 
 (define (jazz.build-types)
-  (jazz.compile-module 'jazz.platform.types-syntax)
-  (jazz.compile-module 'jazz.platform.types))
+  (jazz.compile-unit 'jazz.platform.types-syntax)
+  (jazz.compile-unit 'jazz.platform.types))
 
 
 (cond-expand
@@ -56,14 +56,14 @@
             (jazz.error "Cairo 1.4 or higher needed")
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
-            (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-            (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
-            (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
+            (jazz.compile-unit 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-unit 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-unit 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
   (windows
     (define (jazz.build-cairo)
       (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
             (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
-        (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
+        (jazz.compile-unit 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
   (x11
     (define (jazz.build-cairo)
       (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
@@ -71,9 +71,9 @@
             (jazz.error "Cairo 1.4 or higher needed")
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
-            (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-            (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
-            (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
+            (jazz.compile-unit 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-unit 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-unit 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
 
 
 (cond-expand
@@ -88,19 +88,19 @@
 (define (jazz.build-freetype)
   (let ((cc-flags (jazz.pkg-config-cflags "freetype2"))
         (ld-flags (jazz.pkg-config-libs "freetype2")))
-    (jazz.compile-module 'jazz.platform.freetype cc-options: cc-flags ld-options: ld-flags)))
+    (jazz.compile-unit 'jazz.platform.freetype cc-options: cc-flags ld-options: ld-flags)))
 
 
 (define (jazz.build-logfont)
   (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
         (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
-    (jazz.compile-module 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
+    (jazz.compile-unit 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
 
 
 (define (jazz.build-carbon)
-  (jazz.load-module 'core.module.builder)
-  (jazz.compile-module 'jazz.platform.carbon              ld-options: "-framework Carbon")
-  (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon"))
+  (jazz.load-unit 'core.unit.builder)
+  (jazz.compile-unit 'jazz.platform.carbon              ld-options: "-framework Carbon")
+  (jazz.compile-unit 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon"))
 
 
 (define (jazz.build-windows)
@@ -109,41 +109,41 @@
         (windows-include-path (jazz.quote-jazz-gcc-pathname "foreign/windows/include"))
         (windows-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
-    (jazz.load-module 'core.module.builder)
-    (jazz.compile-module 'jazz.platform.windows)
-    (jazz.compile-module 'jazz.platform.windows.WinDef      cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinTypes    cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinBase     cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinNT       cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinKernel   cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinGDI      cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinIDL      cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinMM       cc-options: base-windows-cc-options ld-options: "-mwindows -lwinmm")
-    (jazz.compile-module 'jazz.platform.windows.WinUser     cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinShell    cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinCtrl     cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinDlg      cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.platform.windows.WinPerf     cc-options: (string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: (string-append "-L" windows-lib-path " -mwindows -lpdh"))
-    (jazz.compile-module 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
-    (jazz.compile-module 'jazz.platform.crash.windows       cc-options: base-windows-cc-options ld-options: "-mwindows")
-    (jazz.compile-module 'jazz.system.platform.windows)))
+    (jazz.load-unit 'core.unit.builder)
+    (jazz.compile-unit 'jazz.platform.windows)
+    (jazz.compile-unit 'jazz.platform.windows.WinDef      cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinTypes    cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinBase     cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinNT       cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinKernel   cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinGDI      cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinIDL      cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinMM       cc-options: base-windows-cc-options ld-options: "-mwindows -lwinmm")
+    (jazz.compile-unit 'jazz.platform.windows.WinUser     cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinShell    cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinCtrl     cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinDlg      cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.platform.windows.WinPerf     cc-options: (string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: (string-append "-L" windows-lib-path " -mwindows -lpdh"))
+    (jazz.compile-unit 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
+    (jazz.compile-unit 'jazz.platform.crash.windows       cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-unit 'jazz.system.platform.windows)))
 
 
 (define (jazz.build-com)
-  (jazz.compile-module 'jazz.platform.windows.com cc-options: "-DUNICODE" ld-options: "-mwindows -lole32 -loleaut32"))
+  (jazz.compile-unit 'jazz.platform.windows.com cc-options: "-DUNICODE" ld-options: "-mwindows -lole32 -loleaut32"))
 
 
 (define (jazz.build-x11)
-  (jazz.load-module 'core.module.builder)
-  (jazz.compile-module 'jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
-  (jazz.compile-module 'jazz.platform.x11.x11-types))
+  (jazz.load-unit 'core.unit.builder)
+  (jazz.compile-unit 'jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
+  (jazz.compile-unit 'jazz.platform.x11.x11-types))
 
 
 (cond-expand
  (mac
   (define (jazz.build-clipboard)
-    (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
-    (jazz.compile-module 'jazz.platform.carbon.clipboard ld-options: "-framework Carbon")))
+    (jazz.compile-unit 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
+    (jazz.compile-unit 'jazz.platform.carbon.clipboard ld-options: "-framework Carbon")))
  (else
   (define (jazz.build-clipboard)
     #f)))
@@ -152,7 +152,7 @@
 (cond-expand
   (carbon
     (define (jazz.build-platform descriptor)
-      (jazz.compile-module 'jazz.platform)
+      (jazz.compile-unit 'jazz.platform)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -175,8 +175,8 @@
           (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (copy-platform-files)
-        (jazz.compile-module 'jazz.platform)
-        (jazz.compile-module 'jazz.platform.crash)
+        (jazz.compile-unit 'jazz.platform)
+        (jazz.compile-unit 'jazz.platform.crash)
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
@@ -184,7 +184,7 @@
         (jazz.build-com))))
   (x11
     (define (jazz.build-platform descriptor)
-      (jazz.compile-module 'jazz.platform)
+      (jazz.compile-unit 'jazz.platform)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

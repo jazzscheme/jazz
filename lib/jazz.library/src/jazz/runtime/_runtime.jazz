@@ -45,19 +45,19 @@
   (let ((name (type-name category)))
     (let ((path (split-identifier name)))
       ;; this is a bit of a heuristic before a better solution
-      (let ((module-name (apply compose-name (butlast path))))
-        (find-module-source module-name)))))
+      (let ((unit-name (apply compose-name (butlast path))))
+        (find-unit-source unit-name)))))
 
 
-(definition public (find-module-source module-name)
-  (let ((src (find-module-src module-name #f #f)))
+(definition public (find-unit-source unit-name)
+  (let ((src (find-unit-src unit-name #f #f)))
     (if (not src)
         #f
       (anchorize~ (new File (tokenise-filename (resource-pathname src)))))))
 
 
-(definition public (repository-modules repository)
-  (load-module 'core.module.builder)
+(definition public (repository-units repository)
+  (load-unit 'core.unit.builder)
   (let ((table (make-table test: eq?)))
     (iterate-packages repository
       (lambda (package)
@@ -66,11 +66,11 @@
                       (when pair
                         (let ((updated-names (cdr pair)))
                           (for-each (lambda (updated-name)
-                                      (for-each-submodule updated-name
-                                        (lambda (module-name declaration phase)
-                                          (let ((actual-package (table-ref table module-name {})))
-                                            (cond (actual-package (debug 'duplicate (package-name actual-package) (package-name package) updated-name module-name))
-                                                  (else (table-set! table module-name package)))))))
+                                      (for-each-subunit updated-name
+                                        (lambda (unit-name declaration phase)
+                                          (let ((actual-package (table-ref table unit-name {})))
+                                            (cond (actual-package (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name))
+                                                  (else (table-set! table unit-name package)))))))
                                     updated-names)))))
                   (package-products package))))
     (sort string<? (table-keys table) key: symbol->string)))
@@ -80,31 +80,31 @@
   (for-each proc (repository-packages repository)))
 
 
-(definition public (iterate-modules proc (repositories: repositories {}) (feedback: feedback {}))
+(definition public (iterate-units proc (repositories: repositories {}) (feedback: feedback {}))
   (let ((count 0)
         (repositories (either repositories (get-repositories))))
     (for-each (lambda (repository)
                 (unless (repository-binary? repository)
-                  (for-each (lambda (module-name)
+                  (for-each (lambda (unit-name)
                               (when feedback
-                                (feedback module-name))
-                              (proc module-name)
+                                (feedback unit-name))
+                              (proc unit-name)
                               (increase! count))
-                            (repository-modules repository))))
+                            (repository-units repository))))
               repositories)))
 
 
 (definition public (outline-all (feedback: feedback {}))
-  (iterate-modules outline-module feedback: feedback))
+  (iterate-units outline-unit feedback: feedback))
 
 
 (definition public (walk-all (feedback: feedback {}))
-  (iterate-modules walk-module feedback: feedback))
+  (iterate-units walk-unit feedback: feedback))
 
 
 (definition public (expand-all (feedback: feedback {}))
-  (iterate-modules expand-module feedback: feedback))
+  (iterate-units expand-unit feedback: feedback))
 
 
 (definition public (load-all (feedback: feedback {}))
-  (iterate-modules load-module feedback: feedback)))
+  (iterate-units load-unit feedback: feedback)))

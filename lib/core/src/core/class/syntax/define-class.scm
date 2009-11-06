@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.class.syntax.define-class
+(unit protected core.class.syntax.define-class
 
 
 (jazz.define-macro (jazz.define-class name ascendant-name inherited-slot-names class-name constructor slots)

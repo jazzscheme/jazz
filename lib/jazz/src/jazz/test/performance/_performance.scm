@@ -1,4 +1,4 @@
-(module test.performance
+(unit test.performance
 
 
 (require (core.class)

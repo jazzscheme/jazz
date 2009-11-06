@@ -8,7 +8,7 @@
 ;;;   Guillaume Cartier
 
 
-(module protected statprof.implementation
+(unit protected statprof.implementation
 
 
 (declare (proper-tail-calls))

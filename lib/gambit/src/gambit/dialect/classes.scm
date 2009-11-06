@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected gambit.dialect.classes
+(unit protected gambit.dialect.classes
 
 
 ;;;

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.error
+(unit protected core.base.runtime.error
 
 
 (define (jazz.unimplemented . rest)

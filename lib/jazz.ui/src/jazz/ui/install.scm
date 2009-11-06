@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.install
+(unit jazz.ui.install
 
 
 (jazz.define-literal Action                jazz.ui.literals.construct-action)

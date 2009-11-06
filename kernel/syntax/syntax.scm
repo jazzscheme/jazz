@@ -122,8 +122,8 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name parent library-root library-path modules-root modules-path install char-encoding products profiles project)
-  `(%%vector 'package ,repository ,name ,parent ,library-root ,library-path ,modules-root ,modules-path ,install ,char-encoding ,products ,profiles ,project (%%make-table test: eq?)))
+(jazz.define-macro (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project)
+  `(%%vector 'package ,repository ,name ,parent ,library-root ,library-path ,units-root ,units-path ,install ,char-encoding ,products ,profiles ,project (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -141,10 +141,10 @@
 (jazz.define-macro (%%package-library-path package)
   `(%%vector-ref ,package 5))
 
-(jazz.define-macro (%%package-modules-root package)
+(jazz.define-macro (%%package-units-root package)
   `(%%vector-ref ,package 6))
 
-(jazz.define-macro (%%package-modules-path package)
+(jazz.define-macro (%%package-units-path package)
   `(%%vector-ref ,package 7))
 
 (jazz.define-macro (%%package-install package)
@@ -231,18 +231,18 @@
 
 
 ;;;
-;;;; Image module
+;;;; Image unit
 ;;;
 
   
-(jazz.define-macro (%%make-image-module load-proc compile-time-hash)
-  `(%%vector 'image-module ,load-proc ,compile-time-hash))
+(jazz.define-macro (%%make-image-unit load-proc compile-time-hash)
+  `(%%vector 'image-unit ,load-proc ,compile-time-hash))
 
-(jazz.define-macro (%%image-module-load-proc image-module)
-  `(%%vector-ref ,image-module 1))
+(jazz.define-macro (%%image-unit-load-proc image-unit)
+  `(%%vector-ref ,image-unit 1))
 
-(jazz.define-macro (%%image-module-compile-time-hash image-module)
-  `(%%vector-ref ,image-module 2))
+(jazz.define-macro (%%image-unit-compile-time-hash image-unit)
+  `(%%vector-ref ,image-unit 2))
 
 
 ;;;
@@ -302,13 +302,13 @@
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(jazz.define-syntax module
+(jazz.define-syntax unit
   (lambda (form-src)
-    (jazz.expand-module-source (%%cdr (jazz.source-code form-src)))))
+    (jazz.expand-unit-source (%%cdr (jazz.source-code form-src)))))
 
 
 (jazz.define-syntax require

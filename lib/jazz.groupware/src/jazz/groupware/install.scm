@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.groupware.install
+(unit jazz.groupware.install
 
 
 (jazz.register-service 'Compare-Files 'jazz.groupware.services)

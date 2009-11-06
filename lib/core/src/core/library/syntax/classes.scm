@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.library.syntax.classes
+(unit protected core.library.syntax.classes
 
 
 ;;;
@@ -141,12 +141,12 @@
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-module-declaration
-  ((requires %%get-module-declaration-requires %%set-module-declaration-requires)))
+(jazz.define-class jazz.Unit-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-unit-declaration
+  ((requires %%get-unit-declaration-requires %%set-unit-declaration-requires)))
 
 
 ;;;
@@ -507,7 +507,7 @@
 
 
 (jazz.define-class jazz.Walk-Location jazz.Object () jazz.Object-Class jazz.allocate-walk-location
-  ((module-locator      %%get-walk-location-module-locator      ())
+  ((unit-locator        %%get-walk-location-unit-locator        ())
    (declaration-locator %%get-walk-location-declaration-locator ())
    (locat               %%get-walk-location-locat               ())))
 

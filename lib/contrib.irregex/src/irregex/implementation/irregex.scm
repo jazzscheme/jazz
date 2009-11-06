@@ -55,7 +55,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Data Structures
 
-(module irregex.implementation.irregex
+(unit irregex.implementation.irregex
 
 (declare (proper-tail-calls) (block) (fixnum) (inline) (inlining-limit 700) (standard-bindings) (extended-bindings))
 

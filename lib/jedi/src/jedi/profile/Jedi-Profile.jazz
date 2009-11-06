@@ -248,11 +248,11 @@
     
   
   ;;;
-  ;;;; Modules
+  ;;;; Units
   ;;;
   
   
-  (method (package-modules package)
+  (method (package-units package)
     (let ((fact (new List-Factory)))
       (let ((product (package-product package)))
         (if product
@@ -268,13 +268,13 @@
     (assq (package-name package) (package-products package)))
   
   
-  (method (module-submodules module-name)
-    (load-module 'core.module.builder)
-    (let ((submodules '()))
-      (for-each-submodule module-name
-        (lambda (submodule-name declaration phase)
-          (set! submodules (cons submodule-name submodules))))
-      submodules))
+  (method (unit-subunits unit-name)
+    (load-unit 'core.unit.builder)
+    (let ((subunits '()))
+      (for-each-subunit unit-name
+        (lambda (subunit-name declaration phase)
+          (set! subunits (cons subunit-name subunits))))
+      subunits))
     
   
   ;;;
@@ -423,7 +423,7 @@
   ;;;
   
   
-  (definition Documented-Modules
+  (definition Documented-Units
     '((irregex)
       (statprof)
       (scheme)
@@ -472,32 +472,32 @@
   
   
   (method (extract-doc)
-    (for-each extract-toplevel-doc Documented-Modules)
+    (for-each extract-toplevel-doc Documented-Units)
     (user-message "Done"))
   
   
   (method (extract-toplevel-doc info)
-    (bind (name . modules) info
+    (bind (name . units) info
       (user-message "Extracting {a}..." name)
       (let ((reference-dir {Directory jazz.website "reference"}))
         (create-directories~ reference-dir)
         (call-with-output-file (list path: (parse~ (new-file~ reference-dir (format "{a}.jml" name))) eol-encoding: (get-eol-encoding))
           (lambda (port)
-            (let ((node (parse-jml (extract-module/library-doc name modules))))
+            (let ((node (parse-jml (extract-unit/library-doc name units))))
               (pretty-print~ node port)
               (newline port)))))))
   
   
-  (method (extract-module/library-doc name modules)
-    (load-module 'core.module.builder)
-    (let ((module (outline-module (if (null? modules) name (car modules)))))
-      (typecase module
-        ((Module-Declaration) (extract-module-doc name module))
-        ((Library-Declaration) (extract-library-doc name module)))))
+  (method (extract-unit/library-doc name units)
+    (load-unit 'core.unit.builder)
+    (let ((unit (outline-unit (if (null? units) name (car units)))))
+      (typecase unit
+        ((Unit-Declaration) (extract-unit-doc name unit))
+        ((Library-Declaration) (extract-library-doc name unit)))))
   
   
-  (method (extract-module-doc name declaration)
-    `(<Module-Doc> name: ,name title: ,(symbol->string name)))
+  (method (extract-unit-doc name declaration)
+    `(<Unit-Doc> name: ,name title: ,(symbol->string name)))
   
   
   (method (extract-library-doc name declaration)
@@ -926,8 +926,8 @@
   @wait
   (method (test8)
     (let ((expander (new Template-Expander))
-          (template {File Builder-Module "Templates" "Project.jazz"}))
-      (call-with-output-file (parse~ {File Builder-Module "Templates" "Test.jazz"})
+          (template {File Builder-Unit "Templates" "Project.jazz"}))
+      (call-with-output-file (parse~ {File Builder-Unit "Templates" "Test.jazz"})
         (lambda (output)
           (expand~ expander template Template-AList output))))
     (user-message "Done"))

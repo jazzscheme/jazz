@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.vector
+(unit protected core.base.runtime.vector
 
 
 (define (jazz.vector-for-each proc vector)

@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.library.development
+(unit core.library.development
 
 
 (require (core.base))
@@ -47,16 +47,16 @@
 ;;;
 
 
-(define (jazz.parse module-name)
-  (let ((src (jazz.find-module-src module-name #f)))
+(define (jazz.parse unit-name)
+  (let ((src (jazz.find-unit-src unit-name #f)))
     (let ((form-src (jazz.read-toplevel-form src)))
       (pretty-print
         (jazz.desourcify-all form-src)))))
 
 
-(define (jazz.parse-source module-name)
+(define (jazz.parse-source unit-name)
   (parameterize ((jazz.walk-for 'interpret))
-    (let* ((src (jazz.find-module-src module-name #f))
+    (let* ((src (jazz.find-unit-src unit-name #f))
            (form-src (jazz.read-toplevel-form src)))
       (pretty-print
         (jazz.present-source form-src)))))
@@ -67,39 +67,39 @@
 ;;;
 
 
-(define (jazz.expand-module module-name #!key (walk-for #f))
+(define (jazz.expand-unit unit-name #!key (walk-for #f))
   (parameterize ((jazz.walk-for (or walk-for 'walk)))
-    (let* ((src (jazz.find-module-src module-name #f))
+    (let* ((src (jazz.find-unit-src unit-name #f))
            (form (jazz.read-toplevel-form src))
            (kind (jazz.source-code (car (jazz.source-code form))))
            (rest (cdr (jazz.source-code form))))
-      (parameterize ((jazz.requested-module-name module-name)
-                     (jazz.requested-module-resource src))
+      (parameterize ((jazz.requested-unit-name unit-name)
+                     (jazz.requested-unit-resource src))
         (case kind
-          ((module) (jazz.expand-module-source rest))
+          ((unit) (jazz.expand-unit-source rest))
           ((library) (jazz.expand-library-source rest)))))))
 
 
-(define (jazz.expand module-name . rest)
-  (apply jazz.expand-to-port module-name (current-output-port) rest))
+(define (jazz.expand unit-name . rest)
+  (apply jazz.expand-to-port unit-name (current-output-port) rest))
 
 
-(define (jazz.expand-to-file module-name #!key (file #f) #!rest rest)
+(define (jazz.expand-to-file unit-name #!key (file #f) #!rest rest)
   (call-with-output-file (or file "x.scm")
     (lambda (port)
-      (apply jazz.expand-to-port module-name port rest))))
+      (apply jazz.expand-to-port unit-name port rest))))
 
 
-(define (jazz.expand-to-port module-name port . rest)
+(define (jazz.expand-to-port unit-name port . rest)
   (pretty-print
-    (jazz.desourcify-all (apply jazz.expand-module module-name rest))
+    (jazz.desourcify-all (apply jazz.expand-unit unit-name rest))
     port))
 
 
-(define (jazz.expand-source module-name . rest)
+(define (jazz.expand-source unit-name . rest)
   (pretty-print
     (jazz.present-source
-      (apply jazz.expand-module module-name rest))))
+      (apply jazz.expand-unit unit-name rest))))
 
 
 ;;;
@@ -108,4 +108,4 @@
 
 
 (define (jazz.lookup library-name name access)
-  (jazz.lookup-declaration (jazz.walk-module library-name) name access #f)))
+  (jazz.lookup-declaration (jazz.walk-unit library-name) name access #f)))

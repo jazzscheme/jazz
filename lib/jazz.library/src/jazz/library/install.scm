@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.library.install
+(unit jazz.library.install
 
 
 (jazz.define-literal Box                jazz.library.literals.construct-box)

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.install
+(unit jazz.install
 
 
 ;;;
@@ -59,6 +59,6 @@
 
 (jazz.register-reader-extension "jazz"
   (lambda ()
-    (jazz.load-module 'core.library)
-    (jazz.load-module 'jazz.dialect)
+    (jazz.load-unit 'core.library)
+    (jazz.load-unit 'jazz.dialect)
     (jazz.global-value 'jazz.jazz-readtable))))

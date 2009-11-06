@@ -42,7 +42,7 @@
 ;; pending-specifics - delayed evaluation at boot -> signatures are proc (unnecessary now?)
 
 
-(module protected core.generic.syntax.generic
+(unit protected core.generic.syntax.generic
 
 
 (jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.core.structure
+(unit protected jazz.dialect.core.structure
 
 
 (define (jazz.kind? obj)

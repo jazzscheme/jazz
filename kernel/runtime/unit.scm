@@ -570,7 +570,7 @@
 (define (jazz.setup-package package)
   (let ((install (%%package-install package)))
     (if install
-        (jazz.load-module install))))
+        (jazz.load-unit install))))
 
 
 (define (jazz.inspect-install)
@@ -586,8 +586,8 @@
   (define (inspect-package package)
     `(:package
       ,(%%package-name package)
-      ,(%%package-modules-root package)
-      ,(%%package-modules-path package)))
+      ,(%%package-units-root package)
+      ,(%%package-units-path package)))
   
   `(,(inspect-path "./")
     ,(inspect-path "~/")
@@ -609,14 +609,14 @@
        (%%eq? (%%vector-ref obj 0) 'package)))
 
 
-(define (jazz.make-package repository name parent library-root modules-root install char-encoding products profiles project)
+(define (jazz.make-package repository name parent library-root units-root install char-encoding products profiles project)
   (let ((library-path (if (%%not library-root)
                           #f
                         (%%string-append (%%symbol->string name) "/" library-root)))
-        (modules-path (if (%%not modules-root)
-                          (%%symbol->string name)
-                        (%%string-append (%%symbol->string name) "/" modules-root))))
-    (%%make-package repository name parent library-root library-path modules-root modules-path install char-encoding products profiles project)))
+        (units-path (if (%%not units-root)
+                        (%%symbol->string name)
+                      (%%string-append (%%symbol->string name) "/" units-root))))
+    (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project)))
 
 
 (define (jazz.package-root package)
@@ -633,7 +633,7 @@
   (let ((parent (%%package-parent package)))
     (jazz.repository-pathname (%%package-repository package)
       (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                       (%%package-modules-path package)
+                       (%%package-units-path package)
                        "/"
                        path))))
 
@@ -656,18 +656,18 @@
   (%%table-ref (%%package-autoloads package) name #f))
 
 
-(define (jazz.set-package-autoload package name module-name loader)
-  (%%table-set! (%%package-autoloads package) name (%%cons module-name loader)))
+(define (jazz.set-package-autoload package name unit-name loader)
+  (%%table-set! (%%package-autoloads package) name (%%cons unit-name loader)))
 
 
-(define (jazz.register-package-autoload package name module-name loader)
+(define (jazz.register-package-autoload package name unit-name loader)
   (let ((actual (jazz.get-package-autoload package name)))
-    (if (or (%%not actual) (%%eq? (%%car actual) module-name))
-        (jazz.set-package-autoload package name module-name loader)
-      (jazz.error "Conflict detected for autoload {s} in package {s} between {s} and {s}" name (%%package-name package) (%%car actual) module-name))))
+    (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
+        (jazz.set-package-autoload package name unit-name loader)
+      (jazz.error "Conflict detected for autoload {s} in package {s} between {s} and {s}" name (%%package-name package) (%%car actual) unit-name))))
 
 
-(define (jazz.module-autoload module-name name)
+(define (jazz.unit-autoload unit-name name)
   (define (find-autoload resource)
     (if (%%not resource)
         #f
@@ -679,14 +679,14 @@
                 #f
               (%%cdr autoload)))))))
   
-  (jazz.load-module module-name)
-  (jazz.with-module-src/bin module-name #f
+  (jazz.load-unit unit-name)
+  (jazz.with-unit-src/bin unit-name #f
     (lambda (src bin bin-uptodate?)
       (let ((src-autoload (find-autoload src))
             (bin-autoload (find-autoload bin)))
         (cond (bin-autoload (bin-autoload))
               (src-autoload (src-autoload))
-              (else (jazz.error "Unable to find autoload {s} in package {s}" name module-name)))))))
+              (else (jazz.error "Unable to find autoload {s} in package {s}" name unit-name)))))))
 
 
 (define (jazz.find-resource pathname)
@@ -722,17 +722,17 @@
                   (iter (%%cdr packages)))))))))))
 
 
-(define (jazz.descendant-module? module-name descendant-name)
-  (let ((module (%%symbol->string module-name))
+(define (jazz.descendant-unit? unit-name descendant-name)
+  (let ((unit (%%symbol->string unit-name))
         (descendant (%%symbol->string descendant-name)))
-    (let ((module-length (%%string-length module))
+    (let ((unit-length (%%string-length unit))
           (descendant-length (%%string-length descendant)))
-      (and (%%fx> descendant-length module-length)
-           (%%string=? (%%substring descendant 0 module-length) module)
-           (%%eqv? (%%string-ref descendant module-length) #\.)))))
+      (and (%%fx> descendant-length unit-length)
+           (%%string=? (%%substring descendant 0 unit-length) unit)
+           (%%eqv? (%%string-ref descendant unit-length) #\.)))))
 
 
-(define (jazz.find-pathname-module pathname)
+(define (jazz.find-pathname-unit pathname)
   (let ((resource (jazz.find-resource pathname)))
     (if resource
         (jazz.path->name (%%resource-path resource))
@@ -762,8 +762,8 @@
                                                    profiles)))))))))))
 
 
-(define (jazz.make-profile name module-name)
-  `(,name (module ,module-name)))
+(define (jazz.make-profile name unit-name)
+  `(,name (unit ,unit-name)))
 
 
 (define (jazz.profile-name profile)
@@ -772,16 +772,16 @@
 (define (jazz.profile-title profile)
   (%%symbol->string (jazz.profile-name profile)))
 
-(define (jazz.profile-module profile)
-  (%%cadr (%%assq 'module (%%cdr profile))))
+(define (jazz.profile-unit profile)
+  (%%cadr (%%assq 'unit (%%cdr profile))))
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
-(define (jazz.find-module-bin module-name)
+(define (jazz.find-unit-bin unit-name)
   (define (find-bin package path)
     (define (try path)
       ;; we only test .o1 and let gambit find the right file by returning no extension when found
@@ -795,29 +795,29 @@
   
   (continuation-capture
     (lambda (return)
-      (let ((path (jazz.name->path module-name)))
+      (let ((path (jazz.name->path unit-name)))
         (for-each (lambda (package)
                     (let ((bin (find-bin package path)))
                       (if bin
                           (continuation-return return bin))))
-                  (jazz.cached-packages jazz.*binary-packages-cache* module-name))
-        ;; (jazz.feedback "caching bin {a}" module-name)
+                  (jazz.cached-packages jazz.*binary-packages-cache* unit-name))
+        ;; (jazz.feedback "caching bin {a}" unit-name)
         (jazz.iterate-packages #t
           (lambda (package)
             (let ((bin (find-bin package path)))
               (if bin
                   (begin
-                    (jazz.cache-package jazz.*binary-packages-cache* module-name package)
+                    (jazz.cache-package jazz.*binary-packages-cache* unit-name package)
                     #; ;; test
                     (jazz.validate-repository-unicity (%%package-repository package)
-                                                      module-name
+                                                      unit-name
                                                       (lambda (package)
                                                         (find-bin package path)))
                     (continuation-return return bin)))))))
       #f)))
 
 
-(define (jazz.find-module-src module-name extensions . rest)
+(define (jazz.find-unit-src unit-name extensions . rest)
   (define (find-src package path)
     (define (try path)
       (define (try-extension extension)
@@ -838,45 +838,45 @@
   (let ((error? (if (%%null? rest) #t (%%car rest))))
     (continuation-capture
       (lambda (return)
-        (let ((path (jazz.name->path module-name)))
+        (let ((path (jazz.name->path unit-name)))
           (for-each (lambda (package)
                       (let ((src (find-src package path)))
                         (if src
                             (continuation-return return src))))
-                    (jazz.cached-packages jazz.*source-packages-cache* module-name))
-          ;; (jazz.feedback "caching src {a}" module-name)
+                    (jazz.cached-packages jazz.*source-packages-cache* unit-name))
+          ;; (jazz.feedback "caching src {a}" unit-name)
           (jazz.iterate-packages #f
             (lambda (package)
               (let ((src (find-src package path)))
                 (if src
                     (begin
-                      (jazz.cache-package jazz.*source-packages-cache* module-name package)
+                      (jazz.cache-package jazz.*source-packages-cache* unit-name package)
                       #; ;; test
                       (jazz.validate-repository-unicity (%%package-repository package)
-                                                        module-name
+                                                        unit-name
                                                         (lambda (package)
                                                           (find-src package path)))
                       (continuation-return return src)))))))
         (if error?
-            (jazz.error "Unable to find module: {s}" module-name)
+            (jazz.error "Unable to find unit: {s}" unit-name)
           #f)))))
 
 
-(define (jazz.with-module-src/bin module-name extensions proc #!key (pass-manifest? #f))
+(define (jazz.with-unit-src/bin unit-name extensions proc #!key (pass-manifest? #f))
   
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
       (if (%%boolean? interpreted?)
           interpreted?
-        (%%memv module-name interpreted?))))
+        (%%memv unit-name interpreted?))))
   
-  (let ((bin (jazz.find-module-bin module-name))
-        (src (jazz.find-module-src module-name extensions))
+  (let ((bin (jazz.find-unit-bin unit-name))
+        (src (jazz.find-unit-src unit-name extensions))
         (manifest #f))
     (let ((bin-uptodate?
             (if (and src bin)
                 (begin
-                  (set! manifest (jazz.load-updated-manifest module-name
+                  (set! manifest (jazz.load-updated-manifest unit-name
                                                              (jazz.manifest-pathname (%%resource-package bin) bin)
                                                              (jazz.resource-pathname src)))
                   (and (jazz.manifest-uptodate? manifest)
@@ -888,36 +888,36 @@
         (proc src bin bin-uptodate?)))))
  
   
-(define (jazz.with-module-src/bin/lib module-name extensions proc)
-  (jazz.with-module-src/bin module-name extensions
+(define (jazz.with-unit-src/bin/lib unit-name extensions proc)
+  (jazz.with-unit-src/bin unit-name extensions
     (lambda (src bin bin-uptodate? manifest)
-      (let* ((image-module (jazz.get-image-module module-name))
+      (let* ((image-unit (jazz.get-image-unit unit-name))
              (lib-uptodate?
-               (cond ((and image-module bin-uptodate?)
-                      (jazz.image-module-uptodate? image-module manifest))
+               (cond ((and image-unit bin-uptodate?)
+                      (jazz.image-unit-uptodate? image-unit manifest))
                      ((%%not (or src bin))
-                      image-module)
+                      image-unit)
                      (else #f))))
-        (proc src bin (if image-module (%%image-module-load-proc image-module) #f) bin-uptodate? lib-uptodate?)))
+        (proc src bin (if image-unit (%%image-unit-load-proc image-unit) #f) bin-uptodate? lib-uptodate?)))
     pass-manifest?: #t))
 
 
-(define (jazz.module-uptodate-binary? module-name)
-  (jazz.with-module-src/bin module-name #f
+(define (jazz.unit-uptodate-binary? unit-name)
+  (jazz.with-unit-src/bin unit-name #f
     (lambda (src bin bin-uptodate?)
       bin-uptodate?)))
 
 
-(define (jazz.image-module-uptodate? image-module manifest)
+(define (jazz.image-unit-uptodate? image-unit manifest)
   (let ((digest (%%manifest-digest manifest)))
-    (%%string=? (%%image-module-compile-time-hash image-module) (%%digest-compile-time-hash digest))))
+    (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-compile-time-hash digest))))
 
 
-(define (jazz.validate-repository-unicity repository module-name proc)
+(define (jazz.validate-repository-unicity repository unit-name proc)
   (if (%%not (jazz.repository-unique? repository proc))
       (jazz.error "Found duplicate resource in {a} repository: {s}"
                   (or (%%repository-name repository) "anonymous")
-                  module-name)))
+                  unit-name)))
 
 
 (define (jazz.repository-unique? repository proc)
@@ -945,16 +945,16 @@
   (%%make-table test: eq?))
 
 
-(define (jazz.cache-package cache module-name package)
-  (jazz.with-cached-prefix module-name
+(define (jazz.cache-package cache unit-name package)
+  (jazz.with-cached-prefix unit-name
     (lambda (prefix singleton-prefix)
       (let ((packages (%%table-ref cache prefix '())))
         (if (%%not (%%memq package packages))
             (%%table-set! cache prefix (%%cons package packages)))))))
 
 
-(define (jazz.cached-packages cache module-name)
-  (jazz.with-cached-prefix module-name
+(define (jazz.cached-packages cache unit-name)
+  (jazz.with-cached-prefix unit-name
     (lambda (prefix singleton-prefix)
       (or (%%table-ref cache prefix #f)
           (if singleton-prefix
@@ -963,15 +963,15 @@
 
 
 ;; return as symbols the first 1 or 2 parts and the first part if there exactly 2 parts
-(define (jazz.with-cached-prefix module-name proc)
-  (let ((name (%%symbol->string module-name)))
+(define (jazz.with-cached-prefix unit-name proc)
+  (let ((name (%%symbol->string unit-name)))
     (let ((first-period (jazz.string-find name #\.)))
       (if first-period
           (let ((second-period (jazz.string-find name #\. (%%fx+ first-period 1))))
             (if second-period
                 (proc (%%string->symbol (%%substring name 0 second-period)) #f)
-              (proc module-name (%%string->symbol (%%substring name 0 first-period)))))
-        (proc module-name #f)))))
+              (proc unit-name (%%string->symbol (%%substring name 0 first-period)))))
+        (proc unit-name #f)))))
 
 
 ;; cache every subdirectory of level 2 and every subdirectory of level 1 that contains files
@@ -989,12 +989,12 @@
                                         (let ((second-path (%%string-append first-dir second-part)))
                                           (case (jazz.pathname-type second-path)
                                             ((regular) (set! has-files? #t))
-                                            ((directory) (let ((module-name (%%string->symbol (string-append first-part "." second-part))))
-                                                           (jazz.cache-package cache module-name package))))))
+                                            ((directory) (let ((unit-name (%%string->symbol (string-append first-part "." second-part))))
+                                                           (jazz.cache-package cache unit-name package))))))
                                       (jazz.directory-content first-dir))
                             (if has-files?
-                                (let ((module-name (%%string->symbol first-part)))
-                                  (jazz.cache-package cache module-name package)))))))
+                                (let ((unit-name (%%string->symbol first-part)))
+                                  (jazz.cache-package cache unit-name package)))))))
                   (jazz.directory-directories toplevel-dir)))))
 
 
@@ -1008,17 +1008,17 @@
 
 
 (define (jazz.setup-debuggee)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.debuggee)
-  (jazz.load-module 'jazz.debuggee.Debuggee-Frame)
-  (jazz.load-module 'jazz.debuggee.Debuggee-Process)
-  (jazz.load-module 'jazz.debuggee.Debuggee-Stop)
-  (jazz.load-module 'jazz.debuggee.Debuggee-Thread)
-  (jazz.load-module 'jazz.debuggee.stub)
-  (jazz.load-module 'jazz.debugger.jazz.stub)
-  (jazz.load-module 'jazz.debugger.jazz.stub-autoload)
-  (jazz.load-module 'jazz.debuggee.setup))
+  (jazz.load-unit 'core.library)
+  (jazz.load-unit 'jazz)
+  (jazz.load-unit 'jazz.debuggee)
+  (jazz.load-unit 'jazz.debuggee.Debuggee-Frame)
+  (jazz.load-unit 'jazz.debuggee.Debuggee-Process)
+  (jazz.load-unit 'jazz.debuggee.Debuggee-Stop)
+  (jazz.load-unit 'jazz.debuggee.Debuggee-Thread)
+  (jazz.load-unit 'jazz.debuggee.stub)
+  (jazz.load-unit 'jazz.debugger.jazz.stub)
+  (jazz.load-unit 'jazz.debugger.jazz.stub-autoload)
+  (jazz.load-unit 'jazz.debuggee.setup))
 
 
 ;;;
@@ -1058,8 +1058,8 @@
         (%%cadr pair)
       #f)))
 
-(define (jazz.product-descriptor-module descriptor)
-  (let ((pair (%%assq 'module (%%cdr descriptor))))
+(define (jazz.product-descriptor-unit descriptor)
+  (let ((pair (%%assq 'unit (%%cdr descriptor))))
     (if pair
         (%%cadr pair)
       #f)))
@@ -1186,10 +1186,10 @@
 (define (jazz.get-product name)
   (let ((descriptor (jazz.get-product-descriptor name)))
     (let ((name (jazz.product-descriptor-name descriptor)) ; because of aliases
-          (module (jazz.product-descriptor-module descriptor)))
-      (if module
+          (unit (jazz.product-descriptor-unit descriptor)))
+      (if unit
           (begin
-            (jazz.load-module module)
+            (jazz.load-unit unit)
             (jazz.get-registered-product name))
         (let ((title (jazz.product-descriptor-title descriptor))
               (icon (jazz.product-descriptor-icon descriptor)))
@@ -1213,7 +1213,7 @@
           (set! jazz.process-name name)
           (set! jazz.process-title (or (%%product-title product) (jazz.product-descriptor-title descriptor)))
           (set! jazz.process-icon (or (%%product-icon product) (jazz.product-descriptor-icon descriptor)))
-          (jazz.load-module 'jazz.debuggee.update)
+          (jazz.load-unit 'jazz.debuggee.update)
           product)))))
 
 
@@ -1249,7 +1249,7 @@
         (run (jazz.product-descriptor-run descriptor)))
     (if run
         (begin
-          (for-each jazz.load-module run)
+          (for-each jazz.load-unit run)
           (let ((proc (jazz.get-registered-run name)))
             (proc descriptor)))
       (jazz.error "Product is not runnable: {s}" name))))
@@ -1259,7 +1259,7 @@
   (let ((name (jazz.product-descriptor-name descriptor))
         (test (jazz.product-descriptor-test descriptor)))
     (if test
-        (for-each jazz.load-module test)
+        (for-each jazz.load-unit test)
       (jazz.error "Product is not testable: {s}" name))))
 
 
@@ -1275,7 +1275,7 @@
 (define (jazz.update-product-descriptor descriptor)
   (let ((update (jazz.product-descriptor-update descriptor)))
     (if update
-        (for-each jazz.build-module update)
+        (for-each jazz.build-unit update)
       (jazz.error "Product is not updateable: {s}" (jazz.product-descriptor-name descriptor)))))
 
 
@@ -1285,8 +1285,8 @@
           (build-library (%%product-build-library product))
           (descriptor (%%product-descriptor product)))
       (jazz.feedback "make {a}" name)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'core.module.builder)
+      (jazz.load-unit 'core.library)
+      (jazz.load-unit 'core.unit.builder)
       (if build
           (build descriptor)
         (jazz.build-product-descriptor descriptor))
@@ -1603,46 +1603,46 @@
 
 
 ;; bypass check of lib-uptodate?
-(define (jazz.load-module-src/bin-fast-load module-name)
-  (or (let ((image-module (jazz.get-image-module module-name)))
-        (and image-module
-             (parameterize ((jazz.requested-module-name module-name)
-                            (jazz.requested-module-resource (jazz.find-module-bin module-name)))
+(define (jazz.load-unit-src/bin-fast-load unit-name)
+  (or (let ((image-unit (jazz.get-image-unit unit-name)))
+        (and image-unit
+             (parameterize ((jazz.requested-unit-name unit-name)
+                            (jazz.requested-unit-resource (jazz.find-unit-bin unit-name)))
                ;(display ".")
-               ((%%image-module-load-proc image-module))
+               ((%%image-unit-load-proc image-unit))
                #t)))
           
-      (jazz.with-module-src/bin/lib module-name #f
+      (jazz.with-unit-src/bin/lib unit-name #f
         (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
-          (parameterize ((jazz.requested-module-name module-name)
-                         (jazz.requested-module-resource (if bin-uptodate? bin src)))
+          (parameterize ((jazz.requested-unit-name unit-name)
+                         (jazz.requested-unit-resource (if bin-uptodate? bin src)))
             (cond (lib-uptodate? (load-proc))
                   (bin-uptodate?
-                    (display module-name) (newline)
+                    (display unit-name) (newline)
                     (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
                                                     (and ext (%%string=? ext "jazz"))))))
                       (jazz.load-resource bin quiet?)))
                   (src
-                    (display "!!") (display module-name) (newline)
+                    (display "!!") (display unit-name) (newline)
                     (let ((warn (jazz.warn-interpreted?)))
                       (if warn
                           (begin
-                            (jazz.feedback "Warning: Loading {a} interpreted" module-name)
-                            (if (and (%%pair? warn) (%%memq module-name warn))
+                            (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
+                            (if (and (%%pair? warn) (%%memq unit-name warn))
                                 (pp jazz.Load-Stack)))))
                     (parameterize ((jazz.walk-for 'interpret))
                       (jazz.with-extension-reader (%%resource-extension src)
                                                   (lambda ()
                                                     (jazz.load-resource src)))))
                   (else
-                   (jazz.error "Unable to find module: {s}" module-name))))))))
+                   (jazz.error "Unable to find unit: {s}" unit-name))))))))
 
 
-(define (jazz.load-module-src/bin module-name)
-  (jazz.with-module-src/bin/lib module-name #f
+(define (jazz.load-unit-src/bin unit-name)
+  (jazz.with-unit-src/bin/lib unit-name #f
     (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
-      (parameterize ((jazz.requested-module-name module-name)
-                     (jazz.requested-module-resource (if bin-uptodate? bin src)))
+      (parameterize ((jazz.requested-unit-name unit-name)
+                     (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
                ;(display ".")
                (load-proc))
@@ -1654,15 +1654,15 @@
                (let ((warn (jazz.warn-interpreted?)))
                  (if warn
                      (begin
-                       (jazz.feedback "Warning: Loading {a} interpreted" module-name)
-                       (if (and (%%pair? warn) (%%memq module-name warn))
+                       (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
+                       (if (and (%%pair? warn) (%%memq unit-name warn))
                            (pp jazz.Load-Stack)))))
                (parameterize ((jazz.walk-for 'interpret))
                  (jazz.with-extension-reader (%%resource-extension src)
                    (lambda ()
                      (jazz.load-resource src)))))
               (else
-               (jazz.error "Unable to find module: {s}" module-name)))))))
+               (jazz.error "Unable to find unit: {s}" unit-name)))))))
 
 
 ;;;
@@ -1677,7 +1677,7 @@
     (let ((parent (%%package-parent package)))
       (jazz.repository-pathname jazz.Bin-Repository
         (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                         (%%package-modules-path package)
+                         (%%package-units-path package)
                          (if dir (%%string-append "/" dir) ""))))))
 
 
@@ -1709,31 +1709,31 @@
   jazz.Environment)
 
 
-(define (jazz.get-environment-module name)
+(define (jazz.get-environment-unit name)
   (%%table-ref jazz.Environment name jazz.Unloaded-State))
 
 
-(define (jazz.set-environment-module name module)
-  (%%table-set! jazz.Environment name module))
+(define (jazz.set-environment-unit name unit)
+  (%%table-set! jazz.Environment name unit))
 
 
 ;;;
-;;;; Image Modules
+;;;; Image Units
 ;;;
 
 
-(define jazz.Image-Modules
+(define jazz.Image-Units
   (%%make-table test: eq?))
 
-(define (jazz.get-image-module name)
-  (%%table-ref jazz.Image-Modules name #f))
+(define (jazz.get-image-unit name)
+  (%%table-ref jazz.Image-Units name #f))
 
-(define (jazz.set-image-module name load-proc compile-time-hash)
-  (%%table-set! jazz.Image-Modules name (%%make-image-module load-proc compile-time-hash)))
+(define (jazz.set-image-unit name load-proc compile-time-hash)
+  (%%table-set! jazz.Image-Units name (%%make-image-unit load-proc compile-time-hash)))
 
 
 ;;;
-;;;; Module
+;;;; Unit
 ;;;
 
 
@@ -1747,10 +1747,10 @@
   '())
 
 
-(define jazz.requested-module-name
+(define jazz.requested-unit-name
   (make-parameter #f))
 
-(define jazz.requested-module-resource
+(define jazz.requested-unit-resource
   (make-parameter #f))
 
 
@@ -1761,8 +1761,8 @@
   jazz.Load-Stack)
 
 
-(define (jazz.push-load-stack mode module-name)
-  (set! jazz.Load-Stack (%%cons (%%cons mode module-name) jazz.Load-Stack)))
+(define (jazz.push-load-stack mode unit-name)
+  (set! jazz.Load-Stack (%%cons (%%cons mode unit-name) jazz.Load-Stack)))
 
 
 (define (jazz.pop-load-stack)
@@ -1782,44 +1782,44 @@
         (mutex-unlock! jazz.Load-Mutex)))))
 
 
-(define (jazz.module-loaded? module-name)
-  (%%eq? (jazz.get-environment-module module-name) jazz.Loaded-State))
+(define (jazz.unit-loaded? unit-name)
+  (%%eq? (jazz.get-environment-unit unit-name) jazz.Loaded-State))
 
 
-(define (jazz.load-module module-name)
-  (let ((module-state (jazz.get-environment-module module-name)))
-    (if (%%not (%%eq? module-state jazz.Loaded-State))
-        (jazz.call-with-load-lock ; module-state might change while suspended
+(define (jazz.load-unit unit-name)
+  (let ((unit-state (jazz.get-environment-unit unit-name)))
+    (if (%%not (%%eq? unit-state jazz.Loaded-State))
+        (jazz.call-with-load-lock ; unit-state might change while suspended
           (lambda ()
-            (let ((module-state (jazz.get-environment-module module-name)))
-              (cond ((%%eq? module-state jazz.Loading-State)
-                     (jazz.error "Circular loading of module: {s}" module-name))
-                    ((%%eq? module-state jazz.Unloaded-State)
+            (let ((unit-state (jazz.get-environment-unit unit-name)))
+              (cond ((%%eq? unit-state jazz.Loading-State)
+                     (jazz.error "Circular loading of unit: {s}" unit-name))
+                    ((%%eq? unit-state jazz.Unloaded-State)
                      (dynamic-wind
                        (lambda ()
-                         (jazz.set-environment-module module-name jazz.Loading-State)
-                         (jazz.push-load-stack ':load module-name))
+                         (jazz.set-environment-unit unit-name jazz.Loading-State)
+                         (jazz.push-load-stack ':load unit-name))
                        (lambda ()
-                         (jazz.load-module-src/bin module-name)
-                         (jazz.set-environment-module module-name jazz.Loaded-State))
+                         (jazz.load-unit-src/bin unit-name)
+                         (jazz.set-environment-unit unit-name jazz.Loaded-State))
                        (lambda ()
                          (jazz.pop-load-stack)
-                         (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
-                             (jazz.set-environment-module module-name jazz.Unloaded-State))))))))))))
+                         (if (%%eq? (jazz.get-environment-unit unit-name) jazz.Loading-State)
+                             (jazz.set-environment-unit unit-name jazz.Unloaded-State))))))))))))
 
 
-(define (jazz.unload-module module-name)
+(define (jazz.unload-unit unit-name)
   (if (mutex-lock! jazz.Load-Mutex)
       (begin
-        (jazz.set-environment-module module-name jazz.Unloaded-State)
+        (jazz.set-environment-unit unit-name jazz.Unloaded-State)
         (mutex-unlock! jazz.Load-Mutex))
     ;; reacquire mutex
-    (jazz.unload-module module-name)))
+    (jazz.unload-unit unit-name)))
 
 
-(define (jazz.reload-module module-name)
-  (jazz.unload-module module-name)
-  (jazz.load-module module-name))
+(define (jazz.reload-unit unit-name)
+  (jazz.unload-unit unit-name)
+  (jazz.load-unit unit-name))
 
 
 ;;;
@@ -1839,7 +1839,7 @@
   (let ((symbol/proc (%%table-ref jazz.Services name #f)))
     (if (%%symbol? symbol/proc)
         (begin
-          (jazz.load-module symbol/proc)
+          (jazz.load-unit symbol/proc)
           (set! symbol/proc (%%table-ref jazz.Services name #f))))
     (if symbol/proc
         (symbol/proc)
@@ -1873,7 +1873,7 @@
   (receive (contructor-library ignore) (jazz.split-composite contructor-name)
     `(jazz.register-literal-constructor ',name ',contructor-name
        (lambda (arguments)
-         (jazz.load-module ',contructor-library)
+         (jazz.load-unit ',contructor-library)
          (%%apply (jazz.global-value ',contructor-name) arguments)))))
 
 

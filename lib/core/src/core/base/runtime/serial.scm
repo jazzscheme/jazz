@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.base.runtime.serial
+(unit protected core.base.runtime.serial
 
 
 (cond-expand

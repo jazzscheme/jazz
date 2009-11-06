@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected core.generic.syntax.expander
+(unit protected core.generic.syntax.expander
 
 
 (define (jazz.dynamic-parameter? parameter)

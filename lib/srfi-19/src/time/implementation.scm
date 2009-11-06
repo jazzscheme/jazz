@@ -80,7 +80,7 @@
 ;; 'fractional part'. Will Fitzgerald 5/16/2003.
 ;; --------------------------------------------------------------
 
-(module protected time.implementation
+(unit protected time.implementation
 
 (cond-expand
   (gambit)

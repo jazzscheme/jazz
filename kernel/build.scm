@@ -202,16 +202,6 @@
                         (string-ci<? (symbol->string n1) (symbol->string n2))))))))
 
 
-(define (jazz.split-configurations configurations)
-  (let split ((configurations configurations) (anonymous #f) (named '()))
-    (if (null? configurations)
-        (values anonymous named)
-      (let ((configuration (car configurations)))
-        (if (not (jazz.configuration-name configuration))
-            (split (cdr configurations) configuration named)
-          (split (cdr configurations) anonymous (cons configuration named)))))))
-
-
 (define (jazz.register-configuration configuration)
   (let ((name (jazz.configuration-name configuration)))
     (let ((pair (jazz.find-configuration-pair name)))
@@ -252,6 +242,15 @@
 
 
 (define (jazz.save-configurations)
+  (define (split-configurations configurations)
+    (let split ((configurations configurations) (anonymous #f) (named '()))
+         (if (null? configurations)
+             (values anonymous named)
+           (let ((configuration (car configurations)))
+             (if (not (jazz.configuration-name configuration))
+                 (split (cdr configurations) configuration named)
+               (split (cdr configurations) anonymous (cons configuration named)))))))
+  
   (define (print-configuration configuration output)
     (jazz.print-configuration
       (jazz.configuration-name configuration)
@@ -268,7 +267,7 @@
       (jazz.configuration-destination configuration)
       output))
   
-  (receive (anonymous named) (jazz.split-configurations jazz.configurations)
+  (receive (anonymous named) (split-configurations jazz.configurations)
     (if anonymous
         (call-with-output-file jazz.anonymous-configuration-file
           (lambda (output)
@@ -424,15 +423,14 @@
 
 
 (define (jazz.require-platform platform)
-  (or platform (jazz.guess-platform)))
-
-
-(define (jazz.guess-platform)
-  (let ((system (cadr (system-type)))
-        (os (caddr (system-type))))
-    (cond ((eq? system 'apple) 'mac)
-          ((eq? os 'linux-gnu) 'unix)
-          (else 'windows))))
+  (define (guess-platform)
+    (let ((system (cadr (system-type)))
+          (os (caddr (system-type))))
+      (cond ((eq? system 'apple) 'mac)
+            ((eq? os 'linux-gnu) 'unix)
+            (else 'windows))))
+  
+  (or platform (guess-platform)))
 
 
 (define (jazz.validate-platform platform)
@@ -453,14 +451,13 @@
 
 
 (define (jazz.require-windowing platform windowing)
-  (or windowing (jazz.guess-windowing platform)))
-
-
-(define (jazz.guess-windowing platform)
-  (case platform
-    ((mac) 'x11) ;; until carbon is ready
-    ((windows) #f)
-    ((unix) 'x11)))
+  (define (guess-windowing platform)
+    (case platform
+      ((mac) 'x11) ;; until carbon is ready
+      ((windows) #f)
+      ((unix) 'x11)))
+  
+  (or windowing (guess-windowing platform)))
 
 
 (define (jazz.validate-windowing windowing)
@@ -759,25 +756,6 @@
 
 
 ;;;
-;;;; Build
-;;;
-
-
-(define (jazz.build-recursive target configuration image)
-  (let ((configuration-name (jazz.configuration-name configuration)))
-    (let ((argument (string-append (if configuration-name
-                                       (jazz.format "{a}@{a}" target configuration-name)
-                                     (symbol->string target))
-                                   (if image
-                                       (string-append ":" (symbol->string image))
-                                     "")))
-          (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
-                        "gsc"
-                      "gsc-script")))
-      (jazz.call-process gsc-path `("-:dq-" "make" ,argument)))))
-
-
-;;;
 ;;;; Clean
 ;;;
 
@@ -809,52 +787,64 @@
 
 
 (define (jazz.make-kernel configuration image local?)
-  (if local?
-      (jazz.build-kernel configuration image)
-    (jazz.build-recursive 'kernel configuration image)))
-
-
-(define (jazz.build-kernel configuration image)
-  (define (build configuration)
-    (let ((name (jazz.configuration-name configuration))
-          (system (jazz.configuration-system configuration))
-          (platform (jazz.configuration-platform configuration))
-          (windowing (jazz.configuration-windowing configuration))
-          (safety (jazz.configuration-safety configuration))
-          (optimize? (jazz.configuration-optimize? configuration))
-          (debug-environments? (jazz.configuration-debug-environments? configuration))
-          (debug-location? (jazz.configuration-debug-location? configuration))
-          (debug-source? (jazz.configuration-debug-source? configuration))
-          (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
-          (source "./")
-          (source-access? (jazz.configuration-source-access? configuration))
-          (destination (jazz.configuration-destination configuration))
-          (destination-directory (jazz.configuration-directory configuration)))
-      (jazz.build-image #f
-        system:                system
-        platform:              platform
-        windowing:             windowing
-        safety:                safety
-        optimize?:             optimize?
-        debug-environments?:   debug-environments?
-        debug-location?:       debug-location?
-        debug-source?:         debug-source?
-        include-compiler?:     #t
-        interpret-kernel?:     interpret-kernel?
-        source:                source
-        source-access?:        source-access?
-        destination:           destination
-        destination-directory: destination-directory
-        image:                 image
-        kernel?:               #t
-        console?:              #t)))
+  (define (build-kernel configuration image)
+    (define (build configuration)
+      (let ((name (jazz.configuration-name configuration))
+            (system (jazz.configuration-system configuration))
+            (platform (jazz.configuration-platform configuration))
+            (windowing (jazz.configuration-windowing configuration))
+            (safety (jazz.configuration-safety configuration))
+            (optimize? (jazz.configuration-optimize? configuration))
+            (debug-environments? (jazz.configuration-debug-environments? configuration))
+            (debug-location? (jazz.configuration-debug-location? configuration))
+            (debug-source? (jazz.configuration-debug-source? configuration))
+            (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
+            (source "./")
+            (source-access? (jazz.configuration-source-access? configuration))
+            (destination (jazz.configuration-destination configuration))
+            (destination-directory (jazz.configuration-directory configuration)))
+        (jazz.build-image #f
+                          system:                system
+                          platform:              platform
+                          windowing:             windowing
+                          safety:                safety
+                          optimize?:             optimize?
+                          debug-environments?:   debug-environments?
+                          debug-location?:       debug-location?
+                          debug-source?:         debug-source?
+                          include-compiler?:     #t
+                          interpret-kernel?:     interpret-kernel?
+                          source:                source
+                          source-access?:        source-access?
+                          destination:           destination
+                          destination-directory: destination-directory
+                          image:                 image
+                          kernel?:               #t
+                          console?:              #t)))
+    
+    (jazz.feedback "make kernel")
+    (let ((configuration (or configuration (jazz.require-default-configuration))))
+      (let ((configuration-file (jazz.configuration-file configuration)))
+        (if (file-exists? configuration-file)
+            (build (jazz.load-configuration-file configuration-file))
+          (build configuration)))))
   
-  (jazz.feedback "make kernel")
-  (let ((configuration (or configuration (jazz.require-default-configuration))))
-    (let ((configuration-file (jazz.configuration-file configuration)))
-      (if (file-exists? configuration-file)
-          (build (jazz.load-configuration-file configuration-file))
-        (build configuration)))))
+  (define (build-recursive target configuration image)
+    (let ((configuration-name (jazz.configuration-name configuration)))
+      (let ((argument (string-append (if configuration-name
+                                         (jazz.format "{a}@{a}" target configuration-name)
+                                       (symbol->string target))
+                                     (if image
+                                         (string-append ":" (symbol->string image))
+                                       "")))
+            (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
+                          "gsc"
+                        "gsc-script")))
+        (jazz.call-process gsc-path `("-:dq-" "make" ,argument)))))
+  
+  (if local?
+      (build-kernel configuration image)
+    (build-recursive 'kernel configuration image)))
 
 
 ;;;

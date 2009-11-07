@@ -494,39 +494,38 @@
 
 
 (define (jazz.repository-install-packages repository)
+  (define (repository-discover-packages repository)
+    (let ((table (%%repository-packages-table repository)))
+      (define (discover-packages parent library-directory packages)
+        (if (jazz.directory-exists? library-directory)
+            (let iter ((dirnames (jazz.directory-directories library-directory))
+                       (packages packages))
+                 (if (%%null? dirnames)
+                     packages
+                   (let ((dirname (%%car dirnames)))
+                     (let ((directory (%%string-append library-directory dirname "/")))
+                       (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
+                         (if (jazz.file-exists? package-pathname)
+                             (let ((package-name (%%string->symbol dirname)))
+                               (if (%%table-ref table package-name #f)
+                                   (iter (%%cdr dirnames) packages)
+                                 (let ((package (jazz.load-package repository parent package-name package-pathname)))
+                                   (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%package-library-path package)))
+                                                                            (if library-path
+                                                                                (let ((library-directory (jazz.repository-pathname (%%package-repository package) (%%string-append library-path "/"))))
+                                                                                  (discover-packages package library-directory packages))
+                                                                              packages)))))))
+                           (iter (%%cdr dirnames) packages)))))))
+          packages))
+      
+      (discover-packages #f (%%repository-library-directory repository) '())))
+  
   (let ((table (%%repository-packages-table repository))
-        (packages (jazz.repository-discover-packages repository)))
+        (packages (repository-discover-packages repository)))
     (for-each (lambda (package)
                 (%%table-set! table (%%package-name package) package))
               packages)
     packages))
-
-
-(define (jazz.repository-discover-packages repository)
-  (let ((table (%%repository-packages-table repository)))
-    (define (discover-packages parent library-directory packages)
-      (if (jazz.directory-exists? library-directory)
-          (let iter ((dirnames (jazz.directory-directories library-directory))
-                     (packages packages))
-            (if (%%null? dirnames)
-                packages
-              (let ((dirname (%%car dirnames)))
-                (let ((directory (%%string-append library-directory dirname "/")))
-                  (let ((package-pathname (%%string-append directory jazz.Package-Filename)))
-                    (if (jazz.file-exists? package-pathname)
-                        (let ((package-name (%%string->symbol dirname)))
-                          (if (%%table-ref table package-name #f)
-                              (iter (%%cdr dirnames) packages)
-                            (let ((package (jazz.load-package repository parent package-name package-pathname)))
-                              (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%package-library-path package)))
-                                                                       (if library-path
-                                                                           (let ((library-directory (jazz.repository-pathname (%%package-repository package) (%%string-append library-path "/"))))
-                                                                             (discover-packages package library-directory packages))
-                                                                         packages)))))))
-                      (iter (%%cdr dirnames) packages)))))))
-        packages))
-    
-    (discover-packages #f (%%repository-library-directory repository) '())))
 
 
 (define (jazz.repository-add-package repository package)
@@ -914,23 +913,22 @@
 
 
 (define (jazz.validate-repository-unicity repository unit-name proc)
-  (if (%%not (jazz.repository-unique? repository proc))
+  (define (repository-unique? repository proc)
+    (let iter ((packages (jazz.repository-packages repository))
+               (found? #f))
+         (if (%%null? packages)
+             #t
+           (let ((package (%%car packages)))
+             (if (proc package)
+                 (if found?
+                     #f
+                   (iter (%%cdr packages) #t))
+               (iter (%%cdr packages) found?))))))
+  
+  (if (%%not (repository-unique? repository proc))
       (jazz.error "Found duplicate resource in {a} repository: {s}"
                   (or (%%repository-name repository) "anonymous")
                   unit-name)))
-
-
-(define (jazz.repository-unique? repository proc)
-  (let iter ((packages (jazz.repository-packages repository))
-             (found? #f))
-    (if (%%null? packages)
-        #t
-      (let ((package (%%car packages)))
-        (if (proc package)
-            (if found?
-                #f
-              (iter (%%cdr packages) #t))
-          (iter (%%cdr packages) found?))))))
 
 
 ;;;
@@ -1171,11 +1169,6 @@
   (%%table-set! jazz.Products-Table name (%%make-product name title icon run test update build library (jazz.find-product-descriptor name))))
 
 
-(define (jazz.get-registered-product name)
-  (or (%%table-ref jazz.Products-Table name #f)
-      (jazz.error "Unable to find registered product: {s}" name)))
-
-
 (define (jazz.get-product-descriptor name)
   (let ((descriptor (jazz.find-product-descriptor name)))
     (if descriptor
@@ -1184,13 +1177,17 @@
 
 
 (define (jazz.get-product name)
+  (define (get-registered-product name)
+    (or (%%table-ref jazz.Products-Table name #f)
+        (jazz.error "Unable to find registered product: {s}" name)))
+  
   (let ((descriptor (jazz.get-product-descriptor name)))
     (let ((name (jazz.product-descriptor-name descriptor)) ; because of aliases
           (unit (jazz.product-descriptor-unit descriptor)))
       (if unit
           (begin
             (jazz.load-unit unit)
-            (jazz.get-registered-product name))
+            (get-registered-product name))
         (let ((title (jazz.product-descriptor-title descriptor))
               (icon (jazz.product-descriptor-icon descriptor)))
           (%%make-product name title icon
@@ -1221,46 +1218,43 @@
   (%%table-set! jazz.Products-Run-Table name proc))
 
 
-(define (jazz.get-registered-run name)
-  (or (%%table-ref jazz.Products-Run-Table name #f)
-      (jazz.error "Unable to find registered run: {s}" name)))
-
-
 (define (jazz.run-product name)
+  (define (run-product-descriptor descriptor)
+    (let ((name (jazz.product-descriptor-name descriptor))
+          (run (jazz.product-descriptor-run descriptor)))
+      (if run
+          (begin
+            (for-each jazz.load-unit run)
+            (let ((proc (get-registered-run name)))
+              (proc descriptor)))
+        (jazz.error "Product is not runnable: {s}" name))))
+  
+  (define (get-registered-run name)
+    (or (%%table-ref jazz.Products-Run-Table name #f)
+        (jazz.error "Unable to find registered run: {s}" name)))
+  
   (let ((product (jazz.setup-product name)))
     (let ((run (%%product-run product))
           (descriptor (%%product-descriptor product)))
       (if run
           (run descriptor)
-        (jazz.run-product-descriptor descriptor)))))
+        (run-product-descriptor descriptor)))))
 
 
 (define (jazz.test-product name)
+  (define (test-product-descriptor descriptor)
+    (let ((name (jazz.product-descriptor-name descriptor))
+          (test (jazz.product-descriptor-test descriptor)))
+      (if test
+          (for-each jazz.load-unit test)
+        (jazz.error "Product is not testable: {s}" name))))
+  
   (let ((product (jazz.setup-product name)))
     (let ((test (%%product-test product))
           (descriptor (%%product-descriptor product)))
       (if test
           (test descriptor)
-        (jazz.test-product-descriptor descriptor)))))
-
-
-(define (jazz.run-product-descriptor descriptor)
-  (let ((name (jazz.product-descriptor-name descriptor))
-        (run (jazz.product-descriptor-run descriptor)))
-    (if run
-        (begin
-          (for-each jazz.load-unit run)
-          (let ((proc (jazz.get-registered-run name)))
-            (proc descriptor)))
-      (jazz.error "Product is not runnable: {s}" name))))
-
-
-(define (jazz.test-product-descriptor descriptor)
-  (let ((name (jazz.product-descriptor-name descriptor))
-        (test (jazz.product-descriptor-test descriptor)))
-    (if test
-        (for-each jazz.load-unit test)
-      (jazz.error "Product is not testable: {s}" name))))
+        (test-product-descriptor descriptor)))))
 
 
 (define (jazz.update-product name)

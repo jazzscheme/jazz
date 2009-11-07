@@ -140,6 +140,20 @@
 
   
   (method (on-design-form evt)
+    (define (find-editor form)
+      (let ((stage (get-stage)))
+        (continuation-capture
+          (lambda (return)
+            (for-each (lambda (frame)
+                        (when (is? frame Host-View)
+                          (let ((guest (get-guest~ frame)))
+                            (when (is? guest Editor-View)
+                              (let ((designer (get-designer~ guest)))
+                                (when (and designer (eq? form (get-form~ designer)))
+                                  (continuation-return return frame)))))))
+                      (get-children~ stage))
+            {}))))
+    
     (unimplemented 'on-design-form)
     @convert
     (let* ((name (current-category-name))
@@ -155,21 +169,6 @@
               (let* ((component (new class))
                      (editor-class (if (is? component View) View-Editor Manager-View)))
                 (new-frame editor-class client: component)))))))
-  
-  
-  (method (find-editor form)
-    (let ((stage (get-stage)))
-      (continuation-capture
-        (lambda (return)
-          (for-each (lambda (frame)
-                      (when (is? frame Host-View)
-                        (let ((guest (get-guest~ frame)))
-                          (when (is? guest Editor-View)
-                            (let ((designer (get-designer~ guest)))
-                              (when (and designer (eq? form (get-form~ designer)))
-                                (continuation-return return frame)))))))
-                    (get-children~ stage))
-          {}))))
   
   
   (method (on-copy-list evt)
@@ -371,7 +370,7 @@
   
   
   ;; todo: code from old jazz was not portable
-  (method (present-location location)
+  (definition (present-location location)
     )
   
 
@@ -405,15 +404,6 @@
                         (set! meta? #f)))
                     (cdr loc)))
         class)))
-  
-  
-  (method (split-location location)
-    (let ((scan location)
-          (definition (new List-Factory)))
-      (while (symbol? (car scan))
-        (put~ definition (car scan))
-        (set! scan (cdr scan)))
-      (values (get-output~ definition) scan)))
   
   
   (method (declaration-name-info object)
@@ -515,79 +505,73 @@
 
   
   (method override (show-arguments)
+    (define (show-declaration-arguments expl)
+      @convert
+      (let ((name (get-marked~ expl))
+            (info (current-toplevel-info)))
+        (when info
+          (receive (in category-info) info
+            (bind (category kind meta? name keywords) category-info
+              (when category
+                (let ((symbol (find-symbol name)))
+                  (when symbol
+                    (let ((imports (getf keywords 'uses)))
+                      (show-symbol-arguments symbol category imports))))))))))
+    
+    (define (show-symbol-arguments symbol class packages)
+      (unimplemented 'show-symbol-arguments)
+      @convert
+      (let ((field (find-in symbol class packages)))
+        (when field
+          (let ((value (definition-value field)))
+            (typecase value
+              ((External)
+               (show-external-arguments symbol value))
+              ((%function)
+               (show-function-arguments symbol value))
+              ((Closure)
+               (show-function-arguments symbol (closure-function~ Interpreter value))))))))
+    
+    (define (show-external-arguments symbol external)
+      @convert
+      (user-message "({s} {l}{a}) {s}"
+                    symbol
+                    (map type-name (accumulate (proxy-parameters~ Interpreter external) (lambda (param) (get-type~ param)) List))
+                    (if (proxy-rest?~ Interpreter external) " . rest" "")
+                    (type-name (get-type~ (proxy-result~ Interpreter external)))))
+    
+    (define (show-function-arguments symbol function)
+      @convert
+      (let* ((parameters (function-parameters~ Interpreter function))
+             (printer (open-output-string))
+             ;; convert
+             (rest 'rest))
+        (present-parameters parameters rest printer)
+        (user-message "({a} {a})" symbol (get-output-string printer))))
+    
+    (define (present-parameters parameters bind printer)
+      (define (present-parameter parameter printer)
+        @convert
+        (typecase parameter
+          ((Variable) (format printer "{s}" (variable-symbol~ Interpreter parameter)))
+          (else (format printer "{s}" parameter))))
+      
+      (when parameters
+        (cond ((pair? parameters)
+               (present-parameter (car parameters) printer)
+               (format printer " ")
+               (present-parameters (cdr parameters) bind printer))
+              (bind
+                    (format printer "{a}" bind))
+              (else
+               (format printer ". {a}" parameters)))))
+    
     (when (empty-selection?)
       (let ((expl (new Jazz-Explorer self start: (get-start) end: (get-end))))
         (when (and (backward-expr~ expl)
                    (= (get-kind~ expl) 'symbol))
           (case (char-backward~ expl 0)
             ((#\open-parenthesis) (show-declaration-arguments expl)))))))
-  
-  
-  (method (show-declaration-arguments expl)
-    @convert
-    (let ((name (get-marked~ expl))
-          (info (current-toplevel-info)))
-      (when info
-        (receive (in category-info) info
-          (bind (category kind meta? name keywords) category-info
-            (when category
-              (let ((symbol (find-symbol name)))
-                (when symbol
-                  (let ((imports (getf keywords 'uses)))
-                    (show-symbol-arguments symbol category imports))))))))))
-
-
-  (method (show-symbol-arguments symbol class packages)
-    (unimplemented 'show-symbol-arguments)
-    @convert
-    (let ((field (find-in symbol class packages)))
-      (when field
-        (let ((value (definition-value field)))
-          (typecase value
-            ((External)
-             (show-external-arguments symbol value))
-            ((%function)
-             (show-function-arguments symbol value))
-            ((Closure)
-             (show-function-arguments symbol (closure-function~ Interpreter value))))))))
-
-
-  (method (show-external-arguments symbol external)
-    @convert
-    (user-message "({s} {l}{a}) {s}"
-                  symbol
-                  (map type-name (accumulate (proxy-parameters~ Interpreter external) (lambda (param) (get-type~ param)) List))
-                  (if (proxy-rest?~ Interpreter external) " . rest" "")
-                  (type-name (get-type~ (proxy-result~ Interpreter external)))))
-
-  
-  (method (show-function-arguments symbol function)
-    @convert
-    (let* ((parameters (function-parameters~ Interpreter function))
-           (printer (open-output-string))
-           ;; convert
-           (rest 'rest))
-      (present-parameters parameters rest printer)
-      (user-message "({a} {a})" symbol (get-output-string printer))))
-  
-  
-  (method (present-parameters parameters bind printer)
-    (when parameters
-      (cond ((pair? parameters)
-             (present-parameter (car parameters) printer)
-             (format printer " ")
-             (present-parameters (cdr parameters) bind printer))
-            (bind
-             (format printer "{a}" bind))
-            (else
-             (format printer ". {a}" parameters)))))
-  
-  
-  (method (present-parameter parameter printer)
-    @convert
-    (typecase parameter
-      ((Variable) (format printer "{s}" (variable-symbol~ Interpreter parameter)))
-      (else (format printer "{s}" parameter))))
    
 
   ;;;

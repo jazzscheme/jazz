@@ -646,16 +646,15 @@
   
   
   (method public (anchorize (anchors: anchors {}) (ignored-anchors: ignored-anchors {}))
+    (define (default-anchors)
+      (application-anchors~ (get-application)))
+    
     (let* ((anchors (difference (either anchors (default-anchors)) (either ignored-anchors '())))
            (anchored (collect (lambda (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
            (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
-        (car sorted))))
-  
-  
-  (method (default-anchors)
-    (application-anchors~ (get-application))))
+        (car sorted)))))
 
 
 (definition public inline (pathname? object)
@@ -1038,48 +1037,45 @@
   
   
   (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
+    (define (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
+      (iterate-content base 'directories sort? ignored-directories
+        (lambda (name)
+          (when recursive?
+            (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "/" name) proc))
+          (when directories?
+            (proc (append prefix (list name)) 'directory))))
+      (iterate-content base 'files sort? ignored-directories
+        (lambda (name)
+          (when files?
+            (proc (concatenate prefix (list name)) 'file)))))
+    
+    (define (iterate-content base kind sort? ignored-directories proc)
+      (if (not sort?)
+          (iterate-content-unsorted base kind ignored-directories proc)
+        (let ((list '()))
+          (iterate-content-unsorted base kind ignored-directories
+            (lambda (object)
+              (set! list (cons object list))))
+          (let ((sorted (sort ci<? list)))
+            (for-each proc sorted)))))
+    
+    (define (iterate-content-unsorted base kind ignored-directories proc)
+      (for-each (lambda (name)
+                  (let ((path (string-append base "/" name)))
+                    ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
+                    (when (file-exists? path)
+                      (let ((type (pathname-type path)))
+                        (when (or (and (eq? kind 'files) (eq? type 'regular))
+                                  (and (eq? kind 'directories) (eq? type 'directory) (not (member? name ignored-directories))))
+                          (proc name))))))
+                (directory-content-patch base)))
+    
     (let ((directory (if full? (get-list) {})))
       (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
         (lambda (list kind)
           (case kind
             ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
             ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory))))))))
-  
-  
-  (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
-    (iterate-content base 'directories sort? ignored-directories
-      (lambda (name)
-        (when recursive?
-          (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "/" name) proc))
-        (when directories?
-          (proc (append prefix (list name)) 'directory))))
-    (iterate-content base 'files sort? ignored-directories
-      (lambda (name)
-        (when files?
-          (proc (concatenate prefix (list name)) 'file)))))
-  
-  
-  (method (iterate-content base kind sort? ignored-directories proc)
-    (if (not sort?)
-        (iterate-content-unsorted base kind ignored-directories proc)
-      (let ((list '()))
-        (iterate-content-unsorted base kind ignored-directories
-          (lambda (object)
-            (set! list (cons object list))))
-        (let ((sorted (sort ci<? list)))
-          (for-each proc sorted)))))
-  
-  
-  (method (iterate-content-unsorted base kind ignored-directories proc)
-    (for-each (lambda (name)
-                (let ((path (string-append base "/" name)))
-                  ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
-                  (when (file-exists? path)
-                    (let ((type (pathname-type path)))
-                      (when (or (and (eq? kind 'files) (eq? type 'regular))
-                                (and (eq? kind 'directories) (eq? type 'directory) (not (member? name ignored-directories))))
-                        (proc name))))))
-              (directory-content-patch base)))
   
   
   ;; quicky because showing .* files in the open dialog creates problems
@@ -1137,25 +1133,24 @@
       
       
       (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+        (define (enumerate-drives)
+          (reverse!
+            (let (loop (drives (jazz.platform.windows.GetLogicalDrives))
+                       (letter (char->integer #\A))
+                       (result '()))
+              (if (= drives 0)
+                  result
+                (loop (arithmetic-shift drives -1) (+ letter 1)
+                  (if (/= 0 (bitwise-and drives 1))
+                      (cons (integer->char letter) result)
+                    result))))))
+        
         (let ((fact (new List-Factory)))
           (when nodes?
             (for-each (lambda (letter)
                         (put~ fact (new Directory (list (string letter #\:)))))
                       (enumerate-drives)))
-          (get-output~ fact)))
-      
-      
-      (method (enumerate-drives)
-        (reverse!
-          (let (loop (drives (jazz.platform.windows.GetLogicalDrives))
-                     (letter (char->integer #\A))
-                     (result '()))
-            (if (= drives 0)
-                result
-              (loop (arithmetic-shift drives -1) (+ letter 1)
-                (if (/= 0 (bitwise-and drives 1))
-                    (cons (integer->char letter) result)
-                  result))))))))
+          (get-output~ fact)))))
 
   (else))
 

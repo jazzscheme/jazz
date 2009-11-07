@@ -75,44 +75,41 @@
   
   
   (method override (draw surface context lh lv)
+    (define (draw-ruler surface width height)
+      (draw-border surface width height)
+      (draw-measurements surface width height))
+    
+    (define (draw-border surface width height)
+      (let* ((outer (new Rect 0 0 width height))
+             (inner (inflate-rect outer -1 -1)))
+        (draw-edge~ surface outer inner: 'raised edges: 'rectangle)
+        (fill-rect~ surface inner {Color name: Medium})))
+    
+    (define (draw-measurements surface width height)
+      (let* ((unit 8)
+             (major 4)
+             (number (quotient width unit))
+             (limit (- width 1))
+             (left (get-left-padding~ client))
+             (tabs (get-user-tabs~ client)))
+        (set-color~ surface {Color name: Black})
+        (for-each (lambda (n)
+                    (let* ((rank (* n unit))
+                           (pixel (+ left rank)))
+                      (unless (>= pixel limit)
+                        (let* ((tab? (memq? rank tabs))
+                               (major? (= (modulo n major) 0))
+                               (offset (if major? 5 8)))
+                          (set-color~ surface (if tab? Tabbed-Color Untabbed-Color))
+                          (move-to~ surface pixel offset)
+                          (line-to~ surface pixel (- height offset))))))
+                  (naturals 0 (+ number 1)))))
+    
     (let ((clipper (get-logical-clipper~ surface)))
       (let ((width (get-width))
             (height (get-header-height)))
         (when (< (get-top~ clipper) height)
           (draw-ruler surface width height)))))
-  
-  
-  (method (draw-ruler surface width height)
-    (draw-border surface width height)
-    (draw-measurements surface width height))
-  
-  
-  (method (draw-border surface width height)
-    (let* ((outer (new Rect 0 0 width height))
-           (inner (inflate-rect outer -1 -1)))
-      (draw-edge~ surface outer inner: 'raised edges: 'rectangle)
-      (fill-rect~ surface inner {Color name: Medium})))
-  
-  
-  (method (draw-measurements surface width height)
-    (let* ((unit 8)
-           (major 4)
-           (number (quotient width unit))
-           (limit (- width 1))
-           (left (get-left-padding~ client))
-           (tabs (get-user-tabs~ client)))
-      (set-color~ surface {Color name: Black})
-      (for-each (lambda (n)
-                  (let* ((rank (* n unit))
-                         (pixel (+ left rank)))
-                    (unless (>= pixel limit)
-                      (let* ((tab? (memq? rank tabs))
-                             (major? (= (modulo n major) 0))
-                             (offset (if major? 5 8)))
-                        (set-color~ surface (if tab? Tabbed-Color Untabbed-Color))
-                        (move-to~ surface pixel offset)
-                        (line-to~ surface pixel (- height offset))))))
-                (naturals 0 (+ number 1)))))
   
 
   ;;;

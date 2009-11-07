@@ -127,6 +127,34 @@
   
   
   (method (update-content)
+    (define (update-hierarchical tree)
+      (let ((workbench (get-workbench))
+            (rows (make-table test: eq?)))
+        (define (add file father)
+          (either (table-ref rows file {})
+                  (let ((title (get-presentation~ file))
+                        (image (get-component-image~ file)))
+                    (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
+                      (table-set! rows file row)
+                      row))))
+        
+        (define (insert project)
+          (let ((parent (get-parent~ project)))
+            (if (not parent)
+                (add project {})
+              (add project (insert parent)))))
+        
+        (for-each insert (collect-projects workbench))))
+    
+    (define (update-flat tree)
+      (let ((workbench (get-workbench)))
+        (for-each (lambda (project)
+                    (let ((title (get-presentation~ project))
+                          (image (get-component-image~ project)))
+                      (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
+                  (sort string<? (collect-projects workbench)
+                    key: (lambda (project) (get-presentation~ project))))))
+    
     (let ((tree (get-tree)))
       (with-update-locked~ tree
         (lambda ()
@@ -134,36 +162,6 @@
           (if hierarchical?
               (update-hierarchical tree)
             (update-flat tree))))))
-  
-  
-  (method (update-hierarchical tree)
-    (let ((workbench (get-workbench))
-          (rows (make-table test: eq?)))
-      (define (add file father)
-        (either (table-ref rows file {})
-                (let ((title (get-presentation~ file))
-                      (image (get-component-image~ file)))
-                  (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
-                    (table-set! rows file row)
-                    row))))
-      
-      (define (insert project)
-        (let ((parent (get-parent~ project)))
-          (if (not parent)
-              (add project {})
-            (add project (insert parent)))))
-      
-      (for-each insert (collect-projects workbench))))
-  
-  
-  (method (update-flat tree)
-    (let ((workbench (get-workbench)))
-      (for-each (lambda (project)
-                  (let ((title (get-presentation~ project))
-                        (image (get-component-image~ project)))
-                    (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
-                (sort string<? (collect-projects workbench)
-                  key: (lambda (project) (get-presentation~ project))))))
   
   
   (method (update-buttons)

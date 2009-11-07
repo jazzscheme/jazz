@@ -112,6 +112,37 @@ Cookie: SessionID=nil
   
   
   (method (parse-request port)
+    (define (parse-resource resource)
+      (let ((pos (find resource #\question-mark)))
+        (if (not pos)
+            (values (url-decode (subseq resource 1))
+                    {})
+          (values (url-decode (subseq resource 1 pos))
+                  (subseq resource (+ pos 1))))))
+    
+    (define (parse-parameters fragment port)
+      (define (split-parameters port)
+        (let ((parameters (read-all port (lambda (port) (read-line port #\&)))))
+          (map (lambda (parameter)
+                 (let* ((pos (find parameter #\=))
+                        (name (subseq parameter 0 pos))
+                        (value (parse-value (subseq parameter (+ pos 1)))))
+                   (cons (url-decode name) (url-decode value))))
+               parameters)))
+      
+      (if fragment
+          (call-with-input-string fragment
+            (lambda (port)
+              (set! parameters~self (split-parameters port))))
+        (let ((body (read-body port)))
+          (when body
+            (call-with-input-u8vector body
+              (lambda (port)
+                (set! parameters~self (split-parameters port))))))))
+    
+    (define (parse-value value)
+      (substitute #\+ #\space value))
+    
     (receive (line headers) (read-line/headers port)
       (bind (operation resource version) (split line " ")
         (receive (resource fragment) (parse-resource resource)
@@ -121,40 +152,6 @@ Cookie: SessionID=nil
           (parse-headers headers)
           (parse-cookies Cookie-Header)
           (parse-parameters fragment port)))))
-  
-  
-  (method (parse-resource resource)
-    (let ((pos (find resource #\question-mark)))
-      (if (not pos)
-          (values (url-decode (subseq resource 1))
-                  {})
-        (values (url-decode (subseq resource 1 pos))
-                (subseq resource (+ pos 1))))))
-  
-  
-  (method (parse-parameters fragment port)
-    (define (split-parameters port)
-      (let ((parameters (read-all port (lambda (port) (read-line port #\&)))))
-        (map (lambda (parameter)
-               (let* ((pos (find parameter #\=))
-                      (name (subseq parameter 0 pos))
-                      (value (parse-value (subseq parameter (+ pos 1)))))
-                 (cons (url-decode name) (url-decode value))))
-             parameters)))
-    
-    (if fragment
-        (call-with-input-string fragment
-          (lambda (port)
-            (set! parameters~self (split-parameters port))))
-      (let ((body (read-body port)))
-        (when body
-          (call-with-input-u8vector body
-            (lambda (port)
-              (set! parameters~self (split-parameters port))))))))
-  
-  
-  (method (parse-value value)
-    (substitute #\+ #\space value))
   
   
   ;;;

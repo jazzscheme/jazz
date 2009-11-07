@@ -625,7 +625,7 @@
         (confirm-name-resolution parcels children conflicts))))
   
   
-  (method (name-conflicts names children)
+  (definition (name-conflicts names children)
     (let ((equal (sort-predicate 'equal)))
       (collect-if (lambda (child)
                     (some? (lambda (name)
@@ -635,6 +635,14 @@
   
   
   (method protected virtual (confirm-name-resolution parcels children conflicts)
+    (define (present-conflicts header conflicts)
+      (let ((fact (new List-Factory)))
+        (put~ fact header)
+        (for-each (lambda (conflict)
+                    (put~ fact (list :bulleted (->string (get-name~ conflict)))))
+                  conflicts)
+        (get-output~ fact)))
+    
     (if (every? (lambda (parcel)
                   (let ((equal (sort-predicate 'equal))
                         (process-id (get-process-id~ parcel))
@@ -653,15 +661,6 @@
         (case code
           ((yes) 'override)
           ((no) (throw-cancel))))))
-  
-  
-  (method (present-conflicts header conflicts)
-    (let ((fact (new List-Factory)))
-      (put~ fact header)
-      (for-each (lambda (conflict)
-                  (put~ fact (list :bulleted (->string (get-name~ conflict)))))
-                conflicts)
-      (get-output~ fact)))
   
   
   ;;;
@@ -702,6 +701,11 @@
   
 
   (method (embed-form form ancestry)
+    (define (embed-new-form form name)
+      (let ((subform (new Form action: 'modify name: name)))
+        (add-child~ form subform)
+        subform))
+    
     (for-each (lambda (cpn)
                 (let ((children (get-children~ form))
                       (cpn-form (get-form~ cpn)))
@@ -721,12 +725,6 @@
                                   (set! form subform)))))))))))
               ancestry)
     form)
-  
-  
-  (method (embed-new-form form name)
-    (let ((subform (new Form action: 'modify name: name)))
-      (add-child~ form subform)
-      subform))
   
   
   (method (target-branch branch)
@@ -783,7 +781,7 @@
             (values {} {}))))))
   
   
-  (method (owned-form form ancestry)
+  (definition (owned-form form ancestry)
     (continuation-capture
       (lambda (return)
         (for-each (lambda (cpn)
@@ -853,37 +851,37 @@
   ;;;
   
   
-  (method (fire-name-change component name old-name undoable?)
+  (definition (fire-name-change component name old-name undoable?)
     (for-each (lambda (designer)
                 (process-name-change~ designer component name old-name undoable?))
               (get-designers~ component)))
   
   
-  (method (fire-presentation-change component presentation old-presentation undoable?)
+  (definition (fire-presentation-change component presentation old-presentation undoable?)
     (for-each (lambda (designer)
                 (process-presentation-change~ designer component presentation old-presentation undoable?))
               (get-designers~ component)))
   
   
-  (method (fire-property-change branch component property value undoable?)
+  (definition (fire-property-change branch component property value undoable?)
     (for-each (lambda (designer)
                 (process-property-change~ designer branch component property value undoable?))
               (get-designers~ component)))
   
   
-  (method (fire-child-add child parent descendant?)
+  (definition (fire-child-add child parent descendant?)
     (for-each (lambda (designer)
                 (process-child-add~ designer child parent descendant?))
               (get-designers~ parent)))
   
   
-  (method (fire-child-remove child parent)
+  (definition (fire-child-remove child parent)
     (for-each (lambda (designer)
                 (process-child-remove~ designer child parent))
               (get-designers~ child)))
   
   
-  (method (fire-send-before child parent target)
+  (definition (fire-send-before child parent target)
     (for-each (lambda (designer)
                 (process-send-before~ designer child parent target))
               (get-designers~ child)))

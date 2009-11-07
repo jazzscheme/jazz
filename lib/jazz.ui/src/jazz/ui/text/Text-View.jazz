@@ -1084,7 +1084,7 @@
            selection-anchor)))
   
   
-  (method (range-difference x <Range$Cell$> y <Range$Cell$>)
+  (definition (range-difference x <Range$Cell$> y <Range$Cell$>)
     (let ((sx (get-start~ x))
           (ex (get-end~ x))
           (sy (get-start~ y))
@@ -2371,6 +2371,32 @@
   
   
   (method public (create-table (size: size {}) (header?: header? #t) (node-column?: node-column? #f) (columns: columns '()) (row-count: row-count {}))
+    (define (setup-columns tree <Tree-View> node-column? columns)
+      (let ((first? #t))
+        (for-each (lambda (column)
+                    (let* ((node?  (and first? node-column?))
+                           (class  (if node? Tree-Node-Column Tree-Label-Column))
+                           (title  (getf column title:))
+                           (width  (getf column width:))
+                           (others (if node? (list :display-images? #f) '())))
+                      (set! first? #f)
+                      (apply (~ add-column tree) class: class title: title width: width others)))
+                  columns)))
+    
+    (define (setup-rows tree <Tree-View> header? columns row-count)
+      (when row-count
+        (let ((height (get-height~ tree)))
+          ;; time to patch!
+          (when (not header?)
+            (increase! height 16))
+          (let ((row-height (quotient height (cast <fx> row-count))))
+            (for-each (lambda (n)
+                        (let ((children (map (lambda (column)
+                                               (new Formatted-Text-View))
+                                             columns)))
+                          (add-row~ tree row-height: row-height children: children)))
+                      (naturals 0 row-count))))))
+    
     (let* ((border (new Table-Border))
            (tree (locate~ border 'tree)))
       (when size
@@ -2386,38 +2412,6 @@
     (let ((table (apply create-table rest)))
       (insert-view table)
       table))
-  
-  
-  (method (setup-columns tree <Tree-View> node-column? columns)
-    (let ((first? #t))
-      (for-each (lambda (column)
-                  (let* ((node?  (and first? node-column?))
-                         (class  (if node? Tree-Node-Column Tree-Label-Column))
-                         (title  (getf column title:))
-                         (width  (getf column width:))
-                         (others (if node? (list :display-images? #f) '())))
-                    (set! first? #f)
-                    (apply (~ add-column tree) class: class title: title width: width others)))
-                columns)))
-  
-  
-  (method (setup-rows tree <Tree-View> header? columns row-count)
-    (when row-count
-      (let ((height (get-height~ tree)))
-        ;; time to patch!
-        (when (not header?)
-          (increase! height 16))
-        (let ((row-height (quotient height (cast <fx> row-count))))
-          (for-each (lambda (n)
-                      (let ((children (map (lambda (column)
-                                             (new Formatted-Text-View))
-                                           columns)))
-                        (add-row~ tree row-height: row-height children: children)))
-                    (naturals 0 row-count))))))
-  
-  
-  (method public (get-table-cell table cell)
-    (get-cell-data~ table cell))
   
   
   ;;;
@@ -2678,6 +2672,100 @@
   
   
   (method (parse-formatted-content content)
+    (define (parse-paragraph par intern-format intern-style)
+      (if (string? par)
+          (cons {} (list (list par {})))
+        (let* ((scan (iterate-sequence par))
+               (format (parse-format scan)))
+          (cons (intern-format format) (parse-runs scan intern-style)))))
+    
+    (define (parse-format scan <Iterator>)
+      (let* ((format {})
+             (add-formatting
+               (lambda (proc)
+                 (when (not format)
+                   (set! format (new Format)))
+                 (proc format)))
+             (out? #f))
+        (while (and (not (done?~ scan)) (not out?))
+          (let ((target (get-next~ scan)))
+            (case target
+              ((:bulleted)
+               (add-formatting (lambda (format) (set-bulleted?~ format #t)))
+               (add-formatting (lambda (format) (set-left-margin~ format 16))))
+              ((indent:)
+               (let ((n (get-next~ scan)))
+                 (add-formatting (lambda (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
+              (else
+               (unget~ scan target)
+               (set! out? #t)))))
+        format))
+    
+    (define (parse-runs scan <Iterator> intern-style)
+      (accumulate scan
+                  (lambda (run)
+                    (cond ((string? run)
+                           (list run {}))
+                          ((pair? run)
+                           (parse-run (iterate-sequence run) intern-style))
+                          (else
+                           (error "Unable to parse run: {t}" run))))))
+    
+    (define (parse-run scan <Iterator> intern-style)
+      (let* ((string {})
+             (style {})
+             (add-styling
+               (lambda (proc)
+                 (when (not style)
+                   (set! style (new Text-Style base: 'Default)))
+                 (proc style))))
+        (while (not (done?~ scan))
+          (let ((target (get-next~ scan)))
+            (case target
+              ((style:)
+               (let ((name (get-next~ scan)))
+                 (set! style (get-style name))))
+              ((:hyperlink)
+               (let ((action (get-next~ scan)))
+                 (set! style (new-hyperlink-style action))))
+              ((color:)
+               (let ((color (get-next~ scan)))
+                 (when (symbol? color)
+                   (set! color (dispatch Color color)))
+                 (add-styling (lambda (style) (set-color~ style color)))))
+              ((highlight:)
+               (let ((highlight (get-next~ scan)))
+                 (when (symbol? highlight)
+                   (set! highlight (dispatch Color highlight)))
+                 (add-styling (lambda (style) (set-highlight~ style highlight)))))
+              ((font:)
+               (let ((font (get-next~ scan)))
+                 (when (symbol? font)
+                   (set! font (dispatch Font font)))
+                 (add-styling (lambda (style) (set-font~ style font)))))
+              ((image:)
+               (let ((image (get-next~ scan))
+                     (portfolio (get-icons-cache~ (get-application))))
+                 (set! string " ")
+                 (set! style (new Image-Style portfolio: portfolio image-name: image))))
+              ((moniker:)
+               (let ((moniker (get-next~ scan))
+                     (scaling {}))
+                 (let ((next (peek~ scan)))
+                   (when (eq? next scaling:)
+                     (get-next~ scan)
+                     (set! scaling (get-next~ scan))))
+                 (set! string " ")
+                 (set! style (new Image-Style moniker: moniker scaled?: scaling scaling: scaling))))
+              (else
+               (if (string? target)
+                   (set! string target)
+                 (error "Unable to parse run element: {t}" target))))))
+        (list string (intern-style style))))
+    
+    (define (new-hyperlink-style action)
+      (new Hyperlink-Style font: {Font name: Hyperlink-Small} color: {Color name: Hyperlink} action: action))
+    
     (let* ((formats (new List-Factory))
            (styles (new List-Factory))
            (intern-format
@@ -2695,105 +2783,6 @@
         formats: (get-output~ formats)
         styles: (get-output~ styles)
         paragraphs: paragraphs)))
-  
-  
-  (method (parse-paragraph par intern-format intern-style)
-    (if (string? par)
-        (cons {} (list (list par {})))
-      (let* ((scan (iterate-sequence par))
-             (format (parse-format scan)))
-        (cons (intern-format format) (parse-runs scan intern-style)))))
-  
-  
-  (method (parse-format scan <Iterator>)
-    (let* ((format {})
-           (add-formatting
-            (lambda (proc)
-              (when (not format)
-                (set! format (new Format)))
-              (proc format)))
-           (out? #f))
-      (while (and (not (done?~ scan)) (not out?))
-        (let ((target (get-next~ scan)))
-          (case target
-            ((:bulleted)
-             (add-formatting (lambda (format) (set-bulleted?~ format #t)))
-             (add-formatting (lambda (format) (set-left-margin~ format 16))))
-            ((indent:)
-             (let ((n (get-next~ scan)))
-               (add-formatting (lambda (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
-            (else
-             (unget~ scan target)
-             (set! out? #t)))))
-      format))
-  
-  
-  (method (parse-runs scan <Iterator> intern-style)
-    (accumulate scan
-                (lambda (run)
-                  (cond ((string? run)
-                         (list run {}))
-                        ((pair? run)
-                         (parse-run (iterate-sequence run) intern-style))
-                        (else
-                         (error "Unable to parse run: {t}" run))))))
-  
-  
-  (method (parse-run scan <Iterator> intern-style)
-    (let* ((string {})
-           (style {})
-           (add-styling
-            (lambda (proc)
-              (when (not style)
-                (set! style (new Text-Style base: 'Default)))
-              (proc style))))
-      (while (not (done?~ scan))
-        (let ((target (get-next~ scan)))
-          (case target
-            ((style:)
-             (let ((name (get-next~ scan)))
-               (set! style (get-style name))))
-            ((:hyperlink)
-             (let ((action (get-next~ scan)))
-               (set! style (new-hyperlink-style action))))
-            ((color:)
-             (let ((color (get-next~ scan)))
-               (when (symbol? color)
-                 (set! color (dispatch Color color)))
-               (add-styling (lambda (style) (set-color~ style color)))))
-            ((highlight:)
-             (let ((highlight (get-next~ scan)))
-               (when (symbol? highlight)
-                 (set! highlight (dispatch Color highlight)))
-               (add-styling (lambda (style) (set-highlight~ style highlight)))))
-            ((font:)
-             (let ((font (get-next~ scan)))
-               (when (symbol? font)
-                 (set! font (dispatch Font font)))
-               (add-styling (lambda (style) (set-font~ style font)))))
-            ((image:)
-             (let ((image (get-next~ scan))
-                   (portfolio (get-icons-cache~ (get-application))))
-               (set! string " ")
-               (set! style (new Image-Style portfolio: portfolio image-name: image))))
-            ((moniker:)
-             (let ((moniker (get-next~ scan))
-                   (scaling {}))
-               (let ((next (peek~ scan)))
-                 (when (eq? next scaling:)
-                   (get-next~ scan)
-                   (set! scaling (get-next~ scan))))
-               (set! string " ")
-               (set! style (new Image-Style moniker: moniker scaled?: scaling scaling: scaling))))
-            (else
-             (if (string? target)
-                 (set! string target)
-               (error "Unable to parse run element: {t}" target))))))
-      (list string (intern-style style))))
-  
-  
-  (method protected virtual (new-hyperlink-style action)
-    (new Hyperlink-Style font: {Font name: Hyperlink-Small} color: {Color name: Hyperlink} action: action))
   
   
   ;;;
@@ -2883,7 +2872,7 @@
        (error "Unknown text directive: {s}" directive))))
   
   
-  (method (read-formatted-parameter input)
+  (definition (read-formatted-parameter input)
     (prog1 (read input)
       (read-char input)))
   
@@ -2915,6 +2904,59 @@
   
   
   (method (parse-jml-content node)
+    (define (parse-jml-paragraph node intern-format intern-style)
+      (if (is? node JML-Text)
+          (cons {} (list (list (get-text~ node) {})))
+        (let ((tag (get-tag~ node)))
+          (case tag
+            ((p) (parse-p-tag node intern-format intern-style))
+            (else (error "Unknown text tag: {s}" tag))))))
+    
+    (define (parse-p-tag node intern-format intern-style)
+      (let ((format (parse-p-format node)))
+        (cons (intern-format format) (parse-p-runs node intern-style))))
+    
+    (define (parse-p-format node)
+      (let* ((format {})
+             (add-formatting
+               (lambda (proc)
+                 (when (not format)
+                   (set! format (new Format)))
+                 (proc format))))
+        (when (get-property~ node 'bulleted?)
+          (add-formatting
+            (lambda (format)
+              (set-bulleted?~ format #t)
+              (set-left-margin~ format 16))))
+        format))
+    
+    (define (parse-p-runs node intern-style)
+      (map (lambda (node)
+             (parse-p-run node intern-style))
+           (get-children~ node)))
+    
+    (define (parse-p-run node intern-style)
+      (if (is? node JML-Text)
+          (list (get-text~ node) (intern-style {}))
+        (let ((tag (get-tag~ node)))
+          (case tag
+            ((style) (parse-style-tag node intern-style))
+            (else (error "Unable to parse paragraph element: {t}" tag))))))
+    
+    (define (parse-style-tag node intern-style)
+      (let ((string (get-text~ (first-child~ node)))
+            (style (new Text-Style base: 'Default)))
+        (for-each-property (lambda (property value)
+                             (case property
+                               ((font-weight) (set-font-weight~ style value))
+                               ((color) (set-color~ style (parse-color value)))
+                               (else (error "Unknown style property: {s}" property))))
+                           (get-properties~ node))
+        (list string (intern-style style))))
+    
+    (define (parse-color color)
+      (dispatch Color color))
+    
     (let* ((formats (new List-Factory))
            (styles (new List-Factory))
            (intern-format
@@ -2932,66 +2974,6 @@
         formats: (get-output~ formats)
         styles: (get-output~ styles)
         paragraphs: paragraphs)))
-  
-  
-  (method (parse-jml-paragraph node intern-format intern-style)
-    (if (is? node JML-Text)
-        (cons {} (list (list (get-text~ node) {})))
-      (let ((tag (get-tag~ node)))
-        (case tag
-          ((p) (parse-p-tag node intern-format intern-style))
-          (else (error "Unknown text tag: {s}" tag))))))
-  
-  
-  (method (parse-p-tag node intern-format intern-style)
-    (let ((format (parse-p-format node)))
-      (cons (intern-format format) (parse-p-runs node intern-style))))
-  
-  
-  (method (parse-p-format node)
-    (let* ((format {})
-           (add-formatting
-            (lambda (proc)
-              (when (not format)
-                (set! format (new Format)))
-              (proc format))))
-      (when (get-property~ node 'bulleted?)
-        (add-formatting
-          (lambda (format)
-            (set-bulleted?~ format #t)
-            (set-left-margin~ format 16))))
-      format))
-  
-  
-  (method (parse-p-runs node intern-style)
-    (map (lambda (node)
-           (parse-p-run node intern-style))
-         (get-children~ node)))
-  
-  
-  (method (parse-p-run node intern-style)
-    (if (is? node JML-Text)
-        (list (get-text~ node) (intern-style {}))
-      (let ((tag (get-tag~ node)))
-        (case tag
-          ((style) (parse-style-tag node intern-style))
-          (else (error "Unable to parse paragraph element: {t}" tag))))))
-  
-  
-  (method (parse-style-tag node intern-style)
-    (let ((string (get-text~ (first-child~ node)))
-          (style (new Text-Style base: 'Default)))
-      (for-each-property (lambda (property value)
-                           (case property
-                             ((font-weight) (set-font-weight~ style value))
-                             ((color) (set-color~ style (parse-color value)))
-                             (else (error "Unknown style property: {s}" property))))
-                         (get-properties~ node))
-      (list string (intern-style style))))
-  
-  
-  (method (parse-color color)
-    (dispatch Color color))
   
   
   ;;;
@@ -3036,6 +3018,37 @@
   
   
   (method protected (print-formatted printer range <Range$Cell$>)
+    (define (print-formats formats printer)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (fmt)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}  "))
+                    (format printer "{s}" fmt))
+                  formats))
+      (format printer "){%}{%}"))
+    
+    (define (print-styles styles printer)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (style)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}  "))
+                    (format printer "{s}" style))
+                  styles))
+      (format printer "){%}{%}"))
+    
+    (define (range-paragraph-runs paragraph range <Range$Cell$>)
+      (if (not range)
+          (get-runs~ paragraph)
+        (let ((first? (eq? paragraph (get-paragraph (get-row~ (get-start~ range)))))
+              (last?  (eq? paragraph (get-paragraph (get-row~ (get-end~ range))))))
+          (let ((start (if first? (get-col~ (get-start~ range)) 0))
+                (end (if last? (get-col~ (get-end~ range)) (get-length~ paragraph))))
+            (range-runs~ paragraph start end)))))
+    
     (let ((formats (collect-persistent~ formats))
           (styles (collect-persistent~ styles)))
       (format printer "~{Formatted-Text{%}")
@@ -3060,40 +3073,6 @@
                              (range-paragraph-runs paragraph range))
                    (format printer ")")))
         (format printer ")}{%}"))))
-  
-  
-  (method (range-paragraph-runs paragraph range <Range$Cell$>)
-    (if (not range)
-        (get-runs~ paragraph)
-      (let ((first? (eq? paragraph (get-paragraph (get-row~ (get-start~ range)))))
-            (last?  (eq? paragraph (get-paragraph (get-row~ (get-end~ range))))))
-        (let ((start (if first? (get-col~ (get-start~ range)) 0))
-              (end (if last? (get-col~ (get-end~ range)) (get-length~ paragraph))))
-          (range-runs~ paragraph start end)))))
-  
-  
-  (method (print-formats formats printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (fmt)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}  "))
-                  (format printer "{s}" fmt))
-                formats))
-    (format printer "){%}{%}"))
-  
-  
-  (method (print-styles styles printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (style)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}  "))
-                  (format printer "{s}" style))
-                styles))
-    (format printer "){%}{%}"))
   
   
   (method public (get-formatted-content)
@@ -3529,7 +3508,7 @@
               format)))
   
   
-  (method (format-reference format formats)
+  (definition (format-reference format formats)
     (either (get-rank format formats)
             (get-name~ format)))
   
@@ -3625,7 +3604,7 @@
               style)))
   
   
-  (method (style-reference style styles)
+  (definition (style-reference style styles)
     (either (get-rank style styles)
             (get-name~ style)))
   
@@ -3636,7 +3615,7 @@
       (element styles reference)))
   
   
-  (method (fix-view-style-parent paragraph)
+  (definition (fix-view-style-parent paragraph)
     (let ((runs (get-runs~ paragraph)))
       (for-each (lambda (run)
                   (let ((style (get-style~ run)))
@@ -3667,7 +3646,7 @@
   ;;;
   
   
-  (method (run-infos->string infos)
+  (definition (run-infos->string infos)
     (let ((printer (open-output-string)))
       (for-each (lambda (info)
                   (let ((string (car info)))
@@ -4159,11 +4138,11 @@
   ;;;
   
   
-  (method (pick-text-color sender)
+  (definition (pick-text-color sender)
     (popup-colors~ (get-parent~ sender) geometry: {Cell 3 8}))
   
   
-  (method (pick-highlight-color sender)
+  (definition (pick-highlight-color sender)
     (popup-colors~ (get-parent~ sender) geometry: {Cell 3 8}))
   
   
@@ -4213,7 +4192,7 @@
     )
   
   
-  (method (alphabetize-completion completions offset)
+  (definition (alphabetize-completion completions offset)
     (let ((alphabet-char (remove-duplicates
                            (sort char<?
                                  (map (lambda (completion)

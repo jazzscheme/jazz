@@ -97,7 +97,7 @@
       (list 'custom       "Message"      :information :asterisk    {}    {}   {}       #t {})))
   
   
-  (method (type-info type)
+  (definition (type-info type)
     (let ((info (assq type Type-Infos)))
       (if info
           (cdr info)
@@ -177,6 +177,13 @@
                               (actions: actions '())
                               (default-button: default-button {})
                               (process-keys?: process-keys? #t))
+    (define (layout-dialog dialog title size)
+      (let* ((desktop (get-desktop))
+             (position (center size (get-size~ desktop))))
+        (set-title~ dialog title)
+        (set-position~ dialog position)
+        (set-size~ dialog size)))
+    
     (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
       (set! type~self type)
       (set! process-keys?~self process-keys?)
@@ -202,14 +209,6 @@
           (process-modal~ host)))))
   
   
-  (method (layout-dialog dialog title size)
-    (let* ((desktop (get-desktop))
-           (position (center size (get-size~ desktop))))
-      (set-title~ dialog title)
-      (set-position~ dialog position)
-      (set-size~ dialog size)))
-  
-  
   ;;;
   ;;;; Layout
   ;;;
@@ -229,6 +228,38 @@
   
   
   (method protected virtual (layout-box text selection title size icon content actions default)
+    (define (setup-buttons actions default)
+      (let* ((buttons-width 0)
+             (size (new Dimension 80 24))
+             (count 0)
+             (fact (new List-Factory))
+             (setup-button
+               (lambda (action)
+                 (bind (title button-name @w (shortcut-key {})) action
+                   (increase! count)
+                   (let* ((handler (new Event-Handler target-name: :guest method-name: 'on-select properties: (list button: button-name)))
+                          (button (new Push-Button name: button-name parent: self position: (new Point (* count 75) 72) size: size user-data: action action-handler: handler default?: (eq? button-name default))))
+                     (set-title~ button (localize title))
+                     (let* ((size (preferred-size~ button))
+                            (width (max (get-width~ size) 80)))
+                       (set-size~ button (new Dimension width (get-height~ size)))
+                       (when (/= buttons-width 0)
+                         (increase! buttons-width Buttons-Spacing))
+                       (increase! buttons-width width))
+                     (put~ fact button))))))
+        (for-each setup-button actions)
+        (set! action-buttons (get-output~ fact))
+        (set! default-button default)
+        buttons-width))
+    
+    (define (position-buttons action-buttons h v)
+      (let ((position-button
+              (lambda (button)
+                (when (get-visible?~ button)
+                  (set-position~ button (new Point h v))
+                  (set! h (+ h (get-width~ button) Buttons-Spacing))))))
+        (for-each position-button action-buttons)))
+    
     (let* (@wait (icon-view (locate 'icon))
            (text-view (locate 'text))
            (scroller-view (locate 'scroller))
@@ -261,41 +292,7 @@
               (let ((h (+ (center buttons-width dialog-width) 1))
                     (v (+ bottom 10)))
                 (position-buttons action-buttons h v))
-              (new Dimension dialog-width dialog-height)))))))
-  
-  
-  (method (setup-buttons actions default)
-    (let* ((buttons-width 0)
-           (size (new Dimension 80 24))
-           (count 0)
-           (fact (new List-Factory))
-           (setup-button
-            (lambda (action)
-              (bind (title button-name @w (shortcut-key {})) action
-                (increase! count)
-                (let* ((handler (new Event-Handler target-name: :guest method-name: 'on-select properties: (list button: button-name)))
-                       (button (new Push-Button name: button-name parent: self position: (new Point (* count 75) 72) size: size user-data: action action-handler: handler default?: (eq? button-name default))))
-                  (set-title~ button (localize title))
-                  (let* ((size (preferred-size~ button))
-                         (width (max (get-width~ size) 80)))
-                    (set-size~ button (new Dimension width (get-height~ size)))
-                    (when (/= buttons-width 0)
-                      (increase! buttons-width Buttons-Spacing))
-                    (increase! buttons-width width))
-                  (put~ fact button))))))
-      (for-each setup-button actions)
-      (set! action-buttons (get-output~ fact))
-      (set! default-button default)
-      buttons-width))
-  
-  
-  (method (position-buttons action-buttons h v)
-    (let ((position-button
-           (lambda (button)
-             (when (get-visible?~ button)
-               (set-position~ button (new Point h v))
-               (set! h (+ h (get-width~ button) Buttons-Spacing))))))
-      (for-each position-button action-buttons))))
+              (new Dimension dialog-width dialog-height))))))))
 
 
 ;;;

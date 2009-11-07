@@ -336,36 +336,32 @@
   ;; notified about preferences changes register themselves
   ;; for designer events that could be sent when the context is changed.
   (method protected virtual (context-update)
+    (define (modify-preferences)
+      (let* ((pref (get-preferences {}))
+             (designer (get-preferences-designer))
+             (branch (find-component~ pref context)))
+        (set-active-branch~ pref branch)))
+    
+    (define (modify-connections)
+      @wait
+      (when (in-manifest? 'SQL-Connections-Manager)
+        (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
+    
+    (define (modify-toolbox)
+      @wait
+      (when (in-manifest? 'Toolbox-Manager)
+        (modify-editor (get-guest~ (singleton-docked Toolbox-Manager {})))))
+    
+    (define (modify-editor editor)
+      (let* ((client (get-client~ editor))
+             (branch (find-component~ client context)))
+        (set-active-branch~ client branch)
+        (set-client~ editor {})
+        (set-client~ editor client)))
+    
     (modify-preferences)
     (modify-connections)
     (modify-toolbox))
-  
-  
-  (method (modify-preferences)
-    (let* ((pref (get-preferences {}))
-           (designer (get-preferences-designer))
-           (branch (find-component~ pref context)))
-      (set-active-branch~ pref branch)))
-  
-  
-  (method (modify-connections)
-    @wait
-    (when (in-manifest? 'SQL-Connections-Manager)
-      (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
-  
-  
-  (method (modify-toolbox)
-    @wait
-    (when (in-manifest? 'Toolbox-Manager)
-      (modify-editor (get-guest~ (singleton-docked Toolbox-Manager {})))))
-  
-  
-  (method (modify-editor editor)
-    (let* ((client (get-client~ editor))
-           (branch (find-component~ client context)))
-      (set-active-branch~ client branch)
-      (set-client~ editor {})
-      (set-client~ editor client)))
   
   
   (method public (install-context component)

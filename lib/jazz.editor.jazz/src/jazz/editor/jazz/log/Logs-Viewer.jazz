@@ -138,7 +138,7 @@
     {Directory Bin "Logs"})
   
   
-  (method (with-directory default? proc)
+  (definition (with-directory default? proc)
     (if (and default? (exists?~ Logs-Directory))
         (with-preserved-current-directory
          (lambda ()
@@ -237,6 +237,14 @@
 
 
   (method (view-logs)
+    (define (insert-log tree log)
+      (let ((name (->string (get-name~ log))))
+        (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Script"})) user-data: log)))
+    
+    (define (insert-file tree file)
+      (let ((name (get-base~ file)))
+        (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Document"})) user-data: (new Log file: file))))
+    
     (let ((tree (get-tree)))
       (with-update-locked~ tree
         (lambda ()
@@ -252,22 +260,17 @@
                     (insert-file tree file))))))))))
   
   
-  (method (insert-log tree log)
-    (let ((name (->string (get-name~ log))))
-      (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Script"})) user-data: log)))
-  
-  
-  (method (insert-file tree file)
-    (let ((name (get-base~ file)))
-      (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Document"})) user-data: (new Log file: file))))
-  
-  
   ;;;
   ;;;; Viewer
   ;;;
 
 
   (method protected virtual (view-data node)
+    (define (data-viewer-class data)
+      (if (and data (is? data Viewable))
+          (either (get-viewer-class~ data) No-Data-Viewer)
+        No-Data-Viewer))
+    
     (close-data-viewer)
     (when (is? node JML-Node)
       (let* ((data (get-property~ node 'data))
@@ -278,12 +281,6 @@
                 client: data
                 parent: container))
         (layout-view~ container))))
-  
-  
-  (method (data-viewer-class data)
-    (if (and data (is? data Viewable))
-        (either (get-viewer-class~ data) No-Data-Viewer)
-      No-Data-Viewer))
   
   
   (method (close-data-viewer)

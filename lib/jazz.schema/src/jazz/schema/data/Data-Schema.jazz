@@ -98,7 +98,7 @@
                       (set! first? #f)
                     (format printer "{%}{_ 2}"))
                   (print-schema~ table printer))
-                (sort smaller (gather tables) key: object-name)))
+                (sort smaller (gather tables) key: get-name~)))
     (format printer "){%}"))
   
   
@@ -110,7 +110,7 @@
                       (set! first? #f)
                     (format printer "{%}{_ 2}"))
                   (print-schema~ view printer))
-                (sort smaller (gather views) key: object-name)))
+                (sort smaller (gather views) key: get-name~)))
     (format printer "){%}"))
   
   
@@ -122,7 +122,7 @@
                       (set! first? #f)
                     (format printer "{%}{_ 2}"))
                   (print-schema~ relation printer))
-                (sort smaller (gather relations) key: object-name)))
+                (sort smaller (gather relations) key: get-name~)))
     (format printer "){%}"))
   
   
@@ -134,7 +134,7 @@
                       (set! first? #f)
                     (format printer "{%}{_ 2}"))
                   (print-schema~ procedure printer))
-                (sort smaller (gather procedures) key: object-name)))
+                (sort smaller (gather procedures) key: get-name~)))
     (format printer ")"))
   
   
@@ -204,22 +204,20 @@
   
   
   (method public (get-categorized-tables)
+    (define (collect-normal-tables tables)
+      (collect-if (lambda (table)
+                    (not (get-property~ table linked?:)))
+                  tables))
+    
+    (define (collect-linked-tables tables)
+      (collect-if (lambda (table)
+                    (get-property~ table linked?:))
+                  tables))
+    
     (receive (equal smaller greater) (sort-predicates)
       (let ((tables (get-tables)))
-        (append! (sort smaller (collect-normal-tables tables) key: object-name)
-                 (sort smaller (collect-linked-tables tables) key: object-name)))))
-  
-  
-  (method public (collect-normal-tables tables)
-    (collect-if (lambda (table)
-                  (not (get-property~ table linked?:)))
-                tables))
-  
-  
-  (method public (collect-linked-tables tables)
-    (collect-if (lambda (table)
-                  (get-property~ table linked?:))
-                tables))
+        (append! (sort smaller (collect-normal-tables tables) key: get-name~)
+                 (sort smaller (collect-linked-tables tables) key: get-name~)))))
   
   
   (method public (get-table name)
@@ -246,7 +244,7 @@
   
   (method public (get-categorized-views)
     (receive (equal smaller greater) (sort-predicates)
-      (sort smaller (get-views) key: object-name)))
+      (sort smaller (get-views) key: get-name~)))
   
   
   (method public (get-view name)
@@ -273,7 +271,7 @@
   
   (method public (get-categorized-relations)
     (receive (equal smaller greater) (sort-predicates)
-      (sort smaller (get-relations) key: object-name)))
+      (sort smaller (get-relations) key: get-name~)))
   
   
   (method public (get-relation name)
@@ -300,7 +298,7 @@
   
   (method public (get-categorized-procedures)
     (receive (equal smaller greater) (sort-predicates)
-      (sort smaller (get-procedures) key: object-name)))
+      (sort smaller (get-procedures) key: get-name~)))
   
   
   (method public (get-procedure name)
@@ -365,15 +363,15 @@
                   tables))))
   
   
-  (method (table-properties table)
+  (definition (table-properties table)
     (let ((linked? (get-linked?~ table)))
       (list
-       linked?:           linked?
-       description:       (get-description~ table)
-       validation-rule:   (get-validation-rule~ table)
-       validation-text:   (get-validation-text~ table)
-       connect:           (essay linked? (get-connect~ table))
-       source-table-name: (essay linked? (get-source-table-name~ table)))))
+        linked?:           linked?
+        description:       (get-description~ table)
+        validation-rule:   (get-validation-rule~ table)
+        validation-text:   (get-validation-text~ table)
+        connect:           (essay linked? (get-connect~ table))
+        source-table-name: (essay linked? (get-source-table-name~ table)))))
   
   
   (method (create-primary-key data-table table)
@@ -384,11 +382,11 @@
           (new Data-Primary-Key name: name properties: properties)))))
   
 
-  (method (primary-key-properties primary-key)
+  (definition (primary-key-properties primary-key)
     (list
-     clustered?:    (get-clustered?~ primary-key)
-     fill-factor:   (get-fill-factor~ primary-key)
-     fields/orders: (get-fields/orders~ primary-key)))
+      clustered?:    (get-clustered?~ primary-key)
+      fill-factor:   (get-fill-factor~ primary-key)
+      fields/orders: (get-fields/orders~ primary-key)))
   
   
   (method (create-columns data-table table columns-consecutive?)
@@ -402,22 +400,22 @@
              columns))))
   
 
-  (method (column-properties column ordinal-position)
+  (definition (column-properties column ordinal-position)
     (list
-     datatype:              (get-datatype~ column)
-     nullable?:             (get-nullable?~ column)
-     default-value:         (get-default-value~ column)
-     validation-rule:       (get-validation-rule~ column)
-     validation-text:       (get-validation-text~ column)
-     allow-zero-length?:    (get-allow-zero-length?~ column)
-     description:           (get-description~ column)
-     ordinal-position:      (either ordinal-position (get-ordinal-position~ column))
-     display-format:        (get-display-format~ column)
-     auto-increment?:       (get-auto-increment?~ column)
-     identity?:             (get-identity?~ column)
-     identity-replication?: (get-identity-replication?~ column)
-     identity-seed:         (get-identity-seed~ column)
-     identity-increment:    (get-identity-increment~ column)))
+      datatype:              (get-datatype~ column)
+      nullable?:             (get-nullable?~ column)
+      default-value:         (get-default-value~ column)
+      validation-rule:       (get-validation-rule~ column)
+      validation-text:       (get-validation-text~ column)
+      allow-zero-length?:    (get-allow-zero-length?~ column)
+      description:           (get-description~ column)
+      ordinal-position:      (either ordinal-position (get-ordinal-position~ column))
+      display-format:        (get-display-format~ column)
+      auto-increment?:       (get-auto-increment?~ column)
+      identity?:             (get-identity?~ column)
+      identity-replication?: (get-identity-replication?~ column)
+      identity-seed:         (get-identity-seed~ column)
+      identity-increment:    (get-identity-increment~ column)))
   
   
   (method (create-indexes data-table table)
@@ -429,15 +427,15 @@
            indexes)))
   
 
-  (method (index-properties index)
+  (definition (index-properties index)
     (list
-     unique?:               (get-unique?~ index)
-     clustered?:            (get-clustered?~ index)
-     ignore-duplicates?:    (get-ignore-duplicates?~ index)
-     recompute-statistics?: (get-recompute-statistics?~ index)
-     fill-factor:           (get-fill-factor~ index)
-     pad-index?:            (get-pad-index?~ index)
-     fields/orders:         (get-fields/orders~ index)))
+      unique?:               (get-unique?~ index)
+      clustered?:            (get-clustered?~ index)
+      ignore-duplicates?:    (get-ignore-duplicates?~ index)
+      recompute-statistics?: (get-recompute-statistics?~ index)
+      fill-factor:           (get-fill-factor~ index)
+      pad-index?:            (get-pad-index?~ index)
+      fields/orders:         (get-fields/orders~ index)))
   
   
   (method (create-triggers data-table table)
@@ -449,9 +447,9 @@
            triggers)))
   
 
-  (method (trigger-properties trigger)
+  (definition (trigger-properties trigger)
     (list
-     text: (get-text~ trigger)))
+      text: (get-text~ trigger)))
   
   
   (method (create-constraints data-table table)
@@ -463,11 +461,11 @@
            constraints)))
   
 
-  (method (constraint-properties constraint)
+  (definition (constraint-properties constraint)
     (list
-     text:                 (get-text~ constraint)
-     checked?:             (get-checked?~ constraint)
-     exclude-replication?: (get-exclude-replication?~ constraint)))
+      text:                 (get-text~ constraint)
+      checked?:             (get-checked?~ constraint)
+      exclude-replication?: (get-exclude-replication?~ constraint)))
   
   
   (method (import-views source-name inventory reporter)
@@ -481,9 +479,9 @@
                 views)))
   
 
-  (method (view-properties view)
+  (definition (view-properties view)
     (list
-     text: (get-text~ view)))
+      text: (get-text~ view)))
   
   
   (method (import-relations source-name inventory reporter)
@@ -497,19 +495,19 @@
                 relations)))
   
 
-  (method (relation-properties relation)
+  (definition (relation-properties relation)
     (list
-     primary-table:        (get-primary-table~ relation)
-     primary-columns:      (get-primary-field-names~ relation)
-     foreign-table:        (get-foreign-table~ relation)
-     foreign-columns:      (get-foreign-field-names~ relation)
-     unique?:              (get-unique?~ relation)
-     update-cascade?:      (get-update-cascade?~ relation)
-     delete-cascade?:      (get-delete-cascade?~ relation)
-     left?:                (get-left?~ relation)
-     right?:               (get-right?~ relation)
-     checked?:             (get-checked?~ relation)
-     exclude-replication?: (get-exclude-replication?~ relation)))
+      primary-table:        (get-primary-table~ relation)
+      primary-columns:      (get-primary-field-names~ relation)
+      foreign-table:        (get-foreign-table~ relation)
+      foreign-columns:      (get-foreign-field-names~ relation)
+      unique?:              (get-unique?~ relation)
+      update-cascade?:      (get-update-cascade?~ relation)
+      delete-cascade?:      (get-delete-cascade?~ relation)
+      left?:                (get-left?~ relation)
+      right?:               (get-right?~ relation)
+      checked?:             (get-checked?~ relation)
+      exclude-replication?: (get-exclude-replication?~ relation)))
   
   
   (method (import-procedures source-name inventory reporter)
@@ -523,9 +521,9 @@
                 procedures)))
   
 
-  (method (procedure-properties procedure)
+  (definition (procedure-properties procedure)
     (list
-     text: (get-text~ procedure)))
+      text: (get-text~ procedure)))
   
   
   ;;;

@@ -157,6 +157,22 @@
   
   
   (method (update)
+    (define (insert-item tree father state item first?)
+      (bind (level pos header title) item
+        (let ((image (if first? {Bitmap-Resource "Present"} {Bitmap-Resource "Item"})))
+          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: (cons 0 (+ (cast <Cell> pos) (cardinality header)))))))
+    
+    (define (find-father-row root-row previous-row level)
+      (when previous-row
+        (continuation-capture
+          (lambda (return)
+            (for-each-ancestor~ previous-row
+              (lambda (row)
+                (if (eq? row root-row)
+                    (continuation-return return {})
+                  (when (< (car (get-user-data~ row)) level)
+                    (continuation-return return row)))))))))
+    
     (let ((tree (locate 'chapters)))
       (if (not client)
           (remove-every-row~ tree)
@@ -180,22 +196,4 @@
                                      (state (if (eq? father root-row) 'expanded 'collapsed))
                                      (row (add-row~ tree father: father state: state row-height: 17 children: (list (new Tree-Node title: title image: image)) user-data: (cons level (+ (cast <Cell> pos) (cardinality header))))))
                                 (set! previous-row row))))
-                          sorted))))))))
-  
-  
-  (method (insert-item tree father state item first?)
-    (bind (level pos header title) item
-      (let ((image (if first? {Bitmap-Resource "Present"} {Bitmap-Resource "Item"})))
-        (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: (cons 0 (+ (cast <Cell> pos) (cardinality header)))))))
-  
-  
-  (method (find-father-row root-row previous-row level)
-    (when previous-row
-      (continuation-capture
-        (lambda (return)
-          (for-each-ancestor~ previous-row
-            (lambda (row)
-              (if (eq? row root-row)
-                  (continuation-return return {})
-                (when (< (car (get-user-data~ row)) level)
-                  (continuation-return return row)))))))))))
+                          sorted))))))))))

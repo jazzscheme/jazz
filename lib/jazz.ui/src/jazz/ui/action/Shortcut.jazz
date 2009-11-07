@@ -49,27 +49,25 @@
   
   
   (method override (initialize modifiers key)
+    (define (standardize-key key)
+      (if (char? key)
+          (upcase key)
+        key))
+    
+    (define (standardize-modifiers modifiers)
+      (let ((standard '()))
+        (let ((try
+                (lambda (modifier)
+                  (when (memq? modifier modifiers)
+                    (set! standard (cons modifier standard))))))
+          (try :alt)
+          (try :shift)
+          (try :control)
+          standard)))
+    
     (nextmethod)
     (set! modifiers~self (standardize-modifiers modifiers))
     (set! key~self (standardize-key key)))
-  
-
-  (method (standardize-key key)
-    (if (char? key)
-        (upcase key)
-      key))
-
-
-  (method (standardize-modifiers modifiers)
-    (let ((standard '()))
-      (let ((try
-              (lambda (modifier)
-                (when (memq? modifier modifiers)
-                  (set! standard (cons modifier standard))))))
-        (try :alt)
-        (try :shift)
-        (try :control)
-        standard)))
   
   
   (method override (hash-object)
@@ -107,6 +105,31 @@
 
 
   (method public (present-shortcut)
+    (define Localized-Shortcuts
+      '((Backspace . "Backspace")
+        (Return    . "Return")
+        (Space     . "Space")
+        (Tab       . "Tab")
+        (Home      . "Home")
+        (End       . "End")
+        (Left      . "Left")
+        (Up        . "Up")
+        (Right     . "Right")
+        (Down      . "Down")
+        (Prior     . "Prior")
+        (Next      . "Next")
+        (Insert    . "Insert")
+        (Delete    . "Delete")
+        (Add       . "Add")
+        (Subtract  . "Subtract")
+        (Multiply  . "Multiply")))
+    
+    (define (localize-shortcut shortcut)
+      (let ((info (assq shortcut Localized-Shortcuts)))
+        (if (not info)
+            shortcut
+          (localize (cdr info)))))
+    
     (let ((str ""))
       (when (memq? :control modifiers)
         (set! str (string-append str (localize "Ctrl+"))))
@@ -114,31 +137,4 @@
         (set! str (string-append str (localize "Alt+"))))
       (when (memq? :shift modifiers)
         (set! str (string-append str (localize "Shift+"))))
-      (string-append str (localize-shortcut (if (char? key) (format "{c}" key) (->string key))))))
-  
-  
-  (definition Localized-Shortcuts
-    '((Backspace . "Backspace")
-      (Return    . "Return")
-      (Space     . "Space")
-      (Tab       . "Tab")
-      (Home      . "Home")
-      (End       . "End")
-      (Left      . "Left")
-      (Up        . "Up")
-      (Right     . "Right")
-      (Down      . "Down")
-      (Prior     . "Prior")
-      (Next      . "Next")
-      (Insert    . "Insert")
-      (Delete    . "Delete")
-      (Add       . "Add")
-      (Subtract  . "Subtract")
-      (Multiply  . "Multiply")))
-  
-  
-  (method (localize-shortcut shortcut)
-    (let ((info (assq shortcut Localized-Shortcuts)))
-      (if (not info)
-          shortcut
-        (localize (cdr info)))))))
+      (string-append str (localize-shortcut (if (char? key) (format "{c}" key) (->string key))))))))

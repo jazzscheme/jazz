@@ -234,6 +234,24 @@
 
   
   (method public (compare-monikers green-moniker blue-moniker (compare-directory: compare-directory {}) (compare-directory-cookie: compare-directory-cookie {}))
+    (define (colorize-output output text)
+      (let* ((formats (list (get-format~ text 'Default)))
+             (font {Font name: Code})
+             (plain (intern-style~ text (new Text-Style base: 'Default font: font)))
+             (green (intern-style~ text (new Text-Style base: 'Default font: font color: Green-Color)))
+             (blue (intern-style~ text (new Text-Style base: 'Default font: font color: Blue-Color)))
+             (styles (list plain green blue))
+             (has-differences? #f)
+             (paragraphs (map (lambda (info)
+                                (bind (rank1 rank2 line color) info
+                                  (let ((style (case color ((green) 1) ((blue) 2) (else 0))))
+                                    (when (/= style 0)
+                                      (set! has-differences? #t))
+                                    (list 0 (list (get-string~ line) style)))))
+                              output)))
+        (set-formatted-content~ text (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
+        has-differences?))
+    
     (set! compare-directory~self compare-directory)
     (set! compare-directory-cookie~self compare-directory-cookie)
     (let* ((host (get-host))
@@ -288,25 +306,6 @@
     (set! blue blue-moniker))
   
   
-  (method (colorize-output output text)
-    (let* ((formats (list (get-format~ text 'Default)))
-           (font {Font name: Code})
-           (plain (intern-style~ text (new Text-Style base: 'Default font: font)))
-           (green (intern-style~ text (new Text-Style base: 'Default font: font color: Green-Color)))
-           (blue (intern-style~ text (new Text-Style base: 'Default font: font color: Blue-Color)))
-           (styles (list plain green blue))
-           (has-differences? #f)
-           (paragraphs (map (lambda (info)
-                              (bind (rank1 rank2 line color) info
-                                (let ((style (case color ((green) 1) ((blue) 2) (else 0))))
-                                  (when (/= style 0)
-                                    (set! has-differences? #t))
-                                  (list 0 (list (get-string~ line) style)))))
-                            output)))
-      (set-formatted-content~ text (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
-      has-differences?))
-  
-  
   ;;;
   ;;;; Open
   ;;;
@@ -320,7 +319,7 @@
     (open-item blue))
   
   
-  (method (open-item item)
+  (definition (open-item item)
     (let ((appl (get-application)))
       (if (is? item Moniker)
           (edit-document~ appl item workspace: 'groupware)

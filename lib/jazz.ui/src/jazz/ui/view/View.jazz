@@ -330,6 +330,12 @@
   
   
   (method public (effective-host-workspaces)
+    (define (filter-inexistant-workspaces pref workspaces)
+      (let ((names (map get-name~ (get-children~ pref))))
+        (collect-if (lambda (name)
+                      (memq? name names))
+                    workspaces)))
+    
     (host-workspaces)
     @convert-external-name
     (let* ((pref (get-workspaces-preferences))
@@ -338,13 +344,6 @@
       (filter-inexistant-workspaces pref
         (either (essay external (assq external associations))
                 (host-workspaces)))))
-  
-  
-  (method (filter-inexistant-workspaces pref workspaces)
-    (let ((names (map get-name~ (get-children~ pref))))
-      (collect-if (lambda (name)
-                    (memq? name names))
-                  workspaces)))
   
   
   (method public (for-each-palette proc)
@@ -2311,6 +2310,12 @@
               (position (either position pos)))
           (popup view position padding: padding class: Tooltip border: border))))
     
+    (define (get-cursor-height)
+      (let ((cursor (get-cursor)))
+        (case cursor
+          ((:ibeam) 9)
+          (else 21))))
+    
     (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
       (close-tooltip)
       (unless (same-position?)
@@ -2350,13 +2355,6 @@
           (close-popup tooltip)))
       (set! *current-tooltip-context* {})
       (set! *recent-tooltip-close* (+ (time->seconds (current-time)) 0.5))))
-  
-  
-  (method (get-cursor-height)
-    (let ((cursor (get-cursor)))
-      (case cursor
-        ((:ibeam) 9)
-        (else 21))))
 
 
   ;;;
@@ -2403,17 +2401,16 @@
   
   
   (method public (track-popup-menu menu pos (alternate-position: alternate-position {}) (initiator: initiator self))
+    (define (all-invisible? menu)
+      (every? (lambda (item)
+                (not (get-visible?~ item)))
+              (get-children~ menu)))
+    
     (if (is-not? menu Context-Menu)
         (error "{t} is not of the expected Context-Menu class" menu)
       (unless (all-invisible? menu)
         (let ((popup (popup menu pos alternate-position: alternate-position class: Menu-Transient initiator: initiator)))
           popup))))
-  
-  
-  (method (all-invisible? menu)
-    (every? (lambda (item)
-              (not (get-visible?~ item)))
-            (get-children~ menu)))
 
 
   ;;;

@@ -370,14 +370,6 @@
 
   
   (definition (locator->entry locator)
-    (define (child definition name)
-      (if (null? name)
-          definition
-        (let ((def (find-definition~ definition (symbol->string (car name)))))
-          (if def
-              (child def (cdr name))
-            #f))))
-    
     (let ((cataloguer (get-cataloguer~ (get-application))))
       (let (iterate (scan (reverse (split-identifier locator)))
                     (name '()))
@@ -385,7 +377,7 @@
             (let ((root (apply compose-name (reverse scan))))
               (let ((definition (get-definition~ cataloguer root)))
                 (if definition
-                    (or (child definition name)
+                    (or (child~ definition name)
                         (iterate (cdr scan) (cons (car scan) name)))
                   (iterate (cdr scan) (cons (car scan) name)))))
           #f))))
@@ -677,7 +669,7 @@
           (read-until eof-object? port)))))
   
   
-  (method (offset-pos/range pos range)
+  (definition (offset-pos/range pos range)
     (if (= 0 (get-row~ (get-start~ range)) (get-row~ (get-end~ range)))
         (new Range$Cell$ (+ pos (get-start~ range)) (+ pos (get-end~ range)))
       (new Range$Cell$
@@ -736,13 +728,12 @@
   
   
   (method (untabulate-line row)
+    (define (space/tab? c)
+      (memq? c '(#\space #\tab)))
+    
     (when (space/tab? (get-char (new Cell row 0)))
       (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 1))
                     (list ""))))
-  
-  
-  (method (space/tab? c)
-    (memq? c '(#\space #\tab)))
   
   
   (method public virtual (tabulate-lines start end)
@@ -948,7 +939,7 @@
         (make-condensed-menu definitions create-item key: get-string))))
   
   
-  (method (definition<? x y)
+  (definition (definition<? x y)
     (string<? (present~ x) (present~ y)))
   
   
@@ -984,7 +975,7 @@
         (make-condensed-menu definitions create-item key: get-string))))
   
   
-  (method (definition<? x y)
+  (definition (definition<? x y)
     (string<? (present~ x) (present~ y)))
   
   

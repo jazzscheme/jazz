@@ -78,16 +78,15 @@
   
   
   (method override (get-data-schema (reporter: reporter {}))
+    (define (valid-schema schema schemas)
+      (if (empty-string? schema)
+          (error "Schema is mandatory")
+        (either (assoc schema schemas)
+                (error "Unknown schema: {a}" schema))))
+    
     (receive (version properties) (read-header~ Schema-Archive file)
       (let ((schemas (getf properties schemas:)))
         (bind (name provider) (valid-schema schema schemas)
           (assert (= name schema))
           (let ((archive (load-archive~ Schema-Archive file)))
-            (get-schema~ archive name))))))
-  
-  
-  (method (valid-schema schema schemas)
-    (if (empty-string? schema)
-        (error "Schema is mandatory")
-      (either (assoc schema schemas)
-              (error "Unknown schema: {a}" schema))))))
+            (get-schema~ archive name))))))))

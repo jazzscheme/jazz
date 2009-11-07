@@ -103,6 +103,11 @@
   
   
   (method (iterate dragging?)
+    (define (iteration-color n)
+      (if (not n)
+          {Color name: Black}
+        (element Colors (modulo n (length Colors)))))
+    
     (with-closed ((surface (get-surface)))
       (set-color~ surface {Color name: Dark-Red})
       (let ((z 0)
@@ -143,16 +148,15 @@
   
   
   (method override (size-change size)
+    (define (recalculate-pixel-positions)
+      (for-each (lambda (pixel)
+                  (let ((c (get-c~ pixel)))
+                    (set-pos~ pixel (complex->view (real-part c) (imag-part c)))))
+                (get-output~ pixels)))
+    
     (nextmethod size)
     (setup-coordinates)
     (recalculate-pixel-positions))
-  
-  
-  (method (recalculate-pixel-positions)
-    (for-each (lambda (pixel)
-                (let ((c (get-c~ pixel)))
-                  (set-pos~ pixel (complex->view (real-part c) (imag-part c)))))
-              (get-output~ pixels)))
 
   
   ;;;
@@ -195,17 +199,11 @@
                 (get-output~ pixels))))
   
   
-  (method (draw-pixel surface pixel (radius Pixel-Radius))
+  (definition (draw-pixel surface pixel (radius Pixel-Radius))
     (let ((pos (get-pos~ pixel))
           (color (get-color~ pixel)))
       (when Draw-Outside?
         (ellipse~ surface (new Rect (- (get-h~ pos) radius) (- (get-v~ pos) radius) (+ (get-h~ pos) radius) (+ (get-v~ pos) radius)) color color))))
-  
-  
-  (method (iteration-color n)
-    (if (not n)
-        {Color name: Black}
-      (element Colors (modulo n (length Colors)))))
   
   
   (method (line surface r i dr di)

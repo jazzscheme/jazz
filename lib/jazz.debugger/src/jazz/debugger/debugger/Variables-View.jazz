@@ -174,21 +174,20 @@
   
   
   (method override (inspect data kind)
+    (define (inspect-frame frame)
+      (typecase frame
+        ((Frame-Snapshot)
+         (let ((parameters (get-parameters~ frame)))
+           (map (lambda (parameter rank)
+                  (if (pair? parameter)
+                      (bind (name value) parameter
+                        (list name 0 value #f {}))
+                    (list rank 0 parameter #f {})))
+                parameters
+                (naturals 0 (length parameters)))))))
+    
     (if (is? data Debugged-Frame)
         (get-variables~ data kind)
       (case kind
         ((frame:) (inspect-frame data))
-        (else (nextmethod data kind)))))
-  
-  
-  (method (inspect-frame frame)
-    (typecase frame
-      ((Frame-Snapshot)
-       (let ((parameters (get-parameters~ frame)))
-         (map (lambda (parameter rank)
-                (if (pair? parameter)
-                    (bind (name value) parameter
-                      (list name 0 value #f {}))
-                  (list rank 0 parameter #f {})))
-              parameters
-              (naturals 0 (length parameters)))))))))
+        (else (nextmethod data kind)))))))

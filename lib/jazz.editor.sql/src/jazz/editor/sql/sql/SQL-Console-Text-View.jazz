@@ -61,7 +61,7 @@
     (<install> context: sql))
 
   
-  (method (sql-tool-preferences)
+  (definition (sql-tool-preferences)
     (get-preferences '(tools sql)))
   
   
@@ -171,7 +171,7 @@
             (load-sql connection command))))))
   
   
-  (method (get-connection)
+  (definition (get-connection)
     (either (get-active-connection)
             (error "No active connection")))
   
@@ -194,13 +194,13 @@
         (execute~ connection sql))))
   
   
-  (method (expand-sql command)
+  (definition (expand-sql command)
     (let* ((appl (get-application))
            (profile (get-profile~ appl)))
       (expand-sql~ profile command)))
   
   
-  (method (get-max-display)
+  (definition (get-max-display)
     (let ((pref (sql-tool-preferences)))
       (get-max-display~ pref)))
   
@@ -248,7 +248,7 @@
         (insert-newline))))
   
   
-  (method (present-value value)
+  (definition (present-value value)
     (if (nil? value)
         "NULL"
       (->string value)))
@@ -304,6 +304,11 @@
   
   
   (method (display-table table max-display not-displayed)
+    (define (compute-widths columns font max-char)
+      (map (lambda (column)
+             (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
+           columns))
+    
     (let* ((columns (get-columns~ table))
            (rows (get-rows~ table))
            (affected (length rows))
@@ -320,13 +325,35 @@
       (display-tree columns rows affected max-display not-displayed tree-widths)))
   
   
-  (method (compute-widths columns font max-char)
-    (map (lambda (column)
-           (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
-         columns))
-  
-  
   (method (display-text columns rows affected max-display not-displayed widths)
+    (define (determine-max-list headers data)
+      (map (lambda (n)
+             (let ((max (length (element headers n))))
+               (for-each (lambda (row)
+                           (let* ((data (element row n))
+                                  (count (length data)))
+                             (when (> count max)
+                               (set! max count))))
+                         data)
+               max))
+           (naturals 0 (length headers))))
+    
+    (define Spacing
+      3)
+    
+    (define (join-data row max-list)
+      (let ((printer (open-output-string)))
+        (while row
+          (let ((data (car row))
+                (max (+ (car max-list) Spacing))
+                (last? (null? (cdr row))))
+            (format printer "{a}" data)
+            (unless last?
+              (format printer "{_ :v}" (- max (length data))))
+            (set! row (cdr row))
+            (set! max-list (cdr max-list))))
+        (get-output-string printer)))
+    
     (let* ((pref (sql-tool-preferences))
            (tabulate? (get-tabulate-text?~ pref))
            (output (get-sql-output-text))
@@ -360,37 +387,6 @@
         (insert-styled~ output (format "{a} row{a} not displayed" not-displayed (format-plural not-displayed)) (intern-style Overflow-Style))
         (insert-line~ output ""))
       (scroll-to~ output {Point 0 0})))
-  
-  
-  (method (determine-max-list headers data)
-    (map (lambda (n)
-           (let ((max (length (element headers n))))
-             (for-each (lambda (row)
-                         (let* ((data (element row n))
-                                (count (length data)))
-                           (when (> count max)
-                             (set! max count))))
-                       data)
-             max))
-         (naturals 0 (length headers))))
-  
-  
-  (definition Spacing
-    3)
-  
-  
-  (method (join-data row max-list)
-    (let ((printer (open-output-string)))
-      (while row
-        (let ((data (car row))
-              (max (+ (car max-list) Spacing))
-              (last? (null? (cdr row))))
-          (format printer "{a}" data)
-          (unless last?
-            (format printer "{_ :v}" (- max (length data))))
-          (set! row (cdr row))
-          (set! max-list (cdr max-list))))
-      (get-output-string printer)))
   
   
   (method (display-tree columns rows affected max-display not-displayed widths)

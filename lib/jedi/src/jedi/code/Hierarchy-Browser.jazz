@@ -177,60 +177,6 @@
   ;;;
   
   
-  ;; All this should be abstracted into an Hierarchy-Client class
-  ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
-  
-  
-  (method (insert-client-definition tree client)
-    (if (is? client JML-Node)
-        (insert-jml-definition tree {} 0 client (get-sorted?))
-      (insert-definition~ tree {} 0 client (get-sorted?))))
-  
-  
-  (method (insert-jml-definition tree father level node sort?)
-    (define (insert-definition father level node sort?)
-      (let ((row (insert-jml-self father level node)))
-        (insert-jml-self-definitions row level node sort?)))
-    
-    (define (insert-jml-self father level node)
-      (let* ((model (get-jml-model father node))
-             (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
-             (title (cond ((get-property~ node 'title) => identity) ((get-name~ node) => ->string) (else (->string (get-model-name~ node)))))
-             (state (if (< level 1) 'expanded 'collapsed)))
-        (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
-    
-    (define (get-jml-model father node)
-      (let ((model-name (get-model-name~ node)))
-        (when model-name
-          (autoload-class model-name))))
-    
-    (define (insert-jml-self-definitions father level node sort?)
-      (insert-jml-definitions father level (get-jml-named-children node) sort?))
-    
-    (define (insert-jml-definitions father level definitions sort?)
-      (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
-        (for-each (lambda (definition)
-                    (insert-definition father (+ level 1) definition sort?))
-                  ordered)))
-    
-    (define (get-jml-named-children node)
-      (define (named? node)
-        (and (is? node JML-Element)
-             (or (get-name~ node)
-                 (get-property~ node 'title))))
-      
-      (when (is? node JML-Element)
-        (collect-if (lambda (child)
-                      (or (named? child)
-                          (some? named? (get-children~ child))))
-                    (get-children~ node))))
-    
-    (define (sort-jml-definitions definitions)
-      (sort string<? definitions key: (lambda (definition) (->string (get-name~ definition)))))
-    
-    (insert-definition father level node sort?))
-  
-  
   (method (edit-definitions definition)
     (if (is? definition JML-Node)
         (edit-jml-definition definition)
@@ -269,6 +215,57 @@
       (if (is? client JML-Node)
           "JML"
         (get-title~ client)))
+    
+    ;; All this should be abstracted into an Hierarchy-Client class
+    ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
+    
+    (define (insert-client-definition tree client)
+      (if (is? client JML-Node)
+          (insert-jml-definition tree {} 0 client (get-sorted?))
+        (insert-definition~ tree {} 0 client (get-sorted?))))
+    
+    (define (insert-jml-definition tree father level node sort?)
+      (define (insert-definition father level node sort?)
+        (let ((row (insert-jml-self father level node)))
+          (insert-jml-self-definitions row level node sort?)))
+      
+      (define (insert-jml-self father level node)
+        (let* ((model (get-jml-model father node))
+               (image (if (and model (subtype? model Component)) (get-class-image~ model) {Bitmap-Resource "Slot"}))
+               (title (cond ((get-property~ node 'title) => identity) ((get-name~ node) => ->string) (else (->string (get-model-name~ node)))))
+               (state (if (< level 1) 'expanded 'collapsed)))
+          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
+      
+      (define (get-jml-model father node)
+        (let ((model-name (get-model-name~ node)))
+          (when model-name
+            (autoload-class model-name))))
+      
+      (define (insert-jml-self-definitions father level node sort?)
+        (insert-jml-definitions father level (get-jml-named-children node) sort?))
+      
+      (define (insert-jml-definitions father level definitions sort?)
+        (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
+          (for-each (lambda (definition)
+                      (insert-definition father (+ level 1) definition sort?))
+                    ordered)))
+      
+      (define (get-jml-named-children node)
+        (define (named? node)
+          (and (is? node JML-Element)
+               (or (get-name~ node)
+                   (get-property~ node 'title))))
+        
+        (when (is? node JML-Element)
+          (collect-if (lambda (child)
+                        (or (named? child)
+                            (some? named? (get-children~ child))))
+                      (get-children~ node))))
+      
+      (define (sort-jml-definitions definitions)
+        (sort string<? definitions key: (lambda (definition) (->string (get-name~ definition)))))
+      
+      (insert-definition father level node sort?))
     
     (let ((tree (locate 'definitions)))
       (cond ((not client)

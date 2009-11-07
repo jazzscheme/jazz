@@ -77,6 +77,10 @@
   
   
   (method override (start-process)
+    (define (process-title)
+      (either (get-toplevel-title~ (get-preferences {}))
+              "Application"))
+    
     (nextmethod)
     (when (not (get-caption-base~ toplevel))
       (set-caption-base~ toplevel (process-title)))
@@ -86,11 +90,6 @@
   (method override (prepare-workbench)
     (nextmethod)
     (setup-workbench))
-  
-  
-  (method (process-title)
-    (either (get-toplevel-title~ (get-preferences {}))
-            "Application"))
   
   
   (method override (workspace-installed)
@@ -410,7 +409,7 @@
       (register-debugger local-debugger)))
   
   
-  (method (detach-debugger-processes)
+  (definition (detach-debugger-processes)
     (for-each (lambda (debugger)
                 (detach-processes~ debugger))
               (get-debuggers)))
@@ -435,20 +434,19 @@
 
   
   (method (on-open-favorite evt)
+    (define (find-favorite char)
+      (let ((pref (get-preferences 'favorites error?: #f)))
+        (when pref
+          (let ((favorites (get-children~ pref)))
+            (find-if (lambda (favorite)
+                       (eqv? (get-shortcut~ favorite) char))
+                     favorites)))))
+    
     (let* ((char (get-property~ evt char:))
            (favorite (find-favorite char)))
       (if (not favorite)
           (error "No favorite defined for {t}" char)
         (edit-document (get-file~ favorite)))))
-  
-  
-  (method (find-favorite char)
-    (let ((pref (get-preferences 'favorites error?: #f)))
-      (when pref
-        (let ((favorites (get-children~ pref)))
-          (find-if (lambda (favorite)
-                     (eqv? (get-shortcut~ favorite) char))
-                   favorites)))))
 
 
   ;;;
@@ -457,6 +455,10 @@
 
   
   (method override (edit-definitions object (class: class {}) (context: context catalog-context) (workspace: workspace {}) (history-item: history-item {}))
+    ;; todo: show only entries belonging to class
+    (define (filter-entries entries class)
+      entries)
+    
     (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object context: context) class)))
       (if (null? definitions)
           (bell)
@@ -474,11 +476,6 @@
         (case (length definitions)
           ((1) (edit-reference~ (car definitions) object))
           (else (edit-references~ (get-guest~ (get-search-manager)) object definitions context))))))
-  
-  
-  ;; todo: show only entries belonging to class
-  (method (filter-entries entries class)
-    entries)
 
 
   ;;;

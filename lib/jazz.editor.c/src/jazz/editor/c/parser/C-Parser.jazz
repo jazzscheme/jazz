@@ -46,11 +46,8 @@
   
   
   (method override (parse file time)
-    (new C-File-Entry catalog file time (parse-definitions file)))
-  
-  
-  (method (parse-definitions file)
-    (let ((lines (list->vector (load-lines~ file char-encoding: char-encoding char-encoding-errors: #f)))
+    (define (parse-definitions)
+      (let ((lines (list->vector (load-lines~ file char-encoding: char-encoding char-encoding-errors: #f)))
           (fact (new List-Factory))
           (find-function (if (eq? (get-heuristic 'c-function) 'gambit)
                              find-gambit-function
@@ -60,98 +57,89 @@
       (loop (for n from 0 below (cardinality lines))
             (do
               (let* ((line (vector-ref lines n))
-                     (item (or (find-define line n)
-                               (find-include line n)
+                     (item (or (find-sharp-define line n)
+                               (find-sharp-include line n)
                                (find-function lines line n))))
                 (when item (put~ fact item)))))
       (get-output~ fact)))
-  
-
-  ;;;
-  ;;;; Define
-  ;;;
-  
-  
-  (constant define
-    "#define")
-  
-  
-  (method (find-define line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (and (> len (+ col (string-length define)))
-                 (string=? define (substring line col (+ col (string-length define)))))
-        (let* ((start (+ col (string-length define)))
-               (col (skip-whitespace line start: start)))
-          (when (and (> col start) (< col len))
-            (let* ((start col)
-                   (col (skip (lambda (c) (or (c-constituent? c))) line start: start)))
-              (when (and (> col start) (<= col len))
-                (new C-Define-Entry (subseq line start col) n start n col))))))))
-  
-
-  ;;;
-  ;;;; Include
-  ;;;
-  
-  
-  (constant include
-    "#include")
-  
-  
-  (method (find-include line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (and (> len (+ col (string-length include)))
-                 (string=? include (substring line col (+ col (string-length include)))))
-        (let* ((start (+ col (string-length include)))
-               (col (skip-whitespace line start: start)))
-          (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
-            (let* ((start (+ col 1))
-                   (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
-              (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
-                (new C-Include-Entry (subseq line start col) n start n col))))))))
-  
-
-  ;;;
-  ;;;; Open-Brace Heuristic
-  ;;;
-  
-  
-  (method (find-open-brace-function lines line n)
-    (let ((len (string-length line)))
-      (when (and (> len 0)
-                 (eqv? (string-ref line 0) #\{))
-        (continuation-capture
-          (lambda (return)
-            (loop (for i from (- n 1) downto 0)
-                  (do
-                    (let ((line (vector-ref lines i)))
-                      (let ((end (skip c-constituent? line)))
-                        (when (> end 0)
-                          (continuation-return return
-                            (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
-            {})))))
-  
-
-  ;;;
-  ;;;; Gambit Heuristic
-  ;;;
-  
-  
-  (constant gambit-function
-    "___EXP_FUNC")
-  
-  
-  (method (find-gambit-function lines line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (and (> len (+ col (string-length gambit-function)))
-                 (string=? gambit-function (substring line col (+ col (string-length gambit-function)))))
-        (let* ((start (+ col (string-length gambit-function)))
-               (col (skip (lambda (c) (not (eqv? c #\comma))) line start: start)))
-          (when (and col (< col len))
-            (let* ((start (skip-whitespace line start: (+ col 1)))
-                   (end (skip c-constituent? line start: start)))
-              (when (> end start)
-                (new C-Export-Entry (subseq line start end) n start n end))))))))))
+    
+    ;;;
+    ;;;; Sharp Define
+    ;;;
+    
+    (define sharp-define
+      "#define")
+    
+    (define (find-sharp-define line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (when (and (> len (+ col (string-length sharp-define)))
+                   (string=? sharp-define (substring line col (+ col (string-length sharp-define)))))
+          (let* ((start (+ col (string-length sharp-define)))
+                 (col (skip-whitespace line start: start)))
+            (when (and (> col start) (< col len))
+              (let* ((start col)
+                     (col (skip (lambda (c) (or (c-constituent? c))) line start: start)))
+                (when (and (> col start) (<= col len))
+                  (new C-Define-Entry (subseq line start col) n start n col))))))))
+    
+    ;;;
+    ;;;; Sharp Include
+    ;;;
+    
+    (define sharp-include
+      "#include")
+    
+    (define (find-sharp-include line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (when (and (> len (+ col (string-length sharp-include)))
+                   (string=? sharp-include (substring line col (+ col (string-length sharp-include)))))
+          (let* ((start (+ col (string-length sharp-include)))
+                 (col (skip-whitespace line start: start)))
+            (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
+              (let* ((start (+ col 1))
+                     (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
+                (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
+                  (new C-Include-Entry (subseq line start col) n start n col))))))))
+    
+    ;;;
+    ;;;; Open-Brace Heuristic
+    ;;;
+    
+    (define (find-open-brace-function lines line n)
+      (let ((len (string-length line)))
+        (when (and (> len 0)
+                   (eqv? (string-ref line 0) #\{))
+          (continuation-capture
+            (lambda (return)
+              (loop (for i from (- n 1) downto 0)
+                    (do
+                          (let ((line (vector-ref lines i)))
+                            (let ((end (skip c-constituent? line)))
+                              (when (> end 0)
+                                (continuation-return return
+                                                     (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
+              {})))))
+    
+    ;;;
+    ;;;; Gambit Heuristic
+    ;;;
+    
+    (define gambit-function
+      "___EXP_FUNC")
+    
+    (define (find-gambit-function lines line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (when (and (> len (+ col (string-length gambit-function)))
+                   (string=? gambit-function (substring line col (+ col (string-length gambit-function)))))
+          (let* ((start (+ col (string-length gambit-function)))
+                 (col (skip (lambda (c) (not (eqv? c #\comma))) line start: start)))
+            (when (and col (< col len))
+              (let* ((start (skip-whitespace line start: (+ col 1)))
+                     (end (skip c-constituent? line start: start)))
+                (when (> end start)
+                  (new C-Export-Entry (subseq line start end) n start n end))))))))
+    
+    (new C-File-Entry catalog file time (parse-definitions)))))

@@ -64,121 +64,128 @@
   
   
   (method public (parse reader/expr)
+    (define (parse-reader reader)
+      (parse-expr {} (read reader)))
+    
+    (define (parse-expr parent expr)
+      (parse-any parent expr))
+    
+    (define (parse-any parent object)
+      (if (pattern-expr? object)
+          (parse-pattern parent object)
+        (parse-noexpand parent object)))
+    
+    (define (parse-noexpand parent object)
+      (cond ((not object)
+             {})
+            ((is? object JML-Node)
+             (set-parent~ object parent)
+             object)
+            ((tagged-expr? object)
+             (parse-node parent object))
+            ((and (pair? object) (symbol? (car object)))
+             (parse-new-node parent object))
+            ((pair? object)
+             (map (lambda (sub)
+                    (parse-expr parent sub))
+                  object))
+            (else
+             (error "Unable to parse: {s}" object))))
+    
+    (define (parse-pattern parent pattern)
+      (let* ((first (car pattern))
+             (tag (tag->name first))
+             (expansion (expand-pattern pattern tag)))
+        (if (and (pair? expansion) (eq? (car expansion) first))
+            (parse-noexpand parent expansion)
+          (parse-any parent expansion))))
+    
+    (define (parse-node parent expr)
+      (let ((first (car expr)))
+        (if (tag? first)
+            (parse-jml-node parent expr)
+          (parse-new-node parent expr))))
+    
+    (define (parse-new-node parent expr)
+      (bind (model . rest) expr
+        (let ((class (autoload model)))
+          (receive (properties-list children-list) (parse-jml-properties/children rest)
+            (let* ((node (apply new class properties-list))
+                   (children (parse-children node children-list)))
+              (when children
+                (set-children~ node children))
+              node)))))
+    
+    (define (parse-jml-node parent expr)
+      (bind (first . rest) expr
+        (let ((tag (tag->name first)))
+          (receive (properties-list children-list) (parse-jml-properties/children rest)
+            (let* ((node (new JML-Element parent tag))
+                   (properties (parse-properties properties-list))
+                   (children (parse-children node children-list)))
+              (set-properties~ node properties)
+              node)))))
+    
+    (define (parse-properties properties)
+      (let ((queue (new-queue)))
+        (for-each-property (lambda (property value)
+                             (enqueue queue (keyword->symbol property))
+                             (enqueue queue (parse-property value)))
+                           properties)
+        (queue-list queue)))
+    
+    (define (parse-children parent children)
+      (let ((queue (new-queue)))
+        (define (add-nodes nodes)
+          (if (null/pair? nodes)
+              (for-each add-nodes nodes)
+            (enqueue queue nodes)))
+        
+        (for-each (lambda (element)
+                    (if (string? element)
+                        (enqueue queue (new JML-Text parent element))
+                      (let ((jml (parse-expr parent element)))
+                        (add-nodes jml))))
+                  children)
+        (queue-list queue)))
+    
+    (define (parse-property value)
+      (if (and (pair? value) (eq? (car value) :string))
+          (map parse-property value)
+        (parse-value value)))
+    
+    (define (parse-value value)
+      (if (is? value Path)
+          (parse-path value)
+        value))
+    
+    (define (parse-path value (use-generator?: use-generator? #t))
+      (bind (alias . path) (get-path~ value)
+        (apply append (cons (get-alias alias use-generator?: use-generator?) path))))
+    
+    (define (tagged-expr? expr)
+      (and (pair? expr)
+           (tag? (car expr))))
+    
+    (define (pattern-expr? expr)
+      (and (pair? expr)
+           (let ((first (car expr)))
+             (and (tag? first)
+                  (let ((tag (tag->name first)))
+                    (find-dispatch self tag))))))
+    
+    (define (expand-pattern tree tag)
+      (let ((pattern (find-dispatch self tag)))
+        (pattern self tree)))
+    
     (if (port? reader/expr)
         (parse-reader reader/expr)
       (parse-expr {} reader/expr)))
   
   
-  (method (parse-reader reader)
-    (parse-expr {} (read reader)))
-  
-  
-  (method (parse-expr parent expr)
-    (parse-any parent expr))
-  
-  
-  (method (parse-any parent object)
-    (if (pattern-expr? object)
-        (parse-pattern parent object)
-      (parse-noexpand parent object)))
-  
-  
-  (method (parse-noexpand parent object)
-    (cond ((not object)
-           {})
-          ((is? object JML-Node)
-           (set-parent~ object parent)
-           object)
-          ((tagged-expr? object)
-           (parse-node parent object))
-          ((and (pair? object) (symbol? (car object)))
-           (parse-new-node parent object))
-          ((pair? object)
-           (map (lambda (sub)
-                  (parse-expr parent sub))
-                object))
-          (else
-           (error "Unable to parse: {s}" object))))
-  
-  
-  (method (parse-pattern parent pattern)
-    (let* ((first (car pattern))
-           (tag (tag->name first))
-           (expansion (expand-pattern pattern tag)))
-      (if (and (pair? expansion) (eq? (car expansion) first))
-          (parse-noexpand parent expansion)
-        (parse-any parent expansion))))
-  
-  
-  (method (parse-node parent expr)
-    (let ((first (car expr)))
-      (if (tag? first)
-          (parse-jml-node parent expr)
-        (parse-new-node parent expr))))
-  
-  
-  (method (parse-new-node parent expr)
-    (bind (model . rest) expr
-      (let ((class (autoload model)))
-        (receive (properties-list children-list) (parse-jml-properties/children rest)
-          (let* ((node (apply new class properties-list))
-                 (children (parse-children node children-list)))
-            (when children
-              (set-children~ node children))
-            node)))))
-  
-  
-  (method (parse-jml-node parent expr)
-    (bind (first . rest) expr
-      (let ((tag (tag->name first)))
-        (receive (properties-list children-list) (parse-jml-properties/children rest)
-          (let* ((node (new JML-Element parent tag))
-                 (properties (parse-properties properties-list))
-                 (children (parse-children node children-list)))
-            (set-properties~ node properties)
-            node)))))
-  
-  
-  (method (parse-properties properties)
-    (let ((queue (new-queue)))
-      (for-each-property (lambda (property value)
-                           (enqueue queue (keyword->symbol property))
-                           (enqueue queue (parse-property value)))
-                         properties)
-      (queue-list queue)))
-  
-  
-  (method (parse-children parent children)
-    (let ((queue (new-queue)))
-      (define (add-nodes nodes)
-        (if (null/pair? nodes)
-            (for-each add-nodes nodes)
-          (enqueue queue nodes)))
-      
-      (for-each (lambda (element)
-                  (if (string? element)
-                      (enqueue queue (new JML-Text parent element))
-                    (let ((jml (parse-expr parent element)))
-                      (add-nodes jml))))
-                children)
-      (queue-list queue)))
-  
-  
-  (method (parse-property value)
-    (if (and (pair? value) (eq? (car value) :string))
-        (map parse-property value)
-      (parse-value value)))
-  
-  
-  (method (parse-value value)
-    (if (is? value Path)
-        (parse-path value)
-      value))
-  
-  
-  (method (parse-path value (use-generator?: use-generator? #t))
-    (bind (alias . path) (get-path~ value)
-      (apply append (cons (get-alias alias use-generator?: use-generator?) path))))
+  ;;;
+  ;;;; Validate
+  ;;;
   
   
   (method protected virtual (tag-valid? tag)
@@ -188,29 +195,6 @@
   (method protected virtual (validate-tag tag)
     (unless (tag-valid? tag)
       (error "Unknown tag: {a}" tag)))
-  
-  
-  ;;;
-  ;;;; Utilities
-  ;;;
-  
-  
-  (method (tagged-expr? expr)
-    (and (pair? expr)
-         (tag? (car expr))))
-  
-  
-  (method (pattern-expr? expr)
-    (and (pair? expr)
-         (let ((first (car expr)))
-           (and (tag? first)
-                (let ((tag (tag->name first)))
-                  (find-dispatch self tag))))))
-  
-  
-  (method (expand-pattern tree tag)
-    (let ((pattern (find-dispatch self tag)))
-      (pattern self tree)))
   
   
   ;;;

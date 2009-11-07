@@ -414,7 +414,7 @@
   ;;;
   
   
-  (method (load-session)
+  (definition (load-session)
     (let ((pref (get-preferences '(tools compare-directories))))
       (set! Base-Dates (get-base-dates~ pref))))
   
@@ -466,6 +466,9 @@
   
   
   (method public (install-configuration config)
+    (define (find-base-date name)
+      (assq-value name Base-Dates #f))
+    
     (set! installed-configuration config)
     (set-mode (get-mode~ config))
     (set-base-date (essay (eq? (get-mode~ config) 'merge) (find-base-date (get-name~ config))))
@@ -476,10 +479,6 @@
     (set-ignored-extensions (get-ignored-extensions~ config))
     (set-check-algorithm (get-check-algorithm~ config))
     (remove-every-row~ (locate 'results)))
-  
-  
-  (method (find-base-date name)
-    (assq-value name Base-Dates #f))
   
   
   (method (on-open-green evt)
@@ -765,6 +764,16 @@
   
   
   (method protected (goto-next predicate (rank {}))
+    (define (find-next tree rank predicate)
+      (continuation-capture
+        (lambda (return)
+          (loop (for n from rank below (get-visible-count~ tree))
+                (do (let* ((row (get-row~ tree n))
+                           (entry (get-user-data~ row)))
+                      (when (predicate entry)
+                        (continuation-return return n)))))
+          {})))
+    
     (let* ((tree (locate 'results))
            (selection (get-selection~ tree))
            (rank (either rank (if (null? selection) 0 (+ (apply max selection) 1))))
@@ -775,6 +784,16 @@
   
   
   (method protected (goto-previous predicate (rank {}))
+    (define (find-previous tree rank predicate)
+      (continuation-capture
+        (lambda (return)
+          (loop (for n from rank downto 0)
+                (do (let* ((row (get-row~ tree n))
+                           (entry (get-user-data~ row)))
+                      (when (predicate entry)
+                        (continuation-return return n)))))
+          {})))
+    
     (let* ((tree (locate 'results))
            (selection (get-selection~ tree))
            (rank (either rank (if (null? selection) (- (get-visible-count~ tree) 1) (- (apply min selection) 1))))
@@ -784,43 +803,11 @@
         previous)))
   
   
-  @new
-  (method (find-next tree rank predicate)
-    (loop (for n from rank below (get-visible-count~ tree))
-          (with row (get-row~ tree n))
-          (with entry (get-user-data~ row))
-          (when (predicate entry)
-            (return n))
-          (finally {})))
-  
-  
-  (method (find-next tree rank predicate)
-    (continuation-capture
-      (lambda (return)
-        (loop (for n from rank below (get-visible-count~ tree))
-              (do (let* ((row (get-row~ tree n))
-                         (entry (get-user-data~ row)))
-                    (when (predicate entry)
-                      (continuation-return return n)))))
-        {})))
-  
-  
-  (method (find-previous tree rank predicate)
-    (continuation-capture
-      (lambda (return)
-        (loop (for n from rank downto 0)
-              (do (let* ((row (get-row~ tree n))
-                         (entry (get-user-data~ row)))
-                    (when (predicate entry)
-                      (continuation-return return n)))))
-        {})))
-  
-  
-  (method (comparable? entry)
+  (definition (comparable? entry)
     (and (eq? (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry)))
   
   
-  (method (uncomparable? entry)
+  (definition (uncomparable? entry)
     (xor (get-left~ entry) (get-right~ entry)))
   
   

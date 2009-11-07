@@ -1044,33 +1044,31 @@
   
   
   (method override (current-drop drag-drop pos)
+    (define (get-reorder-target drag-drop pos)
+      (call-with-view->tree pos
+        (lambda (cell v height)
+          (when cell
+            (let* ((rank (get-row~ cell))
+                   (quarter (get-row-quarter v height))
+                   (current (get-target~ drag-drop))
+                   (row (get-row rank)))
+              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
+                  current
+                (get-row-reorder-target drag-drop row quarter)))))))
+    
+    (define (get-row-quarter v height)
+      (let ((quarter (/ height 4))
+            (middle (/ height 2)))
+        (cond ((< v quarter) 1)
+              ((< v middle) 2)
+              ((< v (- height quarter)) 3)
+              (else 4))))
+    
     (if (get-surrogate)
         (nextmethod drag-drop pos)
       (if (and reorderable? (eq? self (get-view~ (get-source~ drag-drop))))
           (get-reorder-target drag-drop pos)
         (get-tree-target drag-drop pos))))
-  
-  
-  (method (get-reorder-target drag-drop pos)
-    (call-with-view->tree pos
-      (lambda (cell v height)
-        (when cell
-          (let* ((rank (get-row~ cell))
-                 (quarter (get-row-quarter v height))
-                 (current (get-target~ drag-drop))
-                 (row (get-row rank)))
-            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
-                current
-              (get-row-reorder-target drag-drop row quarter)))))))
-  
-  
-  (method (get-row-quarter v height)
-    (let ((quarter (/ height 4))
-          (middle (/ height 2)))
-      (cond ((< v quarter) 1)
-            ((< v middle) 2)
-            ((< v (- height quarter)) 3)
-            (else 4))))
   
   
   (method protected virtual (get-row-reorder-target drag-drop row quarter)
@@ -1659,6 +1657,14 @@
   
   
   (method public (auto-expand/collapse row (close-auto-expanded?: close-auto-expanded? #t) (auto-toggle?: auto-toggle? #f))
+    (define (auto-toggle row auto-toggle?)
+      (if (expanded?~ row)
+          (when auto-toggle?
+            (auto-collapse~ row)
+            (set! auto-expanded-row {}))
+        (auto-expand~ row)
+        (set! auto-expanded-row row)))
+    
     (with-update-locked
       (lambda ()
         (let ((selected-rows (selection->rows selection)))
@@ -1684,15 +1690,6 @@
              (when row
                (auto-toggle row auto-toggle?))))
           (set! selection (rows->selection selected-rows))))))
-  
-  
-  (method (auto-toggle row auto-toggle?)
-    (if (expanded?~ row)
-        (when auto-toggle?
-          (auto-collapse~ row)
-          (set! auto-expanded-row {}))
-      (auto-expand~ row)
-      (set! auto-expanded-row row)))
   
   
   (method public (close-delayed-row (new-spine: new-spine {}))
@@ -2069,15 +2066,15 @@
   ;;;
   
   
-  (method (borders-left borders)
+  (definition (borders-left borders)
     (car borders))
   
   
-  (method (borders-right borders)
+  (definition (borders-right borders)
     (cdr borders))
   
   
-  (method (borders-width borders)
+  (definition (borders-width borders)
     (- (borders-right borders) (borders-left borders)))
   
   

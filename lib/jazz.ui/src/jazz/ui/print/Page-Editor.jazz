@@ -128,36 +128,46 @@
   
   (method protected (activate-page)
     @would-take-a-tree-to-be-really-nice
+    (define (setup-branches)
+      (let ((page-setup (find-page-setup))
+            (designer (get-page-setup-designer~ client)))
+        (setup-branch page-setup designer 'printer)
+        (setup-branch page-setup designer 'file)
+        (when (null? (get-active-branch~ page-setup))
+          (set-active-branch~ page-setup (child~ page-setup 'printer)))))
+    
+    @would-take-a-tree-to-be-really-nice
+    (define (setup-branch page-setup designer name)
+      (when (null? (find-component~ page-setup name))
+        (let ((branch (new Branch parent: page-setup)))
+          (add-child~ designer branch page-setup branch: {})
+          (set-name~ designer branch name branch: {})
+          (set-property~ designer branch client-form: (new Form textual?: #f action: 'install) branch: {}))))
+    
+    ;; todo
+    (define (setup-defaults)
+      )
+    
+    @would-take-a-tree-to-be-really-nice
     (setup-branches)
     (setup-defaults)
     (update-page))
   
   
-  @would-take-a-tree-to-be-really-nice
-  (method (setup-branches)
-    (let ((page-setup (find-page-setup))
-          (designer (get-page-setup-designer~ client)))
-      (setup-branch page-setup designer 'printer)
-      (setup-branch page-setup designer 'file)
-      (when (null? (get-active-branch~ page-setup))
-        (set-active-branch~ page-setup (child~ page-setup 'printer)))))
-  
-  
-  @would-take-a-tree-to-be-really-nice
-  (method (setup-branch page-setup designer name)
-    (when (null? (find-component~ page-setup name))
-      (let ((branch (new Branch parent: page-setup)))
-        (add-child~ designer branch page-setup branch: {})
-        (set-name~ designer branch name branch: {})
-        (set-property~ designer branch client-form: (new Form textual?: #f action: 'install) branch: {}))))
-  
-  
-  ;; todo
-  (method (setup-defaults)
-    )
-  
-  
   (method (update-page)
+    (define (update-branch toolbar page-setup)
+      (let ((name (get-active-branch-name~ page-setup)))
+        (set-selected?~ (locate~ toolbar name) #t)))
+    
+    (define (update-fit toolbar page-setup)
+      (let ((fit (get-fit~ page-setup)))
+        (set-selected?~ (locate~ toolbar fit) #t)))
+    
+    (define (update-border page-setup)
+      (let ((border (locate 'border)))
+        (set-size~ border (nu+ (get-size~ page-setup) {Dimension 4 4}))
+        (layout-view)))
+    
     (let* ((toplevel (get-toplevel))
            (toolbar (find-palette~ toplevel Page-Toolbar))
            (page-setup (find-page-setup)))
@@ -165,22 +175,6 @@
       (update-branch toolbar page-setup)
       (update-fit toolbar page-setup)
       (update-border page-setup)))
-  
-  
-  (method (update-branch toolbar page-setup)
-    (let ((name (get-active-branch-name~ page-setup)))
-      (set-selected?~ (locate~ toolbar name) #t)))
-  
-  
-  (method (update-fit toolbar page-setup)
-    (let ((fit (get-fit~ page-setup)))
-      (set-selected?~ (locate~ toolbar fit) #t)))
-  
-  
-  (method (update-border page-setup)
-    (let ((border (locate 'border)))
-      (set-size~ border (nu+ (get-size~ page-setup) {Dimension 4 4}))
-      (layout-view)))
 
   
   ;;;
@@ -226,50 +220,50 @@
   
   (cond-expand
     (windows
-  (method (page-setup)
-    (let* ((page-setup (find-page-setup))
-           (resolution (get-resolution~ page-setup))
-           (orientation (get-orientation~ page-setup))
-           (paper-size (get-paper-size~ page-setup))
-           (paper-source (get-paper-source~ page-setup))
-           (printable (get-printable~ page-setup))
-           (min-margins (get-layout-insets~ page-setup))
-           (margins (get-layout-insets~ printable))
-           (dialog-ratio (/ 1000 resolution))
-           (setup-ratio (/ resolution 1000))
-           (designer (get-page-setup-designer~ client)))
-      (receive (size min-margins margins orientation paper-size paper-source) (page-setup-dialog margins: (scale (add-rects min-margins margins) dialog-ratio) orientation: (numerize-orientation orientation) paper-size: paper-size paper-source: paper-source)
-        (set-property~ designer page-setup 'size (scale size setup-ratio))
-        (set-property~ designer page-setup 'layout-insets (scale min-margins setup-ratio))
-        (set-property~ designer page-setup 'orientation (symbolize-orientation orientation))
-        (set-property~ designer page-setup 'paper-size paper-size)
-        (set-property~ designer page-setup 'paper-source paper-source)
-        (set-property~ designer printable 'layout-insets (scale (subtract-rects margins min-margins) setup-ratio))
-        (update-page)))))
-(else
-(method (page-setup)
-  #f)))
+      (method (page-setup)
+        (let* ((page-setup (find-page-setup))
+               (resolution (get-resolution~ page-setup))
+               (orientation (get-orientation~ page-setup))
+               (paper-size (get-paper-size~ page-setup))
+               (paper-source (get-paper-source~ page-setup))
+               (printable (get-printable~ page-setup))
+               (min-margins (get-layout-insets~ page-setup))
+               (margins (get-layout-insets~ printable))
+               (dialog-ratio (/ 1000 resolution))
+               (setup-ratio (/ resolution 1000))
+               (designer (get-page-setup-designer~ client)))
+          (receive (size min-margins margins orientation paper-size paper-source) (page-setup-dialog margins: (scale (add-rects min-margins margins) dialog-ratio) orientation: (numerize-orientation orientation) paper-size: paper-size paper-source: paper-source)
+            (set-property~ designer page-setup 'size (scale size setup-ratio))
+            (set-property~ designer page-setup 'layout-insets (scale min-margins setup-ratio))
+            (set-property~ designer page-setup 'orientation (symbolize-orientation orientation))
+            (set-property~ designer page-setup 'paper-size paper-size)
+            (set-property~ designer page-setup 'paper-source paper-source)
+            (set-property~ designer printable 'layout-insets (scale (subtract-rects margins min-margins) setup-ratio))
+            (update-page)))))
+    (else
+     (method (page-setup)
+       #f)))
   
   
   (cond-expand
     (windows
-      (method (numerize-orientation orientation)
+      (definition (numerize-orientation orientation)
         (case orientation
           ((portrait) DMORIENT_PORTRAIT)
           ((landscape) DMORIENT_LANDSCAPE))))
     (else
-      (method (numerize-orientation orientation)
+      (definition (numerize-orientation orientation)
         #f)))
   
   
   (cond-expand
     (windows
-      (method (symbolize-orientation orientation)
+      (definition (symbolize-orientation orientation)
         (ecase orientation
           ((DMORIENT_PORTRAIT) 'portrait)
           ((DMORIENT_LANDSCAPE) 'landscape))))
     (else
-      (method (symbolize-orientation orientation)
+      (definition (symbolize-orientation orientation)
         #f)))
 
   

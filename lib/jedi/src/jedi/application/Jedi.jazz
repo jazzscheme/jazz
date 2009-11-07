@@ -412,26 +412,25 @@
   
   
   (method override (get-documentation-cataloguer)
+    (define (new-documentation-cataloguer)
+      (let ((cataloguer (new Cataloguer))
+            (workbench (get-workbench)))
+        (for-each-project~ workbench
+          (lambda (project)
+            (let ((file (get-documentation~ project)))
+              (when file
+                (let ((form (safe-read-from-file file)))
+                  (unless (exception? form)
+                    (let* ((doc (instantiate~ form))
+                           (name (get-name~ doc))
+                           (catalog (new Doc-Catalog name doc project)))
+                      (add-catalog~ cataloguer catalog))))))))
+        cataloguer))
+    
     (unless documentation-cataloguer
       (when (get-documented?~ (get-preferences {}))
         (set! documentation-cataloguer (new-documentation-cataloguer))))
     documentation-cataloguer)
-  
-  
-  (method (new-documentation-cataloguer)
-    (let ((cataloguer (new Cataloguer))
-          (workbench (get-workbench)))
-      (for-each-project~ workbench
-        (lambda (project)
-          (let ((file (get-documentation~ project)))
-            (when file
-              (let ((form (safe-read-from-file file)))
-                (unless (exception? form)
-                  (let* ((doc (instantiate~ form))
-                         (name (get-name~ doc))
-                         (catalog (new Doc-Catalog name doc project)))
-                    (add-catalog~ cataloguer catalog))))))))
-      cataloguer))
   
   
   (method public (reload-documentation)

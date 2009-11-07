@@ -211,6 +211,19 @@
   
   
   (method (view-calls profile)
+    (define (collect-calls profile)
+      (let ((total (profile-total profile))
+            (calls '()))
+        (iterate-table (profile-calls profile)
+          (lambda (stack count)
+            (let ((call (list stack count (calculate-percentage count total))))
+              (set! calls (cons call calls)))))
+        (sort > calls key: third)))
+    
+    (define (calculate-percentage count total)
+      (/ (round (* 10000 (/ count total)))
+         100.))
+    
     (define (present-procedure frame)
       (either (if frame
                   (let ((creator (first frame)))
@@ -233,29 +246,7 @@
                                     (let ((procedure (present-procedure frame)))
                                       (add-row father: row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: "") (new Tree-Label title: "")) user-data: frame)))
                                   (reverse (butlast stack))))))))
-            (collect-calls profile)))
-  
-  
-  (method (collect-calls profile)
-    (let ((total (profile-total profile))
-          (calls '()))
-      (iterate-table (profile-calls profile)
-        (lambda (stack count)
-          (let ((call (list stack count (calculate-percentage count total))))
-            (set! calls (cons call calls)))))
-      (sort > calls key: third)))
-  
-  
-  (definition (present-filename filename)
-    (let ((pos (find filename #\/ reversed?: #t)))
-      (if pos
-          (subseq filename (+ pos 1))
-        filename)))
-  
-  
-  (definition (calculate-percentage count total)
-    (/ (round (* 10000 (/ count total)))
-       100.)))
+            (collect-calls profile))))
 
 
 (register-autoclass Calls-Tree))

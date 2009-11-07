@@ -51,22 +51,16 @@
   
   
   ;;;
-  ;;;; Form
-  ;;;
-  
-  
-  (method (form-present form)
-    (get-name~ form)
-    @code-present
-    (get-presentation~ form))
-  
-  
-  ;;;
   ;;;; Item
   ;;;
     
   
   (method override (create-item item)
+    (define (form-present form)
+      (get-name~ form)
+      @code-present
+      (get-presentation~ form))
+    
     (if (is? item Form)
         (let ((title (form-present item)))
           (if (not title)
@@ -76,22 +70,20 @@
     
   
   (method override (get-item-content item kind)
+    (define (get-nodes form)
+      (get-children~ form))  
+    
+    (define (get-leaves form)
+      (let ((leaves '()))
+        (for-each-property (lambda (property value)
+                             (let ((symbol (if (field? property) (field-name property) property)))
+                               (set! leaves (cons (cons symbol value) leaves))))
+                           (get-properties~ form))
+        leaves))
+    
     (let* ((form (get-moniker~ item))
            (content (case kind ((nodes) (get-nodes form)) ((leaves) (get-leaves form)))))
       (map create-item content)))
-  
-  
-  (method (get-nodes form)
-    (get-children~ form))
-  
-  
-  (method (get-leaves form)
-    (let ((leaves '()))
-      (for-each-property (lambda (property value)
-                           (let ((symbol (if (field? property) (field-name property) property)))
-                             (set! leaves (cons (cons symbol value) leaves))))
-                         (get-properties~ form))
-      leaves))
   
   
   (method override (get-item-type item)

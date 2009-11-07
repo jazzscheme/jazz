@@ -400,24 +400,13 @@
       (values modified? last-delta)))
   
   
-  (method (remove-specifiers lst)
-    (if (not (pair? lst))
-        '()
-      (cons (car lst)
-            (collect-if (lambda (mark)
-                          (let ((range <Range$Cell$> (get-range~ mark)))
-                            (or (not (eqv? (get-char (get-start~ range)) #\<))
-                                (not (eqv? (get-char (- (get-end~ range) 1)) #\>)))))
-                        (cdr lst)))))
-  
-  
-  (method (effective-symbol string)
-    (if (ends-with? string "~")
-        (string->symbol (subseq string 0 (- (cast <fx> (cardinality string)) 1)))
-      (string->symbol string)))
-  
-  
   (method override (tabulate-line row)
+    (define (tabulate-column row delta)
+      (when (/= delta 0)
+        (let ((actual (get-column row)))
+          (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row actual))
+                        (list (make-string (+ actual delta) #\space))))))
+    
     (let ((delta (tabulate-delta row)))
       (tabulate-column row delta)
       delta))
@@ -434,6 +423,30 @@
               (increase! total)
               (set! expressions (cdr expressions)))))
         total))
+    
+    (define (effective-symbol string)
+      (if (ends-with? string "~")
+          (string->symbol (subseq string 0 (- (cast <fx> (cardinality string)) 1)))
+        (string->symbol string)))
+    
+    (define (first-on-last-line expressions count)
+      (let* ((reversed (if (> count 1) (reverse (cdr expressions)) (reverse expressions)))
+             (first (car reversed))
+             (line (get-row~ (get-start~ (get-range~ first)))))
+        (while (and (not-null? reversed) (= (get-row~ (get-start~ (get-range~ (car reversed)))) line))
+          (set! first (car reversed))
+          (set! reversed (cdr reversed)))
+        first))
+    
+    (define (remove-specifiers lst)
+      (if (not (pair? lst))
+          '()
+        (cons (car lst)
+              (collect-if (lambda (mark)
+                            (let ((range <Range$Cell$> (get-range~ mark)))
+                              (or (not (eqv? (get-char (get-start~ range)) #\<))
+                                  (not (eqv? (get-char (- (get-end~ range) 1)) #\>)))))
+                          (cdr lst)))))
     
     (let* ((pos (new Cell row 0))
            (expl <Text-Explorer> (new (explorer-class) self start: pos))
@@ -483,23 +496,6 @@
                           (set! col (get-col~ (get-start~ (get-range~ (first-on-last-line expressions count)))))
                         (set! col (+ (get-col~ opening) (* (+ (- specials rank) 1) 2))))))))))))
       (- col (get-column row))))
-  
-  
-  (method (tabulate-column row delta)
-    (when (/= delta 0)
-      (let ((actual (get-column row)))
-        (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row actual))
-                      (list (make-string (+ actual delta) #\space))))))
-  
-  
-  (method (first-on-last-line expressions count)
-    (let* ((reversed (if (> count 1) (reverse (cdr expressions)) (reverse expressions)))
-           (first (car reversed))
-           (line (get-row~ (get-start~ (get-range~ first)))))
-      (while (and (not-null? reversed) (= (get-row~ (get-start~ (get-range~ (car reversed)))) line))
-        (set! first (car reversed))
-        (set! reversed (cdr reversed)))
-      first))
   
   
   ;;;
@@ -675,13 +671,13 @@
     '(Reference Walk-Warning Walk-Fatal Break))
   
   
-  (method (highlight-style? style)
+  (definition (highlight-style? style)
     (some? (lambda (style-name)
              (inherits?~ style style-name))
            Highlight-Styles))
   
   
-  (method public (constant? expr)
+  (definition (constant? expr)
     (or (number? expr)
         (boolean? expr)
         (char? expr)

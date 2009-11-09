@@ -242,9 +242,9 @@
   (define link-options
     '(("executables" executables)
       ("libraries" libraries)
-      ("objects" objects)
+      ("modules" modules)
       ("images" executables libraries)
-      ("all" executables libraries objects)))
+      ("all" executables libraries modules)))
   
   (define (invalid option)
     (jazz.error "Invalid link option: {a}" option))

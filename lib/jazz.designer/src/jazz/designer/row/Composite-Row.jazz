@@ -221,6 +221,15 @@
   
   
   (method (view-completions)
+    (define (find-to-complete)
+      (let* ((entries (current-entries))
+             (part (current-part entries)))
+        (if (not part)
+            (let ((position (current-position entries)))
+              (when position
+                (values position {} (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
+          (values (get-position~ part) (get-text~ part) (get-start~ part) (get-end~ part)))))
+    
     (let ((info (find-to-complete)))
       (if (not info)
           (bell)
@@ -252,16 +261,6 @@
                   (acquire-focus~ tree)))))))))
   
   
-  (method (find-to-complete)
-    (let* ((entries (current-entries))
-           (part (current-part entries)))
-      (if (not part)
-          (let ((position (current-position entries)))
-            (when position
-              (values position {} (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
-        (values (get-position~ part) (get-text~ part) (get-start~ part) (get-end~ part)))))
-  
-  
   (method (complete-part start end tree)
     (let ((rank (get-single-selection~ tree)))
       (if (not rank)
@@ -278,6 +277,31 @@
   
   
   (method (determine-entries string)
+    (define (determine-entry string rank offset)
+      (let* ((parts (new List-Factory))
+             (position 0)
+             (start {})
+             (end {})
+             (end-part
+               (lambda ()
+                 (when start
+                   (put~ parts (new Part rank position (subseq string start (+ end 1)) (+ offset start) (+ offset end 1)))
+                   (increase! rank)
+                   (increase! position)
+                   (set! start {})
+                   (set! end {})))))
+        (loop (for c in-sequence string)
+              (for n from 0)
+              (if (and (accepts-spaces?) (eqv? c #\space))
+                  (end-part)
+                (if (not start)
+                    (begin
+                      (set! start n)
+                      (set! end n))
+                  (set! end n))))
+        (end-part)
+        (get-output~ parts)))
+    
     (let ((entries (new List-Factory))
           (rank 0)
           (offset 0))
@@ -288,32 +312,6 @@
                     (increase! offset (+ (cardinality string) 1))))
                 (split string ","))
       (get-output~ entries)))
-  
-  
-  (method (determine-entry string rank offset)
-    (let* ((parts (new List-Factory))
-           (position 0)
-           (start {})
-           (end {})
-           (end-part
-            (lambda ()
-              (when start
-                (put~ parts (new Part rank position (subseq string start (+ end 1)) (+ offset start) (+ offset end 1)))
-                (increase! rank)
-                (increase! position)
-                (set! start {})
-                (set! end {})))))
-      (loop (for c in-sequence string)
-            (for n from 0)
-            (if (and (accepts-spaces?) (eqv? c #\space))
-                (end-part)
-              (if (not start)
-                  (begin
-                    (set! start n)
-                    (set! end n))
-                (set! end n))))
-      (end-part)
-      (get-output~ parts)))
   
   
   ;;;

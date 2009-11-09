@@ -128,28 +128,27 @@
 
 
 (definition public (validate-hresult2 hresult iunknown refiid)
+  (define (extract-errorinfo-message)
+    (receive (result isupport) (CoQueryNoValidate iunknown (com-interface-guid ISupportErrorInfo))
+      (when (= result S_OK)
+        (prog1
+            (when (= (ISupportErrorInfo$InterfaceSupportsErrorInfo isupport refiid) S_OK)
+              (let ((ierror (GetErrorInfo)))
+                (when ierror
+                  (receive (result message) (IErrorInfo$GetDescription ierror)
+                    (CoRelease ierror)
+                    (when (= result S_OK)
+                      message)))))
+          (CoRelease isupport)))))
+  
   (case hresult
     ((0 1) ; S_OK or S_FALSE
      hresult)
     (else
-     (let ((message (extract-errorinfo-message hresult iunknown refiid)))
+     (let ((message (extract-errorinfo-message)))
        (if message
            (throw (new COM-Exception hresult message))
          (validate-hresult hresult))))))
-
-
-(definition (extract-errorinfo-message hresult iunknown refiid)
-  (receive (result isupport) (CoQueryNoValidate iunknown (com-interface-guid ISupportErrorInfo))
-    (when (= result S_OK)
-      (prog1
-          (when (= (ISupportErrorInfo$InterfaceSupportsErrorInfo isupport refiid) S_OK)
-            (let ((ierror (GetErrorInfo)))
-              (when ierror
-                (receive (result message) (IErrorInfo$GetDescription ierror)
-                  (CoRelease ierror)
-                  (when (= result S_OK)
-                    message)))))
-        (CoRelease isupport)))))
 
 
 ;;;

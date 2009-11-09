@@ -52,22 +52,21 @@
 
 
   (method override (initialize location)
+    (define (setup-location)
+      (let (iterate (path (split-identifier (car location)))
+                    (sub (cdr location)))
+        (if (null? path)
+            (signal (new Location-Error kind: 'unknown location: location))
+          (let ((name (apply compose-name path)))
+            (if (find-unit-source name)
+                (begin
+                  (set! unit-name name)
+                  (set! sublocation sub))
+              (iterate (butlast path)
+                       (cons (last path) sub)))))))
+    
     (nextmethod)
-    (setup-location location))
-  
-  
-  (method (setup-location location)
-    (let (iterate (path (split-identifier (car location)))
-                  (sub (cdr location)))
-      (if (null? path)
-          (signal (new Location-Error kind: 'unknown location: location))
-        (let ((name (apply compose-name path)))
-          (if (find-unit-source name)
-              (begin
-                (set! unit-name name)
-                (set! sublocation sub))
-            (iterate (butlast path)
-                     (cons (last path) sub)))))))
+    (setup-location))
   
   
   (method override (print printer readably)

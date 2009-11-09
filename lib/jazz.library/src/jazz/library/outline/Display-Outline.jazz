@@ -105,6 +105,36 @@
   
   
   (method (follow display-v v)
+    (define (follow-forward v)
+      (while (> v 0)
+        (let* ((height (+ (get-height~ first-displayed) row-spacing))
+               (remaining (- height first-displayed-offset)))
+          (if (< v remaining)
+              (begin
+                (increase! first-displayed-offset v)
+                (set! v 0))
+            (set! first-displayed (get-next~ first-displayed))
+            (increase! first-displayed-rank)
+            (decrease! v remaining)
+            (set! first-displayed-offset 0))))
+      #t)
+    
+    (define (follow-backward v)
+      (continuation-capture
+        (lambda (return)
+          (while (> v 0)
+            (if (<= v first-displayed-offset)
+                (begin
+                  (decrease! first-displayed-offset v)
+                  (set! v 0))
+              (set! first-displayed (get-previous~ first-displayed))
+              (if (not first-displayed)
+                  (continuation-return return #f)
+                (decrease! first-displayed-rank)
+                (decrease! v (+ first-displayed-offset 1))
+                (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
+          #t)))
+    
     ;; This is a patch for a bug I don't want to debug as the whole
     ;; approach about first-displayed needs to be rethought completly
     ;; See the Outline-View.follow Bug.jazz file to reproduce it...
@@ -112,36 +142,4 @@
             (cond ((> v 0) (follow-forward v))
                   ((< v 0) (follow-backward (- v))))))
       (when (not succeeded?)
-        (update-displayed display-v))))
-  
-  
-  (method (follow-forward v)
-    (while (> v 0)
-      (let* ((height (+ (get-height~ first-displayed) row-spacing))
-             (remaining (- height first-displayed-offset)))
-        (if (< v remaining)
-            (begin
-              (increase! first-displayed-offset v)
-              (set! v 0))
-          (set! first-displayed (get-next~ first-displayed))
-          (increase! first-displayed-rank)
-          (decrease! v remaining)
-          (set! first-displayed-offset 0))))
-    #t)
-  
-  
-  (method (follow-backward v)
-    (continuation-capture
-      (lambda (return)
-        (while (> v 0)
-          (if (<= v first-displayed-offset)
-              (begin
-                (decrease! first-displayed-offset v)
-                (set! v 0))
-            (set! first-displayed (get-previous~ first-displayed))
-            (if (not first-displayed)
-                (continuation-return return #f)
-              (decrease! first-displayed-rank)
-              (decrease! v (+ first-displayed-offset 1))
-              (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
-        #t)))))
+        (update-displayed display-v))))))

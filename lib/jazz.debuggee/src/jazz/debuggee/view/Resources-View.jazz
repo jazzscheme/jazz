@@ -209,6 +209,97 @@
   
   
   (method (view-content)
+    (define (insert-node tree father node)
+      (case (get-tag~ node)
+        ((resources) (insert-resources tree father node))
+        (else (insert-entry tree father node))))
+    
+    (define (insert-entry tree father entry)
+      (let* ((name (either (get-property~ entry 'name) ""))
+             (image {Bitmap-Resource "Blue"})
+             (reference-entry? (and reference (eq? entry reference-entry)))
+             (reference-scan (if reference reference-counters '()))
+             (rank (if (null? father) (prog1 next-rank (increase! next-rank)) {}))
+             (counters (entry-counters entry))
+             (user-data (cons rank counters))
+             (row (add-row~ tree father: father position: 0
+                    children: (cons (new Tree-Node title: name image: image)
+                                    (map (lambda (counter property)
+                                           (prog1 (if (null? counters)
+                                                      (new Tree-Label title: "")
+                                                    (case what
+                                                      ((delta)
+                                                       (bind (background frame-color) (cond ((> counter 0) Allocate-Rendering)
+                                                                                            ((< counter 0) Release-Rendering)
+                                                                                            (else Stable-Rendering))
+                                                         (new Tree-Label title: (->string counter) background: background frame-color: frame-color)))
+                                                      (else
+                                                       (let ((previous (table-ref last-counters property #f)))
+                                                         (bind (background frame-color) (cond (reference-entry? Reference-Rendering)
+                                                                                              ((or (not previous) (> counter previous)) Allocate-Rendering)
+                                                                                              ((< counter previous) Release-Rendering)
+                                                                                              (else Stable-Rendering))
+                                                           (table-set! last-counters property counter)
+                                                           (let ((value (if reference (- counter (car reference-scan)) counter)))
+                                                             (new Tree-Label title: (->string value) background: background frame-color: frame-color)))))))
+                                             (when reference-scan
+                                               (set! reference-scan (cdr reference-scan)))))
+                                         (either counters Resources-Properties)
+                                         Resources-Properties))
+                    user-data: user-data)))
+        (for-each (lambda (child)
+                    (insert-node tree row child))
+                  (get-children~ entry))))
+    
+    (define (insert-resources tree father resources)
+      (case what
+        ((delta)
+         (let ((name (either (get-property~ resources 'name) ""))
+               (image {Bitmap-Resource "Red"})
+               (counters (resources-counters resources)))
+           (add-row~ tree father: father
+             children: (cons (new Tree-Node title: name image: image)
+                             (map (lambda (counter)
+                                    (new Tree-Label title: (->string counter)))
+                                  counters))
+             user-data: resources)))))
+    
+    (define (entry-counters entry)
+      (let ((before (find-name~ entry 'before))
+            (after (find-name~ entry 'after)))
+        (case what
+          ((delta)
+           (when (and before after)
+             (map - (resources-counters after) (resources-counters before))))
+          ((before)
+           (when before
+             (resources-counters before)))
+          ((after)
+           (when after
+             (resources-counters after))))))
+    
+    (define Resources-Properties
+      '(private-bytes
+         virtual
+         committed
+         allocated
+         strings
+         symbols
+         system-stack
+         data-stack
+         collector-stack
+         collector-roots
+         undestroyed
+         bags
+         handles
+         gui-gdi-objects
+         gui-user-objects))
+    
+    (define (resources-counters resources)
+      (map (lambda (property)
+             (get-property~ resources property))
+           Resources-Properties))
+    
     (let ((tree (get-tree)))
       (with-update-locked~ tree
         (lambda ()
@@ -221,104 +312,7 @@
               (set! reference-counters (essay reference-entry (entry-counters reference-entry)))
               (for-each (lambda (node)
                           (insert-node tree {} node))
-                        entries)))))))
-  
-  
-  (method (insert-node tree father node)
-    (case (get-tag~ node)
-      ((resources) (insert-resources tree father node))
-      (else (insert-entry tree father node))))
-  
-  
-  (method (insert-entry tree father entry)
-    (let* ((name (either (get-property~ entry 'name) ""))
-           (image {Bitmap-Resource "Blue"})
-           (reference-entry? (and reference (eq? entry reference-entry)))
-           (reference-scan (if reference reference-counters '()))
-           (rank (if (null? father) (prog1 next-rank (increase! next-rank)) {}))
-           (counters (entry-counters entry))
-           (user-data (cons rank counters))
-           (row (add-row~ tree father: father position: 0
-                          children: (cons (new Tree-Node title: name image: image)
-                                          (map (lambda (counter property)
-                                                 (prog1 (if (null? counters)
-                                                            (new Tree-Label title: "")
-                                                          (case what
-                                                            ((delta)
-                                                             (bind (background frame-color) (cond ((> counter 0) Allocate-Rendering)
-                                                                                                  ((< counter 0) Release-Rendering)
-                                                                                                  (else Stable-Rendering))
-                                                               (new Tree-Label title: (->string counter) background: background frame-color: frame-color)))
-                                                            (else
-                                                             (let ((previous (table-ref last-counters property #f)))
-                                                               (bind (background frame-color) (cond (reference-entry? Reference-Rendering)
-                                                                                                    ((or (not previous) (> counter previous)) Allocate-Rendering)
-                                                                                                    ((< counter previous) Release-Rendering)
-                                                                                                    (else Stable-Rendering))
-                                                                 (table-set! last-counters property counter)
-                                                                 (let ((value (if reference (- counter (car reference-scan)) counter)))
-                                                                   (new Tree-Label title: (->string value) background: background frame-color: frame-color)))))))
-                                                   (when reference-scan
-                                                     (set! reference-scan (cdr reference-scan)))))
-                                               (either counters Resources-Properties)
-                                               Resources-Properties))
-                          user-data: user-data)))
-      (for-each (lambda (child)
-                  (insert-node tree row child))
-                (get-children~ entry))))
-
-  
-  (method (insert-resources tree father resources)
-    (case what
-      ((delta)
-       (let ((name (either (get-property~ resources 'name) ""))
-             (image {Bitmap-Resource "Red"})
-             (counters (resources-counters resources)))
-         (add-row~ tree father: father
-                   children: (cons (new Tree-Node title: name image: image)
-                                   (map (lambda (counter)
-                                          (new Tree-Label title: (->string counter)))
-                                        counters))
-                   user-data: resources)))))
-  
-  
-  (method (entry-counters entry)
-    (let ((before (find-name~ entry 'before))
-          (after (find-name~ entry 'after)))
-      (case what
-        ((delta)
-         (when (and before after)
-           (map - (resources-counters after) (resources-counters before))))
-        ((before)
-         (when before
-           (resources-counters before)))
-        ((after)
-         (when after
-           (resources-counters after))))))
-  
-  
-  (definition Resources-Properties
-    '(private-bytes
-      virtual
-      committed
-      allocated
-      strings
-      symbols
-      system-stack
-      data-stack
-      collector-stack
-      collector-roots
-      undestroyed
-      bags
-      handles
-      gui-gdi-objects
-      gui-user-objects))
-  
-  
-  (definition (resources-counters resources)
-    (map (lambda (property)
-           (get-property~ resources property))
-         Resources-Properties)))
+                        entries))))))))
 
 
 ;;;

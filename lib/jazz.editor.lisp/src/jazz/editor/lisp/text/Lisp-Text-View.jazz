@@ -253,52 +253,50 @@
 
   
   (method override (recolorize-text start end-row)
+    (define (recolorize-declarations start-row end-row)
+      (define (explorer)
+        (let* ((line (paragraph-string start-row))
+               (col (skip-whitespace line))
+               (pos (new Cell start-row col)))
+          (new (explorer-class) self start: pos end: pos)))
+      
+      (catch Explore-Error
+        (let ((expl <Text-Explorer> (explorer))
+              (colorizer (new-colorizer self)))
+          (continuation-capture
+            (lambda (exit)
+              (set-line-hook~ expl
+                (lambda (expl)
+                  (when (> (get-row~ (get-end~ expl)) end-row)
+                    (continuation-return exit))))
+              (let (iterate)
+                (colorize-declarations expl colorizer)
+                (when (exit-list~ expl)
+                  (iterate)))))
+          (finish-current~ colorizer))))
+    
+    (define (recolorize-comments start-row end-row)
+      (define (explorer)
+        (let* ((line (paragraph-string start-row))
+               (col (skip-whitespace line))
+               (pos (new Cell start-row col)))
+          (new (explorer-class) self start: pos end: pos)))
+      
+      (catch Explore-Error
+        (let ((expl <Text-Explorer> (explorer))
+              (colorizer (new-colorizer self)))
+          (continuation-capture
+            (lambda (exit)
+              (set-line-hook~ expl
+                (lambda (expl)
+                  (when (> (get-row~ (get-end~ expl)) end-row)
+                    (continuation-return exit))))
+              (colorize-comments expl colorizer start: start-row end: end-row)))
+          (finish-current~ colorizer))))
+    
     (nextmethod start end-row)
     (recolorize-declarations (get-row~ start) end-row)
     (recolorize-comments (get-row~ start) end-row))
-  
-  
-  (method (recolorize-declarations start-row end-row)
-    (define (explorer)
-      (let* ((line (paragraph-string start-row))
-             (col (skip-whitespace line))
-             (pos (new Cell start-row col)))
-        (new (explorer-class) self start: pos end: pos)))
-    
-    (catch Explore-Error
-      (let ((expl <Text-Explorer> (explorer))
-            (colorizer (new-colorizer self)))
-        (continuation-capture
-          (lambda (exit)
-            (set-line-hook~ expl
-              (lambda (expl)
-                (when (> (get-row~ (get-end~ expl)) end-row)
-                  (continuation-return exit))))
-            (let (iterate)
-              (colorize-declarations expl colorizer)
-              (when (exit-list~ expl)
-                (iterate)))))
-        (finish-current~ colorizer))))
-  
-  
-  (method (recolorize-comments start-row end-row)
-    (define (explorer)
-      (let* ((line (paragraph-string start-row))
-             (col (skip-whitespace line))
-             (pos (new Cell start-row col)))
-        (new (explorer-class) self start: pos end: pos)))
-    
-    (catch Explore-Error
-      (let ((expl <Text-Explorer> (explorer))
-            (colorizer (new-colorizer self)))
-        (continuation-capture
-          (lambda (exit)
-            (set-line-hook~ expl
-              (lambda (expl)
-                (when (> (get-row~ (get-end~ expl)) end-row)
-                  (continuation-return exit))))
-            (colorize-comments expl colorizer start: start-row end: end-row)))
-        (finish-current~ colorizer))))
   
   
   ;;;
@@ -523,39 +521,38 @@
   
   
   (method override (evaluate-range range)
+    (define (collect-declaration-names)
+      (let ((start (get-start~ range))
+            (end (get-end~ range)))
+        (let ((expl (new (explorer-class) self start: start end: start))
+              (queue (new-queue)))
+          (when (forward-expr~ expl)
+            (let (iterate)
+              (let ((s (get-start~ expl))
+                    (e (get-end~ expl)))
+                (cond ((nu<=? e end)
+                       (let ((form (read-text-form (get-range~ expl))))
+                         (let ((name (form-name~ expl form)))
+                           (when name
+                             (enqueue queue name))))
+                       (when (forward-expr~ expl)
+                         (iterate)))
+                      ((nu<? s end)
+                       (explore-error~ expl "Ill-balanced expressions" start end))))))
+          (queue-list queue))))
+    
     (let ((debugged (get-focused-process~ (get-debugger-manager))))
       (if (not debugged)
           (bell)
         (bind (syntax str container line col) (prepare-expressions range)
           (evaluate-expressions~ debugged syntax str container line col)
-          (let ((names (collect-declaration-names range)))
+          (let ((names (collect-declaration-names)))
             (when (not-null? names)
               (user-message "Evaluated: {l detail: :human separator: \", \"}" names)))))))
   
   
   (method protected virtual (prepare-expressions range)
     )
-  
-  
-  (method (collect-declaration-names range)
-    (let ((start (get-start~ range))
-          (end (get-end~ range)))
-      (let ((expl (new (explorer-class) self start: start end: start))
-            (queue (new-queue)))
-        (when (forward-expr~ expl)
-          (let (iterate)
-            (let ((s (get-start~ expl))
-                  (e (get-end~ expl)))
-              (cond ((nu<=? e end)
-                     (let ((form (read-text-form (get-range~ expl))))
-                       (let ((name (form-name~ expl form)))
-                         (when name
-                           (enqueue queue name))))
-                     (when (forward-expr~ expl)
-                       (iterate)))
-                    ((nu<? s end)
-                     (explore-error~ expl "Ill-balanced expressions" start end))))))
-        (queue-list queue))))
   
   
   ;;;

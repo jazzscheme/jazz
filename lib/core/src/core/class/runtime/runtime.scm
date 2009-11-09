@@ -315,6 +315,11 @@
 
 
 (define (jazz.new-core-class class name fields ascendant slot-names instance-size)
+  (define (compute-core-class-ancestors class ascendant)
+    (if (%%not ascendant)
+        (%%list class)
+      (%%append (%%vector->list (%%get-category-ancestors ascendant)) (%%list class))))
+  
   (let ((core-class
          (%%object
           class
@@ -338,17 +343,11 @@
           #f
           #f
           #f)))
-    (%%set-category-ancestors core-class (%%list->vector (jazz.compute-core-class-ancestors core-class ascendant)))
+    (%%set-category-ancestors core-class (%%list->vector (compute-core-class-ancestors core-class ascendant)))
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons core-class (%%get-category-descendants ascendant))))
     (jazz.create-core-class-tables core-class)
     core-class))
-
-
-(define (jazz.compute-core-class-ancestors class ascendant)
-  (if (%%not ascendant)
-      (%%list class)
-    (%%append (%%vector->list (%%get-category-ancestors ascendant)) (%%list class))))
 
 
 (define (jazz.validate-inherited-slots name ascendant inherited-slot-names)
@@ -575,6 +574,24 @@
 
 
 (define (jazz.new-class class-of-class name ascendant interfaces)
+  (define (compute-class-ancestors class ascendant interfaces)
+    (let ((ancestors '()))
+      (let add-interfaces ((category class))
+           (cond ((%%class? category)
+                  (let ((ascendant (%%get-class-ascendant category)))
+                    (%%when ascendant
+                      (add-interfaces ascendant)))
+                  (for-each add-interfaces (%%get-class-interfaces category)))
+                 (else
+                  (%%when (%%not (%%memq category ancestors))
+                    (set! ancestors (%%cons category ancestors))
+                    (for-each add-interfaces (%%get-interface-ascendants category))))))
+      (let add-classes ((class class))
+           (%%when class
+             (set! ancestors (%%cons class ancestors))
+             (add-classes (%%get-class-ascendant class))))
+      ancestors))
+  
   (let ((class (jazz.allocate-class class-of-class name (%%make-table test: eq?) 0 #f '()
                 ascendant
                 interfaces
@@ -589,31 +606,12 @@
                 (if ascendant (%%get-class-core-vtable ascendant) #f)
                 #f
                 #f)))
-    (%%set-category-ancestors class (%%list->vector (jazz.compute-class-ancestors class ascendant interfaces)))
+    (%%set-category-ancestors class (%%list->vector (compute-class-ancestors class ascendant interfaces)))
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.create-class-tables class)
     ((%%class-dispatch class 0 0) class)
     class))
-
-
-(define (jazz.compute-class-ancestors class ascendant interfaces)
-  (let ((ancestors '()))
-    (let add-interfaces ((category class))
-      (cond ((%%class? category)
-             (let ((ascendant (%%get-class-ascendant category)))
-               (%%when ascendant
-                 (add-interfaces ascendant)))
-             (for-each add-interfaces (%%get-class-interfaces category)))
-            (else
-             (%%when (%%not (%%memq category ancestors))
-               (set! ancestors (%%cons category ancestors))
-               (for-each add-interfaces (%%get-interface-ascendants category))))))
-    (let add-classes ((class class))
-      (%%when class
-        (set! ancestors (%%cons class ancestors))
-        (add-classes (%%get-class-ascendant class))))
-    ancestors))
 
 
 (define (jazz.class? object)

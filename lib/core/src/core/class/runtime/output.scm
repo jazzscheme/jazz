@@ -80,25 +80,24 @@
 
 
 (define (jazz.output-list lst output detail)
+  (define (output-list-content lst output detail)
+    (if (%%not (%%null? lst))
+        (let ((scan lst)
+              (done? #f))
+          (%%while (and (%%not done?) (%%not (%%null? scan)))
+            (jazz.output-value (%%car scan) output detail)
+            (set! scan (%%cdr scan))
+            (if (%%not (%%null? scan))
+                (if (%%pair? scan)
+                    (display " " output)
+                  (begin
+                    (display " . " output)
+                    (jazz.output-value scan output detail)
+                    (set! done? #t))))))))
+  
   (display "(" output)
-  (jazz.output-list-content lst output detail)
+  (output-list-content lst output detail)
   (display ")" output))
-
-
-(define (jazz.output-list-content lst output detail)
-  (if (%%not (%%null? lst))
-      (let ((scan lst)
-            (done? #f))
-        (%%while (and (%%not done?) (%%not (%%null? scan)))
-          (jazz.output-value (%%car scan) output detail)
-          (set! scan (%%cdr scan))
-          (if (%%not (%%null? scan))
-              (if (%%pair? scan)
-                  (display " " output)
-                (begin
-                  (display " . " output)
-                  (jazz.output-value scan output detail)
-                  (set! done? #t))))))))
 
 
 (define (jazz.debug . rest)

@@ -351,39 +351,38 @@
   
   
   (method override (evaluate-selection)
+    (define (statement-range)
+      (let* ((pos (statement-pos))
+             (start (text-search ";" start: pos reversed?: #t))
+             (end (text-search ";" start: pos)))
+        (new Range$Cell$
+          (if start (next-pos start 1) (text-beginning))
+          (if end end (text-ending)))))
+    
+    
+    (define (statement-pos)
+      (let* ((start (get-start))
+             (previous (previous-pos start 1)))
+        (if (and previous (eqv? (get-char previous) #\semi-colon))
+            previous
+          start)))
+    
+    
+    (define (uncommented-string range)
+      (define (uncommented-line line)
+        (let ((pos (search line "--")))
+          (if (not pos)
+              line
+            (subseq line 0 pos))))
+      
+      (let ((lines (range-strings range)))
+        (join-lines (map uncommented-line lines))))
+    
     (let* ((range (if (has-selection?) (get-selection) (statement-range)))
            (string (uncommented-string range))
            (statements (collect-if (lambda (statement) (not (whitespace? statement))) (split string ";")))
            (console (get-sql-console-text)))
-      (evaluate-statements~ console statements #f)))
-  
-  
-  (method (statement-range)
-    (let* ((pos (statement-pos))
-           (start (text-search ";" start: pos reversed?: #t))
-           (end (text-search ";" start: pos)))
-      (new Range$Cell$
-        (if start (next-pos start 1) (text-beginning))
-        (if end end (text-ending)))))
-  
-  
-  (method (statement-pos)
-    (let* ((start (get-start))
-           (previous (previous-pos start 1)))
-      (if (and previous (eqv? (get-char previous) #\semi-colon))
-          previous
-        start)))
-  
-  
-  (method (uncommented-string range)
-    (define (uncommented-line line)
-      (let ((pos (search line "--")))
-        (if (not pos)
-            line
-          (subseq line 0 pos))))
-    
-    (let ((lines (range-strings range)))
-      (join-lines (map uncommented-line lines)))))
+      (evaluate-statements~ console statements #f))))
 
 
 ;;;

@@ -61,6 +61,15 @@
   
   
   (method public (insert-signature symbol procedure signature category)
+    ;; This was done real quick to make it work for the JDBC interface
+    ;; I am absolutly not sure that it is correct...
+    (define (standardize-signature signature)
+      (accumulate signature
+                  (lambda (parameter)
+                    (let ((typeref (get-typeref~ parameter)))
+                      (essay typeref (get-type~ typeref))))
+                  List))
+    
     (let ((signature (standardize-signature signature)))
       (cond ((locate-node signature)
              (error "Redefining {a} in {a}" symbol (type-name category)))
@@ -68,16 +77,6 @@
              (error "Generic functions do not support variable length signatures"))
             (else
              (insert-node procedure signature)))))
-  
-  
-  ;; This was done real quick to make it work for the JDBC interface
-  ;; I am absolutly not sure that it is correct...
-  (method (standardize-signature signature)
-    (accumulate signature
-                (lambda (parameter)
-                  (let ((typeref (get-typeref~ parameter)))
-                    (essay typeref (get-type~ typeref))))
-                List))
   
   
   (method public (insert-node procedure signature)
@@ -140,11 +139,7 @@
     (let ((generics (gather-generics parameter-types)))
       (if (eq? (car generics) dag-root)
           '()
-        generics)))
-  
-  
-  (method public (get-node-procedure node)
-    (get-procedure~ node)))
+        generics))))
 
 
 ;;;

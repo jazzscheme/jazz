@@ -283,34 +283,31 @@
   
   
   (method (update)
+    (define (update-from)
+      (let ((from-tree (locate 'from-tree)))
+        (with-update-locked~ from-tree
+          (lambda ()
+            (remove-every-row~ from-tree)
+            (for-each (lambda (object)
+                        (let ((title (present object)))
+                          (add-row~ from-tree children: (list (new Tree-Node title: title)) user-data: object)))
+                      (sort < (if allow-duplicates? all (difference all to test: equal?))))))))
+    
+    (define (update-to)
+      (let ((to-tree (locate 'to-tree)))
+        (with-update-locked~ to-tree
+          (lambda ()
+            (remove-every-row~ to-tree)
+            (for-each (lambda (object)
+                        (let ((title (present object)))
+                          (add-row~ to-tree children: (list (new Tree-Node title: title)) user-data: object)))
+                      (sort < to))))))
+    
+    (define (present object)
+      (if (not presenter)
+          object
+        (presenter object)))
+    
     (update-from)
     (update-to)
-    (update-buttons))
-  
-  
-  (method (update-from)
-    (let ((from-tree (locate 'from-tree)))
-      (with-update-locked~ from-tree
-        (lambda ()
-          (remove-every-row~ from-tree)
-          (for-each (lambda (object)
-                      (let ((title (present object)))
-                        (add-row~ from-tree children: (list (new Tree-Node title: title)) user-data: object)))
-                    (sort < (if allow-duplicates? all (difference all to test: equal?))))))))
-  
-  
-  (method (update-to)
-    (let ((to-tree (locate 'to-tree)))
-      (with-update-locked~ to-tree
-        (lambda ()
-          (remove-every-row~ to-tree)
-          (for-each (lambda (object)
-                      (let ((title (present object)))
-                        (add-row~ to-tree children: (list (new Tree-Node title: title)) user-data: object)))
-                    (sort < to))))))
-  
-  
-  (method (present object)
-    (if (not presenter)
-        object
-      (presenter object)))))
+    (update-buttons))))

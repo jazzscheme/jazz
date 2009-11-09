@@ -157,18 +157,49 @@
   
   
   (method public (evaluate command console?)
+    (define (eval-command command console?)
+      (with-cursor :wait
+        (lambda ()
+          (let ((connection (get-connection)))
+            (set! current-request command)
+            (if (and console? (not (shift-down?)))
+                (process-sql connection command)
+              (load-sql connection command))))))
+  
+    (define (display-evaluation tables console?)
+      (when console?
+        (evaluation-break))
+      (cond ((null? tables)
+             (clear-table)
+             (display-result "0 rows affected" console?))
+            ((integer? tables)
+             (display-result (format "{a} row{a} affected" tables (format-plural tables)) console?))
+            (else
+             (let ((max-display (get-max-display))
+                   (first-table (car tables)))
+               (if (not first-table)
+                   (display-result "0 rows affected" console?)
+                 (let* ((count (get-count~ first-table))
+                        (missing? (get-missing?~ first-table))
+                        (displayed (min count max-display))
+                        (not-displayed (- count displayed)))
+                   (display-tables tables max-display not-displayed)
+                   (display-affected count missing? not-displayed console?)))))))
+    
+    (define (display-affected count missing? not-displayed console?)
+      (display-result (format "{a} row{a} retrieved{a}{a}"
+                              count
+                              (format-plural count)
+                              (if (not missing?)
+                                  ""
+                                (format " with some missing"))
+                              (if (= not-displayed 0)
+                                  ""
+                                (format ", {a} not displayed" not-displayed)))
+                      console?))
+    
     (let ((tables (eval-command command console?)))
       (display-evaluation tables console?)))
-  
-  
-  (method (eval-command command console?)
-    (with-cursor :wait
-      (lambda ()
-        (let ((connection (get-connection)))
-          (set! current-request command)
-          (if (and console? (not (shift-down?)))
-              (process-sql connection command)
-            (load-sql connection command))))))
   
   
   (definition (get-connection)
@@ -203,40 +234,6 @@
   (definition (get-max-display)
     (let ((pref (sql-tool-preferences)))
       (get-max-display~ pref)))
-  
-  
-  (method (display-evaluation tables console?)
-    (when console?
-      (evaluation-break))
-    (cond ((null? tables)
-           (clear-table)
-           (display-result "0 rows affected" console?))
-          ((integer? tables)
-           (display-result (format "{a} row{a} affected" tables (format-plural tables)) console?))
-          (else
-           (let ((max-display (get-max-display))
-                 (first-table (car tables)))
-             (if (not first-table)
-                 (display-result "0 rows affected" console?)
-               (let* ((count (get-count~ first-table))
-                      (missing? (get-missing?~ first-table))
-                      (displayed (min count max-display))
-                      (not-displayed (- count displayed)))
-                 (display-tables tables max-display not-displayed)
-                 (display-affected count missing? not-displayed console?)))))))
-  
-  
-  (method (display-affected count missing? not-displayed console?)
-    (display-result (format "{a} row{a} retrieved{a}{a}"
-                            count
-                            (format-plural count)
-                            (if (not missing?)
-                                ""
-                              (format " with some missing"))
-                            (if (= not-displayed 0)
-                                ""
-                              (format ", {a} not displayed" not-displayed)))
-                    console?))
   
   
   (method (display-result string console?)
@@ -309,6 +306,89 @@
              (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
            columns))
     
+    (define (display-text columns rows affected max-display not-displayed widths)
+      (define (determine-max-list headers data)
+        (map (lambda (n)
+               (let ((max (length (element headers n))))
+                 (for-each (lambda (row)
+                             (let* ((data (element row n))
+                                    (count (length data)))
+                               (when (> count max)
+                                 (set! max count))))
+                           data)
+                 max))
+             (naturals 0 (length headers))))
+      
+      (define Spacing
+        3)
+      
+      (define (join-data row max-list)
+        (let ((printer (open-output-string)))
+          (while row
+            (let ((data (car row))
+                  (max (+ (car max-list) Spacing))
+                  (last? (null? (cdr row))))
+              (format printer "{a}" data)
+              (unless last?
+                (format printer "{_ :v}" (- max (length data))))
+              (set! row (cdr row))
+              (set! max-list (cdr max-list))))
+          (get-output-string printer)))
+      
+      (let* ((pref (sql-tool-preferences))
+             (tabulate? (get-tabulate-text?~ pref))
+             (output (get-sql-output-text))
+             (style (intern-style (if tabulate? Header-Style Header-Style-Plain)))
+             (stop 0))
+        (clear-all~ output)
+        (cond (tabulate?
+                (let ((stops (map (lambda (width)
+                                    (increase! stop width)
+                                    stop)
+                                  widths)))
+                  (set-tabs~ output (append! stops (make-tabs-from stop 32 256))))
+                (insert-styled~ output (join (map (lambda (column) (get-name~ column)) columns) (string #\tab)) style)
+                (insert-line~ output "")
+                (insert-line~ output "")
+                (for-each (lambda (row)
+                            (insert-line~ output (join (map present-value (get-values~ row)) (string #\tab))))
+                          (if (> affected max-display) (subseq rows 0 max-display) rows)))
+              (else
+               (let* ((headers (map (lambda (column) (get-name~ column)) columns))
+                      (data (map (lambda (row) (map present-value (get-values~ row))) rows))
+                      (max-list (determine-max-list headers data)))
+                 (insert-styled~ output (join-data headers max-list) style)
+                 (insert-line~ output "")
+                 (insert-line~ output "")
+                 (for-each (lambda (row)
+                             (insert-line~ output (join-data row max-list)))
+                           (if (> affected max-display) (subseq data 0 max-display) data)))))
+        (when (> not-displayed 0)
+          (insert-line~ output "")
+          (insert-styled~ output (format "{a} row{a} not displayed" not-displayed (format-plural not-displayed)) (intern-style Overflow-Style))
+          (insert-line~ output ""))
+        (scroll-to~ output {Point 0 0})))
+    
+    (define (display-tree columns rows affected max-display not-displayed widths)
+      (let ((output (get-sql-output-tree)))
+        (remove-columns~ output)
+        (let ((first-column (car columns)))
+          (for-each (lambda (column width)
+                      (let* ((node? (eq? column first-column))
+                             (column (if node?
+                                         (add-column~ output class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
+                                       (add-column~ output class: Tree-Label-Column title: (get-name~ column) width: width))))
+                        (when node?
+                          (set-display-images?~ column #f))))
+                    columns
+                    widths))
+        (for-each (lambda (row)
+                    (let* ((values (get-values~ row))
+                           (first (car values))
+                           (rest (cdr values)))
+                      (add-row~ output children: (cons (new Tree-Node title: (present-value first)) (map (lambda (value) (new Tree-Label title: (present-value value))) rest)))))
+                  (if (> affected max-display) (subseq rows 0 max-display) rows))))
+    
     (let* ((columns (get-columns~ table))
            (rows (get-rows~ table))
            (affected (length rows))
@@ -322,89 +402,4 @@
       (set-?c columns)
       (set-?r rows)
       (display-text columns rows affected max-display not-displayed text-widths)
-      (display-tree columns rows affected max-display not-displayed tree-widths)))
-  
-  
-  (method (display-text columns rows affected max-display not-displayed widths)
-    (define (determine-max-list headers data)
-      (map (lambda (n)
-             (let ((max (length (element headers n))))
-               (for-each (lambda (row)
-                           (let* ((data (element row n))
-                                  (count (length data)))
-                             (when (> count max)
-                               (set! max count))))
-                         data)
-               max))
-           (naturals 0 (length headers))))
-    
-    (define Spacing
-      3)
-    
-    (define (join-data row max-list)
-      (let ((printer (open-output-string)))
-        (while row
-          (let ((data (car row))
-                (max (+ (car max-list) Spacing))
-                (last? (null? (cdr row))))
-            (format printer "{a}" data)
-            (unless last?
-              (format printer "{_ :v}" (- max (length data))))
-            (set! row (cdr row))
-            (set! max-list (cdr max-list))))
-        (get-output-string printer)))
-    
-    (let* ((pref (sql-tool-preferences))
-           (tabulate? (get-tabulate-text?~ pref))
-           (output (get-sql-output-text))
-           (style (intern-style (if tabulate? Header-Style Header-Style-Plain)))
-           (stop 0))
-      (clear-all~ output)
-      (cond (tabulate?
-             (let ((stops (map (lambda (width)
-                                 (increase! stop width)
-                                 stop)
-                               widths)))
-               (set-tabs~ output (append! stops (make-tabs-from stop 32 256))))
-             (insert-styled~ output (join (map (lambda (column) (get-name~ column)) columns) (string #\tab)) style)
-             (insert-line~ output "")
-             (insert-line~ output "")
-             (for-each (lambda (row)
-                         (insert-line~ output (join (map present-value (get-values~ row)) (string #\tab))))
-                       (if (> affected max-display) (subseq rows 0 max-display) rows)))
-            (else
-             (let* ((headers (map (lambda (column) (get-name~ column)) columns))
-                    (data (map (lambda (row) (map present-value (get-values~ row))) rows))
-                    (max-list (determine-max-list headers data)))
-               (insert-styled~ output (join-data headers max-list) style)
-               (insert-line~ output "")
-               (insert-line~ output "")
-               (for-each (lambda (row)
-                           (insert-line~ output (join-data row max-list)))
-                         (if (> affected max-display) (subseq data 0 max-display) data)))))
-      (when (> not-displayed 0)
-        (insert-line~ output "")
-        (insert-styled~ output (format "{a} row{a} not displayed" not-displayed (format-plural not-displayed)) (intern-style Overflow-Style))
-        (insert-line~ output ""))
-      (scroll-to~ output {Point 0 0})))
-  
-  
-  (method (display-tree columns rows affected max-display not-displayed widths)
-    (let ((output (get-sql-output-tree)))
-      (remove-columns~ output)
-      (let ((first-column (car columns)))
-        (for-each (lambda (column width)
-                    (let* ((node? (eq? column first-column))
-                           (column (if node?
-                                       (add-column~ output class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
-                                     (add-column~ output class: Tree-Label-Column title: (get-name~ column) width: width))))
-                      (when node?
-                        (set-display-images?~ column #f))))
-                  columns
-                  widths))
-      (for-each (lambda (row)
-                  (let* ((values (get-values~ row))
-                         (first (car values))
-                         (rest (cdr values)))
-                    (add-row~ output children: (cons (new Tree-Node title: (present-value first)) (map (lambda (value) (new Tree-Label title: (present-value value))) rest)))))
-                (if (> affected max-display) (subseq rows 0 max-display) rows))))))
+      (display-tree columns rows affected max-display not-displayed tree-widths)))))

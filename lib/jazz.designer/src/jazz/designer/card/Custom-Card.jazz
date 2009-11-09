@@ -68,18 +68,6 @@
           (set-property-value~ domain view value)))))
   
   
-  (method (save-properties-new)
-    (when client
-      (for-each-property-view
-        (lambda (view property domain)
-          (when (get-property-modified?~ domain view)
-            (let ((value (get-property-value~ domain view)))
-              (if (eq? (field-name property) 'name-info)
-                  (set-name~ designer client value)
-                (set-property~ designer client property value)))
-            (set-property-modified?~ domain view #f))))))
-  
-  
   (method (for-each-property-view proc)
     (for-each-descendant
       (lambda (view level)
@@ -127,19 +115,29 @@
   
   
   (method public virtual (save-client)
+    (define (save-properties-new)
+      (when client
+        (for-each-property-view
+          (lambda (view property domain)
+            (when (get-property-modified?~ domain view)
+              (let ((value (get-property-value~ domain view)))
+                (if (eq? (field-name property) 'name-info)
+                    (set-name~ designer client value)
+                  (set-property~ designer client property value)))
+              (set-property-modified?~ domain view #f))))))
+    
+    (define (save-properties)
+      (let ((modified? #f))
+        (for-each (lambda (mapping)
+                    (bind (property name type) mapping
+                      (let ((view (locate name)))
+                        (when (save-property view property type)
+                          (set! modified? #t)))))
+                  (get-properties-mapping))
+        modified?))
+    
     (save-properties-new)
     (save-properties))
-  
-  
-  (method (save-properties)
-    (let ((modified? #f))
-      (for-each (lambda (mapping)
-                  (bind (property name type) mapping
-                    (let ((view (locate name)))
-                      (when (save-property view property type)
-                        (set! modified? #t)))))
-                (get-properties-mapping))
-      modified?))
   
   
   (method protected virtual (save-property view property type)

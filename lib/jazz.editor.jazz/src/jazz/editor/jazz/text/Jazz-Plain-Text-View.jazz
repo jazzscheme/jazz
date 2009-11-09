@@ -70,24 +70,22 @@
 
 
   (method override (recolorize-text start end-row)
+    (define (recolorize-row row)
+      (recolorize-comments row))
+    
+    (define (recolorize-comments row)
+      (let* ((line (paragraph-string row))
+             (len (cardinality line))
+             (comment-string (comment-string~ syntax))
+             (comment (and comment-string (search line (comment-string~ syntax)))))
+        (when (and comment (<= comment 20))
+          (let ((title-end (+ comment 4)))
+            (if (and (< title-end len) (= (subseq line comment title-end) (title-comment-string~ syntax)))
+                (begin
+                  (stylize 'Comment (new Cell row comment) (new Cell row title-end))
+                  (stylize 'Title (new Cell row title-end)))
+              (stylize 'Comment (new Cell row comment)))))))
+    
     (when (eq? (type-heuristic) 'jazz)
       (let ((range (naturals (get-row~ start) (+ end-row 1))))
-        (for-each recolorize-row range))))
-
-  
-  (method (recolorize-row row)
-    (recolorize-comments row))
-  
-  
-  (method (recolorize-comments row)
-    (let* ((line (paragraph-string row))
-           (len (cardinality line))
-           (comment-string (comment-string~ syntax))
-           (comment (and comment-string (search line (comment-string~ syntax)))))
-      (when (and comment (<= comment 20))
-        (let ((title-end (+ comment 4)))
-          (if (and (< title-end len) (= (subseq line comment title-end) (title-comment-string~ syntax)))
-              (begin
-                (stylize 'Comment (new Cell row comment) (new Cell row title-end))
-                (stylize 'Title (new Cell row title-end)))
-            (stylize 'Comment (new Cell row comment)))))))))
+        (for-each recolorize-row range))))))

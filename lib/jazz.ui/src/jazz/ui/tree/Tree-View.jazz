@@ -1830,35 +1830,33 @@
         (call-selection-handler old-selection selection force? user-origin?))))
   
   
-  (method (remember-selection use selection)
-    (let ((proc (case use
-                  ((row) get-row)
-                  ((rank) identity)
-                  ((data) (lambda (row) (get-user-data~ (get-row row)))))))
-      (case selection-mode
-        ((cell) (map (lambda (cell)
-                     (cons (proc (get-row~ cell)) (get-col~ cell)))
-                   selection))
-        (else (map proc selection)))))
-  
-  
-  (method (restore-selection use saved-sel test)
-    (let ((proc (case use
-                  ((row) row-rank)
-                  ((rank) identity)
-                  ((data) (lambda (data) (user-data-index data test: test))))))
-      (remove-nils
-       (case selection-mode
-         ((cell) (map (lambda (pair)
-                      (bind (row . col) pair
-                        (let ((row (proc row)))
-                          (when row
-                            (new Cell row col)))))
-                    saved-sel))
-         (else (map proc saved-sel))))))
-  
-  
   (method public (with-preserved-selection proc (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+    (define (remember-selection use selection)
+      (let ((proc (case use
+                    ((row) get-row)
+                    ((rank) identity)
+                    ((data) (lambda (row) (get-user-data~ (get-row row)))))))
+        (case selection-mode
+          ((cell) (map (lambda (cell)
+                         (cons (proc (get-row~ cell)) (get-col~ cell)))
+                       selection))
+          (else (map proc selection)))))
+    
+    (define (restore-selection use saved-sel test)
+      (let ((proc (case use
+                    ((row) row-rank)
+                    ((rank) identity)
+                    ((data) (lambda (data) (user-data-index data test: test))))))
+        (remove-nils
+          (case selection-mode
+            ((cell) (map (lambda (pair)
+                           (bind (row . col) pair
+                             (let ((row (proc row)))
+                               (when row
+                                 (new Cell row col)))))
+                         saved-sel))
+            (else (map proc saved-sel))))))
+    
     (let ((saved-sel (remember-selection use (get-selection)))
           (saved-pivot (and selection-pivot (remember-selection use (list selection-pivot)))))
       ;; This is pretty braindead but I remember it was necessary for some code (in the MetaModeler?)
@@ -2021,26 +2019,25 @@
   
   
   (method override (selection-region sel dh dv sc)
+    (define (element-region element)
+      (case selection-mode
+        ((cell) (new Region rect: (acquire-delta dh dv sc (cell-rect element))))
+        (else (selection-row-region element dh dv sc))))
+    
     (let ((region (new Region)))
       (loop (for element in sel)
-            (with-closed ((row-region (selection-element-region element dh dv sc)))
+            (with-closed ((row-region (element-region element)))
               (combine!~ region row-region 'or)))
       region))
-  
-  
-  (method (selection-element-region element dh dv sc)
-    (case selection-mode
-      ((cell) (new Region rect: (acquire-delta dh dv sc (cell-rect element))))
-      (else (selection-row-region element dh dv sc))))
     
   
   (method override (selection-row-rect n)
-    (let* ((row   (get-row n))
+    (let* ((row (get-row n))
            (node-left (row-text-left~ node-column row))
            (left (if (> (length columns-borders) 1)
                      (min node-left (car (second columns-borders)))
                    node-left))
-           (top   (get-v~ (get-position~ row)))
+           (top (get-v~ (get-position~ row)))
            (right columns-right))
       (new Rect (- left 3) top right (+ top (get-height~ row)))))
   

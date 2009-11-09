@@ -117,19 +117,18 @@
   
   
   (method (init)
+    (define (setup-inherited)
+      (for-each (lambda (property)
+                  (unless (memq? property owned)
+                    (set-value property (get-value~ ascendant property))))
+                (node-properties)))
+    
     (unless inited?
       (if (not base)
           (set! ascendant {})
         (set! ascendant (locate~ domain base))
         (setup-inherited))
       (set! inited? #t)))
-  
-  
-  (method (setup-inherited)
-    (for-each (lambda (property)
-                (unless (memq? property owned)
-                  (set-value property (get-value~ ascendant property))))
-              (node-properties)))
   
   
   (method public (inherits? target)
@@ -155,6 +154,11 @@
     
   
   (method public (extend (domain: domain domain))
+    (define (copy-properties exemplar)
+      (for-each (lambda (property)
+                  (set-value~ exemplar property (get-value property)))
+                (node-properties)))
+    
     (let ((exemplar (new (class-of self))))
       (set-domain-value~ exemplar domain)
       (cond ((not name)
@@ -166,12 +170,6 @@
              (set-base-value~ exemplar name)
              (install~ exemplar)))
       exemplar))
-  
-  
-  (method (copy-properties exemplar)
-    (for-each (lambda (property)
-                (set-value~ exemplar property (get-value property)))
-              (node-properties)))
   
   
   ;;;
@@ -214,15 +212,14 @@
   
   
   (method (reset)
+    (define (reset-property property <Object>)
+      (unless (memq? property owned)
+        (set-value property {})))
+    
     (when inited?
       @should-not-reset-to-nil-but-to-slot-initalize--we-skip-since-init-also-*set-value*
       (for-each reset-property (node-properties))
       (set! inited? #f)))
-  
-  
-  (method (reset-property property <Object>)
-    (unless (memq? property owned)
-      (set-value property {})))
   
   
   ;;;

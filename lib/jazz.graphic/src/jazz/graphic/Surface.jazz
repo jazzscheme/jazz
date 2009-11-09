@@ -389,54 +389,53 @@
         (- uph h))))
   
   
-  ;; temp copy/pasted from above until templates
-  (method (draw-substring h <fx> v <fx> str <Sequence> color <Color> highlight-color <Color+>) <fx>
-    (let ((uph h)
-          (font-ext (cairo_font_extents_t-make))
-          (extents (cairo_text_extents_t-make))
-          (len (cardinality str)))
-      (if (< array-length len)
-          (begin
-            (destroy-glyph-array)
-            (set! glyph-array (glyph-array-make (* len 2)))
-            (set! array-length (* len 2))))
-      (cairo_font_extents context font-ext)
-      (let ((handle (get-handle~ font))
-            (y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
-        (let (iter (i 0))
-          (when (< i len)
-            (let ((glyph (glyph-array-ref glyph-array i))
-                  (ch (cairo_glyph_index handle surface (char->integer (element str i)))))
-              (cairo_glyph_t-index-set! glyph ch)
-              (cairo_glyph_t-x-set! glyph (cast <fl> uph))
-              (cairo_glyph_t-y-set! glyph (cast <fl> y))
-              (cairo_glyph_extents context glyph 1 extents)
-              (set! uph (+ uph (fxround (cairo_text_extents_t-x_advance-ref extents))))
-              (iter (+ i 1)))))
-        (when highlight-color
-          (fill-rect (new Rect h v uph (+ v (fxround (cairo_font_extents_t-height-ref font-ext)))) highlight-color))
-        (set-text-color color)
-        (cairo_show_glyphs context glyph-array len)
-        (cairo_font_extents_t-free font-ext)
-        (cairo_text_extents_t-free extents)
-        (- uph h))))
-  
-  
   ;; should remove the subseq! and pass the bounds to draw-substring
   (method public (draw-tabbed-text h <fx> v <fx> str <Sequence> tabs origin <fx> color <Color> highlight-color <Color+>) <fx>
+    ;; temp copy/pasted from above until templates
+    (define (draw-substring h <fx> v <fx> str <Sequence>) <fx>
+      (let ((uph h)
+            (font-ext (cairo_font_extents_t-make))
+            (extents (cairo_text_extents_t-make))
+            (len (cardinality str)))
+        (if (< array-length len)
+            (begin
+              (destroy-glyph-array)
+              (set! glyph-array (glyph-array-make (* len 2)))
+              (set! array-length (* len 2))))
+        (cairo_font_extents context font-ext)
+        (let ((handle (get-handle~ font))
+              (y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
+          (let (iter (i 0))
+            (when (< i len)
+              (let ((glyph (glyph-array-ref glyph-array i))
+                    (ch (cairo_glyph_index handle surface (char->integer (element str i)))))
+                (cairo_glyph_t-index-set! glyph ch)
+                (cairo_glyph_t-x-set! glyph (cast <fl> uph))
+                (cairo_glyph_t-y-set! glyph (cast <fl> y))
+                (cairo_glyph_extents context glyph 1 extents)
+                (set! uph (+ uph (fxround (cairo_text_extents_t-x_advance-ref extents))))
+                (iter (+ i 1)))))
+          (when highlight-color
+            (fill-rect (new Rect h v uph (+ v (fxround (cairo_font_extents_t-height-ref font-ext)))) highlight-color))
+          (set-text-color color)
+          (cairo_show_glyphs context glyph-array len)
+          (cairo_font_extents_t-free font-ext)
+          (cairo_text_extents_t-free extents)
+          (- uph h))))
+    
     (let ((uph h)
           (beginning 0)
           (stops tabs))
       (loop (for i from 0 below (cardinality str))
             (when (eqv? (element str i) #\tab)
               (when (/= beginning i)
-                (set! uph (+ uph (draw-substring uph v (subseq! str beginning i) color highlight-color))))
+                (set! uph (+ uph (draw-substring uph v (subseq! str beginning i)))))
               (while (<= (+ origin (cast <fx> (car stops))) (+ uph 1))
                 (set! stops (cdr stops)))
               (set! uph (+ origin (cast <fx> (car stops))))
               (set! beginning (+ i 1))
               (set! stops (cdr stops))))
-      (- (+ uph (draw-substring uph v (subseq! str beginning (cardinality str)) color highlight-color))
+      (- (+ uph (draw-substring uph v (subseq! str beginning (cardinality str))))
          h)))
 
   

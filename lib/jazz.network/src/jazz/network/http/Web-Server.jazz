@@ -48,7 +48,7 @@
   (slot root-directory          getter generate)
   (slot default-resource        getter generate)
   (slot unauthentified-resource getter generate)
-  (slot html-generator accessors generate)
+  (slot html-generator          accessors generate)
   
   
   (method override (initialize . rest)
@@ -61,23 +61,107 @@
 
   
   ;;;
-  ;;;; Resource
-  ;;;
-  
-  
-  (method (find-file-resource resource)
-    (when (and root-directory (not (empty-string? resource)))
-      (let ((file (new-file~ root-directory (tokenise-filename resource))))
-        (when (exists?~ file)
-          file))))
-
-  
-  ;;;
   ;;;; Generate
   ;;;
   
   
   (method override (generate-response request)
+    (define (find-pages-info resource)
+      (let ((associations (get-pages-associations)))
+        (assoc resource associations)))
+    
+    (define (find-file-resource resource)
+      (when (and root-directory (not (empty-string? resource)))
+        (let ((file (new-file~ root-directory (tokenise-filename resource))))
+          (when (exists?~ file)
+            file))))
+    
+    (define (process-pages request resource pages-class needs-authentification?)
+      (catch (HTTP-Redirect redirect
+               (redirect-response request (get-resource~ redirect)))
+        (validate-authentification request needs-authentification?)
+        (generate-pages request resource pages-class)))
+    
+    (define (validate-authentification request needs-authentification?)
+      (when (and needs-authentification? (null? (get-session~ request)))
+        (redirect-pages unauthentified-resource)))
+    
+    (define (generate-pages request resource pages-class)
+      (when html-generator
+        (generate-static-page request resource pages-class html-generator))
+      (call-listeners-receive-pages-request request resource pages-class)
+      (let* ((pref (jml-preferences))
+             (pages (new (autoload pages-class) self request {} pref))
+             (renderer (jml-renderer pref))
+             (jml (process-request~ pages request resource))
+             (printer (open-output-string)))
+        (render~ renderer jml printer)
+        (get-output-string printer)))
+    
+    (define (generate-static-page request resource pages-class html-generator)
+      (let* ((pref (jml-preferences))
+             (pages (new (autoload pages-class) self request html-generator pref)))
+        (when (generate-page?~ html-generator resource pages)
+          (setup-directory~ html-generator request resource pages)
+          (let ((renderer (jml-renderer pref))
+                (jml (process-request~ pages request resource))
+                (static-file (generated-page~ html-generator request root-directory resource pages)))
+            (create-directories~ static-file)
+            (call-with-output-file (parse~ static-file)
+              (lambda (printer)
+                (render~ renderer jml printer)))))))
+    
+    (define (find-generator request resource)
+      (let ((pair (assoc resource (get-associations))))
+        (if (not pair)
+            pair
+          (cdr pair))))
+    
+    (define (redirect-pages resource)
+      (throw (new HTTP-Redirect resource)))
+    
+    (define (redirect-response request resource)
+      (let ((host (get-header~ request "Host"))
+            (session (get-session~ request))
+            (response (new HTTP-Response code: 'see-other)))
+        (add-connection-close response)
+        (add-content-type response "text/html")
+        (add-location response (format "http://{a}{a}" host resource))
+        (add-session-cookie response session)
+        response))
+    
+    (define (process-jml-file request file)
+      (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
+        (lambda (reader)
+          (let ((jml (read reader)))
+            (process-jml request jml)))))
+    
+    (define (process-html-file request file)
+      (let* ((response (new HTTP-File-Response file: file))
+             (content (get-content~ response)))
+        (add-connection-close response)
+        (add-content-type response "text/html")
+        (add-content-length response (u8-content-size content))
+        response))
+    
+    (define (process-resource-file request file)
+      (let* ((response (new HTTP-File-Response file: file))
+             (content (get-content~ response)))
+        (add-connection-close response)
+        (add-content-type response "text/plain")
+        (add-content-length response (u8-content-size content))
+        response))
+    
+    (define (process-unknown-file request file)
+      `(<html>
+         (<head>
+           (<title> "Error"))
+         (<body>
+           ,(format "Unknown resource type: {a}" (parse~ file))
+           (<br>)
+           (<br>)
+           ,(request-content request))))
+    
     (let ((resource (get-resource~ request)))
       (if (and (empty-string? resource) default-resource)
           (redirect-response request default-resource)
@@ -97,13 +181,11 @@
                             ((ci=? ext "html") (process-html-file request file))
                             ((member? ext '("gif" "png" "jpg" "bmp" "css" "js") test: ci=?) (process-resource-file request file))
                             (else (process-unknown-file request file)))))))))))))
+
   
-  
-  (method (find-generator request resource)
-    (let ((pair (assoc resource (get-associations))))
-      (if (not pair)
-          pair
-        (cdr pair))))
+  ;;;
+  ;;;; Associations
+  ;;;
   
   
   (method protected virtual (get-associations)
@@ -115,128 +197,8 @@
   ;;;
   
   
-  (method (find-pages-info resource)
-    (let ((associations (get-pages-associations)))
-      (assoc resource associations)))
-  
-  
   (method protected virtual (get-pages-associations)
-    '())
-  
-  
-  (method (process-pages request resource pages-class needs-authentification?)
-    (catch (HTTP-Redirect redirect
-             (redirect-response request (get-resource~ redirect)))
-      (validate-authentification request needs-authentification?)
-      (generate-pages request resource pages-class)))
-  
-  
-  (method (validate-authentification request needs-authentification?)
-    (when (and needs-authentification? (null? (get-session~ request)))
-      (redirect-pages unauthentified-resource)))
-  
-  
-  (method (generate-pages request resource pages-class)
-    (when html-generator
-      (generate-static-page request resource pages-class html-generator))
-    (call-listeners-receive-pages-request request resource pages-class)
-    (let* ((pref (jml-preferences))
-           (pages (new (autoload pages-class) self request {} pref))
-           (renderer (jml-renderer pref))
-           (jml (process-request~ pages request resource))
-           (printer (open-output-string)))
-      (render~ renderer jml printer)
-      (get-output-string printer)))
-  
-  
-  (method (generate-static-page request resource pages-class html-generator)
-    (let* ((pref (jml-preferences))
-           (pages (new (autoload pages-class) self request html-generator pref)))
-      (when (generate-page?~ html-generator resource pages)
-        (setup-directory~ html-generator request resource pages)
-        (let ((renderer (jml-renderer pref))
-              (jml (process-request~ pages request resource))
-              (static-file (generated-page~ html-generator request root-directory resource pages)))
-          (create-directories~ static-file)
-          (call-with-output-file (parse~ static-file)
-            (lambda (printer)
-              (render~ renderer jml printer)))))))
-
-  
-  ;;;
-  ;;;; Redirect
-  ;;;
-  
-  
-  (method public (redirect-pages resource)
-    (throw (new HTTP-Redirect resource)))
-  
-  
-  (method (redirect-response request resource)
-    (let ((host (get-header~ request "Host"))
-          (session (get-session~ request))
-          (response (new HTTP-Response code: 'see-other)))
-      (add-connection-close response)
-      (add-content-type response "text/html")
-      (add-location response (format "http://{a}{a}" host resource))
-      (add-session-cookie response session)
-      response))
-
-  
-  ;;;
-  ;;;; JML
-  ;;;
-  
-  
-  (method (process-jml-file request file)
-    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (reader)
-        (let ((jml (read reader)))
-          (process-jml request jml)))))
-
-  
-  ;;;
-  ;;;; HTML
-  ;;;
-  
-  
-  (method (process-html-file request file)
-    (let* ((response (new HTTP-File-Response file: file))
-           (content (get-content~ response)))
-      (add-connection-close response)
-      (add-content-type response "text/html")
-      (add-content-length response (u8-content-size content))
-      response))
-
-  
-  ;;;
-  ;;;; File
-  ;;;
-  
-  
-  (method (process-resource-file request file)
-    (let* ((response (new HTTP-File-Response file: file))
-           (content (get-content~ response)))
-      (add-connection-close response)
-      (add-content-type response "text/plain")
-      (add-content-length response (u8-content-size content))
-      response))
-
-  
-  ;;;
-  ;;;; Unknown
-  ;;;
-  
-  
-  (method (process-unknown-file request file)
-    `(<html>
-       (<head>
-         (<title> "Error"))
-       (<body>
-         ,(format "Unknown resource type: {a}" (parse~ file))
-         (<br>)
-         (<br>)
-         ,(request-content request)))))
+    '()))
 
 
 ;;;

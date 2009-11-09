@@ -257,34 +257,30 @@
 
 
   (method protected chained (prepare initargs <Object>)
-    (prepare-parent initargs)
-    (prepare-component initargs))
-
-
-  (method (prepare-parent initargs <Object>)
-    (let ((arg (getf initargs parent: not-found: {})))
-      (set! parent (if (not arg) (default-parent) arg))))
-
-
-  (method (prepare-component initargs <Object>)
-    (set-name (either (getf initargs name:) (default-name)))
-    (set-form (either (getf initargs form:) (get-class-form)))
-    (set-creator (getf initargs creator:))
-    (set-creator-branch (getf initargs creator-branch:)))
+    (define (prepare-parent)
+      (let ((arg (getf initargs parent: not-found: {})))
+        (set! parent (if (not arg) (default-parent) arg))))
+    
+    (define (prepare-component)
+      (set-name (either (getf initargs name:) (default-name)))
+      (set-form (either (getf initargs form:) (get-class-form)))
+      (set-creator (getf initargs creator:))
+      (set-creator-branch (getf initargs creator-branch:)))
+    
+    (prepare-parent)
+    (prepare-component))
 
 
   (method protected chained (install initargs <Object>)
-    (install-component initargs))
-
-
-  (method (install-component initargs <Object>)
-    (install-inherited (get-class-forms)))
-  
-  
-  (method (install-inherited forms)
-    (when (not-null? forms)
-      (install-inherited (cdr forms))
-      (install-form (car forms) self {} {})))
+    (define (install-component)
+      (install-inherited (get-class-forms)))
+    
+    (define (install-inherited forms)
+      (when (not-null? forms)
+        (install-inherited (cdr forms))
+        (install-form (car forms) self {} {})))
+    
+    (install-component))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
@@ -359,6 +355,9 @@
   
   
   (method public (write-properties properties <Object>)
+    (define (write-initarg-to object <Object> property <Object> value <Object>)
+      (write-property-to object (component-property (class-of object) (keyword->symbol property)) value))
+    
     (loop (for (property value) in-properties properties)
           (do (write-initarg-to self property value))))
   
@@ -487,11 +486,28 @@
         (setter object value))))
   
   
-  (method (write-initarg-to object <Object> property <Object> value <Object>)
-    (write-property-to object (component-property (class-of object) (keyword->symbol property)) value))
-  
-  
   (method public (get-filtered-properties (filter: filter 'categorized))
+    (define (get-all-properties filter)
+      (sort (lambda (x y)
+              (if (memq? filter '(all categorized))
+                  (let ((xr (get-filter-rank~ (get-row-class x)))
+                        (yr (get-filter-rank~ (get-row-class y))))
+                    (or (< xr yr)
+                        (and (= xr yr)
+                             (string<? (symbol->string (field-name x)) (symbol->string (field-name y))))))
+                (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))
+            (collect-if (lambda (property)
+                          (display-filtered-property? property filter))
+                        (get-instance-slots~ (class-of self)))))
+    
+    (define (display-filtered-property? property filter)
+      (and (property? property)
+           (property-getter property)
+           (or (memq? filter '(all categorized))
+               (let ((class (get-row-class property)))
+                 (eq? (get-filter-name~ class) filter)))
+           (display-property? property)))
+    
     (if (eq? filter 'categorized)
         (let ((properties (get-categorized-properties)))
           (if (eq? properties #t)
@@ -508,29 +524,6 @@
                                   (map standardize object))))))
                 (standardize properties)))))
       (get-all-properties filter)))
-  
-  
-  (method (get-all-properties filter)
-    (sort (lambda (x y)
-            (if (memq? filter '(all categorized))
-                (let ((xr (get-filter-rank~ (get-row-class x)))
-                      (yr (get-filter-rank~ (get-row-class y))))
-                  (or (< xr yr)
-                      (and (= xr yr)
-                           (string<? (symbol->string (field-name x)) (symbol->string (field-name y))))))
-              (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))
-          (collect-if (lambda (property)
-                        (display-filtered-property? property filter))
-                      (get-instance-slots~ (class-of self)))))
-  
-  
-  (method (display-filtered-property? property filter)
-    (and (property? property)
-         (property-getter property)
-         (or (memq? filter '(all categorized))
-             (let ((class (get-row-class property)))
-               (eq? (get-filter-name~ class) filter)))
-         (display-property? property)))
 
 
   ;;;
@@ -993,19 +986,17 @@
   
   
   (method public virtual (search-component target <Object>)
+    (define (search-name name)
+      (let ((presentation (localize (get-presentation))))
+        (search presentation name ignore-case?: #t)))
+    
+    (define (search-type type)
+      (is? self type))
+    
     (let ((name (getf target name:))
           (type (getf target type:)))
       (and (or (not name) (search-name name))
            (or (not type) (search-type type)))))
-  
-  
-  (method protected (search-name name)
-    (let ((presentation (localize (get-presentation))))
-      (search presentation name ignore-case?: #t)))
-  
-  
-  (method protected (search-type type)
-    (is? self type))
   
   
   (method protected (search-text text <Object> target <Object>)

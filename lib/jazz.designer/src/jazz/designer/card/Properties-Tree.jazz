@@ -189,12 +189,20 @@
   ;;;
   
   
-  (method (empty-client?)
-    (let ((client (get-client)))
-      (or (not client) (null? client))))
-  
-  
   (method (preserving-update)
+    (define (empty-client?)
+      (let ((client (get-client)))
+        (or (not client) (null? client))))
+    
+    (define (get-client-default-property)
+      (let ((client (get-client)))
+        (when (= 1 (length client))
+          (let ((component (car client)))
+            (when (is? component Component)
+              (let ((name (get-default-property~ component)))
+                (when name
+                  (category-field (class-of component) name))))))))
+    
     (if (empty-client?)
         (remove-every-row)
       (let ((selected (selected-property))
@@ -206,6 +214,55 @@
 
 
   (method (update)
+    (define (insert-properties client any editor designer father properties)
+      (for-each (lambda (property)
+                  (if (pair? property)
+                      (for-each (lambda (property)
+                                  (insert-property client any editor designer father property 'collapsed {}))
+                                property)
+                    @wait-completed
+                    (bind (title . properties) property
+                      (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Info"}) (new Tree-Label) (new Tree-Image)))))
+                        (insert-properties client any editor designer row properties)))
+                    (insert-property client any editor designer father property 'collapsed {})))
+                properties))
+    
+    (define (insert-property client any editor designer father property state position)
+      (let* ((class (get-row-class~ any property))
+             (instance (get-row-instance~ any property))
+             (row (either instance (new class)))
+             (image (get-filter-image~ class))
+             (values (map (lambda (component) (read-property component property)) client))
+             (presented (map (lambda (value) (present~ row value)) values))
+             (creator (get-creator~ any))
+             (branch (essay creator (get-active-branch~ creator)))
+             ;; temp patch because the root object doesn't have a creator...
+             (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor branch any property)))
+             (uniform? (or (<= (length values) 1) (apply string=? presented)))
+             (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} {}) {Color name: Dark-Gray})))
+             (label (new Tree-Label))
+             (owner (new Tree-Image image: (owner-image designer client class property))))
+        (set-parent~ row self)
+        (set-row-height~ row 17)
+        (set-children~ row (list node label owner))
+        (set-property~ row property)
+        (set-value~ row (car values))
+        (set-title~ label (car presented))
+        (set-color~ label (if uniform? {} {Color name: Dark-Gray}))
+        (add-row father: father state: state row: row position: position)
+        row))
+    
+    (define (get-client-properties client editor)
+      (when client
+        (apply intersection (map (lambda (component)
+                                   (when (is? component Component)
+                                     (get-component-properties component editor)))
+                                 client))))
+    
+    (define (get-component-properties component editor)
+      (filter-by-rights component editor
+        (get-filtered-properties~ component filter: filter)))
+    
     (let* ((client (get-client))
            ;; temp fix. need to investigate. if i remember correctly
            ;; client is actually a list of clients and so the problem
@@ -230,69 +287,6 @@
           (when rank
             (let ((row (get-row rank)))
               (update-property-row~ any property row)))))))
-  
-  
-  (method (insert-properties client any editor designer father properties)
-    (for-each (lambda (property)
-                (if (pair? property)
-                    (for-each (lambda (property)
-                                (insert-property client any editor designer father property 'collapsed {}))
-                              property)
-                  @wait-completed
-                    (bind (title . properties) property
-                      (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Info"}) (new Tree-Label) (new Tree-Image)))))
-                        (insert-properties client any editor designer row properties)))
-                  (insert-property client any editor designer father property 'collapsed {})))
-              properties))
-  
-  
-  (method (insert-property client any editor designer father property state position)
-    (let* ((class (get-row-class~ any property))
-           (instance (get-row-instance~ any property))
-           (row (either instance (new class)))
-           (image (get-filter-image~ class))
-           (values (map (lambda (component) (read-property component property)) client))
-           (presented (map (lambda (value) (present~ row value)) values))
-           (creator (get-creator~ any))
-           (branch (essay creator (get-active-branch~ creator)))
-           ;; temp patch because the root object doesn't have a creator...
-           (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor branch any property)))
-           (uniform? (or (<= (length values) 1) (apply string=? presented)))
-           (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} {}) {Color name: Dark-Gray})))
-           (label (new Tree-Label))
-           (owner (new Tree-Image image: (owner-image designer client class property))))
-      (set-parent~ row self)
-      (set-row-height~ row 17)
-      (set-children~ row (list node label owner))
-      (set-property~ row property)
-      (set-value~ row (car values))
-      (set-title~ label (car presented))
-      (set-color~ label (if uniform? {} {Color name: Dark-Gray}))
-      (add-row father: father state: state row: row position: position)
-      row))
-  
-  
-  (method (get-client-default-property)
-    (let ((client (get-client)))
-      (when (= 1 (length client))
-        (let ((component (car client)))
-          (when (is? component Component)
-            (let ((name (get-default-property~ component)))
-              (when name
-                (category-field (class-of component) name))))))))
-  
-  
-  (method (get-client-properties client editor)
-    (when client
-      (apply intersection (map (lambda (component)
-                                 (when (is? component Component)
-                                   (get-component-properties component editor)))
-                               client))))
-  
-  
-  (method (get-component-properties component editor)
-    (filter-by-rights component editor
-      (get-filtered-properties~ component filter: filter)))
   
   
   (method (owner-image designer client class property)

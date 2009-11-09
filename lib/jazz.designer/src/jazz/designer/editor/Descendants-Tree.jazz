@@ -184,33 +184,31 @@
   
   
   (method (refresh component what)
+    (define (refresh-component component)
+      (let* ((row (component-row component))
+             (rank (row-rank row)))
+        ;; rank will be {} if row is not visible for instance inside a collapsed row
+        (when rank
+          (let ((cell (new Cell rank 0))
+                (title (get-presentation~ component)))
+            (set-title~ (get-cell-data cell) title)
+            (invalidate-cell cell)))))
+    
+    (define (refresh-descendants component)
+      (let ((row (component-row component)))
+        (when row
+          (with-update-locked
+            (lambda ()
+              (let ((state (get-state~ row))
+                    (level (+ (get-level~ row) 1)))
+                (remove-every-son~ row)
+                (insert-components row component {} #t level)
+                (when (eq? state 'expanded)
+                  (expand row))))))))
+    
     (case what
       ((component) (refresh-component component))
       ((descendants) (refresh-descendants component))))
-  
-  
-  (method (refresh-component component)
-    (let* ((row (component-row component))
-           (rank (row-rank row)))
-      ;; rank will be {} if row is not visible for instance inside a collapsed row
-      (when rank
-        (let ((cell (new Cell rank 0))
-              (title (get-presentation~ component)))
-          (set-title~ (get-cell-data cell) title)
-          (invalidate-cell cell)))))
-  
-  
-  (method (refresh-descendants component)
-    (let ((row (component-row component)))
-      (when row
-        (with-update-locked
-          (lambda ()
-            (let ((state (get-state~ row))
-                  (level (+ (get-level~ row) 1)))
-              (remove-every-son~ row)
-              (insert-components row component {} #t level)
-              (when (eq? state 'expanded)
-                (expand row))))))))
   
   
   ;;;

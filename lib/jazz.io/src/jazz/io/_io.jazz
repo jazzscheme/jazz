@@ -127,6 +127,21 @@
 
 
 (definition public (initialize-aliases)
+  (define (register-repositories-aliases)
+    (define (register-repository repository)
+      (let ((name (repository-name repository))
+            (directory (remove-trailing-char (repository-directory repository) #\/)))
+        (register-alias name (tokenise-filename directory))
+        (unless (repository-binary? repository)
+          (for-each (lambda (package)
+                      (let ((package-name (package-name package))
+                            (package-root (package-root package)))
+                        (register-alias package-name
+                                        `(,name ,@(tokenise-filename package-root)))))
+                    (repository-packages repository)))))
+    
+    (for-each register-repository (get-repositories)))
+  
   (initialize-platform-aliases)
   (register-alias 'Home (tokenise-filename (pathname-normalize "~")))
   (register-repositories-aliases))
@@ -139,22 +154,6 @@
   (else
     (definition (initialize-platform-aliases)
       )))
-
-
-(definition (register-repositories-aliases)
-  (define (register-repository repository)
-    (let ((name (repository-name repository))
-          (directory (remove-trailing-char (repository-directory repository) #\/)))
-      (register-alias name (tokenise-filename directory))
-      (unless (repository-binary? repository)
-        (for-each (lambda (package)
-                    (let ((package-name (package-name package))
-                          (package-root (package-root package)))
-                      (register-alias package-name
-                                      `(,name ,@(tokenise-filename package-root)))))
-                  (repository-packages repository)))))
-  
-  (for-each register-repository (get-repositories)))
 
 
 (definition (validate-alias name path)
@@ -983,28 +982,26 @@
   
   
   (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+    (define (collect-nodes fact)
+      (iterate-directory
+        (lambda (item)
+          (put~ fact item))
+        files?: #f
+        directories?: #t
+        recursive?: #f))
+    
+    (define (collect-leaves fact)
+      (iterate-directory
+        (lambda (item)
+          (put~ fact item))
+        files?: #t
+        directories?: #f
+        recursive?: #f))
+    
     (let ((fact (new List-Factory)))
       (when nodes? (collect-nodes fact))
       (when leaves? (collect-leaves fact))
       (get-output~ fact)))
-  
-  
-  (method (collect-nodes fact)
-    (iterate-directory
-      (lambda (item)
-        (put~ fact item))
-      files?: #f
-      directories?: #t
-      recursive?: #f))
-  
-  
-  (method (collect-leaves fact)
-    (iterate-directory
-      (lambda (item)
-        (put~ fact item))
-      files?: #t
-      directories?: #f
-      recursive?: #f))
      
    
   ;;;

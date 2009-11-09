@@ -2157,15 +2157,14 @@
 
 
 (define (jazz.variable-name-valid? name)
-  (jazz.variable-name-valid-symbol?
+  (define (variable-name-valid-symbol? name)
+    (and (%%symbol? name)
+         (%%not (jazz.specifier? name))))
+  
+  (variable-name-valid-symbol?
     (if (syntactic-closure? name)
         (%%get-syntactic-closure-form name)
       name)))
-
-
-(define (jazz.variable-name-valid-symbol? name)
-  (and (%%symbol? name)
-       (%%not (jazz.specifier? name))))
 
 
 (jazz.define-method (jazz.walk-binding-referenced (jazz.Variable binding))
@@ -5180,6 +5179,11 @@
 
 
 (define (jazz.walk-body walker resume declaration environment form-list)
+  (define (walk-internal-define environment form-src variable)
+    (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (jazz.source-code form-src)))
+      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+        (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
+  
   (let ((internal-defines '()))
     (letrec ((process
                (lambda (form)
@@ -5215,17 +5219,11 @@
                                   (set! augmented-environment (%%cons variable augmented-environment))))))
                           internal-defines)
                 (jazz.new-body (map (lambda (internal-define variable)
-                                      (jazz.walk-internal-define walker resume declaration augmented-environment internal-define variable))
+                                      (walk-internal-define augmented-environment internal-define variable))
                                     internal-defines
                                     (jazz.queue-list variables))
                                (jazz.walk-list walker resume declaration augmented-environment scan))))
           (iter (%%cdr scan)))))))
-
-
-(define (jazz.walk-internal-define walker resume declaration environment form-src variable)
-  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-      (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
 
 
 (define (jazz.parse-define walker resume declaration rest)
@@ -5602,18 +5600,17 @@
 ;;;
 
 
-(define (jazz.lookup-macro-form walker resume declaration environment symbol)
-  (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol)))
-    (if (and binding (jazz.walk-binding-expandable? binding))
-        binding
-      #f)))
-
-
 (define (jazz.expand-macros walker resume declaration environment form-src)
+  (define (lookup-macro-form symbol)
+    (let ((binding (jazz.lookup-symbol walker resume declaration environment symbol)))
+      (if (and binding (jazz.walk-binding-expandable? binding))
+          binding
+        #f)))
+  
   (if (%%not (%%pair? (jazz.source-code form-src)))
       form-src
     (let ((procedure-expr (jazz.source-code (%%car (jazz.source-code form-src)))))
-      (let ((binding (and (%%symbol? procedure-expr) (jazz.lookup-macro-form walker resume declaration environment procedure-expr))))
+      (let ((binding (and (%%symbol? procedure-expr) (lookup-macro-form procedure-expr))))
         (if binding
             (let ((expansion (jazz.walk-binding-expand-form binding walker resume declaration environment form-src)))
               (jazz.expand-macros walker resume declaration environment expansion))

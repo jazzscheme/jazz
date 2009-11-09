@@ -406,6 +406,19 @@
   
   
   (method override (add-component-class class (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? #t))
+    (define (create-new-component class parent creation-info extra-properties)
+      (receive (presentation added-properties) creation-info
+        (let ((child (new class parent: parent))
+              (name (essay presentation (presentation->name~ class presentation)))
+              (designer (get-designer)))
+          (when name
+            (set-name~ child name))
+          (set! last-class class)
+          (with-update-locked
+            (lambda ()
+              (install-new-component designer child parent presentation added-properties extra-properties)))
+          child)))
+    
     (let* ((selected (selected-component))
            (parent (either parent (relocation-parent selected class) selected client))
            (extra-properties properties))
@@ -443,20 +456,6 @@
   
   (method protected virtual (component-name-validator)
     {})
-  
-  
-  (method (create-new-component class parent creation-info extra-properties)
-    (receive (presentation added-properties) creation-info
-      (let ((child (new class parent: parent))
-            (name (essay presentation (presentation->name~ class presentation)))
-            (designer (get-designer)))
-        (when name
-          (set-name~ child name))
-        (set! last-class class)
-        (with-update-locked
-          (lambda ()
-            (install-new-component designer child parent presentation added-properties extra-properties)))
-        child)))
   
   
   (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties)
@@ -619,6 +618,15 @@
   
   
   (method override (receive-drop sender pos drag-drop)
+    (define (receive-model window target)
+      (let* ((model (dispatch self (get-model~ window)))
+             (parent (get-user-data~ (get-row~ target)))
+             (child (new model visible?: #f)))
+        (with-update-locked
+          (lambda ()
+            (add-view~ (get-designer) child parent position: {Point 0 0} centered?: #f)
+            (rename-component child)))))
+    
     (let* ((source (get-source~ drag-drop))
            (view (get-view~ source))
            (target (get-target~ drag-drop)))
@@ -630,16 +638,6 @@
           @to-convert-to-new-toolbox
           ((Model-Icon)
            (receive-model view target))))))
-  
-  
-  (method (receive-model window target)
-    (let* ((model (dispatch self (get-model~ window)))
-           (parent (get-user-data~ (get-row~ target)))
-           (child (new model visible?: #f)))
-      (with-update-locked
-        (lambda ()
-          (add-view~ (get-designer) child parent position: {Point 0 0} centered?: #f)
-          (rename-component child)))))
   
   
   ;;;

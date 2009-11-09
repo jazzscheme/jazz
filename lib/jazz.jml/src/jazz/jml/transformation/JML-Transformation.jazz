@@ -62,26 +62,19 @@
   
   
   (method public (transform-jml node)
+    (define (transform-one node)
+      (let ((pattern (node-pattern node)))
+        (if pattern
+            (parse~ parser (pattern self node))
+          node)))
+    
+    (define (node-pattern node)
+      (and (is? node JML-Element)
+           (let ((tag (name->tag (get-tag~ node))))
+             (find-dispatch self tag))))
+    
     (let ((new-node (transform-one node)))
       (if (is? new-node JML-Text)
           (get-text~ new-node)
         `(,(tag->jml~ new-node) ,@(properties->jml~ new-node)
-          ,@(map transform-jml (get-children~ new-node))))))
-  
-  
-  (method (transform-one node)
-    (let ((pattern (node-pattern node)))
-      (if pattern
-          (parse~ parser (pattern self node))
-        node)))
-  
-  
-  ;;;
-  ;;;; Pattern
-  ;;;
-  
-  
-  (method (node-pattern node)
-    (and (is? node JML-Element)
-         (let ((tag (name->tag (get-tag~ node))))
-           (find-dispatch self tag))))))
+          ,@(map transform-jml (get-children~ new-node))))))))

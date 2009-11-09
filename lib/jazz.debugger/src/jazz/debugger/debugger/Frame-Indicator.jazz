@@ -60,41 +60,37 @@
   ;;;
 
 
-  (method public (edit location (activate-focus?: activate-focus? #f))
+  (method public (edit loc (activate-focus?: activate-focus? #f))
+    (define (install-indicator loc)
+      (receive (frame text range) (find-location loc)
+        (fill~ text color (get-start~ range))
+        (ensure-cell-displayed~ text (get-start~ range))
+        (set! location loc)
+        (reset-tooltip~ text)
+        (bring-to-front~ frame)
+        (set-visible?~ frame #t)))
+    
+    (define (uninstall-indicator loc)
+      (receive (frame text range) (find-location loc)
+        (unfill~ text (get-start~ range))
+        (reset-tooltip~ text)))
+    
+    (define (uninstall-active-indicator)
+      (when location
+        (uninstall-indicator location)
+        (set! location {})))
+    
+    (define (find-location loc)
+      (bind (container line col) loc
+        (let ((file (if (symbol? container)
+                        (find-unit-source container)
+                      (anchorize~ (new File (tokenise-filename container)))))
+              (start (new Cell line col))
+              (end (new Cell line (+ col 1))))
+          (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
+                (range (new Range$Cell$ start end)))
+            (values frame (get-guest~ frame) range)))))
+    
     (uninstall-active-indicator)
-    (when location
-      (install-indicator location)))
-  
-  
-  (method (install-indicator location)
-    (receive (frame text range) (find-location location)
-      (fill~ text color (get-start~ range))
-      (ensure-cell-displayed~ text (get-start~ range))
-      (set! location~self location)
-      (reset-tooltip~ text)
-      (bring-to-front~ frame)
-      (set-visible?~ frame #t)))
-  
-  
-  (method (uninstall-indicator location)
-    (receive (frame text range) (find-location location)
-      (unfill~ text (get-start~ range))
-      (reset-tooltip~ text)))
-
-
-  (method protected (uninstall-active-indicator)
-    (when location
-      (uninstall-indicator location)
-      (set! location {})))
-  
-  
-  (definition (find-location location)
-    (bind (container line col) location
-      (let ((file (if (symbol? container)
-                      (find-unit-source container)
-                    (anchorize~ (new File (tokenise-filename container)))))
-            (start (new Cell line col))
-            (end (new Cell line (+ col 1))))
-        (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
-              (range (new Range$Cell$ start end)))
-          (values frame (get-guest~ frame) range)))))))
+    (when loc
+      (install-indicator loc)))))

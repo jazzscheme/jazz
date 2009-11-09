@@ -1071,4 +1071,5 @@
 (native jazz.outline-feedback)
 (native jazz.outline-unit)
 (native jazz.walk-unit)
-(native jazz.expand-unit))
+(native jazz.expand-unit)
+(native jazz.find-declaration))

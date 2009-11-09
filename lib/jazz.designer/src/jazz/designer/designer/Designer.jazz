@@ -66,38 +66,35 @@
   
   
   (method override (initialize (form: form {}) (reference: reference {}))
+    (define (setup-form frm)
+      (if (not frm)
+          (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model-name: 'install))
+        (let ((origin (get-origin~ frm)))
+          (if (file? origin)
+              (setup-file-form frm)
+            (setup-class-form frm)))))
+    
+    ;; Setting form to a copy until saving is a tempting approach,
+    ;; but fails because we absolutly need pointer equality as a test
+    ;; for embed-form to work correctly with anonymous forms.
+    ;; So the approach taken will be more like relational databases
+    ;; where we modify the database directly but keep a log of
+    ;; transactions in order to be able to rollback changes (and it
+    ;; makes lots of sense to, because a designer is really the interface
+    ;; by which Jazz's object-oriented databases are updated!).
+    ;;
+    ;; Or maybe simply take a copy before the first modification is made
+    ;; (lazy approach) and if we need to rollback, set the original form
+    ;; to the copy.
+    (define (setup-class-form frm)
+      (set! form~self frm))
+    
+    (define (setup-file-form frm)
+      (set! form~self frm))
+    
     (nextmethod)
     (set! reference~self reference)
     (setup-form form))
-  
-  
-  (method (setup-form frm)
-    (if (not frm)
-        (set! form (new Form textual?: #f origin: (class-of reference) action: 'new model-name: 'install))
-      (let ((origin (get-origin~ frm)))
-        (if (file? origin)
-            (setup-file-form frm)
-          (setup-class-form frm)))))
-  
-  
-  ;; Setting form to a copy until saving is a tempting approach,
-  ;; but fails because we absolutly need pointer equality as a test
-  ;; for embed-form to work correctly with anonymous forms.
-  ;; So the approach taken will be more like relational databases
-  ;; where we modify the database directly but keep a log of
-  ;; transactions in order to be able to rollback changes (and it
-  ;; makes lots of sense to, because a designer is really the interface
-  ;; by which Jazz's object-oriented databases are updated!).
-  ;;
-  ;; Or maybe simply take a copy before the first modification is made
-  ;; (lazy approach) and if we need to rollback, set the original form
-  ;; to the copy.
-  (method (setup-class-form frm)
-    (set! form frm))
-  
-  
-  (method (setup-file-form frm)
-    (set! form frm))
   
 
   ;;;
@@ -505,23 +502,22 @@
   
   
   (method (package-components components (branch: branch {}))
+    (define (package-component component (branch: branch {}))
+      (let ((ancestry (component-ancestry component))
+            (forms '()))
+        (iterate-branch-spine~ reference
+          (lambda (owner form)
+            (let ((form (owned-form form ancestry)))
+              (when form
+                (set! forms (cons form forms)))))
+          branch: branch)
+        (if (and forms (memq? (get-action~ (car forms)) '(new install)))
+            (new Component-Parcel (GetCurrentProcessId) (object->serial component) forms)
+          (error "Unable to find owner for {t}" component))))
+    
     (map (lambda (component)
            (package-component component branch: branch))
          components))
-  
-  
-  (method (package-component component (branch: branch {}))
-    (let ((ancestry (component-ancestry component))
-          (forms '()))
-      (iterate-branch-spine~ reference
-        (lambda (owner form)
-          (let ((form (owned-form form ancestry)))
-            (when form
-              (set! forms (cons form forms)))))
-        branch: branch)
-      (if (and forms (memq? (get-action~ (car forms)) '(new install)))
-          (new Component-Parcel (GetCurrentProcessId) (object->serial component) forms)
-        (error "Unable to find owner for {t}" component))))
   
   
   ;;;
@@ -688,6 +684,32 @@
   
   
   (method (find-form component branch (restore?: restore? #f) (error?: error? #t))
+    (define (embed-form form ancestry)
+      (for-each (lambda (cpn)
+                  (let ((children (get-children~ form))
+                        (cpn-form (get-form~ cpn)))
+                    (if (not cpn-form)
+                        (embed-new-form form {})
+                      (if (memq? cpn-form children)
+                          (set! form cpn-form)
+                        (let ((restore-form (find-in children cpn key: (lambda (form) (essay (is? form Restore-Form) (get-component~ form))))))
+                          (if restore-form
+                              (set! form restore-form)
+                            (let ((name (get-name~ cpn)))
+                              (if (not name)
+                                  (error "Component {t} must be named to allow modification" cpn)
+                                (let ((subform (find-in children name key: get-name~ test: equal?)))
+                                  (if (not subform)
+                                      (set! form (embed-new-form form name))
+                                    (set! form subform)))))))))))
+                ancestry)
+      form)
+    
+    (define (embed-new-form form name)
+      (let ((subform (new Form action: 'modify name: name)))
+        (add-child~ form subform)
+        subform))
+    
     (let* ((ancestry (component-ancestry component))
            (branch-form (if branch (get-client-form~ branch) form))
            (restore-form (essay restore? branch (get-restore-form~ branch)))
@@ -698,33 +720,6 @@
         (if restore?
             (values form restore)
           form))))
-  
-
-  (method (embed-form form ancestry)
-    (define (embed-new-form form name)
-      (let ((subform (new Form action: 'modify name: name)))
-        (add-child~ form subform)
-        subform))
-    
-    (for-each (lambda (cpn)
-                (let ((children (get-children~ form))
-                      (cpn-form (get-form~ cpn)))
-                  (if (not cpn-form)
-                      (embed-new-form form {})
-                    (if (memq? cpn-form children)
-                        (set! form cpn-form)
-                      (let ((restore-form (find-in children cpn key: (lambda (form) (essay (is? form Restore-Form) (get-component~ form))))))
-                        (if restore-form
-                            (set! form restore-form)
-                          (let ((name (get-name~ cpn)))
-                            (if (not name)
-                                (error "Component {t} must be named to allow modification" cpn)
-                              (let ((subform (find-in children name key: get-name~ test: equal?)))
-                                (if (not subform)
-                                    (set! form (embed-new-form form name))
-                                  (set! form subform)))))))))))
-              ancestry)
-    form)
   
   
   (method (target-branch branch)

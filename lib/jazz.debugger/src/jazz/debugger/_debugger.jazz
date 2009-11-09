@@ -231,6 +231,20 @@
 
 
 (definition public (register-debugger-console process-proxy thread-proxy select?)
+  (define (setup-debugger-console-ports text process-proxy thread-proxy)
+    (receive (head tail) (open-string-pipe (list permanent-close: #f))
+      (set-console-port~ text head)
+      (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
+  
+  (define (start-debugger-console-pump port process-proxy thread-proxy)
+    (thread-start!
+      (new-system-thread
+        (lambda ()
+          (start-pump port
+                      (lambda (str)
+                        (console-input~ process-proxy thread-proxy str))))
+        'debugger-console-pump)))
+  
   (define (present)
     (let ((process-title (get-title~ process-proxy)))
       (if (not thread-proxy)
@@ -258,22 +272,6 @@
     (lambda ()
       (set-caret~ text (text-ending~ text))
       (insert-formatted-line~ text str))))
-
-
-(definition (setup-debugger-console-ports text process-proxy thread-proxy)
-  (receive (head tail) (open-string-pipe (list permanent-close: #f))
-    (set-console-port~ text head)
-    (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
-
-
-(definition (start-debugger-console-pump port process-proxy thread-proxy)
-  (thread-start!
-    (new-system-thread
-      (lambda ()
-        (start-pump port
-          (lambda (str)
-            (console-input~ process-proxy thread-proxy str))))
-      'debugger-console-pump)))
 
 
 ;;;
@@ -466,6 +464,29 @@
 
 
 (definition public (break-action (type: type 'break) (message: message {}) (edit?: edit? #t) (location: location {}) (frame: frame {}))
+  (define (install-break edit? frame code-location)
+    (catch (Location-Error err
+             (message-box (exception-reason err)))
+      (when edit?
+        (when code-location
+          (let ((location (find-location~ code-location)))
+            (receive (frame text range) location
+              (fill~ text Break-Color (get-start~ range)))
+            (set! break-indicator location)))
+        (with-locked-update
+          (lambda ()
+            (let ((view (select-palette Processes-View workspace: 'debugger)))
+              (when view
+                (select-first-frame~ view frame))))))))
+  
+  (define (uninstall-break)
+    (when break-indicator
+      (catch (Location-Error err
+               (message-box (exception-reason err)))
+        (receive (frame text range) break-indicator
+          (unfill~ text (get-start~ range)))
+        (set! break-indicator {}))))
+  
   (let* ((appl (get-application))
          (debugger (get-controller-debugger))
          (location (essay edit? location))
@@ -476,29 +497,4 @@
         (unwind-protect
             (break-loop~ (get-loop~ (get-application)) type: type message: message frame: frame proc: (lambda () (install-break edit? frame code-location)))
           (when edit?
-            (uninstall-break)))))))
-
-
-(definition (install-break edit? frame code-location)
-  (catch (Location-Error err
-           (message-box (exception-reason err)))
-    (when edit?
-      (when code-location
-        (let ((location (find-location~ code-location)))
-          (receive (frame text range) location
-            (fill~ text Break-Color (get-start~ range)))
-          (set! break-indicator location)))
-      (with-locked-update
-        (lambda ()
-          (let ((view (select-palette Processes-View workspace: 'debugger)))
-            (when view
-              (select-first-frame~ view frame))))))))
-
-
-(definition (uninstall-break)
-  (when break-indicator
-    (catch (Location-Error err
-             (message-box (exception-reason err)))
-      (receive (frame text range) break-indicator
-        (unfill~ text (get-start~ range)))
-      (set! break-indicator {})))))
+            (uninstall-break))))))))

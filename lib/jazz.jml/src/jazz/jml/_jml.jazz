@@ -209,6 +209,15 @@
 
 
 (definition public (node->form node)
+  (define (extract-node-properties node)
+    (let ((fact (new List-Factory)))
+      (for-each-property (lambda (property value)
+                           (when (not (memq? property '(name tag-symbolic? tag-unit)))
+                             (put~ fact property)
+                             (put~ fact value)))
+                         (get-properties~ node))
+      (get-output~ fact)))
+  
   (letrec ((node->form
              (lambda (node parent)
                (if (is? node JML-Text)
@@ -241,17 +250,31 @@
     (node->form node {})))
 
 
-(definition (extract-node-properties node)
-  (let ((fact (new List-Factory)))
-    (for-each-property (lambda (property value)
-                         (when (not (memq? property '(name tag-symbolic? tag-unit)))
-                           (put~ fact property)
-                           (put~ fact value)))
-                       (get-properties~ node))
-    (get-output~ fact)))
-
-
 (definition public (form->node form)
+  (define (add-client-form form children)
+    (let ((client-form (get-property~ form 'client-form)))
+      (if (not client-form)
+          children
+        (cons (form->node client-form) children))))
+  
+  (define (extract-form-properties form symbolic?)
+    (let ((fact (new List-Factory))
+          (name (get-name~ form))
+          (tag-unit (get-tag-unit~ form)))
+      (when (and name (not symbolic?))
+        (put~ fact 'name)
+        (put~ fact name))
+      (when tag-unit
+        (put~ fact 'tag-unit)
+        (put~ fact tag-unit))
+      (for-each-property (lambda (property value)
+                           (let ((name (if (property? property) (field-name property) property)))
+                             (when (neq? name 'client-form)
+                               (put~ fact name)
+                               (put~ fact value))))
+                         (get-properties~ form))
+      (get-output~ fact)))
+  
   (letrec ((form->node
              (lambda (form parent)
                (if (is? form JML-Text)
@@ -276,32 +299,6 @@
 
 (definition (branch-model? model-name)
   (memq? model-name '(Branch Design-Diagram Design-Model Slide Basic-Slide Documentation-Slide Concept-Slide Heading-Slide Test-Branch Test-Branch-Aux Test-Model)))
-
-
-(definition (add-client-form form children)
-  (let ((client-form (get-property~ form 'client-form)))
-    (if (not client-form)
-        children
-      (cons (form->node client-form) children))))
-
-
-(definition (extract-form-properties form symbolic?)
-  (let ((fact (new List-Factory))
-        (name (get-name~ form))
-        (tag-unit (get-tag-unit~ form)))
-    (when (and name (not symbolic?))
-      (put~ fact 'name)
-      (put~ fact name))
-    (when tag-unit
-      (put~ fact 'tag-unit)
-      (put~ fact tag-unit))
-    (for-each-property (lambda (property value)
-                         (let ((name (if (property? property) (field-name property) property)))
-                           (when (neq? name 'client-form)
-                             (put~ fact name)
-                             (put~ fact value))))
-                       (get-properties~ form))
-    (get-output~ fact)))
 
 
 ;;;

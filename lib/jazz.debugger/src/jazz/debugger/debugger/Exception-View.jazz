@@ -147,6 +147,39 @@
 
 
   (method (edit-stop/detail)
+    (define (install-indicators locations)
+      (uninstall-active-indicators)
+      (for-each (lambda (location)
+                  (receive (frame text range) (find-location location)
+                    (apply-style~ text 'Walk-Fatal (get-start~ range) (get-end~ range))
+                    (ensure-cell-displayed~ text (get-start~ range))
+                    (reset-tooltip~ text)
+                    (bring-to-front~ frame)
+                    (set-visible?~ frame #t)))
+                locations)
+      (set! *indicators* locations))
+    
+    (define (uninstall-indicators locations)
+      (for-each (lambda (location)
+                  (receive (frame text range) (find-location location)
+                    (apply-style~ text (get-default-style~ text) (get-start~ range) (get-end~ range))
+                    (reset-tooltip~ text)))
+                locations))
+    
+    (define (uninstall-active-indicators)
+      (when *indicators*
+        (uninstall-indicators *indicators*)
+        (set! *indicators* {})))
+    
+    (define (find-location location)
+      (bind (filename line col) location
+        (let ((file (new File (list filename)))
+              (start (new Cell line col))
+              (end (new Cell line (+ col 1))))
+          (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
+                (range (new Range$Cell$ start end)))
+            (values frame (get-guest~ frame) range)))))
+    
     (define (detail-locations detail)
       (collect (lambda (detail)
                  (let ((location (get-location~ detail)))
@@ -183,43 +216,6 @@
                      (uninstall-active-indicators)
                      (bell))
                  (install-indicators locations)))))))
-  
-  
-  (method (install-indicators locations)
-    (uninstall-active-indicators)
-    (for-each (lambda (location)
-                (receive (frame text range) (find-location location)
-                  (apply-style~ text 'Walk-Fatal (get-start~ range) (get-end~ range))
-                  (ensure-cell-displayed~ text (get-start~ range))
-                  (reset-tooltip~ text)
-                  (bring-to-front~ frame)
-                  (set-visible?~ frame #t)))
-              locations)
-    (set! *indicators* locations))
-  
-  
-  (method (uninstall-indicators locations)
-    (for-each (lambda (location)
-                (receive (frame text range) (find-location location)
-                  (apply-style~ text (get-default-style~ text) (get-start~ range) (get-end~ range))
-                  (reset-tooltip~ text)))
-              locations))
-
-
-  (method protected (uninstall-active-indicators)
-    (when *indicators*
-      (uninstall-indicators *indicators*)
-      (set! *indicators* {})))
-  
-  
-  (definition (find-location location)
-    (bind (filename line col) location
-      (let ((file (new File (list filename)))
-            (start (new Cell line col))
-            (end (new Cell line (+ col 1))))
-        (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
-              (range (new Range$Cell$ start end)))
-          (values frame (get-guest~ frame) range)))))
 
   
   ;;;

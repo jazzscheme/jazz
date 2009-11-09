@@ -87,35 +87,32 @@
   
   
   (method public (prepare-columns)
+    (define (prepare-base)
+      (for-each (lambda (column)
+                  (fill-empty~ column)
+                  (rewind~ column))
+                columns))
+    
+    (define (prepare-empties)
+      (loop (for n from 0 below line)
+            (let ((previous-column {})
+                  (previous-data {}))
+              (for-each (lambda (column)
+                          (unless (get-empty?~ column)
+                            (let ((data (replace-empty~ column previous-column previous-data)))
+                              (set! previous-column column)
+                              (set! previous-data data))))
+                        columns))))
+    
+    (define (prepare-print)
+      (for-each (lambda (column)
+                  (unless (get-empty?~ column)
+                    (prepare-print~ column)))
+                columns))
+    
     (prepare-base)
     (prepare-empties)
     (prepare-print))
-  
-  
-  (method (prepare-base)
-    (for-each (lambda (column)
-                (fill-empty~ column)
-                (rewind~ column))
-              columns))
-  
-  
-  (method (prepare-empties)
-    (loop (for n from 0 below line)
-          (let ((previous-column {})
-                (previous-data {}))
-            (for-each (lambda (column)
-                        (unless (get-empty?~ column)
-                          (let ((data (replace-empty~ column previous-column previous-data)))
-                            (set! previous-column column)
-                            (set! previous-data data))))
-                      columns))))
-  
-  
-  (method (prepare-print)
-    (for-each (lambda (column)
-                (unless (get-empty?~ column)
-                  (prepare-print~ column)))
-              columns))
   
   
   ;; Bug to fix: suppose x and y columns, x is contoured and y is not.

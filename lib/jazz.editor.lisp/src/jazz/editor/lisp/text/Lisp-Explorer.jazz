@@ -580,6 +580,39 @@
 
   
   (method (backward-lisp-comment) <bool>
+    (define (find-lisp-comment row <fx>) <fx+>
+      (let ((max-col (paragraph-length row))
+            (preserved-end (copy end))
+            (result #f))
+        (set-end (new Cell row 0))
+        (let ((result
+                (let (iterate)
+                  (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
+                    (let ((c0 (char-forward 0)))
+                      (cond ((eqv? c0 #\double-quote)
+                             (forward-string)
+                             (iterate))
+                            ((eqv? c0 #\sharp)
+                             (let ((c1 (char-forward 1)))
+                               (cond ((eqv? c1 #\vertical-bar)
+                                      (forward)
+                                      (forward-delimited-string)
+                                      (iterate))
+                                     ((eqv? c1 #\backslash)
+                                      (forward)
+                                      (forward-scheme-char)
+                                      (iterate))
+                                     (else
+                                      (forward)
+                                      (iterate)))))
+                            ((eqv? c0 #\semi-colon)
+                             (get-col~ end))
+                            (else
+                             (forward)
+                             (iterate))))))))
+          (set-end preserved-end)
+          result)))
+    
     (let ((start-row (get-row~ start))
           (start-col (get-col~ start)))
       (let ((col (if (eqv? start-row find-comment-last-row)
@@ -591,40 +624,6 @@
         (when (and col (< col start-col))
           (set-col~ start col)
           #t))))
-  
-  
-  (method (find-lisp-comment row <fx>) <fx+>
-    (let ((max-col (paragraph-length row))
-          (preserved-end (copy end))
-          (result #f))
-      (set-end (new Cell row 0))
-      (let ((result
-              (let (iterate)
-                (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
-                  (let ((c0 (char-forward 0)))
-                    (cond ((eqv? c0 #\double-quote)
-                           (forward-string)
-                           (iterate))
-                          ((eqv? c0 #\sharp)
-                           (let ((c1 (char-forward 1)))
-                             (cond ((eqv? c1 #\vertical-bar)
-                                    (forward)
-                                    (forward-delimited-string)
-                                    (iterate))
-                                   ((eqv? c1 #\backslash)
-                                    (forward)
-                                    (forward-scheme-char)
-                                    (iterate))
-                                   (else
-                                    (forward)
-                                    (iterate)))))
-                          ((eqv? c0 #\semi-colon)
-                           (get-col~ end))
-                          (else
-                           (forward)
-                           (iterate))))))))
-        (set-end preserved-end)
-        result)))
 
 
   ;;;
@@ -791,6 +790,11 @@
       (define (prepend-expr-comment)
         (when (eqv? (previous-char start 0) #\at)
           (backward)))
+      
+      (define (composites-match? start end)
+        (or (and (eqv? start #\open-parenthesis) (eqv? end #\close-parenthesis))
+            (and (eqv? start #\open-bracket)     (eqv? end #\close-bracket))
+            (and (eqv? start #\open-brace)       (eqv? end #\close-brace))))
       
       (or (if empty?
               (let ((quote-count (advance-quoting)))
@@ -1006,6 +1010,21 @@
   
   
   (method (for-each-expression proc mode)
+    (define Quotation-Forms
+      '(quote quasiquote form form>> jml>> external intrinsic))
+    
+    (define (for-each-forms proc mode)
+      (forward-expr)
+      (when kind
+        (let ((mode (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
+                          ;; a patch until the explorer has better code understanding
+                          (or (neq? (intern-marked-symbol) 'form)
+                              (eqv? (char-forward 0) #\newline)))
+                        'quotation
+                      mode)))
+          (for-each-expression proc mode)
+          (for-each-expressions proc mode))))
+    
     (proc mode)
     (when (enter-composite)
       (cond ((eq? kind 'list)
@@ -1019,23 +1038,6 @@
              (let ((mode (if (memq? kind '(quote quasiquote)) 'quotation 'code)))
                (forward-expr)
                (for-each-expression proc mode))))))
-  
-  
-  (definition Quotation-Forms
-    '(quote quasiquote form form>> jml>> external intrinsic))
-  
-  
-  (method (for-each-forms proc mode)
-    (forward-expr)
-    (when kind
-      (let ((mode (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
-                           ;; a patch until the explorer has better code understanding
-                           (or (neq? (intern-marked-symbol) 'form)
-                               (eqv? (char-forward 0) #\newline)))
-                      'quotation
-                    mode)))
-        (for-each-expression proc mode)
-        (for-each-expressions proc mode))))
   
   
   (method public (walk-expressions context expression (mode 'code) (first? #t))
@@ -1141,6 +1143,30 @@
   
   
   (method (match? expl-mode target)
+    (define (expression-kind expression)
+      (cond ((number? expression) 'number)
+            ((boolean? expression) 'boolean)
+            ((char? expression) 'char)
+            ((string? expression) 'string)
+            ((symbol? expression) 'symbol)
+            (else (unimplemented 'expression-kind))))
+    
+    (define (parse-expression expression)
+      (if (and (pair? expression) (eq? (car expression) 'quote))
+          (values 'quotation (cadr expression))
+        (values {} expression)))
+    
+    (define (pattern-variable? expression)
+      (and (symbol? expression)
+           (eqv? #\? (element (symbol->string expression) 0))))
+    
+    (define (parse-pattern-variable variable)
+      (let ((elements (parse-strings (subseq (symbol->string variable) 1) separator: ":")))
+        (bind-optionals ((name "") (kind "") (mode "")) elements
+          (values (if (empty-string? name) {} (string->symbol name))
+                  (if (empty-string? kind) {} (string->symbol kind))
+                  (if (empty-string? mode) {} (string->symbol mode))))))
+    
     (receive (mode expression) (parse-expression target)
       (let ((expl-kind (get-kind)))
         (if (pattern-variable? expression)
@@ -1151,34 +1177,6 @@
             (and (or (not mode) (eq? mode expl-mode))
                  (eq? kind expl-kind)
                  (equal? expression (read-string-element (get-marked)))))))))
-  
-  
-  (method (expression-kind expression)
-    (cond ((number? expression) 'number)
-          ((boolean? expression) 'boolean)
-          ((char? expression) 'char)
-          ((string? expression) 'string)
-          ((symbol? expression) 'symbol)
-          (else (unimplemented 'expression-kind))))
-  
-  
-  (method (parse-expression expression)
-    (if (and (pair? expression) (eq? (car expression) 'quote))
-        (values 'quotation (cadr expression))
-      (values {} expression)))
-  
-  
-  (method (pattern-variable? expression)
-    (and (symbol? expression)
-         (eqv? #\? (element (symbol->string expression) 0))))
-  
-  
-  (method (parse-pattern-variable variable)
-    (let ((elements (parse-strings (subseq (symbol->string variable) 1) separator: ":")))
-      (bind-optionals ((name "") (kind "") (mode "")) elements
-        (values (if (empty-string? name) {} (string->symbol name))
-                (if (empty-string? kind) {} (string->symbol kind))
-                (if (empty-string? mode) {} (string->symbol mode))))))
   
 
   ;;;
@@ -1195,10 +1193,4 @@
   
   
   (method (composite-kind? kind)
-    (memq? kind '(list reference literal)))
-
-
-  (method (composites-match? start end)
-    (or (and (eqv? start #\open-parenthesis) (eqv? end #\close-parenthesis))
-        (and (eqv? start #\open-bracket)     (eqv? end #\close-bracket))
-        (and (eqv? start #\open-brace)       (eqv? end #\close-brace))))))
+    (memq? kind '(list reference literal)))))

@@ -1749,8 +1749,20 @@
 
 
 (definition public (find-in seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+  (define (find-in-list)
+    (let ((list seq)
+          (key (if (not key) (lambda (x) x) key))
+          (test (if (not test) eqv? test))
+          (start (either start 0)))
+      (let (iter (rest (tail list start)) (rank <fx> start))
+        (cond ((null? rest) {})
+              ((test target (key (car rest)))
+               (car rest))
+              (else
+               (iter (cdr rest) (+ rank 1)))))))
+  
   (if (and (null/pair? seq) (not reversed?))
-      (list-find-in seq target key test (either start 0))
+      (find-in-list)
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
       (when start
         (set-position~ iterator start))
@@ -1761,17 +1773,6 @@
                      (when (apply-test test target (apply-key key object))
                        (continuation-return exit object))))
           {})))))
-
-
-(definition (list-find-in list target key test start)
-  (let ((key (if (not key) (lambda (x) x) key))
-        (test (if (not test) eqv? test)))
-    (let (iter (rest (tail list start)) (rank <fx> start))
-       (cond ((null? rest) {})
-             ((test target (key (car rest)))
-              (car rest))
-             (else
-              (iter (cdr rest) (+ rank 1)))))))
 
 
 (definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
@@ -4118,10 +4119,6 @@
     (parse~ file)))
 
 
-(definition Chunk-Size
-  1024)
-
-
 (definition public undocumented (make-u8-content size content)
   (cons size content))
 
@@ -4136,11 +4133,14 @@
 
 
 (definition public undocumented (read-u8-content port)
+  (define chunk-size
+    1024)
+  
   (let ((size 0)
         (fact (new List-Factory)))
     (let (loop)
-      (let ((u8vector (make-u8vector Chunk-Size)))
-        (let ((read (read-subu8vector u8vector 0 Chunk-Size port)))
+      (let ((u8vector (make-u8vector chunk-size)))
+        (let ((read (read-subu8vector u8vector 0 chunk-size port)))
           (if (= read 0)
               (make-u8-content size (get-output~ fact))
             (increase! size read)

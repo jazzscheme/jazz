@@ -297,7 +297,7 @@
               (else
                (let ((item (current-history-item))
                      (form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
-                 (if (composite-name? form)
+                 (if (use-composite-name-heuristic? form)
                      (edit-composite appl item form)
                    (edit-definitions~ appl form workspace: (edition-workspace) history-item: item context: (get-context)))))))))
 
@@ -314,6 +314,13 @@
     (cond ((tag? form) (tag->name form))
           ((dispatch? form) (dispatch->name form))
           (else form)))
+  
+  
+  (method (use-composite-name-heuristic? name)
+    (and (composite-name? name)
+         (let ((parts (split-identifier name)))
+           (not (and (= (length parts) 2)
+                     (eq? (car parts) 'jazz))))))
 
 
   (method protected virtual (expr-at pos)
@@ -337,7 +344,7 @@
                  (when cataloguer
                    (let ((item (current-history-item))
                          (form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
-                     (if (composite-name? form)
+                     (if (use-composite-name-heuristic? form)
                          (edit-composite appl item form)
                        (let ((list (get-coalesced-definitions~ cataloguer form context: (get-context))))
                          (case (length list)
@@ -367,20 +374,6 @@
           (bell)
         (add-history~ appl item)
         (edit~ entry))))
-
-  
-  (definition (locator->entry locator)
-    (let ((cataloguer (get-cataloguer~ (get-application))))
-      (let (iterate (scan (reverse (split-identifier locator)))
-                    (name '()))
-        (if (not-null? scan)
-            (let ((root (apply compose-name (reverse scan))))
-              (let ((definition (get-definition~ cataloguer root)))
-                (if definition
-                    (or (child~ definition name)
-                        (iterate (cdr scan) (cons (car scan) name)))
-                  (iterate (cdr scan) (cons (car scan) name)))))
-          #f))))
 
   
   ;;;

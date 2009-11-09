@@ -95,6 +95,17 @@
 
 
 (definition public (set-locale loc (update?: update? #t))
+  (define (standardize-locale loc)
+    (cond ((keyword? loc) loc)
+          ((enumerator? loc) (symbol->keyword (enumerator->symbol loc)))
+          ((symbol? loc) (symbol->keyword loc))
+          (else (error "Invalid locale: {s}" loc))))
+  
+  (define (call-locale-changes loc update?)
+    (for-each (lambda (proc)
+                (proc loc update?))
+              locale-changes))
+  
   (let ((loc (standardize-locale loc)))
     (when (neq? loc Active-Locale)
       (set! Active-Locale loc)
@@ -109,18 +120,6 @@
 
 (definition public (unregister-locale-change proc)
   (set! locale-changes (remove! proc locale-changes)))
-
-(definition (call-locale-changes loc update?)
-  (for-each (lambda (proc)
-              (proc loc update?))
-            locale-changes))
-
-
-(definition (standardize-locale loc)
-  (cond ((keyword? loc) loc)
-        ((enumerator? loc) (symbol->keyword (enumerator->symbol loc)))
-        ((symbol? loc) (symbol->keyword loc))
-        (else (error "Invalid locale: {s}" loc))))
 
 
 (definition public (localize object)

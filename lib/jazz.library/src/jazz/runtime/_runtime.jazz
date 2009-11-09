@@ -56,6 +56,32 @@
       (anchorize~ (new File (tokenise-filename (resource-pathname src)))))))
 
 
+(definition public (split-locator locator)
+  (let (iterate (scan (reverse (split-identifier locator)))
+                (name '()))
+    (if (not-null? scan)
+        (let ((unit-name (apply compose-name (reverse scan))))
+          (if (find-unit-source unit-name)
+              (values unit-name name)
+            (iterate (cdr scan) (cons (car scan) name))))
+      (values {} {}))))
+
+
+(definition public (locator->declaration locator)
+  (define (locate declaration path)
+    (if (null? path)
+        declaration
+      (let ((subdeclaration (find-declaration declaration (car path))))
+        (when subdeclaration
+          (locate subdeclaration (cdr path))))))
+  
+  (receive (unit-name declaration-path) (split-locator locator)
+    (when unit-name
+      (let ((declaration (outline-unit unit-name)))
+        (when (is? declaration Module-Declaration)
+          (locate declaration declaration-path))))))
+
+
 (definition public (repository-units repository)
   (load-unit 'core.unit.builder)
   (let ((table (make-table test: eq?)))

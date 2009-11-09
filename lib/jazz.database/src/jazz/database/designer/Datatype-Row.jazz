@@ -116,6 +116,39 @@
   
   
   (method (parse-content string)
+    (define (parse-fixed name)
+      (let ((systype (parse-systype name)))
+        (if (and (not allow-partial-datatype?) systype
+              (or (get-sizeable?~ systype) (get-precisionable?~ systype)))
+            (parse-error (present-format systype name))
+          (values name {} {} {}))))
+    
+    (define (parse-variable list)
+      (bind (name precision) list
+        (let ((systype (parse-systype name)))
+          (cond
+            ((get-sizeable?~ systype)
+             (values name (parse-integer precision) {} {}))
+            ((and (get-precisionable?~ systype) allow-partial-datatype?)
+             (values name {} (parse-integer precision) {}))
+            (else
+             (parse-error (present-format systype name)))))))
+    
+    (define (parse-decimal list)
+      (bind (name precision scale) list
+        (let ((systype (parse-systype name)))
+          (if (and systype (get-precisionable?~ systype) (get-scalable?~ systype))
+              (values name {} (parse-integer precision) (parse-integer scale))
+            (parse-error (present-format systype name))))))
+    
+    (define (parse-systype name)
+      (when datatype-class
+        (either (find-systype~ datatype-class name)
+                (parse-error (format "Invalid value: {a}" name)))))
+    
+    (define (parse-error message)
+      (signal (new Parse-Error message: (format "Datatype syntax: {a}" message))))
+    
     (let ((content (read-content string)))
       (case (length content)
         ((0) {})
@@ -139,45 +172,7 @@
       (cond
        ((get-precisionable?~ systype) (format "{a} precision scale" name))
        ((get-sizeable?~ systype) (format "{a} size" name))
-       ((get-fixed?~ systype) (format "{a}" name)))))
-  
-  
-  (method (parse-fixed name)
-    (let ((systype (parse-systype name)))
-      (if (and (not allow-partial-datatype?) systype
-               (or (get-sizeable?~ systype) (get-precisionable?~ systype)))
-          (parse-error (present-format systype name))
-        (values name {} {} {}))))
-  
-  
-  (method (parse-variable list)
-    (bind (name precision) list
-      (let ((systype (parse-systype name)))
-        (cond
-         ((get-sizeable?~ systype)
-          (values name (parse-integer precision) {} {}))
-         ((and (get-precisionable?~ systype) allow-partial-datatype?)
-          (values name {} (parse-integer precision) {}))
-         (else
-          (parse-error (present-format systype name)))))))
-  
-  
-  (method (parse-decimal list)
-    (bind (name precision scale) list
-      (let ((systype (parse-systype name)))
-        (if (and systype (get-precisionable?~ systype) (get-scalable?~ systype))
-            (values name {} (parse-integer precision) (parse-integer scale))
-          (parse-error (present-format systype name))))))
-
-  
-  (method (parse-systype name)
-    (when datatype-class
-      (either (find-systype~ datatype-class name)
-              (parse-error (format "Invalid value: {a}" name)))))
-  
-  
-  (definition (parse-error message)
-    (signal (new Parse-Error message: (format "Datatype syntax: {a}" message)))))
+       ((get-fixed?~ systype) (format "{a}" name))))))
 
 
 ;;;

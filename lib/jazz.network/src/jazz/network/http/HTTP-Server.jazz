@@ -62,9 +62,24 @@
   
   
   (method override (accept-connection port)
+    (define (request-html)
+      (let ((request (new HTTP-Request port: port)))
+        (call-listeners-receive-request request)
+        (with-error-reporting request
+          (lambda ()
+            (set-server~ request self)
+            (setup-session request)
+            (let* ((response/html (generate-response request))
+                   (response
+                     (if response/html
+                         (request-response request response/html)
+                       (request-response request (generate-not-found request) code: 'not-found))))
+              (call-listeners-process-request request response)
+              response)))))
+    
     (server-hit)
     (unwind-protect
-        (let ((response (request-html port)))
+        (let ((response (request-html)))
           ;; should log intelligently the error
           ;; a WSAECONNRESET error can occur correctly if the user sends a request
           ;; before the browser has received the response from the active one
@@ -78,23 +93,21 @@
     (call-listeners-hit))
   
   
-  (method (request-html port)
-    (let ((request (new HTTP-Request port: port)))
-      (call-listeners-receive-request request)
-      (with-error-reporting request
-        (lambda ()
-          (set-server~ request self)
-          (setup-session request)
-          (let* ((response/html (generate-response request))
-                 (response
-                  (if response/html
-                      (request-response request response/html)
-                    (request-response request (generate-not-found request) code: 'not-found))))
-            (call-listeners-process-request request response)
-            response)))))
-  
-  
   (method (with-error-reporting request thunk)
+    (define (present-error err stack)
+      (let ((text (exception-reason err)))
+        `(<html>
+           (<head>
+             (<title> "Error"))
+           (<body>
+             ,@(if (not debug?)
+                   (let ((msg (format "Application error ({a})" text)))
+                     `((<h3> ,msg)))
+                 `("The following server error occured:"
+                   (<pre> ,text)
+                   (<br>)
+                   (<pre> ,stack)))))))
+    
     (continuation-capture
       (lambda (return)
         (with-exception-handler
@@ -125,21 +138,6 @@
           (lambda (exc)
             (request-response request html code: 'server-error))
         thunk)))
-  
-  
-  (method (present-error err stack)
-    (let ((text (exception-reason err)))
-      `(<html>
-         (<head>
-           (<title> "Error"))
-         (<body>
-           ,@(if (not debug?)
-                 (let ((msg (format "Application error ({a})" text)))
-                   `((<h3> ,msg)))
-               `("The following server error occured:"
-                 (<pre> ,text)
-                 (<br>)
-                 (<pre> ,stack)))))))
 
   
   ;;;
@@ -177,6 +175,14 @@
   
   
   (method (request-response request response/html (code: code {}))
+    (define (effective-html request html)
+      (cond ((string? html)
+             html)
+            ((pair? html)
+             (process-jml request html))
+            (else
+             (error "Unable to process: {s}" html))))
+    
     (define (calculate-content-length body)
       (+ (cardinality body)
          (count #\newline body)))
@@ -191,15 +197,6 @@
         (add-content-length response (calculate-content-length body))
         (add-session-cookie response session)
         response)))
-  
-  
-  (method (effective-html request html)
-    (cond ((string? html)
-           html)
-          ((pair? html)
-           (process-jml request html))
-          (else
-           (error "Unable to process: {s}" html))))
   
   
   (method (add-connection-close response)

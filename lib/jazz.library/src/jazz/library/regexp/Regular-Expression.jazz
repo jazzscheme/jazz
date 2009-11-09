@@ -52,26 +52,25 @@
   
   
   (method (parse-expressions pattern)
-    (map parse-expression (parse-strings pattern separator: "|")))
-  
-  
-  (method (parse-expression pattern)
-    (define (find-star pattern)
-      (let ((pos {}))
-        (loop (for n from 0 below (cardinality pattern))
-              (let ((c (element pattern n)))
-                (when (eqv? c #\times)
-                  (if (not pos)
-                      (set! pos n)
-                    (error "Multiple stars are not supported in regular expressions")))))
-        pos))
+    (define (parse-expression pattern)
+      (define (find-star pattern)
+        (let ((pos {}))
+          (loop (for n from 0 below (cardinality pattern))
+                (let ((c (element pattern n)))
+                  (when (eqv? c #\times)
+                    (if (not pos)
+                        (set! pos n)
+                      (error "Multiple stars are not supported in regular expressions")))))
+          pos))
+      
+      (let ((pos (find-star pattern)))
+        (if (not pos)
+            (new Regular-Pattern pattern #t)
+          (new Regular-Pattern pattern #f
+               (subseq pattern 0 pos)
+               (subseq pattern (+ pos 1))))))
     
-    (let ((pos (find-star pattern)))
-      (if (not pos)
-          (new Regular-Pattern pattern #t)
-        (new Regular-Pattern pattern #f
-             (subseq pattern 0 pos)
-             (subseq pattern (+ pos 1))))))
+    (map parse-expression (parse-strings pattern separator: "|")))
   
   
   ;;;

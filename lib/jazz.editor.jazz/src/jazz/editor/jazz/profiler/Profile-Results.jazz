@@ -204,49 +204,48 @@
   
   
   (method (view-profile profile)
+    (define (view-calls profile)
+      (define (collect-calls profile)
+        (let ((total (profile-total profile))
+              (calls '()))
+          (iterate-table (profile-calls profile)
+            (lambda (stack count)
+              (let ((call (list stack count (calculate-percentage count total))))
+                (set! calls (cons call calls)))))
+          (sort > calls key: third)))
+      
+      (define (calculate-percentage count total)
+        (/ (round (* 10000 (/ count total)))
+           100.))
+      
+      (define (present-procedure frame)
+        (either (if frame
+                    (let ((creator (first frame)))
+                      (if creator
+                          (let ((name (get-procedure-name creator)))
+                            (if name
+                                (present-identifier name)
+                              {}))
+                        {}))
+                  {})
+                "(interaction)"))
+      
+      (for-each (lambda (call)
+                  (bind (stack count percentage) call
+                    (let ((frame (if (not-null? stack) (last stack) {})))
+                      (let ((procedure (present-procedure frame))
+                            (percentage (number->string percentage)))
+                        (let ((row (add-row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: frame)))
+                          (for-each (lambda (frame)
+                                      (let ((procedure (present-procedure frame)))
+                                        (add-row father: row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: "") (new Tree-Label title: "")) user-data: frame)))
+                                    (reverse (butlast stack))))))))
+                (collect-calls profile)))
+    
     (with-update-locked
       (lambda ()
         (remove-every-row)
-        (view-calls profile))))
-  
-  
-  (method (view-calls profile)
-    (define (collect-calls profile)
-      (let ((total (profile-total profile))
-            (calls '()))
-        (iterate-table (profile-calls profile)
-          (lambda (stack count)
-            (let ((call (list stack count (calculate-percentage count total))))
-              (set! calls (cons call calls)))))
-        (sort > calls key: third)))
-    
-    (define (calculate-percentage count total)
-      (/ (round (* 10000 (/ count total)))
-         100.))
-    
-    (define (present-procedure frame)
-      (either (if frame
-                  (let ((creator (first frame)))
-                    (if creator
-                        (let ((name (get-procedure-name creator)))
-                          (if name
-                              (present-identifier name)
-                            {}))
-                      {}))
-                {})
-              "(interaction)"))
-    
-    (for-each (lambda (call)
-                (bind (stack count percentage) call
-                  (let ((frame (if (not-null? stack) (last stack) {})))
-                    (let ((procedure (present-procedure frame))
-                          (percentage (number->string percentage)))
-                      (let ((row (add-row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: (->string count)) (new Tree-Label title: percentage)) user-data: frame)))
-                        (for-each (lambda (frame)
-                                    (let ((procedure (present-procedure frame)))
-                                      (add-row father: row children: (list (new Tree-Node title: procedure image: {Bitmap-Resource "Link"}) (new Tree-Label title: "") (new Tree-Label title: "")) user-data: frame)))
-                                  (reverse (butlast stack))))))))
-            (collect-calls profile))))
+        (view-calls profile)))))
 
 
 (register-autoclass Calls-Tree))

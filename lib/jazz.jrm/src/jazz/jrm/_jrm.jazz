@@ -225,6 +225,44 @@
 
 
 (definition package (process-remote port)
+  (define (execute-remote method-name proxy-ior arguments)
+    (if *debug-locally?*
+        (values #f (dispatch-remote method-name proxy-ior arguments))
+      (continuation-capture
+        (lambda (return)
+          (with-exception-handler
+            (lambda (exc)
+              (continuation-capture
+                (lambda (cont)
+                  (when *debug?*
+                    (terminal '***server*** 'exception method-name)
+                    (display-exception exc)
+                    (display-continuation-backtrace cont))
+                  (return (values (exception-reason exc) #f)))))
+            (lambda ()
+              (values #f (dispatch-remote method-name proxy-ior arguments))))))))
+  
+  (define (dispatch-remote method-name proxy-ior arguments)
+    (let ((method-name (unmarshall method-name))
+          (local-proxy (unmarshall proxy-ior))
+          (arguments (unmarshall arguments)))
+      (apply (dispatch local-proxy method-name) local-proxy arguments)))
+  
+  (define (receive-remote-message port)
+    (let ((timeout (receive-timeout)))
+      (when timeout
+        (input-port-timeout-set! port timeout)))
+    (let ((info (read-port port)))
+      (if (eof-object? info)
+          (throw-remote-connection-broke)
+        info)))
+  
+  (define (send-remote-result info port)
+    (let ((timeout (send-timeout)))
+      (when timeout
+        (output-port-timeout-set! port timeout throw-remote-connection-broke)))
+    (write-port port info))
+  
   (let ((message (receive-remote-message port)))
     (if (eq? message live-request)
         (send-remote-result live-response port)
@@ -244,48 +282,6 @@
              (when *debug?*
                (terminal '***server*** 'return method-name err result))
              (send-remote-result (list err (marshall result)) port))))))))
-
-
-(definition (execute-remote method-name proxy-ior arguments)
-  (if *debug-locally?*
-      (values #f (dispatch-remote method-name proxy-ior arguments))
-    (continuation-capture
-      (lambda (return)
-        (with-exception-handler
-          (lambda (exc)
-            (continuation-capture
-              (lambda (cont)
-                (when *debug?*
-                  (terminal '***server*** 'exception method-name)
-                  (display-exception exc)
-                  (display-continuation-backtrace cont))
-                (return (values (exception-reason exc) #f)))))
-          (lambda ()
-            (values #f (dispatch-remote method-name proxy-ior arguments))))))))
-
-
-(definition (dispatch-remote method-name proxy-ior arguments)
-  (let ((method-name (unmarshall method-name))
-        (local-proxy (unmarshall proxy-ior))
-        (arguments (unmarshall arguments)))
-    (apply (dispatch local-proxy method-name) local-proxy arguments)))
-
-
-(definition (receive-remote-message port)
-  (let ((timeout (receive-timeout)))
-    (when timeout
-      (input-port-timeout-set! port timeout)))
-  (let ((info (read-port port)))
-    (if (eof-object? info)
-        (throw-remote-connection-broke)
-      info)))
-
-
-(definition (send-remote-result info port)
-  (let ((timeout (send-timeout)))
-    (when timeout
-      (output-port-timeout-set! port timeout throw-remote-connection-broke)))
-  (write-port port info))
 
 
 ;;;
@@ -317,6 +313,25 @@
 
 
 (definition (marshall-proxy proxy)
+  (define (marshall-local-proxy local-proxy)
+    (define (local-proxy->reference local-proxy)
+      (if (proxy=? local-proxy local-register)
+          #f
+        (let ((object (get-object~ local-proxy)))
+          (set! *Temp-Mega-Patch* (cons object *Temp-Mega-Patch*))
+          (object->serial object))))
+    
+    (let ((server (require-remote-listener)))
+      (new IOR
+        (listening-host~ server)
+        (listening-port~ server)
+        (identifier-name (get-name~ (stub-interface~ local-proxy)))
+        (local-proxy->reference local-proxy)
+        (marshall (proxy-values~ local-proxy)))))
+  
+  (define (marshall-remote-proxy proxy)
+    (marshall (get-ior~ proxy)))
+  
   (if (remote-proxy? proxy)
       (marshall-remote-proxy proxy)
     (marshall-local-proxy proxy)))
@@ -336,20 +351,6 @@
        (get-object~ y)))
 
 
-(definition (marshall-local-proxy local-proxy)
-  (let ((server (require-remote-listener)))
-    (new IOR
-      (listening-host~ server)
-      (listening-port~ server)
-      (identifier-name (get-name~ (stub-interface~ local-proxy)))
-      (local-proxy->reference local-proxy)
-      (marshall (proxy-values~ local-proxy)))))
-
-
-(definition (unmarshall-local-ior stub-interface ior)
-  (reference->local-proxy stub-interface (get-reference~ ior)))
-
-
 ;;;
 ;;;; Remote Proxy
 ;;;
@@ -362,15 +363,6 @@
 (definition public (remote-proxy=? x y)
   (ior=? (get-ior~ x)
          (get-ior~ y)))
-
-
-(definition (marshall-remote-proxy proxy)
-  (marshall (get-ior~ proxy)))
-
-
-(definition (unmarshall-remote-ior stub-interface ior)
-  (let ((remote-class (remote-class~ stub-interface)))
-    (new remote-class ior (unmarshall (get-values~ ior)))))
 
 
 ;;;
@@ -435,21 +427,19 @@
   (eqv? x y))
 
 
-(definition (local-proxy->reference local-proxy)
-  (if (proxy=? local-proxy local-register)
-      #f
-    (let ((object (get-object~ local-proxy)))
-      (set! *Temp-Mega-Patch* (cons object *Temp-Mega-Patch*))
-      (object->serial object))))
-
-
-(definition (reference->local-proxy stub-interface reference)
-  (if (not reference)
-      local-register
-    (new (local-class~ stub-interface) (serial->object reference))))
-
-
 (definition public (unmarshall-ior ior)
+  (define (unmarshall-local-ior stub-interface ior)
+    (define (reference->local-proxy stub-interface reference)
+      (if (not reference)
+          local-register
+        (new (local-class~ stub-interface) (serial->object reference))))
+    
+    (reference->local-proxy stub-interface (get-reference~ ior)))
+  
+  (define (unmarshall-remote-ior stub-interface ior)
+    (let ((remote-class (remote-class~ stub-interface)))
+      (new remote-class ior (unmarshall (get-values~ ior)))))
+  
   (let ((stub-interface (autoload (get-stub-interface~ ior))))
     (if (local-ior? ior)
         (unmarshall-local-ior stub-interface ior)
@@ -553,6 +543,17 @@
 
 
 (definition (encode object)
+  (define (encode-info kind . info)
+    (cons encoded-marker (cons kind info)))
+  
+  (define (encode-ior ior)
+    (encode-info 'IOR
+                 (get-host~ ior)
+                 (get-service~ ior)
+                 (get-stub-interface~ ior)
+                 (get-reference~ ior)
+                 (encode (get-values~ ior))))
+  
   (cond ((null? object)
          object)
         ((number? object)
@@ -587,25 +588,19 @@
        (eq? (car object) encoded-marker)))
 
 
-(definition (encode-info kind . info)
-  (cons encoded-marker (cons kind info)))
-
-
-(definition (encode-ior ior)
-  (encode-info 'IOR
-               (get-host~ ior)
-               (get-service~ ior)
-               (get-stub-interface~ ior)
-               (get-reference~ ior)
-               (encode (get-values~ ior))))
-
-
 ;;;
 ;;;; Decode
 ;;;
 
 
 (definition (decode object)
+  (define (decode-info encoded)
+    (values (cadr encoded) (cddr encoded)))
+  
+  (define (decode-ior info)
+    (bind (host service stub-interface reference values) info
+      (new IOR host service stub-interface reference (decode values))))
+  
   (cond ((null? object)
          object)
         ((number? object)
@@ -633,13 +628,4 @@
          (cons (decode (car object))
                (decode (cdr object))))
         (else
-         (error "Unable to decode: {s}" object))))
-
-
-(definition (decode-info encoded)
-  (values (cadr encoded) (cddr encoded)))
-
-
-(definition (decode-ior info)
-  (bind (host service stub-interface reference values) info
-    (new IOR host service stub-interface reference (decode values)))))
+         (error "Unable to decode: {s}" object)))))

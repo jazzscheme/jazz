@@ -170,21 +170,44 @@
 
 
   (method override (render drawing surface context lh lv sh sv sc sc?)
-    (default-render drawing surface context lh lv sh sv sc sc?)
+    (define (default-render)
+      (let ((content? (show-content?~ editor)))
+        (when content?
+          (draw-background~ drawing surface context))
+        (when content?
+          (draw-content~ drawing surface context lh lv sh sv sc sc?))
+        (when (or content? (is-not? drawing Outline-View))
+          (draw-children~ drawing surface context lh lv sh sv sc sc?))))
+  
+    (default-render)
     (draw surface))
-
-
-  (method (default-render drawing surface context lh lv sh sv sc sc?)
-    (let ((content? (show-content?~ editor)))
-      (when content?
-        (draw-background~ drawing surface context))
-      (when content?
-        (draw-content~ drawing surface context lh lv sh sv sc sc?))
-      (when (or content? (is-not? drawing Outline-View))
-        (draw-children~ drawing surface context lh lv sh sv sc sc?))))
   
   
   (method public virtual (draw surface)
+    (define (draw-surrogate-selected surface)
+      (when (memq client (get-selection~ editor))
+        (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.15})))
+    
+    (define (draw-surrogate-frame surface)
+      (when (and (show-frames?~ editor) (eq? (outer-client) client))
+        (let ((selection (get-selection~ editor)))
+          (define (outer-view view)
+            (outer-client~ (get-surrogate~ view)))
+          
+          (define (frame-color)
+            (let ((rank (find selection client key: outer-view)))
+              (if (not rank)
+                  Unselected-Color
+                (element Selected-Colors (min rank 2)))))
+          
+          (let ((color (frame-color))
+                (outside (get-bounds~ client)))
+            (frame-rect~ surface outside color)
+            @temp-as-this-is-not-very-nice-for-client-apps
+            (when (eq? client (get-reference~ editor))
+              (let ((inside (inflate-rect outside -1 -1)))
+                (frame-rect~ surface inside color)))))))
+    
     (draw-showed-property surface)
     (draw-surrogate-selected surface)
     (draw-surrogate-frame surface))
@@ -204,32 +227,6 @@
           (frame-rect~ surface rect {Color name: Black})
           (fill-rect~ surface (inflate-rect rect -1 -1) {Color name: White})
           (draw-text~ surface (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string)))))
-  
-  
-  (method (draw-surrogate-selected surface)
-    (when (memq client (get-selection~ editor))
-      (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.15})))
-  
-  
-  (method (draw-surrogate-frame surface)
-    (when (and (show-frames?~ editor) (eq? (outer-client) client))
-      (let ((selection (get-selection~ editor)))
-        (define (outer-view view)
-          (outer-client~ (get-surrogate~ view)))
-        
-        (define (frame-color)
-          (let ((rank (find selection client key: outer-view)))
-            (if (not rank)
-                Unselected-Color
-              (element Selected-Colors (min rank 2)))))
-        
-        (let ((color (frame-color))
-              (outside (get-bounds~ client)))
-          (frame-rect~ surface outside color)
-          @temp-as-this-is-not-very-nice-for-client-apps
-          (when (eq? client (get-reference~ editor))
-            (let ((inside (inflate-rect outside -1 -1)))
-              (frame-rect~ surface inside color)))))))
   
   
   (method public virtual (draw-selected surface rank)
@@ -379,13 +376,12 @@
     #t)
   
   
-  (definition (some-movable? selection)
-    (some? (lambda (client)
-             (move-client?~ (get-surrogate~ client)))
-           selection))
-  
-  
   (method public virtual (mouse-down pos)
+    (define (some-movable? selection)
+      (some? (lambda (client)
+               (move-client?~ (get-surrogate~ client)))
+             selection))
+    
     (let ((select
            (lambda ()
              (when (select?)
@@ -434,28 +430,26 @@
   
   
   (method public virtual (drag-up pos)
-    (cond
-      (dragging?
-       (release-capture~ client)
-       (set! current-part {})
-       (set! dragging? #f))
-      (processing?
-       (release-capture~ client)
-       (set! current-part {})
-       (set! processing? #f)
-       (verify-position/size))))
-  
-  
-  ;; a temporary solution until this validation is done live while dragging
-  (method (verify-position/size)
-    (let ((min-size (minimal-size~ client)))
-      (when min-size
-        (let ((rect (get-rect~ client))
-              (outer (get-size~ (get-parent~ client)))
-              (designer (get-designer~ editor)))
-          (receive (new-position new-size) (fit-within outer rect minimum-size: min-size)
-            (set-property~ designer client 'size new-size)
-            (set-property~ designer client 'position new-position))))))
+    ;; a temporary solution until this validation is done live while dragging
+    (define (verify-position/size)
+      (let ((min-size (minimal-size~ client)))
+        (when min-size
+          (let ((rect (get-rect~ client))
+                (outer (get-size~ (get-parent~ client)))
+                (designer (get-designer~ editor)))
+            (receive (new-position new-size) (fit-within outer rect minimum-size: min-size)
+              (set-property~ designer client 'size new-size)
+              (set-property~ designer client 'position new-position))))))
+    
+    (cond (dragging?
+            (release-capture~ client)
+            (set! current-part {})
+            (set! dragging? #f))
+          (processing?
+            (release-capture~ client)
+            (set! current-part {})
+            (set! processing? #f)
+            (verify-position/size))))
   
   
   (method public virtual (double-click pos)
@@ -585,6 +579,11 @@
   
   
   (method (move-selection dh dv modifiers)
+    (define (move-quantum shift?)
+      (if shift?
+          8
+        1))
+    
     (let* ((shift? (shift-key? modifiers))
            (control? (control-key? modifiers))
            (single? (and shift? control?))
@@ -593,12 +592,6 @@
       (for-each (lambda (view)
                   (move-client~ (get-surrogate~ view) (* dh quantum) (* dv quantum)))
                 (if single? (list (car selection)) selection))))
-  
-  
-  (method (move-quantum shift?)
-    (if shift?
-        8
-      1))
   
 
   ;;;

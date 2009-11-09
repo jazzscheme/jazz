@@ -357,27 +357,26 @@
   
   
   (method (new-context-menu object)
+    (define (new-thread-menu thread)
+      (let ((menu (new Thread-Menu))
+            (stop (get-active-stop~ thread)))
+        (if (not stop)
+            #f @wait (new Label-Item parent: menu title: "Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})
+          (for-each (lambda (restart)
+                      (let ((title (get-message~ restart))
+                            (icon {Bitmap-Resource "Restart"}))
+                        (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (lambda (event) (restart-stop restart))))))
+                    (get-restarts~ stop))
+          (when (eq? (get-kind~ stop) 'break)
+            (new Separator-Item parent: menu)
+            (new Label-Item parent: menu title: "Continue" icon: {Bitmap-Resource "Continue"} action-handler: {Event-Handler :form on-continue})))
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
     (typecase object
       ((Debugged-Thread) (new-thread-menu object))
-      (else {})))
-  
-  
-  (method (new-thread-menu thread)
-    (let ((menu (new Thread-Menu))
-          (stop (get-active-stop~ thread)))
-      (if (not stop)
-          #f @wait (new Label-Item parent: menu title: "Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})
-        (for-each (lambda (restart)
-                    (let ((title (get-message~ restart))
-                          (icon {Bitmap-Resource "Restart"}))
-                      (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (lambda (event) (restart-stop restart))))))
-                  (get-restarts~ stop))
-        (when (eq? (get-kind~ stop) 'break)
-          (new Separator-Item parent: menu)
-          (new Label-Item parent: menu title: "Continue" icon: {Bitmap-Resource "Continue"} action-handler: {Event-Handler :form on-continue})))
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu)))
+      (else {}))))
 
 
 ;;;

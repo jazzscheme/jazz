@@ -1446,35 +1446,37 @@
 
 (define (jazz.walk-definition-declaration walker resume declaration environment form-src)
   (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let ((type (jazz.specifier->type walker resume declaration environment specifier)))
-      (let ((signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
-        (let ((effective-type (if parameters (jazz.build-function-type signature type) type)))
-          (let ((new-declaration (or (jazz.find-child-declaration declaration name)
-                                     (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
-            (%%set-declaration-source new-declaration form-src)
-            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-              (%%when (%%eq? expansion 'inline)
-                (let ((new-environment (%%cons effective-declaration environment)))
-                  (%%set-definition-declaration-value effective-declaration
-                    (jazz.walk walker resume effective-declaration new-environment value))))
-              effective-declaration)))))))
+    (%%assertion (%%class-is? declaration jazz.Namespace-Declaration) (jazz.walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
+      (let ((type (jazz.specifier->type walker resume declaration environment specifier)))
+        (let ((signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
+          (let ((effective-type (if parameters (jazz.build-function-type signature type) type)))
+            (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                       (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
+              (%%set-declaration-source new-declaration form-src)
+              (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+                (%%when (%%eq? expansion 'inline)
+                  (let ((new-environment (%%cons effective-declaration environment)))
+                    (%%set-definition-declaration-value effective-declaration
+                                                        (jazz.walk walker resume effective-declaration new-environment value))))
+                effective-declaration))))))))
 
 
 (define (jazz.walk-definition walker resume declaration environment form-src)
   (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let ((new-declaration (jazz.require-declaration declaration name)))
-      (%%when (%%neq? expansion 'inline)
-        ;; adding source information for parameters (default for optional and keyword may be source code)
-        ;; jazz.find-annotated fails on first keyword at jazz.dialect.language.functional.minimum
-        ;; because (eq? variable annotated-variable) -> one points to a stale value
-        (let ((new-environment (if #f #; parameters
+    (%%assertion (%%class-is? declaration jazz.Namespace-Declaration) (jazz.walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
+      (let ((new-declaration (jazz.require-declaration declaration name)))
+        (%%when (%%neq? expansion 'inline)
+          ;; adding source information for parameters (default for optional and keyword may be source code)
+          ;; jazz.find-annotated fails on first keyword at jazz.dialect.language.functional.minimum
+          ;; because (eq? variable annotated-variable) -> one points to a stale value
+          (let ((new-environment (if #f #; parameters
                                    (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                                      (%%set-definition-declaration-signature new-declaration signature)
                                      (%%cons new-declaration augmented-environment))
-                                 (%%cons new-declaration environment))))
-          (%%set-definition-declaration-value new-declaration (jazz.walk walker resume new-declaration new-environment value))))
-      (%%set-declaration-source new-declaration form-src)
-      new-declaration)))
+                                   (%%cons new-declaration environment))))
+            (%%set-definition-declaration-value new-declaration (jazz.walk walker resume new-declaration new-environment value))))
+        (%%set-declaration-source new-declaration form-src)
+        new-declaration))))
 
 
 ;; Until I unify signature and function type
@@ -1546,7 +1548,7 @@
 
 
 ;; we should not even have to do this
-(define (jazz.walk-specialize walker resume declaration environment form-src)
+(define (jazz.walk-%specialize walker resume declaration environment form-src)
   (jazz.new-specialize))
 
 
@@ -1572,28 +1574,28 @@
 
 (define (jazz.walk-generic-declaration walker resume declaration environment form-src)
   (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Module-Declaration)
-        (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
-              (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
-                                                 (jazz.lookup-reference walker resume declaration environment dynamic-parameter-type))
-                                               (jazz.dynamic-parameter-types parameters)))
-              (signature (jazz.walk-parameters walker resume declaration environment parameters #t #f)))
-          (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration dispatch-type-declarations signature)))
-            (%%set-declaration-source new-declaration form-src)
-            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-              effective-declaration)))
-      (jazz.walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name))))
+    (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name)
+      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
+            (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
+                                               (jazz.lookup-reference walker resume declaration environment dynamic-parameter-type))
+                                             (jazz.dynamic-parameter-types parameters)))
+            (signature (jazz.walk-parameters walker resume declaration environment parameters #t #f)))
+        (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration dispatch-type-declarations signature)))
+          (%%set-declaration-source new-declaration form-src)
+          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
 
 
 (define (jazz.walk-generic walker resume declaration environment form-src)
   (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-      (let ((new-declaration (jazz.require-declaration declaration name)))
-        (%%set-generic-declaration-signature new-declaration signature)
-        (%%set-generic-declaration-body new-declaration
-          (jazz.walk-body walker resume declaration augmented-environment body))
-        (%%set-declaration-source new-declaration form-src)
-        new-declaration))))
+    (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Generics can only be defined at the module level: {s}" name)
+      (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+        (let ((new-declaration (jazz.require-declaration declaration name)))
+          (%%set-generic-declaration-signature new-declaration signature)
+          (%%set-generic-declaration-body new-declaration
+                                          (jazz.walk-body walker resume declaration augmented-environment body))
+          (%%set-declaration-source new-declaration form-src)
+          new-declaration)))))
 
 
 ;;;
@@ -1620,40 +1622,39 @@
     (let iter ((generic-parameters (%%get-signature-positional (%%get-generic-declaration-signature generic-declaration)))
                (specific-parameters (%%get-signature-positional specific-signature))
                (root? #t))
-         (let ((generic-parameter (and (%%pair? generic-parameters) (%%car generic-parameters)))
-               (specific-parameter (and (%%pair? specific-parameters) (%%car specific-parameters))))
-           (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
-                 (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
-             (cond ((and generic-dynamic? specific-dynamic?)
-                    (let ((generic-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
-                          (specific-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
-                      (if (jazz.of-subtype? generic-class specific-class)
-                          (iter (%%cdr generic-parameters)
-                                (%%cdr specific-parameters)
-                                (%%eq? generic-class specific-class))
-                        (jazz.walk-error walker resume declaration form-src "Dynamic parameter {a} is not a subtype of {a}: {s}"
-                          (%%get-lexical-binding-name specific-parameter)
-                          (%%get-declaration-locator generic-class)
-                          (%%cons name parameters)))))
-                   ((or generic-dynamic? specific-dynamic?)
-                    (jazz.walk-error walker resume declaration form-src "Specific must dispatch on the same number of dynamic parameters: {s}" (%%cons name parameters)))
-                   (else
-                    root?))))))
+      (let ((generic-parameter (and (%%pair? generic-parameters) (%%car generic-parameters)))
+            (specific-parameter (and (%%pair? specific-parameters) (%%car specific-parameters))))
+        (let ((generic-dynamic? (%%is? generic-parameter jazz.Dynamic-Parameter))
+              (specific-dynamic? (%%is? specific-parameter jazz.Dynamic-Parameter)))
+          (cond ((and generic-dynamic? specific-dynamic?)
+                 (let ((generic-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class generic-parameter))))
+                       (specific-class (jazz.resolve-binding (%%get-reference-binding (%%get-dynamic-parameter-class specific-parameter)))))
+                   (if (jazz.of-subtype? generic-class specific-class)
+                       (iter (%%cdr generic-parameters)
+                             (%%cdr specific-parameters)
+                             (%%eq? generic-class specific-class))
+                     (jazz.walk-error walker resume declaration form-src "Dynamic parameter {a} is not a subtype of {a}: {s}"
+                       (%%get-lexical-binding-name specific-parameter)
+                       (%%get-declaration-locator generic-class)
+                       (%%cons name parameters)))))
+                ((or generic-dynamic? specific-dynamic?)
+                 (jazz.walk-error walker resume declaration form-src "Specific must dispatch on the same number of dynamic parameters: {s}" (%%cons name parameters)))
+                (else
+                 root?))))))
   
   (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Module-Declaration)
-        (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access declaration)))
-          (if (%%class-is? generic-declaration jazz.Generic-Declaration)
-              (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-                (let* ((root? (root-dynamic-parameters? generic-declaration signature name parameters))
-                       (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
-                       (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
-                  (%%set-specific-declaration-body new-declaration
-                                                   (jazz.walk-body walker resume declaration body-environment body))
-                  (%%set-declaration-source new-declaration form-src)
-                  new-declaration))
-            (jazz.walk-error walker resume declaration form-src "Cannot find generic declaration for {s}" (%%cons name parameters))))
-      (jazz.walk-error walker resume declaration form-src "Specifics can only be defined at the module level: {s}" name))))
+    (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Specifics can only be defined at the module level: {s}" name)
+      (let ((generic-declaration (jazz.lookup-declaration declaration name jazz.private-access declaration)))
+        (if (%%class-is? generic-declaration jazz.Generic-Declaration)
+            (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+              (let* ((root? (root-dynamic-parameters? generic-declaration signature name parameters))
+                     (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
+                     (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
+                (%%set-specific-declaration-body new-declaration
+                                                 (jazz.walk-body walker resume declaration body-environment body))
+                (%%set-declaration-source new-declaration form-src)
+                new-declaration))
+          (jazz.walk-error walker resume declaration form-src "Cannot find generic declaration for {s}" (%%cons name parameters)))))))
 
 
 ;;;
@@ -1717,34 +1718,33 @@
 
 (define (jazz.walk-%class-declaration walker resume declaration environment form-src)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (if (%%class-is? declaration jazz.Module-Declaration)
-        ;; explicit test on Object-Class is to break circularity
-        (receive (ascendant ascendant-relation ascendant-base) (jazz.lookup-ascendant walker resume declaration environment ascendant-name)
-          (let ((metaclass (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name))
-                (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
-            (let ((new-declaration (or (jazz.find-child-declaration declaration name)
-                                       (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
-              (%%set-declaration-source new-declaration form-src)
-              (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-                (jazz.setup-class-lookups effective-declaration)
-                (let ((new-environment (%%cons effective-declaration environment)))
-                  (jazz.walk-declarations walker resume effective-declaration new-environment body)
-                  effective-declaration)))))
-      (jazz.walk-error walker resume declaration form-src "Classes can only be defined at the module level: {s}" name))))
+    (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Classes can only be defined at the module level: {s}" name)
+      ;; explicit test on Object-Class is to break circularity
+      (receive (ascendant ascendant-relation ascendant-base) (jazz.lookup-ascendant walker resume declaration environment ascendant-name)
+        (let ((metaclass (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name))
+              (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
+          (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                     (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
+            (%%set-declaration-source new-declaration form-src)
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              (jazz.setup-class-lookups effective-declaration)
+              (let ((new-environment (%%cons effective-declaration environment)))
+                (jazz.walk-declarations walker resume effective-declaration new-environment body)
+                effective-declaration))))))))
 
 
 (define (jazz.walk-%class walker resume declaration environment form-src)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let* ((new-declaration (jazz.require-declaration declaration name))
-           (new-environment (%%cons new-declaration environment))
-           (ascendant-declaration (%%get-class-declaration-ascendant new-declaration)))
-      (if (and (%%not ascendant-declaration) (%%neq? name 'Object))
-          (jazz.walk-error walker resume declaration form-src "Class {s} does not specify an ascendant" name)
-        (begin
-          (%%set-namespace-declaration-body new-declaration
-            (jazz.walk-namespace walker resume new-declaration new-environment body))
-          (%%set-declaration-source new-declaration form-src)
-          new-declaration)))))
+    (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Classes can only be defined at the module level: {s}" name)
+      (let* ((new-declaration (jazz.require-declaration declaration name))
+             (new-environment (%%cons new-declaration environment))
+             (ascendant-declaration (%%get-class-declaration-ascendant new-declaration)))
+        (if (and (%%not ascendant-declaration) (%%neq? name 'Object))
+            (jazz.walk-error walker resume declaration form-src "Class {s} does not specify an ascendant" name)
+          (begin
+            (%%set-namespace-declaration-body new-declaration (jazz.walk-namespace walker resume new-declaration new-environment body))
+            (%%set-declaration-source new-declaration form-src)
+            new-declaration))))))
 
 
 (define (jazz.lookup-metaclass walker resume declaration environment ascendant metaclass-name)
@@ -1810,29 +1810,28 @@
 (define (jazz.walk-interface-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (receive (name type access compatibility implementor metaclass-name ascendant-names attributes body) (jazz.parse-interface walker resume declaration (%%cdr form))
-      (if (%%class-is? declaration jazz.Module-Declaration)
-          (let ((metaclass (if (or (jazz.unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz.lookup-reference walker resume declaration environment metaclass-name)))
-                (ascendants (if (jazz.unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz.lookup-reference walker resume declaration environment ascendant-name)) (jazz.listify ascendant-names)))))
-            (let ((new-declaration (or (jazz.find-child-declaration declaration name)
-                                       (jazz.new-interface-declaration name type access compatibility attributes declaration implementor metaclass ascendants))))
-              (%%set-declaration-source new-declaration form-src)
-              (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-                (jazz.setup-interface-lookups effective-declaration)
-                (let ((new-environment (%%cons effective-declaration environment)))
-                  (jazz.walk-declarations walker resume effective-declaration new-environment body)
-                  effective-declaration))))
-        (jazz.walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)))))
+      (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)
+        (let ((metaclass (if (or (jazz.unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz.lookup-reference walker resume declaration environment metaclass-name)))
+              (ascendants (if (jazz.unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz.lookup-reference walker resume declaration environment ascendant-name)) (jazz.listify ascendant-names)))))
+          (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                     (jazz.new-interface-declaration name type access compatibility attributes declaration implementor metaclass ascendants))))
+            (%%set-declaration-source new-declaration form-src)
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              (jazz.setup-interface-lookups effective-declaration)
+              (let ((new-environment (%%cons effective-declaration environment)))
+                (jazz.walk-declarations walker resume effective-declaration new-environment body)
+                effective-declaration))))))))
 
 
 (define (jazz.walk-interface walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (receive (name type access compatibility implementor metaclass-name ascendant-names attributes body) (jazz.parse-interface walker resume declaration (%%cdr form))
-      (let* ((new-declaration (jazz.require-declaration declaration name))
-             (new-environment (%%cons new-declaration environment)))
-        (%%set-namespace-declaration-body new-declaration
-          (jazz.walk-namespace walker resume new-declaration new-environment body))
-        (%%set-declaration-source new-declaration form-src)
-        new-declaration))))
+      (%%assertion (%%class-is? declaration jazz.Module-Declaration) (jazz.walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)
+        (let* ((new-declaration (jazz.require-declaration declaration name))
+               (new-environment (%%cons new-declaration environment)))
+          (%%set-namespace-declaration-body new-declaration (jazz.walk-namespace walker resume new-declaration new-environment body))
+          (%%set-declaration-source new-declaration form-src)
+          new-declaration)))))
 
 
 ;;;
@@ -1940,40 +1939,42 @@
 (define (jazz.walk-%slot-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (jazz.bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
-      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
-            (new (if (%%eq? (%%car form) '%property) jazz.new-property-declaration jazz.new-slot-declaration)))
-        (let ((new-declaration (or (jazz.find-child-declaration declaration name)
-                                   (new name type access compatibility '() declaration #f getter-name setter-name))))
-          (%%set-declaration-source new-declaration form-src)
-          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-            effective-declaration))))))
+      (%%assertion (%%class-is? declaration jazz.Class-Declaration) (jazz.walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
+        (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
+              (new (if (%%eq? (%%car form) '%property) jazz.new-property-declaration jazz.new-slot-declaration)))
+          (let ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                     (new name type access compatibility '() declaration #f getter-name setter-name))))
+            (%%set-declaration-source new-declaration form-src)
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              effective-declaration)))))))
 
 
 (define (jazz.walk-%slot walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (jazz.bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
-      (let ((initialize (if (jazz.unspecified? initialize) #f initialize)))
-        (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
-          (%%set-slot-declaration-initialize new-declaration
-            (jazz.walk walker resume declaration environment initialize))
-          (%%when (%%class-is? new-declaration jazz.Property-Declaration)
-            (%%set-property-declaration-getter new-declaration
-              (jazz.walk walker resume declaration environment
-                `(lambda (self)
-                   (with-self
-                     ,(if getter-name
-                          `(,getter-name)
-                        name)))))
-            (%%set-property-declaration-setter new-declaration
-              (let ((value (jazz.generate-symbol "val")))
+      (%%assertion (%%class-is? declaration jazz.Class-Declaration) (jazz.walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
+        (let ((initialize (if (jazz.unspecified? initialize) #f initialize)))
+          (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
+            (%%set-slot-declaration-initialize new-declaration
+              (jazz.walk walker resume declaration environment initialize))
+            (%%when (%%class-is? new-declaration jazz.Property-Declaration)
+              (%%set-property-declaration-getter new-declaration
                 (jazz.walk walker resume declaration environment
-                  `(lambda (self ,value)
+                  `(lambda (self)
                      (with-self
-                       ,(if setter-name
-                            `(,setter-name ,value)
-                          `(set! ,name ,value))))))))
-          (%%set-declaration-source new-declaration form-src)
-          new-declaration)))))
+                       ,(if getter-name
+                            `(,getter-name)
+                          name)))))
+              (%%set-property-declaration-setter new-declaration
+                (let ((value (jazz.generate-symbol "val")))
+                  (jazz.walk walker resume declaration environment
+                    `(lambda (self ,value)
+                       (with-self
+                         ,(if setter-name
+                              `(,setter-name ,value)
+                            `(set! ,name ,value))))))))
+            (%%set-declaration-source new-declaration form-src)
+            new-declaration))))))
 
 
 ;;;
@@ -2046,41 +2047,42 @@
 
 (define (jazz.walk-method walker resume declaration environment form-src)
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr (jazz.source-code form-src)))
-    (let* ((new-declaration (jazz.lookup-declaration declaration name jazz.private-access declaration))
-           (category-declaration (%%get-declaration-parent new-declaration))
-           (root-method-declaration (%%get-method-declaration-root new-declaration))
-           (root-method-propagation (and root-method-declaration (%%get-method-declaration-propagation root-method-declaration)))
-           (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
-      (cond ((and root-category-declaration (%%eq? root-method-propagation 'final))
-             (jazz.walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
-            ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'override))
-             (case propagation
-               ((virtual chained)
-                (jazz.walk-error walker resume declaration form-src "Method is already virtual: {s}" name))
-               ((final)
-                (jazz.walk-error walker resume declaration form-src "Cannot finalize virtual method: {s}" name))))
-            ((and (%%not root-category-declaration) (%%eq? propagation 'override))
-             (jazz.walk-error walker resume declaration form-src "Cannot find root method: {s}" name))
-            ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
-             (jazz.walk-error walker resume declaration form-src "Interface method must be virtual: {s}" name))
-            (else
-             (if (and (jazz.analysis-mode?)
-                      (%%eq? (%%get-method-declaration-propagation new-declaration) 'final))
-                 (let ((data (jazz.get-analysis-data (%%get-declaration-locator new-declaration))))
-                   (%%set-analysis-data-declaration-references data '())))
-             (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-               (let ((body-expression
-                       (cond (root-category-declaration
-                               (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
-                             ((%%eq? abstraction 'concrete)
-                              (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
-                             (else
-                              #f))))
-                 (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
-                   (%%set-method-declaration-signature new-declaration signature)
-                   (%%set-method-declaration-body new-declaration body-expression))
-                 (%%set-declaration-source new-declaration form-src)
-                 new-declaration)))))))
+    (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
+      (let* ((new-declaration (jazz.lookup-declaration declaration name jazz.private-access declaration))
+             (category-declaration (%%get-declaration-parent new-declaration))
+             (root-method-declaration (%%get-method-declaration-root new-declaration))
+             (root-method-propagation (and root-method-declaration (%%get-method-declaration-propagation root-method-declaration)))
+             (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
+        (cond ((and root-category-declaration (%%eq? root-method-propagation 'final))
+               (jazz.walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
+              ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'override))
+               (case propagation
+                 ((virtual chained)
+                  (jazz.walk-error walker resume declaration form-src "Method is already virtual: {s}" name))
+                 ((final)
+                  (jazz.walk-error walker resume declaration form-src "Cannot finalize virtual method: {s}" name))))
+              ((and (%%not root-category-declaration) (%%eq? propagation 'override))
+               (jazz.walk-error walker resume declaration form-src "Cannot find root method: {s}" name))
+              ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
+               (jazz.walk-error walker resume declaration form-src "Interface method must be virtual: {s}" name))
+              (else
+               (if (and (jazz.analysis-mode?)
+                        (%%eq? (%%get-method-declaration-propagation new-declaration) 'final))
+                   (let ((data (jazz.get-analysis-data (%%get-declaration-locator new-declaration))))
+                     (%%set-analysis-data-declaration-references data '())))
+               (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+                 (let ((body-expression
+                         (cond (root-category-declaration
+                                 (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
+                               ((%%eq? abstraction 'concrete)
+                                (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
+                               (else
+                                #f))))
+                   (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
+                     (%%set-method-declaration-signature new-declaration signature)
+                     (%%set-method-declaration-body new-declaration body-expression))
+                   (%%set-declaration-source new-declaration form-src)
+                   new-declaration))))))))
 
 
 ;; quick not elegant solution to wrap with-self around parameter code
@@ -3141,7 +3143,7 @@
 (jazz.define-walker-special c-type               jazz jazz.walk-c-type)
 (jazz.define-walker-special c-definition         jazz jazz.walk-c-definition)
 (jazz.define-walker-macro   specialize           jazz jazz.expand-specialize)
-(jazz.define-walker-special %specialize          jazz jazz.walk-specialize)
+(jazz.define-walker-special %specialize          jazz jazz.walk-%specialize)
 (jazz.define-walker-special parameterize         jazz jazz.walk-parameterize)
 (jazz.define-walker-special with-slots           jazz jazz.walk-with-slots)
 (jazz.define-walker-special with-self            jazz jazz.walk-with-self)

@@ -249,15 +249,14 @@
   
   
   (method public virtual (close-environment)
+    (define (close-preferences)
+      (when (and preferences-designer (persist-preferences?) (file? (get-origin~ (get-form~ preferences-designer))))
+        (save~ preferences-designer)))
+    
     (close-preferences)
     (unless (reloading-process?)
       (detach-from-controller)
       (stop-servers)))
-  
-  
-  (method (close-preferences)
-    (when (and preferences-designer (persist-preferences?) (file? (get-origin~ (get-form~ preferences-designer))))
-      (save~ preferences-designer)))
   
   
   ;;;
@@ -389,6 +388,12 @@
   
   
   (method (setup-preferences/designer)
+    (define (preferences-context)
+      (let ((arg (command-argument "context")))
+        (cond (arg (string->symbol arg))
+              (preferences-root (get-active-context~ preferences-root))
+              (else {}))))
+    
     (set-preferences/designer (load-preferences))
     (set! context (preferences-context))
     (install-context preferences-root)
@@ -412,13 +417,6 @@
   
   (method protected virtual (default-preferences)
     (new Process-Preferences))
-  
-  
-  (method (preferences-context)
-    (let ((arg (command-argument "context")))
-      (cond (arg (string->symbol arg))
-            (preferences-root (get-active-context~ preferences-root))
-            (else {}))))
   
   
   (method public (apply-preferences preferences (client {}))

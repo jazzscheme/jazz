@@ -62,20 +62,22 @@
   
   
   (method public (add-counter . rest)
+    (define (counter-path path object-name counter-name browse?)
+      (cond (path path)
+            (browse? (browse-counter-path))
+            ((and object-name counter-name)
+             (format :string "\\{a}({a})\\{a}" object-name (module-base) counter-name))
+            @old (format :string "\\{a}({a}#{a})\\{a}" object-name (module-base) (guess-process-instance) counter-name)
+            (else (error "One of :path, :object-name and :counter-name, or :browse? must be specified"))))
+    
+    (define (browse-counter-path)
+      (BrowseCounterPath))
+    
     (bind-keywords ((path #f) (object-name #f) (counter-name #f) (browse? #f)) rest
       (let ((path (counter-path path object-name counter-name browse?)))
         (receive (status counter) (PdhAddCounter query path 0)
           (validate-status status)
           counter))))
-  
-  
-  (method (counter-path path object-name counter-name browse?)
-    (cond (path path)
-          (browse? (browse-counter-path))
-          ((and object-name counter-name)
-           (format :string "\\{a}({a})\\{a}" object-name (module-base) counter-name))
-           @old (format :string "\\{a}({a}#{a})\\{a}" object-name (module-base) (guess-process-instance) counter-name)
-          (else (error "One of :path, :object-name and :counter-name, or :browse? must be specified"))))
   
   
   (method public (collect-data)
@@ -87,10 +89,6 @@
       (validate-status (PdhGetFormattedCounterValue counter PDH_FMT_LONG NULL value))
       (prog1 (PDH_FMT_COUNTERVALUE-longValue-ref value)
         (PDH_FMT_COUNTERVALUE-free value))))
-  
-
-  (method (browse-counter-path)
-    (BrowseCounterPath))
   
   
   (method (validate-status status)

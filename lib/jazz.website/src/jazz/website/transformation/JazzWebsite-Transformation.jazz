@@ -104,6 +104,94 @@
                                        (get-children~ section))))
            (get-children~ website)))
     
+    (define (process-sections sections pages)
+      (define (process-section section sections pages)
+        (define (validate-anchor-names)
+          @wait
+          (let ((fact (new List-Factory)))
+            (iterate-table anchor-names
+              (lambda (name lst)
+                (when (> (length lst) 1)
+                  (put~ fact name))))
+            (let ((ambiguities (get-output~ fact)))
+              (when (not-null? ambiguities)
+                (let ((message
+                        (cons "The following anchors are multiply defined:"
+                              (map (lambda (name)
+                                     (list :bulleted (->string name)))
+                                   ambiguities))))
+                  (message-box message))))))
+        
+        (define (reset-section)
+          (set! anchors       (make-table test: eq?))
+          (set! anchor-names  (make-table test: eq?))
+          (set! next-section  1))
+        
+        (user-message "Generating {a}..." (get-property~ section 'name))
+        (reset-section)
+        (let ((html (section-output section sections)))
+          (when (or Generate-Manual? (not (get-property~ section 'manual? #f)))
+            (put~ pages `(<page> path: ,(format "{a}" (section-path section))
+                           ,html))))
+        (validate-anchor-names))
+      
+      (define (section-output section sections)
+        (define (section-content-output section)
+          (let ((output (new List-Factory)))
+            (for-each (lambda (node)
+                        (if (is? node JML-Element)
+                            (case (get-tag~ node)
+                              ((section)) ;; section will get its own page
+                              ((article) (output-article node 1 output))
+                              (else (error "Ill-formed section")))
+                          (error "Ill-formed section")))
+                      (get-children~ section))
+            (get-output~ output)))
+        
+        (let ((title (get-property~ section 'title)))
+          `(<html>
+             (<head>
+               (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
+               (<title> ,title))
+             (<body>
+               (<div> id: "page"
+                 (<h1> id: "title" "JazzScheme")
+                 (<div> id: "sectionnav" ,@(navigation-output section sections))
+                 (<div> id: "content"
+                   ,@(if (get-property~ section 'manual? #f)
+                         (manual-output section)
+                       (section-content-output section))
+                   (<div> id: "footer"
+                     (<p> "Copyright &copy; 1996-2009 Guillaume Cartier"))))))))
+      
+      (define (navigation-output section sections)
+        (let ((output (new List-Factory)))
+          (for-each (lambda (info)
+                      (bind (sec . subsecs) info
+                        (let ((name (get-property~ sec 'name))
+                              (path (format "{a}.htm" (section-path sec)))
+                              (title (get-property~ sec 'title))
+                              (selected? (eq? sec section)))
+                          (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
+                          (when (or (eq? sec section) (memq? section subsecs))
+                            (for-each (lambda (subsec)
+                                        (let ((name (get-property~ subsec 'name))
+                                              (path (format "{a}.htm" (section-path subsec)))
+                                              (title (get-property~ subsec 'title))
+                                              (selected? (eq? subsec section)))
+                                          (put~ output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
+                                      subsecs)))))
+                    sections)
+          (get-output~ output)))
+      
+      (for-each (lambda (info)
+                  (bind (section . subsections) info
+                    (process-section section sections pages)
+                    (for-each (lambda (subsection)
+                                (process-section subsection sections pages))
+                              subsections)))
+                sections))
+    
     (let ((pages (new List-Factory))
           (sections (collect-sections website)))
       (process-sections sections pages)
@@ -117,108 +205,11 @@
   ;;;
   
   
-  (method (process-sections sections pages)
-    (for-each (lambda (info)
-                (bind (section . subsections) info
-                  (process-section section sections pages)
-                  (for-each (lambda (subsection)
-                              (process-section subsection sections pages))
-                            subsections)))
-              sections))
-  
-  
-  (method (process-section section sections pages)
-    (define (validate-anchor-names)
-      @wait
-      (let ((fact (new List-Factory)))
-        (iterate-table anchor-names
-          (lambda (name lst)
-            (when (> (length lst) 1)
-              (put~ fact name))))
-        (let ((ambiguities (get-output~ fact)))
-          (when (not-null? ambiguities)
-            (let ((message
-                    (cons "The following anchors are multiply defined:"
-                          (map (lambda (name)
-                                 (list :bulleted (->string name)))
-                               ambiguities))))
-              (message-box message))))))
-    
-    (define (reset-section)
-      (set! anchors       (make-table test: eq?))
-      (set! anchor-names  (make-table test: eq?))
-      (set! next-section  1))
-    
-    (user-message "Generating {a}..." (get-property~ section 'name))
-    (reset-section)
-    (let ((html (section-output section sections)))
-      (when (or Generate-Manual? (not (get-property~ section 'manual? #f)))
-        (put~ pages `(<page> path: ,(format "{a}" (section-path section))
-                                   ,html))))
-    (validate-anchor-names))
-  
-  
-  (method (section-output section sections)
-    (define (section-content-output section)
-      (let ((output (new List-Factory)))
-        (for-each (lambda (node)
-                    (if (is? node JML-Element)
-                        (case (get-tag~ node)
-                          ((section)) ;; section will get its own page
-                          ((article) (output-article node 1 output))
-                          (else (error "Ill-formed section")))
-                      (error "Ill-formed section")))
-                  (get-children~ section))
-        (get-output~ output)))
-    
-    (let ((title (get-property~ section 'title)))
-      `(<html>
-         (<head>
-           (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
-           (<title> ,title))
-         (<body>
-          (<div> id: "page"
-            (<h1> id: "title" "JazzScheme")
-            (<div> id: "sectionnav" ,@(navigation-output section sections))
-            (<div> id: "content"
-              ,@(if (get-property~ section 'manual? #f)
-                    (manual-output section)
-                  (section-content-output section))
-              (<div> id: "footer"
-                (<p> "Copyright &copy; 1996-2009 Guillaume Cartier"))))))))
-  
-  
   (definition (section-path section)
     (let ((name (get-property~ section 'name)))
       (if (eq? name 'home)
           'index
         name)))
-  
-  
-  ;;;
-  ;;;; Navigation
-  ;;;
-  
-  
-  (method (navigation-output section sections)
-    (let ((output (new List-Factory)))
-      (for-each (lambda (info)
-                  (bind (sec . subsecs) info
-                    (let ((name (get-property~ sec 'name))
-                          (path (format "{a}.htm" (section-path sec)))
-                          (title (get-property~ sec 'title))
-                          (selected? (eq? sec section)))
-                      (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
-                      (when (or (eq? sec section) (memq? section subsecs))
-                        (for-each (lambda (subsec)
-                                    (let ((name (get-property~ subsec 'name))
-                                          (path (format "{a}.htm" (section-path subsec)))
-                                          (title (get-property~ subsec 'title))
-                                          (selected? (eq? subsec section)))
-                                      (put~ output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
-                                  subsecs)))))
-                sections)
-      (get-output~ output)))
   
   
   ;;;

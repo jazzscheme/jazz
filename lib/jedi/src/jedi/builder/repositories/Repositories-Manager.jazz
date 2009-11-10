@@ -198,18 +198,17 @@
   
   
   (method (save-repositories)
+    (define (collect-user-repositories)
+      (collect-if (lambda (repository)
+                    (not (system-repository? repository)))
+                  (get-repositories)))
+    
     (let ((pref (get-preferences 'repositories))
           (repositories (collect-user-repositories)))
       (let ((directories (map (lambda (repository)
                                 (anchorize~ (new Directory (tokenise-filename (repository-directory repository)))))
                               repositories)))
         (set-preferences-property~ (get-application) pref 'repositories directories))))
-  
-  
-  (definition (collect-user-repositories)
-    (collect-if (lambda (repository)
-                  (not (system-repository? repository)))
-                (get-repositories)))
   
   
   (definition (system-repository? repository)
@@ -277,14 +276,13 @@
   
   
   (method (on-unregister-repository evt)
+    (define (uninstall/remove-repository row)
+      (let ((repository (get-user-data~ row)))
+        (uninstall-repository repository)
+        (remove-row~ (get-tree) row)))
+    
     (for-each uninstall/remove-repository (selected-rows))
     (save-repositories))
-  
-  
-  (method (uninstall/remove-repository row)
-    (let ((repository (get-user-data~ row)))
-      (uninstall-repository repository)
-      (remove-row~ (get-tree) row)))
   
   
   ;;;
@@ -395,43 +393,40 @@
   
   
   (method public (new-menu)
+    (define (new-repositories-menu objects)
+      (let ((menu (new Repositories-Menu client: (get-tree))))
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (new-repository-menu objects)
+      (let ((menu (new Repository-Menu client: (get-tree))))
+        (when (> (length objects) 1)
+          (set-visible?~ (locate~ menu 'new-package-separator) #f)
+          (set-visible?~ (locate~ menu 'new-package) #f))
+        (when (some? system-repository? objects)
+          (set-visible?~ (locate~ menu 'unregister-repository-separator) #f)
+          (set-visible?~ (locate~ menu 'unregister-repository) #f))
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (new-package-menu objects)
+      (let ((menu (new Package-Menu client: (get-tree))))
+        (unless (every? package-project-installable? objects)
+          (set-visible?~ (locate~ menu 'install-package-separator) #f)
+          (set-visible?~ (locate~ menu 'install-package) #f))
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
     (receive (kind objects) (selected-kind/objects)
       (if (not kind)
           {}
         (case kind
           ((repositories) (new-repositories-menu objects))
           ((repository) (new-repository-menu objects))
-          ((package) (new-package-menu objects))))))
-  
-  
-  (method (new-repositories-menu objects)
-    (let ((menu (new Repositories-Menu client: (get-tree))))
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (new-repository-menu objects)
-    (let ((menu (new Repository-Menu client: (get-tree))))
-      (when (> (length objects) 1)
-        (set-visible?~ (locate~ menu 'new-package-separator) #f)
-        (set-visible?~ (locate~ menu 'new-package) #f))
-      (when (some? system-repository? objects)
-        (set-visible?~ (locate~ menu 'unregister-repository-separator) #f)
-        (set-visible?~ (locate~ menu 'unregister-repository) #f))
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (new-package-menu objects)
-    (let ((menu (new Package-Menu client: (get-tree))))
-      (unless (every? package-project-installable? objects)
-        (set-visible?~ (locate~ menu 'install-package-separator) #f)
-        (set-visible?~ (locate~ menu 'install-package) #f))
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu)))
+          ((package) (new-package-menu objects)))))))
 
 
 ;;;

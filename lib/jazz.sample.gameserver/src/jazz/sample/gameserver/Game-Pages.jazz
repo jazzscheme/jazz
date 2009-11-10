@@ -91,30 +91,28 @@
   
   
   (method (serialize-game game)
-    (serialize-moves game))
+    (define (serialize-moves)
+      (loop (for move in (get-moves~ game))
+            (for rank from 0)
+            (collect
+              `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
+    
+    (serialize-moves))
   
   
   (method (deserialize-game request game goto current)
-    (deserialize-moves request game goto current))
-  
-  
-  (method (serialize-moves game)
-    (loop (for move in (get-moves~ game))
-          (for rank from 0)
-          (collect
-            `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
-  
-  
-  (method (deserialize-moves request game goto current)
-    (let (loop (rank 0))
-      (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
-        (when value
-          (let ((move (deserialize-move game value)))
-            (if (or (not goto) (<= rank goto))
-                (play-move~ game move)
-              (append-forward-history~ game move)))
-          (when (or goto (< rank current))
-            (loop (+ rank 1)))))))
+    (define (deserialize-moves)
+      (let (loop (rank 0))
+        (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
+          (when value
+            (let ((move (deserialize-move game value)))
+              (if (or (not goto) (<= rank goto))
+                  (play-move~ game move)
+                (append-forward-history~ game move)))
+            (when (or goto (< rank current))
+              (loop (+ rank 1)))))))
+    
+    (deserialize-moves))
   
   
   (method protected virtual (serialize-move move)

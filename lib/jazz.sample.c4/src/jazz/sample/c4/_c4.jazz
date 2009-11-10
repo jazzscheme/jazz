@@ -203,6 +203,28 @@
 
   
   (method override (initialize . rest)
+    (define (make-board)
+      (let ((board (make-vector board-size #f)))
+        (loop (for row from 0 below board-rows)
+              (loop (for col from 0 below board-columns)
+                    (let ((rank (square-rank row col)))
+                      (vector-set! board rank (new Square self row col)))))
+        board))
+    
+    (define (make-availables)
+      (let ((moves (make-vector board-columns #f))
+            (bottom-row (- board-rows 1)))
+        (loop (for col from 0 below board-columns)
+              (vector-set! moves col (get-square bottom-row col)))
+        moves))
+    
+    (define (setup-squares)
+      (loop (for row from 0 below board-rows)
+            (loop (for col from 0 below board-columns)
+                  (let ((square (get-square row col)))
+                    (set-up~ square (find-square (- row 1) col))
+                    (set-down~ square (find-square (+ row 1) col))))))
+    
     (bind-keywords ((rows 6) (columns 7)) rest
       (nextmethod)
       (set! board-rows rows)
@@ -212,31 +234,6 @@
       (set! available-moves (make-availables))
       (setup-squares)
       (setup-lines)))
-  
-  
-  (method (make-board)
-    (let ((board (make-vector board-size #f)))
-      (loop (for row from 0 below board-rows)
-            (loop (for col from 0 below board-columns)
-                  (let ((rank (square-rank row col)))
-                    (vector-set! board rank (new Square self row col)))))
-      board))
-  
-  
-  (method (make-availables)
-    (let ((moves (make-vector board-columns #f))
-          (bottom-row (- board-rows 1)))
-      (loop (for col from 0 below board-columns)
-            (vector-set! moves col (get-square bottom-row col)))
-      moves))
-  
-  
-  (method (setup-squares)
-    (loop (for row from 0 below board-rows)
-          (loop (for col from 0 below board-columns)
-                (let ((square (get-square row col)))
-                  (set-up~ square (find-square (- row 1) col))
-                  (set-down~ square (find-square (+ row 1) col))))))
   
   
   ;;;

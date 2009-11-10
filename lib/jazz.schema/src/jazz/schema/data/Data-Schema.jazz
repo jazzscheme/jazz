@@ -79,63 +79,59 @@
   
   
   (method public (print-schema printer)
+    (define (print-tables smaller)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (table)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}{_ 2}"))
+                    (print-schema~ table printer))
+                  (sort smaller (gather tables) key: get-name~)))
+      (format printer "){%}"))
+    
+    (define (print-views smaller)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (view)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}{_ 2}"))
+                    (print-schema~ view printer))
+                  (sort smaller (gather views) key: get-name~)))
+      (format printer "){%}"))
+    
+    (define (print-relations smaller)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (relation)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}{_ 2}"))
+                    (print-schema~ relation printer))
+                  (sort smaller (gather relations) key: get-name~)))
+      (format printer "){%}"))
+    
+    (define (print-procedures smaller)
+      (format printer " (")
+      (let ((first? #t))
+        (for-each (lambda (procedure)
+                    (if first?
+                        (set! first? #f)
+                      (format printer "{%}{_ 2}"))
+                    (print-schema~ procedure printer))
+                  (sort smaller (gather procedures) key: get-name~)))
+      (format printer ")"))
+    
     (receive (equal smaller greater) (sort-predicates)
       (format printer "~{{s} {s list?: #t}{%}"
               (identifier-name (type-name (class-of self)))
               properties)
-      (print-tables smaller printer)
-      (print-views smaller printer)
-      (print-relations smaller printer)
-      (print-procedures smaller printer)
+      (print-tables smaller)
+      (print-views smaller)
+      (print-relations smaller)
+      (print-procedures smaller)
       (format printer "}{%}")))
-  
-  
-  (method (print-tables smaller printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (table)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}{_ 2}"))
-                  (print-schema~ table printer))
-                (sort smaller (gather tables) key: get-name~)))
-    (format printer "){%}"))
-  
-  
-  (method (print-views smaller printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (view)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}{_ 2}"))
-                  (print-schema~ view printer))
-                (sort smaller (gather views) key: get-name~)))
-    (format printer "){%}"))
-  
-  
-  (method (print-relations smaller printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (relation)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}{_ 2}"))
-                  (print-schema~ relation printer))
-                (sort smaller (gather relations) key: get-name~)))
-    (format printer "){%}"))
-  
-  
-  (method (print-procedures smaller printer)
-    (format printer " (")
-    (let ((first? #t))
-      (for-each (lambda (procedure)
-                  (if first?
-                      (set! first? #f)
-                    (format printer "{%}{_ 2}"))
-                  (print-schema~ procedure printer))
-                (sort smaller (gather procedures) key: get-name~)))
-    (format printer ")"))
   
   
   ;;;
@@ -338,58 +334,124 @@
   
   
   (method (import-inventory source-name inventory reporter)
-    (import-tables source-name inventory reporter)
-    (import-views source-name inventory reporter)
-    (import-relations source-name inventory reporter)
-    (import-procedures source-name inventory reporter))
-  
-  
-  (method (import-tables source-name inventory reporter)
-    (let ((columns-consecutive? (columns-ordinal-position-consecutive?~ inventory)))
-      (with-closed ((tables (get-tables~ inventory)))
-        (for-each (lambda (table)
-                    (let* ((owner (get-owner~ table))
-                           (name (get-title~ table))
-                           (properties (table-properties table))
-                           (data-table (new Data-Table owner: owner name: name properties: properties)))
-                      (user-message~ reporter "Importing {a} Table {a}..." source-name name)
-                      (unless (getf properties linked?:)
-                        (set-primary-key~ data-table (create-primary-key data-table table))
-                        (set-columns~ data-table (create-columns data-table table columns-consecutive?))
-                        (set-indexes~ data-table (create-indexes data-table table))
-                        (set-triggers~ data-table (create-triggers data-table table))
-                        (set-constraints~ data-table (create-constraints data-table table)))
-                      (add-table data-table)))
-                  tables))))
-  
-  
-  (definition (table-properties table)
-    (let ((linked? (get-linked?~ table)))
-      (list
-        linked?:           linked?
-        description:       (get-description~ table)
-        validation-rule:   (get-validation-rule~ table)
-        validation-text:   (get-validation-text~ table)
-        connect:           (essay linked? (get-connect~ table))
-        source-table-name: (essay linked? (get-source-table-name~ table)))))
+    (define (import-tables)
+      (define (table-properties table)
+        (let ((linked? (get-linked?~ table)))
+          (list
+            linked?:           linked?
+            description:       (get-description~ table)
+            validation-rule:   (get-validation-rule~ table)
+            validation-text:   (get-validation-text~ table)
+            connect:           (essay linked? (get-connect~ table))
+            source-table-name: (essay linked? (get-source-table-name~ table)))))
+      
+      (let ((columns-consecutive? (columns-ordinal-position-consecutive?~ inventory)))
+        (with-closed ((tables (get-tables~ inventory)))
+          (for-each (lambda (table)
+                      (let* ((owner (get-owner~ table))
+                             (name (get-title~ table))
+                             (properties (table-properties table))
+                             (data-table (new Data-Table owner: owner name: name properties: properties)))
+                        (user-message~ reporter "Importing {a} Table {a}..." source-name name)
+                        (unless (getf properties linked?:)
+                          (set-primary-key~ data-table (create-primary-key data-table table))
+                          (set-columns~ data-table (create-columns data-table table columns-consecutive?))
+                          (set-indexes~ data-table (create-indexes data-table table))
+                          (set-triggers~ data-table (create-triggers data-table table))
+                          (set-constraints~ data-table (create-constraints data-table table)))
+                        (add-table data-table)))
+                    tables))))
+    
+    (define (import-views)
+      (define (view-properties view)
+        (list
+          text: (get-text~ view)))
+      
+      (with-closed ((views (get-views~ inventory)))
+        (for-each (lambda (view)
+                    (let* ((name (get-title~ view))
+                           (properties (view-properties view))
+                           (data-view (new Data-View name: name properties: properties)))
+                      (user-message~ reporter "Importing {a} View {a}..." source-name name)
+                      (add-view data-view)))
+                  views)))
+    
+    (define (import-relations)
+      (define (relation-properties relation)
+        (list
+          primary-table:        (get-primary-table~ relation)
+          primary-columns:      (get-primary-field-names~ relation)
+          foreign-table:        (get-foreign-table~ relation)
+          foreign-columns:      (get-foreign-field-names~ relation)
+          unique?:              (get-unique?~ relation)
+          update-cascade?:      (get-update-cascade?~ relation)
+          delete-cascade?:      (get-delete-cascade?~ relation)
+          left?:                (get-left?~ relation)
+          right?:               (get-right?~ relation)
+          checked?:             (get-checked?~ relation)
+          exclude-replication?: (get-exclude-replication?~ relation)))
+      
+      (with-closed ((relations (get-relations~ inventory)))
+        (for-each (lambda (relation)
+                    (let* ((name (get-title~ relation))
+                           (properties (relation-properties relation))
+                           (data-relation (new Data-Relation name: name properties: properties)))
+                      (user-message~ reporter "Importing {a} Relation {a}..." source-name name)
+                      (add-relation data-relation)))
+                  relations)))
+    
+    (define (import-procedures)
+      (define (procedure-properties procedure)
+        (list
+          text: (get-text~ procedure)))
+      
+      (with-closed ((procedures (get-procedures~ inventory)))
+        (for-each (lambda (procedure)
+                    (let* ((name (get-title~ procedure))
+                           (properties (procedure-properties procedure))
+                           (data-procedure (new Data-Procedure name: name properties: properties)))
+                      (user-message~ reporter "Importing {a} Procedure {a}..." source-name name)
+                      (add-procedure data-procedure)))
+                  procedures)))
+    
+    (import-tables)
+    (import-views)
+    (import-relations)
+    (import-procedures))
   
   
   (method (create-primary-key data-table table)
+    (define (primary-key-properties primary-key)
+      (list
+        clustered?:    (get-clustered?~ primary-key)
+        fill-factor:   (get-fill-factor~ primary-key)
+        fields/orders: (get-fields/orders~ primary-key)))
+    
     (with-closed ((primary-key (get-primary-key~ table)))
       (when primary-key
         (let ((name (get-title~ primary-key))
               (properties (primary-key-properties primary-key)))
           (new Data-Primary-Key name: name properties: properties)))))
   
-
-  (definition (primary-key-properties primary-key)
-    (list
-      clustered?:    (get-clustered?~ primary-key)
-      fill-factor:   (get-fill-factor~ primary-key)
-      fields/orders: (get-fields/orders~ primary-key)))
-  
   
   (method (create-columns data-table table columns-consecutive?)
+    (define (column-properties column ordinal-position)
+      (list
+        datatype:              (get-datatype~ column)
+        nullable?:             (get-nullable?~ column)
+        default-value:         (get-default-value~ column)
+        validation-rule:       (get-validation-rule~ column)
+        validation-text:       (get-validation-text~ column)
+        allow-zero-length?:    (get-allow-zero-length?~ column)
+        description:           (get-description~ column)
+        ordinal-position:      (either ordinal-position (get-ordinal-position~ column))
+        display-format:        (get-display-format~ column)
+        auto-increment?:       (get-auto-increment?~ column)
+        identity?:             (get-identity?~ column)
+        identity-replication?: (get-identity-replication?~ column)
+        identity-seed:         (get-identity-seed~ column)
+        identity-increment:    (get-identity-increment~ column)))
+    
     (let ((ordinal-position 0))
       (with-closed ((columns (get-columns~ table)))
         (map (lambda (column)
@@ -399,26 +461,18 @@
                  (new Data-Column name: name properties: properties)))
              columns))))
   
-
-  (definition (column-properties column ordinal-position)
-    (list
-      datatype:              (get-datatype~ column)
-      nullable?:             (get-nullable?~ column)
-      default-value:         (get-default-value~ column)
-      validation-rule:       (get-validation-rule~ column)
-      validation-text:       (get-validation-text~ column)
-      allow-zero-length?:    (get-allow-zero-length?~ column)
-      description:           (get-description~ column)
-      ordinal-position:      (either ordinal-position (get-ordinal-position~ column))
-      display-format:        (get-display-format~ column)
-      auto-increment?:       (get-auto-increment?~ column)
-      identity?:             (get-identity?~ column)
-      identity-replication?: (get-identity-replication?~ column)
-      identity-seed:         (get-identity-seed~ column)
-      identity-increment:    (get-identity-increment~ column)))
-  
   
   (method (create-indexes data-table table)
+    (define (index-properties index)
+      (list
+        unique?:               (get-unique?~ index)
+        clustered?:            (get-clustered?~ index)
+        ignore-duplicates?:    (get-ignore-duplicates?~ index)
+        recompute-statistics?: (get-recompute-statistics?~ index)
+        fill-factor:           (get-fill-factor~ index)
+        pad-index?:            (get-pad-index?~ index)
+        fields/orders:         (get-fields/orders~ index)))
+    
     (with-closed ((indexes (get-indexes~ table)))
       (map (lambda (index)
              (let ((name (get-title~ index))
@@ -426,19 +480,12 @@
                (new Data-Index name: name properties: properties)))
            indexes)))
   
-
-  (definition (index-properties index)
-    (list
-      unique?:               (get-unique?~ index)
-      clustered?:            (get-clustered?~ index)
-      ignore-duplicates?:    (get-ignore-duplicates?~ index)
-      recompute-statistics?: (get-recompute-statistics?~ index)
-      fill-factor:           (get-fill-factor~ index)
-      pad-index?:            (get-pad-index?~ index)
-      fields/orders:         (get-fields/orders~ index)))
-  
   
   (method (create-triggers data-table table)
+    (define (trigger-properties trigger)
+      (list
+        text: (get-text~ trigger)))
+    
     (with-closed ((triggers (get-triggers~ table)))
       (map (lambda (trigger)
              (let ((name (get-title~ trigger))
@@ -446,84 +493,20 @@
                (new Data-Trigger name: name properties: properties)))
            triggers)))
   
-
-  (definition (trigger-properties trigger)
-    (list
-      text: (get-text~ trigger)))
-  
   
   (method (create-constraints data-table table)
+    (define (constraint-properties constraint)
+      (list
+        text:                 (get-text~ constraint)
+        checked?:             (get-checked?~ constraint)
+        exclude-replication?: (get-exclude-replication?~ constraint)))
+    
     (with-closed ((constraints (get-constraints~ table)))
       (map (lambda (constraint)
              (let ((name (get-title~ constraint))
                    (properties (constraint-properties constraint)))
                (new Data-Constraint name: name properties: properties)))
            constraints)))
-  
-
-  (definition (constraint-properties constraint)
-    (list
-      text:                 (get-text~ constraint)
-      checked?:             (get-checked?~ constraint)
-      exclude-replication?: (get-exclude-replication?~ constraint)))
-  
-  
-  (method (import-views source-name inventory reporter)
-    (with-closed ((views (get-views~ inventory)))
-      (for-each (lambda (view)
-                  (let* ((name (get-title~ view))
-                         (properties (view-properties view))
-                         (data-view (new Data-View name: name properties: properties)))
-                    (user-message~ reporter "Importing {a} View {a}..." source-name name)
-                    (add-view data-view)))
-                views)))
-  
-
-  (definition (view-properties view)
-    (list
-      text: (get-text~ view)))
-  
-  
-  (method (import-relations source-name inventory reporter)
-    (with-closed ((relations (get-relations~ inventory)))
-      (for-each (lambda (relation)
-                  (let* ((name (get-title~ relation))
-                         (properties (relation-properties relation))
-                         (data-relation (new Data-Relation name: name properties: properties)))
-                    (user-message~ reporter "Importing {a} Relation {a}..." source-name name)
-                    (add-relation data-relation)))
-                relations)))
-  
-
-  (definition (relation-properties relation)
-    (list
-      primary-table:        (get-primary-table~ relation)
-      primary-columns:      (get-primary-field-names~ relation)
-      foreign-table:        (get-foreign-table~ relation)
-      foreign-columns:      (get-foreign-field-names~ relation)
-      unique?:              (get-unique?~ relation)
-      update-cascade?:      (get-update-cascade?~ relation)
-      delete-cascade?:      (get-delete-cascade?~ relation)
-      left?:                (get-left?~ relation)
-      right?:               (get-right?~ relation)
-      checked?:             (get-checked?~ relation)
-      exclude-replication?: (get-exclude-replication?~ relation)))
-  
-  
-  (method (import-procedures source-name inventory reporter)
-    (with-closed ((procedures (get-procedures~ inventory)))
-      (for-each (lambda (procedure)
-                  (let* ((name (get-title~ procedure))
-                         (properties (procedure-properties procedure))
-                         (data-procedure (new Data-Procedure name: name properties: properties)))
-                    (user-message~ reporter "Importing {a} Procedure {a}..." source-name name)
-                    (add-procedure data-procedure)))
-                procedures)))
-  
-
-  (definition (procedure-properties procedure)
-    (list
-      text: (get-text~ procedure)))
   
   
   ;;;

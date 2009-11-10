@@ -160,6 +160,15 @@
 
   
   (method override (setup-profile)
+    (define (create-profile)
+      (with-safe-execution "creating the profile"
+        (lambda ()
+          (set! profile (new (load-profile-class profile-class))))
+        continue-text: (list (format "to bypass this problem by using a generic profile class"))
+        continue-handler:
+        (lambda (err)
+          (set! profile (new Me)))))
+    
     (when (use-profile?)
       (create-profile)
       (set-profile-actions (get-class-actions profile))))
@@ -411,6 +420,48 @@
   
   
   (method (log-profile)
+    (define (install-profile)
+      (let ((source (find-unit-source profile-class)))
+        (when (not source)
+          (install-new-profile)
+          (set! source (find-unit-source profile-class)))
+        (register-alias 'Profile (get-list~ (get-parent~ source)))))
+    
+    (define (install-new-profile)
+      (let ((associations (list (cons 'profile profile-name)
+                                (cons 'profile-lowercase (downcase (symbol->string profile-name)))
+                                (cons 'profile-unit profile-unit)
+                                (cons 'profile-bindings (either profile-bindings 'jazz)))))
+        (copy-template {Directory Jazz "lib" "jedi" "templates" "profile"}
+                       {Directory Home}
+                       associations
+                       non-expanded-nodes: '("catalogs")))
+      (let ((repository (find-repository 'User)))
+        (let ((package-name profile-unit)
+              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-unit))))
+          (repository-add-package repository (load-package repository #f package-name package-path)))))
+    
+    (define (login-profile)
+      (receive (name unit bindings always-use?) ((require-service 'choose-login))
+        (set! profile-bindings bindings)
+        (when settings
+          (set-setting~ settings 'profile (if always-use? name #f))
+          (save-content~ settings)
+          (when always-use?
+            (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
+                                 name))))
+        (values name unit)))
+    
+    (define (standard-profile title)
+      (let ((name (string->symbol title))
+            (unit-name (string->symbol (format "profile.{a}" (downcase title)))))
+        (values name unit-name)))
+    
+    (define (system-profile)
+      (values 'Me 'jazz.profile)
+      @convert
+      (standard-profile (get-system-user-name)))
+    
     (define (load-profile-jazzini)
       (let ((file {File Profile ".jazzini"}))
         (when (exists?~ file)
@@ -426,67 +477,6 @@
           (set! profile-class (compose-name unit name))
           (install-profile)
           (load-profile-jazzini)))))
-  
-  
-  (definition (standard-profile title)
-    (let ((name (string->symbol title))
-          (unit-name (string->symbol (format "profile.{a}" (downcase title)))))
-      (values name unit-name)))
-  
-  
-  (definition (system-profile)
-    (values 'Me 'jazz.profile)
-    @convert
-    (standard-profile (get-system-user-name)))
-
-  
-  (method (login-profile)
-    (receive (name unit bindings always-use?) ((require-service 'choose-login))
-      (set! profile-bindings bindings)
-      (when settings
-        (set-setting~ settings 'profile (if always-use? name #f))
-        (save-content~ settings)
-        (when always-use?
-          (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
-                               name))))
-      (values name unit)))
-
-  
-  (method (install-profile)
-    (let ((source (find-unit-source profile-class)))
-      (when (not source)
-        (install-new-profile)
-        (set! source (find-unit-source profile-class)))
-      (register-alias 'Profile (get-list~ (get-parent~ source)))))
-
-  
-  (method (install-new-profile)
-    (let ((associations (list (cons 'profile profile-name)
-                              (cons 'profile-lowercase (downcase (symbol->string profile-name)))
-                              (cons 'profile-unit profile-unit)
-                              (cons 'profile-bindings (either profile-bindings 'jazz)))))
-      (copy-template {Directory Jazz "lib" "jedi" "templates" "profile"}
-                     {Directory Home}
-                     associations
-                     non-expanded-nodes: '("catalogs")))
-    (let ((repository (find-repository 'User)))
-      (let ((package-name profile-unit)
-            (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-unit))))
-        (repository-add-package repository (load-package repository #f package-name package-path)))))
-  
-  
-  (definition (standard-manifest-unit name)
-    (string->symbol (format "profile.{a}.{a}-Manifest" name name)))
-
-  
-  (method (create-profile)
-    (with-safe-execution "creating the profile"
-      (lambda ()
-        (set! profile (new (load-profile-class profile-class))))
-      continue-text: (list (format "to bypass this problem by using a generic profile class"))
-      continue-handler:
-      (lambda (err)
-        (set! profile (new Me)))))
 
 
   ;;;
@@ -706,27 +696,25 @@
 
   
   (method override (save-environment)
+    (define (save-application)
+      (when preferences-root
+        @convert/wait
+        (set-property~ preferences-designer preferences-root active-context: context branch: {})
+        (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) branch: {})))
+    
+    (define (save-all-guest)
+      @wait
+      (let ((stage (get-stage)))
+        (when stage
+          (for-each (lambda (frame)
+                      (when (is? frame Host-Frame)
+                        (let ((guest (get-guest~ frame)))
+                          (when guest
+                            (save-guest~ guest session-designer session)))))
+                    (get-children~ stage)))))
+    
     (save-application)
     (save-all-guest))
-  
-  
-  (method (save-application)
-    (when preferences-root
-      @convert/wait
-      (set-property~ preferences-designer preferences-root active-context: context branch: {})
-      (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) branch: {})))
-  
-  
-  (method (save-all-guest)
-    @wait
-    (let ((stage (get-stage)))
-      (when stage
-        (for-each (lambda (frame)
-                    (when (is? frame Host-Frame)
-                      (let ((guest (get-guest~ frame)))
-                        (when guest
-                          (save-guest~ guest session-designer session)))))
-                  (get-children~ stage)))))
 
   
   ;;;
@@ -1259,11 +1247,10 @@
                 (default-workspace)
               (child~ pref active))))))
     
+    (define (default-workspace)
+      (new Default-Workspace))
+    
     (apply-preferences~ (find-workspace)))
-  
-  
-  (method (default-workspace)
-    (new Default-Workspace))
   
   
   (method package (on-select-workspace evt)
@@ -1466,6 +1453,13 @@
   
   
   (method (setup-resources)
+    (define (setup-resources-directory type directory extension)
+      (when (exists?~ directory)
+        (iterate-directory~ directory
+          (lambda (file)
+            (when (ci=? (get-extension~ file) extension)
+              (register-resource type (get-base~ file) file))))))
+    
     (if (find-alias 'Jazz)
         (begin
           (setup-resources-directory 'bitmap {Directory Jazz "lib" "jazz" "resources" "bitmaps"} "png")
@@ -1474,14 +1468,6 @@
       (setup-resources-directory 'bitmap {Directory Bin "lib" "jazz" "resources" "bitmaps"} "png")
       (setup-resources-directory 'cursor {Directory Bin "lib" "jazz" "resources" "cursors"} "cur")
       (setup-resources-directory 'icon   {Directory Bin "lib" "jazz" "resources" "icons"} "png")))
-  
-  
-  (method (setup-resources-directory type directory extension)
-    (when (exists?~ directory)
-      (iterate-directory~ directory
-        (lambda (file)
-          (when (ci=? (get-extension~ file) extension)
-            (register-resource type (get-base~ file) file))))))
   
   
   (method public (register-resource type name file)
@@ -2150,36 +2136,34 @@
   
   
   (method override (context-update)
+    (define (modify-catalogs)
+      (let ((pref (get-preferences 'catalogs error?: #f)))
+        (when pref
+          (let ((cataloguer (get-cataloguer)))
+            (for-each (lambda (config)
+                        (let* ((name (get-name~ config))
+                               (catalog (get-catalog~ cataloguer name error?: #f)))
+                          (when (and catalog (get-active?~ config))
+                            (activate~ catalog))))
+                      (get-children~ pref))))))
+    
+    (define (modify-profile)
+      (when profile
+        (close~ profile))
+      (let ((pref (get-preferences {} error?: #f)))
+        (when pref
+          (let ((class (either (get-profile-class~ pref) Profile)))
+            (when class
+              (set! profile (new (autoload class)))))))
+      (when profile
+        (init~ profile))
+      (when profile
+        (finalize~ profile)))
+    
     (nextmethod)
     (modify-catalogs)
     (modify-profile)
     (user-message "Context set to {a}" context))
-  
-  
-  (method (modify-catalogs)
-    (let ((pref (get-preferences 'catalogs error?: #f)))
-      (when pref
-        (let ((cataloguer (get-cataloguer)))
-          (for-each (lambda (config)
-                      (let* ((name (get-name~ config))
-                             (catalog (get-catalog~ cataloguer name error?: #f)))
-                        (when (and catalog (get-active?~ config))
-                          (activate~ catalog))))
-                    (get-children~ pref))))))
-
-  
-  (method (modify-profile)
-    (when profile
-      (close~ profile))
-    (let ((pref (get-preferences {} error?: #f)))
-      (when pref
-        (let ((class (either (get-profile-class~ pref) Profile)))
-          (when class
-            (set! profile (new (autoload class)))))))
-    (when profile
-      (init~ profile))
-    (when profile
-      (finalize~ profile)))
 
   
   ;;;

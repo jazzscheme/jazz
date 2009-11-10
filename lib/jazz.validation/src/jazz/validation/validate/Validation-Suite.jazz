@@ -45,44 +45,40 @@
   (slot failed-assertions)
   
   
-  (define (default-feedback format-string . rest)
-    (apply format :terminal format-string rest)
-    (format :terminal "{%}"))
-  
-  
   (method override (initialize (feedback: feedback {}))
+    (define (default-feedback format-string . rest)
+      (apply format :terminal format-string rest)
+      (format :terminal "{%}"))
+    
     (nextmethod)
     (set! feedback~self (either feedback default-feedback)))
   
   
   (method public (validate (test: test #t) (report-success?: report-success? #t))
-    (validate-suite test)
+    (define (validate-suite)
+      (set! failed-assertions (new List-Factory))
+      (for-each invoke-tester (if (pair? test) test (list test)))
+      (feedback "Done"))
+    
+    (define (invoke-tester class)
+      (let ((tester (new class suite: self)))
+        (feedback "Testing {a}..." (identifier-name (type-name (class-of tester))))
+        (test~ tester)))
+    
+    (define (report-results (report-success?: report-success? #t))
+      (let ((failed (get-output~ failed-assertions)))
+        (if (null? failed)
+            (when report-success?
+              (format :terminal "Test suite completed successfully.{%}"))
+          (format :terminal "The following assertions failed:{%}{%}")
+          (for-each (lambda (info)
+                      (bind (title section message) info
+                        (format :terminal "{a}{a} : {a}{%}" title (if section (format ".{a}" section) "") message)))
+                    failed))))
+    
+    (validate-suite)
     (report-results report-success?: report-success?))
-
-
-  (method (validate-suite test)
-    (set! failed-assertions (new List-Factory))
-    (for-each invoke-tester (if (pair? test) test (list test)))
-    (feedback "Done"))
-  
-  
-  (method (invoke-tester class)
-    (let ((tester (new class suite: self)))
-      (feedback "Testing {a}..." (identifier-name (type-name (class-of tester))))
-      (test~ tester)))
   
   
   (method public (assertion-failed title section form)
-    (put~ failed-assertions (list title section form)))
-  
-  
-  (method (report-results (report-success?: report-success? #t))
-    (let ((failed (get-output~ failed-assertions)))
-      (if (null? failed)
-          (when report-success?
-            (format :terminal "Test suite completed successfully.{%}"))
-        (format :terminal "The following assertions failed:{%}{%}")
-        (for-each (lambda (info)
-                    (bind (title section message) info
-                      (format :terminal "{a}{a} : {a}{%}" title (if section (format ".{a}" section) "") message)))
-                  failed))))))
+    (put~ failed-assertions (list title section form)))))

@@ -92,15 +92,14 @@
   
   
   (method override (install-in-host host)
+    (define (setup-active-project)
+      (let* ((pref (get-preferences 'workbench))
+             (project (get-active-project~ pref))
+             (workbench (get-workbench)))
+        (when (and project workbench)
+          (activate-project (find-project~ workbench project)))))
+    
     (setup-active-project))
-  
-  
-  (method (setup-active-project)
-    (let* ((pref (get-preferences 'workbench))
-           (project (get-active-project~ pref))
-           (workbench (get-workbench)))
-      (when (and project workbench)
-        (activate-project (find-project~ workbench project)))))
   
   
   ;;;
@@ -515,6 +514,63 @@
   
   
   (method (import-pathname project pathname parent descendant? (recursive?: recursive? #t))
+    (define (determine-project-file? file)
+      #f
+      @convert-manifest
+      (let ((ext (get-extension~ file)))
+        (when (ci=? ext "jazz")
+          (let ((info (extract-jazz-file-category file)))
+            (when info
+              (receive (package type name extends) info
+                (when (in-manifest? extends)
+                  (subtype? (autoload extends) Project))))))))
+    
+    @convert-manifest
+    (define (extract-jazz-file-category file)
+      (define (extract-jazz-file-toplevel file)
+        (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+          (lambda (reader)
+            (catch (Read-Error err {})
+              (let ((in/toplevel (read reader)))
+                (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
+                    (values in/toplevel (read reader))
+                  (values {} in/toplevel)))))))
+      
+      (define (extract-package in)
+        (when (pair? (cdr in))
+          (let ((package (cadr in)))
+            (when (symbol? package)
+              package))))
+      
+      (define (extract-category toplevel)
+        (when (pair? toplevel)
+          (let ((type (car toplevel)))
+            (when (memq? type '(class interface package))
+              (let ((scan (cdr toplevel)))
+                (when (pair? scan)
+                  (let ((name (car scan)))
+                    (when (symbol? name)
+                      (if (or (and (eq? type 'class) (eq? name 'Object))
+                              (and (eq? type 'interface) (eq? name 'Unknown))
+                              (and (eq? type 'package) (eq? name 'Common)))
+                          (values type name {})
+                        (let ((scan (cdr scan)))
+                          (when (and (pair? scan) (eq? (car scan) 'extends))
+                            (let ((scan (cdr scan)))
+                              (when (pair? scan)
+                                (let ((extends (car scan)))
+                                  (when (symbol? extends)
+                                    (values type name extends))))))))))))))))
+      
+      (let ((in/toplevel (extract-jazz-file-toplevel file)))
+        (when in/toplevel
+          (receive (in toplevel) in/toplevel
+            (let ((package (extract-package in))
+                  (type/name/extends (extract-category toplevel)))
+              (when type/name/extends
+                (receive (type name extends) type/name/extends
+                  (values package type name extends))))))))
+    
     (let ((name (get-name~ pathname)))
       (typecase pathname
         ((Directory)
@@ -560,65 +616,6 @@
         (set-name~ designer project-file name design-events?: (not descendant?))
         (add-entry~ workbench name project-file))
       project-file))
-  
-  
-  (method (determine-project-file? file)
-    #f
-    @convert-manifest
-    (let ((ext (get-extension~ file)))
-      (when (ci=? ext "jazz")
-        (let ((info (extract-jazz-file-category file)))
-          (when info
-            (receive (package type name extends) info
-              (when (in-manifest? extends)
-                (subtype? (autoload extends) Project))))))))
-  
-  
-  @convert-manifest
-  (definition (extract-jazz-file-category file)
-    (define (extract-jazz-file-toplevel file)
-      (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-        (lambda (reader)
-          (catch (Read-Error err {})
-            (let ((in/toplevel (read reader)))
-              (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
-                  (values in/toplevel (read reader))
-                (values {} in/toplevel)))))))
-    
-    (define (extract-package in)
-      (when (pair? (cdr in))
-        (let ((package (cadr in)))
-          (when (symbol? package)
-            package))))
-    
-    (define (extract-category toplevel)
-      (when (pair? toplevel)
-        (let ((type (car toplevel)))
-          (when (memq? type '(class interface package))
-            (let ((scan (cdr toplevel)))
-              (when (pair? scan)
-                (let ((name (car scan)))
-                  (when (symbol? name)
-                    (if (or (and (eq? type 'class) (eq? name 'Object))
-                            (and (eq? type 'interface) (eq? name 'Unknown))
-                            (and (eq? type 'package) (eq? name 'Common)))
-                        (values type name {})
-                      (let ((scan (cdr scan)))
-                        (when (and (pair? scan) (eq? (car scan) 'extends))
-                          (let ((scan (cdr scan)))
-                            (when (pair? scan)
-                              (let ((extends (car scan)))
-                                (when (symbol? extends)
-                                  (values type name extends))))))))))))))))
-    
-    (let ((in/toplevel (extract-jazz-file-toplevel file)))
-      (when in/toplevel
-        (receive (in toplevel) in/toplevel
-          (let ((package (extract-package in))
-                (type/name/extends (extract-category toplevel)))
-            (when type/name/extends
-              (receive (type name extends) type/name/extends
-                (values package type name extends))))))))
   
   
   (definition (default-import-directory object (must-exist?: must-exist? #t))
@@ -979,6 +976,22 @@
   
   
   (method public (preprocess-current)
+    (define (preprocess-file moniker file)
+      (let ((proc
+              (lambda (thread)
+                (let ((project (get-project~ file)))
+                  (prepare-maps~ project)
+                  (prepare-directories~ project)
+                  (user-message "Preprocessing {a}..." moniker)
+                  (let ((output (get-output-log))
+                        (timer (new Timer)))
+                    (clear-results~ output)
+                    (select-results~ output)
+                    (select-palette Output-Log)
+                    (preprocess~ file project {} {} output force?: #t)
+                    (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
+        (proc {})))
+    
     (let ((guest (current-document)))
       (when (and guest (is? guest Document))
         (when (get-modified?~ guest)
@@ -989,23 +1002,6 @@
           (if (not file)
               (error "Unable to find {t} in workbench" moniker)
             (preprocess-file moniker file))))))
-  
-  
-  (method (preprocess-file moniker file)
-    (let ((proc
-           (lambda (thread)
-             (let ((project (get-project~ file)))
-               (prepare-maps~ project)
-               (prepare-directories~ project)
-               (user-message "Preprocessing {a}..." moniker)
-               (let ((output (get-output-log))
-                     (timer (new Timer)))
-                 (clear-results~ output)
-                 (select-results~ output)
-                 (select-palette Output-Log)
-                 (preprocess~ file project {} {} output force?: #t)
-                 (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
-      (proc {})))
   
   
   ;;;
@@ -1102,6 +1098,51 @@
   
   
   (method public (new-menu)
+    (define (new-group-menu object)
+      (let ((menu (new Group-Menu client: (get-tree))))
+        (update-group/project-menu menu)
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (new-workbench-menu object)
+      (let ((menu (new Workbench-Menu client: (get-tree))))
+        (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
+        (update-group/project-menu menu)
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (new-concrete-project-menu object)
+      (let ((menu (new Concrete-Project-Menu client: (get-tree))))
+        (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
+        (update-group/project-menu menu)
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (new-project-menu object)
+      (let ((menu (new Project-Menu client: (get-tree))))
+        (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
+        (update-group/project-menu menu)
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
+    (define (update-group/project-menu menu)
+      (define (hide-item name)
+        (let ((item (locate-component~ menu name)))
+          (when item
+            (set-visible?~ item #f))))
+      
+      (let ((tree (get-tree)))
+        (when (> (length (get-selection~ tree)) 1)
+          (hide-item 'add-project)
+          (hide-item 'add-file)
+          (hide-item 'install-project)
+          (hide-item 'import-files)
+          (hide-item 'import-directory))))
+    
     (let ((object (selected-object)))
       (typecase object
         ((Workbench) (new-workbench-menu object))
@@ -1113,56 +1154,6 @@
         (else
          (when object
            (new Element-Menu client: (get-tree)))))))
-  
-  
-  (method (new-group-menu object)
-    (let ((menu (new Group-Menu client: (get-tree))))
-      (update-group/project-menu menu)
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (new-workbench-menu object)
-    (let ((menu (new Workbench-Menu client: (get-tree))))
-      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
-      (update-group/project-menu menu)
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (new-concrete-project-menu object)
-    (let ((menu (new Concrete-Project-Menu client: (get-tree))))
-      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
-      (update-group/project-menu menu)
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (new-project-menu object)
-    (let ((menu (new Project-Menu client: (get-tree))))
-      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
-      (update-group/project-menu menu)
-      (cleanup-separators~ menu)
-      (layout-menu~ menu)
-      menu))
-  
-  
-  (method (update-group/project-menu menu)
-    (define (hide-item name)
-      (let ((item (locate-component~ menu name)))
-        (when item
-          (set-visible?~ item #f))))
-    
-    (let ((tree (get-tree)))
-      (when (> (length (get-selection~ tree)) 1)
-        (hide-item 'add-project)
-        (hide-item 'add-file)
-        (hide-item 'install-project)
-        (hide-item 'import-files)
-        (hide-item 'import-directory))))
   
   
   ;;;

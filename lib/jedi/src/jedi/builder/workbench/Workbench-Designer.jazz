@@ -54,13 +54,12 @@
   
   
   (method override (initialize . rest)
+    (define (install-projects-designers)
+      (for-each-project~ reference
+        add-designer))
+    
     (apply nextmethod rest)
     (install-projects-designers))
-  
-  
-  (method (install-projects-designers)
-    (for-each-project~ reference
-      add-designer))
   
   
   (method (cleanup-project-designers)
@@ -171,24 +170,23 @@
   
   
   (method (find-modification-owner components)
-    (let ((owner (find-components-owner components)))
+    (define (find-components-owner)
+      (letrec ((find-owner-project
+                 (lambda (component)
+                   (if (or (eq? component reference) (is? component Project))
+                       component
+                     (find-owner-project (get-parent~ component))))))
+        (if (pair? components)
+            (let ((owners (remove-duplicates (map find-owner-project components))))
+              (if (> (length owners) 1)
+                  (error "This operation is not yet supported accross multiple projects")
+                (car owners)))
+          (find-owner-project components))))
+    
+    (let ((owner (find-components-owner)))
       (if (not (get-effective-editable?~ owner))
           (error "Project {a} is not editable"  (get-presentation~ owner))
         owner)))
-  
-  
-  (method (find-components-owner components)
-    (letrec ((find-owner-project
-              (lambda (component)
-                (if (or (eq? component reference) (is? component Project))
-                    component
-                  (find-owner-project (get-parent~ component))))))
-      (if (pair? components)
-          (let ((owners (remove-duplicates (map find-owner-project components))))
-            (if (> (length owners) 1)
-                (error "This operation is not yet supported accross multiple projects")
-              (car owners)))
-        (find-owner-project components))))
 
   
   ;;;

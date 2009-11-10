@@ -253,6 +253,9 @@
   
   
   (method (package-units package)
+    (define (package-product package)
+      (assq (package-name package) (package-products package)))
+    
     (let ((fact (new List-Factory)))
       (let ((product (package-product package)))
         (if product
@@ -262,10 +265,6 @@
                 (cdr pair)))
           (debug "Unable to find package product for" (package-name package))
           '()))))
-  
-  
-  (method (package-product package)
-    (assq (package-name package) (package-products package)))
   
   
   (method (unit-subunits unit-name)
@@ -646,6 +645,17 @@
   
   
   (method (generate-jazzwebsite)
+    (define (render-jazzwebsite-page page)
+      (let* ((content JazzWebsite-Content)
+             (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
+             (preferences (new JML-Preferences))
+             (renderer (new XHTML-Renderer preferences))
+             (html (first-child~ page)))
+        ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
+        (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: (get-eol-encoding))
+          (lambda (printer)
+            (render~ renderer html printer)))))
+    
     (let* ((site (load-jml JazzWebsite-Site))
            (site (transform-jml site (new JazzWebsite-Transformation)))
            (pages (get-children~ site)))
@@ -654,18 +664,6 @@
                   (render-jazzwebsite-page page))
                 pages)
       (user-message "Website generated")))
-  
-  
-  (method (render-jazzwebsite-page page)
-    (let* ((content JazzWebsite-Content)
-           (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
-           (preferences (new JML-Preferences))
-           (renderer (new XHTML-Renderer preferences))
-           (html (first-child~ page)))
-      ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
-      (call-with-output-file (list path: (parse~ file) char-encoding: 'ISO-8859-1 eol-encoding: (get-eol-encoding))
-        (lambda (printer)
-          (render~ renderer html printer)))))
   
   
   (method (export-latest-news)

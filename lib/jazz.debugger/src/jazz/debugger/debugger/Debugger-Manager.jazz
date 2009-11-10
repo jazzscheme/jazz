@@ -134,8 +134,11 @@
   (method public (detach-process process best-process)
     (when (and best-process (debugged=? focused-process process))
       (set-focus-process best-process))
-    (when (get-processes-view)
-      (update-processes~ (get-processes-view))))
+    (let ((view (get-processes-view)))
+      (when view
+        (update-processes~ view)
+        (unless (selected-process~ view)
+          (process-changed #f)))))
   
   
   (method public (for-each-process proc)
@@ -154,8 +157,11 @@
       (set! process new-process)
       (when (visit-debugged process)
         (update-processes-highlight process))
-      (when (get-threads-view)
-        (process-changed~ (get-threads-view) process))))
+      (let ((view (get-threads-view)))
+        (when view
+          (process-changed~ view process)
+          (unless (selected-thread~ view)
+            (thread-changed #f))))))
   
   
   (definition (update-processes-highlight process)
@@ -271,9 +277,7 @@
           (if view
               (set-selected-process~ view process)
             (process-changed process)))
-        (when (and view (view-visible?~ view))
-          (when (visit-debugged process)
-            (update-processes-highlight process)))))
+        (update-processes-highlight process)))
     
     (define (update-thread)
       (when (debugged=? process process~self)

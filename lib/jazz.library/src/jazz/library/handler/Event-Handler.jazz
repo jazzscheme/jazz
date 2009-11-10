@@ -92,16 +92,20 @@
   
   
   (method public (invoke-target target event (action: action {}))
+    (define (record-event)
+      (let ((appl (get-application)))
+        (when (and appl (macro-recording?~ appl))
+          (let ((action/handler self)
+                (recorder (get-recorder~ appl)))
+            (record~ recorder action/handler event)))))
+      
     (let ((proc (dispatch target method-name)))
       (cond ((not proc)
              (error "Unable to find event handler method: {t}" method-name))
             ((is? target Event-Consumer)
              (let ((consumer (get-event-consumer~ target)))
                (prog1 (deliver-event~ consumer self target proc event)
-                 (let ((appl (get-application)))
-                   (when (and appl (macro-recording?~ appl) (record-event?~ appl event))
-                     (let ((action/handler self)
-                           (recorder (get-recorder~ appl)))
-                       (record~ recorder action/handler event)))))))
+                 (record-event))))
             (else
-             (proc target event)))))))
+             (prog1 (proc target event)
+               (record-event))))))))

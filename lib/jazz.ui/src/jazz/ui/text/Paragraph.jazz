@@ -448,29 +448,28 @@
 
   
   (method override (draw surface context lh lv)
+    (define (draw-bullet h <fx> v <fx> left <fx>) <void>
+      (let* ((height (get-height~ (car lines)))
+             (size (fxround (percent 40 height)))
+             (outside (either (get-bullet-outside~ format) Bullet-Outside))
+             (inside (either (get-bullet-inside~ format) Bullet-Inside))
+             (vert (+ (fxround/ (- height size) 2) 1)))
+        ;; Can you believe that drawing an ellipse of size 8 is buggy under Windows!!!
+        (when (= size 8)
+          (set! size 7))
+        (ellipse~ surface (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
+    
     (let* ((text <Text-View> parent)
            (tabs (get-tabs~ text))
            (left (get-left-margin~ format))
            (h left)
            (v 0))
       (when (get-bulleted?~ format)
-        (draw-bullet surface h v left))
+        (draw-bullet h v left))
       (for-each (lambda (line <Line>)
                   (draw-line~ line surface context h v tabs left)
                   (increase! v (get-height~ line)))
                 lines)))
-  
-  
-  (method (draw-bullet surface <Surface> h <fx> v <fx> left <fx>) <void>
-    (let* ((height (get-height~ (car lines)))
-           (size (fxround (percent 40 height)))
-           (outside (either (get-bullet-outside~ format) Bullet-Outside))
-           (inside (either (get-bullet-inside~ format) Bullet-Inside))
-           (vert (+ (fxround/ (- height size) 2) 1)))
-      ;; Can you believe that drawing an ellipse of size 8 is buggy under Windows!!!
-      (when (= size 8)
-        (set! size 7))
-      (ellipse~ surface (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
 
 
   ;;;
@@ -479,6 +478,16 @@
   
   
   (method protected (replace-range start <fx> end str <string>) <void>
+    (define (find-propagatable-style runs <list>)
+      (continuation-capture
+        (lambda (return)
+          (for-each-reversed (lambda (run <Run>)
+                               (let ((style (get-style~ run)))
+                                 (when (propagate?~ style)
+                                   (continuation-return return style))))
+                             runs)
+          (get-default-style~ parent))))
+    
     (let* ((text <Text-View> parent)
            (inserted <fx> (cardinality str))
            (end <fx> (either end (cardinality string)))
@@ -503,6 +512,13 @@
   
   
   (method protected (replace-runs start <fx> end replacement)
+    (define (runs->str runs <list>) <string>
+      (let ((printer (open-output-string)))
+        (for-each (lambda (run <Run>)
+                    (display (get-string~ run) printer))
+                  runs)
+        (get-output-string printer)))
+    
     (let* ((str (runs->str replacement))
            (inserted <fx> (cardinality str))
            (end <fx> (either end (cardinality string)))
@@ -526,17 +542,6 @@
       (set! runs (coalesce-runs (append! before replacement after)))))
   
   
-  (method (find-propagatable-style runs <list>)
-    (continuation-capture
-      (lambda (return)
-        (for-each-reversed (lambda (run <Run>)
-                             (let ((style (get-style~ run)))
-                               (when (propagate?~ style)
-                                 (continuation-return return style))))
-                           runs)
-        (get-default-style~ parent))))
-  
-  
   (method protected (replace-beginning runs <list>) <void>
     (replace-runs 0 0 runs))
   
@@ -544,14 +549,6 @@
   (method protected (replace-ending runs <list>) <void>
     (let ((len (cast <fx> (cardinality string))))
       (replace-runs len len runs)))
-  
-  
-  (definition (runs->str runs <list>) <string>
-    (let ((printer (open-output-string)))
-      (for-each (lambda (run <Run>)
-                  (display (get-string~ run) printer))
-                runs)
-      (get-output-string printer)))
 
 
 

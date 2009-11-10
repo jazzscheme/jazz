@@ -287,10 +287,15 @@
   
   
   (method override (mouse-down pos)
+    (define (start-tracking)
+      (set! tracking? #t)
+      (set! tracking-start (get-place pos))
+      (set! tracking-start-pos (get-pos)))
+    
     (acquire-capture)
     (cond ((in-rect? pos (up-rect)) (line-up))
           ((in-rect? pos (down-rect)) (line-down))
-          ((in-rect? pos (thumb-rect)) (start-tracking pos))
+          ((in-rect? pos (thumb-rect)) (start-tracking))
           (else
            (let ((place (get-place pos))
                  (info (thumb-range)))
@@ -301,40 +306,27 @@
   
   
   (method override (drag-move pos)
+    (define (track-thumb)
+      (let* ((b (get-breadth))
+             (e (get-extent))
+             (r (- (get-end~ range) (get-start~ range)))
+             (dv (- (get-place pos) tracking-start))
+             (shaft (- e b b))
+             (dp (quotient (* dv r) shaft)))
+        (call-scroll 'thumb-track (+ tracking-start-pos dp))))
+    
     (when tracking?
-      (track-thumb pos)))
+      (track-thumb)))
   
   
   (method override (drag-up pos . rest)
+    (define (end-tracking)
+      (set! tracking? #f))
+    
     (kill-autorepeat)
     (release-capture)
     (when tracking?
       (end-tracking)))
-  
-  
-  ;;;
-  ;;;; Thumb
-  ;;;
-  
-  
-  (method (start-tracking pos)
-    (set! tracking? #t)
-    (set! tracking-start (get-place pos))
-    (set! tracking-start-pos (get-pos)))
-  
-  
-  (method (track-thumb pos)
-    (let* ((b (get-breadth))
-           (e (get-extent))
-           (r (- (get-end~ range) (get-start~ range)))
-           (dv (- (get-place pos) tracking-start))
-           (shaft (- e b b))
-           (dp (quotient (* dv r) shaft)))
-      (call-scroll 'thumb-track (+ tracking-start-pos dp))))
-  
-  
-  (method (end-tracking)
-    (set! tracking? #f))
   
   
   ;;;
@@ -382,6 +374,15 @@
   
   
   (method override (draw surface <Surface> context lh lv)
+    (define (draw-button rect direction)
+      (draw-raised~ surface rect)
+      (let ((inflated (inflate-rect rect -1 -1)))
+        (fill-rect~ surface inflated {Color name: Medium})
+        (set-color~ surface {Color name: Black})
+        (let ((dh (if (eq? orientation 'horz) 1 0))
+              (dv (if (eq? orientation 'horz) -1 0)))
+          (draw-arrow-tip~ surface (+ (get-left~ inflated) 3 dh) (+ (get-top~ inflated) 4 dv) 3 direction))))
+    
     (let ((bounds (get-bounds))
           (up-rect (up-rect))
           (down-rect (down-rect))
@@ -389,8 +390,8 @@
           (flat? (flat-look?)))
       (fill-rect~ surface bounds (if *debug-paint* (cycle-debug-color!) (get-background-color)))
       (cond (flat?
-             (draw-button surface up-rect (case orientation ((vert) 'up) ((horz) 'left)))
-             (draw-button surface down-rect (case orientation ((vert) 'down) ((horz) 'right))))
+             (draw-button up-rect (case orientation ((vert) 'up) ((horz) 'left)))
+             (draw-button down-rect (case orientation ((vert) 'down) ((horz) 'right))))
             (else
              (draw-scroll-bar~ surface up-rect (case orientation ((vert) 'up) ((horz) 'left)))
              (draw-scroll-bar~ surface down-rect (case orientation ((vert) 'down) ((horz) 'right)))))
@@ -416,43 +417,27 @@
           (line~ surface 4 (+ v 7) 9 (+ v 7))))))
   
   
-  (method (draw-button surface rect direction)
-    (draw-raised~ surface rect)
-    (let ((inflated (inflate-rect rect -1 -1)))
-      (fill-rect~ surface inflated {Color name: Medium})
-      (set-color~ surface {Color name: Black})
-      (let ((dh (if (eq? orientation 'horz) 1 0))
-            (dv (if (eq? orientation 'horz) -1 0)))
-        (draw-arrow-tip~ surface (+ (get-left~ inflated) 3 dh) (+ (get-top~ inflated) 4 dv) 3 direction))))
-  
-  
   ;;;
   ;;;; Auto Repeat
   ;;;
 
 
   (method (setup-autorepeat action)
+    (define (pulse-action)
+      (case action
+        ((line-up)   (line-up))
+        ((line-down) (line-down))
+        ((page-up)   (page-up))
+        ((page-down) (page-down))))
+    
     (when (not autorepeat-pulse)
-      (set! autorepeat-pulse (new Pulse 'autorepeat autorepeat-period (lambda () (pulse-action action)) delay: autorepeat-delay))))
-
+      (set! autorepeat-pulse (new Pulse 'autorepeat autorepeat-period pulse-action delay: autorepeat-delay))))
+  
 
   (method (kill-autorepeat)
     (when autorepeat-pulse
       (close~ autorepeat-pulse)
       (set! autorepeat-pulse #f)))
-  
-  
-  ;;;
-  ;;;; Pulse
-  ;;;
-  
-  
-  (method (pulse-action action)
-    (case action
-      ((line-up)   (line-up))
-      ((line-down) (line-down))
-      ((page-up)   (page-up))
-      ((page-down) (page-down))))
   
   
   ;;;

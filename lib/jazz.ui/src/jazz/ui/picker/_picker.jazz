@@ -192,14 +192,13 @@
 
 
 (definition (end-pick)
+  (define (close-overlays)
+    (for-each remove-overlay All-Overlays)
+    (set! All-Overlays '()))
+  
   (set! In-Pick? #f)
   (set-shortcut-hook~ (get-application) {})
   (close-overlays))
-
-
-(definition (close-overlays)
-  (for-each remove-overlay All-Overlays)
-  (set! All-Overlays '()))
 
 
 ;;;
@@ -378,6 +377,18 @@
   
   
   (method override (context-menu pos)
+    (define (setup-actions menu view pos)
+      (for-each (lambda (item)
+                  (let* ((action-handler (get-action-handler~ item))
+                         (execute (lambda (event)
+                                    (end-pick)
+                                    (when action-handler
+                                      (let* ((properties (augment view: view pos: pos (get-properties~ action-handler)))
+                                             (event (apply new Action-Event :action self properties)))
+                                        (invoke~ action-handler self event))))))
+                    (set-action-handler~ item (new Event-Handler execute: execute))))
+                (get-children~ menu)))
+    
     (if (not menu)
         (nextmethod pos)
       (close-popups)
@@ -387,19 +398,6 @@
           (setup-actions menu view pos)
           (track-popup-menu~ root menu (acquire~ root view pos))
           processed))))
-  
-  
-  (method (setup-actions menu view pos)
-    (for-each (lambda (item)
-                (let* ((action-handler (get-action-handler~ item))
-                       (execute (lambda (event)
-                                  (end-pick)
-                                  (when action-handler
-                                    (let* ((properties (augment view: view pos: pos (get-properties~ action-handler)))
-                                           (event (apply new Action-Event :action self properties)))
-                                      (invoke~ action-handler self event))))))
-                  (set-action-handler~ item (new Event-Handler execute: execute))))
-              (get-children~ menu)))
   
   
   ;;;

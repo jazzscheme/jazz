@@ -128,11 +128,6 @@
                       children
                       (naturals 0 (length children)))
             {})))))
-  
-  
-  (method (redraw-header n)
-    (bind (lf . rg) (get-borders~ (child-ranked n))
-      (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
 
 
   ;;;
@@ -145,6 +140,10 @@
   
   
   (method public (set-selection sel (force?: force? #f) (user-origin?: user-origin? #f))
+    (define (redraw-header n)
+      (bind (lf . rg) (get-borders~ (child-ranked n))
+        (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
+    
     (when #t @parameterized-fix-me (/= sel selection)
       (let ((old selection))
         (when old
@@ -205,72 +204,70 @@
 
   
   (method override (draw surface context lh lv)
+    (define (draw-top surface size)
+      (let* ((left    0)
+             (top     0)
+             (right   (get-width~ size))
+             (bottom  (get-height~ size))
+             (content (if (null? children) top (+ top headers-height -1))))
+        (set-font~ surface {Font name: Label})
+        (draw-edge~ surface (new Rect left content right bottom) inner: 'raised outer: 'raised edges: '(right bottom))
+        (set-color~ surface {Color name: Light})
+        (move-to~ surface 0 content)
+        (line-to~ surface 0 bottom)
+        (for-each (lambda (header n)
+                    (let* ((title (localize (get-title~ header)))
+                           (title-color (get-title-color~ header))
+                           (selected? (= n selection))
+                           (top (if selected? 0 2)))
+                      (bind (lf . rg) (get-borders~ header)
+                        (when selected?
+                          (decrease! lf 2)
+                          (increase! rg 2))
+                        ;; right
+                        (unless (= (+ n 1) selection)
+                          (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
+                          (set-color~ surface {Color name: Black})
+                          (move-to~ surface (- rg 2) (+ top 1))
+                          (line-to~ surface (- rg 1) (+ top 2)))
+                        ;; top
+                        (set-color~ surface {Color name: Light})
+                        (move-to~ surface (- rg 3) top)
+                        (line-to-preserve~ surface (+ lf 2) top)
+                        ;; left
+                        (unless (= (- n 1) selection)
+                          (line-to-preserve~ surface lf (+ top 2))
+                          (line-to~ surface lf content))
+                        ;; bottom
+                        (unless selected?
+                          (move-to~ surface lf content)
+                          (line-to~ surface rg content))
+                        (set-text-color~ surface (either title-color {Color name: Black}))
+                        (draw-text~ surface (+ lf 5) (+ top 3) title))))
+                  children
+                  (naturals 0 (length children)))
+        (set-color~ surface {Color name: Light})
+        (if (null? children)
+            (line~ surface 0 0 right 0)
+          (let ((h (cdr (get-borders~ (last children)))))
+            (line~ surface h content (- right 1) content)))))
+    
+    (define (draw-bottom surface size)
+      (let* ((left    0)
+             (top     0)
+             (right   (- (get-width~ size) 1))
+             (bottom  (- (get-height~ size) 1))
+             (content (- bottom headers-height)))
+        (set-color~ surface {Color name: Light})
+        (set-font~ surface {Font name: Label})
+        (move-to~ surface left content)
+        (line-to~ surface left top)
+        (line-to~ surface right top)))
+    
     (let ((size (get-size)))
       (case orientation
         ((top) (draw-top surface size))
         ((bottom) (draw-bottom surface size)))))
-  
-  
-  (method (draw-top surface size)
-    (let* ((left    0)
-           (top     0)
-           (right   (get-width~ size))
-           (bottom  (get-height~ size))
-           (content (if (null? children) top (+ top headers-height -1))))
-      (set-font~ surface {Font name: Label})
-      (draw-edge~ surface (new Rect left content right bottom) inner: 'raised outer: 'raised edges: '(right bottom))
-      (set-color~ surface {Color name: Light})
-      (move-to~ surface 0 content)
-      (line-to~ surface 0 bottom)
-      (for-each (lambda (header n)
-                  (let* ((title (localize (get-title~ header)))
-                         (title-color (get-title-color~ header))
-                         (selected? (= n selection))
-                         (top (if selected? 0 2)))
-                    (bind (lf . rg) (get-borders~ header)
-                      (when selected?
-                        (decrease! lf 2)
-                        (increase! rg 2))
-                      ;; right
-                      (unless (= (+ n 1) selection)
-                        (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
-                        (set-color~ surface {Color name: Black})
-                        (move-to~ surface (- rg 2) (+ top 1))
-                        (line-to~ surface (- rg 1) (+ top 2)))
-                      ;; top
-                      (set-color~ surface {Color name: Light})
-                      (move-to~ surface (- rg 3) top)
-                      (line-to-preserve~ surface (+ lf 2) top)
-                      ;; left
-                      (unless (= (- n 1) selection)
-                        (line-to-preserve~ surface lf (+ top 2))
-                        (line-to~ surface lf content))
-                      ;; bottom
-                      (unless selected?
-                        (move-to~ surface lf content)
-                        (line-to~ surface rg content))
-                      (set-text-color~ surface (either title-color {Color name: Black}))
-                      (draw-text~ surface (+ lf 5) (+ top 3) title))))
-                children
-                (naturals 0 (length children)))
-      (set-color~ surface {Color name: Light})
-      (if (null? children)
-          (line~ surface 0 0 right 0)
-        (let ((h (cdr (get-borders~ (last children)))))
-          (line~ surface h content (- right 1) content)))))
-  
-  
-  (method (draw-bottom surface size)
-    (let* ((left    0)
-           (top     0)
-           (right   (- (get-width~ size) 1))
-           (bottom  (- (get-height~ size) 1))
-           (content (- bottom headers-height)))
-      (set-color~ surface {Color name: Light})
-      (set-font~ surface {Font name: Label})
-      (move-to~ surface left content)
-      (line-to~ surface left top)
-      (line-to~ surface right top)))
 
 
   ;;;

@@ -186,36 +186,34 @@
   
   
   (method protected virtual (new-choices-menu)
+    (define (new-choices-menu-plain)
+      (when choices
+        (let ((current (get-entry))
+              (menu (new Context-Menu))
+              (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
+          (for-each (lambda (choice)
+                      (if (not choice)
+                          (new Separator-Item parent: menu)
+                        (let ((title (present-choice choice)))
+                          (new Check-Item parent: menu title: title checked?: (string=? title current) user-data: choice action-handler: handler))))
+                    choices)
+          menu)))
+    
+    (define (new-choices-menu-condensed)
+      (when choices
+        (let ((current (get-entry))
+              (menu (new Context-Menu))
+              (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
+          (let ((create-leaf (lambda (value string parent)
+                               (new Check-Item parent: parent title: string checked?: (equal? string current) user-data: (cons value string) action-handler: handler)))
+                (get-string (lambda (value) (present-choice value))))
+            (make-condensed-menu~ menu choices create-leaf key: get-string)
+            menu))))
+    
     (when choices
       (if condensed?
           (new-choices-menu-condensed)
         (new-choices-menu-plain))))
-  
-  
-  (method protected virtual (new-choices-menu-plain)
-    (when choices
-      (let ((current (get-entry))
-            (menu (new Context-Menu))
-            (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
-        (for-each (lambda (choice)
-                    (if (not choice)
-                        (new Separator-Item parent: menu)
-                      (let ((title (present-choice choice)))
-                        (new Check-Item parent: menu title: title checked?: (string=? title current) user-data: choice action-handler: handler))))
-                  choices)
-        menu)))
-  
-  
-  (method (new-choices-menu-condensed)
-    (when choices
-      (let ((current (get-entry))
-            (menu (new Context-Menu))
-            (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
-        (let ((create-leaf (lambda (value string parent)
-                             (new Check-Item parent: parent title: string checked?: (equal? string current) user-data: (cons value string) action-handler: handler)))
-              (get-string (lambda (value) (present-choice value))))
-          (make-condensed-menu~ menu choices create-leaf key: get-string)
-          menu))))
   
   
   ;;;

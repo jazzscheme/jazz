@@ -1339,6 +1339,16 @@
   
   
   (method public virtual (layout-scrollee)
+    (define (fit-in-scroller)
+      (let ((bottom (get-bottom))
+            (fit (get-display-height)))
+        (when (< bottom fit)
+          (scroll (new Point 0 (- fit bottom)))))
+      (let ((right (get-right))
+            (fit (get-display-width)))
+        (when (< right fit)
+          (scroll (new Point (- fit right) 0)))))
+    
     (unless update-locked?
       (if (not scroller)
           (layout-scrollee-content)
@@ -1364,17 +1374,6 @@
   
   (method public virtual (layout-scrollee-content)
     )
-  
-  
-  (method (fit-in-scroller)
-    (let ((bottom (get-bottom))
-          (fit (get-display-height)))
-      (when (< bottom fit)
-        (scroll (new Point 0 (- fit bottom)))))
-    (let ((right (get-right))
-          (fit (get-display-width)))
-      (when (< right fit)
-        (scroll (new Point (- fit right) 0)))))
   
   
   (method public virtual (scrollee-size) <Dimension>
@@ -2203,6 +2202,22 @@
   
   
   (method public (track-hovering (time: time Hovering-Time))
+    (define (check-hovering start)
+      (if (neq? (mouse-view) self)
+          (cancel-hovering)
+        (when hover-history
+          (let ((pos (mouse-position)))
+            (if (< (length hover-history) Hovering-Steps)
+                (set! hover-history (cons pos hover-history))
+              (if (every? (lambda (point)
+                            (< (distance point pos) Hovering-Tolerance))
+                          hover-history)
+                  (begin
+                    (cancel-hovering)
+                    (call-mouse-hover pos))
+                (set! hover-history (cons pos hover-history))
+                (set-cdr! (tail hover-history (- Hovering-Steps 1)) '())))))))
+    
     (cancel-hovering)
     (let ((start (mouse-position))
           (period (/ time Hovering-Steps)))
@@ -2215,23 +2230,6 @@
       (close~ hover-pulse)
       (set! hover-history {})
       (set! hover-pulse {})))
-  
-  
-  (method (check-hovering start)
-    (if (neq? (mouse-view) self)
-        (cancel-hovering)
-      (when hover-history
-        (let ((pos (mouse-position)))
-          (if (< (length hover-history) Hovering-Steps)
-              (set! hover-history (cons pos hover-history))
-            (if (every? (lambda (point)
-                          (< (distance point pos) Hovering-Tolerance))
-                        hover-history)
-                (begin
-                  (cancel-hovering)
-                  (call-mouse-hover pos))
-              (set! hover-history (cons pos hover-history))
-              (set-cdr! (tail hover-history (- Hovering-Steps 1)) '())))))))
   
 
   ;;;

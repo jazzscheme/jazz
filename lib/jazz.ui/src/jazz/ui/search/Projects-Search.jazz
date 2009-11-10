@@ -66,22 +66,21 @@
   
   
   (method override (finish rest)
+    (define (setup-catalogs)
+      (define (collect-catalogs)
+        (map (lambda (catalog)
+               (list catalog (->string (get-name~ catalog))))
+             (get-catalogs~ (get-cataloguer~ (get-application)))))
+      
+      (let ((combo (locate 'catalog)))
+        (set-choices~ combo (cons (list {} "Any") (cons {} (collect-catalogs))))
+        (set-value~ combo {}))
+      (let ((combo (locate 'entries)))
+        (set-choices~ combo (list (list {} "All")))
+        (set-value~ combo {})))
+    
     (nextmethod rest)
     (setup-catalogs))
-  
-  
-  (method (setup-catalogs)
-    (define (collect-catalogs)
-      (map (lambda (catalog)
-             (list catalog (->string (get-name~ catalog))))
-           (get-catalogs~ (get-cataloguer~ (get-application)))))
-    
-    (let ((combo (locate 'catalog)))
-      (set-choices~ combo (cons (list {} "Any") (cons {} (collect-catalogs))))
-      (set-value~ combo {}))
-    (let ((combo (locate 'entries)))
-      (set-choices~ combo (list (list {} "All")))
-      (set-value~ combo {})))
 
 
   ;;;
@@ -120,66 +119,64 @@
 
   
   (method override (search-targets multi-search-context)
+    (define (search-targets-definitions multi-search-context)
+      (let ((contexts (get-contexts~ multi-search-context)))
+        (if (> (length contexts) 1)
+            (message-box "Search definitions doesn't yet support multiple targets")
+          (let ((context (car contexts)))
+            (let ((catalog (selected-catalog))
+                  (cataloguer (get-cataloguer~ (get-application)))
+                  (name (string->symbol (get-target~ context)))
+                  (whole-words? (get-whole-words?~ context))
+                  (ignore-case? (get-ignore-case?~ context)))
+              (let ((definitions (if catalog
+                                     (search-definitions~ catalog name whole-words?: whole-words? ignore-case?: ignore-case?)
+                                   (search-definitions~ cataloguer name whole-words?: whole-words? ignore-case?: ignore-case?))))
+                (if (null? definitions)
+                    (begin
+                      (bell)
+                      (user-message "No search results found"))
+                  (case (length definitions)
+                    ((1) (edit~ (car definitions)))
+                    (else (let ((results (get-results)))
+                            (set-mode~ results 'definitions)
+                            (set-references-target~ results {})
+                            (add-results~ results definitions (get-search-targets))
+                            (select-results~ results)))))))))))
+    
+    (define (search-targets-references multi-search-context)
+      (let ((contexts (get-contexts~ multi-search-context)))
+        (if (> (length contexts) 1)
+            (message-box "Search references doesn't yet support multiple targets")
+          (let ((context (car contexts)))
+            (if (not (get-whole-words?~ context))
+                (message-box "Search references doesn't yet non whole words")
+              (if (get-ignore-case?~ context)
+                  (message-box "Search references doesn't yet support ignore case")
+                (let ((catalog (selected-catalog))
+                      (cataloguer (get-cataloguer~ (get-application)))
+                      (name (string->symbol (get-target~ context))))
+                  (let ((references (if catalog
+                                        (get-references~ catalog name)
+                                      (get-references~ cataloguer name))))
+                    (if (null? references)
+                        (begin
+                          (bell)
+                          (user-message "No search results found"))
+                      (case (length references)
+                        ((1) (edit-reference~ (car references) name))
+                        (else (let ((results (get-results)))
+                                (set-mode~ results 'references)
+                                (set-context~ results {})
+                                (set-references-target~ results name)
+                                (add-results~ results references (get-search-targets) name)
+                                (select-results~ results)))))))))))))
+    
     (case (get-selected-element~ (get-content~ (locate 'domain)))
       ((definitions)
        (search-targets-definitions multi-search-context))
       ((references)
        (search-targets-references multi-search-context))))
-
-  
-  (method (search-targets-definitions multi-search-context)
-    (let ((contexts (get-contexts~ multi-search-context)))
-      (if (> (length contexts) 1)
-          (message-box "Search definitions doesn't yet support multiple targets")
-        (let ((context (car contexts)))
-          (let ((catalog (selected-catalog))
-                (cataloguer (get-cataloguer~ (get-application)))
-                (name (string->symbol (get-target~ context)))
-                (whole-words? (get-whole-words?~ context))
-                (ignore-case? (get-ignore-case?~ context)))
-            (let ((definitions (if catalog
-                                   (search-definitions~ catalog name whole-words?: whole-words? ignore-case?: ignore-case?)
-                                 (search-definitions~ cataloguer name whole-words?: whole-words? ignore-case?: ignore-case?))))
-              (if (null? definitions)
-                  (begin
-                    (bell)
-                    (user-message "No search results found"))
-                (case (length definitions)
-                  ((1) (edit~ (car definitions)))
-                  (else (let ((results (get-results)))
-                          (set-mode~ results 'definitions)
-                          (set-references-target~ results {})
-                          (add-results~ results definitions (get-search-targets))
-                          (select-results~ results)))))))))))
-
-  
-  (method (search-targets-references multi-search-context)
-    (let ((contexts (get-contexts~ multi-search-context)))
-      (if (> (length contexts) 1)
-          (message-box "Search references doesn't yet support multiple targets")
-        (let ((context (car contexts)))
-          (if (not (get-whole-words?~ context))
-              (message-box "Search references doesn't yet non whole words")
-            (if (get-ignore-case?~ context)
-                (message-box "Search references doesn't yet support ignore case")
-              (let ((catalog (selected-catalog))
-                    (cataloguer (get-cataloguer~ (get-application)))
-                    (name (string->symbol (get-target~ context))))
-                (let ((references (if catalog
-                                      (get-references~ catalog name)
-                                    (get-references~ cataloguer name))))
-                  (if (null? references)
-                      (begin
-                        (bell)
-                        (user-message "No search results found"))
-                    (case (length references)
-                      ((1) (edit-reference~ (car references) name))
-                      (else (let ((results (get-results)))
-                              (set-mode~ results 'references)
-                              (set-context~ results {})
-                              (set-references-target~ results name)
-                              (add-results~ results references (get-search-targets) name)
-                              (select-results~ results)))))))))))))
 
   
   ;;;

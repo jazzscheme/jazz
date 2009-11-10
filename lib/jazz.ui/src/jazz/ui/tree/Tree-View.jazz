@@ -376,43 +376,41 @@
   
   ;; todo: do both of these in a single pass
   (method override (update-visible)
+    (define (update-visible-height)
+      (let ((count 0)
+            (height 0)
+            (first? #t))
+        (for-each-visible-row
+          (lambda (row rank)
+            (increase! count)
+            (increase! height (get-effective-height~ row))
+            (if first?
+                (set! first? #f)
+              (increase! height row-spacing))))
+        (set! visible-count count)
+        (set! visible-height height)))
+    
+    ;; todo: can very easily optimize the text-h call away by calculating at the start the
+    ;; base (text-h for some row - level * indentation) and then only adding level * indentation
+    (define (update-visible-width)
+      (when (not show-header?)
+        (let ((width 0))
+          ;; a quick not too clean solution for now...
+          (when (is? node-column Tree-Node-Column)
+            (for-each-visible-row
+              (lambda (row rank)
+                (let* ((highlight-border 3)
+                       (nw (+ (either (get-node-width~ row) 0) highlight-border))
+                       (w (+ (text-h~ node-column (get-level~ row)) nw)))
+                  (when (> w width)
+                    (set! width w)))))
+            (set! visible-width width)
+            (set! columns-right width)
+            (set! columns-borders (list (cons 0 width)))
+            (set-width~ node-column width)))))
+    
     (update-visible-height)
     (update-visible-width))
-  
-  
-  (method (update-visible-height)
-    (let ((count 0)
-          (height 0)
-          (first? #t))
-      (for-each-visible-row
-        (lambda (row rank)
-          (increase! count)
-          (increase! height (get-effective-height~ row))
-          (if first?
-              (set! first? #f)
-            (increase! height row-spacing))))
-      (set! visible-count count)
-      (set! visible-height height)))
-  
-  
-  ;; todo: can very easily optimize the text-h call away by calculating at the start the
-  ;; base (text-h for some row - level * indentation) and then only adding level * indentation
-  (method (update-visible-width)
-    (when (not show-header?)
-      (let ((width 0))
-        ;; a quick not too clean solution for now...
-        (when (is? node-column Tree-Node-Column)
-          (for-each-visible-row
-            (lambda (row rank)
-              (let* ((highlight-border 3)
-                     (nw (+ (either (get-node-width~ row) 0) highlight-border))
-                     (w (+ (text-h~ node-column (get-level~ row)) nw)))
-                (when (> w width)
-                  (set! width w)))))
-          (set! visible-width width)
-          (set! columns-right width)
-          (set! columns-borders (list (cons 0 width)))
-          (set-width~ node-column width)))))
   
   
   (method override (scroll-invalidate dh dv)
@@ -503,23 +501,22 @@
   
   
   (method public (set-highlighted value)
+    (define (invalidate-highlighted highlighted)
+      (for-each (lambda (highlight)
+                  (let ((row (get-row~ highlight))
+                        (col (get-col~ highlight))
+                        (insert (get-insert~ highlight)))
+                    (if (not insert)
+                        (invalidate-highlighted-cell row col)
+                      (invalidate-rect (highlighted-insert-rect row insert)))))
+                highlighted))
+    
     (assert (every? (lambda (object) (is? object Tree-Highlight)) value))
     (when (not (equal? value highlighted))
       (let ((old highlighted))
         (set! highlighted value)
         (invalidate-highlighted old)
         (invalidate-highlighted highlighted))))
-  
-  
-  (method (invalidate-highlighted highlighted)
-    (for-each (lambda (highlight)
-                (let ((row (get-row~ highlight))
-                      (col (get-col~ highlight))
-                      (insert (get-insert~ highlight)))
-                  (if (not insert)
-                      (invalidate-highlighted-cell row col)
-                    (invalidate-rect (highlighted-insert-rect row insert)))))
-              highlighted))
   
   
   (method protected virtual (invalidate-highlighted-cell row col)
@@ -768,11 +765,28 @@
   
   
   (method public (sort-column column)
+    (define (sort-rows rows equal direction)
+      (let ((dual? (/= column 0))
+            (get-node
+              (lambda (row children n)
+                (let ((data (element children n)))
+                  (either (sort-value~ (get-column n) row data) "")))))
+        (sort (lambda (rx ry)
+                (let* ((cx (get-children~ rx))
+                       (cy (get-children~ ry))
+                       (nx (localize (get-node rx cx column)))
+                       (ny (localize (get-node ry cy column))))
+                  (or (direction nx ny)
+                      (and dual?
+                           (equal nx ny)
+                           (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
+              rows)))
+    
     (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
     (receive (equal smaller greater) (sort-predicates)
       (letrec ((direction (if sort-ascending? smaller greater))
                (proc (lambda (row)
-                       (let ((sorted (sort-rows (get-sons~ row) column equal direction)))
+                       (let ((sorted (sort-rows (get-sons~ row) equal direction)))
                          (reorder-sons~ row sorted)
                          (iterate (get-sons~ row) proc)))))
         (with-preserved-selection
@@ -781,24 +795,6 @@
               (lambda ()
                 (proc root-row))))
           ensure-displayed?: #f))))
-  
-  
-  (method (sort-rows rows column equal direction)
-    (let ((dual? (/= column 0))
-          (get-node
-            (lambda (row children n)
-              (let ((data (element children n)))
-                (either (sort-value~ (get-column n) row data) "")))))
-      (sort (lambda (rx ry)
-              (let* ((cx (get-children~ rx))
-                     (cy (get-children~ ry))
-                     (nx (localize (get-node rx cx column)))
-                     (ny (localize (get-node ry cy column))))
-                (or (direction nx ny)
-                    (and dual?
-                         (equal nx ny)
-                         (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
-            rows)))
   
   
   ;;;
@@ -1085,10 +1081,6 @@
   
   
   (method protected virtual (get-tree-target drag-drop pos)
-    (get-tree-row-target drag-drop pos))
-  
-  
-  (method protected (get-tree-row-target drag-drop pos)
     (call-with-view->tree pos
       (lambda (cell v height)
         (when cell
@@ -1329,6 +1321,20 @@
   
   
   (method public (fill-column size)
+    (define (find-filled-column name)
+      (cond ((integer? name) (element columns name))
+            ((eq? name #t) (essay (not-null? columns) (last columns)))
+            (else (find-if (lambda (column)
+                             (eq? (get-name~ column) name))
+                           columns))))
+    
+    (define (space-after-column rank)
+      (let ((total 0))
+        (for-each (lambda (borders)
+                    (increase! total (borders-width borders)))
+                  (tail columns-borders (+ rank 1)))
+        total))
+    
     (when (and filled-column (not-null? columns-borders))
       (let ((column (find-filled-column filled-column)))
         (when column
@@ -1352,22 +1358,6 @@
                   (when (and (< left right) (< top bottom))
                     (invalidate-rect (new Rect left top right bottom))))
                 (invalidate-header))))))))
-  
-  
-  (method (find-filled-column name)
-    (cond ((integer? name) (element columns name))
-          ((eq? name #t) (essay (not-null? columns) (last columns)))
-          (else (find-if (lambda (column)
-                           (eq? (get-name~ column) name))
-                         columns))))
-  
-  
-  (method (space-after-column rank)
-    (let ((total 0))
-      (for-each (lambda (borders)
-                  (increase! total (borders-width borders)))
-                (tail columns-borders (+ rank 1)))
-      total))
 
   
   (method public (add-column . rest)
@@ -1394,29 +1384,27 @@
   
   
   (method public (remove-columns (preserve-node-column?: preserve-node-column? #f) (preserve: preserve {}))
+    (define (remove-columns-preserving)
+      (remove-every-row)
+      (for-each (lambda (column)
+                  (unless (or (and preserve-node-column? (is? column Tree-Node-Column))
+                              (memq? (get-name~ column) preserve))
+                    (remove-column column)))
+                (get-columns))
+      (invalidate-header))
+    
+    (define (remove-all-columns)
+      (remove-every-row)
+      (set-children '())
+      (set! columns '())
+      (set! columns-borders '())
+      (set! columns-right 0)
+      (set! node-column {})
+      (invalidate-header))
+    
     (if (or preserve-node-column? preserve)
-        (remove-columns-preserving preserve-node-column? preserve)
+        (remove-columns-preserving)
       (remove-all-columns)))
-  
-  
-  (method (remove-all-columns)
-    (remove-every-row)
-    (set-children '())
-    (set! columns '())
-    (set! columns-borders '())
-    (set! columns-right 0)
-    (set! node-column {})
-    (invalidate-header))
-  
-  
-  (method (remove-columns-preserving preserve-node-column? preserve)
-    (remove-every-row)
-    (for-each (lambda (column)
-                (unless (or (and preserve-node-column? (is? column Tree-Node-Column))
-                            (memq? (get-name~ column) preserve))
-                  (remove-column column)))
-              (get-columns))
-    (invalidate-header))
 
   
   (method override (invalidate-columns)
@@ -2366,6 +2354,17 @@
   
   
   (method override (iterate proc)
+    (define (prepare-iterate)
+      (let ((sel (get-single-selection~ tree)))
+        (case (get-selection-mode~ tree)
+          ((cell)
+           (set! column (if sel (get-col~ sel) 0))
+           (cons (essay sel (get-row~ tree (get-row~ sel)))
+                 (lambda (row) (element (get-children~ row) column))))
+          (else
+           (cons (essay sel (get-row~ tree sel))
+                 (lambda (row) (car (get-children~ row))))))))
+    
     (bind (row . proc2) (prepare-iterate)
       (for-each-visible-row~ tree
         (lambda (row rank)
@@ -2379,16 +2378,4 @@
   (method override (select rank)
     (case (get-selection-mode~ tree)
       ((cell) (set-single-selection~ tree (new Cell rank column)))
-      (else (set-single-selection~ tree rank))))
-  
-  
-  (method (prepare-iterate)
-    (let ((sel (get-single-selection~ tree)))
-      (case (get-selection-mode~ tree)
-        ((cell)
-         (set! column (if sel (get-col~ sel) 0))
-         (cons (essay sel (get-row~ tree (get-row~ sel)))
-               (lambda (row) (element (get-children~ row) column))))
-        (else
-         (cons (essay sel (get-row~ tree sel))
-               (lambda (row) (car (get-children~ row))))))))))
+      (else (set-single-selection~ tree rank))))))

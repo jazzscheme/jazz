@@ -107,55 +107,52 @@
 
 
 (definition public (process-events)
+  (define (process-events-single-threaded)
+    (declare (proper-tail-calls))
+    (let (loop)
+      (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
+        (lambda ()
+          (catch Cancel-Signal
+            (process-messages-single-threaded
+              (lambda ()
+                (let (loop)
+                  (let ((thunk (thread-read-non-blocking)))
+                    (when (not (eof-object? thunk))
+                      (with-exception-debugger (get-exception-debugger)
+                        thunk)
+                      (loop)))))))))
+      (loop)))
+  
+  (define (process-events-multi-threaded)
+    (declare (proper-tail-calls))
+    (let ((pump (process-messages-multi-threaded)))
+      (when pump
+        (thread-start-loop pump)
+        (thread-start! pump))
+      (unwind-protect
+          (let (loop)
+            (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
+              (lambda ()
+                (catch Cancel-Signal
+                  (let ((thunk (thread-read)))
+                    (with-exception-debugger (get-exception-debugger)
+                      thunk)))))
+            (loop))
+        (when pump
+          (thread-stop-loop pump)))))
+  
+  (define (present-event-loop-restart)
+    (let ((loop (current-loop)))
+      (when loop
+        (let ((level (get-level~ loop)))
+          (format "Resume event loop{a}"
+                  (if (= level 0)
+                      ""
+                    (format " {a}" level)))))))
+  
   (if (get-events-single-threaded?)
       (process-events-single-threaded)
     (process-events-multi-threaded)))
-
-
-(definition (process-events-single-threaded)
-  (declare (proper-tail-calls))
-  (let (loop)
-    (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
-      (lambda ()
-        (catch Cancel-Signal
-          (process-messages-single-threaded
-            (lambda ()
-              (let (loop)
-                (let ((thunk (thread-read-non-blocking)))
-                  (when (not (eof-object? thunk))
-                    (with-exception-debugger (get-exception-debugger)
-                      thunk)
-                    (loop)))))))))
-    (loop)))
-
-
-(definition (process-events-multi-threaded)
-  (declare (proper-tail-calls))
-  (let ((pump (process-messages-multi-threaded)))
-    (when pump
-      (thread-start-loop pump)
-      (thread-start! pump))
-    (unwind-protect
-        (let (loop)
-          (with-restart-catcher 'resume-loop (present-event-loop-restart) {}
-            (lambda ()
-              (catch Cancel-Signal
-                (let ((thunk (thread-read)))
-                  (with-exception-debugger (get-exception-debugger)
-                    thunk)))))
-          (loop))
-      (when pump
-        (thread-stop-loop pump)))))
-
-
-(definition (present-event-loop-restart)
-  (let ((loop (current-loop)))
-    (when loop
-      (let ((level (get-level~ loop)))
-        (format "Resume event loop{a}"
-                (if (= level 0)
-                    ""
-                  (format " {a}" level)))))))
 
 
 ;;;

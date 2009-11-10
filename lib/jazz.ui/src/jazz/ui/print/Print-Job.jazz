@@ -130,6 +130,26 @@
   
   
   (method public (print-page surface lh lv page no)
+    (define (print-context no)
+      (list
+        printing?: #t
+        ;; metamodeler-extra : should get this setting from the page-setup
+        print-black/white?: #f
+        print-selection?: selection?
+        filename: (either (client-filename) "New")
+        page-no: no
+        page-count: (length pages)
+        @convert-date(
+                      print-date: (present-date-day (local-date))
+                      print-time: (present-date-hour (local-date)))))
+    
+    (define (client-filename)
+      (let ((guest (get-guest~ client)))
+        (when (is? guest Document)
+          (let ((moniker (get-moniker~ (get-controller~ guest))))
+            (when moniker
+              (get-name~ moniker))))))
+    
     (let* ((context (print-context no))
            (zoom (either zoom 1.0))
            (ratio (* (/ resolution 60) zoom))
@@ -161,28 +181,6 @@
   
   (method protected virtual (print-landscape?)
     (eq? (get-orientation~ page-setup) 'landscape))
-  
-  
-  (method (print-context no)
-    (list
-      printing?: #t
-      ;; metamodeler-extra : should get this setting from the page-setup
-      print-black/white?: #f
-      print-selection?: selection?
-      filename: (either (client-filename) "New")
-      page-no: no
-      page-count: (length pages)
-      @convert-date(
-      print-date: (present-date-day (local-date))
-      print-time: (present-date-hour (local-date)))))
-  
-  
-  (method (client-filename)
-    (let ((guest (get-guest~ client)))
-      (when (is? guest Document)
-        (let ((moniker (get-moniker~ (get-controller~ guest))))
-          (when moniker
-            (get-name~ moniker))))))
   
   
   ;;;

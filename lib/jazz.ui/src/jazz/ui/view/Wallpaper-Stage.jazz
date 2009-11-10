@@ -108,26 +108,25 @@
 
   @convert ;; problem with Configure-Menu already used by Compare-Menu
   (method (context-menu pos)
+    (define (new-stage-menu)
+      (let* ((menu (new Stage-Menu))
+             (manage-menu (get-content~ (locate~ menu 'manage)))
+             (source (get-source)))
+        (set-visible?~ (locate~ manage-menu 'favorite) source)
+        (set-visible?~ (locate~ manage-menu 'favorite-separator) source)
+        (when (and source configuration)
+          (let* ((name (get-name~ source))
+                 (favorites (get-favorites~ configuration))
+                 (favorite? (member? name favorites)))
+            (set-title~ (locate~ manage-menu 'favorite) (if favorite? "Remove from Favorites" "Add to Favorites"))))
+        (layout-menu~ manage-menu)
+        (layout-menu~ menu)
+        menu))
+    
     (if (null? (get-children~ (preferences)))
         (nextmethod pos)
       (acquire-focus)
       (track-popup-menu (new-stage-menu) pos)))
-  
-  
-  (method (new-stage-menu)
-    (let* ((menu (new Stage-Menu))
-           (manage-menu (get-content~ (locate~ menu 'manage)))
-           (source (get-source)))
-      (set-visible?~ (locate~ manage-menu 'favorite) source)
-      (set-visible?~ (locate~ manage-menu 'favorite-separator) source)
-      (when (and source configuration)
-        (let* ((name (get-name~ source))
-               (favorites (get-favorites~ configuration))
-               (favorite? (member? name favorites)))
-          (set-title~ (locate~ manage-menu 'favorite) (if favorite? "Remove from Favorites" "Add to Favorites"))))
-      (layout-menu~ manage-menu)
-      (layout-menu~ menu)
-      menu))
   
   
   (method (on-change evt)
@@ -419,19 +418,18 @@
   
   
   (method package (on-configure evt)
+    (define (browse-configuration)
+      (install-configuration
+        (new Wallpaper-Configuration
+          directory: (choose-directory)
+          period: (essay configuration (get-period~ configuration))
+          mode: (essay configuration (get-mode~ configuration)))
+        #t))
+    
     (let ((configuration (get-property~ evt configuration:)))
       (if (eq? configuration #t)
           (browse-configuration)
-        (install-configuration configuration))))
-  
-  
-  (method (browse-configuration)
-    (install-configuration
-      (new Wallpaper-Configuration
-        directory: (choose-directory)
-        period: (essay configuration (get-period~ configuration))
-        mode: (essay configuration (get-mode~ configuration)))
-      #t)))
+        (install-configuration configuration)))))
 
 
 ;;;

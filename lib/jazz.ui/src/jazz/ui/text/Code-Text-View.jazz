@@ -465,24 +465,23 @@
   
   
   (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
-    (colorize-syntax-from (text-beginning) recoloring?)
+    (define (colorize-syntax-from pos)
+      (let ((automata (syntax-automata)))
+        (when automata
+          (let ((found (automata-search automata (new TextTape (get-paragraphs) (get-limit) 0 0)))
+                (colorizer (essay (not recoloring?) (new-colorizer self))))
+            (while (not-null? found)
+              (let ((info (car found)))
+                (bind ((target type) row col) info
+                  (let ((start (new Cell row col))
+                        (end (new Cell row (+ col (string-length target)))))
+                    (set! found (colorize-type found type start end colorizer #f))))))
+            (when colorizer
+              (finish-current~ colorizer))))))
+    
+    (colorize-syntax-from (text-beginning))
     (when entries?
       (colorize-entries)))
-  
-  
-  (method (colorize-syntax-from pos recoloring?)
-    (let ((automata (syntax-automata)))
-      (when automata
-        (let ((found (automata-search automata (new TextTape (get-paragraphs) (get-limit) 0 0)))
-              (colorizer (essay (not recoloring?) (new-colorizer self))))
-          (while (not-null? found)
-            (let ((info (car found)))
-              (bind ((target type) row col) info
-                (let ((start (new Cell row col))
-                      (end (new Cell row (+ col (string-length target)))))
-                  (set! found (colorize-type found type start end colorizer #f))))))
-          (when colorizer
-            (finish-current~ colorizer))))))
   
   
   (method protected (apply-coloring colorizer start end style-name)
@@ -701,6 +700,14 @@
 
 
   (method public virtual (tabulate)
+    (define (untabulate-line row)
+      (when (space/tab? (get-char (new Cell row 0)))
+        (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 1))
+                      (list ""))))
+    
+    (define (space/tab? c)
+      (memq? c '(#\space #\tab)))
+    
     (if (has-selection?)
         (for-each (if (shift-down?) untabulate-line tabulate-line)
                   (selected-lines))
@@ -718,15 +725,6 @@
   (method protected virtual (tabulate-line row)
     (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 0))
                   (list (string #\tab))))
-  
-  
-  (method (untabulate-line row)
-    (define (space/tab? c)
-      (memq? c '(#\space #\tab)))
-    
-    (when (space/tab? (get-char (new Cell row 0)))
-      (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 1))
-                    (list ""))))
   
   
   (method public virtual (tabulate-lines start end)
@@ -819,21 +817,19 @@
   
   
   (method (tabify)
-    (for-each tabify-line
-              (naturals (get-row~ (get-start)) (+ (get-row~ (get-end)) 1))))
-  
-  
-  (method (tabify-line row)
-    @to-convert-to-outline-text
-    (let* ((line (paragraph-string row))
-           (char (find-if (lambda (c) (not (whitespace? c))) line return: 'position)))
-      (when (and char (> char 0))
-        (let* ((column (char->column line char))
-               (tabs   (floor (/ column tab-size)))
-               (spaces (modulo column tab-size)))
-          (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row char))
-                        (list (append! (make-string tabs #\tab)
-                                       (make-string spaces #\space))))))))
+    (define (tabify-line row)
+      @to-convert-to-outline-text
+      (let* ((line (paragraph-string row))
+             (char (find-if (lambda (c) (not (whitespace? c))) line return: 'position)))
+        (when (and char (> char 0))
+          (let* ((column (char->column line char))
+                 (tabs   (floor (/ column tab-size)))
+                 (spaces (modulo column tab-size)))
+            (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row char))
+                          (list (append! (make-string tabs #\tab)
+                                         (make-string spaces #\space))))))))
+    
+    (for-each tabify-line (naturals (get-row~ (get-start)) (+ (get-row~ (get-end)) 1))))
 
 
   ;;;

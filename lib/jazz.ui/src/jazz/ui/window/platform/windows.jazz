@@ -1110,25 +1110,24 @@
 
 
 (definition public (get-work-area) <Rect>
+  ;; Because Window's SPI_GETWORKAREA doesn't take autohide into account
+  (define (adjust-work-area-with-taskbar rect)
+    rect
+    @convert
+    (let ((state (get-taskbar-state))
+          (edge (get-taskbar-edge)))
+      (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
+          (ecase edge
+            ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
+            ((ABE_TOP)    (expand-rect rect  0  1  0  0))
+            ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
+            ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
+        rect)))
+  
   (with ((area (RECT-make)))
     (SystemParametersInfo SPI_GETWORKAREA 0 area 0)
     (prog1 (adjust-work-area-with-taskbar (RECT->rect area))
       (RECT-free area))))
-
-
-;; Because Window's SPI_GETWORKAREA doesn't take autohide into account
-(definition (adjust-work-area-with-taskbar rect)
-  rect
-  @convert
-  (let ((state (get-taskbar-state))
-        (edge (get-taskbar-edge)))
-    (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
-        (ecase edge
-          ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
-          ((ABE_TOP)    (expand-rect rect  0  1  0  0))
-          ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
-          ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
-      rect)))
 
 
 (definition public (get-taskbar-state)
@@ -1154,6 +1153,19 @@
 
 
 (definition package (platform-drop-files window wparam)
+  (define (received-files hdrop)
+    (let ((count (DragQueryFile hdrop #xFFFFFFFF NULL 0)))
+      (map (lambda (n)
+             (let* ((size MAX_PATH)
+                    (buffer (WCHAR-array-make size)))
+               (WCHAR-array-set! buffer 0 #\nul)
+               (DragQueryFile hdrop n buffer size)
+               (let* ((filename (WCHAR-string buffer))
+                      (pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-windows filename))))
+                 (prog1 (anchorize~ pathname)
+                   (WCHAR-array-free buffer)))))
+           (naturals 0 count))))
+  
   (let ((hdrop (WPARAM->HDROP wparam)))
     (let ((files (received-files hdrop))
           (pt (POINT-make)))
@@ -1162,18 +1174,4 @@
       (let ((pos (POINT->point pt)))
         (receive-files~ window pos files))
       (prog1 (platform-select-foreground-window (get-toplevel-hwnd))
-        (POINT-free pt)))))
-
-
-(definition (received-files hdrop)
-  (let ((count (DragQueryFile hdrop #xFFFFFFFF NULL 0)))
-    (map (lambda (n)
-           (let* ((size MAX_PATH)
-                  (buffer (WCHAR-array-make size)))
-             (WCHAR-array-set! buffer 0 #\nul)
-             (DragQueryFile hdrop n buffer size)
-             (let* ((filename (WCHAR-string buffer))
-                    (pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-windows filename))))
-               (prog1 (anchorize~ pathname)
-                 (WCHAR-array-free buffer)))))
-         (naturals 0 count)))))
+        (POINT-free pt))))))

@@ -209,6 +209,21 @@
   
   
   (method (end-rename entity cell presentation)
+    (define (reorder-entity entity)
+      (let ((row (find-row entity)))
+        (move-entity-row row (get-father~ row))))
+    
+    (define (move-entity-row row father (position: position {}))
+      (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
+        (let* ((source (get-user-data~ row))
+               (destination (either (get-user-data~ father) client))
+               (sort? (sort-entities?~ destination)))
+          (move-row row father
+            position: (either position (lambda ()
+                                         (if (not sort?)
+                                             {}
+                                           (find-entity-position source row father))))))))
+    
     (with-update-locked
       (lambda ()
         (set-title~ (get-cell-data cell) presentation)
@@ -248,23 +263,6 @@
                           (send-before~ controller entity (essay target (send-entity-before entity target-data))))
                         entities)))
           (select-entities entities)))))
-  
-  
-  (method (move-entity-row row father (position: position {}))
-    (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
-      (let* ((source (get-user-data~ row))
-             (destination (either (get-user-data~ father) client))
-             (sort? (sort-entities?~ destination)))
-        (move-row row father
-          position: (either position (lambda ()
-                                       (if (not sort?)
-                                           {}
-                                         (find-entity-position source row father))))))))
-  
-  
-  (method (reorder-entity entity)
-    (let ((row (find-row entity)))
-      (move-entity-row row (get-father~ row))))
   
   
   (method protected virtual (find-entity-position entity row father)

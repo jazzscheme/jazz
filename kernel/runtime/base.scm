@@ -240,9 +240,9 @@
 
 (define (jazz.parse-link link)
   (define link-options
-    '(("units" units)
+    '(("objects" objects)
       ("libraries" libraries)
-      ("all" units libraries)))
+      ("all" objects libraries)))
   
   (define (invalid option)
     (jazz.error "Invalid link option: {a}" option))

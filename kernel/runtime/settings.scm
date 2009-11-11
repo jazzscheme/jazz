@@ -95,7 +95,7 @@
   #f)
 
 (jazz.define-setting jazz.build-link
-  'units)
+  'objects)
 
 (jazz.define-setting jazz.build-jobs
   1)

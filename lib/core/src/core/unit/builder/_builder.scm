@@ -87,7 +87,7 @@
 
 
 (define (jazz.compile-unit-internal unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz.with-unit-src/bin unit-name #f (jazz.link-units?)
+  (jazz.with-unit-src/bin unit-name #f (jazz.link-objects?)
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource src))
@@ -138,7 +138,7 @@
     (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string unit-name))
     (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE -D___SINGLE_HOST " cc-options))
     
-    (if (jazz.link-units?)
+    (if (jazz.link-objects?)
         (begin
           (link-flat (%%list bin-) output: linkfile warnings?: #f)
           (let ((exit-status

@@ -119,8 +119,8 @@
 (define jazz.link-options
   #f)
 
-(define (jazz.link-units?)
-  (%%memq 'units jazz.link-options))
+(define (jazz.link-objects?)
+  (%%memq 'objects jazz.link-options))
 
 (define (jazz.link-libraries?)
   (%%memq 'libraries jazz.link-options))
@@ -160,7 +160,7 @@
 (define jazz.currently-loading-library-procs)
 
 (define (jazz.load-libraries)
-  (define libraries (%%make-table))
+  (define libraries (%%make-table test: eq?))
   (define (add-library package-name library-filename) 
     (%%table-set! libraries package-name library-filename))
   

@@ -1557,7 +1557,7 @@
     (let ((parent (%%package-parent package)))
       (jazz.repository-pathname jazz.Bin-Repository
         (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                         (%%symbol->string product-name)))))
+                         (%%symbol->string (%%package-name package))))))
   
   (string-append (build-dir package)
                  "/"

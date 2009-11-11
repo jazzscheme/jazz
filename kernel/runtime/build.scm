@@ -684,10 +684,10 @@
     (subunits-uptodate? sub-units))
   
   (define (make-library-header header- library sub-units)
-    (with-output-to-file header-
-      (lambda ()
-        (display (string-append "(jazz.register-image-units '" (%%symbol->string library) " '("))
-        (newline)
+    (call-with-output-file header-
+      (lambda (port)
+        (display (string-append "(jazz.register-image-units '" (%%symbol->string library) " '(") port)
+        (newline port)
         (for-each
           (lambda (unit-name)
             (jazz.with-unit-src/bin unit-name #f #f
@@ -695,14 +695,14 @@
                 (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
                        (manifest (jazz.load/create-manifest unit-name mnf))
                        (digest (%%manifest-digest manifest)))
-                  (display (string-append "  (" (%%symbol->string unit-name) " "))
-                  (write (%%digest-compile-time-hash digest))
-                  (display ")")
-                  (newline)))))
+                  (display (string-append "  (" (%%symbol->string unit-name) " ") port)
+                  (write (%%digest-compile-time-hash digest) port)
+                  (display ")" port)
+                  (newline port)))))
           sub-units)
-        (display "))")
-        (newline))))
-
+        (display "))" port)
+        (newline port))))
+  
   (let* ((product (jazz.get-product product-name))
          (update (jazz.product-descriptor-update descriptor))
          (library-base (jazz.product-library-name-base (%%product-package product) product-name)))

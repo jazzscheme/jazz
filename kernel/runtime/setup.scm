@@ -183,7 +183,6 @@
   (table-for-each
     (lambda (product-name library-filename)
       (let* ((pathname (path-normalize library-filename))
-             ;(string-append jazz.kernel-install "/" lib ".o" (%%number->string serial))))
              (lib (##load-object-file pathname #t)))
         (if (and (%%vector? lib)
                  (%%vector? (%%vector-ref lib 0)))

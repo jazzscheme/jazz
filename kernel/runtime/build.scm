@@ -690,7 +690,7 @@
         (newline)
         (for-each
           (lambda (unit-name)
-            (jazz.with-unit-src/bin unit-name #f (jazz.link-units?)
+            (jazz.with-unit-src/bin unit-name #f #f
               (lambda (src bin bin-uptodate?)
                 (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
                        (manifest (jazz.load/create-manifest unit-name mnf))

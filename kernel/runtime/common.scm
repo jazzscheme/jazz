@@ -362,5 +362,5 @@
 ;;;
 
 
-(define jazz.Library-Extension "p")
+(define jazz.Library-Extension "l")
 (define jazz.Library-Manifest-Extension "lmf")

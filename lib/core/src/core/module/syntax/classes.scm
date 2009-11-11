@@ -95,6 +95,7 @@
 (jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol access source-declaration))
 (jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
 (jazz.define-virtual (jazz.get-declaration-inclusions (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.get-nextmethod-signature (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
 (jazz.define-virtual (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
 (jazz.define-virtual (jazz.fold-declaration (jazz.Declaration declaration) f k s))

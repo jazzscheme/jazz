@@ -227,6 +227,10 @@
     new-declaration))
 
 
+(jazz.define-method (jazz.get-nextmethod-signature (jazz.Specific-Declaration declaration))
+  (%%get-specific-declaration-signature declaration))
+
+
 (jazz.define-method (jazz.emit-declaration (jazz.Specific-Declaration declaration) environment)
   (let* ((generic-declaration (%%get-specific-declaration-generic declaration))
          (generic-locator (%%get-declaration-locator generic-declaration))
@@ -788,6 +792,29 @@
             (%%get-code-type dispatch-code)
             #f))
       (jazz.error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
+
+
+(jazz.define-method (jazz.get-nextmethod-signature (jazz.Method-Declaration declaration))
+  (define (lookup category-declaration method-name)
+    (if (%%is? category-declaration jazz.Autoload-Declaration)
+        (let ((category-declaration (%%get-autoload-declaration-declaration category-declaration)))
+          (jazz.lookup-declaration category-declaration method-name jazz.private-access category-declaration))
+      (jazz.lookup-declaration category-declaration method-name jazz.private-access category-declaration)))
+  
+  (define (get-next-method-declaration)
+    (let ((method-name (%%get-lexical-binding-name declaration))
+          (category-declaration (%%get-declaration-parent declaration)))
+      (or (let ((ascendant (%%get-class-declaration-ascendant category-declaration)))
+            (lookup ascendant method-name))
+          (let iter ((scan (%%get-class-declaration-interfaces category-declaration)))
+               (if (null? scan)
+                   #f
+                 (or (lookup (car scan) method-name)
+                     (iter (cdr scan))))))))
+  
+  (let ((next-method-declaration (get-next-method-declaration)))
+    (if next-method-declaration
+        (%%get-method-declaration-signature next-method-declaration))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Method-Declaration declaration) environment)
@@ -1593,7 +1620,7 @@
         (let ((new-declaration (jazz.require-declaration declaration name)))
           (%%set-generic-declaration-signature new-declaration signature)
           (%%set-generic-declaration-body new-declaration
-                                          (jazz.walk-body walker resume declaration augmented-environment body))
+                                          (jazz.walk-body walker resume new-declaration augmented-environment body))
           (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 
@@ -1651,7 +1678,7 @@
                      (new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
                      (body-environment (if root? augmented-environment (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment))))
                 (%%set-specific-declaration-body new-declaration
-                                                 (jazz.walk-body walker resume declaration body-environment body))
+                                                 (jazz.walk-body walker resume new-declaration body-environment body))
                 (%%set-declaration-source new-declaration form-src)
                 new-declaration))
           (jazz.walk-error walker resume declaration form-src "Cannot find generic declaration for {s}" (%%cons name parameters)))))))

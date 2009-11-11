@@ -282,6 +282,13 @@
   '())
 
 
+(jazz.define-virtual-runtime (jazz.get-nextmethod-signature (jazz.Declaration declaration)))
+
+
+(jazz.define-method (jazz.get-nextmethod-signature (jazz.Declaration declaration))
+  (jazz.error "No nextmethod signature for: {s}" declaration))
+
+
 (jazz.define-virtual-runtime (jazz.emit-declaration (jazz.Declaration declaration) environment))
 
 
@@ -2219,6 +2226,12 @@
         name)
       jazz.Any
       #f)))
+
+
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.NextMethod-Variable declaration) walker resume source-declaration operator arguments form-src)
+  (let ((signature (jazz.get-nextmethod-signature source-declaration)))
+    (if signature
+        (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
 (jazz.define-method (jazz.emit-binding-call (jazz.NextMethod-Variable binding) arguments source-declaration environment)

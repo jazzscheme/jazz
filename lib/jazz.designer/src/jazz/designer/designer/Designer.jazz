@@ -253,7 +253,7 @@
                 (let ((creator-branch (get-creator-branch~ component)))
                   ;; This test is not 100% correct as the creator-branch can be any parent branch of branch
                   (when (and creator-branch (neq? branch (get-creator-branch~ component)))
-                    (error "Unable to modify an explicit branch using a component having a different branch creator"))))
+                    (designer-error "Unable to modify an explicit branch using a component having a different branch creator"))))
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
                   (set-property~ form property value)
@@ -330,12 +330,12 @@
   (method public virtual (remove-child child (branch: branch #t) (design-events?: design-events? #t))
     (let ((branch (target-branch branch)))
       (if (eq? child reference)
-          (error "The reference component cannot be removed")
+          (designer-error "The reference component cannot be removed")
         (let ((effective (either branch reference))
               (owner (find-owner child)))
           ;; the (and owner) part is a try
           (if (and owner (neq? owner effective))
-              (error "Component cannot be removed from non owner {a} {a}" (if branch "branch" "root") (get-presentation~ effective))
+              (designer-error "Component cannot be removed from non owner {a} {a}" (if branch "branch" "root") (get-presentation~ effective))
             (let* ((name (get-name~ child))
                    (parent (get-parent~ child))
                    (parent-form (find-form parent branch))
@@ -513,7 +513,7 @@
           branch: branch)
         (if (and forms (memq? (get-action~ (car forms)) '(new install)))
             (new Component-Parcel (GetCurrentProcessId) (object->serial component) forms)
-          (error "Unable to find owner for {t}" component))))
+          (designer-error "Unable to find owner for {t}" component))))
     
     (map (lambda (component)
            (package-component component branch: branch))
@@ -571,7 +571,7 @@
       (case action
         ((new) (instantiate-new-component name form parent branch design-events? descendant?))
         ((modify locate) (find-to-modify~ parent (get-name~ form) (sort-predicate 'equal)))
-        (else (error "Unsupported form action: {t}" action)))))
+        (else (designer-error "Unsupported form action: {t}" action)))))
   
   
   (method public virtual (instantiate-new-component name form parent branch design-events? descendant?)
@@ -697,7 +697,7 @@
                               (set! form restore-form)
                             (let ((name (get-name~ cpn)))
                               (if (not name)
-                                  (error "Component {t} must be named to allow modification" cpn)
+                                  (designer-error "Component {t} must be named to allow modification" cpn)
                                 (let ((subform (find-in children name key: get-name~ test: equal?)))
                                   (if (not subform)
                                       (set! form (embed-new-form form name))
@@ -716,7 +716,7 @@
            (form (embed-form branch-form ancestry))
            (restore (essay restore-form (embed-form restore-form ancestry))))
       (if (and error? (not form))
-          (error "Unable to locate target form")
+          (designer-error "Unable to locate target form")
         (if restore?
             (values form restore)
           form))))
@@ -735,7 +735,7 @@
         (set! ancestry (cons scan ancestry))
         (set! scan (get-parent-component~ scan))
         (when (not scan)
-          (error "{t} is not a descendant of the reference component {t}" component reference)))
+          (designer-error "{t} is not a descendant of the reference component {t}" component reference)))
       ancestry))
   
   
@@ -839,6 +839,21 @@
           (unimplemented 'form-location)
         (append (get-category-location origin)
                 (list 'class-form)))))
+  
+  
+  ;;;
+  ;;;; Error
+  ;;;
+  
+  
+  (method (designer-error . rest)
+    (signal (new Designer-Error message: (apply format rest))))
+  
+  
+  (method public (safe-set-property . rest)
+    (with-safe-design
+      (lambda ()
+        (apply set-property rest))))
   
   
   ;;;

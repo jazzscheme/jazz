@@ -241,7 +241,7 @@
   (let ((value (generate-symbol)))
     (cons 'let*
           (cons (list (list value expr))
-                (list (list 'when (list 'is-not? value type) (list 'error "{s} is not of the expected {s} type" value (list 'type-name type)))
+                (list (list 'when (list 'is-not? value type) (list 'error "{s} is not of the expected {s} type" value (list 'category-name type)))
                       value)))))
 
 

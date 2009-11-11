@@ -2027,16 +2027,16 @@
   (%%get-field-name field))
 
 
-(define (jazz.find-field category field-name)
+(define (jazz.category-field category field-name)
   (or (%%get-category-field category field-name)
       (let ((ascendant (%%get-class-ascendant category)))
         (and ascendant
-             (jazz.find-field ascendant field-name)))))
+             (jazz.category-field ascendant field-name)))))
 
 
 (define (jazz.require-object-field object name)
   (let* ((class (%%get-object-class object))
-         (field (jazz.find-field class name)))
+         (field (jazz.category-field class name)))
     (if (%%not field)
         (jazz.error "Unknown field '{s} of {s}" name (%%get-category-name (%%get-object-class object)))
       field)))

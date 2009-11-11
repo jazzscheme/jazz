@@ -251,7 +251,7 @@
 
 (native jazz.field? <object:bool>)
 (native jazz.field-name)
-(native jazz.find-field)
+(native jazz.category-field)
 
 
 ;;;

@@ -38,7 +38,8 @@
 (module protected jazz.designer.descriptor.Class-Descriptor jazz
 
 
-(import (jazz.designer.descriptor)
+(import (jazz.designer)
+        (jazz.designer.descriptor)
         (jazz.jml)
         (jazz.library))
 
@@ -59,14 +60,321 @@
 
 
   ;;;
-  ;;;; Designer
+  ;;;; Descriptor
   ;;;
   
   
   (method meta override (get-class-descriptor)
     Class-Meta-Descriptor)
+
+
+  ;;;
+  ;;;; Domain
+  ;;;
   
   
-  ;; should be public virtual
-  (method override (get-categorized-properties)
-    #t)))
+  (method public virtual (class-get-domain class property)
+    (case (field-name property)
+      ((name-info) (new Name-Domain))
+      ((presentation-info) (new Presentation-Domain))
+      ((visible?) (new Boolean-Domain))
+      (else (new Value-Domain))))
+  
+  
+  (method public virtual (component-property-domain component property)
+    #f
+    @convert-get-property-domain
+    (let* ((descriptor (get-property-descriptor~ (class-of (class-of self)) (field-name property)))
+           (descriptor-domain (essay descriptor (get-domain~ descriptor))))
+      (either descriptor-domain
+              (get-property-domain property)
+              (let* ((class (field-creator property))
+                     (domain (get-domain~ class property)))
+                (set-property-domain property domain)
+                domain))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (class-presentation class)
+    (either title (->string (identifier-name (type-name class)))))
+  
+  
+  (method public virtual (class-image class)
+    (either image {Bitmap-Resource "Component"}))
+  
+  
+  (method public virtual (class-name-prohibited? class)
+    name-prohibited?)
+  
+  
+  (method public virtual (class-name-mandatory? class)
+    name-mandatory?)
+  
+  
+  (method public virtual (class-name-unicity? class)
+    name-unicity?)
+  
+  
+  (method public virtual (class-presentation->name class presentation)
+    (if (or (empty-string? presentation) (= presentation "{}"))
+        {}
+      (string->symbol presentation)))
+  
+  
+  (method public virtual (class-name->presentation class name)
+    (if (not name)
+        "{}"
+      (->string name)))
+  
+  
+  (method public virtual (class-property-presentation class property)
+    (let ((name (field-name property)))
+      (case name
+        ((class-info) "class")
+        ((name-info) "name")
+        ((presentation-info) "label")
+        ((before) "Before")
+        ((children) "Children")
+        ((visible?) "Visible")
+        (else (let ((property-descriptor (get-property-descriptor class name)))
+                (if property-descriptor
+                    (get-title~ property-descriptor)
+                  (->string name)))))))
+  
+  
+  (method public virtual (class-detail-presentation class property)
+    (case (field-name property)
+      ((class-info) "Class")
+      ((name-info) "Name")
+      ((presentation-info) "Name")
+      (else (class-property-presentation class property))))
+  
+  
+  (method public virtual (class-persist-property? class property)
+    #t)
+  
+  
+  (method public virtual (component-presentation-property? component property)
+    #f)
+  
+  
+  (method public virtual (component-get-presentation component)
+    (class-name->presentation (class-of component) (get-name~ component)))
+  
+  
+  (method public virtual (component-set-presentation component designer presentation)
+    (set-name~ designer component (class-presentation->name (class-of component) presentation)))
+  
+  
+  (method protected (component-get-string-presentation component)
+    (either (get-name~ component) ""))
+  
+  
+  (method protected (component-set-string-presentation component designer presentation)
+    (if (empty-string? presentation)
+        (set-name~ designer component {})
+      (set-name~ designer component presentation)))
+  
+  
+  (method public virtual (component-present-property component property value)
+    (let ((domain (component-property-domain component property)))
+      (present~ domain value)))
+  
+  
+  (method public virtual (component-get-parent component)
+    (get-parent~ component))
+  
+  
+  (method public virtual (component-get-components component)
+    (get-children~ component))
+  
+  
+  (method public virtual (component-get-component-image component)
+    (class-image (class-of component)))
+  
+  
+  (method public virtual (component-can-cut-component? component)
+    (component-can-delete-component? component))
+  
+  
+  (method public virtual (component-can-copy-component? component)
+    #t)
+  
+  
+  (method public virtual (component-can-paste-component? component)
+    #t)
+  
+  
+  (method public virtual (component-can-rename-component? component)
+    (not (class-name-prohibited? (class-of component))))
+  
+  
+  (method public virtual (component-can-delete-component? component)
+    #t)
+  
+  
+  (method public virtual (component-can-move-component? component)
+    #t)
+  
+  
+  (method public virtual (component-can-view-properties? component)
+    #t)
+  
+  
+  (method public (component-determine-can-paste component (try-parent? #t))
+    (boolean (component-determine-paster component try-parent?)))
+  
+  
+  (method public (component-determine-paster component (try-parent? #t))
+    component
+    @convert
+    (when (and (can-paste-component?) (clipboard-format-available? 'jazz-parcels))
+      (let* ((parcels (read-string-element (get-clipboard-text format: 'jazz-parcels)))
+             (models (remove-duplicates (map (lambda (parcel) (get-master-model~ parcel)) parcels))))
+        (cond ((memq? {} models)
+               {})
+              ((every? addable-class? models)
+               self)
+              (else
+               (when (and try-parent? parent)
+                 (determine-paster~ parent #f)))))))
+  
+  
+  (method public virtual (component-can-send-before? component types father before)
+    (and (every? component-get-addable-classes types)
+         (not (component-sort-components? component))))
+  
+  
+  (method public virtual (component-sort-components? component)
+    #f)
+  
+  
+  (method public virtual (component-sort-components component predicate components)
+    (sort predicate components key: get-presentation~))
+  
+  
+  (method public virtual (component-indexable? component)
+    #t)
+  
+  
+  (method public virtual (component-surrogate-class component)
+    Component-Surrogate)
+
+
+  (method public virtual (component-install-surrogate component editor)
+    (let ((surrogate (new (component-surrogate-class component) client: component editor: editor)))
+      (set-surrogate~ component surrogate)
+      (install-handlers~ surrogate)
+      (component-install-children-surrogates component editor)))
+  
+  
+  (method public virtual (component-install-children-surrogates component editor)
+    (for-each (lambda (component)
+                (component-install-surrogate component editor))
+              (component-get-components component)))
+
+
+  (method public (component-remove-surrogate component)
+    (component-remove-component-surrogate component))
+
+
+  (method public (component-remove-component-surrogate component)
+    (for-each component-remove-component-surrogate (component-get-components component))
+    (let ((surrogate (get-surrogate~ component)))
+      (when surrogate
+        (remove-handlers~ surrogate)
+        (set-surrogate~ component {}))))
+  
+  
+  (method public virtual (component-get-default-property component)
+    {})
+  
+  
+  (method public virtual (component-get-categorized-properties component)
+    #t)
+  
+  
+  (method public virtual (component-display-property? component property)
+    (not (memq? (field-name property) '(presentation-info before children visible?))))
+  
+  
+  (method public virtual (component-get-row-class component property)
+    (case (field-name property)
+      ((class-info) Info-Row)
+      ((name-info) Info-Row)
+      ((presentation-info) Info-Row)
+      (else Value-Row)))
+  
+  
+  (method public virtual (component-get-row-instance component property)
+    (case (field-name property)
+      ((visible?) (new Boolean-Row))
+      (else {})))
+  
+  
+  (method public virtual (component-update-property-row component row)
+    )
+  
+  
+  (method public virtual (component-get-addable-default component)
+    {})
+  
+  
+  (method public virtual (component-get-addable-classes component)
+    '())
+  
+  
+  (method public virtual (component-addable-class? component class)
+    (some? (lambda (addable-class)
+             (and addable-class (subtype? class addable-class)))
+           (component-get-addable-classes component)))
+  
+  
+  (method public virtual (component-get-classes component)
+    '())
+  
+  
+  (method public virtual (component-get-addable-branches component)
+    #t)
+  
+  
+  (method public virtual (component-get-addable-default-branch component)
+    Branch)
+  
+  
+  (method public virtual (component-get-addable-base component)
+    (let ((classes (component-get-addable-classes component)))
+      (when classes
+        (if (= 1 (length classes))
+            (car classes)
+          Component))))
+  
+  
+  (method public virtual (component-get-addable-details component)
+    (let ((base (component-get-addable-base component)))
+      (when base
+        '((name-info 100 #t)))))
+  
+  
+  (method public virtual (component-get-recursive-details? component)
+    #f)
+  
+  
+  (method public virtual (component-get-class-searchable-classes component)
+    '())
+  
+  
+  (method public virtual (component-get-custom-details component)
+    '())
+  
+  
+  (method public virtual (component-get-custom-card component)
+    {})
+  
+  
+  (method public virtual (component-save-properties component designer)
+    )))

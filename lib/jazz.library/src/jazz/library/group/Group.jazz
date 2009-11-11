@@ -77,24 +77,29 @@
       (for-each (lambda (designer)
                   (process-refresh~ designer self 'descendants))
                 designers)))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Group-Descriptor)))
 
 
-  ;;;
-  ;;;; Classes
-  ;;;
-  
-  
-  (method override (get-addable-classes)
-    (map (lambda (model)
-           (when model
-             (autoload model)))
-         (get-component-classes)))
-  
-  
-  (method override (get-component-classes)
-    (either classes
-            (when parent
-              (get-component-classes~ parent))))
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Group-Descriptor extends Class-Descriptor
 
 
   ;;;
@@ -102,43 +107,61 @@
   ;;;
   
   
-  (method meta override (get-class-presentation)
+  (method override (class-presentation class)
     "Group")
   
   
-  (method meta override (get-class-image)
+  (method override (class-image class)
     {Bitmap-Resource "OpenedFolder"})
   
   
-  (method meta override (property-presentation property)
+  (method override (class-property-presentation class property)
     (case (field-name property)
       ((title) "Title")
       ((classes) "Classes")
       ((sort?) "Sort?")
-      (else (nextmethod property))))
+      (else (nextmethod class property))))
   
   
-  (method override (get-custom-card)
+  (method override (component-get-custom-card component)
     Group-Card)
   
   
-  (method override (sort-components?)
-    sort?)
+  (method override (component-sort-components? component)
+    (get-sort?~ component))
   
   
-  (method override (display-property? property)
+  (method override (component-display-property? component property)
     (not (memq? (field-name property) '(class-info name-info before children visible? title))))
   
   
-  (method override (indexable?)
+  (method override (component-indexable? component)
     #f)
 
   
-  (method override (get-row-instance property)
+  (method override (component-get-row-instance component property)
     (case (field-name property)
       ((classes) (new Class-List-Row))
       ((sort?) (new Boolean-Row))
-      (else (nextmethod property)))))
+      (else (nextmethod component property))))
+
+
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method override (component-get-addable-classes component)
+    (map (lambda (model)
+           (when model
+             (autoload model)))
+         (get-component-classes)))
+  
+  
+  (method override (component-get-classes component)
+    (either (get-classes~ component)
+            (when (get-parent~ component)
+              (get-component-classes~ (get-parent~ component))))))
 
 
 ;;;
@@ -164,4 +187,27 @@
   (method override (initialize . rest)
     (apply nextmethod rest)
     @convert
-    (set-choices '((() "Separator") () (Group "Group") () (Note "Note") (Task "Task") (Calendar-Event "Event") (Anniversary "Anniversary") () (Company "Company") (Organism "Organism") (Person "Person") () (Password "Password") () (Apartment "Apartment") (Recipe "Recipe"))))))
+    (set-choices '((() "Separator") () (Group "Group") () (Note
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Group-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Group-Descriptor extends Class-Descriptor "Note") (Task "Task") (Calendar-Event "Event") (Anniversary "Anniversary") () (Company "Company") (Organism "Organism") (Person "Person") () (Password "Password") () (Apartment "Apartment") (Recipe "Recipe"))))))))

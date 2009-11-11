@@ -46,6 +46,11 @@
 (native private jazz.error)
 
 
+(macro public (submodule name . body)
+  `(begin
+     ,@body))
+
+
 (syntax public (constant form-src)
   (let ((name (cadr (source-code form-src)))
         (value (caddr (source-code form-src))))

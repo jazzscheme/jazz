@@ -69,7 +69,7 @@
   (slot creator-branch           initialize {})   ;; the branch that created the component ({} if none)
   (slot event-consumer           initialize self)
   (slot designers                initialize '())
-  (slot surrogate                initialize {} getter generate)
+  (slot surrogate                initialize {} accessors generate)
   (slot index                    initialize {})
   (slot flags          <fx>      initialize Visible-Flag)
   
@@ -723,6 +723,46 @@
         (when (null? scan)
           (error "{t} is not a descendant of the root component {t}" self root)))
       ancestry))
+
+
+  ;;;
+  ;;;; Hierarchy
+  ;;;
+  
+  
+  (method public (for-each-parent proc <procedure>)
+    (when parent
+      (proc parent)
+      (for-each-parent~ parent proc)))
+  
+  
+  (method public (for-each-ascendant proc <procedure>)
+    (proc self)
+    (for-each-parent proc))
+  
+  
+  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t))
+    (letrec ((iter
+               (lambda (component include? level)
+                 (when include?
+                   (proc component level))
+                 (loop (for child in (get-children~ component))
+                       (do (iter child #t (+ level 1)))))))
+      (iter self include-self? 0)))
+  
+  
+  (method public (for-each-sibling proc <procedure>)
+    (loop (for child in (get-children~ parent))
+          (when (neq? child self)
+            (proc child))))
+
+
+  (method public (collect-family)
+    (let ((factory (new List-Factory)))
+      (for-each-descendant
+        (lambda (child . rest)
+          (put~ factory child)))
+      (get-output~ factory)))
   
   
   ;;;
@@ -950,15 +990,6 @@
 
 
   ;;;
-  ;;;; Descriptor
-  ;;;
-
-
-  (method meta public virtual (get-class-descriptor)
-    #f)
-
-
-  ;;;
   ;;;; Integrity
   ;;;
   
@@ -1102,6 +1133,17 @@
 
 
   ;;;
+  ;;;; Foreign
+  ;;;
+  
+  
+  (method public virtual (search-descendants criteria)
+    (if (not criteria)
+        (get-children)
+      (unimplemented 'search-descendants)))
+
+
+  ;;;
   ;;;; Domain
   ;;;
   
@@ -1128,318 +1170,236 @@
 
 
   ;;;
-  ;;;; Foreign
+  ;;;; Descriptor
   ;;;
-  
-  
-  (method public virtual (search-descendants criteria)
-    (if (not criteria)
-        (get-children)
-      (unimplemented 'search-descendants)))
 
 
-  ;;;
-  ;;;; Designer
-  ;;;
+  (method meta public virtual (get-class-descriptor)
+    (new (module-ref 'jazz.designer 'Class-Descriptor)))
   
   
   (method meta public virtual (get-class-presentation)
-    (either (let ((descriptor (get-descriptor self)))
-              (when descriptor
-                (get-title~ descriptor)))
-            (->string (identifier-name (type-name self)))))
+    (class-presentation~ (get-descriptor self) self))
   
   
   (method meta public virtual (get-class-image)
-    (either (let ((descriptor (get-descriptor self)))
-              (when descriptor
-                (get-image~ descriptor)))
-            {Bitmap-Resource "Component"}))
+    (class-image~ (get-descriptor self) self))
   
   
   (method meta public virtual (get-name-prohibited?)
-    (let ((descriptor (get-descriptor self)))
-      (if descriptor
-          (get-name-prohibited?~ descriptor)
-        #f)))
+    (class-name-prohibited?~ (get-descriptor self) self))
   
   
   (method meta public virtual (get-name-mandatory?)
-    (let ((descriptor (get-descriptor self)))
-      (if descriptor
-          (get-name-mandatory?~ descriptor)
-        #f)))
+    (class-name-mandatory?~ (get-descriptor self) self))
   
   
   (method meta public virtual (get-name-unicity?)
-    (let ((descriptor (get-descriptor self)))
-      (if descriptor
-          (get-name-unicity?~ descriptor)
-        #f)))
+    (class-name-unicity?~ (get-descriptor self) self))
   
   
   (method meta public virtual (presentation->name presentation)
-    (if (or (empty-string? presentation) (= presentation "{}"))
-        {}
-      (string->symbol presentation)))
+    (class-presentation->name~ (get-descriptor self) self presentation))
   
   
   (method meta public virtual (name->presentation name)
-    (if (not name)
-        "{}"
-      (->string name)))
+    (class-name->presentation~ (get-descriptor self) self name))
   
   
   (method meta public virtual (property-presentation property)
-    (let ((name (field-name property)))
-      (case name
-        ((class-info) "class")
-        ((name-info) "name")
-        ((presentation-info) "label")
-        ((before) "Before")
-        ((children) "Children")
-        ((visible?) "Visible")
-        (else (let ((descriptor (get-property-descriptor self name)))
-                (if descriptor
-                    (get-title~ descriptor)
-                  (->string name)))))))
+    (class-property-presentation~ (get-descriptor self) self property))
   
   
   (method meta public virtual (detail-presentation property)
-    (case (field-name property)
-      ((class-info) "Class")
-      ((name-info) "Name")
-      ((presentation-info) "Name")
-      (else (property-presentation property))))
+    (class-detail-presentation~ (get-descriptor self) self property))
   
   
   (method meta public virtual (persist-property? property)
-    #t)
+    (class-persist-property?~ (get-descriptor self) self property))
   
   
   (method public virtual (presentation-property? property)
-    #f)
+    (component-presentation-property?~ (get-descriptor (class-of self)) self property))
   
   
   (method public virtual (get-presentation)
-    (name->presentation~ (class-of self) name))
+    (component-get-presentation~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (set-presentation designer presentation)
-    (set-name~ designer self (presentation->name~ (class-of self) presentation)))
+    (component-set-presentation~ (get-descriptor (class-of self)) self designer presentation))
   
   
   (method protected (get-string-presentation)
-    (either (get-name) ""))
+    (component-get-string-presentation~ (get-descriptor (class-of self)) self))
   
   
   (method protected (set-string-presentation designer presentation)
-    (if (empty-string? presentation)
-        (set-name~ designer self {})
-      (set-name~ designer self presentation)))
+    (component-set-string-presentation~ (get-descriptor (class-of self)) self designer presentation))
   
   
   (method public virtual (present-property property value)
-    (let ((domain (property-domain property)))
-      (present~ domain value)))
+    (component-present-property~ (get-descriptor (class-of self)) self property value))
   
   
   (method public virtual (get-parent-component)
-    (get-parent))
+    (component-get-parent~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-components)
-    (get-children))
+    (component-get-components~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-component-image)
-    (get-class-image~ (class-of self)))
+    (component-get-component-image~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-cut-component?)
-    (can-delete-component?))
+    (component-can-cut-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-copy-component?)
-    #t)
+    (component-can-copy-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-paste-component?)
-    #t)
+    (component-can-paste-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-rename-component?)
-    (not (get-name-prohibited?~ (class-of self))))
+    (component-can-rename-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-delete-component?)
-    #t)
+    (component-can-delete-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-move-component?)
-    #t)
+    (component-can-move-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (can-view-properties?)
-    #t)
+    (component-can-view-properties?~ (get-descriptor (class-of self)) self))
   
   
   (method public (determine-can-paste (try-parent? #t))
-    (boolean (determine-paster try-parent?)))
+    (component-determine-can-paste~ (get-descriptor (class-of self)) self try-parent?))
   
   
   (method public (determine-paster (try-parent? #t))
-    self
-    @convert
-    (when (and (can-paste-component?) (clipboard-format-available? 'jazz-parcels))
-      (let* ((parcels (read-string-element (get-clipboard-text format: 'jazz-parcels)))
-             (models (remove-duplicates (map (lambda (parcel) (get-master-model~ parcel)) parcels))))
-        (cond ((memq? {} models)
-               {})
-              ((every? addable-class? models)
-               self)
-              (else
-               (when (and try-parent? parent)
-                 (determine-paster~ parent #f)))))))
+    (component-determine-paster~ (get-descriptor (class-of self)) self try-parent?))
   
   
   (method public virtual (can-send-before? types father before)
-    (and (every? addable-class? types)
-         (not (sort-components?))))
+    (component-can-send-before?~ (get-descriptor (class-of self)) self types father before))
   
   
   (method public virtual (sort-components?)
-    #f)
+    (component-sort-components?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (sort-components predicate components)
-    (sort predicate components key: (lambda (component) (get-presentation~ component))))
+    (component-sort-components~ (get-descriptor (class-of self)) self predicate components))
   
   
   (method public virtual (indexable?)
-    #t)
+    (component-indexable?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (component-surrogate)
-    Component-Surrogate)
+    (component-surrogate-class~ (get-descriptor (class-of self)) self))
 
 
   (method public virtual (install-surrogate editor)
-    (set! surrogate (new (component-surrogate) client: self editor: editor))
-    (install-handlers~ surrogate)
-    (install-children-surrogates editor))
+    (component-install-surrogate~ (get-descriptor (class-of self)) self editor))
   
   
   (method public virtual (install-children-surrogates editor)
-    (for-each (lambda (component)
-                (install-surrogate~ component editor))
-              (get-components)))
+    (component-install-children-surrogates~ (get-descriptor (class-of self)) self editor))
 
 
   (method public (remove-surrogate)
-    (remove-component-surrogate))
+    (component-remove-surrogate~ (get-descriptor (class-of self)) self))
 
 
   (method public (remove-component-surrogate)
-    (for-each (lambda (component)
-                (remove-component-surrogate~ component))
-              (get-components))
-    (when surrogate
-      (remove-handlers~ surrogate)
-      (set! surrogate {})))
+    (component-remove-component-surrogate~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-default-property)
-    {})
+    (component-get-default-property~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-categorized-properties)
-    (let ((descriptor (get-descriptor (class-of self))))
-      (if descriptor
-          (get-categorized-properties~ descriptor)
-        #t)))
+    (component-get-categorized-properties~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (display-property? property)
-    (not (memq? (field-name property) '(presentation-info before children visible?))))
+    (component-display-property?~ (get-descriptor (class-of self)) self property))
   
   
   (method public virtual (get-row-class property)
-    (case (field-name property)
-      ((class-info) Info-Row)
-      ((name-info) Info-Row)
-      ((presentation-info) Info-Row)
-      (else Value-Row)))
+    (component-get-row-class~ (get-descriptor (class-of self)) self property))
   
   
   (method public virtual (get-row-instance property)
-    (case (field-name property)
-      ((visible?) (new Boolean-Row))
-      (else {})))
+    (component-get-row-instance~ (get-descriptor (class-of self)) self property))
   
   
   (method public virtual (update-property-row row)
-    )
+    (component-update-property-row~ (get-descriptor (class-of self)) self row))
   
   
   (method public virtual (get-addable-default)
-    {})
+    (component-get-addable-default~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-addable-classes)
-    '())
+    (component-get-addable-classes~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (addable-class? class)
-    (some? (lambda (addable-class)
-             (and addable-class (subtype? class addable-class)))
-           (get-addable-classes)))
+    (component-addable-class?~ (get-descriptor (class-of self)) self class))
   
   
   (method public virtual (get-component-classes)
-    '())
+    (component-get-classes~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-addable-branches)
-    #t)
+    (component-get-addable-branches~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-addable-default-branch)
-    Branch)
+    (component-get-addable-default-branch~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-addable-base)
-    (let ((classes (get-addable-classes)))
-      (when classes
-        (if (= 1 (length classes))
-            (car classes)
-          Component))))
+    (component-get-addable-base~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-addable-details)
-    (let ((base (get-addable-base)))
-      (when base
-        '((name-info 100 #t)))))
+    (component-get-addable-details~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-recursive-details?)
-    #f)
+    (component-get-recursive-details?~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-class-searchable-classes)
-    '())
+    (component-get-class-searchable-classes~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-custom-details)
-    '())
+    (component-get-custom-details~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (get-custom-card)
-    {})
+    (component-get-custom-card~ (get-descriptor (class-of self)) self))
   
   
   (method public virtual (save-component-properties designer)
-    )
+    (component-save-properties~ (get-descriptor (class-of self)) self designer))
 
 
   ;;;
@@ -1519,44 +1479,4 @@
                 (let ((title (localize (property-presentation~ (class-of self) property)))
                       (value (->string (read-property self property))))
                   (insert-bulleted-line~ text (format "{a} : {a}" title value))))
-              (get-properties)))
-
-
-  ;;;
-  ;;;; Utilities
-  ;;;
-  
-  
-  (method public (for-each-parent proc <procedure>)
-    (when parent
-      (proc parent)
-      (for-each-parent~ parent proc)))
-  
-  
-  (method public (for-each-ascendant proc <procedure>)
-    (proc self)
-    (for-each-parent proc))
-  
-  
-  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t))
-    (letrec ((iter
-               (lambda (component include? level)
-                 (when include?
-                   (proc component level))
-                 (loop (for child in (get-children~ component))
-                       (do (iter child #t (+ level 1)))))))
-      (iter self include-self? 0)))
-  
-  
-  (method public (for-each-sibling proc <procedure>)
-    (loop (for child in (get-children~ parent))
-          (when (neq? child self)
-            (proc child))))
-
-
-  (method public (collect-family)
-    (let ((factory (new List-Factory)))
-      (for-each-descendant
-        (lambda (child . rest)
-          (put~ factory child)))
-      (get-output~ factory)))))
+              (get-properties)))))

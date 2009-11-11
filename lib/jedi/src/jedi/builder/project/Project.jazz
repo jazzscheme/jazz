@@ -283,6 +283,29 @@
 
   (method public virtual (project-clean)
     (message-box "This project doesn't define a project-clean method"))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Project-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Project-Descriptor extends Project-File-Descriptor
 
 
   ;;;
@@ -290,11 +313,11 @@
   ;;;
   
   
-  (method meta override (get-class-image)
+  (method override (class-image class)
     {Bitmap-Resource "Project"})
   
   
-  (method meta override (property-presentation property)
+  (method override (class-property-presentation class property)
     (case (field-name property)
       ((title) "Title")
       ((icon) "Icon")
@@ -308,27 +331,27 @@
       ((catalog?) "Catalog?")
       ((catalog-extensions) "Catalog Extensions")
       ((catalog-heuristics) "Catalog Heuristics")
-      (else (nextmethod property))))
+      (else (nextmethod class property))))
   
   
-  (method override (presentation-property? property)
+  (method override (component-presentation-property? component property)
     (memq? (field-name property) '(title)))
   
   
-  (method override (get-presentation)
-    (either title (->string (type-name (class-of self)))))
+  (method override (component-get-presentation component)
+    (either (get-title~ component) (->string (type-name (class-of self)))))
   
   
-  (method override (set-presentation designer presentation)
+  (method override (component-set-presentation component designer presentation)
     (set-property~ designer self title: presentation))
   
   
-  (method override (addable-class? class)
+  (method override (component-addable-class? component class)
     (or (subtype? class Project-File)
         (subtype? class Project-Group)))
   
   
-  (method override (get-addable-classes)
+  (method override (component-get-addable-classes component)
     (list
       Project-Group
       ;{}
@@ -337,16 +360,16 @@
       ))
   
   
-  (method override (get-row-instance property)
+  (method override (component-get-row-instance component property)
     (case (field-name property)
       ((title) (new String-Row nullable?: #t))
       ((include-extensions catalog-extensions catalog-heuristics) (new Value-Row))
       ((documentation) (new File-Row))
       ((catalog? active?) (new Boolean-Row))
-      (else (nextmethod property))))
+      (else (nextmethod component property))))
   
   
-  (method override (get-categorized-properties)
+  (method override (component-get-categorized-properties component)
     '(title
       @wait icon @wait owner @wait copyright @wait version
       include-extensions
@@ -354,4 +377,4 @@
       documentation
       @wait
       active?
-      catalog? catalog-extensions catalog-heuristics))))
+      catalog? catalog-extensions catalog-heuristics)))))

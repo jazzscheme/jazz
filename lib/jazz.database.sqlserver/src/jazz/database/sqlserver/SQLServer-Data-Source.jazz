@@ -39,6 +39,7 @@
 
 
 (import (jazz.database.ado)
+        (jazz.database.sqlserver)
         (jazz.schema))
 
 
@@ -106,6 +107,29 @@
      (list "SQLServer Database")
      (list :bulleted (format "Server: {a}" server))
      (list :bulleted (format "Database: {a}" database))))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new SQLServer-Data-Source-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class SQLServer-Data-Source-Descriptor extends Data-Source-Descriptor
 
 
   ;;;
@@ -113,29 +137,26 @@
   ;;;
   
   
-  @convert
-  (method meta (get-class-presentation)
+  (method override (class-presentation class)
     "SQLServer Connection")
 
   
-  @convert
-  (method meta (property-presentation property)
+  (method override (class-property-presentation class property)
     (case (field-name property)
       ((server)   "Server")
       ((database) "Database")
       ((dsn)      "DSN")
-      (else (nextmethod property))))
+      (else (nextmethod class property))))
   
   
-  @convert
-  (method (get-row-instance property)
+  @wait
+  (method override (component-get-row-instance component property)
     (case (field-name property)
       ((server) (new SQLServer-Server-Row nullable?: #t limit-to-list?: #f))
       ((database) (new SQLServer-Database-Row nullable?: #t condensed?: #t))
       ((dsn) (new String-Row nullable?: #t))
-      (else (nextmethod property))))
+      (else (nextmethod component property))))
   
   
-  @convert
-  (method (get-categorized-properties)
-    '(class-info dsn (server username password) database))))
+  (method override (component-get-categorized-properties component)
+    '(class-info dsn (server username password) database)))))

@@ -120,10 +120,10 @@
   #f)
 
 (define (jazz.link-units?)
-  (memq 'units jazz.link-options))
+  (%%memq 'units jazz.link-options))
 
 (define (jazz.link-libraries?)
-  (memq 'libraries jazz.link-options))
+  (%%memq 'libraries jazz.link-options))
    
 (define jazz.jobs
   #f)
@@ -160,9 +160,9 @@
 (define jazz.currently-loading-library-procs)
 
 (define (jazz.load-libraries)
-  (define libraries (make-table))
+  (define libraries (%%make-table))
   (define (add-library package-name library-filename) 
-    (table-set! libraries package-name library-filename))
+    (%%table-set! libraries package-name library-filename))
   
   ; find the libraries
   (jazz.iterate-packages #t
@@ -171,7 +171,7 @@
         (for-each
           (lambda (product-descriptor)
             (let ((product-name (jazz.product-descriptor-name product-descriptor)))           
-              (or (table-ref libraries product-name #f)
+              (or (%%table-ref libraries product-name #f)
                   (jazz.with-numbered-pathname 
                     (string-append (jazz.product-library-name-base package product-name) "." jazz.Library-Extension) #f 1
                     (lambda (filename exists?)
@@ -296,6 +296,7 @@
                 (process-buildini-file)
                 (jazz.subprocess-build-products))
               (else
+                (jazz.load-libraries)
                 (jazz.repl-main)))))))
 
 

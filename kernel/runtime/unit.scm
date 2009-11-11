@@ -1360,7 +1360,7 @@
                (let ((process (open-process
                                 (list
                                   path: (kernel-path)
-                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) ,@(if jazz.link `("-link" ,(symbol->string jazz.link)) '()) "-jobs" "1")
+                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) ,@(if jazz.link `("-link" ,(%%symbol->string jazz.link)) '()) "-jobs" "1")
                                   directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t
@@ -1547,23 +1547,22 @@
              (if fresh?
                  (proc candidate exists?)
                (if exists? 
-                   (proc (string-append pathname (%%number->string (- n 1))) exists?)
+                   (proc (string-append pathname (%%number->string (%%fx- n 1))) exists?)
                  (proc (string-append pathname (%%number->string n0)) exists?)))
            (iter (%%fx+ n 1) #t)))))
 
 
-(define (jazz.package-build-dir package)
-  (let ((parent (%%package-parent package)))
-    (jazz.repository-pathname jazz.Bin-Repository
-       (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                        (%%package-units-path package)))))
-
-
 (define (jazz.product-library-name-base package product-name)
-  (string-append (jazz.package-build-dir package)
+  (define (build-dir package)
+    (let ((parent (%%package-parent package)))
+      (jazz.repository-pathname jazz.Bin-Repository
+        (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
+                         (%%symbol->string product-name)))))
+  
+  (string-append (build-dir package)
                  "/"
-                 (symbol->string product-name)))
- 
+                 (%%symbol->string product-name)))
+
 
 ;;;
 ;;;; Manifest

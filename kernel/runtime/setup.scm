@@ -119,6 +119,12 @@
 (define jazz.link-options
   #f)
 
+(define (jazz.link-units?)
+  (memq 'units jazz.link-options))
+
+(define (jazz.link-libraries?)
+  (memq 'libraries jazz.link-options))
+   
 (define jazz.jobs
   #f)
 
@@ -148,47 +154,36 @@
 
 
 ;;;
-;;;; Libraries
+;;;; Dynamic Libraries
 ;;;
 
 (define jazz.currently-loading-library-procs)
 
-(define (jazz.load-composite-libraries)
-  (define (get-object-serial ext)
-    (and (%%fx>= (%%string-length ext) 3)
-         (let* ((ns (%%substring ext 2 (%%string-length ext)))
-                (n (string->number ns)))
-           (and (%%string=? ".o" (%%substring ext 0 2))
-                (%%number? n)
-                n))))
-  
-  (define (for-each-file-in-directory dir proc)
-    (let ((p (open-directory dir)))
-      (let loop ()
-           (let ((filename (read p)))
-             (if (%%string? filename)
-                 (begin
-                   (proc filename)
-                   (loop)))))
-      (close-input-port p)))
-  
+(define (jazz.load-libraries)
   (define libraries (make-table))
+  (define (add-library package-name library-filename) 
+    (table-set! libraries package-name library-filename))
   
-  ; scan the directory for library files
-  (for-each-file-in-directory jazz.kernel-install
-    (lambda (filename)
-      (let ((lib-name (path-strip-extension filename))
-            (serial (get-object-serial (path-extension filename))))
-        (if serial
-            (let ((prev (%%table-ref libraries lib-name #f)))
-              (if (or (and prev (%%fx> serial prev))
-                      (%%not prev))
-                  (%%table-set! libraries lib-name serial)))))))
-  
+  ; find the libraries
+  (jazz.iterate-packages #t
+    (lambda (package)
+      (let ((products (%%package-products package)))
+        (for-each
+          (lambda (product-descriptor)
+            (let ((product-name (jazz.product-descriptor-name product-descriptor)))           
+              (or (table-ref libraries product-name #f)
+                  (jazz.with-numbered-pathname 
+                    (string-append (jazz.product-library-name-base package product-name) "." jazz.Library-Extension) #f 1
+                    (lambda (filename exists?)
+                      (if exists?
+                          (add-library product-name filename)))))))
+          products))))
+      
   ; register all the libraries found
   (table-for-each
-    (lambda (lib serial)
-      (let* ((pathname (path-normalize (string-append jazz.kernel-install "/" lib ".o" (%%number->string serial))))
+    (lambda (product-name library-filename)
+      (let* ((pathname (path-normalize library-filename))
+             ;(string-append jazz.kernel-install "/" lib ".o" (%%number->string serial))))
              (lib (##load-object-file pathname #t)))
         (if (and (%%vector? lib)
                  (%%vector? (%%vector-ref lib 0)))
@@ -219,7 +214,7 @@
     units
     1)
   
-  ;(jazz.feedback (string-append "LIB: " (%%symbol->string lib-name) " (" (%%number->string (%%length units)) " units)"))
+;  (jazz.feedback (string-append "LIB: " (%%symbol->string lib-name) " (" (%%number->string (%%length units)) " units)"))
 )
 
 
@@ -278,16 +273,16 @@
                 (%%eqv? jobs 0))
             (jazz.debug-build? #t))
         (cond (load
-                (jazz.load-composite-libraries)
+                (jazz.load-libraries)
                 (jazz.load-unit (%%string->symbol load)))
               (test
-                (jazz.load-composite-libraries)
+                (jazz.load-libraries)
                 (jazz.test-product (%%string->symbol test)))
               (run
-                (jazz.load-composite-libraries)
+                (jazz.load-libraries)
                 (jazz.run-product (%%string->symbol run)))
               (jazz.product
-                (jazz.load-composite-libraries)
+                (jazz.load-libraries)
                 (jazz.run-product jazz.product))
               (compile
                 (process-buildini-file)

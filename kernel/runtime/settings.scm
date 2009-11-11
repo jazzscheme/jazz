@@ -95,7 +95,7 @@
   #f)
 
 (jazz.define-setting jazz.build-link
-  'images)
+  'units)
 
 (jazz.define-setting jazz.build-jobs
   1)

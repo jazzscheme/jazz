@@ -679,7 +679,7 @@
               (%%cdr autoload)))))))
   
   (jazz.load-unit unit-name)
-  (jazz.with-unit-src/bin unit-name #f
+  (jazz.with-unit-src/bin unit-name #f #f
     (lambda (src bin bin-uptodate?)
       (let ((src-autoload (find-autoload src))
             (bin-autoload (find-autoload bin)))
@@ -779,12 +779,19 @@
 ;;;; Unit
 ;;;
 
+(define (jazz.find-unit-obj unit-name)
+  (jazz.find-unit-obj/bin unit-name ".o"))
+
 
 (define (jazz.find-unit-bin unit-name)
+  (jazz.find-unit-obj/bin unit-name ".o1"))
+
+
+(define (jazz.find-unit-obj/bin unit-name extension)
   (define (find-bin package path)
     (define (try path)
       ;; we only test .o1 and let gambit find the right file by returning no extension when found
-      (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path ".o1")))
+      (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path extension)))
           (%%make-resource package path #f)
         #f))
   
@@ -813,8 +820,7 @@
                                                       (lambda (package)
                                                         (find-bin package path)))
                     (continuation-return return bin)))))))
-      #f)))
-
+      #f)))  
 
 (define (jazz.find-unit-src unit-name extensions . rest)
   (define (find-src package path)
@@ -861,7 +867,7 @@
           #f)))))
 
 
-(define (jazz.with-unit-src/bin unit-name extensions proc #!key (pass-manifest? #f))
+(define (jazz.with-unit-src/bin unit-name extensions link-modules? proc #!key (pass-manifest? #f))
   
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
@@ -869,42 +875,47 @@
           interpreted?
         (%%memv unit-name interpreted?))))
   
-  (let ((bin (jazz.find-unit-bin unit-name))
+  (let ((obj (jazz.find-unit-obj unit-name))
+        (bin (jazz.find-unit-bin unit-name))
         (src (jazz.find-unit-src unit-name extensions))
         (manifest #f))
-    (let ((bin-uptodate?
-            (if (and src bin)
-                (begin
-                  (set! manifest (jazz.load-updated-manifest unit-name
-                                                             (jazz.manifest-pathname (%%resource-package bin) bin)
-                                                             (jazz.resource-pathname src)))
-                  (and (jazz.manifest-uptodate? manifest)
-                       (%%not (jazz.manifest-needs-rebuild? manifest))
-                       (%%not (force-interpreted?))))
-              bin)))
+    (let* ((obj-uptodate?
+             (if (and src obj)
+                 (begin
+                   (set! manifest (jazz.load-updated-manifest unit-name
+                                                              (jazz.manifest-pathname (%%resource-package obj) obj)
+                                                              (jazz.resource-pathname src)))
+                   (and (jazz.manifest-uptodate? manifest)
+                        (%%not (jazz.manifest-needs-rebuild? manifest))
+                        (%%not (force-interpreted?))))
+               obj))
+           (bin-uptodate?
+             (if link-modules? 
+                 (and obj-uptodate? bin)
+               obj-uptodate?)))
+      ;(println unit-name "  " obj-uptodate? "  " bin-uptodate?)
       (if pass-manifest?
-          (proc src bin bin-uptodate? manifest)
-        (proc src bin bin-uptodate?)))))
+          (proc src (if link-modules? bin obj) bin-uptodate? manifest)
+        (proc src (if link-modules? bin obj) bin-uptodate?)))))
  
+; and obj-uptodate bin
   
 (define (jazz.with-unit-src/bin/lib unit-name extensions proc)
-  (jazz.with-unit-src/bin unit-name extensions
+  (jazz.with-unit-src/bin unit-name extensions #t
     (lambda (src bin bin-uptodate? manifest)
       (let* ((image-unit (jazz.get-image-unit unit-name))
              (lib-uptodate?
-               (cond ((and image-unit bin-uptodate?)
-                      (jazz.image-unit-uptodate? image-unit manifest))
-                     ((%%not (or src bin))
-                      image-unit)
-                     (else #f))))
+               (and image-unit
+                    (or (jazz.image-unit-uptodate? image-unit manifest)
+                        (%%not (or src bin))))))
         (proc src bin (if image-unit (%%image-unit-load-proc image-unit) #f) bin-uptodate? lib-uptodate?)))
     pass-manifest?: #t))
 
 
 (define (jazz.unit-uptodate-binary? unit-name)
-  (jazz.with-unit-src/bin unit-name #f
-    (lambda (src bin bin-uptodate?)
-      bin-uptodate?)))
+  (jazz.with-unit-src/bin/lib unit-name #f
+    (lambda (src bin lib bin-uptodate? lib-uptodate?)
+      (or bin-uptodate? lib-uptodate?))))
 
 
 (define (jazz.image-unit-uptodate? image-unit manifest)
@@ -1025,10 +1036,11 @@
 
 
 (define (jazz.find-product-descriptor name)
-  (let ((binary-descriptor #f))
+  (let ((binary-package #f) 
+        (binary-descriptor #f))
     (let iter-repo ((repositories jazz.Repositories))
       (if (%%null? repositories)
-          binary-descriptor
+          (values binary-package binary-descriptor)
         (let ((repository (%%car repositories)))
           (let iter ((packages (jazz.repository-packages (%%car repositories))))
             (if (%%null? packages)
@@ -1040,10 +1052,11 @@
                         (cond (alias
                                (jazz.find-product-descriptor alias))
                               ((%%repository-binary? repository)
+                               (set! binary-package package)
                                (set! binary-descriptor pair)
                                (iter (%%cdr packages)))
                               (else
-                               pair)))
+                               (values package pair))))
                     (iter (%%cdr packages))))))))))))
 
 
@@ -1166,13 +1179,14 @@
 
 
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library #f))
-  (%%table-set! jazz.Products-Table name (%%make-product name title icon run test update build library (jazz.find-product-descriptor name))))
+  (receive (package descriptor) (jazz.find-product-descriptor name)
+    (%%table-set! jazz.Products-Table name (%%make-product name title icon run test update build library package descriptor))))
 
 
 (define (jazz.get-product-descriptor name)
-  (let ((descriptor (jazz.find-product-descriptor name)))
-    (if descriptor
-        descriptor
+  (receive (package descriptor) (jazz.find-product-descriptor name)
+    (if (and package descriptor)
+        (values package descriptor)
       (jazz.error "Unable to find product: {s}" name))))
 
 
@@ -1180,8 +1194,8 @@
   (define (get-registered-product name)
     (or (%%table-ref jazz.Products-Table name #f)
         (jazz.error "Unable to find registered product: {s}" name)))
-  
-  (let ((descriptor (jazz.get-product-descriptor name)))
+
+  (receive (package descriptor) (jazz.get-product-descriptor name)
     (let ((name (jazz.product-descriptor-name descriptor)) ; because of aliases
           (unit (jazz.product-descriptor-unit descriptor)))
       (if unit
@@ -1196,6 +1210,7 @@
             jazz.update-product-descriptor
             jazz.build-product-descriptor
             jazz.build-library-descriptor
+            package
             descriptor))))))
 
 
@@ -1281,13 +1296,16 @@
       (jazz.feedback "make {a}" name)
       (jazz.load-unit 'core.module)
       (jazz.load-unit 'core.unit.builder)
+            
       (if build
           (build descriptor)
         (jazz.build-product-descriptor descriptor))
-      #;
-      (if build-library
-          (build-library descriptor)
-        (jazz.build-library-descriptor descriptor)))))
+      
+      (if (jazz.link-libraries?)
+          (if build-library
+              (build-library descriptor)
+            (jazz.build-library-descriptor descriptor))))))
+
 
 (define (jazz.build-product-descriptor descriptor)
   (jazz.update-product-descriptor descriptor)
@@ -1299,12 +1317,13 @@
                       (%%apply jazz.build-image obj)))
                   build))))
 
+
 (define (jazz.build-library-descriptor descriptor)
-  (jazz.update-product-descriptor descriptor)
   (let ((library (jazz.product-descriptor-library descriptor)))
     (if library
-        (jazz.build-library descriptor (%%car library) options: (%%cdr library)))))
-      
+        (jazz.build-library (jazz.product-descriptor-name descriptor) descriptor options: library)
+      (jazz.build-library (jazz.product-descriptor-name descriptor) descriptor))))
+
 
 (define jazz.end-make-marker
   "***end-make***")
@@ -1407,7 +1426,8 @@
                       (begin
                         (make subname)
                         (%%table-set! subproduct-table subname #t))))
-                (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name)))
+                (receive (package descriptor) (jazz.get-product-descriptor name)
+                  (jazz.product-descriptor-dependencies descriptor)))
       (jazz.build-product name))
     
     (define (remote-make name)
@@ -1421,7 +1441,8 @@
                                            thread))))
                          (mutex-unlock! subproduct-table-mutex)
                          thread))
-                     (jazz.product-descriptor-dependencies (jazz.get-product-descriptor name))))
+                     (receive (package descriptor) (jazz.get-product-descriptor name)
+                       (jazz.product-descriptor-dependencies descriptor))))
       (build name))
     
     (define (make name)
@@ -1510,13 +1531,39 @@
       (jazz.probe-numbered-pathname pathname (%%fx+ n 1)))))
 
 
-(define (jazz.with-numbered-pathname pathname n proc)
-  (let iter ((n n) (exists? #f))
+(define (jazz.for-each-numbered-pathname pathname n0 proc)
+  (let iter ((n n0))     
+       (let ((candidate (string-append pathname (%%number->string n))))
+         (if (file-exists? candidate)
+             (begin
+               (proc candidate)
+               (iter (%%fx+ n 1)))))))
+
+
+(define (jazz.with-numbered-pathname pathname fresh? n0 proc)
+  (let iter ((n n0) (exists? #f))
        (let ((candidate (string-append pathname (%%number->string n))))
          (if (%%not (file-exists? candidate))
-             (proc candidate exists?)
+             (if fresh?
+                 (proc candidate exists?)
+               (if exists? 
+                   (proc (string-append pathname (%%number->string (- n 1))) exists?)
+                 (proc (string-append pathname (%%number->string n0)) exists?)))
            (iter (%%fx+ n 1) #t)))))
 
+
+(define (jazz.package-build-dir package)
+  (let ((parent (%%package-parent package)))
+    (jazz.repository-pathname jazz.Bin-Repository
+       (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
+                        (%%package-units-path package)))))
+
+
+(define (jazz.product-library-name-base package product-name)
+  (string-append (jazz.package-build-dir package)
+                 "/"
+                 (symbol->string product-name)))
+ 
 
 ;;;
 ;;;; Manifest
@@ -1640,7 +1687,6 @@
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
-               ;(display ".")
                (load-proc))
               (bin-uptodate?
                (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))

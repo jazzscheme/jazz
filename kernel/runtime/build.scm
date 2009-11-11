@@ -609,7 +609,7 @@
 ;;;
 
 
-(define (jazz.build-library-impl descriptor library
+(define (jazz.build-library-impl product-name descriptor
           #!key
           (options '())
           (platform jazz.kernel-platform)
@@ -666,9 +666,10 @@
     (define (unit-uptodate? unit-name)
       (let ((image-unit-compile-time-hash (%%table-ref sha1-table unit-name #f)))
         (and image-unit-compile-time-hash
-             (jazz.with-unit-src/bin unit-name #f
+             (jazz.with-unit-src/bin unit-name #f #f
                (lambda (src bin bin-uptodate? manifest)
-                 (and (jazz.manifest-uptodate? manifest)
+                 (and manifest
+                      (jazz.manifest-uptodate? manifest)
                       (%%not (jazz.manifest-needs-rebuild? manifest))
                       (%%string=? image-unit-compile-time-hash
                                   (%%digest-compile-time-hash (%%manifest-digest manifest)))))
@@ -689,7 +690,7 @@
         (newline)
         (for-each
           (lambda (unit-name)
-            (jazz.with-unit-src/bin unit-name #f
+            (jazz.with-unit-src/bin unit-name #f (jazz.link-units?)
               (lambda (src bin bin-uptodate?)
                 (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
                        (manifest (jazz.load/create-manifest unit-name mnf))
@@ -701,36 +702,34 @@
           sub-units)
         (display "))")
         (newline))))
-  
-  (let ((update (jazz.product-descriptor-update descriptor))
-        (library-base (string-append destination-directory (%%symbol->string library))))
-    (jazz.with-numbered-pathname (string-append library-base ".o") 1
+
+  (let* ((product (jazz.get-product product-name))
+         (update (jazz.product-descriptor-update descriptor))
+         (library-base (jazz.product-library-name-base (%%product-package product) product-name)))
+    (jazz.with-numbered-pathname (string-append library-base "." jazz.Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((linkfile (string-append library-o1 ".c"))
-               (header (string-append library-base "." jazz.Manifest-Extension))
+               (header (string-append library-base "." jazz.Library-Manifest-Extension))
                (header-c (string-append header ".c"))
                (header-o (string-append header ".o"))
-               (sub-units ;; hack for testing
-                          (if (%%assq 'no-subunits options)
-                              (remove-duplicates update)
-                            (remove-duplicates (%%apply append (map jazz.get-subunit-names update))))))
+               (sub-units (remove-duplicates (%%apply append (map jazz.get-subunit-names update)))))
           
           (define (build-library)
-            (make-library-header header library sub-units)
+            (make-library-header header product-name sub-units)
             (compile-file-to-c header output: header-c)
             (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
       
             (feedback-message "; creating link file...")
             (link-flat (%%cons header
                                (map (lambda (subunit-name)
-                                      (jazz.with-unit-src/bin subunit-name #f
+                                      (jazz.with-unit-src/bin subunit-name #f #f
                                         (lambda (src bin bin-uptodate?)
                                           (jazz.binary-with-extension src ""))))
                                     sub-units))
                        output: linkfile
                        warnings?: #f)
       
-            (feedback-message "; linking library... ({a} sub-units)" (%%number->string (%%length sub-units)))
+            (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz.call-process
               "gcc"
               `(,@(case platform
@@ -738,7 +737,7 @@
                     (else '("-bundle" "-D___DYNAMIC")))
                 ,header-o
                 ,@(map (lambda (subunit-name)
-                         (jazz.with-unit-src/bin subunit-name #f
+                         (jazz.with-unit-src/bin subunit-name #f #f
                            (lambda (src bin bin-uptodate?)
                              (jazz.binary-with-extension src ".o"))))
                        sub-units)

@@ -356,3 +356,11 @@
           (%%manifest-references-set! manifest updated-references))
       (%%digest-compile-time-hash-set! digest (%%digest-source-hash digest))
       (jazz.save-manifest manifest-filepath manifest))))
+
+;;;
+;;;; Library
+;;;
+
+
+(define jazz.Library-Extension "p")
+(define jazz.Library-Manifest-Extension "lmf")

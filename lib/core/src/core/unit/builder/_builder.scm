@@ -87,7 +87,7 @@
 
 
 (define (jazz.compile-unit-internal unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz.with-unit-src/bin unit-name #f
+  (jazz.with-unit-src/bin unit-name #f (jazz.link-units?)
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource src))
@@ -113,8 +113,8 @@
             (jazz.with-extension-reader (%%resource-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
-                  #;(jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
+                  #;(compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
+                  (jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
@@ -135,21 +135,28 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    (compile-file-to-c pathname output: bin-c options: options unit-name: (%%symbol->string unit-name))
-    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
-    (link-flat (%%list bin-) output: linkfile warnings?: #f)
- 
-    (##gambc-cc
-      'dyn
-      (jazz.resource-build-dir src)
-      (%%list linkfile bin-o)
-      bin-o1
-      "" ;cc-options
-      ""
-      ld-options
-      #f)
+    (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string unit-name))
+    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE -D___SINGLE_HOST " cc-options))
     
-    (delete-file linkfile)))
+    (if (jazz.link-units?)
+        (begin
+          (link-flat (%%list bin-) output: linkfile warnings?: #f)
+          (let ((exit-status
+                  (##gambc-cc
+                    'dyn
+                    (jazz.resource-build-dir src)
+                    (%%list linkfile bin-o)
+                    bin-o1
+                    cc-options
+                    ""
+                    ld-options
+                    #f)))
+            (if (not (= exit-status 0))
+                (jazz.error "C compilation failed while linking module"))
+            (delete-file linkfile)))
+      
+      ; else delete the .o1, .o2... files
+      (jazz.for-each-numbered-pathname bin-o 1 delete-file))))
 
   
 (define (jazz.find-build-package name)

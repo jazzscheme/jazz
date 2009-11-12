@@ -136,7 +136,7 @@
          (linkfile (string-append bin-o1 ".c")))
 
     (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string unit-name))
-    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE -D___SINGLE_HOST " cc-options))
+    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
     
     (if (jazz.link-objects?)
         (begin

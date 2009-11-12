@@ -1962,15 +1962,16 @@
 (jazz.define-class-runtime jazz.Walk-Location)
 
 
-(define (jazz.new-walk-location unit-locator declaration-locator locat)
-  (jazz.allocate-walk-location jazz.Walk-Location unit-locator declaration-locator locat))
+(define (jazz.new-walk-location unit-locator declaration-locator locat path)
+  (jazz.allocate-walk-location jazz.Walk-Location unit-locator declaration-locator locat path))
 
 
 (define (jazz.walk-location walker declaration locat)
   (jazz.new-walk-location
     (jazz.get-walk-locator)
     (%%get-declaration-locator declaration)
-    locat))
+    locat
+    (if locat (%%container->path (%%locat-container locat)) #f)))
 
 
 (jazz.encapsulate-class jazz.Walk-Location)

@@ -512,7 +512,8 @@
 (jazz.define-class jazz.Walk-Location jazz.Object () jazz.Object-Class jazz.allocate-walk-location
   ((unit-locator        %%get-walk-location-unit-locator        ())
    (declaration-locator %%get-walk-location-declaration-locator ())
-   (locat               %%get-walk-location-locat               ())))
+   (locat               %%get-walk-location-locat               ())
+   (path                %%get-walk-location-path                ())))
 
 
 ;;;

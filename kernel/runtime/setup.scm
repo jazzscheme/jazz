@@ -261,9 +261,10 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
-      (let ((load (jazz.get-option "load" options))
+      (let ((ev (jazz.get-option "eval" options))
+            (load (jazz.get-option "load" options))
             (test (jazz.get-option "test" options))
             (run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
@@ -284,7 +285,10 @@
         (if (or (jazz.get-option "debug" options)
                 (%%eqv? jobs 0))
             (jazz.debug-build? #t))
-        (cond (load
+        (cond (ev
+                (jazz.load-libraries)
+                (eval (call-with-input-string ev read)))
+              (load
                 (jazz.load-libraries)
                 (jazz.load-unit (%%string->symbol load)))
               (test

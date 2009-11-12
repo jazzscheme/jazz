@@ -192,10 +192,6 @@
       (jazz.build-clipboard))))
 
 
-(define (jazz.quote-jazz-gcc-pathname suffix)
-  (jazz.quote-gcc-pathname (path-expand (string-append jazz.kernel-source suffix)) jazz.kernel-platform))
-
-
 (define (jazz.parse-dot-version version)
   (let ((version (map string->number (jazz.split-string version #\.))))
     (let ((major (%%car version))

@@ -236,6 +236,10 @@
      pathname)))
 
 
+(define (jazz.quote-jazz-gcc-pathname suffix)
+  (jazz.quote-gcc-pathname (path-expand (string-append jazz.kernel-source suffix)) jazz.kernel-platform))
+
+
 (cond-expand
   (gambit
     (define jazz.file-exists?

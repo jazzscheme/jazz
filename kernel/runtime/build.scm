@@ -624,7 +624,6 @@
     (map car (table->list (list->table (map (lambda (x) (%%cons x #f)) list)))))
   
   (define (link-options)
-    
     (define (platform-options link-options platform)
       (let ((platform-options-pair (%%assq platform link-options)))
         (if (%%pair? platform-options-pair)
@@ -632,12 +631,31 @@
           #f)))
     
     (define (expand-link-option opt)
+      (define (expand-libdir dir)
+        (define (prefix p s) ; if p is a prefix of s, return what follows p in s
+          (let ((p-length (%%string-length p))
+                (s-length (%%string-length s)))
+            (if (and (%%fx>= s-length p-length)
+                     (%%string=? p (substring s 0 p-length)))
+                (%%substring s p-length s-length)
+              #f)))
+        (if (%%string? dir)
+            (let* ((jazz-relative-dir (prefix "~~jazz" dir))
+                   (quoted-dir 
+                     (if jazz-relative-dir
+                         (jazz.quote-jazz-gcc-pathname jazz-relative-dir)
+                       (jazz.quote-gcc-pathname dir platform))))
+              (%%list (%%string-append "-L" quoted-dir)))
+          (jazz.error "ill-formed libdir parameter in product link options")))
+      
       (cond ((%%string? opt)
              (%%list opt))
             (else
              (case (%%car opt)
                ((pkg-config)
                 (jazz.split-string (%%apply jazz.pkg-config (%%cdr opt)) #\space))
+               ((libdir)
+                (%%apply expand-libdir (%%cdr opt)))
                (else '())))))
     
     (let ((link-options-pair (%%assq 'link-options options)))

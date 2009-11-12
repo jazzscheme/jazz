@@ -295,22 +295,22 @@
       ((row) #t)))
   
   
-  (method public virtual (draw-header surface context h v width height sorted spaced? flat?)
-    (draw-header-at surface h v width height (localize title) down? sorted spaced? flat?))
+  (method public virtual (draw-header surface context lh lv h v width height sorted spaced? flat?)
+    (draw-header-at surface lh lv h v width height (localize title) down? sorted spaced? flat?))
   
   
-  (method (draw-header-at surface h v width height title down? sorted spaced? flat?)
+  (method (draw-header-at surface lh lv h v width height title down? sorted spaced? flat?)
     (if down?
-        (draw-sunken-button surface h v width height title sorted spaced? flat?)
-      (draw-raised-button surface h v width height title sorted spaced? flat?)))
+        (draw-sunken-button surface lh lv h v width height title sorted spaced? flat?)
+      (draw-raised-button surface lh lv h v width height title sorted spaced? flat?)))
     
   
-  (method (draw-raised-button surface h v width height title sorted spaced? flat?)
+  (method (draw-raised-button surface lh lv h v width height title sorted spaced? flat?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
              (inner (expand-rect outer 1 1 (if spaced? 0 thick) thick))
-             (text-h (+ h (header-title-h surface width height title))))
+             (text-h (header-title-h surface width height title)))
         (if flat?
             (if spaced?
                 (let ((smaller (expand-rect outer 0 0 0 -1)))
@@ -321,8 +321,10 @@
             (draw-edge~ surface rect inner: 'raised edges: '(top left))))
         (fill-rect~ surface inner (either background (header-color~ parent)))
         (set-text-color~ surface {Color name: Black})
-        (draw-text~ surface text-h (+ v 1) title)
-        (draw-sorted surface text-h v title sorted))))
+        (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
+          (lambda ()
+            (draw-text~ surface text-h 1 title)
+            (draw-sorted surface text-h 0 title sorted))))))
     
   
   (method protected virtual (header-title-h surface width height title)
@@ -346,16 +348,18 @@
           ((descending) (draw-arrow-tip~ surface h v size 'down))))))
   
   
-  (method (draw-sunken-button surface h v width height title sorted spaced? flat?)
+  (method (draw-sunken-button surface lh lv h v width height title sorted spaced? flat?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1))
-           (text-h (+ h (header-title-h surface width height title) 1)))
+           (text-h (+ (header-title-h surface width height title) 1)))
       (set-color~ surface {Color name: Dark})
       (frame-rect~ surface outer {Color name: Dark})
       (fill-rect~ surface inner (either background (header-color~ parent)))
       (set-text-color~ surface {Color name: Black})
-      (draw-text~ surface text-h (+ v 2) title)
-      (draw-sorted surface (+ text-h 1) (+ v 1) title sorted)))
+      (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
+        (lambda ()
+          (draw-text~ surface text-h 2 title)
+          (draw-sorted surface (+ text-h 1) 1 title sorted)))))
 
   
   ;;;

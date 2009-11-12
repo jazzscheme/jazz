@@ -478,13 +478,35 @@
         ((upper-case)  (upcase str))
         ((capitalized) (capitalize str))))
     
-    (define (get-repl str find-list repl-list)
-      (if (or (null? (cdr find-list)) (irregex-match (search-context-regexp (car find-list)) str))
-          (car repl-list)
-        (get-repl str (cdr find-list) (cdr repl-list))))
+    (define (get-replacement str find-list repl-list)
+      (and (pair? find-list)
+           (let ((m (irregex-match (search-context-regexp (car find-list)) str)))
+             (if m
+                 (if (get-regexp?~ (car find-list))
+                     (expand-replacement str m (car repl-list))
+                   (car repl-list))
+               (get-replacement str (cdr find-list) (cdr repl-list))))))
+    
+    (define (expand-replacement str m repl)
+      (let ((end (- (string-length repl) 1)))
+        (let (lp (from 0) (i 0) (res '()))
+          (define (collect) (if (= i from) res (cons (substring repl from i) res)))
+          (cond
+            ((>= i end) (apply string-append (reverse (collect))))
+            ((eqv? #\\ (string-ref repl i))
+             (lp (+ i 2)
+                 (+ i 2)
+                 (cons
+                   (case (string-ref repl (+ i 1))
+                     ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+                      (or (irregex-match-substring m (- (char->integer (string-ref repl (+ i 1))) (char->integer #\0))) ""))
+                     ((#\n) "\n") ((#\t) "\t") ((#\r) "\r")
+                     (else (substring repl (+ i 1) (+ i 2))))
+                   (collect))))
+            (else (lp from (+ i 1) res))))))
     
     (let* ((str (get-selected-string~ target))
-           (repl (if expression? (car repl-list) (get-repl str find-list repl-list))))
+           (repl (if expression? (car repl-list) (get-replacement str find-list repl-list))))
       (when repl
         (if (not play?)
             (insert-string~ target (if case? (convert-case repl (determine-case str)) repl))

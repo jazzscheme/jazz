@@ -153,6 +153,8 @@
   (carbon
     (define (jazz.build-platform descriptor)
       (jazz.compile-unit 'jazz.platform)
+      (jazz.compile-unit 'jazz.platform.crash)
+      (jazz.compile-unit 'jazz.platform.crash.carbon)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -185,6 +187,8 @@
   (x11
     (define (jazz.build-platform descriptor)
       (jazz.compile-unit 'jazz.platform)
+      (jazz.compile-unit 'jazz.platform.crash)
+      (jazz.compile-unit 'jazz.platform.crash.x11)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

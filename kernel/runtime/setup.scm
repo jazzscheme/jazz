@@ -143,6 +143,19 @@
       (jazz.load jazz.jazzini-file)))
 
 
+(define jazz.image-load-counter 0)
+(define jazz.object-load-counter 0)
+(define jazz.interpreted-load-counter 0)
+
+
+(define (jazz.increment-image-load-counter)
+  (set! jazz.image-load-counter (%%fx+ 1 jazz.image-load-counter)))
+(define (jazz.increment-object-load-counter)
+  (set! jazz.object-load-counter (%%fx+ 1 jazz.object-load-counter)))
+(define (jazz.increment-interpreted-load-counter)
+  (set! jazz.interpreted-load-counter (%%fx+ 1 jazz.interpreted-load-counter)))
+
+
 ;;;
 ;;;; Library
 ;;;

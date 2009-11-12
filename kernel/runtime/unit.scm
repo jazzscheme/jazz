@@ -1686,24 +1686,27 @@
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
-               (load-proc))
+                (jazz.increment-image-load-counter)
+                (load-proc))
               (bin-uptodate?
-               (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
-                                               (and ext (%%string=? ext "jazz"))))))
-                 (jazz.load-resource bin quiet?)))
+                (jazz.increment-object-load-counter)
+                (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
+                                                (and ext (%%string=? ext "jazz"))))))
+                  (jazz.load-resource bin quiet?)))
               (src
-               (let ((warn (jazz.warn-interpreted?)))
-                 (if warn
-                     (if (%%eq? warn 'error)
-                         (jazz.error "Loading {a} interpreted" unit-name)
-                       (begin
-                         (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
-                         (if (and (%%pair? warn) (%%memq unit-name warn))
-                             (pp jazz.Load-Stack))))))
-               (parameterize ((jazz.walk-for 'interpret))
-                 (jazz.with-extension-reader (%%resource-extension src)
-                   (lambda ()
-                     (jazz.load-resource src)))))
+                (jazz.increment-interpreted-load-counter)
+                (let ((warn (jazz.warn-interpreted?)))
+                  (if warn
+                      (if (%%eq? warn 'error)
+                          (jazz.error "Loading {a} interpreted" unit-name)
+                        (begin
+                          (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
+                          (if (and (%%pair? warn) (%%memq unit-name warn))
+                              (pp jazz.Load-Stack))))))
+                (parameterize ((jazz.walk-for 'interpret))
+                  (jazz.with-extension-reader (%%resource-extension src)
+                                              (lambda ()
+                                                (jazz.load-resource src)))))
               (else
                (jazz.error "Unable to find unit: {s}" unit-name)))))))
 

@@ -567,6 +567,9 @@
 (native jazz.global-variable?)
 (native jazz.global-value)
 (native jazz.test?)
+(native jazz.image-load-counter)
+(native jazz.object-load-counter)
+(native jazz.interpreted-load-counter)
 (native main)
 
 

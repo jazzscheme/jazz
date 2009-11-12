@@ -48,7 +48,8 @@
         (jazz.ui)
         (jazz.ui.activity)
         (jazz.ui.view)
-        (jazz.ui.window))
+        (jazz.ui.window)
+        (irregex))
 
 
 (class undocumented Search-View extends Layout-View
@@ -477,16 +478,20 @@
         ((upper-case)  (upcase str))
         ((capitalized) (capitalize str))))
     
+    (define (get-repl str find-list repl-list)
+      (if (or (null? (cdr find-list)) (irregex-match (search-context-regexp (car find-list)) str))
+          (car repl-list)
+        (get-repl str (cdr find-list) (cdr repl-list))))
+    
     (let* ((str (get-selected-string~ target))
-           (rank (if expression? 0 (find find-list str key: (lambda (context) (get-target~ context)) test: (if ignore-case? ci=? nu=?)))))
-      (when rank
-        (let ((repl (element repl-list rank)))
-          (if (not play?)
-              (insert-string~ target (if case? (convert-case repl (determine-case str)) repl))
-            ;; temp... should not be necessary. play-recording should be
-            ;; made to work even if the window doesn't have the focus.
-            (acquire-focus~ target)
-            (play-current-recording~ (get-recorder~ (get-application)))))
+           (repl (if expression? (car repl-list) (get-repl str find-list repl-list))))
+      (when repl
+        (if (not play?)
+            (insert-string~ target (if case? (convert-case repl (determine-case str)) repl))
+          ;; temp... should not be necessary. play-recording should be
+          ;; made to work even if the window doesn't have the focus.
+          (acquire-focus~ target)
+          (play-current-recording~ (get-recorder~ (get-application))))
         #t)))
   
   

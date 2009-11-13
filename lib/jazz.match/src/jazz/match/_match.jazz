@@ -134,6 +134,10 @@
     ((match-two v (= proc p) g s sk fk i)
      (let ((w (proc v)))
        (match-one w p g s sk fk i)))
+    ((match-two v ($ class fields ...) g s sk fk i)
+     (if (instance-of? v class)
+         (match-object-fields v 1 (fields ...) g s sk fk i)
+         fk))
     ((match-two v (p ___ . r) g s sk fk i)
      (match-extract-vars p (match-gen-ellipses v p r g s sk fk i) i ()))
     ((match-two v (p) g s sk fk i)
@@ -370,6 +374,16 @@
            (match-one w p (vector-ref v j) (vetor-set! v j)
                       (match-drop-ids (loop (+ j 1) (cons id id-ls) ...))
                       fk i)))))))
+
+(define-syntax match-object-fields
+  (syntax-rules ()
+    ((match-object v n (field . fields) g s sk fk i)
+     (let ((w (get-object-slot v n)))
+       (match-one w field (get-object-slot v n) (set-object-slot v n)
+                  (match-object-fields v (+ n 1) fields g s sk fk)
+                  fk i)))
+    ((match-object v n () g s (sk ...) fk i)
+     (sk ... i))))
 
 ;; Extract all identifiers in a pattern.  A little more complicated
 ;; than just looking for symbols, we need to ignore special keywords

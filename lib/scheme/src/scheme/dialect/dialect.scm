@@ -557,10 +557,10 @@
                       (continuation-capture
                         (lambda (resume)
                           (jazz.enqueue expanded-clauses
-                            (if (and (%%not-null? body) (%%eq? (jazz.source-code (%%car body)) '=>))
+                            (if (and (%%not-null? body) (%%eq? (unwrap-syntactic-closure (%%car body)) '=>))
                                 (%%cons (jazz.walk walker resume declaration environment test)
                                         (%%cons #t (jazz.walk walker resume declaration environment (%%cadr body))))
-                              (%%cons (if (%%eq? (jazz.source-code test) 'else)
+                              (%%cons (if (%%eq? (unwrap-syntactic-closure test) 'else)
                                           #f
                                         (jazz.walk walker resume declaration environment test))
                                       (%%cons #f (jazz.walk-implicit-begin walker resume declaration environment clause body))))))))))
@@ -583,7 +583,7 @@
                                        (tries (%%desourcify tries-src))
                                        (body (%%cdr (jazz.source-code clause)))
                                        (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-                                  (if (or (%%eq? tries 'else) (%%pair? tries))
+                                  (if (or (%%eq? (unwrap-syntactic-closure tries) 'else) (%%pair? tries))
                                       (%%cons tries (jazz.walk-implicit-begin walker resume declaration environment clause effective-body))
                                     (jazz.walk-error walker resume declaration tries-src "Ill-formed selector list: {s}" tries)))))))
                         clauses))))

@@ -11,7 +11,8 @@
      (define (rename x) (make-syntactic-closure mac-env '() x))
      (define (compare x y) (identifier=? mac-env x mac-env y))
      (let ((lits (unwrap-syntactic-closure (cadr (unwrap-syntactic-closure expr))))
-           (forms (cddr (unwrap-syntactic-closure expr)))
+           (forms (unwrap-syntactic-closure
+                   (cddr (unwrap-syntactic-closure expr))))
            (count 0)
            (_er-macro-transformer (rename 'er-macro-transformer))
            (_unwrap-syntactic-closure (rename 'unwrap-syntactic-closure))
@@ -87,7 +88,7 @@
                            `(,_let ,_lp ((,w ,v)
                                          ,@(map (lambda (x) (list x '())) ls-vars))
                                (,_if (,_null? ,w)
-                                   (,_let ,(map (lambda (x l) `(,(car x) (,_reverse ,l)))
+                                   (,_let ,(map (lambda (x l) `(,(car x) (,_reverse (,_unwrap-syntactic-closure ,l))))
                                                 new-vars
                                                 ls-vars)
                                      ,(k (append new-vars vars)))
@@ -182,16 +183,19 @@
                                              (identifier? once)
                                              (eq? once (car vars)))
                                         once ;; shortcut
-                                        (cons _map
-                                              (cons (list _lambda ell-vars once)
-                                                    ell-vars))))
+                                        `(,_map
+                                          (,_lambda ,ell-vars ,once)
+                                          ,@(map
+                                             (lambda (x)
+                                               `(,_unwrap-syntactic-closure ,x))
+                                             ell-vars))))
                               (many (do ((d depth (- d 1))
                                          (many nest
                                                (list _apply _append many)))
                                         ((= d 1) many))))
                          (if (null? (ellipse-tail t))
                              many ;; shortcut
-                             (list _append many (lp (ellipse-tail t) dim))))))
+                             `(,_append ,many ,(lp (ellipse-tail t) dim))))))
                  (list _cons (lp (car t) dim) (lp (cdr t) dim))))
             ((vector? t) (list _list->vector (lp (vector->list t) dim)))
             ((null? t) (list _quote '()))
@@ -208,5 +212,7 @@
                           forms)
                        (error "syntax-rules: no expansion: {s}" ,_expr))
                       ))))
-         ;;(display "expansion: ") (write (strip-syntactic-closures res)) (newline)
+         ;; (cond
+         ;;  ((memq (caar (strip-syntactic-closures (car forms))) '(match))
+         ;;   (display "expansion: ") (write (strip-syntactic-closures res)) (newline)))
          res))))))

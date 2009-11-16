@@ -2145,7 +2145,7 @@
                  (res (jazz.generate-symbol (%%symbol->string sym))))
             (%%set-symbol-binding-gensym binding res)
             res))
-      (%%get-lexical-binding-name binding))))
+      (unwrap-syntactic-closure (%%get-lexical-binding-name binding)))))
 
 
 (jazz.encapsulate-class jazz.Symbol-Binding)
@@ -2161,7 +2161,7 @@
 
 (define (jazz.new-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-variable jazz.Variable name type #f 'gensym 0)))
+    (jazz.allocate-variable jazz.Variable name type #f #f 0)))
 
 
 (define (jazz.variable-name-valid? name)
@@ -2215,7 +2215,7 @@
 
 (define (jazz.new-nextmethod-variable name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type #f 'gensym 0)))
+    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type #f #f 0)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.NextMethod-Variable binding) source-declaration environment)
@@ -2266,7 +2266,7 @@
 
 (define (jazz.new-parameter name type)
   (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
-    (jazz.allocate-parameter jazz.Parameter name type #f 'gensym 0)))
+    (jazz.allocate-parameter jazz.Parameter name type #f #f 0)))
 
 
 (jazz.define-virtual-runtime (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
@@ -2288,7 +2288,7 @@
 
 
 (define (jazz.new-dynamic-parameter name type class)
-  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type #f 'gensym 0 class))
+  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type #f #f 0 class))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) declaration environment)
@@ -2308,7 +2308,7 @@
 
 
 (define (jazz.new-optional-parameter name type default)
-  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type #f 'gensym 0 default))
+  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type #f #f 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) declaration environment)
@@ -2328,7 +2328,7 @@
 
 
 (define (jazz.new-named-parameter name type default)
-  (jazz.allocate-named-parameter jazz.Named-Parameter name type #f 'gensym 0 default))
+  (jazz.allocate-named-parameter jazz.Named-Parameter name type #f #f 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) declaration environment)
@@ -2352,7 +2352,7 @@
 
 
 (define (jazz.new-rest-parameter name type)
-  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type #f 'gensym 0))
+  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type #f #f 0))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter) declaration environment)
@@ -2449,7 +2449,7 @@
 
 
 (define (jazz.new-macro-symbol name getter setter)
-  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f #f 'gensym getter setter))
+  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f #f #f getter setter))
 
 
 #; ;; convert to walk / emit
@@ -2675,11 +2675,7 @@
       (let ((x^ (lookup-identifier (unwrap-syntactic-closure x) x-env))
             (y^ (lookup-identifier (unwrap-syntactic-closure y) y-env)))
         (if x^
-            (and y^
-                 (or (eq? x^ y^)
-                     ;; XXXX when else are two bindings the same?
-                     ;;(eq? (binding-name x^) (binding-name y^))
-                     ))
+            (eq? x^ y^)
             (and (not y^)
                  (eq? (unwrap-syntactic-closure x)
                       (unwrap-syntactic-closure y)))))))
@@ -5494,10 +5490,33 @@
   (define (lookup walker environment symbol)
     (if (jazz.composite-name? symbol)
         (lookup-composite walker environment symbol)
-      (jazz.find-in (lambda (binding)
-                      (jazz.walk-binding-lookup binding symbol declaration))
-                    environment)))
-  
+      (let ((raw-symbol (unwrap-syntactic-closure symbol)))
+        (let lp ((env environment))
+          (and
+           (pair? env)
+           (let ((binding (jazz.walk-binding-lookup (car env) symbol declaration)))
+             (cond
+              (binding
+               (update-gensyms raw-symbol binding environment #f)
+               binding)
+              (else (lp (cdr env))))))))))
+
+  (define (update-gensyms symbol from-binding ls end)
+    (cond
+     ((and (pair? ls) (not (eq? ls end)))
+      (let ((binding (car ls)))
+        (if (and binding
+                 (not (eq? binding from-binding))
+                 (%%is? (car ls) jazz.Variable)
+                 (not (%%get-symbol-binding-gensym binding))
+                 (eq? symbol (unwrap-syntactic-closure
+                              (%%get-lexical-binding-name binding))))
+            ;; if we shadow an existing declaration, gensym a unique symbol for it
+            (%%set-symbol-binding-gensym
+             binding
+             (jazz.generate-symbol (symbol->string symbol)))))
+      (update-gensyms symbol from-binding (cdr ls) end))))
+
   (define (validate-compatibility walker declaration referenced-declaration)
     (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)
         (let ((referenced-locator (%%get-declaration-locator referenced-declaration)))
@@ -5508,7 +5527,6 @@
              (or (lookup walker environment symbol-src)
                  (lookup walker (%%get-syntactic-closure-environment symbol-src) (syntactic-closure-form symbol-src))
                  (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz.source-code (syntactic-closure-form symbol-src)))
-                 ;;(lookup walker environment (jazz.source-code (syntactic-closure-form symbol-src)))
                  )
            (lookup walker environment (jazz.source-code symbol-src)))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
@@ -5993,7 +6011,7 @@
                    (jazz.new-define-syntax-form name expander environment)))
                bindings)
               environment)))
-        (jazz.new-begin form-src (jazz.walk-list walker resume declaration augmented-environment (%%source-code body)))))))
+        (jazz.new-begin form-src (jazz.walk-list walker resume declaration augmented-environment (unwrap-syntactic-closure body)))))))
 
 
 ;;;

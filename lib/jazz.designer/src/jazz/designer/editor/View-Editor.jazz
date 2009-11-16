@@ -45,6 +45,7 @@
         (jazz.library)
         (jazz.platform)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.ui.window))
 
 
@@ -60,29 +61,15 @@
   (slot protected base-view        initialize {} getter generate)
   (slot protected base-position    initialize {} getter generate)
   (slot protected current-position initialize {} getter generate)
-  (slot protected preserved-client initialize {})
+  (slot protected preserved-client initialize {} getter generate)
+  (slot protected show-frames?     initialize #t getter generate)
+  (slot protected show-content?    initialize #t getter generate)
   
 
   (form
-    (<install>                            layout-type: border
-      (<Layout-View>     name: toolbar    size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 6 0 0} location: north
-        @wait
-        (<Push-Tool>     name: new        size: {Dimension 22 22} tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler :form on-new})
-        @wait
-        (<Push-Tool>     name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler :form on-open})
-        (<Push-Tool>     name: save       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save" image-name: {Bitmap-Resource "Save"} portfolio: :icons action-handler: {Event-Handler :form on-save})
-        (<Separator>     name: separator1 size: {Dimension 12 0})
-        (<Toggle-Tool>   name: frames     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" image-name: {Bitmap-Resource "Fill"} portfolio: :icons selected?: #t action-handler: {Event-Handler :form on-toggle-frames})
-        (<Toggle-Tool>   name: content    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" image-name: {Bitmap-Resource "View"} portfolio: :icons selected?: #t action-handler: {Event-Handler :form on-toggle-content})
-        (<Separator>     name: separator2 size: {Dimension 12 0})
-        (<Toggle-Tool>   name: try-out    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" image-name: {Bitmap-Resource "Branch"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-try-out})
-        @wait
-        (<Separator>     name: separator3 size: {Dimension 12 0})
-        @wait
-        (<Push-Tool>     name: edit-form  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Form" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler :form on-edit-form}))
-      (<Border-View>     name: center     location: center layout-type: fill border-type: edge
-        (<Scroller-View> name: scroller   hscroll?: #t vscroll?: #t
-          (<content~>                     layout-type: fill)))))
+    (<install>                          layout-type: fill
+      (<Scroller-View> name: scroller   hscroll?: #t vscroll?: #t
+        (<content~>                     layout-type: fill))))
 
   
   ;;;
@@ -103,25 +90,6 @@
 
 
   ;;;
-  ;;;; Controller
-  ;;;
-
-
-  @convert
-  (method (new-controller)
-    (new View-Editor-Controller self))
-  
-  
-  @convert
-  (class View-Editor-Controller extends Editor-View-Controller
-    
-    
-    ;; temp patch to make saving in the view designer work
-    (method (save)
-      (save-content-patch~ document {})))
-
-
-  ;;;
   ;;;; Actions
   ;;;
   
@@ -136,61 +104,35 @@
   ;;;
   
   
-  (method override (size-change size)
-    (nextmethod size)
-    (let ((toolbar (locate 'toolbar)))
-      (set-size~ toolbar (new Dimension (get-width~ size) (get-height~ toolbar)))))
-  
-  
-  (method (on-new evt)
-    )
-  
-  
-  (method (on-open evt)
-    (set-client (instantiate~ (open-form))))
-  
-  
-  (method (on-edit-form evt)
-    (edit-form))
-  
-  
-  (method (on-toggle-frames evt)
-    (let ((reference (get-reference)))
-      (when reference
-        (invalidate-view~ reference))))
-  
-  
-  (method (on-toggle-content evt)
-    (let ((reference (get-reference)))
-      (when reference
-        (invalidate-view~ reference))))
-  
-  
-  (method (on-toggle-try-out evt)
-    (with-locked-update
-      (lambda ()
-        (cond ((not preserved-client)
-               (set! preserved-client client)
-               (set-selection '())
-               (set-client {}))
-              (else
-               (set-client preserved-client)
-               (set-selection (list preserved-client))
-               (set! preserved-client {}))))))
-  
-  
   (method (on-bring-to-front evt)
-    (let ((selection (get-selection)))
+    (let ((selection (outer-selection)))
       (for-each (lambda (component)
                   (bring-to-front~ designer component))
                 selection)))
   
   
   (method (on-send-to-back evt)
-    (let ((selection (get-selection)))
+    (let ((selection (outer-selection)))
       (for-each (lambda (component)
                   (send-to-back~ designer component))
                 selection)))
+  
+  
+  (method (on-delete-selection evt)
+    (delete-selection))
+  
+  
+  (method (on-rename-selected evt)
+    (let ((selection (get-selection)))
+      (if (/= (length selection) 1)
+          (bell)
+        (let ((component (car selection))
+              (designer (get-designer)))
+          (set-name~ designer component (request-name class: Symbol-Request initial-value: (get-name~ component)))))))
+  
+  
+  (method (on-properties evt)
+    (select-palette Properties-Manager workspace: {} focus?: #t))
   
   
   ;;;
@@ -228,6 +170,36 @@
     (nextmethod component form)
     @w
     (redraw-border~ (get-surrogate~ component)))
+  
+  
+  ;;;
+  ;;;; Display
+  ;;;
+  
+  
+  (method package (toggle-frames)
+    (set! show-frames? (not show-frames?))
+    (invalidate-view~ (get-reference)))
+  
+  
+  (method package (toggle-content)
+    (set! show-content? (not show-content?))
+    (invalidate-view~ (get-reference)))
+  
+  
+  (method package (toggle-try-out)
+    (cond ((not (trying-out?))
+           (set! preserved-client client)
+           (set-selection '())
+           (set-client {}))
+          (else
+           (set-client preserved-client)
+           (set-selection (list preserved-client))
+           (set! preserved-client {}))))
+  
+  
+  (method package (trying-out?)
+    (boolean preserved-client))
 
   
   ;;;
@@ -235,22 +207,9 @@
   ;;;
   
   
-  (method protected (set-showed-property property)
+  (method package (set-showed-property property)
     (set! showed-property property)
     (invalidate-view~ client))
-
-  
-  ;;;
-  ;;;; Drawing
-  ;;;
-  
-  
-  (method protected (show-frames?)
-    (get-selected?~ (locate 'frames)))
-  
-  
-  (method protected (show-content?)
-    (get-selected?~ (locate 'content)))
 
 
   ;;;
@@ -258,7 +217,7 @@
   ;;;
   
   
-  (method protected (start-rubber-band view pos)
+  (method package (start-rubber-band view pos)
     (set! rubber-band? #t)
     (set! base-view view)
     (set! base-position pos)
@@ -267,7 +226,7 @@
     (setup-overlay))
   
   
-  (method protected (process-rubber-band pos)
+  (method package (process-rubber-band pos)
     (when rubber-band?
       (let ((old current-position))
         (set! current-position pos)
@@ -294,7 +253,7 @@
         (set-selection lst))))
   
   
-  (method protected (end-rubber-band pos)
+  (method package (end-rubber-band pos)
     (process-rubber-band #f)
     (select-rubber-banded (corners->rect base-position pos))
     (remove-overlay)

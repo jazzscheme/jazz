@@ -128,50 +128,20 @@
 
 
   ;;;
-  ;;;; Action
-  ;;;
-  
-  
-  (method (on-save-form evt)
-    (save-form))
-  
-  
-  (method (on-close-selection evt)
-    (close-selection))
-  
-  
-  (method (on-rename-selected evt)
-    (let ((selection (get-selection)))
-      (if (/= (length selection) 1)
-          (bell)
-        (let ((component (car selection))
-              (designer (get-designer~ editor)))
-          (set-name~ designer component (request-name class: Symbol-Request initial-value: (get-name~ component)))))))
-  
-  
-  (method (on-properties evt)
-    (select-palette Properties-Manager workspace: {} focus?: #t))
-
-
-  ;;;
   ;;;; Draw
   ;;;
     
   
   (definition Selected-Colors
     '({Color name: Red} {Color name: Orange} {Color name: Yellow}))
-  
-  (definition Selected-Pens
-    '())
 
-  
   (definition Unselected-Color
     {Color name: Blue})
 
 
   (method override (render drawing surface context lh lv sh sv sc sc?)
     (define (default-render)
-      (let ((content? (show-content?~ editor)))
+      (let ((content? (get-show-content?~ editor)))
         (when content?
           (draw-background~ drawing surface context))
         (when content?
@@ -185,17 +155,18 @@
   
   (method public virtual (draw surface)
     (define (draw-surrogate-selected surface)
-      (when (memq client (get-selection~ editor))
+      (when (and (neq? client (get-reference~ editor))
+                 (memq client (get-selection~ editor)))
         (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.15})))
     
     (define (draw-surrogate-frame surface)
-      (when (and (show-frames?~ editor) (eq? (outer-client) client))
+      (when (and (get-show-frames?~ editor) (eq? (outer-client) client))
         (let ((selection (get-selection~ editor)))
-          (define (outer-view view)
+          (define (outer-component view)
             (outer-client~ (get-surrogate~ view)))
           
           (define (frame-color)
-            (let ((rank (find selection client key: outer-view)))
+            (let ((rank (find selection client key: outer-component)))
               (if (not rank)
                   Unselected-Color
                 (element Selected-Colors (min rank 2)))))
@@ -266,12 +237,8 @@
     (redraw-border~ (outer-client) insets: {Rect 2 2 2 2}))
   
   
-  (method (get-selected-colors)
-    Selected-Colors)
-  
-  
   (method public (selected-color rank)
-    (let ((colors (get-selected-colors)))
+    (let ((colors Selected-Colors))
       (element colors (min rank (- (length colors) 1)))))
 
 
@@ -513,10 +480,6 @@
   ;;;
   ;;;; Client
   ;;;
-  
-  
-  (method override (outer-client)
-    (outer-view~ client (get-reference~ editor)))
 
 
   (method (move-client dh dv)
@@ -570,7 +533,7 @@
   
   
   (method (on-backspace-press evt)
-    (close-selection))
+    (delete-selection~ editor))
 
 
   ;;;
@@ -685,7 +648,7 @@
   
   
   (method public virtual (delete-selection)
-    (close-selection))
+    (delete-selection~ editor))
   
   
   (method public virtual (rename-selection)
@@ -699,14 +662,6 @@
   ;;;
   ;;;; Selection
   ;;;
-  
-  
-  (method override (get-component-selection)
-    (map (lambda (component)
-           (if (is? component View)
-               (outer-client~ (get-surrogate~ component))
-             component))
-         (get-selection)))
   
   
   (method override (select rank focus?)
@@ -744,7 +699,7 @@
       (<Label-Item>     name: bring-to-front   title: "Bring To Front" action: {Action view-surrogate bring-to-front})
       (<Label-Item>     name: send-to-back     title: "Send To Back" action: {Action view-surrogate send-to-back})
       (<Separator-Item> name: end-layer)
-      (<Label-Item>     name: close-selection  title: "Close Selection" icon: {Bitmap-Resource "CloseWindow"} action: {Action view-surrogate close-selection})
+      (<Label-Item>     name: delete-selection title: "Delete" icon: {Bitmap-Resource "Remove"} action: {Action view-surrogate delete-selection})
       (<Label-Item>     name: rename-selected  title: "Rename" action: {Action view-surrogate rename-selected})
       (<Separator-Item> name: end-close/rename)
       (<Label-Item>     name: properties       title: "Properties" action: {Action view-surrogate properties})))))

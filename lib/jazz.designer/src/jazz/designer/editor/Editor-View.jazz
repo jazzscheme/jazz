@@ -43,6 +43,7 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.library.listener)
+        (jazz.locale)
         (jazz.platform)
         (jazz.ui)
         (jazz.ui.view)
@@ -84,11 +85,6 @@
   
   (method meta override (host-title)
     "Edit")
-
-  
-  ;;;
-  ;;;; Host
-  ;;;
   
   
   (method override (install-in-host host)
@@ -224,16 +220,16 @@
   ;;;
   
   
-  (method (new-form)
+  (method package (new-form)
     )
   
   
-  (method (open-form)
+  (method package (open-form)
     @to-convert-cause-same-name
     (set-client (instantiate~ (open-form))))
   
   
-  (method (save-form)
+  (method package (save-form)
     (with-cursor :wait
       (lambda ()
         (save)
@@ -243,7 +239,7 @@
             (edit-document~ appl origin))))))
   
   
-  (method (edit-form)
+  (method package (edit-form)
     (view-component))
   
   
@@ -331,6 +327,13 @@
       (update-focus-actions~ appl)))
   
   
+  (method protected (outer-selection)
+    (let ((reference (get-reference)))
+      (map (lambda (component)
+             (outer-component~ component reference))
+           selection)))
+  
+  
   (method (close-application-selected)
     (let ((appl (get-application)))
       (close-selected~ appl self)))
@@ -347,11 +350,11 @@
   (method public (select component (focus?: focus? #t))
     (if (shift-down?)
         (if (memq? component selection)
-            (set-selection (remove component selection) focus?: focus?)
-          (set-selection (append selection (list component)) focus?: focus?))
+            (set-selection (remove component selection) origin: self focus?: focus?)
+          (set-selection (append selection (list component)) origin: self focus?: focus?))
       (if (memq? component selection)
-          (set-selection (cons component (remove component selection)) focus?: focus?)
-        (set-selection (list component) focus?: focus?))))
+          (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
+        (set-selection (list component) origin: self focus?: focus?))))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
@@ -369,6 +372,27 @@
                       (select~ surrogate rank focus?)))))
               selection
               (naturals 0 (length selection))))
+  
+  
+  (method override (delete-selection)
+    (define (confirm-close)
+      (confirm-action "Delete selected objects?"))
+    
+    (define (confirm-action text)
+      (let ((code (message-box (localize text) type: 'confirmation)))
+        (case code
+          ((yes) #t)
+          ((no) #f)
+          ((cancel) (throw-cancel)))))
+    
+    (let ((components (outer-selection)))
+      (when (confirm-close)
+        (let ((parents (remove-duplicates (map get-parent~ components))))
+          (set-selection (if (= (length parents) 1) parents '()) origin: self))
+        (for-each (lambda (component)
+                    (let ((surrogate (get-surrogate~ component)))
+                      (remove-child~ (get-designer~ (get-editor~ surrogate)) (get-client~ surrogate))))
+                  components))))
   
   
   ;; I am not sure this is the simplest solution to branches modifying components that where selected...

@@ -52,19 +52,21 @@
 ;;;
 
 
-(definition Toolbox-File
-  {File Profile "settings" "Toolbox.jml"})
-
-
 (definition (read-toolbox)
+  (define profile-toolbox
+    {File Profile "settings" "Toolbox.jml"})
+  
+  (define (toolbox-file)
+    (if (and (is-alias? 'Profile) (exists?~ profile-toolbox))
+        profile-toolbox
+      {File designor "src" "designor" "settings" "Toolbox.jml"}))
+  
   (with-safe-execution "loading the toolbox"
     (lambda ()
-      (let ((file Toolbox-File))
-        (when (exists?~ file)
-          (let ((process (get-process))
-                (toolbox (instantiate~ (read-from-file file))))
-            (install-context~ process toolbox)
-            toolbox))))
+      (let ((process (get-process))
+            (toolbox (instantiate~ (read-from-file (toolbox-file)))))
+        (install-context~ process toolbox)
+        toolbox))
     continue-handler:
     (lambda (err)
       )))
@@ -76,7 +78,8 @@
   (form
     (<install>                            layout-type: border
       (<Layout-View>    name: tools
-        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler :form on-new}))
+        @convert-manifest
+        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "Added"} portfolio: :icons action-handler: {Event-Handler :form on-new}))
       (<Toolbox-Editor> name: descendants location: center
         (<!>            name: scroller    flat?: #t)
         (<!>            name: tree        highlight-edited?: #f auto-expand/collapse?: #t

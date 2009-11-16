@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Module Syntax
+;;;; Register
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,26 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.module.syntax
+(unit protected core.module.syntax.walker.register
 
 
-(require (core.module.syntax.classes)
-         (core.module.syntax.dialect-syntax)
-         (core.module.syntax.dialect)
-         (core.module.syntax.walker)
-         (core.module.syntax.walker.expression)
-         (core.module.syntax.walker.ffi)
-         (core.module.syntax.walker.register)
-         (core.module.syntax.module)))
+;;;
+;;;; Register Core
+;;;
+
+
+(jazz.define-dialect core
+  (jazz.new-core-dialect))
+
+
+(jazz.define-walker-special require       core jazz.walk-require)
+(jazz.define-walker-special export        core jazz.walk-export)
+(jazz.define-walker-special import        core jazz.walk-import)
+(jazz.define-walker-special proclaim      core jazz.walk-proclaim)
+(jazz.define-walker-special native        core jazz.walk-native)
+(jazz.define-walker-special native-syntax core jazz.walk-native-syntax)
+(jazz.define-walker-special macro         core jazz.walk-macro)
+(jazz.define-walker-special syntax        core jazz.walk-syntax)
+(jazz.define-walker-special define-syntax core jazz.walk-define-syntax)
+(jazz.define-walker-special let-syntax    core jazz.walk-let-syntax)
+(jazz.define-walker-special letrec-syntax core jazz.walk-letrec-syntax))

@@ -39,7 +39,7 @@
 
 
 (require (core.module.syntax.classes)
-         (core.module.syntax.dialect-syntax)
+         (core.module.syntax.dialect.syntax)
          (core.module.syntax.dialect)
          (core.module.syntax.walker)
          (core.module.syntax.walker.expression)

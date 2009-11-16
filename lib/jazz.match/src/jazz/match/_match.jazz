@@ -105,7 +105,7 @@
 ;; pattern so far.
 
 (define-syntax match-two
-  (syntax-rules (_ ___ quote quasiquote ? $ = and or not set! get!)
+  (syntax-rules (_ ___ quote quasiquote ? $ $$ = and or not set! get!)
     ((match-two v () g s (sk ...) fk i)
      (if (null? v) (sk ... i) fk))
     ((match-two v (quote p) g s (sk ...) fk i)
@@ -136,23 +136,29 @@
        (match-one w p g s sk fk i)))
     ((match-two v ($ class fields ...) g s sk fk i)
      (if (instance-of? v class)
-         (match-object-fields v 1 (fields ...) g s sk fk i)
+         (match-object-positional-fields v 1 (fields ...) g s sk fk i)
          fk))
+    ((match-two v ($$ class-expr fields ...) g s sk fk i)
+     (let ((class class-expr))
+       (if (instance-of? v class)
+           (let ((slots (get-slots~ class)))
+             (match-object-fields v class slots (fields ...) g s sk fk i))
+           fk)))
     ((match-two v (p ___ . r) g s sk fk i)
      (match-extract-vars p (match-gen-ellipses v p r g s sk fk i) i ()))
     ((match-two v (p) g s sk fk i)
      (if (and (pair? v) (null? (cdr v)))
-       (let ((w (car v)))
-         (match-one w p (car v) (set-car! v) sk fk i))
-       fk))
+         (let ((w (car v)))
+           (match-one w p (car v) (set-car! v) sk fk i))
+         fk))
     ((match-two v (p . q) g s sk fk i)
      (if (pair? v)
-       (let ((w (car v)) (x (cdr v)))
-         (match-one w p (car v) (set-car! v)
-                    (match-one x q (cdr v) (set-cdr! v) sk fk)
-                    fk
-                    i))
-       fk))
+         (let ((w (car v)) (x (cdr v)))
+           (match-one w p (car v) (set-car! v)
+                      (match-one x q (cdr v) (set-cdr! v) sk fk)
+                      fk
+                      i))
+         fk))
     ((match-two v #(p ...) g s sk fk i)
      (match-vector v 0 () (p ...) sk fk i))
     ((match-two v _ g s (sk ...) fk i) (sk ... i))
@@ -375,15 +381,34 @@
                       (match-drop-ids (loop (+ j 1) (cons id id-ls) ...))
                       fk i)))))))
 
-(define-syntax match-object-fields
+(define-syntax match-object-positional-fields
   (syntax-rules ()
-    ((match-object v n (field . fields) g s sk fk i)
+    ((match-object-positional-fields v n (field . fields) g s sk fk i)
      (let ((w (get-object-slot v n)))
        (match-one w field (get-object-slot v n) (set-object-slot v n)
-                  (match-object-fields v (+ n 1) fields g s sk fk)
+                  (match-object-positional-fields v (+ n 1) fields g s sk fk)
                   fk i)))
-    ((match-object v n () g s (sk ...) fk i)
+    ((match-object-positional-fields v n () g s (sk ...) fk i)
      (sk ... i))))
+
+(define-syntax match-object-fields
+  (syntax-rules ()
+    ((match-object-fields v class slots ((field pat ...) . fields) g s sk fk i)
+     (let ((n (match-slot-index (string->symbol (keyword->string field)) slots 1)))
+       (if n
+           (let ((w (get-object-slot v n)))
+             (match-one w (and pat ...)
+                        (get-object-slot v n) (set-object-slot v n)
+                        (match-object-fields v class slots fields g s sk fk)
+                        fk i))
+           (error "class has no such slot {s} {s}: {s}" class slots field))))
+    ((match-object-fields v class slots () g s (sk ...) fk i)
+     (sk ... i))))
+
+(define (match-slot-index x ls n)
+  (cond ((null? ls) #f)
+        ((eq? x (get-name~ (car ls))) n)
+        (else (match-slot-index x (cdr ls) (+ n 1)))))
 
 ;; Extract all identifiers in a pattern.  A little more complicated
 ;; than just looking for symbols, we need to ignore special keywords
@@ -393,11 +418,13 @@
 ;; (match-extract-vars pattern continuation (ids ...) (new-vars ...))
 
 (define-syntax match-extract-vars
-  (syntax-rules (_ ___ ? $ = quote quasiquote and or not get! set!)
+  (syntax-rules (_ ___ ? $ $$ = quote quasiquote and or not get! set!)
     ((match-extract-vars (? pred . p) k i v)
      (match-extract-vars p k i v))
-    ((match-extract-vars ($ rec . p) k i v)
+    ((match-extract-vars ($ class . p) k i v)
      (match-extract-vars p k i v))
+    ((match-extract-vars ($$ class (field . p) ...) k i v)
+     (match-extract-vars (p ...) k i v))
     ((match-extract-vars (= proc p) k i v)
      (match-extract-vars p k i v))
     ((match-extract-vars (quote x) (k ...) i v)

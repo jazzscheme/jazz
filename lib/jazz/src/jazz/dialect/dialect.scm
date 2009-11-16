@@ -1064,7 +1064,7 @@
                            (%%assert (%%class-is? method-declaration jazz.Method-Declaration)
                              (jazz.new-method-reference method-declaration)))))))
                   ((and name (not self/class-name))
-                   (let ((method-symbol-src (jazz.sourcify-if (jazz.dispatch->symbol (jazz.source-code symbol-src)) symbol-src)))
+                   (let ((method-symbol-src (jazz.sourcify-if (jazz.dispatch->symbol (unwrap-syntactic-closure symbol-src)) symbol-src)))
                      (jazz.walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
                   ((and (not name) self/class-name)
                    (jazz.walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
@@ -1435,7 +1435,7 @@
 
 
 (define (jazz.walk-dispatch walker resume declaration environment form-src)
-  (let ((name (jazz.dispatch->symbol (jazz.source-code (%%car (jazz.source-code form-src)))))
+  (let ((name (jazz.dispatch->symbol (unwrap-syntactic-closure (%%car (jazz.source-code form-src)))))
         (arguments (%%cdr (jazz.source-code form-src))))
     (%%assertion (%%not (%%null? arguments)) (jazz.walk-error walker resume declaration form-src "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
       (jazz.new-dispatch form-src name

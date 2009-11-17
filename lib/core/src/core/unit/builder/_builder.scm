@@ -92,6 +92,7 @@
                      (jazz.requested-unit-resource src))
         (jazz.compile-source src bin bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
 
+
 (define jazz.wrap-single-host-cc-options
   (let ((gcc-4-2?
 	 (cond-expand
@@ -141,7 +142,9 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    (compile-file-to-c pathname output: bin-c options: options module-name: (%%symbol->string unit-name))
+    ;; temporary patch for what seems to be a Mac only Gambit bug related to the new module-name: option
+    (let ((patched-module-name (%%string-append "JAZZUNIT" (%%symbol->string unit-name))))
+      (compile-file-to-c pathname output: bin-c options: options module-name: patched-module-name))
     (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
     
     (if (jazz.link-objects?)

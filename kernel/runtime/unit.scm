@@ -1680,8 +1680,10 @@
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
-                (jazz.increment-image-load-counter)
-                (load-proc))
+                (jazz.increment-image-load-counter)                
+                (jazz.with-verbose (jazz.load-verbose?) "loading image unit" (symbol->string unit-name)
+                  (lambda () 
+                    (load-proc))))
               (bin-uptodate?
                 (jazz.increment-object-load-counter)
                 (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))

@@ -122,8 +122,7 @@
             (jazz.with-extension-reader (%%resource-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  #;(compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
-                  (jazz.compile-file src obj-uptodate? options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
+                  (jazz.compile-file src (or (%%not obj-uptodate?) force?) options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
@@ -136,9 +135,10 @@
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
+(define (jazz.compile-file src needs-compile? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
+  (define unit-uniqueness-prefix
+    "unit:")
 
-
-(define (jazz.compile-file src link-only? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
   (let* ((pathname (jazz.resource-pathname src))
          (bin- (jazz.binary-with-extension src ""))
          (bin-c (string-append bin- ".c"))
@@ -146,10 +146,10 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    (if (%%not link-only?)
+    (if needs-compile?
         (begin
-          (let ((patched-module-name (%%string-append "JAZZUNIT" (%%symbol->string unit-name))))
-            (compile-file-to-c pathname output: bin-c options: options module-name: patched-module-name))
+          (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name))))
+            (compile-file-to-c pathname output: bin-c options: options module-name: unique-module-name))
           (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
 
     (if (jazz.link-objects?)

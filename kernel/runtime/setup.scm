@@ -261,9 +261,11 @@
     (if (file-exists? jazz.buildini-file)
         (jazz.load jazz.buildini-file)))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug") '("eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
-      (let ((ev (jazz.get-option "eval" options))
+      (let ((debug? (jazz.get-option "debug" options))
+            (force? (jazz.get-option "force" options))
+            (ev (jazz.get-option "eval" options))
             (load (jazz.get-option "load" options))
             (test (jazz.get-option "test" options))
             (run (jazz.get-option "run" options))
@@ -282,7 +284,7 @@
         (set! jazz.jobs jobs)
         (jazz.process-jazzini-file)
         (jazz.setup-repositories)
-        (if (or (jazz.get-option "debug" options)
+        (if (or debug?
                 (%%eqv? jobs 0))
             (jazz.debug-build? #t))
         (cond (ev
@@ -302,7 +304,7 @@
                 (jazz.run-product jazz.product))
               (compile
                 (process-buildini-file)
-                (jazz.compile-unit (%%string->symbol compile)))
+                (jazz.compile-unit (%%string->symbol compile) force?: force?))
               (update
                 (process-buildini-file)
                 (jazz.update-product (%%string->symbol update)))

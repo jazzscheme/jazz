@@ -483,6 +483,8 @@
 (native jazz.get-source-version-number)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
+(native jazz.warn-interpreted?)
+(native jazz.force-interpreted?)
 (native jazz.delay-reporting?)
 (native jazz.use-debugger?)
 (native jazz.get-repositories)

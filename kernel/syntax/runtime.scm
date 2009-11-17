@@ -70,6 +70,8 @@
        ,@(map (lambda (require)
                 (jazz.parse-require (jazz.listify require)
                   (lambda (unit-name feature-requirement phase)
+                    (if (%%eq? phase 'syntax)
+                        (jazz.load-unit unit-name))
                     `(jazz.load-unit ',unit-name))))
               (jazz.filter-features (map (lambda (src) (%%desourcify src)) rest))))))
 

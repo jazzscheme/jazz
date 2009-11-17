@@ -875,9 +875,13 @@
 (define (jazz.with-unit-resources unit-name extensions proc)
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
-      (if (%%boolean? interpreted?)
-          interpreted?
-        (%%memv unit-name interpreted?))))
+      (cond ((%%boolean? interpreted?)
+             interpreted?)
+            ((%%symbol? interpreted?)
+             (%%eq? unit-name interpreted?))
+            (else
+             (%%memv unit-name interpreted?)))))
+  
   (let* ((src (jazz.find-unit-src unit-name extensions #f))
          (obj (jazz.find-unit-obj unit-name))
          (bin (jazz.find-unit-bin unit-name))

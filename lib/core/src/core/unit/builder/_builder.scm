@@ -95,9 +95,9 @@
 
 (define jazz.wrap-single-host-cc-options
   (let ((gcc-4-2?
-	 (cond-expand
-	  (windows #f)
-	  (else (zero? (shell-command "gcc --version | grep -q 4.2."))))))
+          (cond-expand
+            (windows #f)
+            (else (zero? (shell-command "gcc --version | grep -q 4.2."))))))
     (lambda (str)
       (if gcc-4-2? (string-append "-U___SINGLE_HOST " str) str))))
 

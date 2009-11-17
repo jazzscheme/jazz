@@ -42,7 +42,6 @@
 (require (core.base)
          (core.module))
 
-
 ;;;
 ;;;; Manifest
 ;;;
@@ -93,10 +92,17 @@
                      (jazz.requested-unit-resource src))
         (jazz.compile-source src bin bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
 
+(define jazz.wrap-single-host-cc-options
+  (let ((gcc-4-2?
+	 (cond-expand
+	  (windows #f)
+	  (else (zero? (shell-command "gcc --version | grep -q 4.2."))))))
+    (lambda (str)
+      (if gcc-4-2? (string-append "-U___SINGLE_HOST " str) str))))
 
 (define (jazz.compile-source src bin bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((options (or options jazz.compile-options))
-        (cc-options (or cc-options ""))
+        (cc-options (jazz.wrap-single-host-cc-options (or cc-options "")))
         (ld-options (or ld-options "")))
     (if (or force? (%%not (and bin bin-uptodate? (jazz.manifest-references-valid? bin))))
         (let ((package (%%resource-package src))

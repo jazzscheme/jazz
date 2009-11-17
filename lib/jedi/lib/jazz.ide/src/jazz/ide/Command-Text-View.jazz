@@ -101,8 +101,11 @@
   (method override (focus-actions)
     (when (not mode)
       (set-mode-execute))
-    (cons (focus-actions~ mode)
-          (nextmethod)))
+    (let ((actions (mode-actions~ mode)))
+      (if (is-not? actions Actions)
+          (append 1 2)
+        (cons (mode-actions~ mode)
+              (nextmethod)))))
   
   
   ;;;
@@ -230,6 +233,10 @@
   
   (method (get-client-selection)
     (get-client-selection~ text))
+  
+  
+  (method virtual (mode-actions)
+    )
     
   
   (method virtual (key-press key)
@@ -322,7 +329,7 @@
         (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color red: 255 green: 255 blue: 120}) {})))))
   
   
-  (method override (focus-actions)
+  (method override (mode-actions)
     (find-actions 'command-search))
   
   
@@ -506,32 +513,28 @@
 (class Extended-Mode extends Command-Mode
   
   
-  (method override (focus-actions)
+  (method override (mode-actions)
     (find-actions 'command-extended))
-  
-  
-  (definition (register-find-actions)
-    (set-focus-actions~ (get-application) (list (find-actions 'command-find))))
   
   
   (method (on-find-file evt)
     (set-mode~ text (new Find-File-Mode text))
     (set-text~ text (standardize-filename (current-directory)))
     (set-caret~ text (text-ending~ text))
-    (register-find-actions)
+    (refresh-focus-actions text)
     (user-message "Find file..."))
   
   
   (method (on-find-filename evt)
     (set-mode~ text (new Find-Filename-Mode text))
     (set-text~ text "")
-    (register-find-actions)
+    (refresh-focus-actions text)
     (user-message "Find filename..."))
   
   
   (method (on-find-buffer evt)
     (set-mode~ text (new Find-Buffer-Mode text))
-    (register-find-actions)
+    (refresh-focus-actions text)
     (user-message "Find buffer..."))
   
   
@@ -549,6 +552,10 @@
 
 
 (class Find-Mode extends Command-Mode
+  
+  
+  (method override (mode-actions)
+    (find-actions 'command-find))
   
   
   (method override (get-constituent-test)
@@ -763,7 +770,7 @@
 (class Execute-Mode extends Command-Mode
   
   
-  (method override (focus-actions)
+  (method override (mode-actions)
     (find-actions 'command-execute))
   
   

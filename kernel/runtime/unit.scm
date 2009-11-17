@@ -936,7 +936,6 @@
       (display "obj-uptodate? ") (display obj-uptodate?) (newline)
       (display "bin-uptodate? ") (display bin-uptodate?) (newline)
       (display "lib-uptodate? ") (display lib-uptodate?) (newline))))
- 
 
 
 (define (jazz.unit-uptodate-binary? unit-name)
@@ -952,7 +951,7 @@
 
 (define (jazz.image-unit-uptodate-src? image-unit src)
   (let ((source-hash (digest-file (jazz.resource-pathname src) 'sha-1)))
- (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash))) 
+    (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash))) 
 
 
 (define (jazz.validate-repository-unicity repository unit-name proc)
@@ -1640,33 +1639,34 @@
 
 
 (define (jazz.with-verbose flag action path proc)
-  (define (verbose-load)
-    (display (make-string (jazz.load-indent) #\space))
-    (display "; ")
-    (display action)
-    (display " ")
-    (display path)
-    (display "...")
-    (newline)
-    (force-output))
-  
-  (define (verbose-done)
-    (display (make-string (jazz.load-indent) #\space))
-    (display "; done ")
-    (display "...")
-    (newline)
-    (force-output))
-  
-  (if flag
-      (begin
-        (verbose-load)
-        (let ((result
-                (parameterize ((jazz.load-indent (%%fx+ (jazz.load-indent) 2)))
-                  (proc))))
-          (if (jazz.done-verbose?)
-              (verbose-done))
-          result))
-    (proc)))
+  (let ((port (console-port)))
+    (define (verbose-load)
+      (display (make-string (jazz.load-indent) #\space) port)
+      (display "; " port)
+      (display action port)
+      (display " " port)
+      (display path port)
+      (display "..." port)
+      (newline port)
+      (force-output port))
+    
+    (define (verbose-done)
+      (display (make-string (jazz.load-indent) #\space) port)
+      (display "; done " port)
+      (display "..." port)
+      (newline port)
+      (force-output port))
+    
+    (if flag
+        (begin
+          (verbose-load)
+          (let ((result
+                  (parameterize ((jazz.load-indent (%%fx+ (jazz.load-indent) 2)))
+                    (proc))))
+            (if (jazz.done-verbose?)
+                (verbose-done))
+            result))
+      (proc))))
 
 
 ;; #f interpret compile eval
@@ -1681,7 +1681,7 @@
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
                 (jazz.increment-image-load-counter)                
-                (jazz.with-verbose (jazz.load-verbose?) "loading image unit" (symbol->string unit-name)
+                (jazz.with-verbose (jazz.load-verbose?) "loading" (symbol->string unit-name)
                   (lambda () 
                     (load-proc))))
               (bin-uptodate?

@@ -550,6 +550,7 @@
 (native jazz.get-environment)
 (native jazz.get-environment-unit)
 (native jazz.unit-loaded?)
+(native jazz.unit-status)
 (native jazz.unit-uptodate-binary?)
 (native jazz.load-unit)
 (native jazz.unload-unit)

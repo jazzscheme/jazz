@@ -679,8 +679,8 @@
               (%%cdr autoload)))))))
   
   (jazz.load-unit unit-name)
-  (jazz.with-unit-src/bin unit-name #f #f
-    (lambda (src bin bin-uptodate?)
+  (jazz.with-unit-src/bin unit-name #f
+    (lambda (src bin bin-uptodate? manifest)
       (let ((src-autoload (find-autoload src))
             (bin-autoload (find-autoload bin)))
         (cond (bin-autoload (bin-autoload))
@@ -867,60 +867,92 @@
           #f)))))
 
 
-(define (jazz.with-unit-src/bin unit-name extensions link-modules? proc #!key (pass-manifest? #f))
-  
+(define (jazz.with-unit-src/bin unit-name extensions proc)
+  (jazz.with-unit-resources unit-name extensions 
+    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (proc src bin bin-uptodate? manifest))))
+
+(define (jazz.with-unit-resources unit-name extensions proc)
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
       (if (%%boolean? interpreted?)
           interpreted?
         (%%memv unit-name interpreted?))))
-  
-  (let ((obj (jazz.find-unit-obj unit-name))
-        (bin (jazz.find-unit-bin unit-name))
-        (src (jazz.find-unit-src unit-name extensions))
-        (manifest #f))
-    (let* ((obj-uptodate?
-             (if (and src obj)
-                 (begin
-                   (set! manifest (jazz.load-updated-manifest unit-name
-                                                              (jazz.manifest-pathname (%%resource-package obj) obj)
-                                                              (jazz.resource-pathname src)))
-                   (and (jazz.manifest-uptodate? manifest)
-                        (%%not (jazz.manifest-needs-rebuild? manifest))
-                        (%%not (force-interpreted?))))
-               obj))
-           (bin-uptodate?
-             (if link-modules? 
-                 (and obj-uptodate? bin)
-               obj-uptodate?)))
-      ;(println unit-name "  " obj-uptodate? "  " bin-uptodate?)
-      (if pass-manifest?
-          (proc src (if link-modules? bin obj) bin-uptodate? manifest)
-        (proc src (if link-modules? bin obj) bin-uptodate?)))))
+  (let* ((src (jazz.find-unit-src unit-name extensions #f))
+         (obj (jazz.find-unit-obj unit-name))
+         (bin (jazz.find-unit-bin unit-name))
+         (image-unit (jazz.get-image-unit unit-name))
+         (manifest (let ((obj/bin (or obj bin)))
+                     (if (and src obj/bin)
+                       (jazz.load-updated-manifest 
+                         unit-name
+                         (jazz.manifest-pathname (%%resource-package obj/bin) obj/bin)
+                         (jazz.resource-pathname src))
+                       #f))))
+    (let ((obj-uptodate?
+            (and obj
+                 manifest
+                 (jazz.manifest-uptodate? manifest)
+                 (%%not (jazz.manifest-needs-rebuild? manifest))))
+          (bin-uptodate?
+            (and bin
+                 (or (%%not src)
+                     (and manifest
+                          (jazz.manifest-uptodate? manifest)
+                          (%%not (jazz.manifest-needs-rebuild? manifest))
+                          (%%not (force-interpreted?))))))
+          (lib-uptodate?
+            (and image-unit
+                 (or (%%not (or src bin))
+                     ; validate lib against manifest
+                     (and manifest
+                          (jazz.image-unit-uptodate? image-unit manifest)
+                          (%%not (jazz.manifest-needs-rebuild? manifest))
+                          (%%not (force-interpreted?)))
+                     ; validate lib against source
+                     (and src
+                          (jazz.image-unit-uptodate-src? image-unit src)
+                          (%%not (force-interpreted?)))))))
+      (proc src
+            obj
+            bin
+            (if image-unit (%%image-unit-load-proc image-unit) #f)
+            obj-uptodate?
+            bin-uptodate?
+            lib-uptodate?
+            manifest))))
  
-; and obj-uptodate bin
-  
-(define (jazz.with-unit-src/bin/lib unit-name extensions proc)
-  (jazz.with-unit-src/bin unit-name extensions #t
-    (lambda (src bin bin-uptodate? manifest)
-      (let* ((image-unit (jazz.get-image-unit unit-name))
-             (lib-uptodate?
-               (and image-unit
-                    (or (jazz.image-unit-uptodate? image-unit manifest)
-                        (%%not (or src bin))))))
-        (proc src bin (if image-unit (%%image-unit-load-proc image-unit) #f) bin-uptodate? lib-uptodate?)))
-    pass-manifest?: #t))
+
+(define (jazz.unit-status unit-name) 
+  (jazz.with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (display "unit ") (display unit-name) (newline)
+      (if src 
+          (begin
+            (display "source hash: ")
+            (display (digest-file (jazz.resource-pathname src) 'sha-1))
+            (newline))
+        (begin (display "source file not found") (newline)))
+      (display "obj-uptodate? ") (display obj-uptodate?) (newline)
+      (display "bin-uptodate? ") (display bin-uptodate?) (newline)
+      (display "lib-uptodate? ") (display lib-uptodate?) (newline))))
+ 
 
 
 (define (jazz.unit-uptodate-binary? unit-name)
-  (jazz.with-unit-src/bin/lib unit-name #f
-    (lambda (src bin lib bin-uptodate? lib-uptodate?)
+  (jazz.with-unit-resources unit-name #f
+    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (or bin-uptodate? lib-uptodate?))))
 
 
 (define (jazz.image-unit-uptodate? image-unit manifest)
   (let ((digest (%%manifest-digest manifest)))
-    (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-compile-time-hash digest))))
+    (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-source-hash digest))))
+
+
+(define (jazz.image-unit-uptodate-src? image-unit src)
+  (let ((source-hash (digest-file (jazz.resource-pathname src) 'sha-1)))
+ (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash))) 
 
 
 (define (jazz.validate-repository-unicity repository unit-name proc)
@@ -1642,47 +1674,9 @@
   (make-parameter #f))
 
 
-;; bypass check of lib-uptodate?
-(define (jazz.load-unit-src/bin-fast-load unit-name)
-  (or (let ((image-unit (jazz.get-image-unit unit-name)))
-        (and image-unit
-             (parameterize ((jazz.requested-unit-name unit-name)
-                            (jazz.requested-unit-resource (jazz.find-unit-bin unit-name)))
-               ;(display ".")
-               ((%%image-unit-load-proc image-unit))
-               #t)))
-          
-      (jazz.with-unit-src/bin/lib unit-name #f
-        (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
-          (parameterize ((jazz.requested-unit-name unit-name)
-                         (jazz.requested-unit-resource (if bin-uptodate? bin src)))
-            (cond (lib-uptodate? (load-proc))
-                  (bin-uptodate?
-                    (display unit-name) (newline)
-                    (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
-                                                    (and ext (%%string=? ext "jazz"))))))
-                      (jazz.load-resource bin quiet?)))
-                  (src
-                    (display "!!") (display unit-name) (newline)
-                    (let ((warn (jazz.warn-interpreted?)))
-                      (if warn
-                          (if (%%eq? warn 'error)
-                              (jazz.error "Loading {a} interpreted" unit-name)
-                            (begin
-                              (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
-                              (if (and (%%pair? warn) (%%memq unit-name warn))
-                                  (pp jazz.Load-Stack))))))
-                    (parameterize ((jazz.walk-for 'interpret))
-                      (jazz.with-extension-reader (%%resource-extension src)
-                                                  (lambda ()
-                                                    (jazz.load-resource src)))))
-                  (else
-                   (jazz.error "Unable to find unit: {s}" unit-name))))))))
-
-
 (define (jazz.load-unit-src/bin unit-name)
-  (jazz.with-unit-src/bin/lib unit-name #f
-    (lambda (src bin load-proc bin-uptodate? lib-uptodate?)
+  (jazz.with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?

@@ -86,11 +86,11 @@
 
 
 (define (jazz.compile-unit-internal unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz.with-unit-src/bin unit-name #f (jazz.link-objects?)
-    (lambda (src bin bin-uptodate?)
+  (jazz.with-unit-resources unit-name #f
+    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource src))
-        (jazz.compile-source src bin bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
+        (jazz.compile-source src obj bin obj-uptodate? bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
 
 
 (define jazz.wrap-single-host-cc-options
@@ -101,11 +101,13 @@
     (lambda (str)
       (if gcc-4-2? (string-append "-U___SINGLE_HOST " str) str))))
 
-(define (jazz.compile-source src bin bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+(define (jazz.compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((options (or options jazz.compile-options))
         (cc-options (jazz.wrap-single-host-cc-options (or cc-options "")))
         (ld-options (or ld-options "")))
-    (if (or force? (%%not (and bin bin-uptodate? (jazz.manifest-references-valid? bin))))
+    (if (or force? (%%not (if (jazz.link-objects?)
+                              (and obj-uptodate? bin-uptodate? (jazz.manifest-references-valid? bin))
+                            (and obj-uptodate? (jazz.manifest-references-valid? obj)))))
         (let ((package (%%resource-package src))
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
@@ -121,7 +123,7 @@
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
                   #;(compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options)
-                  (jazz.compile-file src options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
+                  (jazz.compile-file src obj-uptodate? options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
             (let ((manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
@@ -134,7 +136,9 @@
               (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
 
 
-(define (jazz.compile-file src #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
+
+
+(define (jazz.compile-file src link-only? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
   (let* ((pathname (jazz.resource-pathname src))
          (bin- (jazz.binary-with-extension src ""))
          (bin-c (string-append bin- ".c"))
@@ -142,11 +146,12 @@
          (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
          (linkfile (string-append bin-o1 ".c")))
 
-    ;; temporary patch for what seems to be a Mac only Gambit bug related to the new module-name: option
-    (let ((patched-module-name (%%string-append "JAZZUNIT" (%%symbol->string unit-name))))
-      (compile-file-to-c pathname output: bin-c options: options module-name: patched-module-name))
-    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))
-    
+    (if (%%not link-only?)
+        (begin
+          (let ((patched-module-name (%%string-append "JAZZUNIT" (%%symbol->string unit-name))))
+            (compile-file-to-c pathname output: bin-c options: options module-name: patched-module-name))
+          (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+
     (if (jazz.link-objects?)
         (begin
           (link-flat (%%list bin-) output: linkfile warnings?: #f)

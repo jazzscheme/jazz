@@ -946,9 +946,9 @@
 (native jazz.iterate-table)
 (native jazz.map-table)
 (native jazz.table-entries)
-(native jazz.eq-hash)
-(native jazz.eqv-hash)
-(native jazz.equal-hash)
+(native jazz.eq?-hash)
+(native jazz.eqv?-hash)
+(native jazz.equal?-hash)
 
 
 ;;;

@@ -548,7 +548,6 @@
 (native jazz.profile-name)
 (native jazz.profile-title)
 (native jazz.profile-unit)
-(native jazz.unit-autoload)
 (native jazz.get-environment)
 (native jazz.get-environment-unit)
 (native jazz.unit-loaded?)

@@ -651,43 +651,6 @@
                   (iter (%%cdr packages))))))))))
 
 
-(define (jazz.get-package-autoload package name)
-  (%%table-ref (%%package-autoloads package) name #f))
-
-
-(define (jazz.set-package-autoload package name unit-name loader)
-  (%%table-set! (%%package-autoloads package) name (%%cons unit-name loader)))
-
-
-(define (jazz.register-package-autoload package name unit-name loader)
-  (let ((actual (jazz.get-package-autoload package name)))
-    (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
-        (jazz.set-package-autoload package name unit-name loader)
-      (jazz.error "Conflict detected for autoload {s} in package {s} between {s} and {s}" name (%%package-name package) (%%car actual) unit-name))))
-
-
-(define (jazz.unit-autoload unit-name name)
-  (define (find-autoload resource)
-    (if (%%not resource)
-        #f
-      (let ((package (%%resource-package resource)))
-        (if (%%not package)
-            #f
-          (let ((autoload (jazz.get-package-autoload package name)))
-            (if (%%not autoload)
-                #f
-              (%%cdr autoload)))))))
-  
-  (jazz.load-unit unit-name)
-  (jazz.with-unit-src/bin unit-name #f
-    (lambda (src bin bin-uptodate? manifest)
-      (let ((src-autoload (find-autoload src))
-            (bin-autoload (find-autoload bin)))
-        (cond (bin-autoload (bin-autoload))
-              (src-autoload (src-autoload))
-              (else (jazz.error "Unable to find autoload {s} in package {s}" name unit-name)))))))
-
-
 (define (jazz.find-resource pathname)
   (let iter-repo ((repositories jazz.Repositories))
     (if (%%null? repositories)

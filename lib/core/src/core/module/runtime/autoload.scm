@@ -67,9 +67,7 @@
   (let ((actual (jazz.get-autoload name)))
     (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
         (jazz.set-autoload name unit-name loader)
-      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name)))
-  (let ((package (%%resource-package (jazz.requested-unit-resource))))
-    (jazz.register-package-autoload package name unit-name loader)))
+      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name))))
 
 
 (define (jazz.autoload name)

@@ -162,9 +162,6 @@
 (jazz.define-macro (%%package-project package)
   `(%%vector-ref ,package 12))
 
-(jazz.define-macro (%%package-autoloads package)
-  `(%%vector-ref ,package 13))
-
 
 ;;;
 ;;;; Product

@@ -37,29 +37,25 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz.crash-reporter #f)
-
-
-(define (log-backtrace arg)
-  (continuation-capture (lambda (k) (display-continuation-backtrace k (current-error-port) #t #t 20 10))))
-
-
-(define (jazz.set-crash-reporter proc)
-  (set! jazz.crash-reporter proc))
-
-
-(c-define (call_jazz_crash_reporter arg) ((pointer void)) void "call_jazz_crash_reporter" ""
+(c-define (jazz.call_crash_reporter arg) ((pointer void)) void "jazz_call_crash_reporter" ""
   (jazz.crash-reporter arg))
+
+
+(define (jazz.log-backtrace arg)
+  (continuation-capture
+    (lambda (k)
+      (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
+
+
+(jazz.set-crash-reporter jazz.log-backtrace)
 
 
 (cond-expand
   (windows
     (c-declare #<<END-OF-DECLARES
-      #include <stdio.h>
-
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
       {
-        call_jazz_crash_reporter(info);
+        jazz_call_crash_reporter(info);
         return EXCEPTION_CONTINUE_SEARCH;
       }
 
@@ -72,10 +68,11 @@ END-OF-DECLARES
     (c-initialize "setup_low_level_windows_crash_handler();")
     
     (c-declare "const DWORD PROCESS_FAILURE = (DWORD) 0xE0000001L;")
-    (define crash-process
+    
+    (define jazz.crash-process
       (c-lambda () void
         "RaiseException(PROCESS_FAILURE, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
-  (else  
+  (else
    (c-define (crash_call_exit) () void "crash_call_exit" ""
      (exit 1))
 
@@ -87,7 +84,7 @@ END-OF-DECLARES
 
       static void error_signal_handler(int sig_num)
       {
-        call_jazz_crash_reporter(NULL); 
+        jazz_call_crash_reporter(NULL);
         fflush(stdout);
         crash_call_exit();
       }
@@ -101,7 +98,7 @@ END-OF-DECLARES
    )
 
    (c-initialize "setup_low_level_unix_crash_handler();")
-   (define crash-process (c-lambda () void "raise( SIGSEGV );"))))
 
-
-(jazz.set-crash-reporter log-backtrace)
+   (define jazz.crash-process
+     (c-lambda () void
+       "raise( SIGSEGV );"))))

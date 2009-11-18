@@ -455,3 +455,16 @@
   (display (apply jazz.format fmt-string rest))
   (newline)
   (force-output))
+
+
+;;;
+;;;; Crash
+;;;
+
+
+(define jazz.crash-reporter
+  #f)
+
+
+(define (jazz.set-crash-reporter proc)
+  (set! jazz.crash-reporter proc))

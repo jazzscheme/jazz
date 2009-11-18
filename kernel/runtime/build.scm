@@ -265,6 +265,7 @@
           (compile-source-file "runtime/" "install")
           (compile-source-file "runtime/" "digest")
           (compile-source-file "runtime/" "unit")
+          (compile-source-file "runtime/" "crash")
           (compile-source-file "runtime/" "setup")))
       
       (define (generate-architecture rebuild? rebuild-architecture?)
@@ -331,6 +332,7 @@
                                ,(kernel-file "runtime/install")
                                ,(kernel-file "runtime/digest")
                                ,(kernel-file "runtime/unit")
+                               ,(kernel-file "runtime/crash")
                                ,(kernel-file "runtime/setup")
                                ,(product-file (main-filename)))))
                   (feedback-message "; creating link file...")
@@ -492,6 +494,7 @@
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/unit.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/crash.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/setup.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append (main-filename) ".c")) platform)
             ,(jazz.quote-gcc-pathname (link-file) platform)

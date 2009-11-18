@@ -573,6 +573,8 @@
 (native jazz.image-load-counter)
 (native jazz.object-load-counter)
 (native jazz.interpreted-load-counter)
+(native jazz.set-crash-reporter)
+(native crash-process)
 (native main)
 
 

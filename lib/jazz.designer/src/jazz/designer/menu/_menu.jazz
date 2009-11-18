@@ -1,0 +1,103 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Component Menu
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.designer.menu jazz
+
+
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.locale)
+        (jazz.ui))
+
+
+(definition public (update-component-menu tree menu components)
+  (define (add-components add-menu)
+    (with-update-locked~ add-menu
+      (lambda ()
+        (let ((classes (addable-classes~ tree)))
+          (for-each (lambda (class)
+                      (if (not class)
+                          (new Separator-Item parent: add-menu)
+                        (let ((icon (get-class-image~ class))
+                              (title (format "{a}..." (localize (get-class-presentation~ class)))))
+                          (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add-component-class~ tree class)))))))
+                    classes)
+          classes))))
+  
+  (let* ((count (length components))
+         (component (essay (>= count 1) (car components)))
+         (can-cut? (get-action-enabled? {Action view cut}))
+         (can-copy? (get-action-enabled? {Action view copy}))
+         (can-paste? (get-action-enabled? {Action view paste}))
+         (can-paste-properties? (get-action-enabled? {Action view paste-properties}))
+         (can-delete? (get-action-enabled? {Action view delete}))
+         (can-rename? (get-action-enabled? {Action components-tree rename}))
+         (can-properties? (and component (is? component Component) (can-view-properties?~ component)))
+         (empty-add? #f))
+    (let ((add-menu (locate~ menu 'add-menu))
+          (add-item (locate~ menu 'add-item)))
+      (if (and (use-add-menu?~ tree) (= count 1) (add-components add-menu))
+          (let ((children (collect-type Label-Item (get-children~ add-menu))))
+            (if (null? children)
+                (begin
+                  (set-visible?~ add-item #f)
+                  (set! empty-add? #t))
+              (when (= (length children) 1)
+                (set-visible?~ add-item #f)
+                (let ((unique (car children)))
+                  (set-icon~ unique (get-icon~ add-item))
+                  (set-title~ unique (format "{a} {a}" (localize "Add") (get-title~ unique)))
+                  (set-shortcut~ unique {Shortcut :control #\D})
+                  (set-parent~ unique menu)
+                  (set-before~ unique 'end-add-group)))))
+        (set-visible?~ add-item #f)
+        (set! empty-add? #t)))
+    (when (not can-cut?)
+      (set-visible?~ (locate~ menu 'cut) #f))
+    (when (not can-copy?)
+      (set-visible?~ (locate~ menu 'copy) #f))
+    (when (not can-paste?)
+      (set-visible?~ (locate~ menu 'paste) #f))
+    (when (not can-paste-properties?)
+      (set-visible?~ (locate~ menu 'paste-properties) #f))
+    (when (not can-delete?)
+      (set-visible?~ (locate~ menu 'delete-selection) #f))
+    (when (not can-rename?)
+      (set-visible?~ (locate~ menu 'rename-selected) #f))
+    (when (not can-properties?)
+      (set-visible?~ (locate~ menu 'properties) #f))
+    (cleanup-separators~ menu))))

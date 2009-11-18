@@ -105,6 +105,7 @@
         ((:unknown)          walk-unknown)
         ((:c-declare)        walk-c-declare)
         ((:c-initialize)     walk-c-initialize)
+        ((:c-define)         walk-c-define)
         (else                (nextmethod name)))))
 
   
@@ -318,14 +319,30 @@
       entry))
 
   
+  (method (walk-c-declare context symbol form declaration keyword expression doc)
+    (keyword context start end)
+    (walk-expressions context expression))
+
+  
   (method (walk-c-initialize context symbol form declaration keyword expression doc)
     (keyword context start end)
     (walk-expressions context expression))
 
   
-  (method (walk-c-declare context symbol form declaration keyword expression doc)
-    (keyword context start end)
-    (walk-expressions context expression))
+  (method (walk-c-define context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword (get-modifiers~ form))
+      (forward-whites)
+      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'c-definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (when list?
+          (exit-list)))
+      (walk-expressions entry expression)
+      entry))
   
   
   (method package (symbol-documentation symbol doc)

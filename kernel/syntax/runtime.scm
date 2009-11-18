@@ -112,14 +112,14 @@
                   (let ((feature-requirement (extract-feature-requirement invoice)))
                     (cond ((%%not feature-requirement)
                            (%%list invoice))
-                          ((jazz.feature-safisfied? feature-requirement)
+                          ((jazz.feature-satisfied? feature-requirement)
                            (%%list (%%cons (%%car invoice) (%%cddr invoice))))
                           (else
                            '()))))
                 invoices)))
 
 
-(define (jazz.feature-safisfied? feature-requirement)
+(define (jazz.feature-satisfied? feature-requirement)
   (if (%%symbol? feature-requirement)
       (%%memq feature-requirement ##cond-expand-features)
     (error "Features can only be symbols for now")))

@@ -3185,7 +3185,7 @@
                     (%%not (%%symbol? (jazz.source-code (%%car clause)))))
                 (jazz.error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
               (let ((feature-requirement (jazz.source-code (%%car clause))))
-                (if (or (jazz.feature-safisfied? feature-requirement)
+                (if (or (jazz.feature-satisfied? feature-requirement)
                         (%%eq? feature-requirement 'else))
                     (if (%%null? (%%cdr clause))
                         (cont #f #f)

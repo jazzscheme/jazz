@@ -95,7 +95,10 @@
       (for-each (lambda (process)
                   (if (live-process? process)
                       (enqueue valid process)
-                    (close-process-debugger-resources (new Debugged-Process self process process))))
+                    (detach-process~ (get-debugger-manager)
+                      (new Debugged-Process self process process)
+                      (unless (proxy=? process (get-local-process))
+                        (new Debugged-Process self (get-local-process) (get-local-process))))))
                 processes)
       (set! processes (queue-list valid))))
   
@@ -324,7 +327,6 @@
     (when (member? process-proxy processes test: process=?)
       (execute-event
         (lambda ()
-          (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
           (set! processes (remove! process-proxy processes test: process=?))
           (let ((process (new Debugged-Process self process-proxy process-proxy))
                 (best-process (unless (proxy=? process-proxy (get-local-process))

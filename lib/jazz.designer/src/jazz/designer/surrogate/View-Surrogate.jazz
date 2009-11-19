@@ -56,6 +56,9 @@
 
   
   (slot protected client-renderer                initialize {})
+  (slot protected client-focus-gain-handler      initialize {})
+  (slot protected client-focus-lose-handler      initialize {})
+  (slot protected client-cursor-update-handler   initialize {})
   (slot protected client-mouse-down-handler      initialize {})
   (slot protected client-drag-move-handler       initialize {})
   (slot protected client-drag-up-handler         initialize {})
@@ -63,7 +66,6 @@
   (slot protected client-current-drop-handler    initialize {})
   (slot protected client-receive-drop-handler    initialize {})
   (slot protected client-context-menu-handler    initialize {})
-  (slot protected client-cursor-update-handler   initialize {})
   (slot protected client-key-press-handler       initialize {})
   (slot protected client-arrow-press-handler     initialize {})
   (slot protected client-backspace-press-handler initialize {})
@@ -84,6 +86,9 @@
   (method override (install-handlers)
     (nextmethod)
     (set! client-renderer                (get-renderer~ client))
+    (set! client-focus-gain-handler      (get-focus-gain-handler~ client))
+    (set! client-focus-lose-handler      (get-focus-lose-handler~ client))
+    (set! client-cursor-update-handler   (get-cursor-update-handler~ client))
     (set! client-mouse-down-handler      (get-mouse-down-handler~ client))
     (set! client-drag-move-handler       (get-drag-move-handler~ client))
     (set! client-drag-up-handler         (get-drag-up-handler~ client))
@@ -91,11 +96,13 @@
     (set! client-current-drop-handler    (get-current-drop-handler~ client))
     (set! client-receive-drop-handler    (get-receive-drop-handler~ client))
     (set! client-context-menu-handler    (get-context-menu-handler~ client))
-    (set! client-cursor-update-handler   (get-cursor-update-handler~ client))
     (set! client-key-press-handler       (get-key-press-handler~ client))
     (set! client-arrow-press-handler     (get-arrow-press-handler~ client))
     (set! client-backspace-press-handler (get-backspace-press-handler~ client))
     (set-renderer~ client                self)
+    (set-focus-gain-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-gain      preserved: client-focus-gain-handler))
+    (set-focus-lose-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-lose      preserved: client-focus-lose-handler))
+    (set-cursor-update-handler~ client   (new Surrogate-Handler target: self method-name: 'on-cursor-update   preserved: client-cursor-update-handler))
     (set-mouse-down-handler~ client      (new Surrogate-Handler target: self method-name: 'on-mouse-down      preserved: client-mouse-down-handler))
     (set-drag-move-handler~ client       (new Surrogate-Handler target: self method-name: 'on-drag-move       preserved: client-drag-move-handler))
     (set-drag-up-handler~ client         (new Surrogate-Handler target: self method-name: 'on-drag-up         preserved: client-drag-up-handler))
@@ -103,7 +110,6 @@
     (set-current-drop-handler~ client    (new Surrogate-Handler target: self method-name: 'on-current-drop    preserved: client-current-drop-handler))
     (set-receive-drop-handler~ client    (new Surrogate-Handler target: self method-name: 'on-receive-drop    preserved: client-receive-drop-handler))
     (set-context-menu-handler~ client    (new Surrogate-Handler target: self method-name: 'on-context-menu    preserved: client-context-menu-handler))
-    (set-cursor-update-handler~ client   (new Surrogate-Handler target: self method-name: 'on-cursor-update   preserved: client-cursor-update-handler))
     (set-key-press-handler~ client       (new Surrogate-Handler target: self method-name: 'on-key-press       preserved: client-key-press-handler))
     (set-arrow-press-handler~ client     (new Surrogate-Handler target: self method-name: 'on-arrow-press     preserved: client-key-press-handler))
     (set-backspace-press-handler~ client (new Surrogate-Handler target: self method-name: 'on-backspace-press preserved: client-key-press-handler))
@@ -113,6 +119,9 @@
   (method override (remove-handlers)
     (nextmethod)
     (set-renderer~ client                client-renderer)
+    (set-focus-gain-handler~ client      client-focus-gain-handler)
+    (set-focus-lose-handler~ client      client-focus-lose-handler)
+    (set-cursor-update-handler~ client   client-cursor-update-handler)
     (set-mouse-down-handler~ client      client-mouse-down-handler)
     (set-drag-move-handler~ client       client-drag-move-handler)
     (set-drag-up-handler~ client         client-drag-up-handler)
@@ -120,7 +129,6 @@
     (set-current-drop-handler~ client    client-current-drop-handler)
     (set-receive-drop-handler~ client    client-receive-drop-handler)
     (set-context-menu-handler~ client    client-context-menu-handler)
-    (set-cursor-update-handler~ client   client-cursor-update-handler)
     (set-key-press-handler~ client       client-key-press-handler)
     (set-arrow-press-handler~ client     client-arrow-press-handler)
     (set-backspace-press-handler~ client client-backspace-press-handler)
@@ -130,6 +138,13 @@
   ;;;
   ;;;; Draw
   ;;;
+  
+  
+  (definition Focused-Background
+    {Color name: Dark-Purple alpha: 0.15})
+  
+  (definition Unfocused-Background
+    {Color name: Dark alpha: 0.15})
     
   
   (definition Selected-Colors
@@ -154,34 +169,36 @@
   
   
   (method public virtual (draw surface)
-    (define (draw-surrogate-selected surface)
-      (when (and (neq? client (get-reference~ editor))
-                 (memq client (get-selection~ editor)))
-        (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.15})))
-    
-    (define (draw-surrogate-frame surface)
-      (when (and (get-show-frames?~ editor) (eq? (outer-client) client))
-        (let ((selection (get-selection~ editor)))
-          (define (outer-component view)
-            (outer-client~ (get-surrogate~ view)))
-          
-          (define (frame-color)
-            (let ((rank (find selection client key: outer-component)))
-              (if (not rank)
-                  Unselected-Color
-                (element Selected-Colors (min rank 2)))))
-          
+    (let ((reference (get-reference~ editor))
+          (selection (get-selection~ editor)))
+      (define (draw-surrogate-background surface)
+        (when (and (neq? client reference)
+                   (memq client selection))
+          (let ((color (if (selection-focused?) Focused-Background Unfocused-Background)))
+            (fill-rect~ surface (get-bounds~ client) color))))
+      
+      (define (draw-surrogate-frame surface)
+        (define (outer-component view)
+          (outer-client~ (get-surrogate~ view)))
+        
+        (define (frame-color)
+          (let ((rank (find selection client key: outer-component)))
+            (if (not rank)
+                Unselected-Color
+              (element Selected-Colors (min rank 2)))))
+        
+        (when (and (get-show-frames?~ editor) (eq? (outer-client) client))
           (let ((color (frame-color))
                 (outside (get-bounds~ client)))
             (frame-rect~ surface outside color)
             @temp-as-this-is-not-very-nice-for-client-apps
-            (when (eq? client (get-reference~ editor))
+            (when (eq? client reference)
               (let ((inside (inflate-rect outside -1 -1)))
-                (frame-rect~ surface inside color)))))))
-    
-    (draw-showed-property surface)
-    (draw-surrogate-selected surface)
-    (draw-surrogate-frame surface))
+                (frame-rect~ surface inside color))))))
+      
+      (draw-showed-property surface)
+      (draw-surrogate-background surface)
+      (draw-surrogate-frame surface)))
   
   
   (method public (draw-showed-property surface)
@@ -240,6 +257,23 @@
   (method public (selected-color rank)
     (let ((colors Selected-Colors))
       (element colors (min rank (- (length colors) 1)))))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+
+
+  (method (on-focus-gain evt)
+    (invalidate-selection))
+
+
+  (method (on-focus-lose evt)
+    (invalidate-selection))
+  
+  
+  (method (selection-focused?)
+    (some? has-focus?~ (get-selection~ editor)))
 
 
   ;;;
@@ -679,7 +713,11 @@
   
   (method override (unselect)
     (invalidate-border)
-    (invalidate-view~ client)))
+    (invalidate-view~ client))
+  
+  
+  (method (invalidate-selection)
+    (for-each invalidate-view~ (get-selection~ editor))))
 
 
 ;;;

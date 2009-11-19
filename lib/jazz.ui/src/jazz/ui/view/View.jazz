@@ -75,6 +75,8 @@
   (property user-data                            initialize {}                 accessors generate)
 
   
+  (property focus-gain-handler                   initialize {} accessors generate)
+  (property focus-lose-handler                   initialize {} accessors generate)
   (property cursor-update-handler                initialize {} accessors generate)
   (property mouse-enter-handler                  initialize {} accessors generate)
   (property mouse-hover-handler                  initialize {} accessors generate)
@@ -1660,10 +1662,9 @@
 
 
   (method (call-content-change origin)
-    (if (not content-change-handler)
-        (content-change origin)
-      (let ((event (new Event :change self (list origin: origin))))
-        (invoke~ content-change-handler self event))))
+    (if content-change-handler
+        (invoke~ content-change-handler self (new Event :change self (list origin: origin)))
+      (content-change origin)))
   
   
   (method public virtual (content-change origin)
@@ -1734,12 +1735,16 @@
 
   (method public (call-focus-gain)
     (set-focus-actions~ (get-application) (get-focus-actions self))
-    (focus-gain))
+    (if focus-gain-handler
+        (invoke~ focus-gain-handler self (new Event :focus-gain self))
+      (focus-gain)))
 
 
   (method public (call-focus-lose)
     (set-focus-actions~ (get-application) '())
-    (focus-lose))
+    (if focus-lose-handler
+        (invoke~ focus-lose-handler self (new Event :focus-lose self))
+      (focus-lose)))
   
   
   (method public (has-focus?)
@@ -1792,12 +1797,12 @@
   
   
   (method public (notify-action sender properties)
-    (if (not action-handler)
-        (when action
-          (call-action action sender properties))
-      (let* ((properties (either properties (get-properties~ action-handler)))
-             (event (apply new Action-Event :action sender properties)))
-        (invoke~ action-handler self event))))
+    (if action-handler
+        (let ((properties (either properties (get-properties~ action-handler))))
+          (let ((event (apply new Action-Event :action sender properties)))
+            (invoke~ action-handler self event)))
+      (when action
+        (call-action action sender properties))))
   
   
   ;;;
@@ -1829,10 +1834,9 @@
   
   
   (method public (call-cursor-update pos)
-    (if (not cursor-update-handler)
-        (cursor-update pos)
-      (let ((event (new Cursor-Event :set-cursor self pos)))
-        (invoke~ cursor-update-handler self event))))
+    (if cursor-update-handler
+        (invoke~ cursor-update-handler self (new Cursor-Event :set-cursor self pos))
+      (cursor-update pos)))
   
   
   (method public virtual (cursor-update pos)
@@ -1940,8 +1944,7 @@
   
   (method (call-mouse-move pos)
     (if mouse-move-handler
-        (let ((event (new Mouse-Event :mouse-move self pos)))
-          (invoke~ mouse-move-handler self event))
+        (invoke~ mouse-move-handler self (new Mouse-Event :mouse-move self pos))
       (mouse-move pos)))
   
   

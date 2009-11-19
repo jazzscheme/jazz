@@ -44,11 +44,12 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.system)
+        (jazz.system.process)
         (jazz.ui.view))
 
 
 ;;;
-;;;; Reading
+;;;; Read
 ;;;
 
 
@@ -72,7 +73,12 @@
       )))
 
 
-(class undocumented Toolbox-Manager extends Editor-View
+;;;
+;;;; Toolbox
+;;;
+
+
+(class undocumented Toolbox-Manager extends Editor-View implements Exit-Listener
 
 
   (form
@@ -115,6 +121,15 @@
   (method override (focus-default)
     (let ((tree (locate '(descendants tree))))
       (acquire-focus~ tree)))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  (method override (new-controller)
+    (new Toolbox-Manager-Controller self))
 
   
   ;;;
@@ -126,7 +141,13 @@
     (nextmethod rest)
     (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
-    (set-client (read-toolbox)))
+    (set-client (read-toolbox))
+    (add-exit-listener~ (get-application) self))
+  
+  
+  (method override (prepare-exit)
+    (when (and designer (file? (get-origin~ (get-form~ designer))))
+      (save~ designer)))
   
   
   ;;;
@@ -154,4 +175,16 @@
             (let* ((editor (current-document))
                    (selection (get-selection~ editor))
                    (client (if (= 1 (length selection)) (car selection) {})))
-              (add-new~ (get-surrogate~ client) class {Point 0 0} centered?: #f)))))))))
+              (add-new~ (get-surrogate~ client) class {Point 0 0} centered?: #f))))))))
+
+
+;;;
+;;;; Controller
+;;;
+
+
+(class Toolbox-Manager-Controller extends Editor-View-Controller
+  
+  
+  (method override (document-status)
+    "Toolbox")))

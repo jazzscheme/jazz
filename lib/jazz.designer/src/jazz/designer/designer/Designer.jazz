@@ -514,7 +514,7 @@
                 (set! forms (cons form forms)))))
           branch: branch)
         (if (and (not-null? forms) (memq? (get-action~ (car forms)) '(new install)))
-            (new Component-Parcel (GetCurrentProcessId) (object->serial component) forms)
+            (new Component-Parcel (current-process-id) (object->serial component) forms)
           (designer-error "Unable to find owner for {t}" component))))
     
     (map (lambda (component)
@@ -615,50 +615,51 @@
   ;;;
   
   
-  (method public (verify-name-conflicts parcels destination)
-    (let* ((names (map get-master-name~ parcels))
-           (children (get-children~ destination))
-           (conflicts (name-conflicts names children)))
-      (when conflicts
-        (confirm-name-resolution parcels children conflicts))))
-  
-  
   (definition (name-conflicts names children)
     (let ((equal (sort-predicate 'equal)))
       (collect-if (lambda (child)
-                    (some? (lambda (name)
-                             (equal (get-name~ child) name))
-                           names))
+                    (let ((child-name (get-name~ child)))
+                      (and child-name
+                           (some? (lambda (name)
+                                    (equal child-name name))
+                                  names))))
                   children)))
   
   
-  (method protected virtual (confirm-name-resolution parcels children conflicts)
-    (define (present-conflicts header conflicts)
-      (let ((fact (new List-Factory)))
-        (put~ fact header)
-        (for-each (lambda (conflict)
-                    (put~ fact (list :bulleted (->string (get-name~ conflict)))))
-                  conflicts)
-        (get-output~ fact)))
+  (method public (verify-name-conflicts parcels destination)
+    (define (confirm-name-resolution children conflicts)
+      (define (present-conflicts header conflicts)
+        (let ((fact (new List-Factory)))
+          (put~ fact header)
+          (for-each (lambda (conflict)
+                      (put~ fact (list :bulleted (->string (get-name~ conflict)))))
+                    conflicts)
+          (get-output~ fact)))
+      
+      (if (every? (lambda (parcel)
+                    (let ((equal (sort-predicate 'equal))
+                          (process-id (get-process-id~ parcel))
+                          (component-id (get-object-id~ parcel))
+                          (name (get-master-name~ parcel)))
+                      (and (= process-id (current-process-id))
+                           (some? (lambda (child)
+                                    (and (= component-id (object->serial child))
+                                         (equal name (get-name~ child))))
+                                  children))))
+                  parcels)
+          'rename
+        (let* ((header "The following conflicts where detected. Override destination?")
+               (text (present-conflicts header conflicts))
+               (code (message-box text type: 'question)))
+          (case code
+            ((yes) 'override)
+            ((no) (throw-cancel))))))
     
-    (if (every? (lambda (parcel)
-                  (let ((equal (sort-predicate 'equal))
-                        (process-id (get-process-id~ parcel))
-                        (component-id (get-object-id~ parcel))
-                        (name (get-master-name~ parcel)))
-                    (and (= process-id (GetCurrentProcessId))
-                         (some? (lambda (child)
-                                  (and (= component-id (object->serial child))
-                                       (equal name (get-name~ child))))
-                                children))))
-                parcels)
-        'rename
-      (let* ((header "The following conflicts where detected. Override destination?")
-             (text (present-conflicts header conflicts))
-             (code (message-box text type: 'question)))
-        (case code
-          ((yes) 'override)
-          ((no) (throw-cancel))))))
+    (let* ((names (map get-master-name~ parcels))
+           (children (get-children~ destination))
+           (conflicts (name-conflicts names children)))
+      (when (not-null? conflicts)
+        (confirm-name-resolution children conflicts))))
   
   
   ;;;

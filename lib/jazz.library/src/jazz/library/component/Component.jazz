@@ -1014,7 +1014,7 @@
   
   (method public virtual (validate-component root client context manager)
     (for-each (lambda (symbol)
-                (let ((property (property-field self symbol)))
+                (let ((property (property-field (class-of self) symbol)))
                   (validate-property property root client context manager)))
               (get-categorized-properties)))
   
@@ -1158,38 +1158,16 @@
 
 
   ;;;
-  ;;;; Domain
-  ;;;
-  
-  
-  (method meta public virtual (get-domain property)
-    (case (field-name property)
-      ((name-info) (new Name-Domain))
-      ((presentation-info) (new Presentation-Domain))
-      ((visible?) (new Boolean-Domain))
-      (else (new Value-Domain))))
-  
-  
-  (method public virtual (property-domain property)
-    #f
-    @convert-get-property-domain
-    (let* ((descriptor (get-property-descriptor~ (class-of (class-of self)) (field-name property)))
-           (descriptor-domain (essay descriptor (get-domain~ descriptor))))
-      (either descriptor-domain
-              (get-property-domain property)
-              (let* ((class (field-creator property))
-                     (domain (get-domain~ class property)))
-                (set-property-domain property domain)
-                domain))))
-
-
-  ;;;
   ;;;; Descriptor
   ;;;
 
 
   (method meta public virtual (get-class-descriptor)
     (new (module-ref 'jazz.designer 'Component-Descriptor)))
+  
+  
+  (method meta public virtual (get-domain property)
+    (class-get-domain~ (get-descriptor self) self property))
   
   
   (method meta public (get-class-presentation)
@@ -1358,6 +1336,10 @@
   
   (method public (display-property? property)
     (component-display-property?~ (get-descriptor (class-of self)) self property))
+  
+  
+  (method public (property-domain property)
+    (component-property-domain~ (get-descriptor (class-of self)) self property))
   
   
   (method public (get-row-class property)

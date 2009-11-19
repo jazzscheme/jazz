@@ -273,7 +273,10 @@
   
   
   (method (selection-focused?)
-    (some? has-focus?~ (get-selection~ editor)))
+    (some? (lambda (component)
+             (and (is? component View)
+                  (has-focus?~ component)))
+           (get-selection~ editor)))
 
 
   ;;;
@@ -287,23 +290,20 @@
   
   (method public virtual (cursor-update pos)
     (let ((mode (get-mode~ editor)))
-      (if (eq? mode 'rect)
-          (set-cursor :cross)
-        (let ((outer (outer-client~ (get-surrogate~ client))))
-          (let ((part (either current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))))
-            (if (not part)
-                (if (eq? outer (get-client~ editor))
-                    (if (get-mouse-down?)
-                        (if dragging?
-                            (set-cursor :closed-hand)
-                          (set-cursor :cross))
-                      (case mode
-                        ((select) (set-cursor :arrow))
-                        ((grab) (set-cursor :opened-hand))))
-                  (if (move-client?)
-                      (set-cursor :all)
-                    (set-cursor :arrow)))
-              (set-cursor (get-resize-cursor part))))))))
+      (case mode
+        ((rect)
+         (set-cursor :cross))
+        (else
+         (let ((outer (outer-client~ (get-surrogate~ client))))
+           (if (eq? outer (get-client~ editor))
+               (set-cursor :arrow)
+             (let ((part (either current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))))
+               (cond (part
+                      (set-cursor (get-resize-cursor part)))
+                     ((move-client?)
+                      (set-cursor :opened-hand))
+                     (else
+                      (set-cursor :arrow))))))))))
 
 
   ;;;
@@ -320,15 +320,13 @@
           (pos (get-position~ evt)))
       (case mode
         ((select)
-         (if (neq? client (get-client~ editor))
+         (if #t @wait (neq? client (get-client~ editor))
              (mouse-down pos)
            (when (select?)
              (select-in-editor))
            (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))
         ((rect)
-         (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos)))
-        ((grab)
-         (mouse-down pos)))))
+         (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))))
   
   
   (method (on-drag-move evt)
@@ -387,11 +385,15 @@
            (lambda ()
              (when (select?)
                (select-in-editor)))))
-      (if (alt-down?)
+      (if #f @buggy (alt-down?)
           (begin
             (select)
             (edit-client))
         (if (eq? client (get-client~ editor))
+            (begin
+              (select)
+              (edit-client))
+            @wait
             (begin
               (set! dragging? #t)
               (set! start-position pos)

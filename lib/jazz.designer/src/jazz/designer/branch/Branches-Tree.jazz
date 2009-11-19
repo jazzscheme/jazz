@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
+        (jazz.locale)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -160,7 +161,23 @@
     (let ((branch (selected-branch)))
       (if (is-not? branch Branch)
           (bell)
-        (remove-branch branch))))
+        (when (confirm-close)
+          (with-deleted-selection selection
+            (lambda ()
+              (remove-branch branch))
+              can-survive?: #t)))))
+  
+  
+  (method override (confirm-close)
+    (confirm-action "Delete selected branch?"))
+  
+  
+  (method protected (confirm-action text)
+    (let ((code (message-box (localize text) type: 'confirmation)))
+      (case code
+        ((yes) #t)
+        ((no) #f)
+        ((cancel) (throw-cancel)))))
   
   
   (method protected virtual (remove-branch branch)

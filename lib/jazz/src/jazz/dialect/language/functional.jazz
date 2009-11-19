@@ -3255,19 +3255,24 @@
 
 
 (definition public (read-property object <Object> expr <Object>)
-  (let ((getter (property-getter (property-field object expr))))
+  (let ((getter (property-getter (property-field (class-of object) expr))))
     (getter object)))
 
 
 (definition public (write-property object <Object> expr <Object> value <Object>)
-  (let ((setter (property-setter (property-field object expr))))
+  (let ((setter (property-setter (property-field (class-of object) expr))))
     (setter object value)))
 
 
-(definition public (property-field object <Object> expr <Object>)
+(definition public (property-field class <Class> expr <Object>)
+  (define (property->symbol expr)
+    (cond ((keyword? expr) (keyword->symbol expr))
+          ((enumerator? expr) (enumerator->symbol expr))
+          (else expr)))
+  
   (if (property? expr)
       expr
-    (let ((field (category-field (class-of object) (if (keyword? expr) (keyword->symbol expr) expr))))
+    (let ((field (category-field class (property->symbol expr))))
       (if (property? field)
           field
         (error "Unknown property: {t}" expr)))))

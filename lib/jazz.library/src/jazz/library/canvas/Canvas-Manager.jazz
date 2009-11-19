@@ -189,7 +189,7 @@
   ;;;
     
   
-  (method override (selection-changed old new origin force-parent? focus?)
+  (method override (selection-changed old-selection new-selection origin force-parent? focus?)
     (define (update-new)
       (let* ((tree (locate 'details))
              (client (get-client~ tree))
@@ -206,7 +206,7 @@
                                       english: (format "New {a}" (localize-to pres :english))
                                       french: (format "Nouveau {a}" (localize-to pres :french))))))))
     
-    (nextmethod old new origin force-parent? focus?)
+    (nextmethod old-selection new-selection origin force-parent? focus?)
     (update-new))
 
 
@@ -219,9 +219,10 @@
     (nextmethod evt)
     (case (get-kind~ evt)
       ((:selection-changing)
-       (let ((component (car (get-selection~ evt))))
-         (setup-details component)
-         (setup-card component)))
+       (let ((selection (get-selection~ evt)))
+         (let ((component (if (null? selection) {} (car selection))))
+           (setup-details component)
+           (setup-card component))))
       ((:saving)
        (let ((current (get-card)))
          (when (is? current Custom-Card)
@@ -236,7 +237,7 @@
   (method (setup-details component)
     @w
     (let ((current (get-details)))
-      (if (null? component)
+      (if (not component)
           (when current
             (close~ current))
         (let ((details-class (either (get-custom-details~ component) Details-Card)))
@@ -272,7 +273,7 @@
     (let ((current (get-card)))
       (when (is? current Custom-Card)
         (save-client~ current))
-      (if (null? component)
+      (if (not component)
           (when current
             (close~ current))
         (let ((card-class (either (get-custom-card~ component) Properties-Card)))

@@ -136,6 +136,25 @@
   
   
   ;;;
+  ;;;; New
+  ;;;
+  
+  
+  (method meta override (new-event . rest)
+    (let* ((frame (apply new-frame self host-visible?: #f rest))
+           (manager (get-guest~ frame))
+           (form (new Form textual?: #t action: 'new model-name: 'View))
+           (client (instantiate~ form)))
+      (set-origin~ form {})
+      (set-client~ manager client new?: #t)
+      (bring-to-front~ frame)
+      (set-visible?~ frame #t)
+      (set-selection~ manager '())
+      (focus-host~ frame)
+      frame))
+  
+  
+  ;;;
   ;;;; Client
   ;;;
   
@@ -210,6 +229,22 @@
   (method package (set-showed-property property)
     (set! showed-property property)
     (invalidate-view~ client))
+
+
+  ;;;
+  ;;;; Rendering
+  ;;;
+  
+  
+  (method override (render surface context lh lv sh sv sc sc?)
+    (nextmethod surface context lh lv sh sv sc sc?)
+    (for-each (lambda (view rank)
+                (when (is? view View)
+                  (let* ((surrogate (get-surrogate~ view))
+                         (outer (outer-client~ surrogate)))
+                    (draw-selected~ (get-surrogate~ outer) surface rank))))
+              selection
+              (naturals 0 (length selection))))
 
 
   ;;;

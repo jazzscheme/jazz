@@ -60,6 +60,7 @@
   (slot protected client-focus-lose-handler      initialize {})
   (slot protected client-cursor-update-handler   initialize {})
   (slot protected client-mouse-down-handler      initialize {})
+  (slot protected client-mouse-up-handler        initialize {})
   (slot protected client-drag-move-handler       initialize {})
   (slot protected client-drag-up-handler         initialize {})
   (slot protected client-double-click-handler    initialize {})
@@ -90,6 +91,7 @@
     (set! client-focus-lose-handler      (get-focus-lose-handler~ client))
     (set! client-cursor-update-handler   (get-cursor-update-handler~ client))
     (set! client-mouse-down-handler      (get-mouse-down-handler~ client))
+    (set! client-mouse-up-handler        (get-mouse-up-handler~ client))
     (set! client-drag-move-handler       (get-drag-move-handler~ client))
     (set! client-drag-up-handler         (get-drag-up-handler~ client))
     (set! client-double-click-handler    (get-double-click-handler~ client))
@@ -104,6 +106,7 @@
     (set-focus-lose-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-lose      preserved: client-focus-lose-handler))
     (set-cursor-update-handler~ client   (new Surrogate-Handler target: self method-name: 'on-cursor-update   preserved: client-cursor-update-handler))
     (set-mouse-down-handler~ client      (new Surrogate-Handler target: self method-name: 'on-mouse-down      preserved: client-mouse-down-handler))
+    (set-mouse-up-handler~ client        (new Surrogate-Handler target: self method-name: 'on-mouse-up        preserved: client-mouse-up-handler))
     (set-drag-move-handler~ client       (new Surrogate-Handler target: self method-name: 'on-drag-move       preserved: client-drag-move-handler))
     (set-drag-up-handler~ client         (new Surrogate-Handler target: self method-name: 'on-drag-up         preserved: client-drag-up-handler))
     (set-double-click-handler~ client    (new Surrogate-Handler target: self method-name: 'on-double-click    preserved: client-double-click-handler))
@@ -123,6 +126,7 @@
     (set-focus-lose-handler~ client      client-focus-lose-handler)
     (set-cursor-update-handler~ client   client-cursor-update-handler)
     (set-mouse-down-handler~ client      client-mouse-down-handler)
+    (set-mouse-up-handler~ client        client-mouse-up-handler)
     (set-drag-move-handler~ client       client-drag-move-handler)
     (set-drag-up-handler~ client         client-drag-up-handler)
     (set-double-click-handler~ client    client-double-click-handler)
@@ -190,11 +194,7 @@
         (when (and (get-show-frames?~ editor) (eq? (outer-client) client))
           (let ((color (frame-color))
                 (outside (get-bounds~ client)))
-            (frame-rect~ surface outside color)
-            @temp-as-this-is-not-very-nice-for-client-apps
-            (when (eq? client reference)
-              (let ((inside (inflate-rect outside -1 -1)))
-                (frame-rect~ surface inside color))))))
+            (frame-rect~ surface outside color))))
       
       (draw-showed-property surface)
       (draw-surrogate-background surface)
@@ -239,7 +239,8 @@
               (frame-rect~ surface outside color)
               (when (eq? self (get-reference~ editor))
                 (let ((inside (inflate-rect outside -1 -1)))
-                  (frame-rect~ surface inside color)))))))))
+                  (frame-rect~ surface inside color))))))
+        (set-style~ surface 'solid))))
   
   
   (method (border-region)
@@ -327,6 +328,10 @@
            (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))
         ((rect)
          (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))))
+
+  
+  (method (on-mouse-up evt)
+    )
   
   
   (method (on-drag-move evt)
@@ -381,31 +386,29 @@
                (move-client?~ (get-surrogate~ client)))
              selection))
     
-    (let ((select
-           (lambda ()
-             (when (select?)
-               (select-in-editor)))))
-      (if #f @buggy (alt-down?)
-          (begin
-            (select)
-            (edit-client))
-        (if (eq? client (get-client~ editor))
-            (begin
-              (select)
-              (edit-client))
-            @wait
-            (begin
-              (set! dragging? #t)
-              (set! start-position pos)
-              (acquire-capture~ client))
+    (define (select)
+      (when (select?)
+        (select-in-editor)))
+    
+    (if #f @until-fully-debugged (alt-down?)
+        (begin
           (select)
-          (let ((outer (outer-client~ (get-surrogate~ client))))
-            (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
-              (set! processing? #t)
-              (set! current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))
-              (set! start-position (to-desktop~ client pos))
-              (set! old-position start-position)
-              (acquire-capture~ client))))))
+          (edit-client))
+      (if (eq? client (get-client~ editor))
+          (select)
+        @wait
+        (begin
+          (set! dragging? #t)
+          (set! start-position pos)
+          (acquire-capture~ client))
+        (select)
+        (let ((outer (outer-client~ (get-surrogate~ client))))
+          (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
+            (set! processing? #t)
+            (set! current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))
+            (set! start-position (to-desktop~ client pos))
+            (set! old-position start-position)
+            (acquire-capture~ client)))))
     (acquire-focus~ client))
   
   
@@ -456,6 +459,7 @@
   
   
   (method public virtual (double-click pos)
+    @until-fully-debugged
     (edit-client))
 
 
@@ -466,10 +470,7 @@
   (method public virtual (receive-drop pos sender drag-drop)
     (typecase sender
       ((Toolbox-Tree)
-       (let* ((selected-component (selected-component~ sender))
-              (model (module-ref (get-unit~ selected-component)
-                                 (get-model~ selected-component))))
-         (add-new model pos)))
+       (add-new (selected-component~ sender) pos))
       ((Properties-Tree)
        (let* ((source (get-source~ drag-drop))
               (row (get-row~ source)))
@@ -482,11 +483,13 @@
                (set-showed-property~ editor (field-name property)))))))))
   
   
-  (method public (add-new model pos (centered?: centered? #t))
-    (let ((child (new model parent: client visible?: #f))
-          (designer (get-designer~ editor)))
-      (add-view~ designer child client position: pos centered?: centered?)
-      (set-selection~ editor (list child))))
+  (method public (add-new selected-model pos (centered?: centered? #t))
+    (let ((model (module-ref (get-unit~ selected-model)
+                             (get-model~ selected-model))))
+      (let ((child (new model parent: client visible?: #f))
+            (designer (get-designer~ editor)))
+        (add-view~ designer child client position: pos centered?: centered?)
+        (set-selection~ editor (list child)))))
 
 
   (method public virtual (context-menu pos)

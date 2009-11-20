@@ -315,15 +315,11 @@
 
 
   (method public (set-selection new (origin: origin {}) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
-    (define (set-application-selected selected force?)
-      (let ((appl (get-application)))
-        (set-selected~ appl self selected force?: force?)))
-    
     (let ((appl (get-application))
           (old selection))
       (process-selection-changing old new origin force-parent? force? focus?)
       (process-selection-changed old new origin force-parent? force? focus?)
-      (set-application-selected new force?)
+      (set-selected~ appl self new force?: force?)
       (update-focus-actions~ appl)))
   
   
@@ -478,7 +474,7 @@
     client)
   
   
-  (method public (set-client clt)
+  (method public (set-client clt (new?: new? #f))
     (when (neq? clt client)
       (let ((old client))
         (when old
@@ -487,7 +483,7 @@
         (set! undoer (essay client (new Editor-Undoer self)))
         (client-update)
         (process-client-change old client)
-        (edit-component client)
+        (edit-component client new?: new?)
         (client-updated))))
   
   
@@ -516,11 +512,11 @@
     (essay designer (get-reference~ designer)))
   
   
-  (method public (edit-component component (form: form {}))
+  (method public (edit-component component (new?: new? #f) (form: form {}))
     (define (get-edited-form component)
       (when component
         (let ((component-form (get-form~ component)))
-          (if (and component-form (file? (get-origin~ component-form)))
+          (if (and component-form (or new? (file? (get-origin~ component-form))))
               component-form
             (get-self-form~ (class-of component))))))
     

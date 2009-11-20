@@ -1940,7 +1940,7 @@
 
 
   (method package virtual (on-new evt)
-    (new-event (get-default-frame-class)))
+    (new-event~ (get-default-frame-class)))
     
 
   (method package virtual (on-open evt)
@@ -1978,11 +1978,12 @@
     {})
 
 
-  (method public (find-document moniker)
+  (method public (find-document moniker (class: class {}))
     (find-if (lambda (frame)
                (and (is? frame Frame-Host)
                     (let ((guest (get-guest~ frame)))
                       (and (is? guest Document)
+                           (or (not class) (is? guest class))
                            (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
                              (and guest-moniker
                                   (pathname=? guest-moniker moniker)))))))
@@ -2003,7 +2004,7 @@
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
-          (let* ((frame (if force-new? {} (find-document file)))
+          (let* ((frame (if force-new? {} (find-document file class: class)))
                  (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
             (if (not frame)
                 (let ((class (either class (file-frame-class file))))
@@ -2014,12 +2015,15 @@
                                          host-visible?: visible?
                                          host-focus?: activate-focus?
                                          initialize: (lambda (host document)
-                                                       (set-char-encoding~ document char-encoding)
-                                                       (set-moniker~ (get-controller~ document) moniker)
-                                                       (when wrap?
-                                                         (set-wrap?~ document #t))
-                                                       (when selection
-                                                         (set-selection-safe~ document selection ensure-displayed?: 'center-caret))))
+                                                       (let ((text? (is? document Text-View)))
+                                                         (when text?
+                                                           (set-char-encoding~ document char-encoding))
+                                                         (set-moniker~ (get-controller~ document) moniker)
+                                                         (when text?
+                                                           (when wrap?
+                                                             (set-wrap?~ document #t))
+                                                           (when selection
+                                                             (set-selection-safe~ document selection ensure-displayed?: 'center-caret))))))
                               #t))))
               (when selection
                 (let ((document (get-guest~ frame)))

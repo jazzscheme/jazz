@@ -53,7 +53,7 @@
   (form
     (<install>                                                         size: {Dimension 650 400} layout-type: border layout-insets: {Rect 0 2 0 0}
       (<Layout-View>                          name: toolbar            size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 7 0 0} location: north
-        (<Push-Tool>                          name: new                size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler :form on-new}))
+        (<Push-Tool>                          name: new                size: {Dimension 22 22} location: tail enabled?: #f tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler :form on-new}))
       (<Splitter-View>                        name: splitter           size: {Dimension 650 367} location: center orientation: horz division: 250
         (<Border-View>                        name: descendants-border position: {Point 2 4} size: {Dimension 278 338} location: first border-type: edge style: entry
           (<Descendants-Editor>               name: descendants
@@ -137,18 +137,7 @@
   ;;;
 
 
-  @convert
-  (class Canvas-Manager-Controller extends Editor-View-Controller
-    
-    
-    (method (document-status)
-      (format "{a}{a}"
-            (name-status)
-            (modified-status))))
-
-
-  @convert
-  (method (new-controller)
+  (method override (new-controller)
     (new Canvas-Manager-Controller self))
 
   
@@ -191,11 +180,11 @@
   
   (method override (selection-changed old-selection new-selection origin force-parent? focus?)
     (define (update-new)
-      (let* ((tree (locate 'details))
+      (let* ((tool (locate 'new))
+             (tree (locate 'details))
              (client (get-client~ tree))
-             (classes (essay client (get-addable-classes~ client)))
-             (tool (locate 'new)))
-        (if (/= (length classes) 1)
+             (classes (essay client (get-addable-classes~ client))))
+        (if (or (not classes) (/= (length classes) 1))
             (begin
               (set-enabled?~ tool #f)
               (set-tooltip-text~ tool "New"))
@@ -389,4 +378,18 @@
           (while #t
             (if (member? pos frames key: get-position~)
                 (increase! pos Cascade-Step)
-              (continuation-return return pos)))))))))
+              (continuation-return return pos))))))))
+
+
+;;;
+;;;; Controller
+;;;
+
+
+(class Canvas-Manager-Controller extends Editor-View-Controller
+  
+  
+  (method override (document-status)
+    (format "{a}{a}"
+            (name-status)
+            (modified-status)))))

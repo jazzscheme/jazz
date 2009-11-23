@@ -1919,11 +1919,6 @@
                                 (auto-expand?: auto-expand? #t)
                                 (generate-event?: generate-event? #t)
                                 (user-origin?: user-origin? #f))
-    (for-each (lambda (cell)
-                (let ((merge-cell (get-merge-cell cell)))
-                  (when merge-cell
-                    (set! sel (union sel (get-merged-cells~ merge-cell))))))
-              sel)
     (unless (locked?~ selection-manager)
       (reset~ locator)
       (when (change-selection?~ selection-manager)
@@ -1932,9 +1927,19 @@
           (when set-pivot?
             (set! selection-pivot (if (null? selection) {} (car selection))))
           (when (not-null? old-selection)
-            (invalidate-selection old-selection))
+            (for-each (lambda (cell)
+                        (let ((merge-cell (get-merge-cell cell)))
+                          (if merge-cell
+                              (invalidate-selection (union old-selection (get-merged-cells~ merge-cell)))
+                            (invalidate-selection old-selection))))
+                      old-selection))
           (when (not-null? selection)
-            (invalidate-selection selection))
+            (for-each (lambda (cell)
+                        (let ((merge-cell (get-merge-cell cell)))
+                          (if merge-cell
+                              (invalidate-selection (union selection (get-merged-cells~ merge-cell)))
+                            (invalidate-selection selection))))
+                      selection))
           (when generate-event?
             (selection-change old-selection force? user-origin?))))
       (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))

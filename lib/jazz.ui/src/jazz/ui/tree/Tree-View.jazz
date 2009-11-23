@@ -100,8 +100,8 @@
   (slot protected auto-expanded-row             initialize {}   setter generate)
   (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
-  (slot protected merged-cells-list             initialize (list)  getter generate)
-  (slot protected merged-cells-tab              initialize (make-table test: cell=) getter generate)
+  (slot protected merge-cell-list               initialize '()  getter generate)
+  (slot protected merge-cell-table              initialize (make-table test: cell=) getter generate)
     
   
   (form
@@ -493,55 +493,59 @@
     {Color name: Medium})
   
   
-  (method override (draw-merged-cells surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
+  (method override (draw-children surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
+    (nextmethod surface context lh lv sh sv sc sc?)
     (let ((cs (get-column-spacing))
           (rs (get-row-spacing)))
-      (for-each (lambda (cells)
-                  (let ((height 0)
-                        (width 0)
-                        (row-counted '())
-                        (column-counted '())
-                        (first-data #f)
-                        (first-row-rank #f)
-                        (col-min #f)
-                        (data-h 0)
-                        (data-v #f)
-                        (selected? #f))
-                    (for-each (lambda (cell)
-                                (let ((row-rank (get-row~ cell))
-                                      (column-rank (get-col~ cell)))
-                                  (when (cell-selected?~ (get-column column-rank) (list selected?: #f row-rank: row-rank context))
-                                    (set! selected? #t))
-                                  (when (not (member row-rank row-counted))
-                                    (set! height (+ height (get-height~ (get-row row-rank)) rs))
-                                    (set! row-counted (cons row-rank row-counted))
-                                    (when (not first-row-rank)
-                                      (set! first-data (get-cell-data cell))
-                                      (set! first-row-rank row-rank)))
-                                  (when (not (member column-rank column-counted))
-                                    (set! width (+ width (get-width~ (get-column column-rank)) cs))
-                                    (set! column-counted (cons column-rank column-counted))
-                                    (when (or (not col-min)
-                                              (< column-rank col-min))
-                                      (set! col-min column-rank)))
-                                  (let ((row-pos (get-position~ (get-row row-rank))))
-                                    (if (or (not data-v)
-                                            (< (get-v~ row-pos) data-v))
-                                        (set! data-v (get-v~ row-pos))))))
-                              (get-merged-cells~ cells))
-                    (loop (for n from 0 below col-min)
-                          (let ((col (get-column n)))
-                            (when (get-visible?~ col)
-                              (set! data-h (+ data-h (get-width~ col))))))
+      (define (merge-cell-bounding-box merge-cell)
+        (let ((height 0)
+              (width 0)
+              (row-counted '())
+              (column-counted '())
+              (first-data #f)
+              (first-row-rank #f)
+              (col-min #f)
+              (data-h 0)
+              (data-v #f)
+              (selected? #f))
+          (for-each (lambda (cell)
+                      (let ((row-rank (get-row~ cell))
+                            (column-rank (get-col~ cell)))
+                        (when (cell-selected?~ (get-column column-rank) (list selected?: #f row-rank: row-rank context))
+                          (set! selected? #t))
+                        (when (not (member row-rank row-counted))
+                          (set! height (+ height (get-height~ (get-row row-rank)) rs))
+                          (set! row-counted (cons row-rank row-counted))
+                          (when (not first-row-rank)
+                            (set! first-data (get-cell-data cell))
+                            (set! first-row-rank row-rank)))
+                        (when (not (member column-rank column-counted))
+                          (set! width (+ width (get-width~ (get-column column-rank)) cs))
+                          (set! column-counted (cons column-rank column-counted))
+                          (when (or (not col-min)
+                                    (< column-rank col-min))
+                            (set! col-min column-rank)))
+                        (let ((row-pos (get-position~ (get-row row-rank))))
+                          (if (or (not data-v)
+                                  (< (get-v~ row-pos) data-v))
+                              (set! data-v (get-v~ row-pos))))))
+                    (get-merged-cells~ merge-cell))
+          (loop (for n from 0 below col-min)
+                (let ((col (get-column n)))
+                  (when (get-visible?~ col)
+                    (set! data-h (+ data-h (get-width~ col))))))
+          (values col-min first-row-rank first-data data-h width data-v height selected?)))
+      
+      (define (paint-data context column row lh lv h v width height data)
+        (with-transform~ surface lh lv width height sh sv sc sc?
+          (lambda ()
+            (draw-at~ column surface context row data 0 0 width height))))
+      
+      (for-each (lambda (merge-cell)
+                  (receive (col-min first-row-rank first-data data-h width data-v height selected?) (merge-cell-bounding-box merge-cell)
                     (let ((new-context (list selected?: selected? row-rank: first-row-rank context)))
-                      (paint-data surface new-context (get-column col-min) #f (+ lh data-h) (+ lv data-v) 0 0 width height first-data sh sv sc sc?))))
-                merged-cells-list)))
-  
-  
-  (method public (paint-data surface context column row lh <fx> lv <fx> h v width height data sh <fx> sv <fx> sc <fl> sc? <bool>)
-    (with-transform~ surface lh lv width height sh sv sc sc?
-      (lambda ()
-        (draw-at~ column surface context row data 0 0 width height))))
+                      (paint-data new-context (get-column col-min) #f (+ lh data-h) (+ lv data-v) 0 0 width height first-data))))
+                merge-cell-list)))
   
   
   ;;;
@@ -1253,10 +1257,10 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merged-cell (get-merged cell)))
-             (if merged-cell
-                 (when (> (get-first-col~ merged-cell) 0)
-                   (move-cell (new Cell (get-row~ cell) (- (get-first-col~ merged-cell) 1)) 'left user?))
+           (let ((merge-cell (get-merge-cell cell)))
+             (if merge-cell
+                 (when (> (get-first-col~ merge-cell) 0)
+                   (move-cell (new Cell (get-row~ cell) (- (get-first-col~ merge-cell) 1)) 'left user?))
                (when (> (get-col~ cell) 0)
                  (move-cell (new Cell (get-row~ cell) (- (get-col~ cell) 1)) 'left user?)))))))
       ((row)
@@ -1278,10 +1282,10 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merged-cells (get-merged cell)))
-             (if merged-cells
-                 (when (> (get-first-row~ merged-cells) 0)
-                   (move-cell (new Cell (- (get-first-row~ merged-cells) 1) (get-col~ cell)) 'up user?))
+           (let ((merge-cell (get-merge-cell cell)))
+             (if merge-cell
+                 (when (> (get-first-row~ merge-cell) 0)
+                   (move-cell (new Cell (- (get-first-row~ merge-cell) 1) (get-col~ cell)) 'up user?))
                (when (> (get-row~ cell) 0)
                  (move-cell (new Cell (- (get-row~ cell) 1) (get-col~ cell)) 'up user?)))))))
       (else
@@ -1303,10 +1307,10 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merged-cells (get-merged cell)))
-             (if merged-cells
-                 (when (< (get-last-col~ merged-cells) (- (get-columns-count) 1))
-                   (move-cell (new Cell (get-row~ cell) (+ (get-last-col~ merged-cells) 1)) 'right user?))
+           (let ((merge-cell (get-merge-cell cell)))
+             (if merge-cell
+                 (when (< (get-last-col~ merge-cell) (- (get-columns-count) 1))
+                   (move-cell (new Cell (get-row~ cell) (+ (get-last-col~ merge-cell) 1)) 'right user?))
                (when (< (get-col~ cell) (- (get-columns-count) 1))
                  (move-cell (new Cell (get-row~ cell) (+ (get-col~ cell) 1)) 'right user?)))))))
       (else
@@ -1328,10 +1332,10 @@
         ((cell)
          (when (not-null? selection)
            (let ((cell selection-pivot))
-             (let ((merged-cells (get-merged cell)))
-               (if merged-cells
-                 (when (< (get-last-row~ merged-cells) last)
-                   (move-cell (new Cell (+ (get-last-row~ merged-cells) 1) (get-col~ cell)) 'down user?))
+             (let ((merge-cell (get-merge-cell cell)))
+               (if merge-cell
+                 (when (< (get-last-row~ merge-cell) last)
+                   (move-cell (new Cell (+ (get-last-row~ merge-cell) 1) (get-col~ cell)) 'down user?))
                (when (< (get-row~ cell) last)
                  (move-cell (new Cell (+ (get-row~ cell) 1) (get-col~ cell)) 'down user?)))))))
         (else
@@ -1560,65 +1564,58 @@
 
   
   ;;;
-  ;;;; Merged-Cells
+  ;;;; Merge
   ;;;
   
   
-  (method public (add-merged-cells cell nbrow nbcol)
+  (method public (merge-cells cell nbrow nbcol)
     (if (and (> nbrow 0) (> nbcol 0))
         (let ((title (get-title~ (get-cell-data cell))))
-          (if (get-merged cell)
-              (remove-merged-cells cell))
-          (if (not (and (= nbrow 1) (= nbcol 1)))
-              (if (and (< (+ (get-row~ cell) nbrow) (get-row-count))
-                       (< (+ (get-col~ cell) nbcol) (get-columns-count)))
-                  (let ((new-merged-cells (new Merged-Cells))
-                        (new-merged-cells-list (list))
-                        (valid #t))
-                    (loop (for r from (get-row~ cell) below (+ (get-row~ cell) nbrow))
-                          (loop (for c from (get-col~ cell) below (+ (get-col~ cell) nbcol))
+          (when (get-merge-cell cell)
+            (unmerge-cells cell))
+          (when (or (> nbrow 1) (> nbcol 1))
+            (let ((cell-row (get-row~ cell))
+                  (cell-col (get-col~ cell)))
+              (if (and (< (+ cell-row nbrow) (get-row-count))
+                       (< (+ cell-col nbcol) (get-columns-count)))
+                  (let ((new-merge-cell-list '()))
+                    (loop (for r from cell-row below (+ cell-row nbrow))
+                          (loop (for c from cell-col below (+ cell-col nbcol))
                                 (let ((merged-cell (new Cell r c)))
-                                  (cond ((equal? title (get-title~ (get-cell-data merged-cell)))
-                                         (set! new-merged-cells-list (cons merged-cell new-merged-cells-list))
-                                         (set-merged! merged-cell new-merged-cells))
-                                        (else
-                                         (set! valid #f))))))
-                    (cond (valid
-                            (set! merged-cells-list (cons new-merged-cells merged-cells-list))
-                            (set-merged-cells~ new-merged-cells new-merged-cells-list)
-                            (for-each (lambda (cell)
-                                        (redraw-cell cell))
-                                      new-merged-cells-list))
-                          (else
-                           (for-each (lambda (cell)
-                                       (clear-merged cell))
-                                     new-merged-cells-list)))
-                    valid)
-                #f)
-            #t))
-      #f))
+                                  (if (equal? title (get-title~ (get-cell-data merged-cell)))
+                                      (set! new-merge-cell-list (cons merged-cell new-merge-cell-list))
+                                    (error "Merged cells title must be identical")))))
+                    (let ((new-merge-cell (new Merge-Cell new-merge-cell-list)))
+                      (set! merge-cell-list (cons new-merge-cell merge-cell-list))
+                      (for-each (lambda (merged-cell)
+                                  (set-merge-cell! merged-cell new-merge-cell))
+                                new-merge-cell-list)
+                      (for-each redraw-cell
+                                new-merge-cell-list)))
+                (error "Merge cell out of tree bounds")))))
+      (error "Invalid merge-cells")))
             
   
-  (method public (remove-merged-cells cell)
-    (let ((merged-cells-to-remove (get-merged cell)))
-      (when merged-cells-to-remove
-        (set! merged-cells-list (remove! merged-cells-to-remove merged-cells-list))
+  (method public (unmerge-cells cell)
+    (let ((merge-cell-to-remove (get-merge-cell cell)))
+      (when merge-cell-to-remove
+        (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
         (for-each (lambda (cell)
-                    (clear-merged cell)
+                    (clear-merge-cell cell)
                     (redraw-cell cell))
-                  (get-merged-cells~ merged-cells-to-remove)))))
+                  (get-merged-cells~ merge-cell-to-remove)))))
 
   
-  (method public (get-merged cell)
-    (table-ref merged-cells-tab cell #f))
+  (method public (get-merge-cell cell)
+    (table-ref merge-cell-table cell #f))
   
   
-  (method public (clear-merged cell)
-    (table-clear merged-cells-tab cell))
+  (method public (set-merge-cell! cell merge-cell)
+    (table-set! merge-cell-table cell merge-cell))
   
   
-  (method public (set-merged! key merged-cells)
-    (table-set! merged-cells-tab key merged-cells))
+  (method public (clear-merge-cell cell)
+    (table-clear merge-cell-table cell))
   
   
   ;;;
@@ -1923,9 +1920,9 @@
                                 (generate-event?: generate-event? #t)
                                 (user-origin?: user-origin? #f))
     (for-each (lambda (cell)
-                (let ((merged-cells (get-merged cell)))
-                  (when merged-cells
-                    (set! sel (union sel (get-merged-cells~ merged-cells))))))
+                (let ((merge-cell (get-merge-cell cell)))
+                  (when merge-cell
+                    (set! sel (union sel (get-merged-cells~ merge-cell))))))
               sel)
     (unless (locked?~ selection-manager)
       (reset~ locator)
@@ -2447,8 +2444,7 @@
   
   
   (method meta override (get-class-descriptor)
-    (new Tree-View-Descriptor))
-)
+    (new Tree-View-Descriptor)))
 
 
 ;;;
@@ -2501,16 +2497,22 @@
 ;;;
 
 
-(class Merged-Cells extends Object
+(class Merge-Cell extends Object
   
-  (slot merged-cells initialize {} accessors generate)
+  
+  (slot merged-cells initialize '() accessors generate)
+  
+  
+  (method override (initialize cells)
+    (nextmethod)
+    (set! merged-cells cells))
   
   
   (method override (print printer readably)
     (print-unreadable self printer
       (lambda (printer)
         (let ((count (length merged-cells)))
-          @w(format printer "{l}" merged-cells)
+          @debug (format printer "{l}" merged-cells)
           (format printer "{a} cell{a}" count (format-plural count))))))
   
   
@@ -2549,8 +2551,7 @@
                   (when (> (get-row~ cell) last-row)
                     (set! last-row (get-row~ cell))))
                 merged-cells)
-      last-row))
-  )
+      last-row)))
 
 
 ;;;

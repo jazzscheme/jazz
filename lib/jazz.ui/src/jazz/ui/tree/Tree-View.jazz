@@ -1919,6 +1919,19 @@
                                 (auto-expand?: auto-expand? #t)
                                 (generate-event?: generate-event? #t)
                                 (user-origin?: user-origin? #f))
+    (define (inval-selection selection)
+      (when (not-null? selection)
+        (for-each (lambda (cell)
+                    (let ((merge-cell (get-merge-cell cell)))
+                      (if merge-cell
+                          (invalidate-merge-cell merge-cell)
+                        (invalidate-selection (list cell)))))
+                  selection)))
+    
+    (define (invalidate-merge-cell merge-cell)
+      ;; first draft... this should use a merge-cell bounding box
+      (invalidate-selection (get-merged-cells~ merge-cell)))
+    
     (unless (locked?~ selection-manager)
       (reset~ locator)
       (when (change-selection?~ selection-manager)
@@ -1926,20 +1939,8 @@
           (set! selection sel)
           (when set-pivot?
             (set! selection-pivot (if (null? selection) {} (car selection))))
-          (when (not-null? old-selection)
-            (for-each (lambda (cell)
-                        (let ((merge-cell (get-merge-cell cell)))
-                          (if merge-cell
-                              (invalidate-selection (union old-selection (get-merged-cells~ merge-cell)))
-                            (invalidate-selection old-selection))))
-                      old-selection))
-          (when (not-null? selection)
-            (for-each (lambda (cell)
-                        (let ((merge-cell (get-merge-cell cell)))
-                          (if merge-cell
-                              (invalidate-selection (union selection (get-merged-cells~ merge-cell)))
-                            (invalidate-selection selection))))
-                      selection))
+          (inval-selection old-selection)
+          (inval-selection selection)
           (when generate-event?
             (selection-change old-selection force? user-origin?))))
       (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))

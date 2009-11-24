@@ -68,6 +68,15 @@
       form-src)))
 
 
+#;
+(define-syntax package expand-body
+  (syntax-rules ()
+    ((_)
+     (unspecified))
+    ((_ expr ...)
+     (begin expr ...))))
+
+
 (syntax public (when form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
@@ -79,15 +88,6 @@
                  body))
          #f)
       form-src)))
-
-
-#;
-(define-syntax package expand-body
-  (syntax-rules ()
-    ((_)
-     (unspecified))
-    ((_ expr ...)
-     (begin expr ...))))
 
 
 #;

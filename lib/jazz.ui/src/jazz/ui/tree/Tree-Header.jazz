@@ -51,7 +51,7 @@
 
 
 (class Tree-Header extends Header-View
-    
+  
   
   (slot protected resizing?          initialize #f)
   (slot protected autofiting?        initialize #f)
@@ -63,9 +63,16 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (invalidate-layout)
-    (let ((content (child 'content)))
-      (set! client (get-scroll-client~ content))))
+    (invalidate-layout))
+
+
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method override (find-client)
+    (get-scroll-client~ (child 'content)))
 
 
   ;;;
@@ -109,33 +116,34 @@
   
   
   (method (get-columns)
-    (get-columns~ client))
+    (get-columns~ (get-client)))
   
   
   (method (get-columns-count)
-    (get-columns-count~ client))
+    (get-columns-count~ (get-client)))
   
   
   (method (get-columns-borders)
-    (get-columns-borders~ client))
+    (get-columns-borders~ (get-client)))
 
   
   (method (invalidate-columns)
-    (invalidate-columns~ client))
+    (invalidate-columns~ (get-client)))
 
   
   (method (invalidate-borders)
-    (invalidate-borders~ client))
+    (invalidate-borders~ (get-client)))
 
   
   (method (layout-column column)
-    (layout-column~ client column))
+    (layout-column~ (get-client) column))
   
   
   (method (end-resizing)
-    (when client
-      (layout-scrollee~ client)
-      (invalidate-view~ client)))
+    (let ((client (get-client)))
+      (when client
+        (layout-scrollee~ client)
+        (invalidate-view~ client))))
   
   ;;;
   ;;;; Selector
@@ -143,7 +151,7 @@
   
 
   (method (get-rows)
-    (get-root-rows~ client))
+    (get-root-rows~ (get-client)))
   
   
   (method public (invalidate-row-selector row)
@@ -164,8 +172,9 @@
   
   (method override (size-change size)
     (nextmethod size)
-    (when client
-      (layout-scrollee~ client)))
+    (let ((client (get-client)))
+      (when client
+        (layout-scrollee~ client))))
   
 
   ;;;
@@ -174,31 +183,35 @@
   
   
   (method override (set-scroller view)
-    (set-scroller~ client view))
+    (set-scroller~ (get-client) view))
   
   
   (method override (get-scroll-client)
-    (get-scroll-client~ client))
+    (get-scroll-client~ (get-client)))
   
   
   (method (get-hscroll-amount)
-    (if client (+ (get-selector-width) (get-h~ (get-position~ client)) 0)))
+    (let ((client (get-client)))
+      (if client (+ (get-selector-width) (get-h~ (get-position~ client)) 0))))
 
 
   (method (get-vscroll-amount)
-    (if client (+ (get-header-height) (get-v~ (get-position~ client)) 0)))
+    (let ((client (get-client)))
+      (if client (+ (get-header-height) (get-v~ (get-position~ client)) 0))))
   
   
   ;; most probably not called as it was missing the orientation parameter in the old jazz!
   (method override (on-vscroll code thumb-pos orientation)
-    (when client
-      (on-vscroll~ client code thumb-pos orientation)))
+    (let ((client (get-client)))
+      (when client
+        (on-vscroll~ client code thumb-pos orientation))))
 
 
   ;; most probably not called as it was missing the orientation parameter in the old jazz!
   (method override (on-hscroll code thumb-pos orientation)
-    (when client
-      (on-hscroll~ client code thumb-pos orientation)))
+    (let ((client (get-client)))
+      (when client
+        (on-hscroll~ client code thumb-pos orientation))))
 
 
   ;;;
@@ -207,7 +220,7 @@
   
   
   (method override (draw surface context lh lv)
-    (define (draw-intersection h v width height)
+    (define (draw-intersection client h v width height)
       (let ((thick (if (flat-look?) -1 -2)))
         (let* ((outer (new Rect h v (+ h width) (+ v height)))
                (inner (expand-rect outer 1 1 thick thick)))
@@ -216,7 +229,8 @@
           (fill-rect~ surface inner (either background (header-color~ client)))
           (set-text-color~ surface {Color name: Black}))))
     
-    (let ((clipper (get-logical-clipper~ surface)))
+    (let ((client (get-client))
+          (clipper (get-logical-clipper~ surface)))
       (let ((height (get-header-height)))
         (when (< (get-top~ clipper) height)
           (fill-rect~ surface clipper {Color name: Dark})
@@ -243,7 +257,7 @@
                        (let ((row-height (get-height~ row)))
                          (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
                          (increase! v (+ row-height cs))))))
-          (draw-intersection 0 0 (get-selector-width) (get-header-height))))))
+          (draw-intersection client 0 0 (get-selector-width) (get-header-height))))))
 
 
   ;;;
@@ -312,7 +326,7 @@
             (set! resize-last-h h)
             (set! resized-column (get-column col))
             (set! resized-column-ref col)))
-        (let ((tree client))
+        (let ((tree (get-client)))
           (let ((row-no (v->row~ tree v)))
             (when row-no
               (let ((row (get-row~ tree row-no)))
@@ -334,10 +348,11 @@
               (set! resize-last-h h)
               (resize-column resized-column (+ (get-width~ resized-column) delta)))))
         (when initial-row
-          (let ((row-no (v->row~ client v)))
-            (when row-no
-              (let ((row (get-row~ client row-no)))
-                (selector-move~ row initial-row))))))))
+          (let ((client (get-client)))
+            (let ((row-no (v->row~ client v)))
+              (when row-no
+                (let ((row (get-row~ client row-no)))
+                  (selector-move~ row initial-row)))))))))
   
   
   (method override (drag-up pos . rest)
@@ -380,7 +395,7 @@
   (method (resize-column column width)
     (when (>= width 0)
       (let ((delta (- width (get-width~ column)))
-            (left (+ (borders-right (get-borders (column-rank~ client column))) (get-hscroll-amount))))
+            (left (+ (borders-right (get-borders (column-rank~ (get-client) column))) (get-hscroll-amount))))
         (set-width~ column width)
         (invalidate-columns)
         (invalidate-borders)
@@ -390,21 +405,22 @@
   
   
   (method (autofit-column column)
-    (let ((tree client)
-          (col (column-rank~ client column))
-          (max 0))
-      (for-each-visible-row~ tree
-        (lambda (row rank)
-          (let ((data (get-child~ row col)))
-            (when (is? data Tree-Label)
-              (let ((title (get-title~ data)))
-                (let ((width (+ (text-h~ column (get-level~ row))
-                                (text-width~ (get-font~ tree) title)
-                                2)))
-                  (when (> width max)
-                    (set! max width))))))))
-      (when (> max 0)
-        (resize-column column max))))
+    (let ((client (get-client)))
+      (let ((tree client)
+            (col (column-rank~ client column))
+            (max 0))
+        (for-each-visible-row~ tree
+          (lambda (row rank)
+            (let ((data (get-child~ row col)))
+              (when (is? data Tree-Label)
+                (let ((title (get-title~ data)))
+                  (let ((width (+ (text-h~ column (get-level~ row))
+                                  (text-width~ (get-font~ tree) title)
+                                  2)))
+                    (when (> width max)
+                      (set! max width))))))))
+        (when (> max 0)
+          (resize-column column max)))))
   
   
   (method (header-coordinates col pos)

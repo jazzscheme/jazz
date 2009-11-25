@@ -1791,14 +1791,18 @@
                 (%%get-declaration-toplevel declaration))))
           (jazz.sourcify-if
             `(define ,locator
-               (let ((tmp (jazz.new-define-syntax-form
+               (let* ((env
+                       (%%list
+                        (jazz.new-walk-frame (%%get-dialect-bindings (jazz.get-dialect 'core)))
+                        (jazz.new-walk-frame
+                         (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))
+                      (tmp (jazz.new-define-syntax-form
                            ',locator
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
-                           (%%list
-                            (jazz.get-catalog-entry ',current-unit-name)
-                            (jazz.new-walk-frame (%%get-dialect-bindings (jazz.get-dialect 'core)))
-                            (jazz.new-walk-frame
-                             (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))))
+                           (cond
+                            ((jazz.get-catalog-entry ',current-unit-name)
+                             => (lambda (x) (cons x env)))
+                            (else env)))))
                  (jazz.register-macro ',locator tmp)
                  tmp))
             (%%get-declaration-source declaration)))))))

@@ -1710,9 +1710,9 @@
     total))
 
 
-(definition public (find seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+(definition public (find seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
-      (list-find seq target key test (either start 0))
+      (list-find seq target key test (either start 0) return)
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
       (when start
         (set-position~ iterator start))
@@ -1721,17 +1721,22 @@
           (iterate iterator
                    (lambda (object)
                      (when (apply-test test target (apply-key key object))
-                       (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
+                       (continuation-return exit (case return
+                                                   ((item) object)
+                                                   ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
+                                                   (else (error "Unknown return type: {t}" return)))))))
           {})))))
 
 
-(definition (list-find list target key test start)
+(definition (list-find list target key test start return)
   (let ((key (if (not key) (lambda (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iter (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
              ((test target (key (car rest)))
-              rank)
+              (case return
+                ((item) (car rest))
+                (else   rank)))
              (else
               (iter (cdr rest) (+ rank 1)))))))
 
@@ -1803,16 +1808,16 @@
           (iterate iterator
                    (lambda (object)
                      (when (predicate (apply-key key object))
-                       (case return
-                         ((item) (continuation-return exit object))
-                         ((position) (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
-                         (else (error "Unknown return type: {t}" return)))))))
+                       (continuation-return exit (case return
+                                                   ((item) object)
+                                                   ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
+                                                   (else (error "Unknown return type: {t}" return))))))))
         {}))))
 
 
 (definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
   (if (and (null/pair? seq) (not reversed?))
-      (list-find seq target key test (either start 0))
+      (list-find seq target key test (either start 0) #f)
     (if (and (string? seq) (not start))
         (string-find seq target reversed?)
       (continuation-capture

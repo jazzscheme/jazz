@@ -1793,15 +1793,16 @@
             `(define ,locator
                (let* ((env
                        (%%list
-                        (jazz.new-walk-frame (%%get-dialect-bindings (jazz.get-dialect 'core)))
+                        (jazz.new-walk-frame
+                         (%%get-dialect-bindings (jazz.get-dialect 'core)))
                         (jazz.new-walk-frame
                          (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))
                       (tmp (jazz.new-define-syntax-form
                            ',locator
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
                            (cond
-                            ((jazz.get-catalog-entry ',current-unit-name)
-                             => (lambda (x) (cons x env)))
+                            ((jazz.outline-module ',current-unit-name)
+                              => (lambda (x) (cons x env)))
                             (else env)))))
                  (jazz.register-macro ',locator tmp)
                  tmp))

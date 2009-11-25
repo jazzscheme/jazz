@@ -178,21 +178,21 @@
       (display prompt output)
       (force-output output)
       (let ((command (read-line input)))
-        (if (eof-object? command)
-            ;; temp fix to give time to the debugger to detach us
-            (sleep 1)
-          (if (empty-string? command)
-              (loop #f)
-            (continuation-capture
-              (lambda (stop)
-                (with-exception-handler
-                  (lambda (exc)
-                    (display-exception exc)
-                    (if display-backtrace?
-                        (continuation-capture
-                          (lambda (cont)
-                            (display-continuation-backtrace cont))))
-                    (continuation-return stop #f))
-                  (lambda ()
-                    (process-command command)))))
-            (loop #t))))))))
+        (cond ((eof-object? command)
+               (exit-process~ (get-process)))
+              ((empty-string? command)
+               (loop #f))
+              (else
+               (continuation-capture
+                 (lambda (stop)
+                   (with-exception-handler
+                     (lambda (exc)
+                       (display-exception exc)
+                       (if display-backtrace?
+                           (continuation-capture
+                             (lambda (cont)
+                               (display-continuation-backtrace cont))))
+                       (continuation-return stop #f))
+                     (lambda ()
+                       (process-command command)))))
+               (loop #t))))))))

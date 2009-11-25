@@ -1802,6 +1802,9 @@
 (define (jazz.get-load-mutex)
   jazz.Load-Mutex)
 
+(define (jazz.get-load-thread)
+  jazz.Load-Thread)
+
 (define (jazz.get-load-stack)
   jazz.Load-Stack)
 

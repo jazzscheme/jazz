@@ -560,6 +560,7 @@
 (native jazz.unload-unit)
 (native jazz.reload-unit)
 (native jazz.get-load-mutex)
+(native jazz.get-load-thread)
 (native jazz.get-load-stack)
 (native jazz.get-module)
 (native jazz.require-module)

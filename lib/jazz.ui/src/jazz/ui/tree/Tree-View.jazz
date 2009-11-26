@@ -1802,7 +1802,9 @@
              (when delayed-autorow
                (if row
                    (close-delayed-row new-spine: (get-spine~ row))
-                 (auto-collapse~ delayed-autorow)
+                 (auto-collapse~ (if (expanded?~ delayed-autorow)
+                                     delayed-autorow
+                                   (get-father~ delayed-autorow)))
                  (set! delayed-autorow {})))
              (when (and row (not (auto-inplace?~ row)))
                (auto-toggle row auto-toggle?)))
@@ -1917,12 +1919,12 @@
   
   
   (method override (set-selection sel
-                                (force?: force? #f)
-                                (set-pivot?: set-pivot? #t)
-                                (ensure-displayed?: ensure-displayed? #t)
-                                (auto-expand?: auto-expand? #t)
-                                (generate-event?: generate-event? #t)
-                                (user-origin?: user-origin? #f))
+                                  (force?: force? #f)
+                                  (set-pivot?: set-pivot? #t)
+                                  (ensure-displayed?: ensure-displayed? #t)
+                                  (auto-expand?: auto-expand? #t)
+                                  (generate-event?: generate-event? #t)
+                                  (user-origin?: user-origin? #f))
     (define (inval-selection selection)
       (when (not-null? selection)
         (for-each (lambda (cell)
@@ -1950,7 +1952,8 @@
       (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))
         (when (and auto-expand/collapse? auto-expand?)
           (unless multiple-selection?
-            (auto-expand/collapse auto-row auto-toggle?: #t))
+            (when (or (not auto-row) (collapsed?~ auto-row))
+              (auto-expand/collapse auto-row auto-toggle?: #t)))
           (when auto-row
             (auto-select~ auto-row))))
       (when (and ensure-displayed? (end-delayed?~ selection-manager))

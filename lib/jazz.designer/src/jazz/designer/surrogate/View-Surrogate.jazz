@@ -70,6 +70,7 @@
   (slot protected client-key-press-handler       initialize {})
   (slot protected client-arrow-press-handler     initialize {})
   (slot protected client-backspace-press-handler initialize {})
+  (slot protected client-return-press-handler    initialize {})
   
   
   (slot dragging?      initialize #f)
@@ -101,6 +102,7 @@
     (set! client-key-press-handler       (get-key-press-handler~ client))
     (set! client-arrow-press-handler     (get-arrow-press-handler~ client))
     (set! client-backspace-press-handler (get-backspace-press-handler~ client))
+    (set! client-return-press-handler    (get-return-press-handler~ client))
     (set-renderer~ client                self)
     (set-focus-gain-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-gain      preserved: client-focus-gain-handler))
     (set-focus-lose-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-lose      preserved: client-focus-lose-handler))
@@ -116,6 +118,7 @@
     (set-key-press-handler~ client       (new Surrogate-Handler target: self method-name: 'on-key-press       preserved: client-key-press-handler))
     (set-arrow-press-handler~ client     (new Surrogate-Handler target: self method-name: 'on-arrow-press     preserved: client-key-press-handler))
     (set-backspace-press-handler~ client (new Surrogate-Handler target: self method-name: 'on-backspace-press preserved: client-key-press-handler))
+    (set-return-press-handler~ client    (new Surrogate-Handler target: self method-name: 'on-return-press    preserved: client-key-press-handler))
     (invalidate-border))
   
   
@@ -136,6 +139,7 @@
     (set-key-press-handler~ client       client-key-press-handler)
     (set-arrow-press-handler~ client     client-arrow-press-handler)
     (set-backspace-press-handler~ client client-backspace-press-handler)
+    (set-return-press-handler~ client    client-return-press-handler)
     (invalidate-border))
 
 
@@ -176,7 +180,8 @@
           (selection (get-selection~ editor)))
       (define (draw-surrogate-background surface)
         (when (and (neq? client reference)
-                   (memq client selection))
+                   (memq client selection)
+                   (not (editing?)))
           (let ((color (if (selection-focused?) Focused-Background Unfocused-Background)))
             (fill-rect~ surface (get-bounds~ client) color))))
       
@@ -255,10 +260,18 @@
 
 
   (method (on-focus-gain evt)
+    (focus-gain))
+  
+  
+  (method protected virtual (focus-gain)
     (invalidate-selection))
 
 
   (method (on-focus-lose evt)
+    (focus-lose))
+  
+  
+  (method protected virtual (focus-lose)
     (invalidate-selection))
   
   
@@ -320,7 +333,8 @@
 
   
   (method (on-mouse-up evt)
-    )
+    (let ((pos (get-position~ evt)))
+      (mouse-up pos)))
   
   
   (method (on-drag-move evt)
@@ -401,6 +415,10 @@
     (acquire-focus~ client))
   
   
+  (method public virtual (mouse-up pos)
+    )
+  
+  
   (method public virtual (drag-move pos)
     (cond
       (dragging?
@@ -475,11 +493,13 @@
   (method public (add-new tree selected-model pos (centered?: centered? #t))
     (let ((model (module-ref (get-unit~ selected-model)
                              (get-model~ selected-model))))
-      (let ((name (component-presentation-request~ tree model (get-children~ client))))
-        (let ((child (new model parent: client name: name visible?: #f))
-              (designer (get-designer~ editor)))
-          (add-view~ designer child client name: name position: pos centered?: centered?)
-          (set-selection~ editor (list child))))))
+      (let ((child (new model parent: client visible?: #f))
+            (designer (get-designer~ editor)))
+        (add-view~ designer child client position: pos centered?: centered?)
+        (set-selection~ editor (list child) origin: self)
+        (let ((name (component-presentation-request~ tree model (get-children~ client))))
+          (when name
+            (set-name~ designer child name))))))
 
 
   (method public virtual (context-menu pos)
@@ -548,7 +568,7 @@
     (key-press (get-key~ evt)))
   
   
-  (method public virtual (key-press key)
+  (method protected virtual (key-press key)
     )
   
   
@@ -562,7 +582,19 @@
   
   
   (method (on-backspace-press evt)
+    (backspace-press (get-key~ evt)))
+  
+  
+  (method protected virtual (backspace-press key)
     (delete-selection~ editor))
+  
+  
+  (method (on-return-press evt)
+    (return-press (get-key~ evt)))
+  
+  
+  (method protected virtual (return-press key)
+    )
 
 
   ;;;
@@ -595,6 +627,15 @@
     (let ((selection (get-selection)))
       (when selection
         (save~ selection))))
+  
+
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method protected virtual (editing?)
+    #f)
   
 
   ;;;
@@ -712,7 +753,7 @@
   
   
   (method (invalidate-selection)
-    (for-each invalidate-view~ (get-selection~ editor))))
+    (invalidate-selection~ editor)))
 
 
 ;;;

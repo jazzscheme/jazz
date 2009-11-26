@@ -42,6 +42,47 @@
 
 
 (class undocumented Text-Surrogate extends View-Surrogate
+  
+  
+  (slot edit? initialize #f)
+
+
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method override (editing?)
+    edit?)
+  
+  
+  (method (start-edit)
+    (set! edit? #t)
+    (invalidate-view~ client))
+  
+  
+  (method (stop-edit)
+    (set! edit? #f)
+    (invalidate-view~ client))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-gain)
+    (if (editing?)
+        (focus-gain~ client)
+      (nextmethod)))
+  
+  
+  (method override (focus-lose)
+    (if (editing?)
+        (begin
+          (focus-lose~ client)
+          (stop-edit))
+      (nextmethod)))
 
 
   ;;;
@@ -49,11 +90,10 @@
   ;;;
   
   
-  @wait
   (method override (cursor-update pos)
-    (case (get-mode~ editor)
-      ((edit) (cursor-update~ client pos))
-      (else (nextmethod pos))))
+    (if (editing?)
+        (cursor-update~ client pos)
+      (nextmethod pos)))
 
 
   ;;;
@@ -61,41 +101,43 @@
   ;;;
   
   
-  @wait
   (method override (mouse-down pos)
-    (case (get-mode~ editor)
-      ((edit) (when (select?)
-                (select-in-editor))
-              (mouse-down~ client pos))
-      (else (nextmethod pos))))
+    (if (editing?)
+        (begin
+          (when (select?)
+            (select-in-editor))
+          (mouse-down~ client pos))
+      (nextmethod pos)))
   
   
-  @wait
+  (method override (mouse-up pos)
+    (if (editing?)
+        (mouse-up~ client pos)
+      (nextmethod pos)))
+  
+  
   (method override (drag-move pos)
-    (case (get-mode~ editor)
-      ((edit) (drag-move~ client pos))
-      (else (nextmethod pos))))
+    (if (editing?)
+        (drag-move~ client pos)
+      (nextmethod pos)))
   
   
-  @wait
   (method override (drag-up pos . rest)
-    (case (get-mode~ editor)
-      ((edit) (apply (~ drag-up client) pos rest))
-      (else (apply nextmethod pos rest))))
+    (if (editing?)
+        (apply (~ drag-up client) pos rest)
+      (apply nextmethod pos rest)))
   
   
-  @wait
   (method override (double-click pos)
-    (case (get-mode~ editor)
-      ((edit) (double-click~ client pos))
-      (else (nextmethod pos))))
+    (if (editing?)
+        (double-click~ client pos)
+      (start-edit)))
 
 
-  @wait
   (method override (context-menu pos)
-    (case (get-mode~ editor)
-      ((edit) (context-menu~ client pos))
-      (else (nextmethod pos))))
+    (if (editing?)
+        (context-menu~ client pos)
+      (nextmethod pos)))
 
 
   ;;;
@@ -103,8 +145,13 @@
   ;;;
   
   
-  @wait
   (method override (key-press key)
-    (case (get-mode~ editor)
-      ((edit) (key-press~ client key))
-      (else (nextmethod key))))))
+    (if (editing?)
+        (key-press~ client key)
+      (nextmethod key)))
+  
+  
+  (method override (return-press key)
+    (if (editing?)
+        (return-press~ client key)
+      (start-edit)))))

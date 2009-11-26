@@ -867,6 +867,15 @@
   
   (method protected virtual (scrollee-height)
     (get-height))
+  
+  
+  ;; not sure yet if we should always resize a scrollee not in a scroller
+  ;; so for now we override those methods to implement dynamic scrollees
+  (method protected virtual (dynamic-scrollee?)
+    #f)
+  
+  (method protected virtual (dynamic-set-scrollee-size)
+    (set-size (scrollee-size)))
 
   
   ;;;
@@ -1166,36 +1175,37 @@
   
   
   (method public (scroll-to dest <Point>)
-    (let ((pos (get-scrolled-position)))
-      ;; dest and pos are in this view coordinates
-      (when (/= dest pos)
-        (let* ((size (get-size))
-               (display (get-display))
-               (display-size (get-size~ display))
-               (sc (if scaled? scaling 1.0))
-               (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
-               (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
-               (max-h 0)
-               (max-v 0)
-               (h (fxround (min (max (get-h~ dest) min-h) max-h)))
-               (v (fxround (min (max (get-v~ dest) min-v) max-v)))
-               (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
-          (when (/= new-pos position)
-            (set! position (new Point (fxround (* h sc)) (fxround (* v sc))))
-            (let ((scrolled (get-scrolled-position)))
-              (set-scroll-pos 'horz (- h) #t)
-              (set-scroll-pos 'vert (- v) #t))
-            (update-scrollbars)
-            (let ((dh (- h (get-h~ pos)))
-                  (dv (- v (get-v~ pos))))
-              (scroll-invalidate dh dv)
-              ;; temp for testing...
-              (if scaled?
-                  ;; convert to-fix scroll-view bugs when used from thumb-track
-                  (invalidate-view~ scroller)
-                (let ((rect (get-bounds~ display))
-                      (clip-rect (acquire~ display self (get-clipper))))
-                  (scroll-view~ display dh dv rect clip-rect: clip-rect)))))))))
+    (when (get-scroller)
+      (let ((pos (get-scrolled-position)))
+        ;; dest and pos are in this view coordinates
+        (when (/= dest pos)
+          (let* ((size (get-size))
+                 (display (get-display))
+                 (display-size (get-size~ display))
+                 (sc (if scaled? scaling 1.0))
+                 (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
+                 (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
+                 (max-h 0)
+                 (max-v 0)
+                 (h (fxround (min (max (get-h~ dest) min-h) max-h)))
+                 (v (fxround (min (max (get-v~ dest) min-v) max-v)))
+                 (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
+            (when (/= new-pos position)
+              (set! position (new Point (fxround (* h sc)) (fxround (* v sc))))
+              (let ((scrolled (get-scrolled-position)))
+                (set-scroll-pos 'horz (- h) #t)
+                (set-scroll-pos 'vert (- v) #t))
+              (update-scrollbars)
+              (let ((dh (- h (get-h~ pos)))
+                    (dv (- v (get-v~ pos))))
+                (scroll-invalidate dh dv)
+                ;; temp for testing...
+                (if scaled?
+                    ;; convert to-fix scroll-view bugs when used from thumb-track
+                    (invalidate-view~ scroller)
+                  (let ((rect (get-bounds~ display))
+                        (clip-rect (acquire~ display self (get-clipper))))
+                    (scroll-view~ display dh dv rect clip-rect: clip-rect))))))))))
   
   
   (method public (scroll-to2 dest <Point>)
@@ -1344,7 +1354,10 @@
     
     (unless update-locked?
       (if (not scroller)
-          (layout-scrollee-content)
+          (begin
+            (when (dynamic-scrollee?)
+              (dynamic-set-scrollee-size))
+            (layout-scrollee-content))
         (let ((size (scrollee-size)))
           (when size
             (set-size size)

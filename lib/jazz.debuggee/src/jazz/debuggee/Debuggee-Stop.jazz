@@ -53,9 +53,10 @@
   (slot continuation accessors generate)
   (slot restarts     accessors generate)
   (slot stack        accessors generate)
+  (slot stepper      accessors generate)
   
   
-  (method override (initialize thread kind reason detail exc continuation restarts)
+  (method override (initialize thread kind reason detail exc continuation restarts locat stepper)
     (define max-depth
       1000)
     
@@ -78,13 +79,14 @@
     
     (nextmethod)
     (let ((stack (collect-continuation-stack continuation)))
-      (let ((location (locat->file/line/col (exception-location exc (caar stack)))))
+      (let ((location (locat->file/line/col (either locat (exception-location exc (caar stack))))))
         (set! thread~self thread)
         (set! kind~self kind)
         (set! reason~self reason)
         (set! detail~self detail)
         (set! location~self location)
         (set! continuation~self continuation)
+        (set! stepper~self stepper)
         (set! restarts~self restarts)
         (set! stack~self stack))))
   
@@ -99,13 +101,16 @@
   
   
   (method public (get-frames)
+    (define (make-frame id frame)
+      (bind (cont name) frame
+        ;; to test the stepper
+        (let ((location
+                (when (and stepper (= id 0))
+                  location)))
+        (let ((frame (new Debuggee-Frame id location (object->serial cont) name)))
+          (new Debuggee-Frame-Local-Proxy frame)))))
+    
     (map (lambda (id frame)
            (make-frame id frame))
          (naturals 0 (length stack))
-         stack))
-  
-  
-  (definition (make-frame id frame)
-    (bind (cont name) frame
-      (let ((frame (new Debuggee-Frame id (object->serial cont) name)))
-        (new Debuggee-Frame-Local-Proxy frame))))))
+         stack))))

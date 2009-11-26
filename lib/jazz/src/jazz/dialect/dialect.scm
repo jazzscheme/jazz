@@ -779,7 +779,7 @@
     #f))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.Method-Declaration declaration) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-binding-call (jazz.Method-Declaration declaration) binding-src arguments source-declaration environment)
   (let ((self (jazz.*self*)))
     (if self
         (let ((type (%%get-lexical-binding-type declaration))
@@ -1057,7 +1057,7 @@
                    (if (%%eq? self/class-name 'self)
                        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name jazz.private-access declaration)))
                          (%%assert (%%class-is? slot-declaration jazz.Slot-Declaration)
-                           (jazz.new-reference slot-declaration)))
+                           (jazz.new-reference symbol-src slot-declaration)))
                      (let ((category-declaration (jazz.resolve-binding (jazz.lookup-reference walker resume declaration environment self/class-name))))
                        (%%assert (%%class-is? category-declaration jazz.Category-Declaration)
                          (let ((method-declaration (jazz.lookup-declaration category-declaration name jazz.private-access declaration)))

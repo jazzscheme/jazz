@@ -38,78 +38,34 @@
 (unit protected jazz.dialect.core.step
 
 
+(declare (proper-tail-calls))
+
+
 (define (install-step-handler proc)
-  (define (s leapable? $code rte execute-body . other)
+  (define (handler leapable? $code rte execute-body . other)
     (##step-off)
     (process-step
       proc
+      $code
       (lambda ()
         (##apply execute-body (##cons $code (##cons rte other))))))
-
+  
   (let ((cs (##current-stepper)))
-    (vector-set! cs 0 (vector s s s s s s s))
+    (vector-set! cs 0 (vector handler handler handler handler handler handler handler))
     (void)))
 
 
-(define (process-step proc execute)
-  (let ((cmd
-          (proc)))
-    (case cmd
-      ((s)
-       (##step-on)
-       (execute))
-      ((l) ;; does this really work????
-       (let ((result (execute)))
-         (##step-on)
-         result))
-      ((c)
-       (execute)))))
-
-#;
-(define-type break-exc
-  execute)
-
-#;
-(install-step-handler
-  (lambda (execute)
-    (let ((cmd
-            (continuation-capture
-              (lambda (k)
-                (read* exc k)))))
+(define (process-step proc $code execute)
+  (proc
+    (##code-locat $code)
+    (lambda (cmd)
       (case cmd
-        ((s)
+        ((step)
          (##step-on)
-         ((break-exc-execute exc)))
-        ((l) ;; does this really work????
-         (let ((result ((break-exc-execute exc))))
+         (execute))
+        ((leap) ;; does this really work????
+         (let ((result (execute)))
            (##step-on)
            result))
-        ((c)
-         ((break-exc-execute exc)))))
-    (raise (make-break-exc execute))))
-
-#;
-(define (read* exc k)
-  (display-exception-in-context exc k)
-  (read))
-
-#;
-(with-exception-handler
-  (lambda (exc)
-    (let ((cmd
-            (continuation-capture
-              (lambda (k)
-                (read* exc k)))))
-      (case cmd
-        ((s)
-         (##step-on)
-         ((break-exc-execute exc)))
-        ((l) ;; does this really work????
-         (let ((result ((break-exc-execute exc))))
-           (##step-on)
-           result))
-        ((c)
-         ((break-exc-execute exc))))))
- (lambda ()
-   (eval '(pp (begin (step) (+ (+ 1 1) 2))))))
-)
+        ((continue)
+         (execute)))))))

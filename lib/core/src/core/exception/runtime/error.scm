@@ -56,10 +56,8 @@
 (jazz.encapsulate-class jazz.Error)
 
 
-(declare (proper-tail-calls))
-
-
 (define (jazz.raise-jazz-error fmt-string . rest)
+  (declare (proper-tail-calls))
   (let ((message (apply jazz.format fmt-string rest)))
     (raise (jazz.new-error message))))
 

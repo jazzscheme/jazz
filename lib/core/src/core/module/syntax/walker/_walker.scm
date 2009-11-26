@@ -120,7 +120,7 @@
 (jazz.define-virtual-runtime (jazz.emit-binding-symbol (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-runtime (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments form-src))
-(jazz.define-virtual-runtime (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
+(jazz.define-virtual-runtime (jazz.emit-binding-call (jazz.Walk-Binding binding) binding-src arguments source-declaration environment))
 (jazz.define-virtual-runtime (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments call source-declaration environment))
 (jazz.define-virtual-runtime (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration symbol-src))
 (jazz.define-virtual-runtime (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
@@ -151,10 +151,10 @@
   (jazz.unspecified))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) binding-src arguments source-declaration environment)
   (let ((type (%%get-lexical-binding-type binding)))
     (jazz.new-code
-      `(,(jazz.sourcified-form (jazz.emit-binding-reference binding source-declaration environment))
+      `(,(jazz.sourcified-form2 (jazz.emit-binding-reference binding source-declaration environment) binding-src)
         ,@(jazz.codes-forms arguments))
       (jazz.call-return-type type)
       #f)))
@@ -2162,7 +2162,7 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.NextMethod-Variable binding) arguments source-declaration environment)
+(jazz.define-method (jazz.emit-binding-call (jazz.NextMethod-Variable binding) binding-src arguments source-declaration environment)
   (let ((name (%%get-lexical-binding-name binding))
         (type (%%get-lexical-binding-type binding))
         (self (jazz.*self*)))
@@ -2744,6 +2744,12 @@
 (define (jazz.sourcified-form code)
   (let ((form (%%get-code-form code))
         (src (%%get-code-source code)))
+    (jazz.sourcify-if form src)))
+
+
+;; temp try... 2
+(define (jazz.sourcified-form2 code src)
+  (let ((form (%%get-code-form code)))
     (jazz.sourcify-if form src)))
 
 
@@ -3512,16 +3518,18 @@
 (jazz.define-class-runtime jazz.Reference)
 
 
-(define (jazz.new-reference binding)
-  (jazz.allocate-reference jazz.Reference #f #f binding))
+(define (jazz.new-reference symbol-src binding)
+  (jazz.allocate-reference jazz.Reference #f symbol-src binding))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Reference expression) declaration environment)
-  (jazz.emit-binding-reference (%%get-reference-binding expression) declaration environment))
+  (jazz.sourcify-code (jazz.emit-binding-reference (%%get-reference-binding expression) declaration environment)
+                      (%%get-expression-source expression)))
 
 
 (jazz.define-method (jazz.emit-call (jazz.Reference expression) arguments declaration environment)
-  (jazz.emit-binding-call (%%get-reference-binding expression) arguments declaration environment))
+  (jazz.sourcify-code (jazz.emit-binding-call (%%get-reference-binding expression) (%%get-expression-source expression) arguments declaration environment)
+                      (%%get-expression-source expression)))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Reference expression) f k s)
@@ -4202,7 +4210,7 @@
         (begin
           (if (%%class-is? binding jazz.Variable)
               (jazz.walk-binding-referenced binding))
-          (jazz.new-reference binding))
+          (jazz.new-reference symbol-src binding))
         (jazz.walk-free-reference walker resume declaration symbol-src))))
 
 

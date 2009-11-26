@@ -349,16 +349,16 @@
   (make-parameter {}))
 
 
-(definition (with-repl-thread thread reason port level thunk)
+(definition (with-repl-thread thread reason port level thunk (step?: step? #f))
   (parameterize ((current-repl-level level))
-    (let ((thread (start-repl-thread thread reason port level)))
+    (let ((thread (start-repl-thread thread reason port level step?: step?)))
       (unwind-protect
           (thunk)
         (thread-interrupt! thread
           thread-exit)))))
 
 
-(definition public (start-repl-thread thread reason port (level 0))
+(definition public (start-repl-thread thread reason port (level 0) (step?: step? #f))
   (thread-start!
     (new-system-thread
       (lambda ()
@@ -368,7 +368,7 @@
           (format port #"\($\)"#)
           (display reason port)
           (newline port))
-        (when (> level 0)
+        (when (and (> level 0) (not step?))
           (display-prompt port level))
         (read-eval-print-loop thread port level))
       (if (= level 0)
@@ -623,6 +623,25 @@
 
 
 ;;;
+;;;; Step
+;;;
+
+
+(definition public (install-step)
+  (declare (proper-tail-calls))
+  (install-step-handler
+    (lambda (locat executer)
+      (continuation-capture
+        (lambda (cont)
+          (invoke-debugger 'break {} {} {} cont
+            locat: locat
+            stepper: (lambda (cmd)
+                       (continuation-graft cont
+                         (lambda ()
+                           (executer cmd))))))))))
+
+
+;;;
 ;;;; Inspect
 ;;;
 
@@ -652,7 +671,7 @@
                   (process-debuggee-loop~ process))))))))))
 
 
-(definition (invoke-debugger kind reason detail exc continuation)
+(definition public (invoke-debugger kind reason detail exc continuation (locat: locat {}) (stepper: stepper {}))
   ;; this is a temporary solution to threads keeping the load-mutex locked
   ;; see the todo file for details on what needs to be done for a clean solution
   (define (release-load-mutex!)
@@ -676,13 +695,13 @@
     (with-repl-thread thread reason port level
       (lambda ()
         (parameterize ((current-repl-frame (box {})))
-          (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread))))
+          (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
             (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
               (dynamic-wind
                 (lambda ()
                   (register-stop stop)
-                  (register-stop~ controller-debugger local-process thread-proxy stop-proxy))
+                  (register-stop~ controller-debugger local-process thread-proxy stop-proxy step?: (boolean stepper)))
                 (lambda ()
                   (with-current-loop
                     (lambda ()
@@ -693,7 +712,8 @@
                 (lambda ()
                   (unregister-stop stop)
                   (when controller-debugger ;; #f when quit while in error
-                    (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy)))))))))))
+                    (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy))))))))
+      step?: (boolean stepper))))
 
 
 (definition package (debuggee-loop)

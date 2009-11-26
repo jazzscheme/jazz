@@ -183,12 +183,7 @@
   
   
   (method (on-continue evt)
-    (debug 'CONTINUE)
-    (let ((thread (selected-thread)))
-      (let ((stop (get-active-stop~ thread)))
-        (with-thread-refresh thread
-          (lambda ()
-            (continue-stop~ process stop))))))
+    (continue-stop))
   
   
   (method (on-update evt)
@@ -219,6 +214,22 @@
       (with-thread-refresh thread
         (lambda ()
           (restart-stop~ process restart)))))
+  
+  
+  (method (continue-stop)
+    (let ((thread (selected-thread)))
+      (let ((stop (get-active-stop~ thread)))
+        (with-thread-refresh thread
+          (lambda ()
+            (continue-stop~ process stop))))))
+  
+  
+  (method package (step-stop command)
+    (let ((thread (selected-thread)))
+      (let ((stop (get-active-stop~ thread)))
+        (with-thread-refresh thread
+          (lambda ()
+            (step-stop~ process stop command))))))
   
   
   (method (update-tools)
@@ -367,6 +378,7 @@
                             (icon {Bitmap-Resource "Restart"}))
                         (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (lambda (event) (restart-stop restart))))))
                     (get-restarts~ stop))
+          @wait
           (when (eq? (get-kind~ stop) 'break)
             (new Separator-Item parent: menu)
             (new Label-Item parent: menu title: "Continue" icon: {Bitmap-Resource "Continue"} action-handler: {Event-Handler :form on-continue})))
@@ -376,7 +388,28 @@
     
     (typecase object
       ((Debugged-Thread) (new-thread-menu object))
-      (else {}))))
+      (else {})))
+  
+  
+  (method (new-thread-menu thread)
+    (let ((menu (new Thread-Menu))
+          (stop (get-active-stop~ thread)))
+      (if (not stop)
+          #f @wait (new Label-Item parent: menu title: "Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})
+        (for-each (lambda (restart)
+                    (let ((title (get-message~ restart))
+                          (icon {Bitmap-Resource "Restart"}))
+                      (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (lambda (event) (restart-stop restart))))))
+                  (get-restarts~ stop))
+        (when (eq? (get-kind~ stop) 'break)
+          (new Separator-Item parent: menu)
+          (new Label-Item parent: menu title: "Continue" icon: {Bitmap-Resource "Continue"} action-handler: (new Event-Handler execute: (lambda (event) (continue-stop))))
+          (new Separator-Item parent: menu)
+          (new Label-Item parent: menu title: "Step" icon: {Bitmap-Resource "StepInto"} action-handler: (new Event-Handler execute: (lambda (event) (step-stop 'step))))
+          (new Label-Item parent: menu title: "Leap" icon: {Bitmap-Resource "StepOver"} action-handler: (new Event-Handler execute: (lambda (event) (step-stop 'leap))))))
+      (cleanup-separators~ menu)
+      (layout-menu~ menu)
+      menu)))
 
 
 ;;;

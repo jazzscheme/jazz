@@ -126,6 +126,9 @@
 (native jazz.close-log)
 (native jazz.inspect-object)
 (native generate-proper-tail-calls)
+(native step)
+(native step-level-set!)
+(native install-step-handler)
 
 
 ;;;

@@ -40,6 +40,9 @@
 
 (cond-expand
   (gambit
+    (declare (proper-tail-calls))
+    
+    
     (define (jazz.continuation? obj)
       (%%continuation? obj))
     

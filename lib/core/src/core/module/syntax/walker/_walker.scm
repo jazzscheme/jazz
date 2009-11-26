@@ -1794,18 +1794,24 @@
                (let* ((env
                        (%%list
                         (jazz.new-walk-frame
-                         (%%get-dialect-bindings (jazz.get-dialect 'core)))
-                        (jazz.new-walk-frame
                          (%%get-dialect-bindings (jazz.get-dialect 'scheme)))
                         (jazz.new-walk-frame
-                         (%%get-dialect-bindings (jazz.get-dialect 'jazz)))))
+                         (%%get-dialect-bindings (jazz.get-dialect 'core)))))
+                      (env
+                       (cond
+                        ((jazz.get-dialect 'jazz)
+                         => (lambda (x)
+                              (cons (jazz.new-walk-frame (%%get-dialect-bindings x)) env)))
+                        (else env)))
+                      (env
+                       (cond
+                        ((jazz.outline-module ',current-unit-name)
+                         => (lambda (x) (cons x env)))
+                        (else env)))
                       (tmp (jazz.new-define-syntax-form
                            ',locator
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
-                           (cond
-                            ((jazz.outline-module ',current-unit-name)
-                             => (lambda (x) (cons x env)))
-                            (else env)))))
+                           env)))
                  (jazz.register-macro ',locator tmp)
                  tmp))
             (%%get-declaration-source declaration)))))))

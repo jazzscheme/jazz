@@ -48,14 +48,15 @@
 
 (jazz.define-class jazz.Module jazz.Object () jazz.Object-Class jazz.allocate-module
   ((name    %%get-module-name    ())
+   (access  %%get-module-access  ())
    (exports %%get-module-exports ())))
 
 
 (jazz.define-class-runtime jazz.Module)
 
 
-(define (jazz.new-module name exports)
-  (jazz.allocate-module jazz.Module name exports))
+(define (jazz.new-module name access)
+  (jazz.allocate-module jazz.Module name access (%%make-table test: eq?)))
 
 
 (jazz.encapsulate-class jazz.Module)
@@ -70,10 +71,21 @@
   (%%make-table test: eq?))
 
 
-(define (jazz.register-module name exports-list)
-  (let ((module (jazz.new-module name (%%list->table exports-list test: eq?))))
-    (%%table-set! jazz.Modules name module)
-    module))
+(define (jazz.register-module name access exported-modules exported-symbols)
+  (let ((module (jazz.new-module name access)))
+    (let ((exports (%%get-module-exports module)))
+      (for-each (lambda (module-name)
+                  (%%iterate-table (%%get-module-exports (jazz.get-module module-name))
+                    (lambda (name info)
+                      (%%table-set! exports name info))))
+                exported-modules)
+      (for-each (lambda (pair)
+                  (let ((name (%%car pair))
+                        (info (%%cdr pair)))
+                    (%%table-set! exports name info)))
+                exported-symbols)
+      (%%table-set! jazz.Modules name module)
+      module)))
 
 
 (define (jazz.get-module name)

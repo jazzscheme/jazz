@@ -3287,17 +3287,26 @@
 
 
 (define (jazz.emit-module-registration declaration environment)
-  (if (%%eq? (%%get-declaration-access declaration) 'public)
-      `((jazz.register-module ',(%%get-lexical-binding-name declaration)
-         ',(let ((walker (%%get-module-declaration-walker declaration))
-                 (queue (jazz.new-queue)))
-             (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
-               (lambda (name decl)
-                 (let ((export (jazz.runtime-export walker decl)))
-                   (if export
-                       (jazz.enqueue queue (%%cons name export))))))
-             (jazz.queue-list queue))))
-    '()))
+  `((jazz.register-module ',(%%get-lexical-binding-name declaration) ',(%%get-declaration-access declaration)
+      ',(let ((queue (jazz.new-queue)))
+          (for-each (lambda (module-invoice)
+                      (let ((only (%%get-module-invoice-only module-invoice))
+                            (autoload (%%get-export-invoice-autoload module-invoice)))
+                        (%%when (and (%%not only) (%%not autoload))
+                          (jazz.enqueue queue (%%get-module-invoice-name module-invoice)))))
+                    (%%get-module-declaration-exports declaration))
+          (jazz.queue-list queue))
+      ',(let ((walker (%%get-module-declaration-walker declaration))
+              (queue (jazz.new-queue)))
+          (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
+            (lambda (name decl)
+              (%%when (or (%%eq? (%%get-declaration-toplevel decl) declaration)
+                          ;; quick hack
+                          (%%is? decl jazz.Autoload-Declaration))
+                (let ((export (jazz.runtime-export walker decl)))
+                  (if export
+                      (jazz.enqueue queue (%%cons name export)))))))
+          (jazz.queue-list queue)))))
 
 
 (jazz.define-virtual-runtime (jazz.runtime-export (jazz.Walker walker) declaration))

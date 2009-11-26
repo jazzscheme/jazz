@@ -105,7 +105,7 @@
 ;; pattern so far.
 
 (define-syntax match-two
-  (syntax-rules (_ ___ quote quasiquote ? $ $$ = and or not set! get!)
+  (syntax-rules (_ ___ *** quote quasiquote ? $ $$ = and or not set! get!)
     ((match-two v () g s (sk ...) fk i)
      (if (null? v) (sk ... i) fk))
     ((match-two v (quote p) g s (sk ...) fk i)
@@ -146,6 +146,12 @@
            fk)))
     ((match-two v (p ___ . r) g s sk fk i)
      (match-extract-vars p (match-gen-ellipses v p r g s sk fk i) i ()))
+    ((match-two v (p *** q) g s sk fk i)
+     (match-extract-vars p (match-gen-search v p q g s sk fk i) i ()))
+    ((match-two v (p *** . q) g s sk fk i)
+     (match-syntax-error "invalid use of ***" (p *** . q)))
+    ((match-two v (*** . q) g s sk fk i)
+     (match-syntax-error "invalid use of ***" (*** . q)))
     ((match-two v (p) g s sk fk i)
      (if (and (pair? v) (null? (cdr v)))
          (let ((w (car v)))
@@ -311,6 +317,37 @@
     ((_ x sk) sk)
     ))
 
+(define-syntax match-gen-search
+  (syntax-rules ()
+    ((match-gen-search v p q g s sk fk i ((id id-ls) ...))
+     (letrec ((try (lambda (w fail id-ls ...)
+                     (match-one w q g s
+                                (match-drop-ids
+                                 (let ((id (reverse id-ls)) ...)
+                                   sk))
+                                (next w fail id-ls ...) i)))
+              (next (lambda (w fail id-ls ...)
+                      (if (not (pair? w))
+                          (fail)
+                          (let ((u (car w)))
+                            (match-one
+                             u p (car w) (set-car! w)
+                             (match-drop-ids
+                              ;; accumulate the head variables from
+                              ;; the p pattern, and loop over the tail
+                              (let ((id-ls (cons id id-ls)) ...)
+                                (let lp ((ls (cdr w)))
+                                  (if (pair? ls)
+                                      (try (car ls)
+                                           (lambda () (lp (cdr ls)))
+                                           id-ls ...)
+                                      (fail)))))
+                             (fail) i))))))
+       ;; the initial id-ls binding here is a dummy to get the right
+       ;; number of '()s
+       (let ((id-ls '()) ...)
+         (try v (lambda () fk) id-ls ...))))))
+
 ;; Vector patterns are just more of the same, with the slight
 ;; exception that we pass around the current vector index being
 ;; matched.
@@ -418,7 +455,7 @@
 ;; (match-extract-vars pattern continuation (ids ...) (new-vars ...))
 
 (define-syntax match-extract-vars
-  (syntax-rules (_ ___ ? $ $$ = quote quasiquote and or not get! set!)
+  (syntax-rules (_ ___ *** ? $ $$ = quote quasiquote and or not get! set!)
     ((match-extract-vars (? pred . p) k i v)
      (match-extract-vars p k i v))
     ((match-extract-vars ($ class . p) k i v)
@@ -450,6 +487,7 @@
      (match-extract-vars (p ...) k i v))
     ((match-extract-vars _ (k ...) i v)    (k ... v))
     ((match-extract-vars ___ (k ...) i v)  (k ... v))
+    ((match-extract-vars *** (k ...) i v)  (k ... v))
     ;; This is the main part, the only place where we might add a new
     ;; var if it's an unbound symbol.
     ((match-extract-vars p (k ...) (i ...) v)
@@ -516,19 +554,19 @@
 
 (define-syntax match-let/helper
   (syntax-rules ()
-    ((_ let ((var expr) ...) () () . body)
-     (let ((var expr) ...) . body))
-    ((_ let ((var expr) ...) ((pat tmp) ...) () . body)
-     (let ((var expr) ...)
+    ((_ letx ((var expr) ...) () () . body)
+     (letx ((var expr) ...) . body))
+    ((_ letx ((var expr) ...) ((pat tmp) ...) () . body)
+     (letx ((var expr) ...)
        (match-let* ((pat tmp) ...)
          . body)))
-    ((_ let (v ...) (p ...) (((a . b) expr) . rest) . body)
+    ((_ letx (v ...) (p ...) (((a . b) expr) . rest) . body)
      (match-let/helper
-      let (v ... (tmp expr)) (p ... ((a . b) tmp)) rest . body))
-    ((_ let (v ...) (p ...) ((#(a ...) expr) . rest) . body)
+      letx (v ... (tmp expr)) (p ... ((a . b) tmp)) rest . body))
+    ((_ letx (v ...) (p ...) ((#(a ...) expr) . rest) . body)
      (match-let/helper
-      let (v ... (tmp expr)) (p ... (#(a ...) tmp)) rest . body))
-    ((_ let (v ...) (p ...) ((a expr) . rest) . body)
+      letx (v ... (tmp expr)) (p ... (#(a ...) tmp)) rest . body))
+    ((_ letx (v ...) (p ...) ((a expr) . rest) . body)
      (match-let/helper let (v ... (a expr)) (p ...) rest . body))
     ))
 

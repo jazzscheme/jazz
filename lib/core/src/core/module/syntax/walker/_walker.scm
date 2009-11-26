@@ -1796,13 +1796,15 @@
                         (jazz.new-walk-frame
                          (%%get-dialect-bindings (jazz.get-dialect 'core)))
                         (jazz.new-walk-frame
-                         (%%get-dialect-bindings (jazz.get-dialect 'scheme)))))
+                         (%%get-dialect-bindings (jazz.get-dialect 'scheme)))
+                        (jazz.new-walk-frame
+                         (%%get-dialect-bindings (jazz.get-dialect 'jazz)))))
                       (tmp (jazz.new-define-syntax-form
                            ',locator
                            ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))
                            (cond
                             ((jazz.outline-module ',current-unit-name)
-                              => (lambda (x) (cons x env)))
+                             => (lambda (x) (cons x env)))
                             (else env)))))
                  (jazz.register-macro ',locator tmp)
                  tmp))
@@ -4096,6 +4098,39 @@
       (jazz.walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable)))))
 
 
+(define (jazz.special-form-name? symbol ls end)
+  (and (pair? ls)
+       (not (eq? ls end))
+       (or (let ((binding (jazz.walk-binding-lookup (car ls) symbol #f)))
+             (and binding
+                  (jazz.object? binding)
+                  (%%class-is? binding jazz.Special-Form)))
+           (jazz.special-form-name? symbol (cdr ls) end))))
+
+
+(define (jazz.update-gensyms symbol from-binding ls end)
+  (cond
+   ((and (%%class-is? from-binding jazz.Variable)
+         (jazz.special-form-name? symbol ls end))
+    ;; case 1, if we shadow a special-form, regardless of whether it
+    ;; is later reference directly always rename the symbol
+    (%%set-symbol-binding-gensym from-binding (jazz.generate-symbol (symbol->string symbol))))
+   (else
+    (let lp ((ls ls))
+      (cond
+       ((and (pair? ls) (not (eq? ls end)))
+        (let ((binding (car ls)))
+          (if (and binding
+                   (not (eq? binding from-binding))
+                   (%%is? binding jazz.Variable)
+                   (not (%%get-symbol-binding-gensym binding))
+                   (eq? symbol (unwrap-syntactic-closure
+                                (%%get-lexical-binding-name binding))))
+              ;; if we shadow an existing declaration, gensym a unique symbol for it
+              (%%set-symbol-binding-gensym binding (jazz.generate-symbol (symbol->string symbol)))))
+        (lp (cdr ls))))))))
+
+
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
   (define (lookup-composite walker environment symbol)
     (receive (module-name name) (jazz.split-composite symbol)
@@ -4117,25 +4152,9 @@
            (let ((binding (jazz.walk-binding-lookup (car env) symbol declaration)))
              (cond
               (binding
-               (update-gensyms raw-symbol binding environment #f)
+               (jazz.update-gensyms raw-symbol binding environment #f)
                binding)
               (else (lp (cdr env))))))))))
-
-  (define (update-gensyms symbol from-binding ls end)
-    (cond
-     ((and (pair? ls) (not (eq? ls end)))
-      (let ((binding (car ls)))
-        (if (and binding
-                 (not (eq? binding from-binding))
-                 (%%is? (car ls) jazz.Variable)
-                 (not (%%get-symbol-binding-gensym binding))
-                 (eq? symbol (unwrap-syntactic-closure
-                              (%%get-lexical-binding-name binding))))
-            ;; if we shadow an existing declaration, gensym a unique symbol for it
-            (%%set-symbol-binding-gensym
-             binding
-             (jazz.generate-symbol (symbol->string symbol)))))
-      (update-gensyms symbol from-binding (cdr ls) end))))
 
   (define (validate-compatibility walker declaration referenced-declaration)
     (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)

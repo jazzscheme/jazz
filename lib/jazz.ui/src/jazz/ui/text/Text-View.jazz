@@ -1325,7 +1325,39 @@
   
   (method protected virtual (downward-compound)
     (down-arrow-move #f #t))
+
   
+  (method (on-transpose-word evt)
+    (transpose-word))
+  
+  
+  (method public (transpose-movements forward backward)
+    (if (has-selection?)
+        (bell)
+      (with-atomic-undo~ undoer
+        (lambda ()
+          (let ((left-expl <Text-Explorer> (new (explorer-class) self))
+                (right-expl <Text-Explorer> (new (explorer-class) self)))
+            (set-pos~ left-expl (get-start))
+            (backward left-expl)
+            (set-pos~ right-expl (get-end))
+            (forward right-expl)
+            (let ((left (get-range~ left-expl))
+                  (right (get-range~ right-expl)))
+              (if (or (not left) (not right))
+                  (bell)
+                (let ((ls (range-strings left))
+                      (rs (range-strings right)))
+                  (replace right ls)
+                  (replace left rs)))))
+          (set-modified? #t)))))
+  
+  
+  (method public (transpose-word)
+    (transpose-movements
+      (lambda (expl) (forward-non-word~ expl) (set-start~ expl (get-end~ expl)) (forward-word~ expl))
+      (lambda (expl) (backward-non-word~ expl) (set-start~ expl (get-end~ expl)) (backward-word~ expl))))
+
   
   (method override (prior-page shift?)
     (let* ((start (get-start))

@@ -351,6 +351,28 @@
         (user-message "Popped {s} from clipboard stack" string))))
 
   
+  (method package (on-paste-cycle-stack evt)
+    (let ((focus (get-focus)))
+      (if (or (is-not? focus Text-View) (null? Clipboard-Stack))
+          (bell)
+        (let* ((text (get-clipboard-text))
+               (len (string-length text))
+               (expl (new (explorer-class~ focus) focus)))
+          (set-pos~ expl (get-start~ focus))
+          (do ((i 0 (+ i 1))) ((= i len)) (backward~ expl))
+          (let* ((range (get-range~ expl))
+                 (strings (range-strings~ focus range))
+                 (prev-text (apply string-append strings)))
+            (if (not (equal? text prev-text))
+                (bell)
+              (delete-range~ focus range)
+              (let ((next-text (pop-clipboard)))
+                (if (null? Clipboard-Stack)
+                    (set! Clipboard-Stack (list text))
+                  (set-cdr! (last-pair Clipboard-Stack) (list text)))
+                (set-clipboard-text next-text)
+                (insert-string~ focus next-text))))))))
+  
   ;;;
   ;;;; History
   ;;;

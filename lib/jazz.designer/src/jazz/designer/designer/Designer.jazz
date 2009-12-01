@@ -202,6 +202,10 @@
       (format printer "{%}")))
   
   
+  (method (print-form form level printer)
+    (pretty-print~ (form->node form) printer base: level))
+  
+  
   ;;;
   ;;;; Design
   ;;;
@@ -426,18 +430,16 @@
   
   
   (method public (copy-components-text components (branch: branch {}))
-    @convert
-    (let ((printer (new (get-printer-class)))
-          (output (open-output-string))
+    (let ((output (open-output-string))
           (parcels (package-components components branch: branch)))
       (format output "(")
       (for-each (lambda (parcel)
-                  (format output "~{{a} " (category-name (class-of parcel)))
+                  (format output "~{{a} " (identifier-name (category-name (class-of parcel))))
                   (format output "{a} " (get-process-id~ parcel))
                   (format output "{a} " (get-object-id~ parcel))
                   (format output "(")
                   (for-each (lambda (form)
-                              (print-form~ printer form 0 output))
+                              (print-form form 0 output))
                             (get-content~ parcel))
                   (format output ")")
                   (format output "}"))
@@ -686,7 +688,8 @@
   ;;;
   
   
-  (method (find-form component branch (restore?: restore? #f) (error?: error? #t))
+  ;; package for tests
+  (method package (find-form component branch (restore?: restore? #f) (error?: error? #t))
     (define (embed-form form ancestry)
       (for-each (lambda (cpn)
                   (let ((children (get-children~ form))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Clipboard
+;;;; Designer Literals
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,61 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.clipboard jazz
+(module jazz.designer.literals jazz
 
 
-(export (jazz.ui.clipboard.platform.carbon  (cond carbon))
-        (jazz.ui.clipboard.platform.windows (cond windows))
-        (jazz.ui.clipboard.platform.x11     (cond x11)))
-
-(import (jazz.ui.clipboard.platform.carbon  (cond carbon))
-        (jazz.ui.clipboard.platform.windows (cond windows))
-        (jazz.ui.clipboard.platform.x11     (cond x11)))
+(import (jazz.designer)
+        (jazz.jml))
 
 
 ;;;
-;;;; Jazz Format
+;;;; Clipboard
 ;;;
 
 
-(definition jazz-formatted-text
-  "JAZZ_FORMATTED_TEXT")
-
-(definition jazz-parcels
-  "JAZZ_PARCELS")
-
-
-(definition package (register-jazz-clipboard-formats prefix)
-  (define (prefixed-format format)
-    (string-append prefix format))
-  
-  (register-clipboard-format 'jazz-formatted-text (prefixed-format jazz-formatted-text))
-  (register-clipboard-format 'jazz-parcels (prefixed-format jazz-parcels)))
-
-
-(definition package (get-jazz-parcels)
-  (if (clipboard-format-available? 'jazz-parcels)
-      (with-jazz-readtable
-        (lambda ()
-          (read-string-element (get-clipboard-text format: 'jazz-parcels))))
-    '()))
-
-
-;;;
-;;;; Clipboard-Parcel
-;;;
-
-
-(class undocumented Clipboard-Parcel extends Object
-  
-  
-  (slot process-id getter generate)
-  (slot object-id  getter generate)
-  (slot content    getter generate)
-  
-  
-  (method override (initialize process-id object-id content)
-    (nextmethod)
-    (set! process-id~self process-id)
-    (set! object-id~self object-id)
-    (set! content~self content))))
+(definition package (construct-component-parcel process-id object-id content)
+  (let ((nodes (map jml->form content)))
+    (new Component-Parcel process-id object-id nodes))))

@@ -50,7 +50,7 @@
 ;;;
 
 
-(definition public (get-clipboard-text (format: format CF_UNICODETEXT))
+(definition public (get-clipboard-text (format: format 'unicode-text))
   (with-opened-clipboard
     (lambda ()
       (let ((u8vect (GetClipboardText (get-clipboard-format format))))
@@ -61,7 +61,7 @@
               (read-line input #f))))))))
 
 
-(definition public (set-clipboard-text text (format: format CF_UNICODETEXT))
+(definition public (set-clipboard-text text (format: format 'unicode-text))
   (with-opened-clipboard
     (lambda ()
       (let ((output (open-output-u8vector (list char-encoding: 'UCS-2 eol-encoding: 'cr-lf))))
@@ -133,16 +133,20 @@
   (make-table test: eq?))
 
 
+(definition public undocumented (register-platform-clipboard-formats)
+  (register-clipboard-format 'unicode-text CF_UNICODETEXT))
+
+
 (definition public undocumented (register-clipboard-format name format)
-  (let ((id (RegisterClipboardFormat format)))
+  (let ((id (if (integer? format)
+                format
+              (RegisterClipboardFormat format))))
     (table-set! Formats name id)))
 
 
 (definition public undocumented (get-clipboard-format format)
-  (if (integer? format)
-      format
-    (either (table-ref Formats format #f)
-            (error "Unknown clipboard format: {t}" format))))
+  (either (table-ref Formats format #f)
+          (error "Unknown clipboard format: {t}" format)))
 
 
 (definition public undocumented (clipboard-format-available? format)

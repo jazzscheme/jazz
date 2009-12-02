@@ -335,13 +335,30 @@
       string))
   
   
+  (method public (cycle-clipboard)
+    (let ((string (get-clipboard-text)))
+      (let ((res (pop-clipboard)))
+        (if (null? Clipboard-Stack)
+            (set! Clipboard-Stack (list string))
+          (set-cdr! (last-pair Clipboard-Stack) (list string)))
+        res)))
+  
+  
+  (method public (cycle-clipboard-reverse)
+    (let ((string (get-clipboard-text)))
+      (let ((res (last Clipboard-Stack)))
+        (set! Clipboard-Stack (cons string (butlast Clipboard-Stack)))
+        (set-clipboard-text res)
+        res)))
+  
+  
   (method package (on-paste-from-stack evt)
     (let ((focus (get-focus)))
       (if (is-not? focus Text-View)
           (bell)
         (if (null? Clipboard-Stack)
             (bell)
-          (pop-clipboard))
+          (cycle-clipboard))
         (paste-clipboard~ focus))))
   
   
@@ -352,27 +369,26 @@
         (user-message "Popped {s} from clipboard stack" string))))
 
   
-  (method package (on-paste-cycle-stack evt)
+  (method package (do-paste-cycle-stack reverse?)
     (let ((focus (get-focus)))
       (if (or (is-not? focus Text-View) (null? Clipboard-Stack))
           (bell)
-        (let* ((text (get-clipboard-text))
-               (len (string-length text))
-               (expl (new (explorer-class~ focus) focus)))
+        (let ((text (get-clipboard-text))
+              (expl (new (explorer-class~ focus) focus)))
           (set-pos~ expl (get-start~ focus))
-          (do ((i 0 (+ i 1))) ((= i len)) (backward~ expl))
-          (let* ((range (get-range~ expl))
-                 (strings (range-strings~ focus range))
-                 (prev-text (apply string-append strings)))
-            (if (not (equal? text prev-text))
-                (bell)
-              (delete-range~ focus range)
-              (let ((next-text (pop-clipboard)))
-                (if (null? Clipboard-Stack)
-                    (set! Clipboard-Stack (list text))
-                  (set-cdr! (last-pair Clipboard-Stack) (list text)))
-                (set-clipboard-text next-text)
-                (insert-string~ focus next-text))))))))
+          (when (looking-back?~ expl text)
+            (backward-n~ expl (string-length text))
+            (delete-range~ focus (get-range~ expl)))
+          (insert-string~ focus (if reverse? (cycle-clipboard-reverse) (cycle-clipboard)))))))
+  
+  
+  (method package (on-paste-cycle-stack evt)
+    (do-paste-cycle-stack #f))
+
+
+  (method package (on-paste-cycle-stack-reverse evt)
+    (do-paste-cycle-stack #t))
+  
   
   ;;;
   ;;;; History

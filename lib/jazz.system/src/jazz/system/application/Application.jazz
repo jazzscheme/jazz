@@ -327,7 +327,7 @@
       (set-cdr! (tail Clipboard-Stack (- Max-Stack 1)) '())))
   
   
-  (method public (pop-clipboard)
+  (method (pop-clipboard)
     (let ((string (car Clipboard-Stack)))
       (set! Clipboard-Stack (cdr Clipboard-Stack))
       (set-clipboard-text string)
@@ -344,32 +344,15 @@
         res)))
   
   
-  (method public (cycle-clipboard-reverse)
+  (method public (cycle-clipboard-reversed)
     (let ((string (get-clipboard-text)))
       (let ((res (last Clipboard-Stack)))
         (set! Clipboard-Stack (cons string (butlast Clipboard-Stack)))
         (set-clipboard-text res)
         res)))
-  
-  
-  (method package (on-paste-from-stack evt)
-    (let ((focus (get-focus)))
-      (if (is-not? focus Text-View)
-          (bell)
-        (if (null? Clipboard-Stack)
-            (bell)
-          (cycle-clipboard))
-        (paste-clipboard~ focus))))
-  
-  
-  (method package (on-pop-clipboard-stack evt)
-    (if (null? Clipboard-Stack)
-        (bell)
-      (let ((string (pop-clipboard)))
-        (user-message "Popped {s} from clipboard stack" string))))
 
   
-  (method package (do-paste-cycle-stack reverse?)
+  (method package (paste-cycle-stack reversed?)
     (let ((focus (get-focus)))
       (if (or (is-not? focus Text-View) (null? Clipboard-Stack))
           (bell)
@@ -379,15 +362,15 @@
           (when (looking-back?~ expl text)
             (backward-n~ expl (string-length text))
             (delete-range~ focus (get-range~ expl)))
-          (insert-string~ focus (if reverse? (cycle-clipboard-reverse) (cycle-clipboard)))))))
+          (insert-string~ focus (if reversed? (cycle-clipboard-reversed) (cycle-clipboard)))))))
   
   
   (method package (on-paste-cycle-stack evt)
-    (do-paste-cycle-stack #f))
+    (paste-cycle-stack #f))
 
 
-  (method package (on-paste-cycle-stack-reverse evt)
-    (do-paste-cycle-stack #t))
+  (method package (on-paste-cycle-stack-reversed evt)
+    (paste-cycle-stack #t))
   
   
   ;;;
@@ -802,8 +785,8 @@
         (set-action-enabled? {Action view cut} (and view? (can-cut?~ focus)))
         (set-action-enabled? {Action view copy} (and view? (can-copy?~ focus)))
         (set-action-enabled? {Action view paste} (and view? (can-paste?~ focus)))
-        (set-action-enabled? {Action application paste-from-stack} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action application pop-clipboard-stack} (not-null? Clipboard-Stack))
+        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
         (set-action-enabled? {Action view paste-properties} (and view? (can-paste-properties?~ focus)))
         (set-action-enabled? {Action view delete} (and view? (can-delete?~ focus)))
         (set-action-enabled? {Action view select-all} (and view? (can-select-all?~ focus)))

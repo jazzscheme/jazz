@@ -40,6 +40,7 @@
 
 (import (jazz.designer)
         (jazz.designer.menu)
+        (jazz.designer.view)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
@@ -498,7 +499,7 @@
          ;; quick test as this should really be some accepts-drop? so that the
          ;; drag&drop framework can show a visual feedback on the operation...
          (when (is? component Toolbox-Model)
-           (add-new sender (selected-component~ sender) pos))))
+           (add-new (get-class~ (selected-component~ sender)) pos))))
       ((Properties-Tree)
        (let* ((source (get-source~ drag-drop))
               (row (get-row~ source)))
@@ -511,16 +512,14 @@
                (set-showed-property~ editor (field-name property)))))))))
   
   
-  (method public (add-new tree selected-model pos (centered?: centered? #t))
-    (let ((preferences (get-preferences 'designer))
-          (model (module-ref (get-unit~ selected-model)
-                             (get-model~ selected-model))))
+  (method public (add-new model pos (centered?: centered? #t))
+    (let ((preferences (get-preferences 'designer)))
       (let ((child (new model parent: client visible?: #f))
             (designer (get-designer~ editor)))
         (add-view~ designer child client position: pos centered?: centered?)
         (set-selection~ editor (list child) origin: self)
         (when (xor (get-new-requests-name?~ preferences) (shift-down?))
-          (let ((presentation (component-presentation-request~ tree model (get-children~ client))))
+          (let ((presentation (request-component-presentation model (get-children~ client))))
             (when presentation
               (let ((name (presentation->name~ model presentation)))
                 (set-name~ designer child name)))))
@@ -541,8 +540,21 @@
   
   
   (method public virtual (get-context-menu)
-    (let ((menu (new (context-menu-class))))
-      (update-component-menu {} menu (get-selection))
+    (let ((components (get-selection) )
+          (menu (new (context-menu-class))))
+      (define (addable-classes)
+        ;; quicky
+        (let ((component (car components)))
+          (cond ((not component)
+                 '())
+                ((is-not? component Component)
+                 '())
+                (else
+                 (component-addable-classes component (get-parent~ component))))))
+      
+      (update-component-menu menu (get-selection) (addable-classes)
+        (lambda (model)
+          (add-new model {Point 0 0} centered?: #f)))
       menu))
   
   
@@ -718,8 +730,9 @@
   (method public virtual (cut-selection)
     (let ((selection (get-selection))
           (designer (get-designer~ editor)))
-      (cut-components~ designer selection)
-      (set-selection '())))
+      (let ((parent (components-parent~ editor selection)))
+        (cut-components~ designer selection)
+        (set-selection (if parent (list parent) '())))))
   
   
   (method public virtual (copy-selection)
@@ -807,6 +820,9 @@
   
   (form
     (<install>
+      (<Label-Item>     name: add-item          title: "Add" icon: {Bitmap-Resource "Add"}
+        (<Add-Menu>     name: add-menu))
+      (<Separator-Item> name: end-add-group)
       (<Label-Item>     name: cut              title: "Cut" icon: {Bitmap-Resource "Cut"} action: {Action view cut})
       (<Label-Item>     name: copy             title: "Copy" icon: {Bitmap-Resource "Copy"} action: {Action view copy})
       (<Label-Item>     name: paste            title: "Paste" icon: {Bitmap-Resource "Paste"} action: {Action view paste})

@@ -44,19 +44,18 @@
         (jazz.ui))
 
 
-(definition public (update-component-menu tree menu components)
+(definition package (update-component-menu menu components classes add)
   (define (add-components add-menu)
     (with-update-locked~ add-menu
       (lambda ()
-        (let ((classes (addable-classes~ tree)))
-          (for-each (lambda (class)
-                      (if (not class)
-                          (new Separator-Item parent: add-menu)
-                        (let ((icon (get-class-image~ class))
-                              (title (format "{a}..." (localize (get-class-presentation~ class)))))
-                          (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add-component-class~ tree class)))))))
-                    classes)
-          classes))))
+        (for-each (lambda (class)
+                    (if (not class)
+                        (new Separator-Item parent: add-menu)
+                      (let ((icon (get-class-image~ class))
+                            (title (format "{a}..." (localize (get-class-presentation~ class)))))
+                        (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add class)))))))
+                  classes)
+        classes)))
   
   (let* ((count (length components))
          (component (essay (>= count 1) (car components)))
@@ -70,7 +69,7 @@
          (empty-add? #f))
     (let ((add-menu (locate-component~ menu 'add-menu))
           (add-item (locate-component~ menu 'add-item)))
-      (if (and tree (use-add-menu?~ tree) (= count 1) add-menu (add-components add-menu))
+      (if (and (= count 1) add-menu (add-components add-menu))
           (let ((children (collect-type Label-Item (get-children~ add-menu))))
             (if (null? children)
                 (begin

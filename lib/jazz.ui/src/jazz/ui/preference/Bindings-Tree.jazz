@@ -47,10 +47,11 @@
   
   
   (form
-    (<install>                         portfolio: :icons filled-column: name
-      (<Tree-Node-Column>  name: name  title: "Name" width: 235 toplevel-controls?: #f)
-      (<Tree-Label-Column> name: key   title: "Key" width: 150)
-      (<Tree-Image-Column> name: owner title: "Owner" width: 50 justification: center)))
+    (<install>                                 portfolio: :icons filled-column: name
+      (<Tree-Node-Column>  name: name          title: "Name" width: 235 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: key           title: "Key" width: 115)
+      (<Tree-Label-Column> name: alternate-key title: "Alternate" width: 115)
+      (<Tree-Image-Column> name: owner         title: "!" width: 25 justification: center)))
   
   
   ;;;
@@ -62,11 +63,12 @@
     (define (view-categorized)
       (for-each (lambda (actions)
                   (when (is? actions Actions)
-                    (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: {Bitmap-Resource "TypeLib"}) (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
+                    (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: {Bitmap-Resource "TypeLib"}) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
                       (for-each (lambda (action)
                                   (let ((shortcut (get-shortcut~ action))
-                                        (owner (new Tree-Image image: (owner-image designer action 'shortcut))))
-                                    (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) owner) user-data: action)))
+                                        (alternate (get-alternate-shortcut~ action))
+                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                    (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
                                 (get-children~ actions)))))
                 (get-children~ bindings)))
     
@@ -75,16 +77,18 @@
                   (when (is? actions Actions)
                     (for-each (lambda (action)
                                 (let ((shortcut (get-shortcut~ action))
-                                      (owner (new Tree-Image image: (owner-image designer action 'shortcut))))
-                                  (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ actions) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) owner) user-data: action)))
+                                      (alternate (get-alternate-shortcut~ action))
+                                      (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                  (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ actions) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
                               (get-children~ actions))))
                 (get-children~ bindings)))
     
     (define (view-list)
       (for-each (lambda (action)
                   (let ((shortcut (get-shortcut~ action))
-                        (owner (new Tree-Image image: (owner-image designer action 'shortcut))))
-                    (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) owner) user-data: action)))
+                        (alternate (get-alternate-shortcut~ action))
+                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                    (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
                 bindings))
     
     (with-update-locked
@@ -102,10 +106,11 @@
       (present~ shortcut)))
   
   
-  (method protected (owner-image designer component property)
-    (let ((owner (find-owner~ designer component property)))
-      (cond ((is? owner Branch) (branch-owner-image))
-            ((eq? owner (get-reference~ designer)) (root-owner-image))
+  (method protected (shortcut-owner-image designer component)
+    (let ((shortcut-owner (find-owner~ designer component 'shortcut))
+          (alternate-owner (find-owner~ designer component 'alternate-shortcut)))
+      (cond ((or (is? shortcut-owner Branch) (is? alternate-owner Branch)) (branch-owner-image))
+            ((or (eq? shortcut-owner (get-reference~ designer)) (eq? alternate-owner (get-reference~ designer))) (root-owner-image))
             (else (default-owner-image)))))
   
   

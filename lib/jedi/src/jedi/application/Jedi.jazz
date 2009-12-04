@@ -51,8 +51,10 @@
         (jazz.jml)
         (jazz.library)
         (jazz.library.component)
+        (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.picker)
         (jazz.ui.view)
         (jazz.ui.workspace)
         (jedi)
@@ -407,6 +409,67 @@
 
   
   ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (definition *view-editors*
+    (make-table test: eq?))
+  
+  (definition (get-view-editor view)
+    (table-ref *view-editors* view {}))
+  
+  (definition (set-view-editor view editor)
+    (table-set! *view-editors* view editor))
+  
+  
+  (definition (view-editor-client view)
+    (define (determine-client guest)
+      (typecase guest
+        (else
+         guest)))
+    
+    (determine-client (get-guest~ view)))
+  
+  
+  (method public (design-client)
+    (pick-figure
+      click: (lambda (view pos) (design-view view))
+      highlight: #t
+      highlight-root-only?: #t
+      obscure-unhighlighted?: #f
+      report-figure?: #f
+      tooltips?: #f))
+  
+
+  (method public (design-mouse-client)
+    (design-view (mouse-view)))
+  
+  
+  (method (design-view view)
+    (let ((client (view-editor-client view)))
+      (if (not client)
+          (bell)
+        (let ((editor (get-view-editor client)))
+          (if (not editor)
+              (set-view-editor client (get-guest~ (new-frame View-Editor host-visible?: #f client: client)))
+            (close~ editor)
+            (set-view-editor client {}))))))
+  
+
+  (method public (save-mouse-client)
+    (let ((client (view-editor-client (mouse-view))))
+      (if (not client)
+          (bell)
+        (let ((editor (get-view-editor client)))
+          (if (not editor)
+              (bell)
+            (with-cursor :wait
+              (lambda ()
+                (save~ editor))))))))
+
+  
+  ;;;
   ;;;; Documentation
   ;;;
   
@@ -436,6 +499,23 @@
   (method public (reload-documentation)
     (set! documentation-cataloguer {})
     (get-documentation-cataloguer))
+
+
+  ;;;
+  ;;;; Alias
+  ;;;
+  
+  
+  (method override (process-alias name)
+    (case name
+      ((:focus-editor) (focused-editor))
+      (else (nextmethod name))))
+  
+  
+  (method (focused-editor)
+    (let ((focus (get-focus)))
+      (when focus
+        (get-view-editor (get-guest~ focus)))))
 
   
   ;;;
@@ -548,6 +628,14 @@
   
   (method (on-new-project evt)
     (add-project-to~ (get-workbench-manager) (get-workbench)))
+  
+  
+  (method (on-design-client evt)
+    (design-client))
+  
+  
+  (method (on-design-mouse-client evt)
+    (design-mouse-client))
   
   
   (method (on-event-spy evt)

@@ -46,58 +46,144 @@
 (class undocumented Bindings-Tree extends Tree-View
   
   
-  (form
-    (<install>                                 portfolio: :icons filled-column: name
-      (<Tree-Node-Column>  name: name          title: "Name" width: 235 toplevel-controls?: #f)
-      (<Tree-Label-Column> name: key           title: "Key" width: 115)
-      (<Tree-Label-Column> name: alternate-key title: "Alternate" width: 115)
-      (<Tree-Image-Column> name: owner         title: "!" width: 25 justification: center)))
-  
-  
   ;;;
   ;;;; Update
   ;;;
   
   
-  (method protected (view-bindings designer bindings kind)
-    (define (view-categorized)
-      (for-each (lambda (actions)
-                  (when (is? actions Actions)
-                    (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: {Bitmap-Resource "TypeLib"}) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
-                      (for-each (lambda (action)
-                                  (let ((shortcut (get-shortcut~ action))
-                                        (alternate (get-alternate-shortcut~ action))
-                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                    (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
-                                (get-children~ actions)))))
-                (get-children~ bindings)))
+  (definition category-icon
+    {Bitmap-Resource "TypeLib"})
+  
+  (definition action-icon
+    {Bitmap-Resource "Script"})
+  
+  (definition shortcut-icon
+    {Bitmap-Resource "Link"})
+  
+  
+  (method protected (view-bindings designer bindings what kind)
+    (define (view-actions-list)
+      (for-each (lambda (action)
+                  (let ((shortcut (get-shortcut~ action))
+                        (alternate-shortcut (get-alternate-shortcut~ action))
+                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                    (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action)))
+                bindings))
     
-    (define (view-flat)
+    (define (view-actions-flat)
       (for-each (lambda (actions)
                   (when (is? actions Actions)
                     (for-each (lambda (action)
                                 (let ((shortcut (get-shortcut~ action))
-                                      (alternate (get-alternate-shortcut~ action))
+                                      (alternate-shortcut (get-alternate-shortcut~ action))
                                       (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                  (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ actions) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
+                                  (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ actions) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action)))
                               (get-children~ actions))))
                 (get-children~ bindings)))
     
-    (define (view-list)
-      (for-each (lambda (action)
-                  (let ((shortcut (get-shortcut~ action))
-                        (alternate (get-alternate-shortcut~ action))
-                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                    (add-row children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate)) owner) user-data: action)))
-                bindings))
+    (define (view-actions-categorized)
+      (for-each (lambda (actions)
+                  (when (is? actions Actions)
+                    (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
+                      (for-each (lambda (action)
+                                  (let ((shortcut (get-shortcut~ action))
+                                        (alternate-shortcut (get-alternate-shortcut~ action))
+                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                    (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action)))
+                                (get-children~ actions)))))
+                (get-children~ bindings)))
+    
+    (define (view-shortcuts-flat)
+      (for-each (lambda (partition)
+                  (bind (modifiers . bindings) partition
+                    (for-each (lambda (binding)
+                                (bind (shortcut action conflict) binding
+                                  (let ((conflict (new Tree-Image image: (case conflict ((warning) {Bitmap-Resource "Gray"}) ((conflict) {Bitmap-Resource "Red"}) (else {}))))
+                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                    (add-row children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action))) conflict owner) user-data: action))))
+                              (sort nu<? bindings key: (lambda (binding)
+                                                         (present-shortcut (car binding)))))))
+                (partition-bindings (gather-bindings))))
+    
+    (define (view-shortcuts-categorized)
+      (for-each (lambda (partition)
+                  (bind (modifiers . bindings) partition
+                    (let ((row (add-row children: (list (new Tree-Node title: (format "{l}" modifiers) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image) (new Tree-Image)))))
+                      (for-each (lambda (binding)
+                                  (bind (shortcut action conflict) binding
+                                    (let ((conflict (new Tree-Image image: (case conflict ((warning) {Bitmap-Resource "Gray"}) ((conflict) {Bitmap-Resource "Red"}) (else {}))))
+                                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                      (add-row father: row children: (list (new Tree-Node title: (present-modifiers shortcut) image: shortcut-icon) (new Tree-Label title: (present-key shortcut)) (new Tree-Label title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action))) conflict owner) user-data: action))))
+                                (sort nu<? bindings key: (lambda (binding)
+                                                           (present-shortcut (car binding))))))))
+                (partition-bindings (gather-bindings))))
+    
+    (define (gather-bindings)
+      (let ((queue (new-queue))
+            (table (make-table test: shortcut=? hash: shortcut-hash)))
+        (define (add-binding shortcut action)
+          (enqueue queue (list shortcut action {}))
+          (table-add table shortcut action))
+        
+        (define (flag-conflicts! bindings)
+          (for-each (lambda (binding)
+                      (bind (shortcut action conflict) binding
+                        (let ((actions (table-ref table shortcut {})))
+                          (let ((conflicts (collect (lambda (act)
+                                                      (and (neq? act action)
+                                                           (if (eq? (get-parent~ act)
+                                                                    (get-parent~ action))
+                                                               'conflict
+                                                             'warning)))
+                                                    actions)))
+                            (when (not-null? conflicts)
+                              (set-third! binding (if (memq? 'conflict conflicts)
+                                                      'conflict
+                                                    'warning)))))))
+                    bindings))
+        
+        (for-each (lambda (actions)
+                    (when (is? actions Actions)
+                      (for-each (lambda (action)
+                                  (let ((shortcut (get-shortcut~ action))
+                                        (alternate-shortcut (get-alternate-shortcut~ action)))
+                                    (when shortcut
+                                      (add-binding shortcut action))
+                                    (when alternate-shortcut
+                                      (add-binding alternate-shortcut action))))
+                                (get-children~ actions))))
+                  (get-children~ bindings))
+        
+        (let ((bindings (queue-list queue)))
+          (flag-conflicts! bindings)
+          bindings)))
+    
+    (define (partition-bindings bindings)
+      (sort nu<? (partition bindings key: (lambda (binding)
+                                            (get-modifiers~ (car binding)))
+                   test: equal?)
+        key: (lambda (partition)
+               (format "{l}" (car partition)))))
+    
+    (define (present-modifiers shortcut)
+      (format "{l}" (get-modifiers~ shortcut)))
+    
+    (define (present-key shortcut)
+      (format "{a}" (get-key~ shortcut)))
     
     (with-update-locked
       (lambda ()
         (remove-every-row)
-        (case kind
-          ((categorized) (view-categorized))
-          ((flat) (view-flat))
-          ((list) (view-list))))))
+        (case what
+          ((actions)
+           (case kind
+             ((list) (view-actions-list))
+             ((flat) (view-actions-flat))
+             ((categorized) (view-actions-categorized))))
+          ((shortcuts)
+           (case kind
+             ((flat) (view-shortcuts-flat))
+             ((categorized) (view-shortcuts-categorized))))))))
   
   
   (method protected (present-shortcut shortcut)
@@ -123,4 +209,37 @@
   
   
   (method (branch-owner-image)
-    {Bitmap-Resource "OwnerBranch"})))
+    {Bitmap-Resource "OwnerBranch"}))
+
+
+;;;
+;;;; Actions Tree
+;;;
+
+
+(class BindingsByActions-Tree extends Bindings-Tree
+  
+  
+  (form
+    (<install>                                      portfolio: :icons filled-column: action
+      (<Tree-Node-Column>  name: action             title: "Action" width: 235 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: shortcut           title: "Shortcut" width: 115)
+      (<Tree-Label-Column> name: alternate-shortcut title: "Alternate Shortcut" width: 115)
+      (<Tree-Image-Column> name: owner              title: "!" width: 25 justification: center))))
+
+
+;;;
+;;;; Shortcuts Tree
+;;;
+
+
+(class BindingsByShortcuts-Tree extends Bindings-Tree
+  
+  
+  (form
+    (<install>                                      portfolio: :icons filled-column: action
+      (<Tree-Node-Column>  name: modifier           title: "Modifier" width: 110 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: key                title: "Key" width: 60)
+      (<Tree-Label-Column> name: action             title: "Action" width: 235)
+      (<Tree-Image-Column> name: conflict           title: "Conflict" width: 80 justification: center)
+      (<Tree-Image-Column> name: owner              title: "!" width: 25 justification: center)))))

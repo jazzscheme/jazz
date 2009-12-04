@@ -51,37 +51,46 @@
   
   
   (slot categorized? initialize #f)
+  (slot shortcuts?   initialize #f)
 
 
   (form
-    (<install>                                               size: {Dimension 420 639} layout-type: border
-      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Toggle-Tool>                 name: categorize      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Categorize / Flatten" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-categorize})
-        (<Separator>                                         size: {Dimension 16 0})
-        (<Border-View>                                       size: {Dimension 140 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
-          (<Border-View>                                     border-color: {Color red: 200 green: 188 blue: 166}
-            (<Branches-Combo>          name: branches)))
+    (<install>                                                       size: {Dimension 420 639} layout-type: border
+      (<Layout-View>                        name: toolbar            size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                                               size: {Dimension 22 22} tooltip?: #t tooltip-text: "View by Actions / Shortcuts" image-name: {Bitmap-Resource "Link"} portfolio: :icons action-handler: {Event-Handler :form on-shortcuts})
+        (<Separator>                                                 size: {Dimension 4 0})
+        (<Toggle-Tool>                                               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Display Flat / Categorized" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-categorize})
+        (<Separator>                                                 size: {Dimension 16 0})
+        (<Border-View>                                               size: {Dimension 140 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
+          (<Border-View>                                             border-color: {Color red: 200 green: 188 blue: 166}
+            (<Branches-Combo>               name: branches)))
         @waiting
-        (<Separator>                                         size: {Dimension 16 0})
+        (<Separator>                                                 size: {Dimension 16 0})
         @waiting
-        (<Push-Tool>                   name: unbind-key      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Key Unbound" image-name: {Bitmap-Resource "Empty"} portfolio: :icons action-handler: {Event-Handler :form on-unbind-key})
+        (<Push-Tool>                        name: unbind-shortcut    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Shortcut Unbound" image-name: {Bitmap-Resource "Empty"} portfolio: :icons action-handler: {Event-Handler :form on-unbind-shortcut})
         @waiting
-        (<Separator>                                         size: {Dimension 2 0})
+        (<Separator>                                                 size: {Dimension 2 0})
         @waiting
-        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "FindBackward"} portfolio: :icons action-handler: {Event-Handler :form on-restore-key})
+        (<Push-Tool>                        name: restore-shortcut   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "FindBackward"} portfolio: :icons action-handler: {Event-Handler :form on-restore-shortcut})
         @waiting
-        (<Separator>                                         size: {Dimension 16 0})
+        (<Separator>                                                 size: {Dimension 16 0})
         @waiting
-        (<Push-Tool>                   name: edit-action     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Action" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler :form on-edit-action})
+        (<Push-Tool>                        name: edit-action        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Action" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler :form on-edit-action})
         @waiting
-        (<Push-Button>                 name: bind-key        location: tail title: "Bind" size: {Dimension 100 22} action-handler: {Event-Handler :form on-bind-key} default?: #t)
-        (<Push-Button>                 name: edit-action     location: tail title: "Edit Action" size: {Dimension 120 22} action-handler: {Event-Handler :form on-edit-action} default?: #t))
-      (<Border-View>                   name: bindings-border location: center border-type: edge style: entry
-        (<Scroller-View>                                     style: document hscroll?: #t vscroll?: #t
-          (<content!>                                        layout-type: fill
-            (<Tree-Header>                                   style: document
+        (<Push-Button>                      name: bind-shortcut      location: tail title: "Bind Shortcut " size: {Dimension 100 22} action-handler: {Event-Handler :form on-bind-shortcut} default?: #t)
+        (<Push-Button>                      name: edit-action        location: tail title: "Edit Action" size: {Dimension 120 22} action-handler: {Event-Handler :form on-edit-action} default?: #t))
+      (<Border-View>                        name: actions-border     location: center border-type: edge style: entry
+        (<Scroller-View>                                             style: document hscroll?: #t vscroll?: #t
+          (<content!>                                                layout-type: fill
+            (<Tree-Header>                                           style: document
               (<content!>
-                (<Bindings-Tree>       name: bindings        selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
+                (<BindingsByActions-Tree>   name: actions            selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))
+      (<Border-View>                        name: shortcuts-border   location: center border-type: edge style: entry visible?: #f
+        (<Scroller-View>                                             style: document hscroll?: #t vscroll?: #t
+          (<content!>                                                layout-type: fill
+            (<Tree-Header>                                           style: document
+              (<content!>
+                (<BindingsByShortcuts-Tree> name: shortcuts          selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
 
 
   (method override (conclude initargs)
@@ -126,7 +135,9 @@
   
   
   (method (get-tree)
-    (locate 'bindings))
+    (if shortcuts?
+        (locate 'shortcuts)
+      (locate 'actions)))
   
   
   ;;;
@@ -134,9 +145,18 @@
   ;;;
   
   
+  (method (on-shortcuts evt)
+    (set! shortcuts? (not shortcuts?))
+    (set-visible?~ (locate 'actions-border) (not shortcuts?))
+    (set-visible?~ (locate 'shortcuts-border) shortcuts?)
+    (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
+    (layout-view)
+    (view-bindings))
+  
+  
   (method (on-categorize evt)
     (set! categorized? (not categorized?))
-    (set-toplevel-controls?~ (locate '(bindings name)) categorized?)
+    (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
     (view-bindings))
   
   
@@ -147,25 +167,25 @@
   (method (on-double-click evt)
     (edit-action)
     @waiting
-    (bind-key))
+    (bind-shortcut))
   
   
   (method override (on-return-press evt)
     (edit-action)
     @waiting
-    (bind-key))
+    (bind-shortcut))
   
   
-  (method (on-unbind-key evt)
-    (unbind-key))
+  (method (on-unbind-shortcut evt)
+    (unbind-shortcut))
   
   
-  (method (on-restore-key evt)
-    (restore-key))
+  (method (on-restore-shortcut evt)
+    (restore-shortcut))
   
   
-  (method (on-bind-key evt)
-    (bind-key))
+  (method (on-bind-shortcut evt)
+    (bind-shortcut))
   
   
   (method (on-edit-action evt)
@@ -193,7 +213,7 @@
   ;;;
   
   
-  (method (unbind-key)
+  (method (unbind-shortcut)
     (let ((appl (get-application))
           (tree (get-tree)))
       (receive (action-item rank) (selected-action-item/rank)
@@ -204,7 +224,7 @@
           (update-action-item tree designer action-item rank)))))
   
   
-  (method (restore-key)
+  (method (restore-shortcut)
     (let ((appl (get-application))
           (tree (get-tree)))
       (receive (action-item rank) (selected-action-item/rank)
@@ -215,7 +235,7 @@
           (update-action-item tree designer action-item rank)))))
   
   
-  (method (bind-key)
+  (method (bind-shortcut)
     (let ((appl (get-application))
           (tree (get-tree)))
       (receive (action-item rank) (selected-action-item/rank)
@@ -227,11 +247,11 @@
   
   
   (definition (update-action-item tree designer action-item rank)
-    (let ((key-cell (new Cell rank 1))
+    (let ((shortcut-cell (new Cell rank 1))
           (owner-cell (new Cell rank 2)))
-      (set-cell-data~ tree key-cell (new Tree-Label title: (present-shortcut~ tree (get-shortcut~ action-item))))
+      (set-cell-data~ tree shortcut-cell (new Tree-Label title: (present-shortcut~ tree (get-shortcut~ action-item))))
       (set-cell-data~ tree owner-cell (new Tree-Image image: (owner-image~ tree designer action-item 'shortcut)))
-      (invalidate-cell~ tree key-cell)
+      (invalidate-cell~ tree shortcut-cell)
       (invalidate-cell~ tree owner-cell)))
   
   
@@ -277,9 +297,10 @@
     (let ((appl (get-application)))
       (let ((designer (get-bindings-designer~ appl))
             (bindings (get-bindings))
+            (what (if shortcuts? 'shortcuts 'actions))
             (kind (if categorized? 'categorized 'flat))
             (tree (get-tree)))
-        (view-bindings~ tree designer bindings kind))))
+        (view-bindings~ tree designer bindings what kind))))
   
   
   (method (update-branches)
@@ -294,12 +315,12 @@
   (method (update-buttons)
     (let ((action-item (selected-action-item)))
       @waiting
-      (set-enabled?~ (locate 'unbind-key) action-item)
+      (set-enabled?~ (locate 'unbind-shortcut) action-item)
       @waiting
-      (set-enabled?~ (locate 'restore-key) action-item)
+      (set-enabled?~ (locate 'restore-shortcut) action-item)
       (set-enabled?~ (locate 'edit-action) action-item)
       @waiting
-      (set-enabled?~ (locate 'bind-key) action-item))))
+      (set-enabled?~ (locate 'bind-shortcut) action-item))))
 
 
 ;;;

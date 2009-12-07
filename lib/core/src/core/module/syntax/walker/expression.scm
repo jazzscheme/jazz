@@ -205,6 +205,16 @@
         s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Lambda expression) down up here seed environment)
+  (jazz.with-annotated-frame (jazz.annotate-signature (%%get-lambda-signature expression))
+    (lambda (frame)
+      (let ((aug-env (cons frame environment)))
+        (up expression
+            seed
+            (jazz.tree-fold (%%get-lambda-body expression) down up here (down expression seed environment) aug-env)
+            environment)))))
+
+
 (jazz.encapsulate-class jazz.Lambda)
 
 
@@ -248,6 +258,14 @@
   (f expression
      (k (jazz.fold-expression (%%get-let-body expression) f k s)
         s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Let expression) down up here seed environment)
+  (let* ((bindings (%%get-let-bindings expression))
+         (aug-env (cons (map car bindings) environment))
+         (seed1 (down expression seed environment))
+         (seed2 (jazz.tree-fold-list (map cdr bindings) down up here seed1 environment)))
+    (up expression seed (jazz.tree-fold (%%get-let-body expression) down up here seed2 aug-env) environment)))
 
 
 (jazz.encapsulate-class jazz.Let)
@@ -296,6 +314,14 @@
         s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Named-Let expression) down up here seed environment)
+  (let* ((bindings (%%get-let-bindings expression))
+         (aug-env (cons (cons (%%get-named-let-variable expression) (map car bindings)) environment))
+         (seed1 (down expression seed environment))
+         (seed2 (jazz.tree-fold-list (map cdr bindings) down up here seed1 environment)))
+    (up expression seed (jazz.tree-fold (%%get-let-body expression) down up here seed2 aug-env) environment)))
+
+
 (jazz.encapsulate-class jazz.Named-Let)
 
 
@@ -339,6 +365,17 @@
   (f expression
      (k (jazz.fold-expression (%%get-letstar-body expression) f k s)
         s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Letstar expression) down up here seed environment)
+  (let lp ((ls (%%get-letstar-bindings expression))
+           (seed2 (down expression seed environment))
+           (aug-env environment))
+    (if (pair? ls)
+        (lp (cdr ls)
+            (jazz.tree-fold (cdar ls) down up here seed2 aug-env)
+            (cons (list (caar ls)) aug-env))
+        (up expression seed (jazz.tree-fold (%%get-letstar-body expression) down up here seed2 aug-env) environment))))
 
 
 (jazz.encapsulate-class jazz.Letstar)
@@ -386,6 +423,14 @@
         s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Letrec expression) down up here seed environment)
+  (let* ((bindings (%%get-letrec-bindings expression))
+         (aug-env (cons (map car bindings) environment))
+         (seed1 (down expression seed environment))
+         (seed2 (jazz.tree-fold-list (map cdr bindings) down up here seed1 aug-env)))
+    (up expression seed (jazz.tree-fold (%%get-letrec-body expression) down up here seed2 aug-env) environment)))
+
+
 (jazz.encapsulate-class jazz.Letrec)
 
 
@@ -424,6 +469,13 @@
   (f expression
      (k (jazz.fold-expression (%%get-receive-body expression) f k s)
         s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Receive expression) down up here seed environment)
+  (let* ((aug-env (cons (%%get-receive-variables expression) environment))
+         (seed1 (down expression seed environment))
+         (seed2 (jazz.tree-fold (%%get-receive-expression expression) down up here seed1 environment)))
+    (up expression seed (jazz.tree-fold (%%get-receive-body expression) down up here seed2 aug-env) environment)))
 
 
 (jazz.encapsulate-class jazz.Receive)
@@ -479,6 +531,22 @@
         (k (jazz.fold-expression (%%get-do-result expression) f k s)
            (k (jazz.fold-expression (%%get-do-body expression) f k s)
               s)))))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Do expression) down up here seed environment)
+  (let* ((aug-env (cons (map car (%%get-do-bindings expression)) environment))
+         (seed1 (jazz.tree-fold-list (map cadr (%%get-do-bindings expression)) down up here (down expression seed environment) environment))
+         (seed2 (jazz.tree-fold-list (map (lambda (x) (or (cddr x) (cadr x))) (%%get-do-bindings expression)) down up here seed1 aug-env)))
+    (up expression
+        seed
+        (jazz.tree-fold
+         (%%get-do-result expression) down up here
+         (jazz.tree-fold
+          (%%get-do-body expression) down up here
+          (jazz.tree-fold (%%get-do-test expression) down up here seed2 aug-env)
+          aug-env)
+         aug-env)
+        environment)))
 
 
 (jazz.encapsulate-class jazz.Do)
@@ -967,6 +1035,20 @@
               s)))))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.If expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold
+       (%%get-if-no expression) down up here
+       (jazz.tree-fold
+        (%%get-if-yes expression) down up here
+        (jazz.tree-fold
+         (%%get-if-test expression) down up here (down expression seed environment) environment)
+        environment)
+       environment)
+      environment))
+
+
 (jazz.encapsulate-class jazz.If)
 
 
@@ -1020,6 +1102,24 @@
                      (%%get-cond-clauses expression))))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Cond expression) down up here seed environment)
+  (up expression
+      seed
+      (let fold ((ls (%%get-cond-clauses expression))
+                 (seed (down expression seed environment)))
+        (if (null? ls)
+            seed
+            (let* ((clause (%%car ls))
+                   (test (%%car clause))
+                   (body (%%cddr clause))
+                   (seed (jazz.tree-fold body down up here seed environment)))
+              (fold (%%cdr ls)
+                    (if (%%not test)
+                        body
+                        (jazz.tree-fold test down up here seed environment))))))
+      environment))
+
+
 (jazz.encapsulate-class jazz.Cond)
 
 
@@ -1061,6 +1161,16 @@
         (jazz.fold-expressions (map cdr (%%get-case-clauses expression)) f k s s))))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Case expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (map cdr (%%get-case-clauses expression)) down up here
+       (jazz.tree-fold (%%get-case-target expression) down up here (down expression seed environment) environment)
+       environment)
+      environment))
+
+
 (jazz.encapsulate-class jazz.Case)
 
 
@@ -1088,6 +1198,14 @@
      (jazz.fold-expressions (%%get-and-expressions expression) f k s s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.And expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (%%get-and-expressions expression) down up here (down expression seed environment) environment)
+      environment))
+
+
 (jazz.encapsulate-class jazz.And)
 
 
@@ -1113,6 +1231,14 @@
 (jazz.define-method (jazz.fold-expression (jazz.Or expression) f k s)
   (f expression
      (jazz.fold-expressions (%%get-or-expressions expression) f k s s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Or expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (%%get-or-expressions expression) down up here (down expression seed environment) environment)
+      environment))
 
 
 (jazz.encapsulate-class jazz.Or)
@@ -1175,6 +1301,14 @@
 
 (jazz.define-method (jazz.fold-expression (jazz.Parameterize expression) f k s)
   (f expression s))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Parameterize expression) down up here seed environment)
+  (let ((seed2 (jazz.tree-fold-list (map cdr (%%get-parameterize-bindings expression)) down up here (down expression seed environment) environment)))
+    (up expression
+       seed
+       (jazz.tree-fold (%%get-parameterize-body expression) down up here seed2 environment)
+       environment)))
 
 
 (jazz.encapsulate-class jazz.Parameterize)

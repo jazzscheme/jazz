@@ -48,6 +48,7 @@
 
 
 (jazz.define-virtual (jazz.print-object (jazz.Object object) output detail))
+(jazz.define-virtual (jazz.tree-fold (jazz.Object object) down up here seed environment))
 
 
 ;;;

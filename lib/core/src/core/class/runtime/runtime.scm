@@ -413,6 +413,13 @@
     (display ">" output)))
 
 
+(jazz.define-virtual-runtime (jazz.tree-fold (jazz.Object expression) down up here seed environment))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Object expression) down up here seed environment)
+  (here expression seed environment))
+
+
 (jazz.encapsulate-class jazz.Object)
 
 

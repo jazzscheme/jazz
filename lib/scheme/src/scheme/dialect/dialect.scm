@@ -99,6 +99,10 @@
         s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Define-Declaration expression) down up here seed environment)
+  (jazz.tree-fold (%%get-define-declaration-value expression) down up here seed environment))
+
+
 (jazz.encapsulate-class jazz.Define-Declaration)
 
 

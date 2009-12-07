@@ -134,9 +134,11 @@
 (define (jazz.get-method-rank class method-name)
   (let iter ((scan (%%get-class-core-virtual-names class))
              (rank 0))
-    (if (%%eq? (%%car scan) method-name)
-        rank
-      (iter (%%cdr scan) (%%fx+ rank 1)))))
+    (if (%%null? scan)
+        (jazz.error "No method {s} for class {s}" method-name class)
+        (if (%%eq? (%%car scan) method-name)
+            rank
+            (iter (%%cdr scan) (%%fx+ rank 1))))))
 
 
 (define (jazz.get-method-implementation class method-name)

@@ -2063,16 +2063,8 @@
 
 
 (jazz.define-method (jazz.emit-binding-symbol (jazz.Symbol-Binding binding) declaration environment)
-  (let ((gensym (%%get-symbol-binding-gensym binding)))
-    (if gensym
-        (if (%%not (%%eq? 'gensym gensym))
-            gensym
-          (let* ((name (%%get-lexical-binding-name binding))
-                 (sym (unwrap-syntactic-closure name))
-                 (res (jazz.generate-symbol (%%symbol->string sym))))
-            (%%set-symbol-binding-gensym binding res)
-            res))
-      (unwrap-syntactic-closure (%%get-lexical-binding-name binding)))))
+  (or (%%get-symbol-binding-gensym binding)
+      (unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
 
 
 (jazz.encapsulate-class jazz.Symbol-Binding)
@@ -3171,6 +3163,44 @@
   (jazz.emit-declaration (jazz.walk-module partial-form) '()))
 
 
+(define (jazz.rename-identifier-conflicts expressions environment)
+  (jazz.tree-fold-list
+   expressions
+   (lambda (x seed env) env)
+   (lambda (x seed child-seed env) seed)
+   (lambda (x seed env)
+     (cond
+      ((%%is? x jazz.Reference)
+       (let* ((var (%%get-reference-binding x))
+              (sym (unwrap-syntactic-closure (%%get-lexical-binding-name var))))
+         (let lp1 ((e env))
+           (cond
+            ((pair? e)
+             (let lp2 ((ls (%%car e)) (found? #f))
+               (cond
+                ((pair? ls)
+                 (let* ((binding (%%car ls))
+                        (same? (eq? var binding)))
+                   (cond
+                    ((and binding
+                          (not same?)
+                          (%%is? binding jazz.Variable)
+                          (not (%%get-symbol-binding-gensym binding))
+                          (eq? sym
+                               (unwrap-syntactic-closure
+                                (%%get-lexical-binding-name binding))))
+                     ;; if we shadow an existing declaration, gensym a unique
+                     ;; symbol for it
+                     ;;(display "shadow: ") (write binding) (display " by ") (write var) (newline)
+                     (%%set-symbol-binding-gensym binding (jazz.generate-symbol (symbol->string sym)))))
+                   (lp2 (%%cdr ls) (or found? same?))))
+                ((not found?)
+                 (lp1 (%%cdr e)))))))))))
+     seed)
+   #f
+   (list environment)))
+
+
 (define (jazz.walk-module partial-form)
   (receive (name access dialect-name body) (jazz.parse-module partial-form)
     (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
@@ -3189,6 +3219,7 @@
                (environment (%%cons declaration (jazz.walker-environment walker)))
                (body (jazz.walk-namespace walker resume declaration environment body)))
           (jazz.validate-walk-problems walker)
+          (jazz.rename-identifier-conflicts body environment)
           (%%set-namespace-declaration-body declaration body)
           declaration)))))
 
@@ -3507,6 +3538,12 @@
        (jazz.fold-expressions (%%cdr expressions) f k s seed))))
 
 
+(define (jazz.tree-fold-list ls down up here seed environment)
+  (if (null? ls)
+      seed
+      (jazz.tree-fold-list (cdr ls) down up here (jazz.tree-fold (car ls) down up here seed environment) environment)))
+
+
 (jazz.encapsulate-class jazz.Expression)
 
 
@@ -3570,6 +3607,19 @@
        (jazz.fold-statements (%%get-body-expressions expression) f k s s))))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Body expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (%%get-body-expressions expression) down up here
+       (jazz.tree-fold-list
+        (%%get-body-internal-defines expression) down up here
+        (down expression seed environment)
+        environment)
+       environment)
+      environment))
+
+
 (jazz.encapsulate-class jazz.Body)
 
 
@@ -3601,6 +3651,16 @@
         s)))
 
 
+(jazz.define-method (jazz.tree-fold (jazz.Internal-Define expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold
+       (%%get-internal-define-value expression) down up here
+       (down expression seed environment)
+       environment)
+      environment))
+
+
 (jazz.encapsulate-class jazz.Internal-Define)
 
 
@@ -3628,6 +3688,16 @@
 (jazz.define-method (jazz.fold-expression (jazz.Begin expression) f k s)
   (f expression
      (jazz.fold-statements (%%get-begin-expressions expression) f k s s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Begin expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (%%get-begin-expressions expression) down up here
+       (down expression seed environment)
+       environment)
+      environment))
 
 
 (jazz.encapsulate-class jazz.Begin)
@@ -3674,6 +3744,17 @@
   (f expression
      (k (jazz.fold-expression (%%get-call-operator expression) f k s)
         (jazz.fold-expressions (%%get-call-arguments expression) f k s s))))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Call expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold-list
+       (cons (%%get-call-operator expression) (%%get-call-arguments expression))
+       down up here
+       (down expression seed environment)
+       environment)
+      environment))
 
 
 (jazz.encapsulate-class jazz.Call)
@@ -3727,6 +3808,13 @@
   (f expression
      (k (jazz.fold-expression (%%get-assignment-value expression) f k s)
         s)))
+
+
+(jazz.define-method (jazz.tree-fold (jazz.Assignment expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz.tree-fold (%%get-assignment-value expression) down up here (down expression seed environment) environment)
+      environment))
 
 
 (jazz.encapsulate-class jazz.Assignment)
@@ -4122,29 +4210,6 @@
            (jazz.special-form-name? symbol (cdr ls) end))))
 
 
-(define (jazz.update-gensyms symbol from-binding ls end)
-  (cond
-   ((and (%%class-is? from-binding jazz.Variable)
-         (jazz.special-form-name? symbol ls end))
-    ;; case 1, if we shadow a special-form, regardless of whether it
-    ;; is later reference directly always rename the symbol
-    (%%set-symbol-binding-gensym from-binding (jazz.generate-symbol (symbol->string symbol))))
-   (else
-    (let lp ((ls ls))
-      (cond
-       ((and (pair? ls) (not (eq? ls end)))
-        (let ((binding (car ls)))
-          (if (and binding
-                   (not (eq? binding from-binding))
-                   (%%is? binding jazz.Variable)
-                   (not (%%get-symbol-binding-gensym binding))
-                   (eq? symbol (unwrap-syntactic-closure
-                                (%%get-lexical-binding-name binding))))
-              ;; if we shadow an existing declaration, gensym a unique symbol for it
-              (%%set-symbol-binding-gensym binding (jazz.generate-symbol (symbol->string symbol)))))
-        (lp (cdr ls))))))))
-
-
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
   (define (lookup-composite walker environment symbol)
     (receive (module-name name) (jazz.split-composite symbol)
@@ -4161,14 +4226,9 @@
         (lookup-composite walker environment symbol)
       (let ((raw-symbol (unwrap-syntactic-closure symbol)))
         (let lp ((env environment))
-          (and
-           (pair? env)
-           (let ((binding (jazz.walk-binding-lookup (car env) symbol declaration)))
-             (cond
-              (binding
-               (jazz.update-gensyms raw-symbol binding environment #f)
-               binding)
-              (else (lp (cdr env))))))))))
+          (and (%%pair? env)
+               (or (jazz.walk-binding-lookup (%%car env) symbol declaration)
+                   (lp (%%cdr env))))))))
 
   (define (validate-compatibility walker declaration referenced-declaration)
     (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)

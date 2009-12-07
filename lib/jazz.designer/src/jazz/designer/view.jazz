@@ -40,6 +40,8 @@
 
 (import (jazz.designer)
         (jazz.locale)
+        (jazz.platform)
+        (jazz.ui.picker)
         (jazz.ui.view))
 
 
@@ -68,6 +70,67 @@
                (not (memq? model classes)))
       (set! classes (cons model (cons {} classes))))
     classes))
+
+
+;;;
+;;;; View
+;;;
+
+
+(definition *view-editors*
+  (make-table test: eq?))
+
+(definition (get-view-editor view)
+  (table-ref *view-editors* view {}))
+
+(definition (set-view-editor view editor)
+  (table-set! *view-editors* view editor))
+
+
+(definition (view-editor-client view)
+  (define (determine-client guest)
+    (typecase guest
+      (else
+       guest)))
+  
+  (determine-client (get-guest~ view)))
+
+
+(definition public (design-client)
+  (pick-figure
+    click: (lambda (view pos) (design-view view))
+    highlight: #t
+    highlight-root-only?: #t
+    obscure-unhighlighted?: #f
+    report-figure?: #f
+    tooltips?: #f))
+
+
+(definition public (design-mouse-client)
+  (design-view (mouse-view)))
+
+
+(definition (design-view view)
+  (let ((client (view-editor-client view)))
+    (if (not client)
+        (bell)
+      (let ((editor (get-view-editor client)))
+        (if (not editor)
+            (set-view-editor client (get-guest~ (new-frame View-Editor host-visible?: #f client: client)))
+          (close~ editor)
+          (set-view-editor client {}))))))
+
+
+(definition public (save-mouse-client)
+  (let ((client (view-editor-client (mouse-view))))
+    (if (not client)
+        (bell)
+      (let ((editor (get-view-editor client)))
+        (if (not editor)
+            (bell)
+          (with-cursor :wait
+            (lambda ()
+              (save~ editor))))))))
 
 
 ;;;

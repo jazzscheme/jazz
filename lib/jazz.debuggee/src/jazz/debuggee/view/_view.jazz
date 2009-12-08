@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Entry Widget
+;;;; Debuggee View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,39 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.widget.Entry-Widget jazz
+(module jazz.debuggee.view jazz
 
 
-(import (jazz.jml)
-        (jazz.ui))
+(import (jazz.debuggee)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class undocumented Entry-Widget extends Border-View
-  
-  
-  (form
-    (<install>                              border-type: edge style: entry
-      (<Scroller-View>       name: scroller hscroll?: #f vscroll?: #f
-        (<!>                 name: content  layout-type: fill
-          (<Entry-Text-View> name: text)))))
-  
-  
-  (method override (default-size)
-    {Dimension 200 19})))
+;;;
+;;;; Edit
+;;;
+
+
+(definition public (edit object)
+  (edit-definitions~ (get-application) (identifier-name (category-name (class-of object))))
+  (unspecified))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(definition public (design class/component)
+  (let ((component (parameterize ((designing? #t)) (new (if (class? class/component) class/component (class-of class/component))))))
+    (let ((editor (typecase component
+                    ((View) (autoload 'View-Editor))
+                    ((Component) (autoload 'Manager-View))
+                    (else (error "Only components can be designed: {s}" component)))))
+      (new-frame editor client: component))))
+
+
+(definition public (design-in-place view)
+  (new-frame (autoload 'View-Editor) client: view host-visible?: #f)))

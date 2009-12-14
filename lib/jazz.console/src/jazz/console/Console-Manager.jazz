@@ -39,6 +39,7 @@
 
 
 (import (jazz.console)
+        (jazz.debugger)
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
@@ -154,6 +155,10 @@
         (invalidate-window~ (get-player)))))
   
   
+  (method package (get-consoles)
+    (get-children~ (get-pad)))
+  
+  
   (method (select-console console)
     (let ((host (get-host))
           (pad (get-pad)))
@@ -173,6 +178,26 @@
         (if (eq? host (get-focused-host))
             (acquire-focus~ text)
           (set-focused~ host text)))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method package (update-console-buttons)
+    (let ((manager (get-debugger-manager)))
+      (for-each-process~ manager
+        (lambda (debugger process live? focused?)
+          (for-each (lambda (resource)
+                      (let ((reference (get-reference~ resource)))
+                        (when (is? reference Console-Text-View)
+                          (let ((button (get-button~ (get-console~ reference)))
+                                (process (get-reference~ (get-process~ resource)))
+                                (thread (get-reference~ (get-thread~ resource))))
+                            (set-title~ button (present-process-title process thread))))))
+                    (get-debugger-resources process))))
+      (refresh-tools~ (get-host))))
   
   
   ;;;

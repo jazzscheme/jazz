@@ -706,35 +706,36 @@
   (%%neq? (%%get-category-declaration-implementor category-declaration) 'primitive))
 
 
-(define (jazz.emit-method-dispatch object declaration)
+(define (jazz.emit-method-dispatch object declaration source-declaration environment)
   (let ((name (%%get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
       (let ((category-declaration (%%get-declaration-parent method-declaration)))
-        (jazz.new-code
-          (case dispatch-type
-            ((final)
-             (let ((implementation-locator (%%get-declaration-locator method-declaration)))
-               `(%%final-dispatch ,(jazz.sourcified-form object) ,implementation-locator)))
-            ((class)
-             (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
-                   (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-               (if (jazz.native-category? category-declaration)
-                   `(%%class-native-dispatch ,(jazz.sourcified-form object) ,class-level-locator ,method-rank-locator)
-                 `(%%class-dispatch ,(jazz.sourcified-form object) ,class-level-locator ,method-rank-locator))))
-            ((interface)
-             (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
-                   (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-               (if (jazz.native-category? category-declaration)
-                   `(%%interface-native-dispatch ,(jazz.sourcified-form object) ,interface-rank-locator ,method-rank-locator)
-                 `(%%interface-dispatch ,(jazz.sourcified-form object) ,interface-rank-locator ,method-rank-locator)))))
-          (jazz.call-return-type (%%get-lexical-binding-type method-declaration))
-          #f)))))
+        (let ((object-cast (jazz.emit-type-cast object category-declaration source-declaration environment)))
+          (jazz.new-code
+            (case dispatch-type
+              ((final)
+               (let ((implementation-locator (%%get-declaration-locator method-declaration)))
+                 `(%%final-dispatch ,object-cast ,implementation-locator)))
+              ((class)
+               (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
+                     (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+                 (if (jazz.native-category? category-declaration)
+                     `(%%class-native-dispatch ,object-cast ,class-level-locator ,method-rank-locator)
+                   `(%%class-dispatch ,object-cast ,class-level-locator ,method-rank-locator))))
+              ((interface)
+               (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
+                     (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+                 (if (jazz.native-category? category-declaration)
+                     `(%%interface-native-dispatch ,object-cast ,interface-rank-locator ,method-rank-locator)
+                   `(%%interface-dispatch ,object-cast ,interface-rank-locator ,method-rank-locator)))))
+            (jazz.call-return-type (%%get-lexical-binding-type method-declaration))
+            #f))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Method-Declaration declaration) source-declaration environment)
   (let ((self (jazz.*self*)))
     (if self
-        (let ((dispatch-code (jazz.emit-method-dispatch self declaration)))
+        (let ((dispatch-code (jazz.emit-method-dispatch self declaration source-declaration environment)))
           (jazz.new-code
             `(lambda rest
                (apply ,(jazz.sourcified-form dispatch-code) ,(jazz.sourcified-form self) rest))
@@ -784,7 +785,7 @@
     (if self
         (let ((type (%%get-lexical-binding-type declaration))
               (arguments (jazz.codes-forms arguments))
-              (dispatch-code (jazz.emit-method-dispatch self declaration)))
+              (dispatch-code (jazz.emit-method-dispatch self declaration source-declaration environment)))
           (jazz.new-code
             `(,(jazz.sourcified-form dispatch-code)
               ,(jazz.sourcified-form self)
@@ -1363,7 +1364,7 @@
               (or (jazz.emit-inlined-final-dispatch expression method-declaration object-code rest-codes declaration environment)
                   (jazz.with-code-value object-code
                     (lambda (code)
-                      (let ((dispatch-code (jazz.emit-method-dispatch code method-declaration)))
+                      (let ((dispatch-code (jazz.emit-method-dispatch code method-declaration declaration environment)))
                         (jazz.new-code
                           `(,(jazz.sourcified-form dispatch-code)
                             ,(jazz.sourcified-form code)

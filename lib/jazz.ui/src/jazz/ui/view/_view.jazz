@@ -383,17 +383,16 @@
 
 (definition public (new-frame guest-class . rest)
   (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new Frame-Host parent: (get-stage) visible?: #f)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
-      (when host-position
-        (set-position~ host host-position))
-      (when host-size
-        (set-size~ host host-size))
-      (when host-workspace
-        (set-workspace~ host host-workspace))
-      ;; It is important to set the frame's size before installing the guest
-      ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (either guest (new-guest guest-class others))))
+    (let ((guest (either guest (new-guest guest-class others))))
+      (let ((host (new Frame-Host parent: (get-stage) visible?: #f)))
+        (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
+        (when host-position
+          (set-position~ host host-position))
+        (if host-size
+            (set-size~ host host-size)
+          (set-size~ host (nu+ (get-size~ guest) {Point 8 28})))
+        (when host-workspace
+          (set-workspace~ host host-workspace))
         (set-guest~ host guest)
         ;; Should initialisations done here generate errors, at least
         ;; parent install is still not done at this point

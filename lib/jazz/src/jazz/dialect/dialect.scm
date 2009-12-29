@@ -1263,16 +1263,17 @@
       (let ((category (jazz.locate-method-owner class name)))
         (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
           (let ((field (%%get-category-field category name)))
-            (let ((proc
-                    (case (%%get-method-dispatch-type field)
-                      ((final)
-                       (jazz.final-dispatch field category))
-                      ((class)
-                       (jazz.class-dispatch field category))
-                      ((interface)
-                       (jazz.interface-dispatch field category)))))
+            (%%assertion (%%class-is? field jazz.Method) (jazz.error "Field {s} is not a method of {s}" name object)
+              (let ((proc
+                      (case (%%get-method-dispatch-type field)
+                        ((final)
+                         (jazz.final-dispatch field category))
+                        ((class)
+                         (jazz.class-dispatch field category))
+                        ((interface)
+                         (jazz.interface-dispatch field category)))))
                 (setter proc)
-                (proc object))))))))
+                (proc object)))))))))
 
 
 (define (jazz.final-dispatch field type)
@@ -1308,6 +1309,8 @@
       (if (%%not category)
           #f
         (let ((field (%%get-category-field category name)))
+          (if (not (%%class-is? field jazz.Method))
+              (jazz.error "Field {s} is not a method of {s}" name object))
           (case (%%get-method-dispatch-type field)
             ((final)
              (%%final-dispatch object (%%get-method-implementation field)))

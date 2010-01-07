@@ -499,58 +499,34 @@
   
   
   (method override (draw-children surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
+    (define (paint-data context column row lh lv h v width height data)
+      (with-transform~ surface lh lv width height sh sv sc sc?
+        (lambda ()
+          (draw-at~ column surface context row data 0 0 width height))))
+    
+    (define (merge-geometry top-left bottom-right)
+      (let ((top-left-rect (cell-rect top-left))
+            (bottom-right-rect (cell-rect bottom-right)))
+        (let ((top (get-top~ top-left-rect))
+              (left (get-left~ top-left-rect))
+              (right (get-right~ bottom-right-rect))
+              (bottom (get-bottom~ bottom-right-rect)))
+          (values left top (- right left) (- bottom top)))))
+    
+    (define (paint-merge-cell-data merge-cell)
+      (receive (top-left bottom-right) (merge-corner-cell merge-cell)
+        (receive (left top width height) (merge-geometry top-left bottom-right)
+          (let ((left-rank (get-col~ top-left))
+                (top-rank (get-row~ top-left))
+                (top-left-data (get-cell-data top-left))
+                (selected? (merge-cell-selected? merge-cell)))
+            (unless (is? top-left-data Tree-Label) ; hack until solved
+              (set! top-left-data (get-cell-data bottom-right)))
+            (let ((new-context (list selected?: selected? row-rank: top-rank context)))
+              (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height top-left-data))))))
+    
     (nextmethod surface context lh lv sh sv sc sc?)
-    (let ((cs (get-column-spacing))
-          (rs (get-row-spacing)))
-      (define (merge-cell-bounding-box merge-cell)
-        (let ((height 0)
-              (width 0)
-              (row-counted '())
-              (column-counted '())
-              (first-data #f)
-              (first-row-rank #f)
-              (col-min #f)
-              (data-h 0)
-              (data-v #f)
-              (selected? #f))
-          (for-each (lambda (cell)
-                      (let ((row-rank (get-row~ cell))
-                            (column-rank (get-col~ cell)))
-                        (when (cell-selected?~ (get-column column-rank) (list selected?: #f row-rank: row-rank context))
-                          (set! selected? #t))
-                        (when (not (member row-rank row-counted))
-                          (set! height (+ height (get-height~ (get-row row-rank)) rs))
-                          (set! row-counted (cons row-rank row-counted))
-                          (when (not first-row-rank)
-                            (set! first-data (get-cell-data cell))
-                            (set! first-row-rank row-rank)))
-                        (when (not (member column-rank column-counted))
-                          (set! width (+ width (get-width~ (get-column column-rank)) cs))
-                          (set! column-counted (cons column-rank column-counted))
-                          (when (or (not col-min)
-                                    (< column-rank col-min))
-                            (set! col-min column-rank)))
-                        (let ((row-pos (get-position~ (get-row row-rank))))
-                          (if (or (not data-v)
-                                  (< (get-v~ row-pos) data-v))
-                              (set! data-v (get-v~ row-pos))))))
-                    (get-merged-cells~ merge-cell))
-          (loop (for n from 0 below col-min)
-                (let ((col (get-column n)))
-                  (when (get-visible?~ col)
-                    (set! data-h (+ data-h (get-width~ col))))))
-          (values col-min first-row-rank first-data data-h width data-v height selected?)))
-      
-      (define (paint-data context column row lh lv h v width height data)
-        (with-transform~ surface lh lv width height sh sv sc sc?
-          (lambda ()
-            (draw-at~ column surface context row data 0 0 width height))))
-      
-      (for-each (lambda (merge-cell)
-                  (receive (col-min first-row-rank first-data data-h width data-v height selected?) (merge-cell-bounding-box merge-cell)
-                    (let ((new-context (list selected?: selected? row-rank: first-row-rank context)))
-                      (paint-data new-context (get-column col-min) #f (+ lh data-h) (+ lv data-v) 0 0 width height first-data))))
-                merge-cell-list)))
+    (for-each paint-merge-cell-data merge-cell-list))
   
   
   ;;;
@@ -1622,6 +1598,43 @@
   
   (method public (clear-merge-cell cell)
     (table-clear merge-cell-table cell))
+  
+  
+  (method (merge-cell-selected? merge-cell)
+    (let ((cells (get-merged-cells~ merge-cell)))
+      (case selection-mode
+        ((cell)
+         (some? (lambda (selected-cell <Cell>)
+                  (some? (lambda (merge-cell <Cell>)
+                           (= merge-cell selected-cell))
+                         cells))
+                (get-selection)))
+        (else
+         #f))))
+  
+  
+  (method (merge-corner-cell merge-cell)
+    (define (ordered? one two)
+      (if (= (get-row~ one) (get-row~ two))
+          (< (get-col~ one) (get-col~ two))
+        (< (get-row~ one) (get-row~ two))))
+    
+    (let ((scan (get-merged-cells~ merge-cell)))
+      (let (iterate (scan (cdr scan))
+                    (top-left (car scan))
+                    (bottom-right (car scan)))
+        (if (pair? scan)
+            (iterate (cdr scan)
+                     (if (ordered? top-left (car scan)) top-left (car scan))
+                     (if (ordered? (car scan) bottom-right) bottom-right (car scan)))
+          (values top-left bottom-right)))))
+  
+  
+  (method public (merge-cell-rect merge-cell)
+    (receive (top-left bottom-right) (merge-corner-cell merge-cell)
+      (let ((top-left-rect (cell-rect top-left))
+            (bottom-right-rect (cell-rect bottom-right)))
+        (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))))
   
   
   ;;;

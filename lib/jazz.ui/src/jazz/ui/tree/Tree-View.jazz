@@ -102,7 +102,7 @@
   (slot protected selection-manager             initialize (new Selection-Manager self))
   (slot protected merge-cell-list               initialize '()  getter generate)
   (slot protected merge-cell-table              initialize (make-table test: cell=? hash: cell-hash) getter generate)
-    
+  
   
   (form
     (<install> background: {Color name: White}))
@@ -613,6 +613,8 @@
     (close-auto-expanded-row)
     (set-sorted {} #t)
     (set! highlighted '())
+    (set! merge-cell-list '())
+    (empty-table merge-cell-table)
     (nextmethod))
   
 
@@ -1234,16 +1236,19 @@
   
   
   (method public (left-arrow-action modifiers user?)
+    (define (logical-col cell)
+      (let ((merge-cell (get-merge-cell cell)))
+        (if merge-cell
+            (get-first-col~ merge-cell)
+          (get-col~ cell))))
+    
     (case selection-mode
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merge-cell (get-merge-cell cell)))
-             (if merge-cell
-                 (when (> (get-first-col~ merge-cell) 0)
-                   (move-cell (new Cell (get-row~ cell) (- (get-first-col~ merge-cell) 1)) 'left user?))
-               (when (> (get-col~ cell) 0)
-                 (move-cell (new Cell (get-row~ cell) (- (get-col~ cell) 1)) 'left user?)))))))
+           (let ((col (logical-col cell)))
+             (when (> col 0)
+               (move-cell (new Cell (get-row~ cell) (- col 1)) 'left user?))))))
       ((row)
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1259,16 +1264,19 @@
   
   
   (method public (up-arrow-action modifiers user?)
+    (define (logical-row cell)
+      (let ((merge-cell (get-merge-cell cell)))
+        (if merge-cell
+            (get-first-row~ merge-cell)
+          (get-row~ cell))))
+    
     (case selection-mode
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merge-cell (get-merge-cell cell)))
-             (if merge-cell
-                 (when (> (get-first-row~ merge-cell) 0)
-                   (move-cell (new Cell (- (get-first-row~ merge-cell) 1) (get-col~ cell)) 'up user?))
-               (when (> (get-row~ cell) 0)
-                 (move-cell (new Cell (- (get-row~ cell) 1) (get-col~ cell)) 'up user?)))))))
+           (let ((row (logical-row cell)))
+             (when (> row 0)
+               (move-cell (new Cell (- row 1) (get-col~ cell)) 'up user?))))))
       (else
        (let ((count (get-visible-count)))
          (if (null? selection)
@@ -1284,16 +1292,19 @@
   
   
   (method public (right-arrow-action modifiers user?)
+    (define (logical-col cell)
+      (let ((merge-cell (get-merge-cell cell)))
+        (if merge-cell
+            (get-last-col~ merge-cell)
+          (get-col~ cell))))
+    
     (case selection-mode
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (let ((merge-cell (get-merge-cell cell)))
-             (if merge-cell
-                 (when (< (get-last-col~ merge-cell) (- (get-columns-count) 1))
-                   (move-cell (new Cell (get-row~ cell) (+ (get-last-col~ merge-cell) 1)) 'right user?))
-               (when (< (get-col~ cell) (- (get-columns-count) 1))
-                 (move-cell (new Cell (get-row~ cell) (+ (get-col~ cell) 1)) 'right user?)))))))
+           (let ((col (logical-col cell)))
+             (when (< col (- (get-columns-count) 1))
+               (move-cell (new Cell (get-row~ cell) (+ col 1)) 'right user?))))))
       (else
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1307,18 +1318,21 @@
   
   
   (method public (down-arrow-action modifiers user?)
+    (define (logical-row cell)
+      (let ((merge-cell (get-merge-cell cell)))
+        (if merge-cell
+            (get-first-row~ merge-cell)
+          (get-row~ cell))))
+    
     (let* ((count (get-visible-count))
            (last (- count 1)))
       (case selection-mode
         ((cell)
          (when (not-null? selection)
            (let ((cell selection-pivot))
-             (let ((merge-cell (get-merge-cell cell)))
-               (if merge-cell
-                 (when (< (get-last-row~ merge-cell) last)
-                   (move-cell (new Cell (+ (get-last-row~ merge-cell) 1) (get-col~ cell)) 'down user?))
-               (when (< (get-row~ cell) last)
-                 (move-cell (new Cell (+ (get-row~ cell) 1) (get-col~ cell)) 'down user?)))))))
+             (let ((row (logical-row cell)))
+               (when (< row last)
+                 (move-cell (new Cell (+ row 1) (get-col~ cell)) 'down user?))))))
         (else
          (if (null? selection)
              (when (> count 0)
@@ -1601,16 +1615,13 @@
   
   
   (method (merge-cell-selected? merge-cell)
-    (let ((cells (get-merged-cells~ merge-cell)))
-      (case selection-mode
-        ((cell)
-         (some? (lambda (selected-cell <Cell>)
-                  (some? (lambda (merge-cell <Cell>)
-                           (= merge-cell selected-cell))
-                         cells))
-                (get-selection)))
-        (else
-         #f))))
+    (case selection-mode
+      ((cell)
+       (some? (lambda (cell)
+                (eq? merge-cell (get-merge-cell cell)))
+              (get-selection)))
+      (else
+       #f)))
   
   
   (method (merge-corner-cell merge-cell)
@@ -1635,6 +1646,15 @@
       (let ((top-left-rect (cell-rect top-left))
             (bottom-right-rect (cell-rect bottom-right)))
         (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))))
+  
+  
+  (method public (invalidate-merge-cell merge-cell)
+    (let ((player (get-player)))
+      (when player
+        (let ((root (get-root)))
+          (receive (dh dv sc) (get-delta~ root self)
+            (with-closed ((region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
+              (invalidate-region~ player region)))))))
   
   
   ;;;
@@ -1950,10 +1970,6 @@
                           (invalidate-merge-cell merge-cell)
                         (invalidate-selection (list cell)))))
                   selection)))
-    
-    (define (invalidate-merge-cell merge-cell)
-      ;; first draft... this should use a merge-cell bounding box
-      (invalidate-selection (get-merged-cells~ merge-cell)))
     
     (unless (locked?~ selection-manager)
       (reset~ locator)

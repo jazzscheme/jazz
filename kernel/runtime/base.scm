@@ -240,7 +240,9 @@
 
 (define (jazz.parse-link link)
   (define link-options
-    '(("objects" objects)
+    '(("obj" objects)
+      ("objects" objects)
+      ("lib" libraries)
       ("libraries" libraries)
       ("all" objects libraries)))
   

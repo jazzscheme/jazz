@@ -266,7 +266,12 @@
   
   (method public virtual (draw-background surface context row data width height)
     (let ((rect (new Rect 0 0 width height)))
-      (let ((color (if *debug-paint* (cycle-debug-color!) (background-color data context))))
+      (let ((color (cond (*debug-paint*
+                          (cycle-debug-color!))
+                         ((not (get-enabled?~ parent))
+                          {Color name: Medium})
+                         (else
+                          (background-color data context)))))
         (fill-rect~ surface rect color))
       (when (is? data Tree-Data)
         (let ((frame-color (get-frame-color~ data)))
@@ -299,17 +304,17 @@
       ((row) #t)))
   
   
-  (method public virtual (draw-header surface context lh lv h v width height sorted spaced? flat?)
-    (draw-header-at surface lh lv h v width height (localize title) down? sorted spaced? flat?))
+  (method public virtual (draw-header surface context lh lv h v width height sorted spaced? flat? enabled?)
+    (draw-header-at surface lh lv h v width height (localize title) down? sorted spaced? flat? enabled?))
   
   
-  (method (draw-header-at surface lh lv h v width height title down? sorted spaced? flat?)
+  (method (draw-header-at surface lh lv h v width height title down? sorted spaced? flat? enabled?)
     (if down?
-        (draw-sunken-button surface lh lv h v width height title sorted spaced? flat?)
-      (draw-raised-button surface lh lv h v width height title sorted spaced? flat?)))
+        (draw-sunken-button surface lh lv h v width height title sorted spaced? flat? enabled?)
+      (draw-raised-button surface lh lv h v width height title sorted spaced? flat? enabled?)))
     
   
-  (method (draw-raised-button surface lh lv h v width height title sorted spaced? flat?)
+  (method (draw-raised-button surface lh lv h v width height title sorted spaced? flat? enabled?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
@@ -324,7 +329,7 @@
           (let ((rect (expand-rect outer 0 0 -1 -1)))
             (draw-edge~ surface rect inner: 'raised edges: '(top left))))
         (fill-rect~ surface inner (either background (header-color~ parent)))
-        (set-text-color~ surface {Color name: Black})
+        (set-text-color~ surface (if enabled? {Color name: Black} {Color name: Dark}))
         (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
           (lambda ()
             (draw-text~ surface text-h 1 title)
@@ -352,14 +357,14 @@
           ((descending) (draw-arrow-tip~ surface h v size 'down))))))
   
   
-  (method (draw-sunken-button surface lh lv h v width height title sorted spaced? flat?)
+  (method (draw-sunken-button surface lh lv h v width height title sorted spaced? flat? enabled?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1))
            (text-h (+ (header-title-h surface width height title) 1)))
       (set-color~ surface {Color name: Dark})
       (frame-rect~ surface outer {Color name: Dark})
       (fill-rect~ surface inner (either background (header-color~ parent)))
-      (set-text-color~ surface {Color name: Black})
+      (set-text-color~ surface (if enabled? {Color name: Black} {Color name: Dark}))
       (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
         (lambda ()
           (draw-text~ surface text-h 2 title)

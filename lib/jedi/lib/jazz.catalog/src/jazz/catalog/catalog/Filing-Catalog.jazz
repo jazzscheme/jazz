@@ -330,6 +330,7 @@
   
   
   (method protected (scan)
+    (reset)
     (let ((queue (new-queue)))
       (scan-directories queue)
       (queue-list queue)))
@@ -368,21 +369,26 @@
       (let ((extension (get-extension~ file)))
         (parse~ (get-parser extension) file time)))
     
-    (define (unmodified? file time)
+    (define (unmodified-file-entry file time)
       (let ((actual (get-file-entry file)))
-        (and actual (= (time->seconds (get-time~ actual)) (time->seconds time)))))
+        (when (and actual (= (time->seconds (get-time~ actual)) (time->seconds time)))
+          actual)))
     
     (when (scan? file)
       (if (exists?~ file)
           (let ((time (get-modification-time~ file)))
-            (unless (unmodified? file time)
-              (with-exception-filter
-                (lambda (exc)
-                  #t)
-                (lambda (exc)
-                  (wrap-exception exc))
-                (lambda ()
-                  (scan file time report?)))))
+            (let ((file-entry (unmodified-file-entry file time)))
+              (if file-entry
+                  (begin
+                    (set-marked?~ file-entry #t)
+                    {})
+                (with-exception-filter
+                  (lambda (exc)
+                    #t)
+                  (lambda (exc)
+                    (wrap-exception exc))
+                  (lambda ()
+                    (scan file time report?))))))
         (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         {})))
   

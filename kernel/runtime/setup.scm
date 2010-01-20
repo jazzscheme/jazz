@@ -202,7 +202,7 @@
             (begin
               (set! jazz.currently-loading-library-procs (%%vector-ref lib 0))
               ((%%vector-ref (%%vector-ref (%%vector-ref lib 0) 0) 1)))
-          (jazz.feedback "WARNING: failed to load library " pathname))))
+          (jazz.feedback "WARNING: failed to load library {a}" pathname))))
     libraries))
 
 

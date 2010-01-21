@@ -38,6 +38,20 @@
 (module protected jazz.dialect.syntax.enumeration scheme
 
 
+(import (jazz.dialect.kernel))
+
+
+#;
+(syntax public (enumeration form-src)
+  (let ((enumeration-name (cadr (source-code form-src)))
+        (names (cddr (source-code form-src))))
+    `(begin
+       (class ,enumeration-name extends Enumeration)
+       ,@(map (lambda (name)
+                `(constant ,name (new ,enumeration-name)))
+              names))))
+
+
 #; (
 
 

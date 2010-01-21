@@ -617,6 +617,7 @@
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.create-class-tables class)
+    (jazz.initialize-slots class)
     ((%%class-dispatch class 0 0) class)
     class))
 
@@ -2105,8 +2106,7 @@
 
 
 (define (jazz.initialize-slots object)
-  (let* ((class (%%get-object-class object))
-         (slots (%%get-class-instance-slots class)))
+  (let ((slots (%%get-class-instance-slots (%%get-object-class object))))
     (for-each (lambda (slot)
                 (let ((offset (%%get-slot-offset slot))
                       (initialize (%%get-slot-initialize slot)))

@@ -571,13 +571,15 @@
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
          (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
+         (core? (jazz.core-class? (%%get-lexical-binding-name (%%get-declaration-parent declaration))))
+         (initialize? (and allocate? (%%not core?)))
          (initialize (%%get-slot-declaration-initialize declaration))
-         (initialize-locator (and allocate? (jazz.compose-helper locator 'initialize)))
+         (initialize-locator (and initialize? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset)))
     (jazz.sourcify-if
       `(begin
-         ,@(if allocate?
+         ,@(if initialize?
                `((define (,initialize-locator self)
                    ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment))))
              '())

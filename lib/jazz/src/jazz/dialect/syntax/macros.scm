@@ -59,15 +59,6 @@
       form-src)))
 
 
-(syntax public (enumeration form-src)
-  (let ((name (cadr (source-code form-src)))
-        (declarations (cddr (source-code form-src))))
-    (sourcify-if
-      (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
-        `(begin ,@definitions))
-      form-src)))
-
-
 (define-syntax package expand-body
   (syntax-rules ()
     ((_)

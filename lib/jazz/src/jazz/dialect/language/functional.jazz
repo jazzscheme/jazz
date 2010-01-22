@@ -3998,81 +3998,73 @@
 ;;;
 
 
-@w
-(class Enumeration extends Object
+(class Enumeration extends Class
   
   
-  (slot name)
-  (slot entries)
+  (slot members initialize '() accessors generate)
   
   
-  (method (initialize name entries)
-    (nextmethod name Enumeration)
-    (set! name~self name)
-    (set! entries~self entries))
+  (method (add-member member)
+    (set! members (append! members (list member))))
+  
+  
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (system-format printer "{a}" members))))
 
 
-  (method (print printer readably)
-    (format printer "~{{a} {a} {a}}"
-            (category-name (class-of self))
-            name
-            entries))
-  
-  
-  (method public (get-name)
-    name)
-  
-  
-  (method public (get-entries)
-    entries)
-  
-  
-  (method public (set-value name value)
-    (set-car! (cdr (entry-from-name name)) value))
-
-
-  (method (entry-from-name name)
-    (either (find-in entries name key: first test: eq?)
+  (method (name->member name)
+    (either (find-in members name key: get-name~ test: eq?)
             (error "Unknown enumeration name: {t} in {t}" name self)))
 
 
-  (method (entry-from-value value)
-    (either (find-in entries value key: second test: eqv?)
+  (method (value->member value)
+    (either (find-in members value key: get-value~ test: eqv?)
             (error "Unknown enumeration value: {t} in {t}" value self)))
 
 
-  (method public (value->name value)
-    (car (entry-from-value value)))
-
-
   (method public (name->value name)
-    (cadr (entry-from-name name)))
+    (get-value~ (name->member name)))
+
+
+  (method public (value->name value)
+    (get-name~ (value->member value)))
   
   
-  (method public (get-rank target)
-    (if (= target name)
-        0
-      (+ 1 (find entries target key: first test: eq?)))))
-
-
-(definition public inline (enumeration? object <Object>)
-  @w
-  (is? object Enumeration))
-
-
-(definition public inline (set-enumeration! enumeration name value)
-  (set-value~ enumeration name value))
-
-
-(definition public (bits->symbolic bits enumeration)
-  (let ((entries (get-entries~ enumeration)))
+  (method public (bits->names bits)
     (let ((fact (new List-Factory)))
-      (for-each (lambda (entry)
-                  (bind (name value) entry
-                    (when (mask-bit-set? bits value)
-                      (put~ fact name))))
-                entries)
+      (for-each (lambda (member)
+                  (when (mask-bit-set? bits (get-value~ member))
+                    (put~ fact (get-name~ member))))
+                members)
       (get-output~ fact))))
+
+
+(class Enumeration-Member metaclass Enumeration extends Object
+  
+  
+  (slot name getter generate)
+  
+  
+  (method override (initialize name)
+    (nextmethod)
+    (set! name~self name)
+    (add-member~ (class-of self) self))
+
+
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (system-format printer "{a}" name))))
+  
+  
+  (method protected virtual (get-value)
+    ))
+
+
+(definition public (enumeration? obj)
+  (is? obj Enumeration))
 
 
 ;;;

@@ -47,84 +47,24 @@
 (class Image extends Object
 
 
-  (slot icon          initialize {}          accessors generate)
-  (slot bitmap        initialize {})
-  (slot metafile      initialize {})
   (slot portfolio     initialize {}          accessors generate)
-  (slot image-name    initialize {}          accessors generate)
+  (slot resource      initialize {}          accessors generate)
   (slot moniker       initialize {})
-  (slot source        initialize {})
-  (slot scaled?       initialize #f          accessors generate)
-  (slot scaling       initialize 1.0         accessors generate)
-  (slot cache?        initialize #f)
   (slot handle        initialize {}          accessors generate)
-  (slot size          initialize {})
   (slot view-position initialize {Point 0 0} accessors generate)
   (slot view-size     initialize {}          accessors generate)
-  (slot mode          initialize {})
   
   
-  (method override (initialize (cache?: cache? #f)
-                      (portfolio: portfolio {})
-                      (image-name: image-name {})
-                      (view-position: view-position {Point 0 0})
-                      (view-size: view-size {}))
+  (method override (initialize
+                     (portfolio: portfolio {})
+                     (resource: resource {})
+                     (view-position: view-position {Point 0 0})
+                     (view-size: view-size {}))
     (nextmethod)
-    (set! cache?~self cache?)
     (set! portfolio~self portfolio)
-    (set! image-name~self image-name)
+    (set! resource~self resource)
     (set! view-position~self view-position)
     (set! view-size~self view-size))
-  
-  
-  (method public (get-bounds)
-    (unimplemented 'get-bounds)
-    @windows-specific
-    (cond (metafile
-           (let ((size (size-of ENHMETAHEADER)))
-             (with ((header (new ENHMETAHEADER)))
-               (set header 'nSize size)
-               (GetEnhMetaFileHeader metafile size header)
-               (let ((proc
-                      (lambda (bounds)
-                        (if scaled?
-                            (scale bounds scaling)
-                          bounds))))
-                 (proc (RECT->rect (get header 'rclBounds)))))))
-          (else
-           (error "Unable to get image bounds for {t}" self))))
-  
-  
-;; tofix : should be removed or we should start using libpng
-  (method public (get-size (error?: error? #t))
-    (cond (source
-            size)
-          @unused
-          (bitmap
-            (let ((info (BITMAP-make)))
-              (GetObject (either handle (load-image 'bitmap bitmap)) (BITMAP-sizeof) info)
-              (new Dimension
-                (BITMAP-bmWidth-ref info)
-                (BITMAP-bmHeight-ref info))))
-          @unused
-          (metafile
-            (let ((bounds (get-bounds)))
-              (new Dimension
-                (+ (rect-width bounds) 1)
-                (+ (rect-height bounds) 1))))
-          (else
-           (when error?
-             (error "Unable to get image size for {t}" self)))))
-  
-  
-  (method public (get-width)
-    (cond (portfolio (get-width~ portfolio))
-          (else (get-width~ (get-size)))))
-  
-  
-  (method public (get-height)
-    (cond (portfolio (get-height~ portfolio))
-          (else (get-height~ (get-size)))))
 
 
   ;;;
@@ -132,73 +72,18 @@
   ;;;
 
 
-  ;; tofix : style was ILD_TRANSPARENT
-  (method public (draw surface context h v (size: size (get-size error?: #f)) (style: style {}) (enabled?: enabled? #t))
-    (define (draw-icon h v size)
-      (let ((icon (either handle (load-image 'icon icon))))
-        (draw-image~ surface icon h v)))
+  (method public (draw surface context h v)
+    (define (draw-image h v)
+      (when resource
+        (draw-image~ portfolio surface context resource h v)))
     
-    (define (draw-bitmap h v size)
-      (let ((bitmap (either handle (load-image 'bitmap bitmap))))
-        (draw-image~ surface icon h v)))
-    
-    (define (draw-metafile h v size)
-      (unimplemented 'draw-metafile)
-      @windows-specific
-      (let ((bounds (get-bounds)))
-        (with ((rect (rect->RECT bounds)))
-          (PlayEnhMetaFile (get-hdc~ surface) metafile rect))))
-    
-    (define (draw-image h v size style enabled?)
-      (when image-name
-        (draw-image~ portfolio surface context image-name h v style: style enabled?: enabled?)))
-    
-    (define (draw-handle h v size)
+    (define (draw-handle h v)
       (draw-image~ surface handle h v))
-    
-    (define (draw-source h v size)
-      (case mode
-        ((centered) (draw-centered h v))
-        ((tiled) (draw-tiled h v))
-        ((filled) (draw-positioned 0 0))
-        ((stretched) (draw-centered h v))
-        (else (draw-positioned h v))))
-    
-    (define (draw-source-bitmap h v)
-      (unimplemented 'draw-source-bitmap)
-      @windows-specific
-      (when handle
-        (draw-HBITMAP~ Imaging (get-hdc~ surface) handle h v (get-width~ size) (get-height~ size) NULL)))
-    
-    (define (draw-centered h v)
-      (let ((centered (center size view-size)))
-        (when (or (> (get-width~ view-size) (get-width~ size))
-                  (> (get-height~ view-size) (get-height~ size)))
-          (let ((rect (new Rect 0 0 (get-width~ view-size) (get-height~ view-size))))
-            (fill-rect~ surface rect {Color name: Black})))
-        (draw-source-bitmap (get-h~ centered) (get-v~ centered))))
-    
-    (define (draw-tiled h v)
-      (let ((v 0))
-        (while (< v (get-height~ view-size))
-          (let ((h 0))
-            (while (< h (get-width~ view-size))
-              (draw-source-bitmap h v)
-              (increase! h (get-width~ size))))
-          (increase! v (get-height~ size)))))
-    
-    (define (draw-positioned h v)
-      (draw-source-bitmap (+ (get-h~ view-position) h) (+ (get-v~ view-position) v)))
     
     (let ((h (+ (get-h~ view-position) h))
           (v (+ (get-v~ view-position) v)))
-      (cond (icon (draw-icon h v size))
-            (bitmap (draw-bitmap h v size))
-            (metafile (draw-metafile h v size))
-            (portfolio (draw-image h v size style enabled?))
-            (handle (draw-handle h v size))
-            (source (draw-source h v size))
-            ((and handle cache?) (draw-bitmap h v size)))))
+      (cond (portfolio (draw-image h v))
+            (handle (draw-handle h v)))))
   
   
   ;;;
@@ -207,149 +92,19 @@
   
   
   (method public (preload-image)
-    (when (and portfolio image-name)
-      (preload~ portfolio image-name)))
+    (when (and portfolio resource)
+      (preload~ portfolio resource)))
 
 
   ;;;
   ;;;; Access
   ;;;
-
-
-  (method public (get-mode)
-    mode)
-
-
-  (method public (set-mode md)
-    (when (neq? mode md)
-      (let ((old mode))
-        (set! mode md)
-        (when (or (eq? old 'filled) (eq? mode 'filled)
-                  (eq? old 'stretched) (eq? mode 'stretched))
-          (update-image force?: #t)))))
-
-
-  (method public (get-bitmap)
-    bitmap)
-
-
-  (method public (set-bitmap b)
-    (unimplemented 'set-bitmap)
-    @windows-specific (
-    (set! bitmap b)
-    (when cache?
-      (when handle
-        (DeleteObject handle)
-        (set! handle {}))
-      (when bitmap
-        (set! handle (load-image 'bitmap bitmap))))))
-  
-  
-  (method public (get-source)
-    source)
-
-
-  (method public (set-source file)
-    (unimplemented 'set-source)
-    @windows-specific (
-    (set! source {})
-    (when handle
-      (DeleteObject handle)
-      (set! handle {}))
-    (when file
-      (load-image-source file))))
   
   
   (method public (get-moniker)
-    (either moniker bitmap source))
+    moniker)
   
   
   (method public (set-moniker mnk)
     (set! moniker mnk)
-    (set! handle (load-image 'bitmap mnk))
-    @convert
-    (let ((ext (get-extension~ moniker)))
-      (cond (#f @this-is-not-clear-and-there-is-a-bug-with-set-bitmap (ci=? ext "bmp")
-             (set-bitmap moniker))
-            ((member? ext '("wmf" "emf") test: ci=?)
-             (load-metafile moniker))
-            (else
-             (set-source moniker)))))
-  
-  
-  (method (load-metafile moniker)
-    (unimplemented 'load-metafile)
-    @windows-specific
-    (set! metafile (GetEnhMetaFile (parse~ moniker))))
-
-
-  (method public (update-image (force?: force? #f))
-    (when (or force? (eq? mode 'filled) (eq? mode 'stretched))
-      (set-source source)))
-
-
-  (method (load-image-source file)
-    (unimplemented 'load-image-source)
-    @windows-specific
-    (let ((src (open-source file)))
-      (receive (rgb w h) (read-source file src)
-        (close-source~ Imaging src)
-        (if (not rgb)
-            (error "Unable to read image source: {t}" file)
-          (when view-size
-            (case mode
-              ((filled)
-                (let* ((nw (get-width~ view-size))
-                       (nh (get-height~ view-size))
-                       (resized-rgb (heap-alloc (* nw nh 3))))
-                  (resize-RGB~ Imaging rgb w h resized-rgb nw nh)
-                  (heap-free rgb)
-                  (set! rgb resized-rgb)
-                  (set! w nw)
-                  (set! h nh)))
-              ((stretched)
-                (let* ((rw (/ (get-width~ view-size) w))
-                       (rh (/ (get-height~ view-size) h))
-                       (ratio (if (> rw rh) rh rw))
-                       (nw (fxround (* w ratio)))
-                       (nh (fxround (* h ratio)))
-                       (resized-rgb (heap-alloc (* nw nh 3))))
-                  (resize-RGB~ Imaging rgb w h resized-rgb nw nh)
-                  (heap-free rgb)
-                  (set! rgb resized-rgb)
-                  (set! w nw)
-                  (set! h nh)))))
-          (with-closed ((compatibility-dc (new Client-Surface (get-desktop))))
-            (let ((bmp (RGB->HBITMAP~ Imaging rgb w h NULL (get-hdc~ compatibility-dc))))
-              (heap-free rgb)
-              (set! source file)
-              (set! handle bmp)
-              (set! size (new Dimension w h))))))))
-  
-  
-  (method (open-source source)
-    (unimplemented 'open-source)
-    @windows-specific
-    (if (file? source)
-        (open-file-source~ Imaging (coerce (parse~ source) Ansi-String))
-      (open-memory-source~ Imaging (get-handle~ source) (length source))))
-
-
-  (method (read-source source src)
-    (define (source-type source)
-      (if (file? source)
-          (let ((ext (get-extension~ source)))
-            (cond ((ci=? ext "bmp") 'bmp)
-                  ((ci=? ext "png") 'png)
-                  ((member? ext '("jpg" "jpeg") test: ci=?) 'jpg)
-                  ((member? ext '("tif" "tiff") test: ci=?) 'tiff)
-                  (else (error "Unable to display image type: {t}" ext))))
-        'jpg))
-    
-    (unimplemented 'read-source)
-    @windows-specific
-    (case (source-type source)
-      ((bmp) (read-BMP->RGB~ Imaging src))
-      ((png) (read-PNG->RGB~ Imaging src))
-      ((jpg) (read-JPG->RGB~ Imaging src))
-      ((tiff) (read-TIFF->RGB~ Imaging src))))))
+    (set! handle (load-image 'bitmap mnk)))))

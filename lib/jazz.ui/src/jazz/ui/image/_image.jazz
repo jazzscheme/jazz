@@ -44,28 +44,26 @@
 
 
 (definition public (load-image type image . rest)
+  (define (find-bitmap-file resource)
+    (get-resource~ (get-application) 'bitmap (get-name~ resource)))
+  
+  (define (find-icon-file resource)
+    (get-resource~ (get-application) 'icon (get-name~ resource)))
+  
+  (define (create-cairo-surface-from-png file)
+    (let ((handle (cairo_image_surface_create_from_png (parse~ file))))
+      (if (/= (cairo_surface_status handle) 0)
+          (error "Image file not found : {s}" file)
+        handle)))
+  
   (case type
     ((bitmap)
-     (let* ((image (if (resource? image) (find-bitmap-file image) image))
-            (ident (parse~ image))
-            (handle (cairo_image_surface_create_from_png ident)))
-       (when (= (cairo_surface_status handle) 18)
-         (error "Image file not found : {s}" ident))
-       handle))
+     (create-cairo-surface-from-png
+       (if (resource? image)
+           (find-bitmap-file image)
+         image)))
     ((icon)
-     (let* ((image (cond ((integer? image) (find-icon-file {Icon-Resource "Jedi"}))
-                         ((resource? image) (find-icon-file image))
-                         (else image)))
-            (ident (parse~ image))
-            (handle (cairo_image_surface_create_from_png ident)))
-       (when (= (cairo_surface_status handle) 18)
-         (error "Image file not found : {s}" ident))
-       handle))))
-  
-
-(definition public (find-bitmap-file object)
-  (get-resource~ (get-application) 'bitmap (get-name~ object)))
-
-
-(definition public (find-icon-file object)
-  (get-resource~ (get-application) 'icon (get-name~ object))))
+     (create-cairo-surface-from-png
+       (if (resource? image)
+           (find-icon-file image)
+         image))))))

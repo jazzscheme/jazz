@@ -2184,7 +2184,7 @@
           (let ((pivot (proc selection-pivot)))
             (set! selection-pivot (or pivot (and (not-null? selection) (car selection))))))
         removed)))
-  
+
   
   (method override (selection-region sel dh dv sc)
     (define (element-region element)
@@ -2194,8 +2194,12 @@
     
     (let ((region (new Region)))
       (loop (for element in sel)
-            (with-closed ((row-region (element-region element)))
-              (combine!~ region row-region 'or)))
+            (let ((merged-elements (get-merge-cell element)))
+              (if merged-elements
+                  (with-closed ((row-region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merged-elements)))))
+                    (combine!~ region row-region 'or))
+                (with-closed ((row-region (element-region element)))
+                  (combine!~ region row-region 'or)))))
       region))
     
   

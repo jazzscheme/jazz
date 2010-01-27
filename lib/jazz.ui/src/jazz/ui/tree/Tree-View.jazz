@@ -500,9 +500,11 @@
   
   (method override (draw-children surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
     (define (paint-data context column row lh lv h v width height data)
-      (with-transform~ surface lh lv width height sh sv sc sc?
-        (lambda ()
-          (draw-at~ column surface context row data 0 0 width height))))
+      (let ((cell-h (+ lh h))
+            (cell-v (+ lv v)))
+        (if (is-not? data View)
+            (paint-data~ column surface context cell-h cell-v h v width height row data sh sv sc sc?)
+          (paint-drawing~ data surface context cell-h cell-v sh sv sc sc?))))
     
     (define (merge-geometry top-left bottom-right)
       (let ((top-left-rect (cell-rect top-left))
@@ -520,9 +522,7 @@
                 (top-rank (get-row~ top-left))
                 (top-left-data (get-cell-data top-left))
                 (selected? (merge-cell-selected? merge-cell)))
-            (unless (is? top-left-data Tree-Label) ; hack until solved
-              (set! top-left-data (get-cell-data bottom-right)))
-            (let ((new-context (list selected?: selected? row-rank: top-rank context)))
+            (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
               (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height top-left-data))))))
     
     (nextmethod surface context lh lv sh sv sc sc?)
@@ -1607,6 +1607,12 @@
     (table-ref merge-cell-table cell {}))
   
   
+  (method public (safe-get-merge-cell cell)
+    (case selection-mode
+      ((cell) (get-merge-cell cell))
+      (else {})))
+  
+  
   (method public (set-merge-cell! cell merge-cell)
     (table-set! merge-cell-table cell merge-cell))
   
@@ -1644,8 +1650,8 @@
   
   (method public (merge-cell-rect merge-cell)
     (receive (top-left bottom-right) (merge-corner-cell merge-cell)
-      (let ((top-left-rect (cell-rect top-left))
-            (bottom-right-rect (cell-rect bottom-right)))
+      (let ((top-left-rect (unmerged-cell-rect top-left))
+            (bottom-right-rect (unmerged-cell-rect bottom-right)))
         (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))))
   
   
@@ -2192,16 +2198,11 @@
         ((cell) (new Region rect: (acquire-delta dh dv sc (cell-rect element))))
         (else (selection-row-region element dh dv sc))))
     
-    (define (safe-get-merge-cell element)
-      (case selection-mode
-        ((cell) (get-merge-cell element))
-        (else {})))
-    
     (let ((region (new Region)))
       (loop (for element in sel)
-            (let ((merged-elements (safe-get-merge-cell element)))
-              (if merged-elements
-                  (with-closed ((row-region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merged-elements)))))
+            (let ((merge-cell (safe-get-merge-cell element)))
+              (if merge-cell
+                  (with-closed ((row-region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
                     (combine!~ region row-region 'or))
                 (with-closed ((row-region (element-region element)))
                   (combine!~ region row-region 'or)))))
@@ -2278,9 +2279,16 @@
   (method public (cell-position cell <Cell>) <Point>
     (let ((rect (cell-rect cell)))
       (new Point (get-left~ rect) (get-top~ rect))))
-
+  
   
   (method public (cell-rect cell <Cell>) <Rect>
+    (let ((merge-cell (safe-get-merge-cell cell)))
+      (if merge-cell
+          (merge-cell-rect merge-cell)
+        (unmerged-cell-rect cell))))
+
+  
+  (method public (unmerged-cell-rect cell <Cell>) <Rect>
     (let* ((borders (get-borders (get-col~ cell)))
            (row (get-row (get-row~ cell)))
            (top (get-v~ (get-position~ row))))
@@ -2420,18 +2428,22 @@
     
   
   (method (cell-editor-rect cell)
-    (let* ((n       (get-row~ cell))
-           (col     (get-col~ cell))
-           (row     (get-row n))
-           (column  (get-column col))
-           (top     (get-v~ (get-position~ row)))
-           (cell    (get-cell-data cell))
-           (width   (if show-header? (column-width col) (get-width)))
-           (borders (get-borders col))
-           (left    (borders-left borders))
-           (h       (text-h~ column (get-level~ row)))
-           (rect    (content-rect~ column row cell width (get-height~ row))))
-      (offset-rect rect left top)))
+    ;; quicky
+    (let ((merge-cell (safe-get-merge-cell cell)))
+      (if merge-cell
+          (merge-cell-rect merge-cell)
+        (let* ((n       (get-row~ cell))
+               (col     (get-col~ cell))
+               (row     (get-row n))
+               (column  (get-column col))
+               (top     (get-v~ (get-position~ row)))
+               (cell    (get-cell-data cell))
+               (width   (if show-header? (column-width col) (get-width)))
+               (borders (get-borders col))
+               (left    (borders-left borders))
+               (h       (text-h~ column (get-level~ row)))
+               (rect    (content-rect~ column row cell width (get-height~ row))))
+          (offset-rect rect left top)))))
   
   
   (method public (cell-up cell)

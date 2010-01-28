@@ -47,7 +47,7 @@
         (jazz.ui.view))
 
 
-(class Combo-Box extends Combo-View
+(class Combo-Box extends Combo-Text
   
   
   ;;;
@@ -64,25 +64,10 @@
 
 
   (property condensed?      initialize #f  accessors generate)
-  (property complete?       initialize #f  getter get-complete?       setter set-complete?)
-  (property editable?       initialize #f  getter get-editable?       setter set-editable?)
-  (property focusable?      initialize #f  accessors generate)
-  (property content         initialize {}  getter get-content         setter set-content)
   (property choices         initialize '() getter get-choices         setter set-choices)
   (property nullable?       initialize #f  accessors generate)
   (property choices-updater initialize {}  getter get-choices-updater setter set-choices-updater)
   (property entry-test      initialize {}  accessors generate)
-  
-
-  (form
-    (<install>
-      (<Scroller-View>       name: scroller
-        (<!>                 name: content
-          (<Combo-Text-View> name: body     left-padding: 2 top-padding: 2 editable?: #f selectable?: #f accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Label}})))))
-
-  
-  (method override (default-size)
-    {Dimension 100 15})
 
   
   ;;;
@@ -128,18 +113,6 @@
   ;;;
 
 
-  (method public (get-complete?)
-    complete?)
-
-
-  (method public (set-complete? value)
-    (set! complete? value)
-    (when complete?
-      (let ((text (get-body)))
-        (set-selectable?~ text #t)
-        (set-editable?~ text #t))))
-
-
   (method public (get-choices-updater)
     choices-updater)
 
@@ -148,25 +121,6 @@
     (set! choices-updater value)
     (when (and (eq? kind 'pick) choices-updater)
       (set-enabled?~ (get-pick) #t)))
-
-
-  ;;;
-  ;;;; Editable
-  ;;;
-  
-  
-  (method (get-editable?)
-    editable?)
-  
-  
-  (method (set-editable? flag)
-    (set! editable? flag)
-    (let ((text (get-body))
-          (pick (get-pick)))
-      (set-editable?~ text flag)
-      (set-selectable?~ text (not flag))
-      (set-background~ text (if flag {Color name: White} {Color name: Medium}))
-      (set-visible?~ pick flag)))
   
   
   ;;;
@@ -209,37 +163,6 @@
       (if condensed?
           (new-choices-menu-condensed)
         (new-choices-menu-plain))))
-  
-  
-  ;;;
-  ;;;; Control
-  ;;;
-  
-  
-  (method override (highlight-pick?)
-    #t)
-
-  
-  ;;;
-  ;;;; Enabled
-  ;;;
-  
-  
-  (method override (set-enabled? flag)
-    (set! enabled? flag)
-    (set-enabled?~ (get-body) flag)
-    (set-background~ (get-body) (if flag {Color name: White} {Color name: Medium}))
-    (set-enabled?~ (get-pick) flag)
-    (invalidate-view))
-
-  
-  ;;;
-  ;;;; Outer
-  ;;;
-  
-  
-  (method override (inner? view)
-    (memq? view children))
   
   
   ;;;
@@ -333,21 +256,6 @@
   
   
   ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method public (edit)
-    (focus-body))
-  
-  
-  (method (focus-body)
-    (let ((text (get-body)))
-      (acquire-focus~ text)
-      (select-all~ text)))
-  
-  
-  ;;;
   ;;;; Content
   ;;;
   
@@ -358,14 +266,6 @@
   
   (method public virtual (set-entry content)
     (set-content content))
-  
-  
-  (method public (get-content)
-    (get-string-content~ (get-body)))
-  
-  
-  (method public (set-content content)
-    (set-string-content~ (get-body) (if content (localize content) "")))
   
   
   (method public (valid-value?)
@@ -381,14 +281,6 @@
   
   (method public (set-value value)
     (set-entry (present-value value)))
-  
-  
-  (method override (get-modified?)
-    (get-modified?~ (get-controller~ (get-body))))
-  
-  
-  (method override (set-modified? flag)
-    (set-modified?~ (get-controller~ (get-body)) flag))
   
   
   ;;;
@@ -410,22 +302,6 @@
                  ((no)
                   (set-entry unique-entry))))
         (get-value))))
-  
-  
-  ;;;
-  ;;;; Layout
-  ;;;
-  
-  
-  (method override (layout)
-    (let ((size (get-size))
-          (scroller (locate 'scroller))
-          (pick (get-pick))
-          (width (get-height)))
-      (set-position~ scroller {Point 0 0})
-      (set-size~ scroller (new Dimension (- (get-width~ size) width) (get-height~ size)))
-      (set-position~ pick (new Point (- (get-width~ size) width) 0))
-      (set-size~ pick (new Dimension width width))))
   
   
   ;;;
@@ -454,10 +330,6 @@
   (method override (class-property-presentation class property)
     (case (field-name property)
       ((condensed?) "Condensed")
-      ((complete?) "Complete")
-      ((editable?) "Editable")
-      ((focusable?) "Focusable")
-      ((content) "Content")
       ((choices) "Choices")
       ((nullable?) "Nullable")
       ((choices-updater) "Choices Updater")

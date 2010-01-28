@@ -50,7 +50,7 @@
         (jazz.ui.view))
 
 
-(class Moniker-Widget extends View
+(class Moniker-Widget extends Combo-Text
   
 
   (property mode                   initialize 'open getter get-mode       setter set-mode)
@@ -60,15 +60,14 @@
   (property display-protocol?      initialize #f    accessors generate)
   (property anchors                initialize {}    accessors generate)
   (property moniker-update-handler initialize {}    accessors generate)
-  (property read-only?             initialize #f    getter get-read-only? setter set-read-only?)
 
 
   (form
-    (<install>                                size: {Dimension 150 17}
-      (<Scroller-View>         name: scroller hscroll?: #f vscroll?: #f
-        (<!>                   name: content  layout-type: fill
-          (<Moniker-Text-View> name: text     accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t left-padding: 2 top-padding: 2 return-press-handler: {Event-Handler :form on-return-press} receive-files-handler: {Event-Handler :form on-receive-files})))
-      (<Moniker-Button>        name: browse   background: {Color name: Medium} resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :form on-browse} receive-files-handler: {Event-Handler :form on-receive-files})))
+    (<install>                kind: choose
+      (<!>     name: scroller
+        (<!>   name: content
+          (<!> name: body     editable?: #t selectable?: #t return-press-handler: {Event-Handler :form on-return-press} receive-files-handler: {Event-Handler :form on-receive-files})))
+      (<!>     name: pick     portfolio: :images resource: {Image-Resource "Open"} action-handler: {Event-Handler :form on-browse} receive-files-handler: {Event-Handler :form on-receive-files})))
   
   
   ;;;
@@ -108,7 +107,7 @@
 
   (method public (set-mode value)
     (set! mode value)
-    (let ((browse (locate 'browse)))
+    (let ((browse (get-pick)))
       (case mode
         ((open) (set-resource~ browse {Image-Resource "Open"}))
         ((save) (set-resource~ browse {Image-Resource "Save"})))))
@@ -118,56 +117,6 @@
     (if moniker-update-handler
         (invoke~ moniker-update-handler self (new Event :update self))
       (moniker-update)))
-
-  
-  (method public (get-text)
-    (locate 'text))
-
-  
-  ;;;
-  ;;;; Enabled
-  ;;;
-  
-  
-  (method override (set-enabled? flag)
-    (set! enabled? flag)
-    (set-enabled?~ (locate 'text) flag)
-    (set-enabled?~ (locate 'browse) flag)
-    (invalidate-view))
-
-  
-  ;;;
-  ;;;; Outer
-  ;;;
-  
-  
-  (method override (inner? view)
-    (memq? view children))
-    
-  
-  ;;;
-  ;;;; Layout
-  ;;;
-  
-  
-  (method override (layout)
-    (define (scroller-position size)
-      {Point 0 0})
-    
-    (define (scroller-size size)
-      (new Dimension (- (get-width~ size) 17) 19))
-    
-    (define (browse-position size)
-      (new Point (- (get-width~ size) 17) 0))
-    
-    (define (browse-size size)
-      {Dimension 17 17})
-    
-    (let ((size (get-size)))
-      (set-position~ (locate 'scroller) (scroller-position size))
-      (set-size~ (locate 'scroller) (scroller-size size))
-      (set-position~ (locate 'browse) (browse-position size))
-      (set-size~ (locate 'browse) (browse-size size))))
   
   
   ;;;
@@ -187,10 +136,7 @@
            (arguments (augment mode: mode actual: actual parameters))
            (moniker (apply moniker-modal handler arguments)))
       (set-moniker moniker)
-      (let ((text (get-text)))
-        (acquire-focus~ text)
-        (set-caret~ text (text-ending~ text))
-        (ensure-displayed~ text force-horizontal: 'tail reposition?: #t))))
+      (focus-body)))
     
   
   ;;;
@@ -205,7 +151,7 @@
         (bind (protocol . list) content
           (values (get-protocol-handler protocol) list))))
     
-    (let ((string (get-string-content~ (get-text))))
+    (let ((string (get-content)))
       (unless (empty-string? string)
         (if (not (alias-displayed?))
             (let ((handler (get-protocol-handler protocol))
@@ -221,7 +167,7 @@
   
   
   (method public (set-moniker moniker (generate-event?: generate-event? #t))
-    (set-string-content~ (get-text) (if (not moniker) "" (present-moniker moniker)))
+    (set-content (if (not moniker) "" (present-moniker moniker)))
     (when generate-event?
       (call-moniker-update)))
   
@@ -257,29 +203,6 @@
       display-protocol?))
   
   
-  (method override (get-modified?)
-    (get-modified?~ (get-controller~ (get-text))))
-  
-  
-  (method override (set-modified? flag)
-    (set-modified?~ (get-controller~ (get-text)) flag))
-  
-  
-  ;;;
-  ;;;; Read-Only
-  ;;;
-
-
-  (method public (get-read-only?)
-    read-only?)
-
-
-  (method public (set-read-only? value)
-    (set! read-only? value)
-    (set-editable?~ (get-text) (not read-only?))
-    (set-enabled?~ (locate 'browse) (not read-only?)))
-  
-  
   ;;;
   ;;;; Descriptor
   ;;;
@@ -287,50 +210,6 @@
   
   (method meta override (get-class-descriptor)
     (new Moniker-Widget-Descriptor)))
-
-
-;;;
-;;;; Moniker-Button
-;;;
-
-
-(class Moniker-Button extends Push-Tool
-  
-  
-  (method override (light-color)
-    {Color name: Light-Background})
-  
-  
-  (method override (dark-color)
-    {Color name: Dark})
-  
-  
-  (method override (draw-inactive surface)
-    (let ((bounds (get-bounds)))
-      (frame-rect~ surface bounds (if (get-enabled?) {Color name: Light} {Color name: Medium}))))
-  
-  
-  (method override (draw-tool surface context)
-    (draw-ellipsis surface))
-  
-  
-  (method (draw-ellipsis surface)
-    (let* ((size (get-size))
-           (offset (get-offset))
-           (title "...")
-           (extent (get-text-extent~ surface title))
-           (pos (justify extent size 'center)))
-      (set-text-color~ surface {Color name: Black})
-      (draw-text~ surface (+ (get-h~ pos) 1) (get-v~ pos) title enabled?)))
-  
-  
-  (method (get-offset)
-    (if (memq? (get-state) '(pushed choose))
-        1
-      0)))
-
-
-(register-autoclass Moniker-Button)
 
 
 ;;;

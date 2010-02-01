@@ -43,7 +43,14 @@
         (jazz.system))
 
 
-(definition public (load-image type image . rest)
+(class package Image-Load-Error extends Error
+  
+  
+  (method override (get-message)
+    "There was an error while loading image file."))
+
+
+(definition public (load-image type image)
   (define (find-icon-file resource)
     (get-resource~ (get-application) 'icon (get-name~ resource)))
   
@@ -53,7 +60,7 @@
   (define (create-cairo-surface-from-png file)
     (let ((handle (cairo_image_surface_create_from_png (parse~ file))))
       (if (/= (cairo_surface_status handle) 0)
-          (error "Image file not found : {s}" file)
+          (signal (new Image-Load-Error))
         handle)))
   
   (case type
@@ -66,4 +73,11 @@
      (create-cairo-surface-from-png
        (if (resource? image)
            (find-image-file image)
-         image))))))
+         image)))))
+
+
+(definition public (load-image-from-u8vector u8vector)
+  (let ((handle (load-png-image-from-u8vector u8vector)))
+    (if (/= (cairo_surface_status handle) 0)
+        (signal (new Image-Load-Error))
+      handle))))

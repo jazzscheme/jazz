@@ -438,4 +438,41 @@
           (top    (f64vector-ref vec 1))
           (right  (f64vector-ref vec 2))
           (bottom (f64vector-ref vec 3)))
-      (new Rect left top right bottom)))))
+      (new Rect left top right bottom))))
+
+
+;;;
+;;;; PNG image from u8vector
+;;;
+
+
+(c-declare #<<END-OF-DECLARES
+struct readfunc_closure {
+  int offset;
+  ___SCMOBJ vector;
+};
+
+cairo_status_t u8vector_readfunc (void* closure,
+                                  unsigned char* buf,
+                                  unsigned int length) {
+  // FIXME: check the length
+  unsigned int i = 0;
+  int offset = ((struct readfunc_closure*) closure)->offset;
+  ___SCMOBJ vector = ((struct readfunc_closure*) closure)->vector;
+  while (i < length) {
+    buf[i] = ___INT(___U8VECTORREF(vector, ___FIX(offset + i)));
+    i++;
+  }
+  ((struct readfunc_closure*) closure)->offset = offset + length;
+  return CAIRO_STATUS_SUCCESS;
+}
+END-OF-DECLARES
+)
+
+(definition public (load-png-image-from-u8vector u8vector)
+  (let ((fn (c-function (scheme-object) cairo_surface_t*
+              "struct readfunc_closure closure;
+               closure.offset = 0;
+               closure.vector = ___arg1;
+               ___result_voidstar = cairo_image_surface_create_from_png_stream(u8vector_readfunc, &closure);")))
+      (fn u8vector))))

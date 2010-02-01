@@ -38,7 +38,8 @@
 (module protected jazz.dialect.core scheme
 
 
-(require (jazz.dialect.core.continuation)
+(require (jazz.dialect.core.base64)
+         (jazz.dialect.core.continuation)
          (jazz.dialect.core.debug)
          (jazz.dialect.core.development)
          (jazz.dialect.core.exception)

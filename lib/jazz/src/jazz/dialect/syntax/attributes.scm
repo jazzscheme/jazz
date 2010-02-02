@@ -61,15 +61,15 @@
 ;   (slot key initialize #f)
 ;   (slot criteria initialize #f)
 ;   (method (get-value property)
-;           (case property
-;             ((key:) key)
-;             ((criteria:) criteria)
-;             (else (nextmethod property))))
+;     (case property
+;       ((key:) key)
+;       ((criteria:) criteria)
+;       (else (nextmethod property))))
 ;   (method (set-value property value)
-;           (case property
-;             ((key:) (set! key value))
-;             ((criteria:) (set! criteria value))
-;             (else (nextmethod property value))))
+;     (case property
+;       ((key:) (set! key value))
+;       ((criteria:) (set! criteria value))
+;       (else (nextmethod property value))))
 ;   (begin
 ;     (method public (get-key)
 ;       key)

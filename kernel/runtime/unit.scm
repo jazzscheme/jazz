@@ -1837,6 +1837,27 @@
   (%%eq? (jazz.get-environment-unit unit-name) jazz.Loaded-State))
 
 
+(define (jazz.circular-dependency-error unit-name unit-name-list)
+  (define (take-until predicate list)
+    (let loop ((in list)
+               (out '()))
+         (if (%%null? in)
+             out
+           (let ((elem (%%car in)))
+             (if (predicate elem)
+                 (%%cons elem out)
+               (loop (%%cdr in)
+                     (%%cons elem out)))))))
+  
+  (let ((circular-unit-list (append (take-until
+                                      (lambda (name) (%%eq? unit-name name))
+                                      unit-name-list)
+                                    (%%list unit-name))))
+    (jazz.error "Circular dependency detected: {a}"
+                (jazz.join-strings (map symbol->string circular-unit-list)
+                                   " -> "))))
+
+
 (define (jazz.load-unit unit-name)
   (let ((unit-state (jazz.get-environment-unit unit-name)))
     (if (%%not (%%eq? unit-state jazz.Loaded-State))
@@ -1844,7 +1865,7 @@
           (lambda ()
             (let ((unit-state (jazz.get-environment-unit unit-name)))
               (cond ((%%eq? unit-state jazz.Loading-State)
-                     (jazz.error "Circular loading of unit: {s}" unit-name))
+                     (jazz.circular-dependency-error unit-name (map cdr (jazz.get-load-stack))))
                     ((%%eq? unit-state jazz.Unloaded-State)
                      (dynamic-wind
                        (lambda ()

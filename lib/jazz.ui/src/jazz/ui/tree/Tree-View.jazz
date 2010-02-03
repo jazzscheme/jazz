@@ -1582,7 +1582,7 @@
                                   (if (equal? title (get-title~ (get-cell-data merged-cell)))
                                       (set! new-merge-cell-list (cons merged-cell new-merge-cell-list))
                                     (error "Merged cells title must be identical")))))
-                    (let ((new-merge-cell (new Merge-Cell new-merge-cell-list)))
+                    (let ((new-merge-cell (new Merge-Cell new-merge-cell-list self)))
                       (set! merge-cell-list (cons new-merge-cell merge-cell-list))
                       (for-each (lambda (merged-cell)
                                   (set-merge-cell! merged-cell new-merge-cell))
@@ -1630,23 +1630,10 @@
                    (get-selection)))
            (else
             #f))))
-  
-  
-  (method (merge-corner-cell merge-cell)
-    (define (ordered? one two)
-      (if (= (get-row~ one) (get-row~ two))
-          (< (get-col~ one) (get-col~ two))
-        (< (get-row~ one) (get-row~ two))))
     
-    (let ((scan (get-merged-cells~ merge-cell)))
-      (let (iterate (scan (cdr scan))
-                    (top-left (car scan))
-                    (bottom-right (car scan)))
-        (if (pair? scan)
-            (iterate (cdr scan)
-                     (if (ordered? top-left (car scan)) top-left (car scan))
-                     (if (ordered? (car scan) bottom-right) bottom-right (car scan)))
-          (values top-left bottom-right)))))
+
+  (method (merge-corner-cell merge-cell)
+    (values (get-first-cell~ merge-cell) (get-last-cell~ merge-cell)))
   
   
   (method public (merge-cell-rect merge-cell)
@@ -2611,11 +2598,13 @@
   
   
   (slot merged-cells initialize '() accessors generate)
+  (slot tree initialize '() accessors generate)
   
   
-  (method override (initialize cells)
+  (method override (initialize cells cells-tree)
     (nextmethod)
-    (set! merged-cells cells))
+    (set! merged-cells cells)
+    (set! tree cells-tree))
   
   
   (method override (print printer readably)
@@ -2629,8 +2618,9 @@
   (method public (get-first-col)
     (let ((first-col #f))
       (for-each (lambda (cell)
-                  (when (or (not first-col)
-                            (< (get-col~ cell) first-col))
+                  (when (and (cell-visible?~ tree cell)
+                             (or (not first-col)
+                                 (< (get-col~ cell) first-col)))
                     (set! first-col (get-col~ cell))))
                 merged-cells)
       first-col))
@@ -2639,7 +2629,8 @@
   (method public (get-last-col)
     (let ((last-col 0))
       (for-each (lambda (cell)
-                  (when (> (get-col~ cell) last-col)
+                  (when (and (cell-visible?~ tree cell)
+                             (> (get-col~ cell) last-col))
                     (set! last-col (get-col~ cell))))
                 merged-cells)
       last-col))
@@ -2648,8 +2639,9 @@
   (method public (get-first-row)
     (let ((first-row #f))
       (for-each (lambda (cell)
-                  (when (or (not first-row)
-                            (< (get-row~ cell) first-row))
+                  (when (and (cell-visible?~ tree cell)
+                             (or (not first-row)
+                                 (< (get-row~ cell) first-row)))
                     (set! first-row (get-row~ cell))))
                 merged-cells)
       first-row))
@@ -2658,7 +2650,8 @@
   (method public (get-last-row)
     (let ((last-row 0))
       (for-each (lambda (cell)
-                  (when (> (get-row~ cell) last-row)
+                  (when (and (cell-visible?~ tree cell)
+                             (> (get-row~ cell) last-row))
                     (set! last-row (get-row~ cell))))
                 merged-cells)
       last-row))
@@ -2667,12 +2660,27 @@
   (method public (get-first-cell)
     (let ((first-cell #f))
       (for-each (lambda (cell)
-                  (when (or (not first-cell)
-                            (and (<= (get-row~ cell) (get-row~ first-cell))
-                                 (<= (get-col~ cell) (get-col~ first-cell))))
+                  (when (and (cell-visible?~ tree cell)
+                             (or (not first-cell)
+                                 (or (< (get-row~ cell) (get-row~ first-cell))
+                                     (and (= (get-row~ cell) (get-row~ first-cell))
+                                          (< (get-col~ cell) (get-col~ first-cell))))))
                     (set! first-cell cell)))
                 merged-cells)
       first-cell))
+
+
+  (method public (get-last-cell)
+    (let ((last-cell #f))
+      (for-each (lambda (cell)
+                  (when (and (cell-visible?~ tree cell)
+                             (or (not last-cell)
+                                 (or (> (get-row~ cell) (get-row~ last-cell))
+                                     (and (= (get-row~ cell) (get-row~ last-cell))
+                                          (> (get-col~ cell) (get-col~ last-cell))))))
+                    (set! last-cell cell)))
+                merged-cells)
+      last-cell))
   )
 
 

@@ -1665,6 +1665,12 @@
               (invalidate-region~ player region)))))))
   
   
+  (method public (get-top-cell cell)
+    (let ((merge-cell (safe-get-merge-cell cell)))
+      (if merge-cell
+          (get-first-cell~ merge-cell)
+        cell)))
+
   ;;;
   ;;;; User
   ;;;
@@ -2325,8 +2331,13 @@
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
     (let ((row (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
           (col (h->col (get-h~ pos))))
+      (when (not row)
+        (set! row (v->merged-cells-row (get-v~ pos))))
+      (when (not col)
+        (set! col (h->merged-cells-col (get-h~ pos))))
       (when (and row col (>= row 0))
         (let ((cell (new Cell row col)))
+          (set! cell (get-top-cell cell))
           (if any?
               cell
             (when (cell-visible? cell)
@@ -2366,6 +2377,30 @@
 
   (method (col->h n)
     (borders-left (get-borders n)))
+
+
+  (method public (h->merged-cells-col h)
+    (continuation-capture
+      (lambda (return)
+        (loop (for merge-cell in merge-cell-list)
+              (let ((rect (merge-cell-rect merge-cell)))
+                (let ((left (get-left~ rect))
+                      (right (get-right~ rect)))
+                  (when (and (>= h left) (<= h right) (/= left right))
+                    (continuation-return return (get-first-col~ merge-cell))))))
+        {})))
+
+
+    (method public (v->merged-cells-row v)
+    (continuation-capture
+      (lambda (return)
+        (loop (for merge-cell in merge-cell-list)
+              (let ((rect (merge-cell-rect merge-cell)))
+                (let ((top (get-top~ rect))
+                      (bottom (get-bottom~ rect)))
+                  (when (and (>= v top) (<= v bottom) (/= top bottom))
+                    (continuation-return return (get-first-row~ merge-cell))))))
+        {})))
   
   
   ;;;
@@ -2396,7 +2431,7 @@
                         children: (list editor))))
             (set-player~ view player)
             (set-player~ editor player)
-            (replace-cell cell view)
+            (replace-cell (get-top-cell cell) view)
             (set-bounds~ view (expand-rect (offset-rect bounds 0 (- (get-top~ bounds))) (get-h~ location) (get-v~ location) 0 0))
             (invalidate-rect bounds)
             (set! edited-cell cell)
@@ -2415,7 +2450,13 @@
           (before-end))
         (set! edited-cell {})
         (set! cell-editor {})
-        (replace-cell cell (get-preserved-data~ editor))
+        (let ((merge-cell (safe-get-merge-cell cell)))
+          (if merge-cell
+              (let ((scan (get-merged-cells~ merge-cell)))
+                (for-each (lambda (cell-merged)
+                            (replace-cell cell-merged (get-preserved-data~ editor)))
+                          scan))
+            (replace-cell cell (get-preserved-data~ editor))))
         (if close-cell-editor?
             (close~ editor)
           (set-parent~ editor {}))
@@ -2620,7 +2661,19 @@
                   (when (> (get-row~ cell) last-row)
                     (set! last-row (get-row~ cell))))
                 merged-cells)
-      last-row)))
+      last-row))
+
+
+  (method public (get-first-cell)
+    (let ((first-cell #f))
+      (for-each (lambda (cell)
+                  (when (or (not first-cell)
+                            (and (<= (get-row~ cell) (get-row~ first-cell))
+                                 (<= (get-col~ cell) (get-col~ first-cell))))
+                    (set! first-cell cell)))
+                merged-cells)
+      first-cell))
+  )
 
 
 ;;;

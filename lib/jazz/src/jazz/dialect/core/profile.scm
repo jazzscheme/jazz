@@ -38,15 +38,7 @@
 (unit protected jazz.dialect.core.profile
 
 
-(jazz.define-variable active-profile)
-(jazz.define-variable profile-total)
-(jazz.define-variable profile-unknown)
-(jazz.define-variable profile-calls)
-(jazz.define-variable profile-new)
-(jazz.define-variable profile-reset!)
-(jazz.define-variable profile-start!)
-(jazz.define-variable profile-stop!)
-(jazz.define-variable profile-running?)
+(require (statprof.implementation))
 
 
 ;;;

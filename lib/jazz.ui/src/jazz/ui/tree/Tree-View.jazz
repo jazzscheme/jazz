@@ -101,7 +101,7 @@
   (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
   (slot protected merge-cell-list               initialize '()  getter generate)
-  (slot protected merge-cell-table              initialize (make-table test: cell=? hash: cell-hash) getter generate)
+  (slot protected merge-cell-table              initialize (make-table test: site=? hash: site-hash) getter generate)
   
   
   (form
@@ -476,7 +476,7 @@
     (let* ((inner-rect (highlighted-target-rect row col))
            (outer-rect (inflate-rect inner-rect 1 1)))
       (let ((outer-color (either (get-outer-color~ highlight) (highlighted-outer-color)))
-             (inner-color (either (get-inner-color~ highlight) (highlighted-inner-color))))
+            (inner-color (either (get-inner-color~ highlight) (highlighted-inner-color))))
         (frame-rect~ surface outer-rect outer-color)
         (when (highlight-inner?)
           (frame-rect~ surface inner-rect inner-color)))))
@@ -517,13 +517,14 @@
     
     (define (paint-merge-cell-data merge-cell)
       (receive (top-left bottom-right) (merge-corner-cell merge-cell)
-        (receive (left top width height) (merge-geometry top-left bottom-right)
-          (let ((left-rank (get-col~ top-left))
-                (top-rank (get-row~ top-left))
-                (top-left-data (get-cell-data top-left))
-                (selected? (merge-cell-selected? merge-cell)))
-            (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
-              (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height top-left-data))))))
+        (when (and top-left bottom-right)
+          (receive (left top width height) (merge-geometry top-left bottom-right)
+            (let ((left-rank (get-col~ top-left))
+                  (top-rank (get-row~ top-left))
+                  (top-left-data (get-cell-data top-left))
+                  (selected? (merge-cell-selected? merge-cell)))
+              (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
+                (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height top-left-data)))))))
     
     (nextmethod surface context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
@@ -1238,10 +1239,12 @@
   
   (method public (left-arrow-action modifiers user?)
     (define (logical-col cell)
-      (let ((merge-cell (get-merge-cell cell)))
-        (if merge-cell
-            (get-first-col~ merge-cell)
-          (get-col~ cell))))
+      (let ((site (cell->site cell)))
+        (when site
+          (let ((merge-cell (get-merge-cell site)))
+            (if merge-cell
+                (get-first-col~ merge-cell)
+              (get-col~ cell))))))
     
     (case selection-mode
       ((cell)
@@ -1266,10 +1269,12 @@
   
   (method public (up-arrow-action modifiers user?)
     (define (logical-row cell)
-      (let ((merge-cell (get-merge-cell cell)))
-        (if merge-cell
-            (get-first-row~ merge-cell)
-          (get-row~ cell))))
+      (let ((site (cell->site cell)))
+        (when site
+          (let ((merge-cell (get-merge-cell site)))
+            (if merge-cell
+                (get-first-row~ merge-cell)
+              (get-row~ cell))))))
     
     (case selection-mode
       ((cell)
@@ -1294,10 +1299,12 @@
   
   (method public (right-arrow-action modifiers user?)
     (define (logical-col cell)
-      (let ((merge-cell (get-merge-cell cell)))
-        (if merge-cell
-            (get-last-col~ merge-cell)
-          (get-col~ cell))))
+      (let ((site (cell->site cell)))
+        (when site
+          (let ((merge-cell (get-merge-cell site)))
+            (if merge-cell
+                (get-last-col~ merge-cell)
+              (get-col~ cell))))))
     
     (case selection-mode
       ((cell)
@@ -1320,10 +1327,12 @@
   
   (method public (down-arrow-action modifiers user?)
     (define (logical-row cell)
-      (let ((merge-cell (get-merge-cell cell)))
-        (if merge-cell
-            (get-first-row~ merge-cell)
-          (get-row~ cell))))
+      (let ((site (cell->site cell)))
+        (when site
+          (let ((merge-cell (get-merge-cell site)))
+            (if merge-cell
+                (get-first-row~ merge-cell)
+              (get-row~ cell))))))
     
     (let* ((count (get-visible-count))
            (last (- count 1)))
@@ -1567,58 +1576,67 @@
   
   (method public (merge-cells cell nbrow nbcol)
     (if (and (> nbrow 0) (> nbcol 0))
-        (let ((title (get-title~ (get-cell-data cell))))
-          (when (get-merge-cell cell)
-            (unmerge-cells cell))
-          (when (or (> nbrow 1) (> nbcol 1))
-            (let ((cell-row (get-row~ cell))
-                  (cell-col (get-col~ cell)))
-              (if (and (< (+ cell-row nbrow -1) (get-row-count))
-                       (< (+ cell-col nbcol -1) (get-columns-count)))
-                  (let ((new-merge-cell-list '()))
-                    (loop (for r from cell-row below (+ cell-row nbrow))
-                          (loop (for c from cell-col below (+ cell-col nbcol))
-                                (let ((merged-cell (new Cell r c)))
-                                  (if (equal? title (get-title~ (get-cell-data merged-cell)))
-                                      (set! new-merge-cell-list (cons merged-cell new-merge-cell-list))
-                                    (error "Merged cells title must be identical")))))
-                    (let ((new-merge-cell (new Merge-Cell new-merge-cell-list self)))
-                      (set! merge-cell-list (cons new-merge-cell merge-cell-list))
-                      (for-each (lambda (merged-cell)
-                                  (set-merge-cell! merged-cell new-merge-cell))
-                                new-merge-cell-list)
-                      (for-each invalidate-cell
-                                new-merge-cell-list)))
-                (error "Merge cell out of tree bounds")))))
+        (let ((cell-data (get-cell-data cell)))
+          (if cell-data
+              (let ((title (get-title~ (get-cell-data cell)))
+                    (site (cell->site cell)))
+                (when site
+                  (when (get-merge-cell site)
+                    (unmerge-cells cell)))
+                (when (or (> nbrow 1) (> nbcol 1))
+                  (let ((cell-row (get-row~ cell))
+                        (cell-col (get-col~ cell)))
+                    (if (and (< (+ cell-row nbrow -1) (get-row-count))
+                             (< (+ cell-col nbcol -1) (get-columns-count)))
+                        (let ((new-site-list '())
+                              (new-merged-cells-list '()))
+                          (loop (for r from cell-row below (+ cell-row nbrow))
+                                (loop (for c from cell-col below (+ cell-col nbcol))
+                                      (let ((merged-cell (new Cell r c)))
+                                        (if (equal? title (get-title~ (get-cell-data merged-cell)))
+                                            (let ((new-site (new Site (get-row r) (get-column c))))
+                                              (set! new-merged-cells-list (cons merged-cell new-merged-cells-list))
+                                              (set! new-site-list (cons new-site new-site-list)))
+                                          (error "Merged cells title must be identical")))))
+                          (let ((new-merge-cell (new Merge-Cell new-site-list self)))
+                            (set! merge-cell-list (cons new-merge-cell merge-cell-list))
+                            (for-each (lambda (merged-site)
+                                        (set-merge-cell! merged-site new-merge-cell))
+                                      new-site-list)
+                            (for-each invalidate-cell
+                                      new-merged-cells-list)))
+                      (error "Merge cell out of tree bounds")))))
+            (error "The first cell as no data")))
       (error "Invalid merge-cells")))
             
   
   (method public (unmerge-cells cell)
-    (let ((merge-cell-to-remove (get-merge-cell cell)))
+    (let* ((site (cell->site cell))
+           (merge-cell-to-remove (get-merge-cell site)))
       (when merge-cell-to-remove
         (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
-        (for-each (lambda (cell)
-                    (clear-merge-cell cell)
-                    (invalidate-cell cell))
+        (for-each (lambda (site)
+                    (clear-merge-cell site)
+                    (invalidate-cell (site->cell site)))
                   (get-merged-cells~ merge-cell-to-remove)))))
 
   
-  (method public (get-merge-cell cell)
-    (table-ref merge-cell-table cell {}))
+  (method public (get-merge-cell site)
+    (table-ref merge-cell-table site {}))
   
   
-  (method public (safe-get-merge-cell cell)
+  (method public (safe-get-merge-cell site)
     (case selection-mode
-      ((cell) (get-merge-cell cell))
+      ((cell) (get-merge-cell site))
       (else {})))
   
   
-  (method public (set-merge-cell! cell merge-cell)
-    (table-set! merge-cell-table cell merge-cell))
+  (method public (set-merge-cell! site merge-cell)
+    (table-set! merge-cell-table site merge-cell))
   
   
-  (method public (clear-merge-cell cell)
-    (table-clear merge-cell-table cell))
+  (method public (clear-merge-cell site)
+    (table-clear merge-cell-table site))
   
   
   (method (merge-cell-selected? merge-cell)
@@ -1626,7 +1644,9 @@
          (case selection-mode
            ((cell)
             (some? (lambda (cell)
-                     (eq? merge-cell (get-merge-cell cell)))
+                     (let ((site (cell->site cell)))
+                       (when site
+                         (eq? merge-cell (get-merge-cell site)))))
                    (get-selection)))
            (else
             #f))))
@@ -1653,7 +1673,7 @@
   
   
   (method public (get-top-cell cell)
-    (let ((merge-cell (safe-get-merge-cell cell)))
+    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
       (if merge-cell
           (get-first-cell~ merge-cell)
         cell)))
@@ -1919,8 +1939,31 @@
   ;;;
   ;;;; Selection
   ;;;
-  
-  
+
+
+  ; temporary - converts from a normal Cell to Site
+  (method (cell->site cell)
+    (if (is? cell Cell)
+      (let ((col (get-column (get-col~ cell)))
+            (row (get-row    (get-row~ cell))))
+        (new Site row col))
+      cell))
+
+
+    ; temporary - converts from a row column to Site
+  (method (row-col->site row col)
+    (new Site row col))
+
+
+  ; temporary - converts from a Site to a normal Cell
+  (method (site->cell cell)
+    (if (is? cell Site)
+      (let ((col (column-rank (get-col~ cell)))
+            (row (row-rank    (get-row~ cell))))
+        (new Cell row col))
+      cell))
+
+
   (method public (process-selection cell shift? control?)
     (let ((element (case selection-mode ((cell) cell) (else (get-row~ cell)))))
       (if (and multiple-selection? (or shift? control?))
@@ -1966,7 +2009,7 @@
     (define (inval-selection selection)
       (when (not-null? selection)
         (for-each (lambda (cell)
-                    (let ((merge-cell (essay (is? cell Cell) (get-merge-cell cell))))
+                    (let ((merge-cell (essay (is? cell Cell) (get-merge-cell (cell->site cell)))))
                       (if merge-cell
                           (invalidate-merge-cell merge-cell)
                         (invalidate-selection (list cell)))))
@@ -2194,7 +2237,7 @@
     
     (let ((region (new Region)))
       (loop (for element in sel)
-            (let ((merge-cell (safe-get-merge-cell element)))
+            (let ((merge-cell (safe-get-merge-cell (cell->site element))))
               (if merge-cell
                   (with-closed ((row-region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
                     (combine!~ region row-region 'or))
@@ -2276,7 +2319,7 @@
   
   
   (method public (cell-rect cell <Cell>) <Rect>
-    (let ((merge-cell (safe-get-merge-cell cell)))
+    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
       (if merge-cell
           (merge-cell-rect merge-cell)
         (unmerged-cell-rect cell))))
@@ -2437,11 +2480,11 @@
           (before-end))
         (set! edited-cell {})
         (set! cell-editor {})
-        (let ((merge-cell (safe-get-merge-cell cell)))
+        (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
           (if merge-cell
               (let ((scan (get-merged-cells~ merge-cell)))
                 (for-each (lambda (cell-merged)
-                            (replace-cell cell-merged (get-preserved-data~ editor)))
+                            (replace-cell (site->cell cell-merged) (get-preserved-data~ editor)))
                           scan))
             (replace-cell cell (get-preserved-data~ editor))))
         (if close-cell-editor?
@@ -2458,7 +2501,7 @@
   
   (method (cell-editor-rect cell)
     ;; quicky
-    (let ((merge-cell (safe-get-merge-cell cell)))
+    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
       (if merge-cell
           (merge-cell-rect merge-cell)
         (let* ((n       (get-row~ cell))
@@ -2617,71 +2660,139 @@
   
   (method public (get-first-col)
     (let ((first-col #f))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (or (not first-col)
-                                 (< (get-col~ cell) first-col)))
-                    (set! first-col (get-col~ cell))))
+      (for-each (lambda (site)
+                  (let ((col (get-col~ site)))
+                    (when (get-visible?~ col)
+                      (let ((col-rank (get-rank~ col)))
+                        (when (or (not first-col)
+                                  (< (col-rank) first-col))
+                          (set! first-col col-rank))))))
                 merged-cells)
       first-col))
   
   
   (method public (get-last-col)
     (let ((last-col 0))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (> (get-col~ cell) last-col))
-                    (set! last-col (get-col~ cell))))
+      (for-each (lambda (site)
+                  (let ((col (get-col~ site)))
+                    (when (get-visible?~ col)
+                      (let ((col-rank (column-rank~ tree col)))
+                        (when (> col-rank last-col)
+                          (set! last-col col-rank))))))
                 merged-cells)
       last-col))
   
   
   (method public (get-first-row)
     (let ((first-row #f))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (or (not first-row)
-                                 (< (get-row~ cell) first-row)))
-                    (set! first-row (get-row~ cell))))
+      (for-each (lambda (site)
+                  (let ((row (get-row~ site)))
+                    (when (get-visible?~ row)
+                      (let ((row-rank (row-rank~ tree row)))
+                        (when (or (not first-row)
+                                  (< row-rank first-row))
+                          (set! first-row row-rank))))))
                 merged-cells)
       first-row))
   
   
   (method public (get-last-row)
     (let ((last-row 0))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (> (get-row~ cell) last-row))
-                    (set! last-row (get-row~ cell))))
+      (for-each (lambda (site)
+                  (let ((row (get-row~ site)))
+                    (when (get-visible?~ row)
+                      (let ((row-rank (row-rank~ tree row)))
+                        (when (> row-rank last-row)
+                          (set! last-row row-rank))))))
                 merged-cells)
       last-row))
 
 
   (method public (get-first-cell)
-    (let ((first-cell #f))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (or (not first-cell)
-                                 (or (< (get-row~ cell) (get-row~ first-cell))
-                                     (and (= (get-row~ cell) (get-row~ first-cell))
-                                          (< (get-col~ cell) (get-col~ first-cell))))))
-                    (set! first-cell cell)))
+    (let ((first-site #f))
+      (for-each (lambda (site)
+                  (let ((row (get-row~ site))
+                        (col (get-col~ site)))
+                    (when (and (get-visible?~ row)
+                               (get-visible?~ col))
+                      (if (not first-site)
+                          (set! first-site site)
+                        (let ((row-rank (row-rank~ tree row))
+                              (first-row-rank (row-rank~ tree (get-row~ first-site))))
+                          (if (< row-rank first-row-rank)
+                              (set! first-site site)
+                            (when (and (= row-rank first-row-rank)
+                                       (< (column-rank~ tree (get-col~ site)) (column-rank~ tree (get-col~ first-site))))
+                              (set! first-site site))))))))
                 merged-cells)
-      first-cell))
+      (site->cell~ tree first-site)))
 
 
   (method public (get-last-cell)
-    (let ((last-cell #f))
-      (for-each (lambda (cell)
-                  (when (and (cell-visible?~ tree cell)
-                             (or (not last-cell)
-                                 (or (> (get-row~ cell) (get-row~ last-cell))
-                                     (and (= (get-row~ cell) (get-row~ last-cell))
-                                          (> (get-col~ cell) (get-col~ last-cell))))))
-                    (set! last-cell cell)))
+    (let ((last-site #f))
+      (for-each (lambda (site)
+                  (let ((row (get-row~ site))
+                        (col (get-col~ site)))
+                    (when (and (get-visible?~ row)
+                               (get-visible?~ col))
+                      (if (not last-site)
+                          (set! last-site site)
+                        (let ((row-rank (row-rank~ tree row))
+                              (first-row-rank (row-rank~ tree (get-row~ last-site))))
+                          (if (> row-rank first-row-rank)
+                              (set! last-site site)
+                            (when (and (= row-rank first-row-rank)
+                                       (> (column-rank~ tree (get-col~ site)) (column-rank~ tree (get-col~ last-site))))
+                              (set! last-site site))))))))
                 merged-cells)
-      last-cell))
+      (site->cell~ tree last-site)))
+)
+
+
+;;;
+;;;; Cells that don't need fixnum
+;;;
+
+(class Site extends Object
+
+
+  (slot row accessors generate)
+  (slot col accessors generate)
+
+
+  (method override (initialize row col)
+    (set! row~self row)
+    (set! col~self col))
+
+
+  (method override (copy-object deep?)
+    (new Site row col))
+
+
+  (method override (compare-object target)
+    (if (is-not? target Site)
+        :incompatible
+      (let ((compared (compare row (get-row~ target))))
+        (if (not (eq? compared :equal))
+            compared
+          (compare col (get-col~ target))))))
+
+
+  (method override (print printer readably)
+    (format printer "~{{a} {a} {a}}"
+      (identifier-name (category-name (class-of self)))
+      row
+      col))
   )
+
+
+(specialize inline as site=? (= s1 <Site> s2 <Site>) <bool>
+  (and (eq? (get-row~ s1) (get-row~ s2))
+       (eq? (get-col~ s1) (get-col~ s2))))
+
+(definition public (site-hash s <Site>)
+  (fxwrap+ (eqv?-hash (get-row~ s))
+           (eqv?-hash (get-col~ s))))
 
 
 ;;;

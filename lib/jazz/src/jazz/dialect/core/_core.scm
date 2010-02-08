@@ -50,7 +50,6 @@
          (jazz.dialect.core.number)
          (jazz.dialect.core.pathname)
          (jazz.dialect.core.port)
-         (jazz.dialect.core.profile)
          (jazz.dialect.core.reader)
          (jazz.dialect.core.repository)
          (jazz.dialect.core.stack)

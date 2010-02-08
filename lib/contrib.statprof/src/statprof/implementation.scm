@@ -64,11 +64,11 @@
   *profile*)
 
 
-(define (profile-new #!key (depth #f))
+(define (new-profile #!key (depth #f))
   (set! *profile* (make-profile (or depth profiler-depth))))
 
 
-(define (profile-reset!)
+(define (reset-profile)
   (set! *profile* (make-profile (profile-depth *profile*))))
 
 
@@ -81,11 +81,11 @@
   #f)
 
 
-(define (profile-start!)
+(define (start-profile)
   (%%interrupt-vector-set! 1 profile-heartbeat!)
   (set! *profile-running?* #t))
 
-(define (profile-stop!)
+(define (stop-profile)
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
   (set! *profile-running?* #f))
 

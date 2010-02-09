@@ -1658,9 +1658,11 @@
   
   (method public (merge-cell-rect merge-cell)
     (receive (top-left bottom-right) (merge-corner-cell merge-cell)
-      (let ((top-left-rect (unmerged-cell-rect top-left))
-            (bottom-right-rect (unmerged-cell-rect bottom-right)))
-        (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))))
+      (if (and top-left bottom-right)
+          (let ((top-left-rect (unmerged-cell-rect top-left))
+                (bottom-right-rect (unmerged-cell-rect bottom-right)))
+            (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))
+        #f)))
   
   
   (method public (invalidate-merge-cell merge-cell)
@@ -2421,15 +2423,16 @@
         {})))
 
 
-    (method public (v->merged-cells-row v)
+  (method public (v->merged-cells-row v)
     (continuation-capture
       (lambda (return)
         (loop (for merge-cell in merge-cell-list)
               (let ((rect (merge-cell-rect merge-cell)))
-                (let ((top (get-top~ rect))
-                      (bottom (get-bottom~ rect)))
-                  (when (and (>= v top) (<= v bottom) (/= top bottom))
-                    (continuation-return return (get-first-row~ merge-cell))))))
+                (when rect
+                  (let ((top (get-top~ rect))
+                        (bottom (get-bottom~ rect)))
+                    (when (and (>= v top) (<= v bottom) (/= top bottom))
+                      (continuation-return return (get-first-row~ merge-cell)))))))
         {})))
   
   

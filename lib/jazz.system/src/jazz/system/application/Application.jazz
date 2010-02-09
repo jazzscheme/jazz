@@ -94,7 +94,6 @@
   (slot bindings-designer        initialize {}                        getter generate)
   (slot shortcut-table           initialize {})
   (slot shortcut-hook            initialize {}                        accessors generate)
-  (slot resources                initialize (make-table test: equal?) getter generate)
   
   
   (method meta override (external-name . rest)
@@ -136,7 +135,6 @@
           (windows-look (new Windows-Look)))
       (set-looks (list flat-look windows-look))
       (set-look flat-look))
-    (setup-resources)
     (initialize-platform)
     (when (use-profile?)
       (log-profile)))
@@ -1493,29 +1491,15 @@
   ;;;
   
   
-  (method (setup-resources)
-    (define (setup-resources-directory type directory extension)
-      (when (exists?~ directory)
-        (iterate-directory~ directory
-          (lambda (file)
-            (when (ci=? (get-extension~ file) extension)
-              (register-resource type (get-base~ file) file))))))
-    
-    (if (find-alias 'Jazz)
-        (begin
-          (setup-resources-directory 'image  {Directory Jazz "lib" "jazz" "resources" "images"} "png")
-          (setup-resources-directory 'cursor {Directory Jazz "lib" "jazz" "resources" "cursors"} "cur"))
-      (setup-resources-directory 'image  {Directory Bin "lib" "jazz" "resources" "images"} "png")
-      (setup-resources-directory 'cursor {Directory Bin "lib" "jazz" "resources" "cursors"} "cur")))
-  
-  
-  (method public (register-resource type name file)
-    (table-set! resources (cons type name) file))
-  
-  
   (method public (get-resource type name)
-    (or (table-ref resources (cons type name) #f)
-        (error "Unknown {a} resource: {s}" type name)))
+    (define (resources-dir)
+      (if (find-alias 'Jazz)
+          {Directory Jazz "lib" "jazz" "resources"}
+        {Directory Bin "lib" "jazz" "resources"}))
+    
+    (case type
+      ((image) (new-file~ (resources-dir) (list "images" (format "{a}.png" name))))
+      ((cursor) (new-file~ (resources-dir) (list "cursors" (format "{a}.cur" name))))))
 
 
   ;;;

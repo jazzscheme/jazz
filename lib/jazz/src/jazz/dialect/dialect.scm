@@ -1885,7 +1885,7 @@
     ((final virtual chained override) . final)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
-    ((generate handcode) . handcode)))
+    ((none generate explicit) . none)))
 
 
 (define jazz.slot-accessor-modifiers
@@ -1893,7 +1893,7 @@
     ((final virtual chained override) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
-    ((generate handcode) . #f)))
+    ((none generate explicit) . #f)))
 
 
 (define (jazz.parse-slot walker resume declaration form-src)
@@ -1922,7 +1922,7 @@
     (receive (access propagation abstraction expansion generation rest) (jazz.parse-modifiers walker resume declaration jazz.slot-accessor-modifiers form)
       (let ((generation (or generation default-generation)))
         (let ((name (cond ((%%null? rest)
-                           (and (%%eq? generation 'generate)
+                           (and (%%neq? generation 'none)
                                 (%%string->symbol (%%string-append prefix (%%symbol->string slot-name)))))
                           ((%%null? (%%cdr rest))
                            (%%car rest))

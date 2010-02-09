@@ -106,12 +106,20 @@
                     (let ((pair (assq 'update (cdr product))))
                       (when pair
                         (let ((updated-names (cdr pair)))
-                          (for-each (lambda (updated-name)
-                                      (for-each-subunit updated-name
-                                        (lambda (unit-name declaration phase)
-                                          (let ((actual-package (table-ref table unit-name {})))
-                                            (cond (actual-package (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name))
-                                                  (else (table-set! table unit-name package)))))))
+                          (for-each (lambda (updated-name/cond)
+                                      (define (process-updated-name updated-name)
+                                        (for-each-subunit updated-name
+                                          (lambda (unit-name declaration phase)
+                                            (let ((actual-package (table-ref table unit-name {})))
+                                              (cond (actual-package (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name))
+                                                    (else (table-set! table unit-name package)))))))
+                                      
+                                      (if (symbol? updated-name/cond)
+                                          (process-updated-name updated-name/cond)
+                                        ;; this could possibly be used to be smarter about conditional inclusion of modules
+                                        (for-each (lambda (clause)
+                                                    (for-each process-updated-name (cdr clause)))
+                                                  (cdr updated-name/cond))))
                                     updated-names)))))
                   (package-products package))))
     (sort string<? (table-keys table) key: symbol->string)))

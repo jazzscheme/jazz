@@ -3072,10 +3072,11 @@
     (let ((name (jazz.source-code (%%car rest)))
           (dialect-name (jazz.source-code (%%cadr rest)))
           (body (%%cddr rest)))
-      (values name
-              access
-              dialect-name
-              body))))
+      (%%assert (%%symbol? name)
+        (values name
+                access
+                dialect-name
+                body)))))
 
 
 (define (jazz.parse-module-invoice specification)

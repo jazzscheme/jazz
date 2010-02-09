@@ -1710,8 +1710,9 @@
     (let ((name (jazz.source-code (%%car rest)))
           (type jazz.Any)
           (rest (%%cdr rest)))
-      (receive (metaclass-name ascendant-name interface-names attributes body) (jazz.parse-keywords jazz.class-keywords rest)
-        (values name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body)))))
+      (%%assert (%%symbol? name)
+        (receive (metaclass-name ascendant-name interface-names attributes body) (jazz.parse-keywords jazz.class-keywords rest)
+          (values name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body))))))
 
 
 (define (jazz.expand-class walker resume declaration environment form-src)
@@ -1836,8 +1837,9 @@
     (let ((name (%%car rest))
           (type jazz.Any)
           (rest (%%cdr rest)))
-      (receive (metaclass-name ascendant-names attributes body) (jazz.parse-keywords jazz.interface-keywords rest)
-        (values name type access compatibility implementor metaclass-name ascendant-names attributes body)))))
+      (%%assert (%%symbol? name)
+        (receive (metaclass-name ascendant-names attributes body) (jazz.parse-keywords jazz.interface-keywords rest)
+          (values name type access compatibility implementor metaclass-name ascendant-names attributes body))))))
 
 
 (define (jazz.walk-interface-declaration walker resume declaration environment form-src)

@@ -129,6 +129,16 @@
 
 
 (define (identify-stack cont depth)
+  (define (continuation-next-distinct cont creator)
+    (let ((creator-name (%%procedure-name creator)))
+      (let loop ((current-cont (%%continuation-next cont)))
+           (if current-cont
+               (let ((current-creator (%%continuation-creator current-cont)))
+                 (if (%%eq? creator-name (%%procedure-name current-creator))
+                     (loop (%%continuation-next current-cont))
+                   current-cont))
+             #f))))
+  
   (define (identify-location locat)
     (if locat
         (let ((container (%%locat-container locat)))
@@ -145,7 +155,7 @@
         stack
       (let ((creator (%%continuation-creator cont))
             (location (identify-location (%%continuation-locat cont))))
-        (identify (%%continuation-next cont)
+        (identify (continuation-next-distinct cont creator)
                   (%%cons (%%list creator location) stack)
                   (%%fx+ count 1)))))
   

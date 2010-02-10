@@ -44,6 +44,7 @@
 
 
 (jazz.define-variable jazz.compile-unit-internal)
+(jazz.define-variable jazz.custom-compile-unit-internal)
 (jazz.define-variable jazz.build-unit-internal)
 (jazz.define-variable jazz.get-subunit-names-internal)
 
@@ -52,6 +53,11 @@
   (jazz.load-unit 'core.module)
   (jazz.load-unit 'core.unit.builder)
   (%%apply jazz.compile-unit-internal rest))
+
+(define (jazz.custom-compile-unit . rest)
+  (jazz.load-unit 'core.module)
+  (jazz.load-unit 'core.unit.builder)
+  (%%apply jazz.custom-compile-unit-internal rest))
 
 (define (jazz.build-unit . rest)
   (jazz.load-unit 'core.module)
@@ -304,7 +310,7 @@
                 (jazz.run-product jazz.product))
               (compile
                 (process-buildini-file)
-                (jazz.compile-unit (%%string->symbol compile) force?: force?))
+                (jazz.custom-compile-unit (%%string->symbol compile) force?: force?))
               (update
                 (process-buildini-file)
                 (jazz.update-product (%%string->symbol update)))

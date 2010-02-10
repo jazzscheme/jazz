@@ -56,6 +56,27 @@
 
 
 ;;;
+;;;; Custom build
+;;;
+
+
+(define (jazz.custom-compile/build unit-specs #!key (unit #f) (pre-build-proc #f) (force? #f))
+  (jazz.load-unit 'core.unit.builder)
+  (if unit
+      (let ((compile-args (assq unit unit-specs)))
+        (if compile-args
+            (apply jazz.compile-unit `(,@compile-args force?: ,force?))
+          (jazz.error "custom compile failed")))
+    (begin
+      (if pre-build-proc 
+          (pre-build-proc))
+      (for-each
+        (lambda (compile-args)
+          (apply jazz.compile-unit `(,@compile-args force?: ,force?)))
+        unit-specs))))
+
+
+;;;
 ;;;; Feedback
 ;;;
 

@@ -40,9 +40,21 @@
 
 (cond-expand
   (windows
-    (define (jazz.build-ado descriptor)
-      (jazz.compile-unit 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
-      (jazz.update-product-descriptor descriptor)))
+    (define (jazz.build-ado descriptor #!key (unit #f) (force? #f))
+      (define (compile-adodb)
+        (jazz.compile-unit 'jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32" force?: force?))
+      
+      (define (build-ado)
+        (compile-adodb)
+        (jazz.update-product-descriptor descriptor))
+      
+      (if (not unit)
+          (build-ado)
+        (case unit
+          ((jazz.database.ado.connection.ADODB)
+           (compile-adodb))
+          (else
+           (jazz.compile-unit unit force?: force?))))))
   (else
     (define (jazz.build-ado descriptor)
       #f)))

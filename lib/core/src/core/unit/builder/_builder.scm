@@ -93,6 +93,43 @@
         (jazz.compile-source src obj bin obj-uptodate? bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
 
 
+;; this function should be unified with jazz.compile-unit-internal
+;; (being careful about jazz.find-unit-product overhead)
+(define (jazz.custom-compile-unit-internal unit-name #!key (force? #f))
+  (let ((product (jazz.find-unit-product unit-name)))
+    (let ((build (and product
+                      (%%product-build product))))
+      (if build
+          (build (%%product-descriptor product) unit: unit-name force?: force?)
+        (jazz.compile-unit unit-name force?: force?)))))
+
+
+(define (jazz.find-unit-product unit-name)
+  (let ((src (jazz.find-unit-src unit-name #f)))
+    (let ((package (%%resource-package src)))
+      (let ((products (%%package-products package)))
+        (continuation-capture
+          (lambda (return)
+            (for-each
+              (lambda (product-descriptor)
+                (let* ((product-name (jazz.product-descriptor-name product-descriptor))
+                       (product (jazz.get-product product-name))
+                       (update-descriptor (jazz.product-descriptor-update product-descriptor)))
+                  (if update-descriptor
+                      (let ((update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
+                                                           (jazz.product-descriptor-update product-descriptor))))
+                        (for-each
+                          (lambda (unit)
+                            (jazz.for-each-subunit 
+                              unit
+                              (lambda (sub-unit declaration phase)
+                                (if (eq? sub-unit unit-name)
+                                    (continuation-return return product)))))
+                          update)))))
+              products)
+            #f))))))
+
+
 (define jazz.wrap-single-host-cc-options
   (let ((gcc-4-2?
           (cond-expand
@@ -147,10 +184,10 @@
          (linkfile (string-append bin-o1 ".c")))
 
     (if needs-compile?
-        (begin
-          (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name))))
-            (compile-file-to-c pathname output: bin-c options: options module-name: unique-module-name))
-          (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+        (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name))))
+          (if (not (and (compile-file-to-c pathname output: bin-c options: options module-name: unique-module-name)
+                        (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+              (jazz.error "compilation failed"))))
 
     (if (jazz.link-objects?)
         (begin

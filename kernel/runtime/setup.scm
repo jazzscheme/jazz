@@ -263,10 +263,6 @@
         (%%string->symbol arg)
       arg))
   
-  (define (process-buildini-file)
-    (if (file-exists? jazz.buildini-file)
-        (jazz.load jazz.buildini-file)))
-  
   (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
@@ -282,46 +278,59 @@
             (debugger (jazz.get-option "debugger" options))
             (link (symbol-argument (jazz.get-option "link" options)))
             (jobs (number-argument (jazz.get-option "jobs" options))))
-        ;; until the module syntax doesn't generate global defines
-        (set! ##allow-inner-global-define? #t)
-        (set! jazz.debugger debugger)
-        (set! jazz.link (or link (jazz.build-link)))
-        (set! jazz.link-options (jazz.parse-link jazz.link))
-        (set! jazz.jobs jobs)
-        (jazz.process-jazzini-file)
-        (jazz.setup-repositories)
-        (if (or debug?
-                (%%eqv? jobs 0))
-            (jazz.debug-build? #t))
+        (define (setup-kernel)
+          (set! ##allow-inner-global-define? #t)
+          (set! jazz.debugger debugger)
+          (jazz.process-jazzini-file)
+          (jazz.setup-repositories))
+          
+        (define (setup-runtime)
+          (setup-kernel)
+          (jazz.load-libraries))
+        
+        (define (setup-build)
+          (setup-kernel)
+          (process-buildini-file)
+          (set! jazz.link (or link (jazz.build-link)))
+          (set! jazz.link-options (jazz.parse-link jazz.link))
+          (set! jazz.jobs jobs)
+          (if (or debug?
+                  (%%eqv? jobs 0))
+              (jazz.debug-build? #t)))
+        
+        (define (process-buildini-file)
+          (if (file-exists? jazz.buildini-file)
+              (jazz.load jazz.buildini-file)))
+        
         (cond (ev
-                (jazz.load-libraries)
+                (setup-runtime)
                 (eval (call-with-input-string ev read)))
               (load
-                (jazz.load-libraries)
+                (setup-runtime)
                 (jazz.load-unit (%%string->symbol load)))
               (test
-                (jazz.load-libraries)
+                (setup-runtime)
                 (jazz.test-product (%%string->symbol test)))
               (run
-                (jazz.load-libraries)
+                (setup-runtime)
                 (jazz.run-product (%%string->symbol run)))
               (jazz.product
-                (jazz.load-libraries)
+                (setup-runtime)
                 (jazz.run-product jazz.product))
               (compile
-                (process-buildini-file)
+                (setup-build)
                 (jazz.custom-compile-unit (%%string->symbol compile) force?: force?))
               (update
-                (process-buildini-file)
+                (setup-build)
                 (jazz.update-product (%%string->symbol update)))
               (make
-                (process-buildini-file)
+                (setup-build)
                 (jazz.make-product (%%string->symbol make)))
               (build
-                (process-buildini-file)
+                (setup-build)
                 (jazz.subprocess-build-products))
               (else
-                (jazz.load-libraries)
+                (setup-runtime)
                 (jazz.repl-main)))))))
 
 

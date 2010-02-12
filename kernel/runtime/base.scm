@@ -94,8 +94,7 @@
                    "."
                    (number->string minor)
                    "."
-                   (number->string revision)
-                   " beta")))
+                   (number->string revision))))
 
 
 ;;;

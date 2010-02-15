@@ -944,6 +944,7 @@
 (native jazz.open-process)
 (native jazz.process-status)
 (native jazz.exit)
+(native jazz.add-exit-job!)
 
 
 ;;;

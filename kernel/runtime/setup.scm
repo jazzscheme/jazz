@@ -331,7 +331,9 @@
                 (jazz.subprocess-build-products))
               (else
                 (setup-runtime)
-                (jazz.repl-main)))))))
+                (jazz.repl-main))))))
+  
+  (##exit-cleanup))
 
 
 (define (jazz.repl-main)

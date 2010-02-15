@@ -42,7 +42,8 @@
   (gambit
     (define jazz.open-process open-process)
     (define jazz.process-status process-status)
-    (define jazz.exit exit))
+    (define jazz.exit exit)
+    (define jazz.add-exit-job! ##add-exit-job!))
   
   (else))
 

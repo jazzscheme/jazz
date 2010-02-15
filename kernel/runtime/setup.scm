@@ -333,7 +333,7 @@
                 (setup-runtime)
                 (jazz.repl-main))))))
   
-  (##exit-cleanup))
+  (exit))
 
 
 (define (jazz.repl-main)

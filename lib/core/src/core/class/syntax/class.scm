@@ -101,6 +101,10 @@
   `(%%object-ref ,category ,jazz.category-name))
 
 
+(jazz.define-macro (%%set-category-name category name)
+  `(%%object-set! ,category ,jazz.category-name name))
+
+
 (jazz.define-macro (%%get-category-fields category)
   `(%%object-ref ,category ,jazz.category-fields))
 
@@ -137,8 +141,16 @@
   `(%%object-ref ,class ,jazz.class-ascendant))
 
 
+(jazz.define-macro (%%set-class-ascendant class ascendant)
+  `(%%object-set! ,class ,jazz.class-ascendant ,ascendant))
+
+
 (jazz.define-macro (%%get-class-interfaces class)
   `(%%object-ref ,class ,jazz.class-interfaces))
+
+
+(jazz.define-macro (%%set-class-interfaces class interfaces)
+  `(%%object-set! ,class ,jazz.class-interfaces ,interfaces))
 
 
 (jazz.define-macro (%%get-class-slots class)

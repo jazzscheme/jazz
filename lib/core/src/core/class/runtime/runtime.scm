@@ -566,7 +566,8 @@
 
 
 (define (jazz.add-field category field)
-  (%%set-category-field category (%%get-field-name field) field))
+  (%%set-category-field category (%%get-field-name field) field)
+  field)
 
 
 (jazz.encapsulate-class jazz.Category)
@@ -599,20 +600,26 @@
              (add-classes (%%get-class-ascendant class))))
       ancestors))
   
-  (let ((class (jazz.allocate-class class-of-class name (%%make-table test: eq?) 0 #f '()
-                ascendant
-                interfaces
-                '()
-                (if ascendant (%%get-class-instance-slots ascendant) '())
-                (if ascendant (%%get-class-instance-size ascendant) jazz.object-size)
-                (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
-                #f ;;toremove - dispatch-table
-                #f
-                #f
-                #f
-                (if ascendant (%%get-class-core-vtable ascendant) #f)
-                #f
-                #f)))
+  ;; this should be made into a call to jazz.new somehow
+  (let ((class (%%make-object class-of-class (%%get-class-instance-size class-of-class))))
+    (%%set-category-name class name)
+    (%%set-category-fields class (%%make-table test: eq?))
+    (%%set-category-virtual-size class 0)
+    (%%set-category-ancestors class #f)
+    (%%set-category-descendants class '())
+    (%%set-class-ascendant class ascendant)
+    (%%set-class-interfaces class interfaces)
+    (%%set-class-slots class '())
+    (%%set-class-instance-slots class (if ascendant (%%get-class-instance-slots ascendant) '()))
+    (%%set-class-instance-size class (if ascendant (%%get-class-instance-size ascendant) jazz.object-size))
+    (%%set-class-level class (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0))
+    (%%set-class-dispatch-table class #f) ;; toremove - dispatch-table
+    (%%set-class-core-method-alist class #f)
+    (%%set-class-core-virtual-alist class #f)
+    (%%set-class-core-virtual-names class #f)
+    (%%set-class-core-vtable class (if ascendant (%%get-class-core-vtable ascendant) #f))
+    (%%set-class-class-table class #f)
+    (%%set-class-interface-table class #f)
     (%%set-category-ancestors class (%%list->vector (compute-class-ancestors class ascendant interfaces)))
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))

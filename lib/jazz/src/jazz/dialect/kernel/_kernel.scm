@@ -255,6 +255,7 @@
 (native jazz.field? <object:bool>)
 (native jazz.field-name)
 (native jazz.category-field)
+(native jazz.add-field)
 
 
 ;;;
@@ -739,6 +740,7 @@
 ;;;
 
 
+(native jazz.new-property)
 (native jazz.property-getter)
 (native jazz.property-setter)
 
@@ -814,6 +816,7 @@
 
 (native jazz.get-object-slot)
 (native jazz.set-object-slot)
+(native jazz.find-slot-offset)
 (native jazz.dispatch)
 (native jazz.find-dispatch)
 (native jazz.call-into-abstract)

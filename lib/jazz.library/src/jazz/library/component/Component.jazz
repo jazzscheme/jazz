@@ -358,7 +358,9 @@
   
   (method public (write-properties properties <Object>)
     (define (write-initarg-to object <Object> property <Object> value <Object>)
-      (write-property-to object (component-property (class-of object) (keyword->symbol property)) value))
+      (let ((property-name (keyword->symbol property)))
+        (unless (initer-property? property-name)
+          (write-property-to object (component-property (class-of object) property-name) value))))
     
     (loop (for (property value) in-properties properties)
           (do (write-initarg-to self property value))))
@@ -466,6 +468,19 @@
   ;;;
   
   
+  (definition initer-properties
+    (list->table
+      '((name . #t)
+        (parent . #t)
+        (form . #t)
+        (creator . #t)
+        (creator-branch . #t))))
+  
+  
+  (method chained (initer-property? name)
+    (table-ref initer-properties name #f))
+  
+  
   (method meta public (get-properties)
     (collect-if (lambda (property)
                   (and (property? property)
@@ -474,20 +489,15 @@
   
   
   (method (component-property category <Object> name <Object>)
-    (let ((field (category-field category name)))
-      (if (or (property? field) (initer-property? name))
+    (let ((field (mop-category-field~ category name)))
+      (if (property? field)
           field
         (error "Unknown property: {t}" name))))
-  
-  
-  (method chained (initer-property? name)
-    (memq? name '(name parent form creator creator-branch)))
 
 
   (definition (write-property-to object <Object> property <Object> value <Object>)
-    (when (property? property)
-      (let ((setter (property-setter property)))
-        (setter object value))))
+    (let ((setter (property-setter property)))
+      (setter object value)))
   
   
   (method public (get-filtered-properties (filter: filter 'categorized))

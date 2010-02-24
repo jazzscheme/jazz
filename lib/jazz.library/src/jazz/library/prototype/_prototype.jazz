@@ -48,16 +48,31 @@
   (slot properties initialize (make-table test: eq?))
   
   
+  (method (get-property field-name)
+    (table-ref properties field-name {}))
+  
+  (method (set-property field-name property)
+    (table-set! properties field-name property))
+  
+  
   (method override (mop-category-field field-name)
     (either (nextmethod field-name)
-            (table-ref properties field-name {})
+            (get-property field-name)
             (let ((property (new-property field-name #f #f 
                               (lambda (prototype)
                                 (get~ prototype field-name))
                               (lambda (prototype value)
                                 (set~ prototype field-name value)))))
-              (table-set! properties field-name property)
-              property))))
+              (set-property field-name property)
+              property))
+  
+  
+  (method override (mop-field-value property)
+    ))
+  
+  
+  (method override (mop-instance-slots object)
+    (map get-property (table-keys (get-table~ object)))))
 
 
 (class Prototype metaclass Prototype-Class extends Component
@@ -83,6 +98,7 @@
         (iterate-table (get-table~ trait)
           set)))
     
+    (set! traits~self traits)
     (for-each clone-trait (listify traits)))
   
   

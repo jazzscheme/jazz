@@ -211,7 +211,7 @@
 
 (jazz.define-method (jazz.print-object (jazz.Lexical-Binding binding) output detail)
   (jazz.format output "#<{a} {a} #{a}>"
-               (%%get-category-name (%%get-object-class binding))
+               (%%get-category-identifier (%%get-object-class binding))
                (%%get-lexical-binding-name binding)
                (jazz.object->serial binding)))
 
@@ -4100,7 +4100,7 @@
       ;; this way of getting a reference to the literal's class is a quick solution
       (let ((literal-type (if literal?
                               (%%desourcify (%%get-literal-name literal/constant))
-                            (jazz.identifier-name (%%get-category-name (%%class-of literal/constant))))))
+                            (jazz.identifier-name (%%get-category-identifier (%%class-of literal/constant))))))
         (jazz.new-constant locator (jazz.lookup-reference walker resume declaration environment literal-type))))))
 
 

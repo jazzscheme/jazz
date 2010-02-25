@@ -199,14 +199,14 @@
                                        (size (%%get-category-virtual-size category)))
                                   (%%when (%%not (%%vector-ref vtable rank))
                                     (let ((category-vtable (%%make-vector size jazz.call-into-incoherent))
-                                          (class-name (%%get-category-name class))
-                                          (category-name (%%get-category-name category)))
+                                          (class-name (%%get-category-identifier class))
+                                          (category-identifier (%%get-category-identifier category)))
                                       (%%iterate-table (%%get-category-fields category)
                                                        (lambda (field-name field)
                                                          (%%when (%%is? field jazz.Method)
                                                            (%%vector-set! category-vtable
                                                                           (%%get-method-implementation-rank field)
-                                                                          (lambda (object . rest) (jazz.call-into-abstract (%%get-category-name (%%class-of object)) field-name))))))
+                                                                          (lambda (object . rest) (jazz.call-into-abstract (%%get-category-identifier (%%class-of object)) field-name))))))
                                       (%%vector-set! vtable rank category-vtable))))))
                             (%%get-category-ancestors class))
       (%%set-class-interface-table class vtable))))
@@ -396,7 +396,7 @@
 (define (jazz.classname->string class)
   (if (%%null? class)
       "()"
-    (%%symbol->string (%%get-category-name class))))
+    (%%symbol->string (%%get-category-identifier class))))
 
 
 (jazz.define-virtual-runtime (jazz.print-object (jazz.Object object) output detail))
@@ -542,7 +542,7 @@
 
 
 (jazz.define-method (jazz.emit-type (jazz.Category type) source-declaration environment)
-  (%%get-category-name type))
+  (%%get-category-identifier type))
 
 
 (jazz.define-virtual-runtime (jazz.update-category (jazz.Category category)))
@@ -560,9 +560,9 @@
   (%%boolean (%%not (%%is? object category))))
 
 
-(define (jazz.get-category-name category)
+(define (jazz.get-category-identifier category)
   (%%debug-assert (jazz.category? category)
-    (%%get-category-name category)))
+    (%%get-category-identifier category)))
 
 
 (define (jazz.add-field category field)
@@ -581,7 +581,7 @@
 (jazz.define-class-runtime jazz.Class)
 
 
-(define (jazz.new-class class-of-class name ascendant interfaces)
+(define (jazz.new-class class-of-class identifier ascendant interfaces)
   (define (compute-class-ancestors class ascendant interfaces)
     (let ((ancestors '()))
       (let add-interfaces ((category class))
@@ -602,7 +602,7 @@
   
   ;; this should be made into a call to jazz.new somehow
   (let ((class (%%make-object class-of-class (%%get-class-instance-size class-of-class))))
-    (%%set-category-name class name)
+    (%%set-category-identifier class identifier)
     (%%set-category-fields class (%%make-table test: eq?))
     (%%set-category-virtual-size class 0)
     (%%set-category-ancestors class #f)
@@ -1953,7 +1953,7 @@
 (jazz.define-class-runtime jazz.Interface)
 
 
-(define (jazz.new-interface class name ascendants)
+(define (jazz.new-interface class identifier ascendants)
   (define (compute-interface-ancestors interface ascendants)
     (jazz.remove-duplicates
       (%%apply append (%%cons (map (lambda (ascendant)
@@ -1961,7 +1961,7 @@
                                    ascendants)
                               (%%list (%%list interface))))))
   
-  (let ((interface (jazz.allocate-interface class name (%%make-table test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
+  (let ((interface (jazz.allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
     (set! jazz.new-interface-rank (%%fx+ jazz.new-interface-rank 1))
     (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
     (for-each (lambda (ascendant)
@@ -2053,7 +2053,7 @@
   (let* ((class (%%get-object-class object))
          (field (jazz.category-field class name)))
     (if (%%not field)
-        (jazz.error "Unknown field '{s} of {s}" name (%%get-category-name (%%get-object-class object)))
+        (jazz.error "Unknown field '{s} of {s}" name (%%get-category-identifier (%%get-object-class object)))
       field)))
 
 

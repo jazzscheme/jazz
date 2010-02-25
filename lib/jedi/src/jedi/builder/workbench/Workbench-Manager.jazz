@@ -226,6 +226,13 @@
     (synchronize-content))
   
   
+  (method (on-set-current-directory evt)
+    (let ((group (selected-object)))
+      (let ((dir (get-directory~ group)))
+        (set-current-directory dir)
+        (user-message "Current directory set to {a}" (parse~ dir)))))
+  
+  
   (method (on-update-catalog evt)
     (update-catalog))
   
@@ -1175,11 +1182,11 @@
     (let ((workbench (get-workbench)))
       (format :console "{%}active-project = {s}" (get-active-project))
       (format :console "{%}project-designers =")
-      (let* ((pairs (sort < (get-project-designers~ designer) key: (lambda (pair) (category-name (class-of (car pair))))))
+      (let* ((pairs (sort < (get-project-designers~ designer) key: (lambda (pair) (category-identifier (class-of (car pair))))))
              (more? (> (length pairs) 5)))
         (for-each (lambda (pair)
                     (bind (project . designer) pair
-                      (format :console "{%}  {a} {a}" (category-name (class-of project)) designer)))
+                      (format :console "{%}  {a} {a}" (category-identifier (class-of project)) designer)))
                   (if more? (subseq pairs 0 5) pairs))
         (when more?
           (format :console "{%}  ...")))
@@ -1251,15 +1258,17 @@
   
   (form
     (<install>
-      (<Label-Item>     name: add-file            title: "New Document..." before: add-item icon: {Image-Resource "Add"} action: {Action workbench-manager add-file})
-      (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
-      (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
+      (<Label-Item>     name: add-file              title: "New Document..." before: add-item icon: {Image-Resource "Add"} action: {Action workbench-manager add-file})
+      (<Label-Item>     name: import-files          title: "Import Files..." before: cut action: {Action workbench-manager import-files})
+      (<Label-Item>     name: import-directory      title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
       @wait-complete
-      (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
-      (<Separator-Item>                           before: cut)
-      (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action: {Action workbench-manager update-catalog})
-      (<Separator-Item>                           before: cut)
-      (<!>              name: delete-selection    title: "Remove"))))
+      (<Label-Item>     name: synchronize-content   title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
+      (<Separator-Item>                             before: cut)
+      (<Label-Item>     name: update-catalog        title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action: {Action workbench-manager update-catalog})
+      (<Separator-Item>                             before: cut)
+      (<Label-Item>     name: set-current-directory title: "Set as Current Directory" before: cut action: {Action workbench-manager set-current-directory})
+      (<Separator-Item>                             before: cut)
+      (<!>              name: delete-selection      title: "Remove"))))
 
 
 ;;;

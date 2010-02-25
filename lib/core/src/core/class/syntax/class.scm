@@ -38,11 +38,11 @@
 (unit protected core.class.syntax.class
 
 
-(define jazz.category-name
+(define jazz.category-identifier
   jazz.object-size)
 
 (define jazz.category-fields
-  (%%fx+ jazz.category-name 1))
+  (%%fx+ jazz.category-identifier 1))
 
 (define jazz.category-virtual-size
   (%%fx+ jazz.category-fields 1))
@@ -97,12 +97,12 @@
   (%%fx+ jazz.class-interface-table 1))
 
 
-(jazz.define-macro (%%get-category-name category)
-  `(%%object-ref ,category ,jazz.category-name))
+(jazz.define-macro (%%get-category-identifier category)
+  `(%%object-ref ,category ,jazz.category-identifier))
 
 
-(jazz.define-macro (%%set-category-name category name)
-  `(%%object-set! ,category ,jazz.category-name name))
+(jazz.define-macro (%%set-category-identifier category identifier)
+  `(%%object-set! ,category ,jazz.category-identifier ,identifier))
 
 
 (jazz.define-macro (%%get-category-fields category)

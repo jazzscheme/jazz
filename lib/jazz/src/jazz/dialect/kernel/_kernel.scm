@@ -84,7 +84,7 @@
 ;;;
 
 
-(native jazz.get-category-name)
+(native jazz.get-category-identifier)
 (native jazz.get-category-descendants)
 (native jazz.get-class-ascendant)
 

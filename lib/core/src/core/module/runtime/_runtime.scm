@@ -129,4 +129,4 @@
 
 
 (define (jazz.dispatch-error field value category)
-  (jazz.error "Inconsistent dispatch on method {a}: {s} is not of the expected {s} type" (%%get-field-name field) value (%%get-category-name category))))
+  (jazz.error "Inconsistent dispatch on method {a}: {s} is not of the expected {s} type" (%%get-field-name field) value (%%get-category-identifier category))))

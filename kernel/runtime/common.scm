@@ -213,6 +213,12 @@
   (time->seconds (file-last-modification-time pathname)))
 
 
+(define (jazz.add-extension filename extension)
+  (if (%%not extension)
+      filename
+    (%%string-append filename "." extension)))
+
+
 (define (jazz.copy-file src dst #!key (feedback #f))
   (if (jazz.file-needs-update? src dst)
       (begin

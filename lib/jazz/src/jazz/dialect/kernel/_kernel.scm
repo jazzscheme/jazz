@@ -680,6 +680,7 @@
 (native jazz.file-copy)
 (native jazz.file-modification-time)
 (native jazz.file-rename)
+(native jazz.add-extension)
 (native jazz.current-directory)
 (native jazz.current-directory-set!)
 (native jazz.with-current-directory)

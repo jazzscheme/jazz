@@ -508,8 +508,8 @@
       
       (define (image-file)
         (if library-image?
-            (build-file (string-append product-name ".o1"))
-          (build-file (string-append product-name (jazz.executable-extension platform)))))
+            (build-file (jazz.add-extension product-name "o1"))
+          (build-file (jazz.add-extension product-name (jazz.executable-extension platform)))))
       
       ;;;
       ;;;; Configuration
@@ -778,9 +778,9 @@
 (define (jazz.executable-extension platform)
   (case platform
     ((windows)
-     ".exe")
+     "exe")
     (else
-     "")))
+     #f)))
 
 
 (define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)

@@ -763,14 +763,15 @@
     (for-each-parent proc))
   
   
-  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t))
-    (letrec ((iter
-               (lambda (component include? level)
-                 (when include?
-                   (proc component level))
-                 (loop (for child in (get-children~ component))
-                       (do (iter child #t (+ level 1)))))))
-      (iter self include-self? 0)))
+  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t) (stop-test: stop-test {}))
+    (when include-self?
+      (proc self 0))
+    (let (iter (component self)
+                  (level 1))
+      (loop (for child in (get-children~ component))
+            (unless (and stop-test (stop-test child))
+              (proc child level)
+              (iter child (+ level 1))))))
   
   
   (method public (for-each-sibling proc <procedure>)

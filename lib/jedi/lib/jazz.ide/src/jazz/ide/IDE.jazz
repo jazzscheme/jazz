@@ -77,13 +77,7 @@
   
   
   (method override (start-process)
-    (define (setup-caption-base)
-      (let ((toplevel-title (get-toplevel-title~ (get-preferences {}))))
-        (cond (toplevel-title (set-caption-base~ toplevel toplevel-title))
-              ((not (get-caption-base~ toplevel)) (set-caption-base~ toplevel "Application")))))
-    
     (nextmethod)
-    (setup-caption-base)
     (start-jazz-debugger))
 
 
@@ -98,8 +92,19 @@
   
   
   (method override (finish-process)
+    (define (setup-caption-base)
+      (let ((toplevel-title (toplevel-title)))
+        (cond (toplevel-title (set-caption-base~ toplevel toplevel-title))
+              ((not (get-caption-base~ toplevel)) (set-caption-base~ toplevel "Application")))))
+    
+    (define (toplevel-title)
+      (if profile
+          (toplevel-title~ profile)
+        (get-toplevel-title~ (get-preferences {}))))
+    
     (set-debugger-manager (new Debugger-Manager)) ;; hack!!!!!
     (nextmethod)
+    (setup-caption-base)
     ;; doing this after the run loop is started ensures
     ;; that the null? test on the load-stack is correct
     (thread-write (event-thread)

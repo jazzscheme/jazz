@@ -1342,15 +1342,20 @@
             (jazz.build-library-descriptor descriptor))))))
 
 
-(define (jazz.build-product-descriptor descriptor)
-  (jazz.update-product-descriptor descriptor)
-  (let ((build (jazz.product-descriptor-build descriptor)))
-    (if build
-        (for-each (lambda (obj)
-                    (if (%%symbol? obj)
+(define (jazz.build-product-descriptor descriptor #!key (unit #f) (force? #f))
+  (define (build-product)
+    (jazz.update-product-descriptor descriptor)
+    (let ((build (jazz.product-descriptor-build descriptor)))
+      (if build
+          (for-each (lambda (obj)
+                      (if (%%symbol? obj)
                           (jazz.build-image obj)
-                      (%%apply jazz.build-image obj)))
-                  build))))
+                        (%%apply jazz.build-image obj)))
+                    build))))
+  
+  (if unit
+      (jazz.compile-unit unit force?: force?)
+    (build-product)))
 
 
 (define (jazz.build-library-descriptor descriptor)

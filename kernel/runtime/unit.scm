@@ -327,13 +327,6 @@
 (define jazz.Build-Repository
   #f)
 
-(define jazz.Jazz-Repository
-  #f)
-
-(define jazz.User-Repository
-  #f)
-
-
 (define jazz.Repositories
   '())
 
@@ -341,24 +334,26 @@
   jazz.Repositories)
 
 
-(define (jazz.prepare-repositories #!optional (jazz-repository #f) (user-repository #f) (repositories #f))
-  (define (all-repositories repositories)
+(define (jazz.prepare-repositories #!optional (build-repository #f) (jazz-repository #f) (user-repository #f) (repositories #f))
+  (define (all-repositories build jazz user repositories)
     (define (listify repository)
       (if repository
           (%%list repository)
         '()))
     
-    `(,@(listify jazz.Build-Repository)
-      ,@(listify jazz.Jazz-Repository)
-      ,@(listify jazz.User-Repository)
+    `(,@(listify build)
+      ,@(listify jazz)
+      ,@(listify user)
       ,@(if repositories
             (map jazz.load-repository (jazz.split-string repositories #\;))
           '())))
   
-  (set! jazz.Build-Repository (jazz.make-repository 'Build jazz.kernel-install "lib" binary?: #t create?: #t))
-  (set! jazz.Jazz-Repository (jazz.make-repository 'Jazz (or jazz-repository (jazz.jazz-repository) jazz.kernel-source) "lib"))
-  (set! jazz.User-Repository (jazz.make-repository 'User (or user-repository (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
-  (set! jazz.Repositories (all-repositories (or repositories (jazz.repositories)))))
+  (let ((build (jazz.make-repository 'Build (or build-repository (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
+        (jazz (jazz.make-repository 'Jazz (or jazz-repository (jazz.jazz-repository) jazz.kernel-source) "lib"))
+        (user (jazz.make-repository 'User (or user-repository (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
+        (repositories (or repositories (jazz.repositories))))
+    (set! jazz.Build-Repository build)
+    (set! jazz.Repositories (all-repositories build jazz user repositories))))
 
 
 (define (jazz.make-repository name directory library-root #!key (binary? #f) (create? #f))

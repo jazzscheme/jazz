@@ -39,6 +39,24 @@
 
 
 ;;;
+;;;; Repositories
+;;;
+
+
+(jazz.define-setting jazz.jazz-repository
+  #f)
+
+(jazz.define-setting jazz.user-repository
+  #f)
+
+(jazz.define-setting jazz.extra-repositories
+  #f)
+
+(jazz.define-setting jazz.repositories
+  #f)
+
+
+;;;
 ;;;; Verbose
 ;;;
 

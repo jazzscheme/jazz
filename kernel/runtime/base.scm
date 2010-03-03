@@ -342,6 +342,12 @@
               standardized)))))))
 
 
+(define (jazz.dirname-normalize dir)
+  (if (jazz.string-ends-with? dir "/")
+      dir
+    (string-append dir "/")))
+
+
 (define (jazz.create-directory dir #!key (feedback #f))
   (if (not (file-exists? dir))
       (begin
@@ -386,12 +392,15 @@
 
 (define (jazz.option? arg)
   (and (< 0 (string-length arg))
-       (or (char=? (string-ref arg 0) #\-)
-           (char=? (string-ref arg 0) #\/))))
+       (char=? (string-ref arg 0) #\-)))
 
 
 (define (jazz.convert-option arg)
-  (substring arg 1 (string-length arg)))
+  (let ((len (string-length arg)))
+    (let ((start (if (and (>= len 2) (equal? (substring arg 0 2) "--"))
+                     2
+                   1)))
+      (substring arg start len))))
 
 
 (define (jazz.option=? arg option)

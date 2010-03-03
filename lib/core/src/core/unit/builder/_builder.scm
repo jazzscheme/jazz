@@ -211,7 +211,7 @@
 
   
 (define (jazz.find-build-package name)
-  (jazz.repository-find-package jazz.Bin-Repository name))
+  (jazz.repository-find-package jazz.Build-Repository name))
 
 
 ;;;

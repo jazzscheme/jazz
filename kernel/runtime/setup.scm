@@ -169,6 +169,7 @@
 
 (define (jazz.library-main)
   (jazz.process-jazzini-file)
+  (jazz.prepare-repositories)
   (jazz.setup-repositories))
 
 
@@ -263,10 +264,13 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
             (force? (jazz.get-option "force" options))
+            (jazz-repository (jazz.get-option "jazz-repository" options))
+            (user-repository (jazz.get-option "user-repository" options))
+            (repositories (jazz.get-option "repositories" options))
             (ev (jazz.get-option "eval" options))
             (load (jazz.get-option "load" options))
             (test (jazz.get-option "test" options))
@@ -282,6 +286,7 @@
           (set! ##allow-inner-global-define? #t)
           (set! jazz.debugger debugger)
           (jazz.process-jazzini-file)
+          (jazz.prepare-repositories jazz-repository user-repository repositories)
           (jazz.setup-repositories))
           
         (define (setup-runtime)

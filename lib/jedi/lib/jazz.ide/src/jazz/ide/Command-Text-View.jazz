@@ -70,6 +70,11 @@
       tooltip-text: "Command Shell"))
   
   
+  (method override (finish rest)
+    (nextmethod rest)
+    (set! mode (new Execute-Mode self)))
+  
+  
   (method override (component-alias name)
     (case name
       ((:mode) mode)
@@ -77,35 +82,45 @@
   
   
   ;;;
-  ;;;; Focus
+  ;;;; Client
   ;;;
   
   
-  (method override (focus-gained)
+  (method (setup-client)
+    (set! client (get-focus))
+    (set! client-selection {}))
+  
+  
+  (method (setup-search-client)
     (define (determine-client)
-      (let ((guest (current-document)))
-        (when (is? guest Text-View)
-          guest)))
+      (let ((focus (get-focus)))
+        (when (and (is? focus Text-View) (not (in-cell-edit? focus)))
+          focus)))
     
-    (nextmethod)
     (set! client (determine-client))
-    (set! client-selection (essay (and client (is? client Text-View)) (get-selection~ client))))
+    (set! client-selection (essay client (get-selection~ client))))
+  
+  
+  (method (cleanup-client)
+    (set! client {})
+    (set! client-selection {}))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
   
   
   (method override (focus-lose)
     (nextmethod)
     (cleanup~ mode #t)
-    (set! mode {}))
+    (cleanup-client)
+    (set-mode-execute))
   
   
   (method override (focus-actions)
-    (when (not mode)
-      (set-mode-execute))
-    (let ((actions (mode-actions~ mode)))
-      (if (is-not? actions Actions)
-          (append 1 2)
-        (cons (mode-actions~ mode)
-              (nextmethod)))))
+    (cons (mode-actions~ mode)
+          (nextmethod)))
   
   
   ;;;
@@ -178,6 +193,7 @@
   
   (method public (select-search direction range initial again? whole-words?)
     (set-mode-search direction)
+    (setup-search-client)
     (acquire-focus)
     (prepare-search~ mode range)
     (when initial
@@ -193,6 +209,7 @@
   
   (method public (select-extended)
     (set-mode-extended)
+    (setup-client)
     (acquire-focus))
   
   
@@ -203,6 +220,7 @@
   
   (method public (select-execute)
     (set-mode-execute)
+    (setup-client)
     (acquire-focus))
   
   

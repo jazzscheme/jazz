@@ -521,7 +521,7 @@
      dispatcher)))
 
 (define default-dispatcher
-  (lambda (connection method uri parameters headers)
+  (lambda (connection method uri parameters headers content)
     (reply connecton "404 NOT FOUND" "Server not configured." '())))
 
 (define http-server-start!
@@ -590,7 +590,8 @@
                             method
                             uri
                             parameters
-                            headers)))
+                            headers
+                            content)))
                        (error))))
                 (error)))
           (error)))))
@@ -670,7 +671,8 @@
 )
 
 ;; (define test-dispatcher
-;;   (lambda (connection method uri parameters headers)
+;;   (lambda (connection method uri parameters headers content)
+;;     (pretty-print (tcp-client-peer-socket-info connection))
 ;;     (pretty-print "Dispatching request")
 ;;     (reply connection "200 OK" "Hello World" '())))
 

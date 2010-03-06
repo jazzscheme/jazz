@@ -127,32 +127,48 @@
 
 
 (definition public (initialize-aliases)
-  (define (register-repositories-aliases)
-    (define (register-repository repository)
-      (let ((name (repository-name repository))
-            (directory (remove-trailing-char (repository-directory repository) #\/)))
-        (register-alias name (tokenise-filename directory))
-        (unless (repository-binary? repository)
-          (for-each (lambda (package)
-                      (let ((package-name (package-name package))
-                            (package-root (package-root package)))
-                        (register-alias package-name
-                                        `(,name ,@(tokenise-filename package-root)))))
-                    (repository-packages repository)))))
-    
+  (define (register-home)
+    (register-alias 'Home (tokenise-filename (pathname-normalize "~"))))
+  
+  (define (register-repositories)
     (for-each register-repository (get-repositories)))
   
-  (initialize-platform-aliases)
-  (register-alias 'Home (tokenise-filename (pathname-normalize "~")))
-  (register-repositories-aliases))
+  (define (register-repository repository)
+    (unless (repository-binary? repository)
+      (register-repository-alias repository)
+      (register-repository-packages repository)))
+  
+  (define (register-repository-alias repository)
+    (let ((name (repository-name repository))
+          (directory (remove-trailing-char (repository-directory repository) #\/)))
+      (register-alias name (tokenise-filename directory))))
+  
+  (define (register-repository-packages repository)
+    (let ((name (repository-name repository)))
+      (for-each (lambda (package)
+                  (let ((package-name (package-name package))
+                        (package-root (package-root package)))
+                    (register-alias package-name
+                                    `(,name ,@(tokenise-filename package-root)))))
+                (repository-packages repository))))
+  
+  (define (register-build-repository)
+    (let ((repository (get-build-repository)))
+      (when repository
+        (register-repository-alias repository))))
+  
+  (register-platform-aliases)
+  (register-home)
+  (register-repositories)
+  (register-build-repository))
 
 
 (cond-expand
   (windows
-    (definition (initialize-platform-aliases)
+    (definition (register-platform-aliases)
       (register-alias 'Network "\\")))
   (else
-    (definition (initialize-platform-aliases)
+    (definition (register-platform-aliases)
       )))
 
 

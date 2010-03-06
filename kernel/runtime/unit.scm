@@ -324,14 +324,18 @@
        (%%eq? (%%vector-ref obj 0) 'repository)))
 
 
-(define jazz.Build-Repository
-  #f)
-
 (define jazz.Repositories
   '())
 
+(define jazz.Build-Repository
+  #f)
+
+
 (define (jazz.get-repositories)
   jazz.Repositories)
+
+(define (jazz.get-build-repository)
+  jazz.Build-Repository)
 
 
 (define (jazz.prepare-repositories #!optional (build-repository #f) (jazz-repository #f) (user-repository #f) (repositories #f))

@@ -774,48 +774,6 @@
 ;;;; Unit
 ;;;
 
-(define (jazz.find-unit-obj unit-name)
-  (jazz.find-unit-obj/bin unit-name ".o"))
-
-
-(define (jazz.find-unit-bin unit-name)
-  (jazz.find-unit-obj/bin unit-name ".o1"))
-
-
-(define (jazz.find-unit-obj/bin unit-name extension)
-  (define (find-bin package path)
-    (define (try path)
-      ;; we only test .o1 and let gambit find the right file by returning no extension when found
-      (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path extension)))
-          (%%make-resource package path #f)
-        #f))
-  
-    (if (jazz.directory-exists? (jazz.package-pathname package path))
-        (try (%%string-append path "/_" (jazz.pathname-name path)))
-      (try path)))
-  
-  (continuation-capture
-    (lambda (return)
-      (let ((path (jazz.name->path unit-name)))
-        (for-each (lambda (package)
-                    (let ((bin (find-bin package path)))
-                      (if bin
-                          (continuation-return return bin))))
-                  (jazz.cached-packages jazz.*binary-packages-cache* unit-name))
-        ;; (jazz.feedback "caching bin {a}" unit-name)
-        (jazz.iterate-packages #t
-          (lambda (package)
-            (let ((bin (find-bin package path)))
-              (if bin
-                  (begin
-                    (jazz.cache-package jazz.*binary-packages-cache* unit-name package)
-                    #; ;; test
-                    (jazz.validate-repository-unicity (%%package-repository package)
-                                                      unit-name
-                                                      (lambda (package)
-                                                        (find-bin package path)))
-                    (continuation-return return bin)))))))
-      #f)))  
 
 (define (jazz.find-unit-src unit-name extensions . rest)
   (define (find-src package path)
@@ -863,11 +821,52 @@
 
 
 (define (jazz.with-unit-src/bin unit-name extensions proc)
-  (jazz.with-unit-resources unit-name extensions 
+  (jazz.with-unit-resources unit-name extensions
     (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (proc src bin bin-uptodate? manifest))))
 
 (define (jazz.with-unit-resources unit-name extensions proc)
+  (define (find-unit-obj unit-name)
+    (find-unit-obj/bin unit-name ".o"))
+  
+  (define (find-unit-bin unit-name)
+    (find-unit-obj/bin unit-name ".o1"))
+  
+  (define (find-unit-obj/bin unit-name extension)
+    (define (find-bin package path)
+      (define (try path)
+        ;; we only test .o1 and let gambit find the right file by returning no extension when found
+        (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path extension)))
+            (%%make-resource package path #f)
+          #f))
+      
+      (if (jazz.directory-exists? (jazz.package-pathname package path))
+          (try (%%string-append path "/_" (jazz.pathname-name path)))
+        (try path)))
+    
+    (continuation-capture
+      (lambda (return)
+        (let ((path (jazz.name->path unit-name)))
+          (for-each (lambda (package)
+                      (let ((bin (find-bin package path)))
+                        (if bin
+                            (continuation-return return bin))))
+                    (jazz.cached-packages jazz.*binary-packages-cache* unit-name))
+          ;; (jazz.feedback "caching bin {a}" unit-name)
+          (jazz.iterate-packages #t
+            (lambda (package)
+              (let ((bin (find-bin package path)))
+                (if bin
+                    (begin
+                      (jazz.cache-package jazz.*binary-packages-cache* unit-name package)
+                      #; ;; test
+                      (jazz.validate-repository-unicity (%%package-repository package)
+                                                        unit-name
+                                                        (lambda (package)
+                                                          (find-bin package path)))
+                      (continuation-return return bin)))))))
+        #f)))
+  
   (define (force-interpreted?)
     (let ((interpreted? (jazz.force-interpreted?)))
       (cond ((%%boolean? interpreted?)
@@ -878,12 +877,12 @@
              (%%memv unit-name interpreted?)))))
   
   (let* ((src (jazz.find-unit-src unit-name extensions #f))
-         (obj (jazz.find-unit-obj unit-name))
-         (bin (jazz.find-unit-bin unit-name))
+         (obj (find-unit-obj unit-name))
+         (bin (find-unit-bin unit-name))
          (image-unit (jazz.get-image-unit unit-name))
          (manifest (let ((obj/bin (or obj bin)))
                      (if (and src obj/bin)
-                       (jazz.load-updated-manifest 
+                       (jazz.load-updated-manifest
                          unit-name
                          (jazz.manifest-pathname (%%resource-package obj/bin) obj/bin)
                          (jazz.resource-pathname src))
@@ -920,13 +919,13 @@
             bin-uptodate?
             lib-uptodate?
             manifest))))
- 
 
-(define (jazz.unit-status unit-name) 
+
+(define (jazz.unit-status unit-name)
   (jazz.with-unit-resources unit-name #f
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (display "unit ") (display unit-name) (newline)
-      (if src 
+      (if src
           (begin
             (display "source hash: ")
             (display (digest-file (jazz.resource-pathname src) 'sha-1))
@@ -950,7 +949,7 @@
 
 (define (jazz.image-unit-uptodate-src? image-unit src)
   (let ((source-hash (digest-file (jazz.resource-pathname src) 'sha-1)))
-    (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash))) 
+    (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash)))
 
 
 (define (jazz.validate-repository-unicity repository unit-name proc)
@@ -1069,7 +1068,7 @@
 
 
 (define (jazz.find-product-descriptor name)
-  (let ((binary-package #f) 
+  (let ((binary-package #f)
         (binary-descriptor #f))
     (let iter-repo ((repositories jazz.Repositories))
       (if (%%null? repositories)
@@ -1322,7 +1321,7 @@
                     (apply-cond-expand (%%cdr exp))))))
           ((null? exp)
            '())
-          (else 
+          (else
            (error-proc))))
 
   (define (expand-update update)
@@ -1606,7 +1605,7 @@
 
 
 (define (jazz.for-each-numbered-pathname pathname n0 proc)
-  (let iter ((n n0))     
+  (let iter ((n n0))
        (let ((candidate (string-append pathname (%%number->string n))))
          (if (file-exists? candidate)
              (begin
@@ -1620,7 +1619,7 @@
          (if (%%not (file-exists? candidate))
              (if fresh?
                  (proc candidate exists?)
-               (if exists? 
+               (if exists?
                    (proc (string-append pathname (%%number->string (%%fx- n 1))) exists?)
                  (proc (string-append pathname (%%number->string n0)) exists?)))
            (iter (%%fx+ n 1) #t)))))
@@ -1723,9 +1722,9 @@
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource (if bin-uptodate? bin src)))
         (cond (lib-uptodate?
-                (jazz.increment-image-load-counter)                
+                (jazz.increment-image-load-counter)
                 (jazz.with-verbose (jazz.load-verbose?) "loading" (symbol->string unit-name)
-                  (lambda () 
+                  (lambda ()
                     (load-proc))))
               (bin-uptodate?
                 (jazz.increment-object-load-counter)

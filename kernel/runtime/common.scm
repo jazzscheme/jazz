@@ -68,7 +68,7 @@
             (apply jazz.compile-unit `(,@compile-args force?: ,force?))
           (jazz.error "custom compile failed")))
     (begin
-      (if pre-build-proc 
+      (if pre-build-proc
           (pre-build-proc))
       (for-each
         (lambda (compile-args)

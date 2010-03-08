@@ -138,13 +138,17 @@
     (lambda (str)
       (if gcc-4-2? (string-append "-U___SINGLE_HOST " str) str))))
 
+
 (define (jazz.compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+  (define (uptodate?)
+    (if (jazz.link-objects?)
+        (and obj-uptodate? bin-uptodate? (jazz.manifest-references-valid? bin))
+      (and obj-uptodate? (jazz.manifest-references-valid? obj))))
+  
   (let ((options (or options jazz.compile-options))
         (cc-options (jazz.wrap-single-host-cc-options (or cc-options "")))
         (ld-options (or ld-options "")))
-    (if (or force? (%%not (if (jazz.link-objects?)
-                              (and obj-uptodate? bin-uptodate? (jazz.manifest-references-valid? bin))
-                            (and obj-uptodate? (jazz.manifest-references-valid? obj)))))
+    (if (or force? (%%not (uptodate?)))
         (let ((package (%%resource-package src))
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))

@@ -181,7 +181,7 @@
 
 (define (jazz.load-libraries)
   (define libraries (%%make-table test: eq?))
-  (define (add-library package-name library-filename) 
+  (define (add-library package-name library-filename)
     (%%table-set! libraries package-name library-filename))
   
   ; find the libraries
@@ -190,9 +190,9 @@
       (let ((products (%%package-products package)))
         (for-each
           (lambda (product-descriptor)
-            (let ((product-name (jazz.product-descriptor-name product-descriptor)))           
+            (let ((product-name (jazz.product-descriptor-name product-descriptor)))
               (or (%%table-ref libraries product-name #f)
-                  (jazz.with-numbered-pathname 
+                  (jazz.with-numbered-pathname
                     (string-append (jazz.product-library-name-base package product-name) "." jazz.Library-Extension) #f 1
                     (lambda (filename exists?)
                       (if exists?

@@ -644,7 +644,7 @@
               #f)))
         (if (%%string? dir)
             (let* ((jazz-relative-dir (prefix "~~jazz" dir))
-                   (quoted-dir 
+                   (quoted-dir
                      (if jazz-relative-dir
                          (jazz.quote-jazz-gcc-pathname jazz-relative-dir)
                        (jazz.quote-gcc-pathname dir platform))))

@@ -687,8 +687,8 @@
     (define (unit-uptodate? unit-name)
       (let ((image-unit-compile-time-hash (%%table-ref sha1-table unit-name #f)))
         (and image-unit-compile-time-hash
-             (jazz.with-unit-src/bin unit-name #f
-               (lambda (src bin bin-uptodate? manifest)
+             (jazz.with-unit-resources unit-name #f
+               (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
                  (and manifest
                       (jazz.manifest-uptodate? manifest)
                       (%%not (jazz.manifest-needs-rebuild? manifest))
@@ -710,8 +710,8 @@
         (newline port)
         (for-each
           (lambda (unit-name)
-            (jazz.with-unit-src/bin unit-name #f
-              (lambda (src bin bin-uptodate? manifest)
+            (jazz.with-unit-resources unit-name #f
+              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
                 (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
                        (manifest (jazz.load/create-manifest unit-name mnf))
                        (digest (%%manifest-digest manifest)))
@@ -743,8 +743,8 @@
             (feedback-message "; creating link file...")
             (link-flat (%%cons header
                                (map (lambda (subunit-name)
-                                      (jazz.with-unit-src/bin subunit-name #f
-                                        (lambda (src bin bin-uptodate? manifest)
+                                      (jazz.with-unit-resources subunit-name #f
+                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
                                           (jazz.binary-with-extension src ""))))
                                     sub-units))
                        output: linkfile
@@ -758,8 +758,8 @@
                     (else '("-bundle" "-D___DYNAMIC")))
                 ,header-o
                 ,@(map (lambda (subunit-name)
-                         (jazz.with-unit-src/bin subunit-name #f
-                           (lambda (src bin bin-uptodate? manifest)
+                         (jazz.with-unit-resources subunit-name #f
+                           (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
                              (jazz.binary-with-extension src ".o"))))
                        sub-units)
                 ,linkfile

@@ -345,12 +345,12 @@
           (%%list repository)
         '()))
     
-    `(,@(listify build)
-      ,@(listify jazz)
-      ,@(listify user)
-      ,@(if repositories
+    `(,@(if repositories
             (map jazz.load-repository (jazz.split-string repositories #\;))
-          '())))
+          '())
+      ,@(listify build)
+      ,@(listify jazz)
+      ,@(listify user)))
   
   (let ((build (jazz.make-repository 'Build (or build-repository (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
         (jazz (jazz.make-repository 'Jazz (or jazz-repository (jazz.jazz-repository) jazz.kernel-source) "lib"))
@@ -974,6 +974,14 @@
 ;;;
 ;;;; Cache
 ;;;
+
+
+;; This is a cache of
+;;   - every subdirectory of level 2 and
+;;   - every subdirectory of level 1 that contains files
+;; It associates the directory name as a symbol to a list of packages containing it
+;; Stopping at level 2 is a heuristic decision to minimize cache size and the need to refresh
+;; it while going deep enough so directory names are unique in a high percentage of cases
 
 
 (define jazz.*binary-packages-cache*

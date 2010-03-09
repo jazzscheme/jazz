@@ -135,6 +135,17 @@
              (iter (%%fx+ n 1)))))))
 
 
+(define (jazz.string-find-reversed str c)
+  (declare (proper-tail-calls))
+  (let iter ((n (%%fx- (%%string-length str) 1)))
+    (cond ((%%fx< n 0)
+           #f)
+          ((%%char=? (%%string-ref str n) c)
+           n)
+          (else
+           (iter (%%fx- n 1))))))
+
+
 (define (jazz.string-replace str old new)
   (declare (proper-tail-calls))
   (let ((cpy (string-copy str)))
@@ -207,6 +218,13 @@
 
 (define jazz.executable-directory
   #f)
+
+
+(define (jazz.pathname-dir pathname)
+  (let ((pos (jazz.string-find-reversed pathname #\/)))
+    (if (%%not pos)
+        #f
+      (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
 (define (jazz.file-modification-time pathname)
@@ -326,6 +344,7 @@
         (version (%%manifest-version manifest))
         (digest (%%manifest-digest manifest))
         (references (%%manifest-references manifest)))
+    (jazz.create-directories (jazz.pathname-dir filepath))
     (call-with-output-file filepath
       (lambda (output)
         (display "(manifest " output)

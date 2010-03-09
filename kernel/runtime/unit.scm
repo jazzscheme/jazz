@@ -172,22 +172,6 @@
 
 
 ;;;
-;;;; String
-;;;
-
-
-(define (jazz.string-find-reversed str c)
-  (declare (proper-tail-calls))
-  (let iter ((n (%%fx- (%%string-length str) 1)))
-    (cond ((%%fx< n 0)
-           #f)
-          ((%%char=? (%%string-ref str n) c)
-           n)
-          (else
-           (iter (%%fx- n 1))))))
-
-
-;;;
 ;;;; Symbol
 ;;;
 
@@ -216,13 +200,6 @@
 ;;;
 ;;;; Pathname
 ;;;
-
-
-(define (jazz.pathname-dir pathname)
-  (let ((pos (jazz.string-find-reversed pathname #\/)))
-    (if (%%not pos)
-        #f
-      (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
 (define (jazz.pathname-name pathname)
@@ -485,31 +462,6 @@
     (%%iterate-table table
       (lambda (name package)
         (jazz.setup-package package)))))
-
-
-(define (jazz.setup-build)
-  (define (setup-build-packages)
-    (jazz.iterate-packages #f
-      setup-build-package))
-  
-  (define (setup-build-package package)
-    (let* ((name (%%package-name package))
-           (parent (%%package-parent package))
-           (bin-parent (if parent (setup-build-package parent) #f))
-           (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
-           (path (%%string-append dir jazz.Package-Filename))
-           (src (jazz.repository-pathname (%%package-repository package) path))
-           (dst (jazz.repository-pathname jazz.Build-Repository path)))
-      (if (or (%%not (jazz.file-exists? dst))
-              (< (jazz.file-modification-time dst) (jazz.file-modification-time src)))
-          (begin
-            (jazz.create-directories (jazz.repository-pathname jazz.Build-Repository dir))
-            (if (jazz.file-exists? dst)
-                (jazz.file-delete dst))
-            (jazz.file-copy src dst)))))
-  
-  (setup-build-packages)
-  (%%repository-packages-table-set! jazz.Build-Repository #f))
 
 
 (define (jazz.repository-packages repository)
@@ -1523,8 +1475,6 @@
       (write name process)
       (newline process)
       (force-output process))
-    
-    (jazz.setup-build)
     
     (parameterize ((current-user-interrupt-handler
                      (lambda ()

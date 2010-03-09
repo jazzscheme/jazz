@@ -153,7 +153,7 @@
               (path (%%resource-path src))
               (pathname (jazz.resource-pathname src))
               (bindir (jazz.resource-build-dir src)))
-          (let ((build-package (jazz.find-build-package (%%package-name package))))
+          (let ((build-package (jazz.copy-package package)))
             (display "; compiling ")
             (display path)
             (display "...")
@@ -213,9 +213,31 @@
       ; else delete the .o1, .o2... files
       (jazz.for-each-numbered-pathname bin-o 1 delete-file))))
 
-  
-(define (jazz.find-build-package name)
-  (jazz.repository-find-package jazz.Build-Repository name))
+
+(define (jazz.copy-package package)
+  (let* ((name (%%package-name package))
+         (parent (%%package-parent package))
+         (bin-parent (if parent (jazz.copy-package parent) #f))
+         (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
+         (path (%%string-append dir jazz.Package-Filename))
+         (src (jazz.repository-pathname (%%package-repository package) path))
+         (dst (jazz.repository-pathname jazz.Build-Repository path)))
+    (define (load-package)
+      (let ((package (jazz.load-package jazz.Build-Repository bin-parent name dst)))
+        (%%table-set! (%%repository-packages-table jazz.Build-Repository)
+                      name
+                      package)
+        package))
+    
+    (if (and (jazz.file-exists? dst) (>= (jazz.file-modification-time dst) (jazz.file-modification-time src)))
+        (or (jazz.repository-find-package jazz.Build-Repository name)
+            (load-package))
+      (begin
+        (jazz.create-directories (jazz.repository-pathname jazz.Build-Repository dir))
+        (if (jazz.file-exists? dst)
+            (jazz.file-delete dst))
+        (jazz.file-copy src dst)
+        (load-package)))))
 
 
 ;;;

@@ -56,9 +56,10 @@
   (slot dragging?          initialize #f)
   (slot current-part)
   (slot old-position)
-  (slot preserved-position initialize {} getter generate)
-  (slot preserved-size     initialize {} getter generate)
-  (slot workspace          initialize {} accessors generate)
+  (slot preserved-position initialize {}  getter generate)
+  (slot preserved-size     initialize {}  getter generate)
+  (slot workspace          initialize {}  accessors generate)
+  (slot workspace-stages   initialize '() accessors generate)
 
   
   (form
@@ -75,6 +76,15 @@
   (method override (conclude rest)
     (nextmethod rest)
     (destroy-mandatory))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-stage)
+    (get-parent))
 
   
   ;;;
@@ -114,15 +124,16 @@
   (method (activate-frame)
     (close-popups)
     (set-active-frame self)
-    (let ((stage (get-stage)))
-      (when (get-maximized?~ stage)
-        (set-caption~ (get-player) (get-title))))
     (unless (get-locked-activations?)
       (for-each-docked
         (lambda (view)
           (client-activate~ view))))
     (unless (get-locked-activations?)
       (select-workspace))
+    (let ((stage (get-stage)))
+      (when (get-maximized?~ stage)
+        (when (is? (get-player) Toplevel) ;; waiting
+          (set-caption~ (get-player) (get-title)))))
     (simulate-mouse-move~ (get-player))
     (update-windowing-actions~ (get-application)))
 
@@ -130,7 +141,7 @@
   (method (deactivate-frame)
     (set-active-frame {})
     (let ((stage (get-stage)))
-      (when (null? (get-views~ stage))
+      (when (and (null? (get-views~ stage)) (get-player~ stage))
         (stage-activate~ stage)
         (acquire-focus~ stage))))
     
@@ -177,12 +188,19 @@
   
   (method override (show)
     (nextmethod)
-    (let ((stage (get-stage)))
-      (when (get-maximized?~ stage)
-        (maximize)
-        (maximize-bounds (get-size~ stage))
-        (maximize~ guest)))
+    (maximize/restore)
     (activate-front force?: #t))
+  
+  
+  (method protected (maximize/restore)
+    (let ((stage (get-stage)))
+      (cond ((get-maximized?~ stage)
+             (maximize)
+             (maximize-bounds (get-size~ stage))
+             (maximize~ guest))
+            (else
+             (restore)
+             (restore~ guest)))))
 
 
   ;;;
@@ -212,6 +230,10 @@
       (receive (new-position new-size) (fit-within outer rect padding: 8)
         (set-size new-size)
         (set-position new-position))))
+  
+  
+  (method public (remember-workspace-stage)
+    (set! workspace-stages (cons (get-stage) (difference workspace-stages (get-active-stages)))))
   
   
   ;;;
@@ -287,7 +309,8 @@
   
   (method override (activate-focus)
     (nextmethod)
-    (invalidate-caption))
+    (invalidate-caption)
+    (set-current-stage (get-stage)))
   
   
   (method override (deactivate-focus)

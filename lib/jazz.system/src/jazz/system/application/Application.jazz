@@ -109,10 +109,6 @@
     toplevel)
 
 
-  (method public (get-stage)
-    (find-stage {}))
-
-
   ;;;
   ;;;; Startup
   ;;;
@@ -142,7 +138,6 @@
     (nextmethod)
     (setup-bindings)
     (initialize-toplevel)
-    (initialize-stage)
     (initialize-clipboard)
     (register-clipboard-formats))
 
@@ -150,9 +145,7 @@
   (method override (finalize-environment)
     (nextmethod)
     (set-cursor :arrow)
-    (splash-screen)
-    (when (get-stage)
-      (install-wallpaper~ (get-stage))))
+    (splash-screen))
 
   
   (method override (setup-profile)
@@ -519,25 +512,21 @@
       
   
   (method public (confirm-all-close)
-    (let ((stage (get-stage))
-          (frame-dependent-document?
-           (lambda (frame)
-             (and (is? frame Host-View)
-                  (let ((guest (get-guest~ frame)))
-                    (and (is? guest Document)
-                         (let ((controller (get-controller~ guest)))
-                           (dependent-document?~ controller))))))))
-      (when stage
-        (for-each (lambda (frame)
-                    (unless (frame-dependent-document? frame)
-                      (confirm-close~ frame)))
-                  (get-children~ stage)))))
+    (define (frame-dependent-document? frame)
+      (and (is? frame Host-View)
+           (let ((guest (get-guest~ frame)))
+             (and (is? guest Document)
+                  (let ((controller (get-controller~ guest)))
+                    (dependent-document?~ controller))))))
+    
+    (for-each (lambda (frame)
+                (unless (frame-dependent-document? frame)
+                  (confirm-close~ frame)))
+              (all-frames include-invisibles?: #t)))
   
   
   (method (close-all)
-    (let ((stage (get-stage)))
-      (when stage
-        (close-children~ stage))))
+    (for-each close~ (all-frames include-invisibles?: #t)))
 
 
   ;;;
@@ -655,13 +644,12 @@
   
   
   (method public (verify-reloads)
-    (when (get-stage)
-      (for-each (lambda (view)
-                  (when (is? view Frame-Host)
-                    (let ((guest (get-guest~ view)))
-                      (when (is? guest Document)
-                        (verify-reload~ (get-controller~ guest))))))
-                (get-views~ (get-stage) include-invisibles?: #t))))
+    (for-each (lambda (view)
+                (when (is? view Frame-Host)
+                  (let ((guest (get-guest~ view)))
+                    (when (is? guest Document)
+                      (verify-reload~ (get-controller~ guest))))))
+              (all-frames include-invisibles?: #t)))
   
   
   (method public (verify-reload moniker)
@@ -719,14 +707,12 @@
     
     (define (save-all-guest)
       @wait
-      (let ((stage (get-stage)))
-        (when stage
-          (for-each (lambda (frame)
-                      (when (is? frame Host-Frame)
-                        (let ((guest (get-guest~ frame)))
-                          (when guest
-                            (save-guest~ guest session-designer session)))))
-                    (get-children~ stage)))))
+      (for-each (lambda (frame)
+                  (when (is? frame Host-Frame)
+                    (let ((guest (get-guest~ frame)))
+                      (when guest
+                        (save-guest~ guest session-designer session)))))
+                (all-frames include-invisibles?: #t)))
     
     (save-application)
     (save-all-guest))
@@ -930,10 +916,6 @@
   ;;;
   ;;;; Stage
   ;;;
-  
-  
-  (method (initialize-stage)
-    (singleton-stage {}))
   
   
   (method public virtual (new-stage)
@@ -1160,7 +1142,7 @@
     (case name
       ((:application) self)
       ((:toplevel)    (get-toplevel))
-      ((:stage)       (get-stage))
+      ((:stage)       (current-stage))
       ((:frame)       (current-frame))
       ((:document)    (current-document))
       ((:focus)       (get-focus))
@@ -1371,7 +1353,7 @@
         (let ((started? #f))
           (continuation-capture
             (lambda (return)
-              (for-each-splitter (get-stage-border)
+              (for-each-splitter (current-stage-border)
                 (lambda (splitter host)
                   (if (eq? (get-orientation~ splitter) 'vert)
                       (when started?
@@ -1388,7 +1370,7 @@
     (with-locked-update
       (lambda ()
         (let ((started? #f)
-              (border (get-stage-border)))
+              (border (current-stage-border)))
           (continuation-capture
             (lambda (return)
               (for-each-splitter border
@@ -1405,7 +1387,7 @@
   
   
   (method package (on-maximize/restore evt)
-    (let ((stage (get-stage)))
+    (let ((stage (current-stage)))
       (if (get-maximized?~ stage)
           (restore~ stage)
         (maximize~ stage))))
@@ -1422,7 +1404,7 @@
   
   
   (method public (full-screen-stage fullscreen?)
-    (full-screen (get-stage-border) fullscreen?))
+    (full-screen (current-stage-border) fullscreen?))
   
   
   (method public (toggle-full-screen host)
@@ -1441,7 +1423,7 @@
         (set-insets~ splitter {Rect 0 0 0 0})))
     
     (let ((toplevel (get-toplevel))
-          (stage (get-stage)))
+          (stage (current-stage)))
       (when (neq? fullscreen? (get-fullscreen?~ toplevel))
         (with-locked-update
           (lambda ()
@@ -1667,8 +1649,7 @@
   
   ;; This needs cleanup as it cannot be done for every application
   (method public (update-search-actions)
-    (let* ((stage (get-stage))
-           (frames (if (not stage) '() (get-views~ stage)))
+    (let* ((frames (all-frames))
            (count (length frames))
            (results (get-search-results))
            (results-count (get-visible-count~ (get-tree~ results)))
@@ -1765,7 +1746,7 @@
   (method package (on-find-forward evt)
     (let ((search (active-search)))
       (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-view~ (get-stage))))))
+          (let ((text (get-text-view~ (get-guest~ (first-frame)))))
             (let ((multi-search-context (get-find-targets)))
               (unless (select-next~ text multi-search-context)
                 (bell))))
@@ -1775,7 +1756,7 @@
   (method package (on-find-backward evt)
     (let ((search (active-search)))
       (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-view~ (get-stage))))))
+          (let ((text (get-text-view~ (get-guest~ (first-frame)))))
             (let ((multi-search-context (get-find-targets)))
               (unless (select-previous~ text multi-search-context)
                 (bell))))
@@ -1977,7 +1958,7 @@
                            (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
                              (and guest-moniker
                                   (pathname=? guest-moniker moniker)))))))
-             (get-children~ (get-stage))))
+             (all-frames include-invisibles?: #t)))
   
   
   (method public (edit-document moniker
@@ -2048,7 +2029,7 @@
   
   
   (method package virtual (on-close evt)
-    (let ((frame (first-view~ (get-stage))))
+    (let ((frame (first-frame)))
       (when frame
         (close-with-confirm~ frame))))
 
@@ -2060,7 +2041,7 @@
                     (when (or (is-not? guest Document) (close-on-close-all?~ (get-controller~ guest)))
                       (confirm-close~ view)
                       (close~ view)))))
-              (get-views~ (get-stage))))
+              (all-frames)))
         
     
   (method package virtual (on-save-all evt)
@@ -2099,7 +2080,7 @@
                                              (xor main-documents? (dependent-document?~ controller))
                                              (get-modified?~ (get-controller~ guest)))
                                     (save~ guest)))))))
-                        (get-views~ (get-stage) include-invisibles?: #t)))))
+                        (all-frames include-invisibles?: #t)))))
       ;; saving dependent documents will make their main document modified
       (save-documents #f)
       (save-documents #t)))
@@ -2344,48 +2325,46 @@
   
   
   (method public (update-window-actions)
-    (let ((stage (get-stage)))
-      (when stage
-        (let* ((frames (get-views~ stage))
-               (count (length frames))
-               (in-modal? (in-modal?)))
-          (set-action-enabled? {Action application close}             (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application close-all}         (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action guest save}                    (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action guest save-as}                 (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application save-all}          (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action guest revert-saved}            (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action guest compare-saved}           (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application page-setup}        (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application print-layout}      (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application print-preview}     (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application print}             (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application next-frame}        (and (>= count 2) (not in-modal?)))
-          (set-action-enabled? {Action application previous-frame}    (and (>= count 2) (not in-modal?)))
-          (set-action-enabled? {Action application current-frame}     (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application tile-horizontally} (and (>= count 2) (not in-modal?)))
-          (set-action-enabled? {Action application tile-vertically}   (and (>= count 2) (not in-modal?)))))))
+    (let* ((frames (all-frames))
+           (count (length frames))
+           (in-modal? (in-modal?)))
+      (set-action-enabled? {Action application close}             (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application close-all}         (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action guest save}                    (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action guest save-as}                 (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application save-all}          (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action guest revert-saved}            (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action guest compare-saved}           (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application page-setup}        (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application print-layout}      (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application print-preview}     (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application print}             (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application next-frame}        (and (>= count 2) (not in-modal?)))
+      (set-action-enabled? {Action application previous-frame}    (and (>= count 2) (not in-modal?)))
+      (set-action-enabled? {Action application current-frame}     (and (>= count 1) (not in-modal?)))
+      (set-action-enabled? {Action application tile-horizontally} (and (>= count 2) (not in-modal?)))
+      (set-action-enabled? {Action application tile-vertically}   (and (>= count 2) (not in-modal?)))))
   
   
   (method package virtual (on-next-frame evt)
-    (let ((first (first-view~ (get-stage))))
+    (let ((first (first-frame)))
       (send-to-back~ first)
       (focus-host~ (current-frame))))
   
   
   (method package virtual (on-previous-frame evt)
-    (let ((last (last-view~ (get-stage))))
+    (let ((last (last-frame)))
       (bring-to-front~ last)
       (focus-host~ (current-frame))))
   
   
   (method package virtual (on-current-frame evt)
-    (let ((first (first-view~ (get-stage))))
+    (let ((first (first-frame)))
       (focus-host~ first)))
   
   
   (method package virtual (on-tile-horizontally evt)
-    (let* ((stage (get-stage))
+    (let* ((stage (current-stage))
            (frames (get-views~ stage))
            (count (length frames))
            (width (get-width~ stage))
@@ -2403,7 +2382,7 @@
   
   
   (method package virtual (on-tile-vertically evt)
-    (let* ((stage (get-stage))
+    (let* ((stage (current-stage))
            (frames (get-views~ stage))
            (count (length frames))
            (width (get-width~ stage))

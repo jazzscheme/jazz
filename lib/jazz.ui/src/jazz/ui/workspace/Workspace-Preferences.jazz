@@ -85,7 +85,7 @@
       (for-each close~ (collect-palettes)))
     
     (define (collect-visibilities)
-      (let ((frames (get-children~ (get-stage))))
+      (let ((frames (all-frames include-invisibles?: #t)))
         (collect (lambda (frame)
                    (let ((visible? (get-visible?~ frame))
                          (guest (get-guest~ frame)))
@@ -98,22 +98,31 @@
                  frames)))
     
     (define (process-frames visibilities flag)
-      (for-each (lambda (info)
-                  (bind (frame . visible?) info
-                    (when (eq? visible? flag)
-                      (set-visible?~ frame visible?)
-                      @wait-bug-fix-on-x11
-                      (unless maximized?
-                        (ensure-displayed~ frame)))))
-                visibilities)
-      (when flag
-        (process-activation)))
+      (let ((active-stages (get-active-stages)))
+        (for-each (lambda (info)
+                    (bind (frame . visible?) info
+                      (when (eq? visible? flag)
+                        (when visible?
+                          (let ((preferred (intersection active-stages (get-workspace-stages~ frame))))
+                            (if (not-null? preferred)
+                                (set-parent~ frame (car preferred))
+                              (let ((stage (current-stage)))
+                                (set-parent~ frame stage)
+                                (remember-workspace-stage~ frame)))))
+                        (if (and visible? (get-visible?~ frame))
+                            (maximize/restore~ frame)
+                          (set-visible?~ frame visible?))
+                        @wait-bug-fix-on-x11
+                        (unless maximized?
+                          (ensure-displayed~ frame)))))
+                  visibilities)
+        (when flag
+          (process-activation))))
     
     (define (process-activation)
-      (let* ((stage (get-stage))
-             (frames (get-views~ stage)))
+      (let ((frames (all-frames)))
         (if (null? frames)
-            (stage-activate~ stage)
+            (stage-activate~ (current-stage))
           (for-each-docked
             client-activate~))))
     
@@ -135,7 +144,6 @@
                 children))
     
     (let ((appl (get-application))
-          (stage (get-stage))
           (toplevel (get-toplevel))
           (visibilities (collect-visibilities)))
       (with-locked-update
@@ -143,25 +151,26 @@
           (close-palettes)
           (full-screen-stage~ appl #f)
           (process-frames visibilities #f)
+          (reset-current-stage)
           (let ((root-preferences (find-child-located 'root)))
             (when root-preferences
               (let ((previous-root (get-root~ toplevel)))
                 (when previous-root
                   (set-offscreen?~ previous-root #f)))
               (apply-root~ root-preferences toplevel)))
+          (process-palettes)
           (set-workspace-preferences self)
           (set-selected-workspace self)
           (update-menubar-buttons~ appl)
           (update-status)
           (process-application-event~ appl 'workspace 'activate self workspace: self)
           (full-screen-stage~ appl fullscreen?)
-          (process-palettes)
           (if (and position size)
               (set-placement~ toplevel position size)
             (when (get-visible?~ toplevel)
               (restore-state~ toplevel)))
           (process-frames visibilities #t)
-          (let ((first (first-view~ stage)))
+          (let ((first (first-frame)))
             (when first
               (focus-host~ first)))))))
   

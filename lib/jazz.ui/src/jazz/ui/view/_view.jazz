@@ -361,19 +361,131 @@
 ;;;
 
 
-(definition package Stages
-  (make-table test: eq?))
+(definition package *stages*
+  '())
+
+(definition package *current-stage*
+  {})
 
 
-(definition public (singleton-stage name)
-  (either (table-ref Stages name {})
-          (let ((stage (new-stage~ (get-application))))
-              (table-set! Stages name stage)
-              stage)))
+(definition public (get-stages)
+  *stages*)
+
+(definition public (get-active-stages)
+  (collect-if get-player~ *stages*))
+
+(definition public (current-stage)
+  *current-stage*)
+
+(definition public (set-current-stage stage)
+  (set! *current-stage* stage)
+  (set! *stages* (cons stage (remove! stage *stages*))))
+
+(definition public (reset-current-stage)
+  (set! *current-stage* {}))
 
 
-(definition public (find-stage name)
-  (table-ref Stages name {}))
+(definition public (create-stage)
+  (let ((stage (new-stage~ (get-application))))
+    (set! *stages* (cons stage *stages*))
+    stage))
+
+
+(definition public (current-stage-border)
+  (let ((stage (current-stage)))
+    (when stage
+      (get-parent~ stage))))
+
+
+(definition public (all-frames (include-invisibles?: include-invisibles? #f))
+  (let ((queue (new-queue)))
+    (for-each (lambda (stage)
+                (let ((frames (get-views~ stage include-invisibles?: include-invisibles?)))
+                  (enqueue-list queue frames)))
+              (get-stages))
+    (queue-list queue)))
+
+
+(definition public (first-frame)
+  (let ((frames (all-frames)))
+    (if (null? frames)
+        {}
+      (first frames))))
+
+
+(definition public (second-frame)
+  (let ((frames (all-frames)))
+    (if (>= (length frames) 2)
+        (second frames)
+      {})))
+
+
+(definition public (last-frame)
+  (let ((frames (all-frames)))
+    (if (null? frames)
+        {}
+      (last frames))))
+
+
+(definition public (find-frame-host guest-type)
+  (find-if (lambda (view)
+             (and (is? view Host-View)
+                  (is? (get-guest~ view) guest-type)))
+           (all-frames include-invisibles?: #t)))
+
+
+(definition public (find-frame-guest guest-type)
+  (let ((host (find-frame-host guest-type)))
+    (when host
+      (get-guest~ host))))
+
+
+;;;
+;;;; Frame Management
+;;;
+
+
+(definition Active-Frame
+  {})
+
+
+(definition package (get-active-frame)
+  Active-Frame)
+
+(definition package (set-active-frame frame)
+  (set! Active-Frame frame))
+
+
+(definition package (activate-front (force?: force? #f))
+  (let ((front (first-frame))
+        (active Active-Frame))
+    (when (or force? (neq? front active))
+      (when active
+        (deactivate-frame~ active))
+      (when front
+        (activate-frame~ front)))))
+
+
+;;;
+;;;; Frame Region
+;;;
+
+
+(definition public (frame-region frame <Rect> (insets: insets (new Rect 1 1 1 1)))
+  (let ((left   (get-left~ frame))
+        (top    (get-top~ frame))
+        (right  (get-right~ frame))
+        (bottom (get-bottom~ frame))
+        (region (new Region)))
+    (with-closed ((l (new Region left: left                          top: top                             right: (+ left (get-left~ insets)) bottom: bottom))
+                  (t (new Region left: left                          top: top                             right: right                       bottom: (+ top (get-top~ insets))))
+                  (r (new Region left: (- right (get-right~ insets)) top: top                             right: right                       bottom: bottom))
+                  (b (new Region left: left                          top: (- bottom (get-bottom~ insets)) right: right                       bottom: bottom)))
+      (combine!~ region l 'or)
+      (combine!~ region t 'or)
+      (combine!~ region r 'or)
+      (combine!~ region b 'or)
+      region)))
 
 
 ;;;
@@ -384,7 +496,7 @@
 (definition public (new-frame guest-class . rest)
   (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
     (let ((guest (either guest (new-guest guest-class others))))
-      (let ((host (new Frame-Host parent: (get-stage) visible?: #f)))
+      (let ((host (new Frame-Host parent: (current-stage) visible?: #f)))
         (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
         (when host-position
           (set-position~ host host-position))
@@ -408,13 +520,12 @@
 
 
 (definition public (collect-frames)
-  (let ((stage (get-stage)))
-    (collect-if (lambda (frame)
-                  (or (is-not? frame Frame-Host)
-                      (let ((guest (get-guest~ frame)))
-                        (or (is-not? guest Document)
-                            (not (get-tool?~ (get-controller~ guest)))))))
-                (get-views~ stage))))
+  (collect-if (lambda (frame)
+                (or (is-not? frame Frame-Host)
+                    (let ((guest (get-guest~ frame)))
+                      (or (is-not? guest Document)
+                          (not (get-tool?~ (get-controller~ guest)))))))
+              (all-frames)))
 
 
 ;;;
@@ -710,10 +821,6 @@
   (set-workspace-preferences~ (get-toplevel) preferences))
 
 
-(definition public (get-stage-border)
-  (get-parent~ (get-stage)))
-
-
 (definition public (get-output-log)
   (get-output-log~ (get-application)))
 
@@ -777,7 +884,7 @@
 
 
 (definition public (current-frame)
-  (let ((stage (get-stage)))
+  (let ((stage (current-stage)))
     (when stage
       (first-view~ stage))))
 

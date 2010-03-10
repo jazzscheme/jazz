@@ -40,6 +40,7 @@
 
 (import (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window))
@@ -49,6 +50,9 @@
   
   
   (property maximized? initialize #f accessors generate)
+  
+  
+  (slot stage initialize {})
   
   
   (form
@@ -61,14 +65,14 @@
   
   
   (method override (apply-root player)
-    (set-root~ player (get-parent~ (singleton-stage name)))
+    (set-root~ player (get-parent~ (remember-stage)))
     (set-offscreen?~ (get-root~ player) #t)
     (apply-to (get-root~ player)))
   
   
   (method override (apply-preferences (parent {}))
     (assert parent)
-    (let ((stage-border (get-parent~ (singleton-stage name))))
+    (let ((stage-border (get-parent~ (remember-stage))))
       (set-parent~ stage-border parent)
       (apply-to stage-border)))
   
@@ -76,7 +80,15 @@
   (method (apply-to stage-border)
     (set-location~ stage-border location)
     (set-visible?~ stage-border (get-visible?))
-    (set-maximized?~ (get-stage~ stage-border) maximized?))
+    (set-maximized?~ stage maximized?))
+  
+  
+  (method (remember-stage)
+    (unless stage
+      (set! stage (create-stage)))
+    (unless (current-stage)
+      (set-current-stage stage))
+    stage)
   
   
   ;;;

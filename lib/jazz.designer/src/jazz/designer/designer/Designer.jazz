@@ -345,16 +345,16 @@
             (let* ((name (get-name~ child))
                    (parent (get-parent~ child))
                    (parent-form (find-form parent branch))
-                   (form (find-form child branch))
-                   (purge-references
-                     (lambda (form)
-                       (when form
-                         (let* ((parent-ancestry (component-ancestry parent))
-                                (parent-form (owned-form form parent-ancestry)))
-                           (when parent-form
-                             (let ((child-form (find-child~ parent-form name)))
-                               (when child-form
-                                 (remove-child~ parent-form child-form)))))))))
+                   (form (find-form child branch)))
+              (define (purge-references form)
+                (when form
+                  (let* ((parent-ancestry (component-ancestry parent))
+                         (parent-form (owned-form form parent-ancestry)))
+                    (when parent-form
+                      (let ((child-form (find-child~ parent-form name)))
+                        (when child-form
+                          (remove-child~ parent-form child-form)))))))
+              
               (for-each-branch~ effective
                 (lambda (branch)
                   (purge-references (get-client-form~ branch))
@@ -372,18 +372,19 @@
               (get-children~ parent)))
   
   
-  ;; This is not a 100% complete solution as this for instance will
-  ;; not restore the correct property values as remove-property would...
-  (method public virtual (purge-branch component (branch: branch #t) (design-events?: design-events? #t))
-    (let* ((branch (target-branch branch))
-           (parent (get-parent~ component))
-           (parent-form (find-form parent branch)))
-      (receive (form restore-form) (find-form component branch restore?: #t)
-        (install-form~ component restore-form component {} {})
-        (remove-child~ parent-form form))))
-  
-  
   (method public virtual (move-components components destination (branch: branch #t))
+    (assert (eq? (get-form~ (get-creator~ destination)) form))
+    (let ((destination-form (get-form~ destination)))
+      (for-each (lambda (component)
+                  (assert (eq? (get-form~ (get-creator~ component)) form))
+                  (set-parent~ component destination)
+                  (let ((component-form (get-form~ component)))
+                    (set-parent~ component-form destination-form)))
+                components)
+      (set-modified? #t)))
+  
+  
+  (method public virtual (transfer-components components destination (branch: branch #t))
     (let* ((components (remove-redundant-descendants components))
            (parcels (package-components components))
            (name-resolution (verify-name-conflicts parcels destination)))
@@ -410,6 +411,17 @@
   
   (method public (bring-to-front child (branch: branch #t))
     (send-before child {} branch: branch))
+  
+  
+  ;; This is not a 100% complete solution as this for instance will
+  ;; not restore the correct property values as remove-property would...
+  (method public virtual (purge-branch component (branch: branch #t) (design-events?: design-events? #t))
+    (let* ((branch (target-branch branch))
+           (parent (get-parent~ component))
+           (parent-form (find-form parent branch)))
+      (receive (form restore-form) (find-form component branch restore?: #t)
+        (install-form~ component restore-form component {} {})
+        (remove-child~ parent-form form))))
   
   
   ;;;

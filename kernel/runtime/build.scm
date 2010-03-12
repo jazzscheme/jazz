@@ -725,7 +725,7 @@
   (let* ((product (jazz.get-product product-name))
          (update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
                                         (jazz.product-descriptor-update descriptor)))
-         (library-base (jazz.product-library-name-base (%%product-package product) product-name)))
+         (library-base (jazz.relocate-product-library-name-base jazz.Build-Repository (%%product-package product) product-name)))
     (jazz.with-numbered-pathname (string-append library-base "." jazz.Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((linkfile (string-append library-o1 ".c"))

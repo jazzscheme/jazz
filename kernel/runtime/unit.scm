@@ -1577,9 +1577,13 @@
 
 
 (define (jazz.product-library-name-base package product-name)
+  (jazz.relocate-product-library-name-base (%%package-repository package) package product-name))
+
+
+(define (jazz.relocate-product-library-name-base repository package product-name)
   (define (build-dir package)
     (let ((parent (%%package-parent package)))
-      (jazz.repository-pathname (%%package-repository package)
+      (jazz.repository-pathname repository
         (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
                          (%%symbol->string (%%package-name package))))))
   

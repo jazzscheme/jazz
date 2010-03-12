@@ -551,6 +551,32 @@
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
+(define (jazz.create-build-package package)
+  (let* ((name (%%package-name package))
+         (parent (%%package-parent package))
+         (bin-parent (if parent (jazz.create-build-package parent) #f))
+         (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
+         (path (%%string-append dir jazz.Package-Filename))
+         (src (jazz.repository-pathname (%%package-repository package) path))
+         (dst (jazz.repository-pathname jazz.Build-Repository path)))
+    (define (load-package)
+      (let ((package (jazz.load-package jazz.Build-Repository bin-parent name dst)))
+        (%%table-set! (%%repository-packages-table jazz.Build-Repository)
+                      name
+                      package)
+        package))
+    
+    (if (and (jazz.file-exists? dst) (>= (jazz.file-modification-time dst) (jazz.file-modification-time src)))
+        (or (jazz.repository-find-package jazz.Build-Repository name)
+            (load-package))
+      (begin
+        (jazz.create-directories (jazz.repository-pathname jazz.Build-Repository dir))
+        (if (jazz.file-exists? dst)
+            (jazz.file-delete dst))
+        (jazz.file-copy src dst)
+        (load-package)))))
+
+
 (define (jazz.setup-package package)
   (let ((install (%%package-install package)))
     (if install

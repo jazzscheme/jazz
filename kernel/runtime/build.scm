@@ -678,10 +678,9 @@
           (begin
             (set! jazz.register-image-units
                   (lambda (lib-name units)
-                    (for-each
-                      (lambda (unit)
-                        (%%table-set! sha1-table (%%car unit) (%%cadr unit)))
-                      units)))
+                    (for-each (lambda (unit)
+                                (%%table-set! sha1-table (%%car unit) (%%cadr unit)))
+                              units)))
             (load header))))
     
     (define (unit-uptodate? unit-name)
@@ -711,9 +710,7 @@
         (for-each (lambda (unit-name)
                     (jazz.with-unit-resources unit-name #f
                       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                        (let* ((mnf (jazz.binary-with-extension src (string-append "." jazz.Manifest-Extension)))
-                               (manifest (jazz.load/create-manifest unit-name mnf))
-                               (digest (%%manifest-digest manifest)))
+                        (let ((digest (%%manifest-digest manifest)))
                           (display (string-append "  (" (%%symbol->string unit-name) " ") port)
                           (write (%%digest-compile-time-hash digest) port)
                           (display ")" port)
@@ -723,9 +720,11 @@
         (newline port))))
   
   (let* ((product (jazz.get-product product-name))
+         (package (%%product-package product))
          (update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
                                         (jazz.product-descriptor-update descriptor)))
-         (library-base (jazz.relocate-product-library-name-base jazz.Build-Repository (%%product-package product) product-name)))
+         (library-base (jazz.relocate-product-library-name-base jazz.Build-Repository package product-name))
+         (library-dir (jazz.pathname-dir library-base)))
     (jazz.with-numbered-pathname (string-append library-base "." jazz.Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((linkfile (string-append library-o1 ".c"))
@@ -735,16 +734,17 @@
                (sub-units (remove-duplicates (%%apply append (map jazz.get-subunit-names update)))))
           
           (define (build-library)
+            (jazz.create-build-package package)
             (make-library-header header product-name sub-units)
             (compile-file-to-c header output: header-c)
             (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
-      
+            
             (feedback-message "; creating link file...")
             (link-flat (%%cons header
                                (map (lambda (subunit-name)
                                       (jazz.with-unit-resources subunit-name #f
                                         (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                          (jazz.binary-with-extension src ""))))
+                                          (jazz.resource-pathname obj))))
                                     sub-units))
                        output: linkfile
                        warnings?: #f)
@@ -759,7 +759,7 @@
                 ,@(map (lambda (subunit-name)
                          (jazz.with-unit-resources subunit-name #f
                            (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                             (jazz.binary-with-extension src ".o"))))
+                             (%%string-append (jazz.resource-pathname obj) ".o"))))
                        sub-units)
                 ,linkfile
                 "-o" ,library-o1

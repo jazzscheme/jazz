@@ -177,27 +177,28 @@
 ;;;; Dynamic Libraries
 ;;;
 
+
 (define jazz.currently-loading-library-procs)
 
 (define (jazz.load-libraries)
   (define libraries (%%make-table test: eq?))
-  (define (add-library package-name library-filename)
-    (%%table-set! libraries package-name library-filename))
+  (define (add-library product-name library-filename)
+    (if (%%table-ref libraries product-name #f)
+        (jazz.error "Found duplicate library: {s}" product-name)
+      (%%table-set! libraries product-name library-filename)))
   
   ; find the libraries
   (jazz.iterate-packages #t
     (lambda (package)
       (let ((products (%%package-products package)))
-        (for-each
-          (lambda (product-descriptor)
-            (let ((product-name (jazz.product-descriptor-name product-descriptor)))
-              (or (%%table-ref libraries product-name #f)
-                  (jazz.with-numbered-pathname
-                    (string-append (jazz.product-library-name-base package product-name) "." jazz.Library-Extension) #f 1
-                    (lambda (filename exists?)
-                      (if exists?
-                          (add-library product-name filename)))))))
-          products))))
+        (for-each (lambda (product-descriptor)
+                    (let ((product-name (jazz.product-descriptor-name product-descriptor)))
+                      (jazz.with-numbered-pathname
+                        (string-append (jazz.product-library-name-base package product-name) "." jazz.Library-Extension) #f 1
+                        (lambda (filename exists?)
+                          (if exists?
+                              (add-library product-name filename))))))
+                  products))))
   
   ; register all the libraries found
   (table-for-each

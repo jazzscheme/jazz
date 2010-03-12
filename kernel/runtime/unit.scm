@@ -218,10 +218,11 @@
 
 
 (define (jazz.pathname-extension pathname)
-  (let ((pos (jazz.string-find-reversed pathname #\.)))
-    (if pos
-        (%%substring pathname (%%fx+ pos 1) (%%string-length pathname))
-      #f)))
+  (let ((name (jazz.pathname-name pathname)))
+    (let ((pos (jazz.string-find-reversed name #\.)))
+      (if pos
+          (%%substring pathname (%%fx+ pos 1) (%%string-length name))
+        #f))))
 
 
 (cond-expand
@@ -1539,7 +1540,7 @@
 (define (jazz.binary-with-extension src extension)
   (let* ((bindir (jazz.resource-build-dir src))
          (pathname (jazz.resource-pathname src))
-         (name-base (jazz.pathname-base (jazz.pathname-name pathname))))
+         (name-base (jazz.pathname-base pathname)))
     (string-append bindir name-base extension)))
          
 
@@ -1708,7 +1709,8 @@
       (jazz.repository-pathname jazz.Build-Repository
         (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
                          (%%package-units-path package)
-                         (if dir (%%string-append "/" dir) ""))))))
+                         "/"
+                         (or dir ""))))))
 
 
 ;;;

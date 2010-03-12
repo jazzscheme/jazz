@@ -49,6 +49,13 @@
   #f)
 
 
+(definition public (get-workspace-preferences)
+  (get-workspace-preferences~ (get-toplevel)))
+
+(definition public (set-workspace-preferences preferences)
+  (set-workspace-preferences~ (get-toplevel) preferences))
+
+
 (definition public (get-workspaces-preferences (error?: error? #t))
   (get-preferences 'workspaces error?: error?))
 
@@ -73,4 +80,31 @@
   Locked-Activations?)
 
 (definition public (set-locked-activations? flag)
-  (set! Locked-Activations? flag)))
+  (set! Locked-Activations? flag))
+
+
+(definition public (select-workspace name)
+  (apply-preferences~ (get-workspace name)))
+
+
+(definition public (select-current-workspace)
+  (apply-preferences~ (get-workspace-preferences)))
+
+
+(definition public (select-next-workspace)
+  (let* ((current (get-workspace-preferences))
+         (workspaces (collect-type Workspace-Preferences (get-workspaces)))
+         (rank (find workspaces current))
+         (next (element workspaces (modulo (+ rank 1) (length workspaces)))))
+    (unless (eq? next current)
+      (apply-preferences~ next))))
+
+
+(definition public (select-previous-workspace)
+  (let* ((current (get-workspace-preferences))
+         (workspaces (collect-type Workspace-Preferences (get-workspaces)))
+         (rank (find workspaces current))
+         (previous-rank (if (= rank 0) (- (length workspaces) 1) (- rank 1)))
+         (previous (element workspaces previous-rank)))
+    (unless (eq? previous current)
+      (apply-preferences~ previous)))))

@@ -221,7 +221,7 @@
   (let ((name (jazz.pathname-name pathname)))
     (let ((pos (jazz.string-find-reversed name #\.)))
       (if pos
-          (%%substring pathname (%%fx+ pos 1) (%%string-length name))
+          (%%substring name (%%fx+ pos 1) (%%string-length name))
         #f))))
 
 

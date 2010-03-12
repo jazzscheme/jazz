@@ -614,12 +614,16 @@
 
 
 (define (jazz.package-pathname package path)
+  (jazz.relocate-package-pathname (%%package-repository package) package path))
+
+
+(define (jazz.relocate-package-pathname repository package path)
   (let ((parent (%%package-parent package)))
-    (jazz.repository-pathname (%%package-repository package)
+    (jazz.repository-pathname repository
       (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
                        (%%package-units-path package)
                        "/"
-                       path))))
+                       (or path "")))))
 
 
 (define (jazz.iterate-packages binary? proc)
@@ -1542,7 +1546,7 @@
          (pathname (jazz.resource-pathname src))
          (name-base (jazz.pathname-base pathname)))
     (string-append bindir name-base extension)))
-         
+
 
 (define (jazz.probe-numbered-pathname pathname n)
   (let ((candidate (string-append pathname (%%number->string n))))
@@ -1702,15 +1706,13 @@
 
 
 (define (jazz.resource-build-dir resource)
-  ;; cannot use jazz.package-pathname as this comes before bin package creation
+  (jazz.relocate-resource jazz.Build-Repository resource))
+
+
+(define (jazz.relocate-resource repository resource)
   (let ((package (%%resource-package resource))
         (dir (jazz.pathname-dir (%%resource-path resource))))
-    (let ((parent (%%package-parent package)))
-      (jazz.repository-pathname jazz.Build-Repository
-        (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                         (%%package-units-path package)
-                         "/"
-                         (or dir ""))))))
+    (jazz.relocate-package-pathname repository package dir)))
 
 
 ;;;

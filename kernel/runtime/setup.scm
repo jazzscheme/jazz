@@ -198,7 +198,7 @@
                       (if exists?
                           (add-library product-name filename)))))))
           products))))
-      
+  
   ; register all the libraries found
   (table-for-each
     (lambda (product-name library-filename)

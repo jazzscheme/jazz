@@ -66,7 +66,7 @@
       (let ((compile-args (assq unit unit-specs)))
         (if compile-args
             (apply jazz.compile-unit `(,@compile-args force?: ,force?))
-          (jazz.error "custom compile failed")))
+          (jazz.error "Custom compile failed")))
     (begin
       (if pre-build-proc
           (pre-build-proc))
@@ -172,6 +172,16 @@
          (%%string=? (%%substring str (%%fx- sl tl) sl) target))))
 
 
+(define (jazz.string-numeric? str)
+  (let iter ((n (%%fx- (%%string-length str) 1)))
+       (if (%%fx>= n 0)
+           (let ((c (%%string-ref str n)))
+             (if (%%memv c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
+                 (iter (%%fx- n 1))
+               #f))
+         #t)))
+
+
 (define (jazz.split-string str separator)
   (declare (proper-tail-calls))
   (let ((lst '())
@@ -218,6 +228,46 @@
 
 (define jazz.executable-directory
   #f)
+
+
+(define (jazz.pathname-name pathname)
+  (let ((pos (jazz.string-find-reversed pathname #\/))
+        (len (%%string-length pathname)))
+    (cond ((%%not pos)
+           pathname)
+          ((%%fx= pos (%%fx- len 1))
+           (jazz.pathname-name (%%substring pathname 0 pos)))
+          (else
+           (%%substring pathname (%%fx+ pos 1) len)))))
+
+
+(define (jazz.pathname-base pathname)
+  (let ((name (jazz.pathname-name pathname)))
+    (let ((pos (jazz.string-find-reversed name #\.)))
+      (if pos
+          (%%substring name 0 pos)
+        name))))
+
+
+(define (jazz.pathname-extension pathname)
+  (let ((name (jazz.pathname-name pathname)))
+    (let ((pos (jazz.string-find-reversed name #\.)))
+      (if pos
+          (%%substring name (%%fx+ pos 1) (%%string-length name))
+        #f))))
+
+
+(define (jazz.extension? extension target)
+  (or (and (%%not extension) (%%not target))
+      (and extension
+           target
+           (%%string=? extension target))))
+
+
+(define (jazz.numeric-extension? extension prefix)
+  (and extension
+       (jazz.string-starts-with? extension prefix)
+       (jazz.string-numeric? (%%substring extension (%%string-length prefix) (%%string-length extension)))))
 
 
 (define (jazz.pathname-dir pathname)

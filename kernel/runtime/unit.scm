@@ -202,29 +202,6 @@
 ;;;
 
 
-(define (jazz.pathname-name pathname)
-  (let ((pos (jazz.string-find-reversed pathname #\/)))
-    (if (%%not pos)
-        pathname
-      (%%substring pathname (%%fx+ pos 1) (%%string-length pathname)))))
-
-
-(define (jazz.pathname-base pathname)
-  (let ((name (jazz.pathname-name pathname)))
-    (let ((pos (jazz.string-find-reversed name #\.)))
-      (if pos
-          (%%substring name 0 pos)
-        name))))
-
-
-(define (jazz.pathname-extension pathname)
-  (let ((name (jazz.pathname-name pathname)))
-    (let ((pos (jazz.string-find-reversed name #\.)))
-      (if pos
-          (%%substring name (%%fx+ pos 1) (%%string-length name))
-        #f))))
-
-
 (cond-expand
   (gambit
     (define jazz.file-delete

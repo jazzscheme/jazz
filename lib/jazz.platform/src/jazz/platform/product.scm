@@ -126,8 +126,7 @@
       (jazz.platform.windows.WinDlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpdh"))
       (jazz.platform.cairo.cairo-windows cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
-      (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.system.platform.windows))))
+      (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 
 
 (define jazz.com-units

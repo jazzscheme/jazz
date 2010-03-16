@@ -874,7 +874,7 @@
 
 
 (define (jazz.delete-feedback path level)
-  (if (<= level 2)
+  (if (<= level 1)
       (jazz.feedback "; deleting {a}..." path)))
 
 
@@ -1389,10 +1389,10 @@
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))
                  (jazz.print "Usage:" console)
+                 (jazz.print "  gsc configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-interpret-kernel] [-destination]" console)
+                 (jazz.print "  gsc make [target | clean | cleankernel | cleanlibrary | cleanobject]@[configuration]:[image]" console)
                  (jazz.print "  gsc list" console)
                  (jazz.print "  gsc delete [configuration]" console)
-                 (jazz.print "  gsc configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-interpret-kernel] [-destination]" console)
-                 (jazz.print "  gsc make [target]@[configuration]:[image]" console)
                  (jazz.print "  gsc help or ?" console)
                  (jazz.print "  gsc debug" console))
                (exit))

@@ -159,7 +159,8 @@
                           ,@jazz.font-units
                           ,@jazz.carbon-units
                           ,@jazz.clipboard-units)))
-        (jazz.custom-compile/build unit-specs unit: unit force?: force?))))
+        (jazz.custom-compile/build unit-specs unit: unit force?: force?)
+        (jazz.update-product-descriptor descriptor))))
   (windows
     (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
       (let ((install jazz.kernel-install)
@@ -183,7 +184,8 @@
                             ,@jazz.font-units
                             ,@jazz.windows-units
                             ,@jazz.com-units)))
-          (jazz.custom-compile/build unit-specs unit: unit pre-build-proc: copy-platform-files force?: force?)))))
+          (jazz.custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
+          (jazz.update-product-descriptor descriptor)))))
   (x11
     (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
@@ -194,7 +196,8 @@
                           ,@jazz.font-units
                           ,@jazz.x11-units
                           ,@jazz.clipboard-units)))
-          (jazz.custom-compile/build unit-specs unit: unit force?: force?)))))
+          (jazz.custom-compile/build unit-specs unit: unit force?: force?)
+          (jazz.update-product-descriptor descriptor)))))
 
 
 ;;;

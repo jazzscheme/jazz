@@ -45,8 +45,7 @@
 
 (define (jazz.build-opengl descriptor . rest)
   (let ((base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
-    (let ((unit-specs `((jazz.graphic.opengl.platform.WinOpenGL
-                          cc-options: ,base-windows-cc-options ld-options: "-mwindows -lopengl32")
+    (let ((unit-specs `((jazz.graphic.opengl.platform.WinOpenGL cc-options: ,base-windows-cc-options ld-options: "-mwindows -lopengl32")
                         (jazz.graphic.opengl.foreign.gl-header)
                         (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
                         (jazz.graphic.opengl.foreign.glext-header)
@@ -55,7 +54,8 @@
                         (jazz.graphic.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
                         (jazz.graphic.opengl.foreign.glut-header)
                         (jazz.graphic.opengl.foreign.glut ld-options: "-lopengl32 -lglu32 -lglut32"))))
-      (apply jazz.custom-compile/build (cons unit-specs rest)))))
+      (apply jazz.custom-compile/build (cons unit-specs rest))
+      (jazz.update-product-descriptor descriptor))))
 
 
 ;;;

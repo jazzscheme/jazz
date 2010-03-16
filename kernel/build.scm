@@ -859,6 +859,9 @@
                                jazz.delete-feedback))))
 
 
+;; doing this as an after scan of the content seems to break on Windows (of course!)
+;; when an explorer is displaying folders that will be deleted
+;; we could try to do it in one scan and also verify behavior on other platforms
 (define (jazz.cleanup-package dir level)
   (let ((content (jazz.directory-content dir)))
     (case (length content)

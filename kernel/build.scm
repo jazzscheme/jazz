@@ -763,6 +763,9 @@
 
 
 (define (jazz.make-clean configuration)
+  (define delete-feedback
+    (jazz.delete-feedback 1))
+  
   (jazz.feedback "make clean")
   (let ((dir (jazz.configuration-directory configuration)))
     (if (file-exists? dir)
@@ -770,10 +773,13 @@
                                0
                                #f
                                #f
-                               jazz.delete-feedback))))
+                               delete-feedback))))
 
 
 (define (jazz.make-cleankernel configuration)
+  (define delete-feedback
+    (jazz.delete-feedback 1))
+  
   (jazz.feedback "make cleankernel")
   (let ((dir (jazz.configuration-directory configuration)))
     (if (file-exists? dir)
@@ -787,11 +793,14 @@
                                                          level
                                                          #f
                                                          #f
-                                                         jazz.delete-feedback)))
-                               jazz.delete-feedback))))
+                                                         delete-feedback)))
+                               delete-feedback))))
 
 
 (define (jazz.make-cleanlibrary configuration)
+  (define delete-feedback
+    (jazz.delete-feedback 2))
+  
   (define (library-file? file level)
     (let ((ext (jazz.pathname-extension file)))
       (or (jazz.extension? ext "lmf")
@@ -802,8 +811,8 @@
                           level
                           library-file?
                           empty-libraries
-                          jazz.delete-feedback)
-    (jazz.cleanup-package dir level))
+                          delete-feedback)
+    (jazz.cleanup-package dir level delete-feedback))
   
   (jazz.feedback "make cleanlibrary")
   (let ((dir (jazz.configuration-directory configuration)))
@@ -819,12 +828,15 @@
                                                            (lambda (file level)
                                                              #f)
                                                            empty-libraries
-                                                           jazz.delete-feedback)
+                                                           delete-feedback)
                                    #f))
-                               jazz.delete-feedback))))
+                               delete-feedback))))
 
 
 (define (jazz.make-cleanobject configuration)
+  (define delete-feedback
+    (jazz.delete-feedback 2))
+  
   (define (object-file? file level)
     (let ((ext (jazz.pathname-extension file)))
       (or (jazz.extension? ext "c")
@@ -837,8 +849,8 @@
                           level
                           object-file?
                           empty-objects
-                          jazz.delete-feedback)
-    (jazz.cleanup-package dir level))
+                          delete-feedback)
+    (jazz.cleanup-package dir level delete-feedback))
   
   (jazz.feedback "make cleanobject")
   (let ((dir (jazz.configuration-directory configuration)))
@@ -854,31 +866,32 @@
                                                            (lambda (file level)
                                                              #f)
                                                            empty-objects
-                                                           jazz.delete-feedback)
+                                                           delete-feedback)
                                    #f))
-                               jazz.delete-feedback))))
+                               delete-feedback))))
 
 
 ;; doing this as an after scan of the content seems to break on Windows (of course!)
 ;; when an explorer is displaying folders that will be deleted
 ;; we could try to do it in one scan and also verify behavior on other platforms
-(define (jazz.cleanup-package dir level)
+(define (jazz.cleanup-package dir level feedback)
   (let ((content (jazz.directory-content dir)))
     (case (length content)
       ((0) #t)
       ((1) (let ((name (car content)))
              (if (string=? name ".package")
                  (let ((path (string-append dir name)))
-                   (jazz.delete-feedback path level)
+                   (feedback path level)
                    (delete-file path)
                    #t)
                #f)))
       (else #f))))
 
 
-(define (jazz.delete-feedback path level)
-  (if (<= level 1)
-      (jazz.feedback "; deleting {a}..." path)))
+(define (jazz.delete-feedback depth)
+  (lambda (path level)
+    (if (<= level depth)
+        (jazz.feedback "; deleting {a}..." path))))
 
 
 ;;;

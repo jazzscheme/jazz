@@ -654,7 +654,7 @@
 
 
 (define jazz.default-target
-  'jazz)
+  'all)
 
 
 (define (jazz.make-symbols symbols local?)
@@ -717,8 +717,8 @@
     (case target
       ((clean) (jazz.make-clean configuration))
       ((cleankernel) (jazz.make-cleankernel configuration))
-      ((cleanlibrary) (jazz.make-cleanlibrary configuration))
       ((cleanobject) (jazz.make-cleanobject configuration))
+      ((cleanlibrary) (jazz.make-cleanlibrary configuration))
       ((kernel) (jazz.make-kernel configuration image local?))
       ((install) (jazz.make-install configuration))
       (else (jazz.make-product target configuration link jobs))))
@@ -797,42 +797,6 @@
                                delete-feedback))))
 
 
-(define (jazz.make-cleanlibrary configuration)
-  (define delete-feedback
-    (jazz.delete-feedback 2))
-  
-  (define (library-file? file level)
-    (let ((ext (jazz.pathname-extension file)))
-      (or (jazz.extension? ext "lmf")
-          (jazz.numeric-extension? ext "l"))))
-  
-  (define (empty-libraries dir level)
-    (jazz.empty-directory dir
-                          level
-                          library-file?
-                          empty-libraries
-                          delete-feedback)
-    (jazz.cleanup-package dir level delete-feedback))
-  
-  (jazz.feedback "make cleanlibrary")
-  (let ((dir (jazz.configuration-directory configuration)))
-    (if (file-exists? dir)
-        (jazz.delete-directory dir
-                               0
-                               (lambda (file level)
-                                 #f)
-                               (lambda (dir level)
-                                 (if (string=? (jazz.pathname-name dir) "lib")
-                                     (jazz.empty-directory dir
-                                                           level
-                                                           (lambda (file level)
-                                                             #f)
-                                                           empty-libraries
-                                                           delete-feedback)
-                                   #f))
-                               delete-feedback))))
-
-
 (define (jazz.make-cleanobject configuration)
   (define delete-feedback
     (jazz.delete-feedback 2))
@@ -866,6 +830,42 @@
                                                            (lambda (file level)
                                                              #f)
                                                            empty-objects
+                                                           delete-feedback)
+                                   #f))
+                               delete-feedback))))
+
+
+(define (jazz.make-cleanlibrary configuration)
+  (define delete-feedback
+    (jazz.delete-feedback 2))
+  
+  (define (library-file? file level)
+    (let ((ext (jazz.pathname-extension file)))
+      (or (jazz.extension? ext "lmf")
+          (jazz.numeric-extension? ext "l"))))
+  
+  (define (empty-libraries dir level)
+    (jazz.empty-directory dir
+                          level
+                          library-file?
+                          empty-libraries
+                          delete-feedback)
+    (jazz.cleanup-package dir level delete-feedback))
+  
+  (jazz.feedback "make cleanlibrary")
+  (let ((dir (jazz.configuration-directory configuration)))
+    (if (file-exists? dir)
+        (jazz.delete-directory dir
+                               0
+                               (lambda (file level)
+                                 #f)
+                               (lambda (dir level)
+                                 (if (string=? (jazz.pathname-name dir) "lib")
+                                     (jazz.empty-directory dir
+                                                           level
+                                                           (lambda (file level)
+                                                             #f)
+                                                           empty-libraries
                                                            delete-feedback)
                                    #f))
                                delete-feedback))))
@@ -1284,7 +1284,7 @@
   (define (help-command arguments output)
     (jazz.print "Commands:" output)
     (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
-    (jazz.print "  make [target | clean | cleankernel | cleanlibrary | cleanobject]@[configuration]:[image]" output)
+    (jazz.print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz.print "  list" output)
     (jazz.print "  delete [configuration]" output)
     (jazz.print "  help or ?" output)
@@ -1406,7 +1406,7 @@
                (let ((console (console-port)))
                  (jazz.print "Usage:" console)
                  (jazz.print "  gsc configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-interpret-kernel] [-destination]" console)
-                 (jazz.print "  gsc make [target | clean | cleankernel | cleanlibrary | cleanobject]@[configuration]:[image]" console)
+                 (jazz.print "  gsc make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" console)
                  (jazz.print "  gsc list" console)
                  (jazz.print "  gsc delete [configuration]" console)
                  (jazz.print "  gsc help or ?" console)

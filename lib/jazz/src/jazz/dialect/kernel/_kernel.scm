@@ -527,6 +527,8 @@
 (native jazz.load-package)
 (native jazz.register-product)
 (native jazz.register-product-run)
+(native jazz.get-product-descriptor)
+(native jazz.find-product-descriptor)
 (native jazz.product-descriptor-name)
 (native jazz.product-descriptor-unit)
 (native jazz.product-descriptor-title)

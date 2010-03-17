@@ -123,7 +123,9 @@
     (define (process-activation)
       (let ((frames (all-frames)))
         (if (null? frames)
-            (stage-activate~ (current-stage))
+            (let ((stage (current-stage)))
+              (when stage
+                (stage-activate~ stage)))
           (for-each-docked
             client-activate~))))
     
@@ -144,9 +146,29 @@
                       (set-visible?~ palette #t))))
                 children))
     
+    (define (restore-focus focus)
+      (let ((first (first-frame)))
+        (if (and first (eq? first (get-host~ focus)))
+            (begin
+              (focus-host~ first)
+              (set-current-stage (get-stage~ first)))
+          (when (is? focus Stage)
+            (if (in-player?~ focus)
+                (begin
+                  (acquire-focus~ focus)
+                  (set-current-stage focus))
+              (let ((stage (current-stage)))
+                (if stage
+                    (begin
+                      (acquire-focus~ stage)
+                      (set-current-stage stage))
+                  (set-default-focus))))))))
+    
     (let ((appl (get-application))
           (toplevel (get-toplevel))
-          (visibilities (collect-visibilities)))
+          (visibilities (collect-visibilities))
+          (focus (get-focus))
+          (stage (current-stage)))
       (with-locked-update
         (lambda ()
           (close-palettes)
@@ -171,9 +193,8 @@
             (when (get-visible?~ toplevel)
               (restore-state~ toplevel)))
           (process-frames visibilities #t)
-          (let ((first (first-frame)))
-            (when first
-              (focus-host~ first)))))))
+          (cond (focus (restore-focus focus))
+                ((and stage (in-player?~ stage)) (set-current-stage stage)))))))
   
   
   (method public (update-status)

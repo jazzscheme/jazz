@@ -372,17 +372,23 @@
   *stages*)
 
 (definition public (get-active-stages)
-  (collect-if get-player~ *stages*))
+  (collect-if in-player?~ *stages*))
 
 (definition public (current-stage)
   *current-stage*)
 
 (definition public (set-current-stage stage)
-  (set! *current-stage* stage)
-  (set! *stages* (cons stage (remove! stage *stages*))))
+  (let ((previous *current-stage*))
+    (set! *current-stage* stage)
+    (when stage
+      (set! *stages* (cons stage (remove! stage *stages*))))
+    (when previous
+      (invalidate-border~ (get-border~ previous)))
+    (when stage
+      (invalidate-border~ (get-border~ stage)))))
 
 (definition public (reset-current-stage)
-  (set! *current-stage* {}))
+  (set-current-stage {}))
 
 
 (definition public (create-stage)
@@ -438,6 +444,102 @@
   (let ((host (find-frame-host guest-type)))
     (when host
       (get-guest~ host))))
+
+
+;;;
+;;;; Workspace
+;;;
+
+
+(definition public (delete-stage)
+  (let ((designer (get-preferences-designer~ (get-application)))
+        (current-stage (current-stage)))
+    (let ((stage (get-figure-preferences~ current-stage)))
+      (let ((splitter (get-parent~ stage)))
+        (if (is-not? splitter Splitter-Preferences)
+            (bell)
+          (delete-stages designer stage splitter))))))
+
+
+(definition public (delete-other-stages)
+  (define (find-splitter splitter parent)
+    (if (stage-splitter? parent)
+        (find-splitter parent (get-parent~ parent))
+      splitter))
+  
+  (define (stage-splitter? splitter)
+    (and (is? splitter Splitter-Preferences)
+         (every? (lambda (pref)
+                    (or (is? pref Stage-Preferences)
+                        (stage-splitter? pref)))
+                  (get-children~ splitter))))
+  
+  (let ((designer (get-preferences-designer~ (get-application)))
+        (current-stage (current-stage)))
+    (let ((stage (get-figure-preferences~ current-stage)))
+      (let ((splitter (get-parent~ stage)))
+        (if (is-not? splitter Splitter-Preferences)
+            (bell)
+          (delete-stages designer stage (find-splitter splitter (get-parent~ splitter))))))))
+
+
+(definition (delete-stages designer stage splitter)
+  (let ((parent (get-parent~ splitter)))
+    (if (not (can-move-component?~ designer stage parent))
+        (bell)
+      (set-property~ designer stage 'location (get-location~ splitter))
+      (move-component~ designer stage parent)
+      (remove-child~ designer splitter)
+      (select-current-workspace))))
+
+
+(definition public (split-stage-vertically)
+  (split-stage 'vert))
+
+
+(definition public (split-stage-horizontally)
+  (split-stage 'horz))
+
+
+(definition (split-stage direction)
+  (let ((designer (get-preferences-designer~ (get-application)))
+        (current-stage (current-stage)))
+    (if (not current-stage)
+        (bell)
+      (let ((stage (get-figure-preferences~ current-stage)))
+        (let ((parent (get-parent~ stage))
+              (new-splitter (new Splitter-Preferences))
+              (new-stage (new Stage-Preferences)))
+          (add-child~ designer new-splitter parent)
+          (move-component~ designer stage new-splitter)
+          (add-child~ designer new-stage new-splitter)
+          (set-property~ designer new-splitter 'location (get-location~ stage))
+          (set-property~ designer new-splitter 'orientation direction)
+          (set-property~ designer new-splitter 'mode 'relative)
+          (set-property~ designer new-splitter 'division 50)
+          (set-property~ designer stage 'location 'first)
+          (set-property~ designer new-stage 'location 'second)
+          (set-property~ designer new-stage 'maximized? (get-maximized?~ stage))))
+      (select-current-workspace))))
+
+
+(definition public (navigate-frame)
+  (let ((stages (get-active-stages)))
+    (let ((count (length stages)))
+      (if (< count 2)
+          (bell)
+        (let ((frame (current-frame)))
+          (if (not frame)
+              (bell)
+            (let* ((stage (get-stage~ frame))
+                   (rank (find stages stage))
+                   (next (element stages (modulo (- rank 1) count))))
+              (set-parent~ frame next)
+              (maximize/restore~ frame)
+              (remember-workspace-stage~ frame)
+              (set-current-stage next)
+              @waiting
+              (set-caption~ (get-player~ stage) (get-title~ frame)))))))))
 
 
 ;;;
@@ -930,6 +1032,10 @@
           (set-view-focus~ new-player new-focus)
           (bring-to-front~ new-player)
           (set-window-focus new-player))))))
+
+
+(definition public (set-default-focus)
+  (set-focus (get-root~ (get-toplevel))))
 
 
 (definition public (get-focus-actions view)

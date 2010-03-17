@@ -970,15 +970,13 @@
   
   
   (method public (dispatch-shortcut shortcut)
-    (cond
-      ((or (not shortcut-hook)
-           (not (shortcut-hook shortcut)))
-       (let ((action-items (get-bound-actions shortcut)))
-         (when (not-null? action-items)
-           (invoke~ (car action-items) self {})
-           #t)))
-      (else
-       #t)))
+    (if (or (not shortcut-hook)
+            (not (shortcut-hook shortcut)))
+        (let ((action-items (get-bound-actions shortcut)))
+          (when (not-null? action-items)
+            (invoke~ (car action-items) self {})
+            #t))
+      #t))
   
   
   (method public (get-bound-actions shortcut)
@@ -1250,7 +1248,7 @@
                                 (event-handler (new Event-Handler target-name: :application method-name: 'on-select-workspace properties: (list workspace: name)))
                                 (selected? (eq? name active)))
                             (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
-                            (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'next-separator group: 'workspace selected?: selected? action: (new Action 'application action-name '()))
+                            (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'layout-separator group: 'workspace selected?: selected? action: (new Action 'application action-name '()))
                             (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
                             (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator))))
                       (get-children~ preferences))
@@ -1405,7 +1403,8 @@
         (with-locked-update
           (lambda ()
             (set-fullscreen?~ toplevel fullscreen?)
-            (set-fullscreen?~ stage fullscreen?)
+            (when stage
+              (set-fullscreen?~ stage fullscreen?))
             (for-each-splitter host
               (lambda (splitter host)
                 (let ((preferences (get-preferences~ splitter)))
@@ -1415,6 +1414,26 @@
                 (if fullscreen?
                     (zoom~ splitter host)
                   (unzoom~ splitter)))))))))
+  
+  
+  (method public (on-delete-stage evt)
+    (delete-stage))
+  
+  
+  (method public (on-delete-other-stages evt)
+    (delete-other-stages))
+  
+  
+  (method public (on-split-vertically evt)
+    (split-stage-vertically))
+  
+  
+  (method public (on-split-horizontally evt)
+    (split-stage-horizontally))
+  
+  
+  (method public (on-navigate-frame evt)
+    (navigate-frame))
 
 
   ;;;
@@ -2384,4 +2403,17 @@
   
   (method package (on-select-palette evt)
     (let ((host (get-property~ evt host:)))
-      (bring-to-front~ (get-player~ host))))))
+      (bring-to-front~ (get-player~ host)))))
+
+
+;;;
+;;;; Default-Workspace
+;;;
+
+
+(class Default-Workspace extends Workspace-Preferences
+  
+  
+  (form
+    (<install>             fullscreen?: #t
+      (<Stage-Preferences> location: root)))))

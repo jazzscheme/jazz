@@ -55,6 +55,9 @@
 (class undocumented Code-Text-View extends Text-View
   
   
+  (slot match-highlights initialize '())
+  
+  
   (form
     (<install> default-style: {Text-Style name: Default font: {Font name: Code}} left-padding: 12))
   
@@ -76,7 +79,9 @@
         (let ((base-styles-preferences (get-base-styles~ pref)))
           (for-each (lambda (base-style-preference)
                       (add-style-preference {} 'Default base-style-preference))
-                    base-styles-preferences)))))
+                    base-styles-preferences))
+        (let ((default (get-name~ default-style)))
+          (add-style-preference 'Match default (get-match-style~ pref))))))
 
   
   ;;;
@@ -112,7 +117,6 @@
 
   (method override (char-press key translated)
     (nextmethod key translated)
-    (flash-matching-character)
     (when (eqv? key #\space)
       (show-arguments)))
 
@@ -812,42 +816,108 @@
                                          (make-string spaces #\space))))))))
     
     (for-each tabify-line (naturals (get-row~ (get-start)) (+ (get-row~ (get-end)) 1))))
-
+  
 
   ;;;
   ;;;; Match
   ;;;
+  
+  
+  (method protected virtual (match-backwards? char)
+    #f)
+  
+  
+  (method protected virtual (match-forwards? char)
+    #f)
 
 
-  (method override (flash-matching-character)
-    (when (and (empty-selection?) (not (at-beginning?)))
-      (let ((pos (previous-cell (get-end))))
-        (when (flash-character? (get-char pos))
+  (method (flash-matching-character)
+    (define delay
+      .15)
+    
+    (define (flash-character highlight)
+      (let ((start (get-start~ (get-range~ highlight))))
+        (if (cell-displayed? start)
+            (begin
+              (add-highlight highlight)
+              (invalidate-highlight highlight)
+              (update-view)
+              (sleep delay)
+              (remove-highlight highlight)
+              (invalidate-highlight highlight))
+          (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
+            (user-message "{l detail: :human}" (map (lambda (mark)
+                                                      (get-string (get-range~ mark)))
+                                                    (collect-forward-exprs~ expl 3)))
+            (sleep delay)))))
+    
+    (let ((pref (preferences)))
+      (when (and pref (eq? (get-match-action~ pref) 'flash))
+        (let ((highlight (find-matching-highlight)))
+          (when highlight
+            (flash-character highlight))))))
+  
+  
+  (method (highlight-matching-character)
+    (define (remove-highlights)
+      (for-each (lambda (highlight)
+                  (remove-highlight highlight)
+                  (invalidate-highlight highlight))
+                match-highlights)
+      (set! match-highlights '()))
+    
+    (define (highlight-character)
+      (let ((highlight (find-matching-highlight)))
+        (when highlight
+          (add-highlight highlight)
+          (invalidate-highlight highlight)
+          (set! match-highlights (cons highlight match-highlights)))))
+    
+    (remove-highlights)
+    (highlight-character))
+  
+  
+  (method (find-matching-highlight)
+    (define (find-backward pos)
+      (unless (at-beginning?)
+        (let ((previous (previous-cell pos)))
+          (when (match-backwards? (get-char previous))
+            (catch (Explore-Error err
+                     (bell)
+                     #f)
+              (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
+                (when (backward-expr~ expl)
+                  (let ((pos (get-start~ expl)))
+                    (let ((range (new-range pos (next-cell pos)))
+                          (style (get-style 'Match)))
+                      (new Text-Highlight range style))))))))))
+    
+    (define (find-forward pos)
+      (unless (at-end?)
+        (when (match-forwards? (get-char pos))
           (catch (Explore-Error err
-                   (bell))
-            (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-end))))
-              (if (not (backward-expr~ expl))
-                  (bell)
-                (flash-character (get-start~ expl) pos))))))))
-
-
-  (method (flash-character start end)
+                   (bell)
+                     #f)
+            (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
+              (when (forward-expr~ expl)
+                (let ((pos (get-end~ expl)))
+                  (let ((range (new-range (previous-cell pos) pos))
+                        (style (get-style 'Match)))
+                    (new Text-Highlight range style)))))))))
+    
     (unless (macro-playing?~ (get-application))
-      (if (cell-displayed? start)
-          (let ((old (get-selection)))
-            (set-selection (new Range$Cell$ start (next-cell start)))
-            (update-view)
-            (sleep .2)
-            (set-selection old)
-            (update-view))
-        (let* ((pos (text->view end))
-               @w(tran (acquire~ (get-desktop) self pos))
-               @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: #f))
-               (expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
-          (user-message "{l detail: :human}" (map (lambda (mark)
-                                                    (get-string (get-range~ mark)))
-                                                  (collect-forward-exprs~ expl 3)))
-          (sleep .2)))))
+      (when (empty-selection?)
+        (let ((pos (get-caret)))
+          (either (find-backward pos)
+                  (find-forward pos))))))
+  
+  
+  (method override (selection-change)
+    (let ((pref (preferences)))
+      (when pref
+        (case (get-match-action~ pref)
+          ((flash) (flash-matching-character))
+          ((highlight) (highlight-matching-character))))))
   
   
   ;;;

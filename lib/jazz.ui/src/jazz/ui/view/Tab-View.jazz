@@ -47,19 +47,21 @@
 
 (class Tab-View extends View
 
+
+  (definition close-border-right   4)
+  (definition close-border-left   18)
+  (definition close-border-top     3)
+  (definition close-border-bottom 17)
+
   
-  (property orientation initialize 'top accessors explicit)
-  (property keep-one-sheet initialize #t accessors generate)
+  (property orientation     initialize 'top accessors explicit)
+  (property keep-one-sheet  initialize #t   accessors generate)
   
   
-  (slot padding        initialize 10)
-  (slot headers-height initialize 20)
-  (slot selection      initialize 0)
-  (slot close-border-right initialize 4)
-  (slot close-border-width initialize 14)
-  (slot close-border-top initialize 3)
-  (slot close-border-height initialize 14)
-  (slot close-button-enter initialize #f accessors generate)
+  (slot padding             initialize 10)
+  (slot headers-height      initialize 20)
+  (slot selection           initialize 0)
+  (slot close-button-enter  initialize #f)
   
   
   (method override (default-size)
@@ -84,11 +86,15 @@
     (when (and (> selection 0)
                (>= selection (child-rank child)))
       (set! selection (- selection 1)))
+    (when (= (length children) 1)
+      (invalidate-tab selection)
+      (set-visible?~ (child-ranked selection) #f)
+      (set! selection #f))
     (nextmethod child)
     (update-borders)
     (layout-view)
     (when (> (length children) 0)
-      (set-selection selection)))
+        (set-selection selection)))
   
   
   ;;;
@@ -115,7 +121,7 @@
   
   
   (method override (mouse-down pos)
-    (let ((header (find-header-view pos)))
+    (let ((header (find-tab-sheet pos)))
       (when header
         (if (is-close-button?~ header pos)
             (close-button-down~ header)
@@ -123,7 +129,7 @@
   
   
   (method override (mouse-up pos)
-    (let ((header (find-header-view pos)))
+    (let ((header (find-tab-sheet pos)))
       (when header
         (when (is-close-button?~ header pos)
             (close-button-up~ header)
@@ -131,23 +137,23 @@
   
   
   (method override (mouse-move pos)
-    (let ((header (find-header-view pos)))
+    (let ((header (find-tab-sheet pos)))
       (when header
         (if (is-close-button?~ header pos)
             (unless (and close-button-enter
                          (eq? close-button-enter header))
               (when close-button-enter
                 (close-button-leave~ close-button-enter))
-              (set-close-button-enter header)
+              (set! close-button-enter header)
               (close-button-enter~ header))
           (when close-button-enter
             (close-button-leave~ close-button-enter)
-            (set-close-button-enter #f))))))
+            (set! close-button-enter #f))))))
   
   (method override (mouse-leave)
     (when close-button-enter
        (close-button-leave~ close-button-enter)
-       (set-close-button-enter #f)))
+       (set! close-button-enter #f)))
 
 
   ;;;
@@ -167,7 +173,7 @@
                          (next (+ h padding (if title (+ (get-width~ (text-extent~ font title)) (if closable? 8 0)) 10) padding)))
                     (set-borders~ header (cons h next))
                     (if closable?
-                        (set-close-button-borders~ header (list (- next (+ close-border-width close-border-right)) (- next close-border-right) close-border-top (+ close-border-top close-border-height)))
+                        (set-close-button-borders~ header (list (- next close-border-left) (- next close-border-right) close-border-top close-border-bottom))
                       (set-close-button-borders~ header (list 0 0 0 0)))
                     (increase! n)
                     (set! h next)))
@@ -188,22 +194,15 @@
                       children
                       (naturals 0 (length children)))
             {})))))
-  
-  
-  (method (find-header-view pt)
-    (let ((h (get-h~ pt))
-          (v (get-v~ pt)))
-      (when (< v headers-height)
-        (continuation-capture
-          (lambda (return)
-            (for-each (lambda (header)
-                        (when (get-enabled?~ header)
-                          (bind (left . right) (get-borders~ header)
-                            (when (and (>= h left) (< h right))
-                              (continuation-return return header)))))
-                      children)
-            {})))))
 
+
+  (method (find-tab-sheet pt)
+    (let ((rank (find-header pt)))
+      (if rank
+          (list-ref children rank)
+        {})))
+  
+  
 
   ;;;
   ;;;; Selection
@@ -215,10 +214,6 @@
   
   
   (method public (set-selection sel (force?: force? #f) (user-origin?: user-origin? #f))
-    (define (redraw-header n)
-      (bind (lf . rg) (get-borders~ (child-ranked n))
-        (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
-    
     (when #t @parameterized-fix-me (/= sel selection)
       (let ((old selection))
         (when old
@@ -226,12 +221,17 @@
         (set! selection sel)
         (when sel
           (set-visible?~ (child-ranked sel) #t))
-        (redraw-header old)
-        (redraw-header selection)
+        (invalidate-tab old)
+        (invalidate-tab selection)
         (update-view)
         (call-selection-handler old selection force? user-origin?))))
-  
-  
+
+
+  (method public (invalidate-tab n)
+    (bind (lf . rg) (get-borders~ (child-ranked n))
+        (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
+
+
   (method public (get-selection-name)
     (get-name~ (selected-sheet)))
   
@@ -308,6 +308,10 @@
                           (when selected?
                             (decrease! lf 2)
                             (increase! rg 2))
+                          (let ((header-color (get-header-color~ header))
+                                (header-end-color (get-header-end-color~ header)))
+                            (when header-color
+                              (gradient-fill~ surface (new Rect (+ lf (if (= (- n 1) selection) 3 1)) (+ top 2) rg content) (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
                           ;; right
                           (unless (= (+ n 1) selection)
                             (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
@@ -320,8 +324,8 @@
                           (line-to-preserve~ surface (+ lf 2) top)
                           ;; left
                           (unless (= (- n 1) selection)
-                            (line-to-preserve~ surface lf (+ top 2))
-                            (line-to~ surface lf content))
+                            (line-to-preserve~ surface lf (+ top 2))  ;; Coin
+                            (line-to~ surface lf content))  ;; Ligne
                           ;; bottom
                           (unless selected?
                             (move-to~ surface lf content)
@@ -333,7 +337,7 @@
                                          (or (not keep-one-sheet)
                                              (and keep-one-sheet
                                                   (> (length children) 1))))
-                              (let ((rect (new Rect (- rg (+ close-border-width close-border-right)) (+ top close-border-top) (- rg close-border-right) (+ top close-border-top close-border-height))))
+                              (let ((rect (new Rect (- rg close-border-left) (+ top close-border-top) (- rg close-border-right) (+ top close-border-bottom))))
                                 (draw-caption~ surface rect 'close (get-close-button-down?~ header) (get-close-button-enter?~ header))) ))))
                   children
                   (naturals 0 (length children)))

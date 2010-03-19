@@ -312,7 +312,7 @@
         (user (jazz.make-repository 'User (or user-repository (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
         (repositories (or repositories (jazz.repositories))))
     (set! jazz.Build-Repository build)
-    (set! jazz.Repositories (all-repositories build jazz user repositories))))
+    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz user repositories)))))
 
 
 (define (jazz.make-repository name directory library-root #!key (binary? #f) (create? #f))
@@ -382,7 +382,8 @@
 (define (jazz.install-repository directory)
   (let ((repository (jazz.load-repository directory)))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))
-    (jazz.setup-repository repository)
+    (if jazz.setup-repositories-called?
+        (jazz.setup-repository repository))
     repository))
 
 
@@ -431,8 +432,13 @@
         table)))
 
 
+(define jazz.setup-repositories-called?
+  #f)
+
+
 (define (jazz.setup-repositories)
-  (for-each jazz.setup-repository jazz.Repositories))
+  (for-each jazz.setup-repository jazz.Repositories)
+  (set! jazz.setup-repositories-called? #t))
 
 
 (define (jazz.setup-repository repository)

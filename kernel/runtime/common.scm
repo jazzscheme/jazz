@@ -164,6 +164,13 @@
          (%%string=? (%%substring str 0 tl) target))))
 
 
+(define (jazz.string-starts-with-ci? str target)
+  (let ((sl (%%string-length str))
+        (tl (%%string-length target)))
+    (and (%%fx>= sl tl)
+         (%%string-ci=? (%%substring str 0 tl) target))))
+
+
 (define (jazz.string-ends-with? str target)
   (let ((sl (%%string-length str))
         (tl (%%string-length target)))

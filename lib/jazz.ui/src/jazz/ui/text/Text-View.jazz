@@ -380,7 +380,8 @@
     (when focus-selects-all?
       (select-all))
     (when (has-selection?)
-      (invalidate-selection selection)))
+      (invalidate-selection selection))
+    (invalidate-non-showed-highlights))
   
   
   (method override (focus-lose)
@@ -393,7 +394,8 @@
   (method override (focus-lost)
     (nextmethod)
     (when (has-selection?)
-      (invalidate-selection selection)))
+      (invalidate-selection selection))
+    (invalidate-non-showed-highlights))
   
   
   (method override (focus-activate)
@@ -2005,6 +2007,13 @@
   
   (method public (invalidate-highlight highlight)
     (invalidate-range (restrict-range (get-range~ highlight))))
+  
+  
+  (method public (invalidate-non-showed-highlights)
+    (for-each (lambda (highlight)
+                (when (not (get-show-unfocused?~ highlight))
+                  (invalidate-highlight highlight)))
+              highlights))
 
   
   ;;;
@@ -2173,22 +2182,24 @@
   
   (method override (draw-outline surface context clipper lh lv sh sv sc sc?)
     (define (draw-highlights)
-      (for-each (lambda (highlight)
-                  (let ((range (get-range~ highlight))
-                        (style (get-style~ highlight)))
-                    (let* ((start (get-start~ range))
-                           (end (get-end~ range))
-                           (paragraph (get-paragraph (get-row~ start)))
-                           (target (subseq (get-string~ paragraph) (get-col~ start) (get-col~ end)))
-                           (info (text->view-extended start))
-                           (line (car info))
-                           (pos (cdr info))
-                           (height (get-height~ line))
-                           (format (get-format~ paragraph))
-                           (left (get-left-margin~ format))
-                           (enabled? (draw-enabled?)))
-                      (draw-style~ style surface '() target (get-h~ pos) (get-v~ pos) height tabs left enabled?))))
-                highlights))
+      (let ((focus? (has-focus?)))
+        (for-each (lambda (highlight)
+                    (when (or focus? (get-show-unfocused?~ highlight))
+                      (let ((range (get-range~ highlight))
+                            (style (get-style~ highlight)))
+                        (let* ((start (get-start~ range))
+                               (end (get-end~ range))
+                               (paragraph (get-paragraph (get-row~ start)))
+                               (target (subseq (get-string~ paragraph) (get-col~ start) (get-col~ end)))
+                               (info (text->view-extended start))
+                               (line (car info))
+                               (pos (cdr info))
+                               (height (get-height~ line))
+                               (format (get-format~ paragraph))
+                               (left (get-left-margin~ format))
+                               (enabled? (draw-enabled?)))
+                          (draw-style~ style surface '() target (get-h~ pos) (get-v~ pos) height tabs left enabled?)))))
+                  highlights)))
     
     (let ((top {})
           (bottom {})

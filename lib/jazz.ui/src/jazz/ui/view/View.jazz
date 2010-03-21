@@ -201,14 +201,22 @@
   
   
   (method public (set-player plr)
-    (set! player plr)
-    (when (and (not plr) (eq? self (get-mouse-in)))
-      (set-mouse-in {})
-      (call-mouse-leave))
-    (for-each-view
-      (lambda (view)
-        (set-player~ view player))
-      include-invisibles?: #t))
+    (let ((view-focus (and player (let ((view-focus (get-view-focus~ player)))
+                                    (when (and view-focus (has-ascendant?~ view-focus self))
+                                      view-focus)))))
+      (when (neq? player plr)
+        (when view-focus
+          (set-view-focus~ player {}))
+        (set! player plr)
+        (when (and (not plr) (eq? self (get-mouse-in)))
+          (set-mouse-in {})
+          (call-mouse-leave))
+        (for-each-view
+          (lambda (view)
+            (set-player~ view player))
+          include-invisibles?: #t)
+        (when (and player view-focus)
+          (set-view-focus~ player view-focus)))))
   
   
   (method public (in-player?)

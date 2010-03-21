@@ -385,7 +385,8 @@
     (when previous
       (invalidate-border~ (get-border~ previous)))
     (when stage
-      (invalidate-border~ (get-border~ stage)))))
+      (invalidate-border~ (get-border~ stage)))
+    (update-menubar-buttons~ (get-application))))
 
 (definition public (reset-current-stage)
   (set-current-stage {}))
@@ -526,20 +527,21 @@
 (definition public (navigate-frame)
   (let ((stages (get-active-stages)))
     (let ((count (length stages)))
+      (define (navigate stage frame)
+        (let ((rank (find stages stage)))
+          (let ((next (element stages (modulo (- rank 1) count))))
+            (when frame
+              (set-parent~ frame next)
+              (maximize/restore~ frame)
+              (remember-workspace-stage~ frame))
+            (set-current-stage next))))
+      
       (if (< count 2)
           (bell)
         (let ((frame (current-frame)))
-          (if (not frame)
-              (bell)
-            (let* ((stage (get-stage~ frame))
-                   (rank (find stages stage))
-                   (next (element stages (modulo (- rank 1) count))))
-              (set-parent~ frame next)
-              (maximize/restore~ frame)
-              (remember-workspace-stage~ frame)
-              (set-current-stage next)
-              @waiting
-              (set-caption~ (get-player~ stage) (get-title~ frame)))))))))
+          (if frame
+              (navigate (get-stage~ frame) frame)
+            (navigate (current-stage) {})))))))
 
 
 ;;;

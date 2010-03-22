@@ -55,7 +55,8 @@
 (class undocumented Code-Text-View extends Text-View
   
   
-  (slot match-highlights initialize '())
+  (slot matching-highlights initialize '())
+  (slot flashing-thread     initialize {})
   
   
   (form
@@ -833,47 +834,49 @@
 
   (method (flash-matching-character)
     (define delay
-      .2)
+      0.5)
     
     (define (flash-character highlight)
       (let ((start (get-start~ (get-range~ highlight))))
         (if (cell-displayed? start)
             (begin
-              (add-highlight highlight)
-              (invalidate-highlight highlight)
-              (update-view)
-              (sleep delay)
-              (remove-highlight highlight)
-              (invalidate-highlight highlight))
+              (add-matching-highlight highlight)
+              (set! flashing-thread
+                    (thread-start!
+                      (new-thread
+                        (lambda ()
+                          (sleep delay)
+                          (delay-event
+                            (lambda ()
+                              (remove-matching-highlights)
+                              (set! flashing-thread {}))))))))
           (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))
-                                                    (collect-forward-exprs~ expl 3)))
-            (sleep delay)))))
+                                                    (collect-forward-exprs~ expl 3)))))))
+    
+    (define (exit-flashing-thread)
+      (when flashing-thread
+        (thread-interrupt! flashing-thread
+          thread-exit)
+        (set! flashing-thread {})))
     
     (let ((pref (preferences)))
       (when (and pref (eq? (get-match-action~ pref) 'flash))
         (let ((highlight (find-matching-highlight)))
           (when highlight
+            (remove-matching-highlights)
+            (exit-flashing-thread)
             (flash-character highlight))))))
   
   
   (method (highlight-matching-character)
-    (define (remove-highlights)
-      (for-each (lambda (highlight)
-                  (remove-highlight highlight)
-                  (invalidate-highlight highlight))
-                match-highlights)
-      (set! match-highlights '()))
-    
     (define (highlight-character)
       (let ((highlight (find-matching-highlight)))
         (when highlight
-          (add-highlight highlight)
-          (invalidate-highlight highlight)
-          (set! match-highlights (cons highlight match-highlights)))))
+          (add-matching-highlight highlight))))
     
-    (remove-highlights)
+    (remove-matching-highlights)
     (highlight-character))
   
   
@@ -911,6 +914,20 @@
         (let ((pos (get-caret)))
           (either (find-backward pos)
                   (find-forward pos))))))
+  
+  
+  (method (add-matching-highlight highlight)
+    (add-highlight highlight)
+    (invalidate-highlight highlight)
+    (set! matching-highlights (cons highlight matching-highlights)))
+  
+  
+  (method (remove-matching-highlights)
+    (for-each (lambda (highlight)
+                (remove-highlight highlight)
+                (invalidate-highlight highlight))
+              matching-highlights)
+    (set! matching-highlights '()))
   
   
   (method override (selection-change)

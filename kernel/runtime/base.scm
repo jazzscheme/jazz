@@ -391,7 +391,7 @@
 
 
 (define (jazz.option? arg)
-  (and (< 0 (string-length arg))
+  (and (> (string-length arg) 0)
        (char=? (string-ref arg 0) #\-)))
 
 

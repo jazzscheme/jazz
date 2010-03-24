@@ -49,13 +49,16 @@
 
 
 (define (jazz.switch? arg)
-  (and (%%fx>= (%%string-length arg) 2)
-       (or (%%eqv? (%%string-ref arg 0) #\-)
-           (%%eqv? (%%string-ref arg 0) #\/))))
+  (and (%%fx> (%%string-length arg) 0)
+       (%%eqv? (%%string-ref arg 0) #\-)))
 
 
 (define (jazz.switch-name arg)
-  (%%substring arg 1 (%%string-length arg)))
+  (let ((len (%%string-length arg)))
+    (let ((start (if (and (%%fx>= len 2) (%%equal? (%%substring arg 0 2) "--"))
+                     2
+                   1)))
+      (%%substring arg start len))))
 
 
 (define (jazz.command-argument name)

@@ -61,7 +61,7 @@
   (slot padding             initialize 10)
   (slot headers-height      initialize 20)
   (slot selection           initialize 0)
-  (slot close-button-enter  initialize #f)
+  (slot close-button-enter  initialize #f   accessors generate)
   
   
   (method override (default-size)
@@ -131,30 +131,34 @@
   (method override (mouse-up pos)
     (let ((header (find-tab-sheet pos)))
       (when header
-        (when (is-close-button?~ header pos)
+        (when (and (is-close-button?~ header pos)
+                   (get-close-button-down?~ header))
           (close-button-up~ header)
           (remove-child header)))))
   
   
   (method override (mouse-move pos)
     (let ((header (find-tab-sheet pos)))
-      (when header
-        (if (is-close-button?~ header pos)
-            (unless (and close-button-enter
-                         (eq? close-button-enter header))
-              (when close-button-enter
-                (close-button-leave~ close-button-enter))
-              (set! close-button-enter header)
-              (close-button-enter~ header))
-          (when close-button-enter
-            (close-button-leave~ close-button-enter)
-            (set! close-button-enter #f))))))
+      (if header
+          (if (is-close-button?~ header pos)
+              (unless (and close-button-enter
+                           (eq? close-button-enter header))
+                (when close-button-enter
+                  (close-button-leave~ close-button-enter))
+                (close-button-enter~ header))
+            (when close-button-enter
+              (close-button-leave~ close-button-enter)))
+        (when close-button-enter
+          (close-button-leave~ close-button-enter)))))
   
   
+  (method override (drag-move pos)
+    (mouse-move pos))
+
+
   (method override (mouse-leave)
     (when close-button-enter
-       (close-button-leave~ close-button-enter)
-       (set! close-button-enter #f)))
+       (close-button-leave~ close-button-enter)))
 
 
   ;;;
@@ -204,7 +208,6 @@
         {})))
   
   
-
   ;;;
   ;;;; Selection
   ;;;

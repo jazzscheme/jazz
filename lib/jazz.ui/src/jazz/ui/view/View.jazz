@@ -199,11 +199,9 @@
   
   
   (method public (set-player plr)
-    (let ((view-focus (and player (let ((view-focus (get-view-focus~ player)))
-                                    (when (and view-focus (has-ascendant?~ view-focus self))
-                                      view-focus)))))
+    (let ((focused (essay (contains-focus?) (get-focus))))
       (when (neq? player plr)
-        (when view-focus
+        (when focused
           (reset-focus~ player))
         (set! player plr)
         (when (and (not plr) (eq? self (get-mouse-in)))
@@ -213,8 +211,8 @@
           (lambda (view)
             (set-player~ view player))
           include-invisibles?: #t)
-        (when (and player view-focus)
-          (set-focus view-focus)))))
+        (when (and player focused)
+          (set-focus focused)))))
   
   
   (method public (in-player?)
@@ -547,7 +545,8 @@
   (method override (set-parent parent)
     (let ((previous-invalidater (essay player (invalidater))))
       (nextmethod parent)
-      (set-player (if parent (get-player~ parent) {}))
+      (when parent
+        (set-player (get-player~ parent)))
       (when previous-invalidater
         (previous-invalidater))
       (when parent
@@ -1802,6 +1801,11 @@
   
   (method public (has-focus?)
     (eq? self (get-focus)))
+  
+  
+  (method public (contains-focus?)
+    (let ((focus (get-focus)))
+      (and focus (has-ascendant?~ focus self))))
   
   
   (method public virtual (focus-lose)

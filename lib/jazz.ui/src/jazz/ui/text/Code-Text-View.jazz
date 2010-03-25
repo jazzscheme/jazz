@@ -832,14 +832,14 @@
     #f)
 
 
-  (method (flash-matching-character)
-    (define initial-delay
+  (method (flash-matching-character pref)
+    (define flash-delay
       (if (keyboard-input?)
           0
-        0.2))
+        (get-flash-delay~ pref)))
     
-    (define flashing-delay
-      .5)
+    (define flash-duration
+      (get-flash-duration~ pref))
     
     (define (flash-character highlight)
       (let ((start (get-start~ (get-range~ highlight))))
@@ -848,11 +848,11 @@
                   (thread-start!
                     (new-thread
                       (lambda ()
-                        (sleep initial-delay)
+                        (sleep flash-delay)
                         (execute-event
                           (lambda ()
                             (add-matching-highlight highlight)))
-                        (sleep flashing-delay)
+                        (sleep flash-duration)
                         (execute-event
                           (lambda ()
                             (remove-matching-highlights)
@@ -873,7 +873,7 @@
         (remove-matching-highlights)
         (exit-flashing-thread)
         (let ((highlight (find-matching-highlight (not (keyboard-input?)))))
-          (when highlight
+          (when (and highlight (neq? flash-delay 'infinity))
             (flash-character (car highlight)))))))
   
   
@@ -945,7 +945,7 @@
     (let ((pref (preferences)))
       (when pref
         (case (get-match-action~ pref)
-          ((flash) (flash-matching-character))
+          ((flash) (flash-matching-character pref))
           ((highlight) (highlight-matching-character pref))))))
   
   

@@ -833,25 +833,28 @@
 
 
   (method (flash-matching-character)
-    (define delay
+    (define initial-delay
+      0)
+    
+    (define flashing-delay
       .5)
     
     (define (flash-character highlight)
       (let ((start (get-start~ (get-range~ highlight))))
         (if (cell-displayed? start)
-            (begin
-              (delay-event
-                (lambda ()
-                  (add-matching-highlight highlight)))
-              (set! flashing-thread
-                    (thread-start!
-                      (new-thread
-                        (lambda ()
-                          (sleep delay)
-                          (delay-event
-                            (lambda ()
-                              (remove-matching-highlights)))
-                          (set! flashing-thread {}))))))
+            (set! flashing-thread
+                  (thread-start!
+                    (new-thread
+                      (lambda ()
+                        (sleep initial-delay)
+                        (execute-event
+                          (lambda ()
+                            (add-matching-highlight highlight)))
+                        (sleep flashing-delay)
+                        (execute-event
+                          (lambda ()
+                            (remove-matching-highlights)
+                            (set! flashing-thread {})))))))
           (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))

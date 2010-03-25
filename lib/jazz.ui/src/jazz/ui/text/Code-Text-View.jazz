@@ -834,7 +834,9 @@
 
   (method (flash-matching-character)
     (define initial-delay
-      0)
+      (if (keyboard-input?)
+          0
+        0.2))
     
     (define flashing-delay
       .5)
@@ -870,22 +872,24 @@
       (when (and pref (eq? (get-match-action~ pref) 'flash))
         (remove-matching-highlights)
         (exit-flashing-thread)
-        (let ((highlight (find-matching-highlight)))
+        (let ((highlight (find-matching-highlight (not (keyboard-input?)))))
           (when highlight
-            (flash-character highlight))))))
+            (flash-character (car highlight)))))))
   
   
-  (method (highlight-matching-character)
+  (method (highlight-matching-character pref)
     (define (highlight-character)
       (let ((highlight (find-matching-highlight)))
         (when highlight
-          (add-matching-highlight highlight))))
+          (add-matching-highlight (car highlight))
+          (when (eq? (get-highlight-mode~ pref) 'both)
+            (add-matching-highlight (cdr highlight))))))
     
     (remove-matching-highlights)
     (highlight-character))
   
   
-  (method (find-matching-highlight)
+  (method (find-matching-highlight (forward? #t))
     (define (find-backward pos)
       (unless (at-beginning?)
         (let ((previous (previous-cell pos)))
@@ -895,8 +899,9 @@
                      #f)
               (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
                 (when (backward-expr~ expl)
-                  (let ((pos (get-start~ expl)))
-                    (new-highlight pos (next-cell pos))))))))))
+                  (let ((start (get-start~ expl)))
+                    (cons (new-highlight start (next-cell start))
+                          (new-highlight previous pos))))))))))
     
     (define (find-forward pos)
       (unless (at-end?)
@@ -906,8 +911,9 @@
                      #f)
             (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
               (when (forward-expr~ expl)
-                (let ((pos (get-end~ expl)))
-                  (new-highlight (previous-cell pos) pos))))))))
+                (let ((end (get-end~ expl)))
+                  (cons (new-highlight (previous-cell end) end)
+                        (new-highlight pos (next-cell pos))))))))))
     
     (define (new-highlight start end)
       (let ((range (new-range start end))
@@ -918,7 +924,7 @@
       (when (empty-selection?)
         (let ((pos (get-caret)))
           (either (find-backward pos)
-                  (find-forward pos))))))
+                  (and forward? (find-forward pos)))))))
   
   
   (method (add-matching-highlight highlight)
@@ -940,7 +946,7 @@
       (when pref
         (case (get-match-action~ pref)
           ((flash) (flash-matching-character))
-          ((highlight) (highlight-matching-character))))))
+          ((highlight) (highlight-matching-character pref))))))
   
   
   ;;;

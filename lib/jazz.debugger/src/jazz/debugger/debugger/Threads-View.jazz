@@ -276,11 +276,11 @@
       (with-system-exception-debugger
         (lambda ()
           (let ((tree (locate 'threads)))
-            (with-update-locked~ tree
+            (with-preserved-selection~ tree
               (lambda ()
-                (with-preserved-selection~ tree
+                (remove-every-row~ tree)
+                (with-update-locked~ tree
                   (lambda ()
-                    (remove-every-row~ tree)
                     (for-each-thread~ manager
                       (lambda (thread stop detailed?)
                         (let ((title (thread-title thread stop detailed?))
@@ -288,10 +288,7 @@
                               (frame-color (get-stopped-frame-color~ manager thread))
                               (background (get-visited-highlight-color~ manager thread)))
                           (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed?)))
-                  use: 'data
-                  test: debugged=?
-                  generate-event?: user-origin?)
+                      detailed?: (show-detailed?))))
                 (unless (selected-thread)
                   (when (get-installed?)
                     (continuation-capture
@@ -302,7 +299,10 @@
                               ;; this will recursively call (get-threads-view) when called from (install)
                               (set-selected-thread thread)
                               (thread-change))
-                            (continuation-return return))))))))))))))
+                            (continuation-return return))))))))
+              use: 'data
+              test: debugged=?
+              generate-event?: user-origin?))))))
   
   
   (method public (update-highlight thread)

@@ -134,14 +134,25 @@
   
   
   (method public (detach-process process best-process)
+    (define (cleanup-stops table)
+      (debug '-- process)
+      (for-each (lambda (key)
+                  (debug (shared-process?~ process key) key)
+                  (when (shared-process?~ process key)
+                    (table-clear table key)))
+                (table-keys table)))
+    
     (when (and best-process (debugged=? focused-process process))
       (set-focus-process best-process))
     (close-process-debugger-resources process)
+    (cleanup-stops debugged-stops)
+    (cleanup-stops debugged-to-visit)
     (let ((view (get-processes-view)))
       (when view
         (update-processes~ view)
         (unless (selected-process~ view)
-          (process-changed #f)))))
+          (process-changed #f))))
+    (update-status))
   
   
   (method public (for-each-process proc)

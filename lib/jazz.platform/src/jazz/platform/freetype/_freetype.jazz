@@ -41,8 +41,78 @@
 (import (jazz.platform.types))
 
 
+(c-include "<fontconfig/fontconfig.h>")
 (c-include "<ft2build.h>")
 (c-include "FT_FREETYPE_H")
+
+
+(c-type FcPattern      (native "FcPattern"))
+(c-type FcPattern*     (pointer FcPattern))
+(c-type FcFontSet      (native "FcFontSet"))
+(c-type FcFontSet*     (pointer FcFontSet))
+
+
+(definition package Fc-make-pattern
+  (c-function (char-string int bool bool bool) FcPattern*
+    "FcPattern* pattern;
+     FcPattern* matched_pattern;
+     pattern = FcPatternCreate();
+     FcPatternAddString(pattern, FC_FAMILY, ___arg1);
+     if (___arg3)
+          FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_BOLD);
+     FcConfigSubstitute(0, pattern, FcMatchPattern);
+     FcDefaultSubstitute(pattern);
+     ___result_voidstar = pattern;
+"))
+
+
+(definition package Fc-font-match
+  (c-function (FcPattern*) FcPattern*
+    "FcPattern* matched_pattern;
+     matched_pattern = FcFontMatch(0, ___arg1, 0);
+     FcPatternDestroy(___arg1);
+     ___result_voidstar = matched_pattern;
+"))
+
+
+(definition package Fc-font-list
+  (lambda ()
+    (let ((os ((c-function () FcFontSet*
+    "FcPattern* pattern;
+     FcObjectSet* os;
+     pattern = FcPatternCreate();
+     os = FcObjectSetCreate();
+     FcObjectSetAdd(os, FC_FILE);
+     FcObjectSetAdd(os, FC_FULLNAME);
+     FcFontSet* fs;
+     fs = FcFontList(0, pattern, os);
+     FcPatternDestroy(pattern);
+     ___result_voidstar = fs;
+"))))
+      (prog1 (let ((count ((c-function (FcFontSet*) int "___result = ___arg1->nfont;") os)))
+               (loop (for n from 0 below count)
+                     (collect (let ((pattern ((c-function (FcFontSet* int) FcPattern* "___result_voidstar = ___arg1->fonts[___arg2];") os n)))
+                                (list file: (Fc-pattern-get-file pattern) fullname: (Fc-pattern-get-fullname pattern))))))
+        ((c-function (FcFontSet*) void "FcFontSetDestroy(___arg1);") os)))))
+
+
+(definition package Fc-pattern-get-file
+  (c-function (FcPattern*) char-string
+    "FcChar8* file;
+     FcPatternGetString(___arg1, FC_FILE, 0, &file);
+     ___result = (char*) file;
+"))
+
+
+(definition package Fc-pattern-get-fullname
+  (c-function (FcPattern*) char-string
+    "FcChar8* fullname;
+     FcPatternGetString(___arg1, FC_FULLNAME, 0, &fullname);
+     ___result = (char*) fullname;
+"))
+
+
+(c-external void (FcPatternDestroy FcPattern*))
 
 
 (c-type FT_Long        long)
@@ -53,7 +123,6 @@
 (c-type FT_Face*       (pointer FT_Face))
 
 
-(c-external int (FT_Init_FreeType FT_Library*))
 (c-external int (FT_New_Face FT_Library char-string FT_Long FT_Face*))
 (c-external int (FT_Done_Face FT_Face))
 
@@ -65,5 +134,6 @@
 (definition package ft-library
   ((c-function () FT_Library
      "FT_Library lib;
-      FT_Init_FreeType( &lib );
+      FT_Init_FreeType(&lib);
+      FcInit();
       ___result_voidstar = lib;"))))

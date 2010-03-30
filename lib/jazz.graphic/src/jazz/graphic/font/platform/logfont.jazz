@@ -42,34 +42,37 @@
         (jazz.platform.cairo))
 
 
-(definition public (create-font-handle (font-name: font-name {})
+(definition public (create-font-handle local?
+                                       (font-name: font-name {})
                                        (point-size: point-size {})
                                        (bold?: bold? #f)
                                        (italic?: italic? #f)
                                        (underline?: underline? #f))
-  (CreateFont
-    ;; cairo doc says the first 4 parameters are ignored
-    (fxround (calculate-height point-size))
-    0
-    0
-    0
-    (if bold? FW_BOLD FW_NORMAL)
-    (if italic? 1 0)
-    (if underline? 1 0)
-    0
-    ANSI_CHARSET
-    OUT_DEFAULT_PRECIS
-    CLIP_DEFAULT_PRECIS
-    DEFAULT_QUALITY
-    DEFAULT_PITCH
-    font-name))
+  (if local?
+      (error "Symbolic fonts are not supported on Windows")
+    (CreateFont
+      ;; cairo doc says the first 4 parameters are ignored
+      (fxround (calculate-height point-size))
+      0
+      0
+      0
+      (if bold? FW_BOLD FW_NORMAL)
+      (if italic? 1 0)
+      (if underline? 1 0)
+      0
+      ANSI_CHARSET
+      OUT_DEFAULT_PRECIS
+      CLIP_DEFAULT_PRECIS
+      DEFAULT_QUALITY
+      DEFAULT_PITCH
+      font-name)))
 
 
 (definition public (calculate-height point-size <fx>) <fx>
   (fxround/ (* point-size 96) 72))
 
 
-(definition public (create-cairo-font-handle handle)
+(definition public (create-cairo-font-face local? handle)
   (let ((logfont (get-logfont handle)))
     (prog1 (cairo_win32_font_face_create_for_logfontw logfont)
       (LOGFONTW-free logfont))))
@@ -81,9 +84,9 @@
     info))
 
 
-(definition public (destroy-font-handle handle)
+(definition public (destroy-font-handle local? handle)
   (DeleteObject handle))
 
 
-(definition public (destroy-cairo-font-handle handle)
+(definition public (destroy-cairo-font-face handle)
   (cairo_font_face_destroy handle)))

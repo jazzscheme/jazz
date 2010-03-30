@@ -65,6 +65,7 @@
 (table-set! freetype-font-table 'droid-sans  '("droid/DroidSans.ttf" "droid/DroidSans-Bold.ttf" {} {}))
 (table-set! freetype-font-table 'droid-mono  '("droid/DroidSansMono.ttf" {} {} {}))
 (table-set! freetype-font-table 'droid-serif '("droid/DroidSerif-Regular.ttf" "droid/DroidSerif-Bold.ttf" "droid/DroidSerif-Italic.ttf" "droid/DroidSerif-BoldItalic.ttf"))
+(table-set! freetype-font-table '10x20       '("x11/10x20.pcf" {} {} {}))
 
 
 ;;;
@@ -72,21 +73,25 @@
 ;;;
 
 
-(definition public (create-font-handle (font-name: font-name {})
+(definition public (create-font-handle local?
+                                       (font-name: font-name {})
                                        (point-size: point-size {})
                                        (bold?: bold? #f)
                                        (italic?: italic? #f)
                                        (underline?: underline? #f))
-  (let* ((paths (get-freetype-font font-name))
-         (index (cond ((and bold? italic?) 3)
-                      (italic? 2)
-                      (bold? 1)
-                      (else 0)))
-         (path  (list-ref paths index)))
-    (let ((face (make-FT_Face)))
-      (when (/= 0 (FT_New_Face ft-library (string-append kernel-source "etc/fonts/" path) 0 face))
-        (error "In font face creation"))
-      face)))
+  (if local?
+      (let* ((paths (get-freetype-font font-name))
+             (index (cond ((and bold? italic?) 3)
+                          (italic? 2)
+                          (bold? 1)
+                          (else 0)))
+             (path  (list-ref paths index)))
+        (let ((face (make-FT_Face))
+              (path (string-append kernel-source "etc/fonts/" path)))
+          (when (/= 0 (FT_New_Face ft-library path 0 face))
+            (error "Unable to create freetype font face: {a}" path))
+          face))
+    (Fc-font-match (Fc-make-pattern font-name point-size bold? italic? underline?))))
 
 
 ;;;
@@ -94,13 +99,17 @@
 ;;;
 
 
-(definition public (create-cairo-font-handle handle)
-  (cairo_ft_font_face_create_for_ft_face handle 0))
+(definition public (create-cairo-font-face local? handle)
+  (if local?
+      (cairo_ft_font_face_create_for_ft_face handle 0)
+    (cairo_ft_font_face_create_for_pattern handle)))
 
 
-(definition public (destroy-font-handle handle)
-  (free-FT_Face handle))
+(definition public (destroy-font-handle local? handle)
+  (if local?
+      (free-FT_Face handle)
+    (FcPatternDestroy handle)))
 
 
-(definition public (destroy-cairo-font-handle handle)
+(definition public (destroy-cairo-font-face handle)
   (cairo_font_face_destroy handle)))

@@ -54,11 +54,12 @@
   (slot italic?     initialize #f getter generate)
   (slot underline?  initialize #f getter generate)
   (slot hint-style  initialize {})
-  (slot handle      initialize {})
   (slot source      initialize {})
   (slot metrics     initialize {})
   (slot all-widths  initialize {})
-  (slot cairo-font  initialize {} getter generate)
+  (slot local?      initialize #f)
+  (slot handle      initialize {})
+  (slot font-face   initialize {} getter generate)
   (slot scaled-font initialize {} getter generate)
   
   
@@ -111,9 +112,10 @@
     (set! italic?~self italic?)
     (set! underline?~self underline?)
     (set! hint-style~self hint-style)
-    (set! handle~self (create-font-handle font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
-    (set! cairo-font~self (create-cairo-font-handle handle~self))
-    (set! scaled-font (create-cairo-scaled-font cairo-font point-size)))
+    (set! local?~self (symbol? font-name))
+    (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
+    (set! font-face~self (create-cairo-font-face local? handle~self))
+    (set! scaled-font (create-cairo-scaled-font font-face point-size)))
   
   
   (cond-expand
@@ -136,8 +138,8 @@
 
   (method override (destroy)
     (cairo_scaled_font_destroy scaled-font)
-    (destroy-cairo-font-handle cairo-font)
-    (destroy-font-handle handle)
+    (destroy-cairo-font-face font-face)
+    (destroy-font-handle local? handle)
     (nextmethod))
 
 

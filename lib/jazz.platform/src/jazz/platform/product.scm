@@ -65,13 +65,15 @@
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
             `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-carbon   cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (windows
     (define jazz.cairo-units
       (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
             (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
-        `((jazz.platform.cairo cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
+        `((jazz.platform.cairo            cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
+          (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
   (x11
     (define jazz.cairo-units
       (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
@@ -80,6 +82,7 @@
           (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
                 (ld-flags (jazz.pkg-config-libs "cairo-ft")))
             `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-x11      cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))))
 

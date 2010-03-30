@@ -63,16 +63,24 @@
   
   
   (method override (initialize (name: name {})
-                      (stock: stock {})
-                      (logfont: logfont {})
-                      (font-name: font-name {})
-                      (point-size: point-size {})
-                      (color: color {})
-                      (bold?: bold? #f)
-                      (italic?: italic? #f)
-                      (underline?: underline? #f)
-                      (hint-style: hint-style {}))
+                               (stock: stock {})
+                               (logfont: logfont {})
+                               (font-name: font-name {})
+                               (point-size: point-size {})
+                               (color: color {})
+                               (bold?: bold? #f)
+                               (italic?: italic? #f)
+                               (underline?: underline? #f)
+                               (antialias: antialias {})
+                               (hint-style: hint-style {}))
     (define (create-cairo-scaled-font font-face point-size)
+      (define (cairo-antialias antialias)
+        (case antialias
+          ((default) CAIRO_ANTIALIAS_DEFAULT)
+          ((none) CAIRO_ANTIALIAS_NONE)
+          ((gray) CAIRO_ANTIALIAS_GRAY)
+          ((subpixel) CAIRO_ANTIALIAS_SUBPIXEL)))
+      
       (define (cairo-hint-style style)
         (case style
           ((default) CAIRO_HINT_STYLE_DEFAULT)
@@ -85,8 +93,8 @@
             (matrix (cairo_matrix_t-make))
             (ctm (cairo_matrix_t-make))
             (options (cairo_font_options_create)))
-        (cairo_font_options_set_antialias options CAIRO_ANTIALIAS_SUBPIXEL)
-        (cairo_font_options_set_hint_style options (cairo-hint-style (either hint-style (if bold? 'slight 'full))))
+        (cairo_font_options_set_antialias options (cairo-antialias (either antialias 'subpixel)))
+        (cairo_font_options_set_hint_style options (cairo-hint-style (either hint-style (default-hint-style bold?))))
         (cairo_matrix_init_scale matrix height height)
         (cairo_matrix_init_identity ctm)
         (prog1 (cairo_scaled_font_create font-face matrix ctm options)
@@ -115,6 +123,15 @@
     (else
       (definition (calculate-height point-size <fl>) <fl>
         point-size)))
+  
+  
+  (cond-expand
+    (unix
+      (definition (default-hint-style bold?)
+        'slight))
+    (else
+      (definition (default-hint-style bold?)
+        (if bold? 'slight 'full))))
 
 
   (method override (destroy)

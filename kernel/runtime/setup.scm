@@ -265,7 +265,7 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "build" "make" "compile" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "build" "make" "compile" "keep-c" "expansion" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
             (force? (jazz.get-option "force" options))
@@ -281,6 +281,8 @@
             (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
             (compile (jazz.get-option "compile" options))
+            (keep-c (jazz.get-option "keep-c" options))
+            (expansion (jazz.get-option "expansion" options))
             (debugger (jazz.get-option "debugger" options))
             (link (symbol-argument (jazz.get-option "link" options)))
             (jobs (number-argument (jazz.get-option "jobs" options))))
@@ -305,6 +307,12 @@
                   (%%eqv? jobs 0))
               (jazz.debug-build? #t)))
         
+        (define (setup-compile)
+          (if keep-c
+              (set! jazz.compile-options (%%cons 'keep-c jazz.compile-options)))
+          (if expansion
+              (set! jazz.compile-options (%%cons 'expansion jazz.compile-options))))
+        
         (define (process-buildini-file)
           (if (file-exists? jazz.buildini-file)
               (jazz.load jazz.buildini-file)))
@@ -326,6 +334,7 @@
                 (jazz.run-product jazz.product))
               (compile
                 (setup-build)
+                (setup-compile)
                 (jazz.custom-compile-unit (%%string->symbol compile) force?: force?))
               (update
                 (setup-build)

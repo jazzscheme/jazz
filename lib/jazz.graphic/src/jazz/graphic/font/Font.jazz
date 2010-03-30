@@ -72,7 +72,7 @@
                                (underline?: underline? #f)
                                (antialias: antialias {})
                                (hint-style: hint-style {}))
-    (define (create-cairo-scaled-font font-face point-size)
+    (define (create-cairo-scaled-font font-face)
       (define (cairo-antialias antialias)
         (case antialias
           ((default) CAIRO_ANTIALIAS_DEFAULT)
@@ -88,13 +88,15 @@
           ((medium) CAIRO_HINT_STYLE_MEDIUM)
           ((full) CAIRO_HINT_STYLE_FULL)))
       
-      (let ((height (calculate-height point-size))
+      (let ((height (essay point-size (calculate-height point-size)))
             (matrix (cairo_matrix_t-make))
             (ctm (cairo_matrix_t-make))
             (options (cairo_font_options_create)))
         (cairo_font_options_set_antialias options (cairo-antialias (either antialias 'subpixel)))
         (cairo_font_options_set_hint_style options (cairo-hint-style (either hint-style (default-hint-style bold?))))
-        (cairo_matrix_init_scale matrix height height)
+        (if height
+            (cairo_matrix_init_scale matrix height height)
+          (cairo_matrix_init_identity matrix))
         (cairo_matrix_init_identity ctm)
         (prog1 (cairo_scaled_font_create font-face matrix ctm options)
           (cairo_matrix_t-free matrix)
@@ -114,7 +116,7 @@
     (set! local?~self (symbol? font-name))
     (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
     (set! font-face~self (create-cairo-font-face local? handle~self))
-    (set! scaled-font (create-cairo-scaled-font font-face point-size)))
+    (set! scaled-font (create-cairo-scaled-font font-face)))
   
   
   (cond-expand

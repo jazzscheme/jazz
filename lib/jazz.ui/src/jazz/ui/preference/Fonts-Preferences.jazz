@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Logfont Definitions
+;;;; Fonts Preferences
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,58 +35,62 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.font.platform.logfont jazz
+(module protected jazz.ui.preference.Fonts-Preferences jazz
 
 
-(import (jazz.platform)
-        (jazz.platform.cairo))
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui))
 
 
-(definition public (create-font-handle local?
-                                       (font-name: font-name {})
-                                       (point-size: point-size {})
-                                       (bold?: bold? #f)
-                                       (italic?: italic? #f)
-                                       (underline?: underline? #f))
-  (if local?
-      (error "Local fonts are not supported on Windows")
-    (CreateFont
-      ;; cairo doc says the first 4 parameters are ignored
-      (fxround (calculate-height point-size))
-      0
-      0
-      0
-      (if bold? FW_BOLD FW_NORMAL)
-      (if italic? 1 0)
-      (if underline? 1 0)
-      0
-      ANSI_CHARSET
-      OUT_DEFAULT_PRECIS
-      CLIP_DEFAULT_PRECIS
-      DEFAULT_QUALITY
-      DEFAULT_PITCH
-      font-name)))
+(class undocumented Fonts-Preferences extends Preferences
+  
+  
+  (form
+    (<install>                            title: "Fonts" icon: {Image-Resource "Font"}
+      (<Font-Preferences> name: Code      title: "Code")
+      (<Font-Preferences> name: Code-Bold title: "Code Bold")))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Fonts-Preferences-Descriptor)))
 
 
-(definition public (calculate-height point-size <fx>) <fx>
-  (fxround/ (* point-size 96) 72))
+;;;
+;;;; Design
+;;;
 
 
-(definition public (create-cairo-font-face local? handle)
-  (let ((logfont (get-logfont handle)))
-    (prog1 (cairo_win32_font_face_create_for_logfontw logfont)
-      (LOGFONTW-free logfont))))
+(submodule design
 
 
-(definition public (get-logfont handle)
-  (let ((info (LOGFONTW-make)))
-    (GetObject handle (LOGFONTW-sizeof) (LOGFONTW*->PVOID info))
-    info))
+(import (jazz.designer))
 
 
-(definition public (destroy-font-handle local? handle)
-  (DeleteObject handle))
-
-
-(definition public (destroy-cairo-font-face handle)
-  (cairo_font_face_destroy handle)))
+(class Fonts-Preferences-Descriptor extends Preferences-Descriptor
+  
+  
+  (method override (component-can-rename-component? component)
+    #f)
+  
+  
+  (method override (component-can-delete-component? component)
+    #f)
+  
+  
+  (method override (component-can-move-component? component)
+    #f)
+  
+  
+  (method override (component-can-copy-component? component)
+    #f)
+  
+  
+  (method override (component-get-categorized-properties component)
+    '()))))

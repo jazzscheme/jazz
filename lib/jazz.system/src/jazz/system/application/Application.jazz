@@ -137,6 +137,7 @@
   (method override (start-environment)
     (nextmethod)
     (setup-bindings)
+    (setup-fonts)
     (initialize-toplevel)
     (initialize-clipboard)
     (register-clipboard-formats))
@@ -733,6 +734,45 @@
   
   (method public virtual (application-anchors)
     (table-keys (get-aliases)))
+
+
+  ;;;
+  ;;;; Fonts
+  ;;;
+  
+  
+  (method (setup-fonts)
+    (define (preferences->font pref)
+      (let ((name (get-name~ pref))
+            (font-name (get-font-name~ pref))
+            (point-size (get-point-size~ pref))
+            (color (get-color~ pref))
+            (bold? (get-bold?~ pref))
+            (italic? (get-italic?~ pref))
+            (underline? (get-underline?~ pref))
+            (antialias (get-antialias~ pref))
+            (hint-style (get-hint-style~ pref)))
+        (let ((arguments
+                `(,@(if (specified? font-name) (list font-name: font-name) '())
+                  ,@(if (specified? point-size) (list point-size: point-size) '())
+                  ,@(if (specified? color) (list color: color) '())
+                  ,@(if (specified? bold?) (list bold?: bold?) '())
+                  ,@(if (specified? italic?) (list italic?: italic?) '())
+                  ,@(if (specified? underline?) (list underline?: underline?) '())
+                  ,@(if (specified? antialias) (list antialias: antialias) '())
+                  ,@(if (specified? hint-style) (list hint-style: hint-style) '()))))
+          (unless (null? arguments)
+            (apply new Font name: name arguments)))))
+    
+    (let ((pref (get-preferences 'fonts error?: #f)))
+      (when pref
+        (let ((fonts (get-children~ pref)))
+          (for-each (lambda (pref)
+                      (let ((font (preferences->font pref)))
+                        (when font
+                          (let ((name (get-name~ font)))
+                            (register-font name font)))))
+                    fonts)))))
 
   
   ;;;

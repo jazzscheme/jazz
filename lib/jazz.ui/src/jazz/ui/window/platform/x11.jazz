@@ -304,7 +304,7 @@
                 visual
                 (+ CWBitGravity CWOverrideRedirect CWBackPixel)
                 attr)))
-        (ChangeProperty default-x11-display handle _NET_WM_WINDOW_TYPE XA_ATOM PropModeReplace
+        (x11-change-property default-x11-display handle _NET_WM_WINDOW_TYPE XA_ATOM PropModeReplace
           (u32vector (cond ((is? window Menu-Transient)
                             _NET_WM_WINDOW_TYPE_NORMAL)
                            ((is? window Tooltip)
@@ -319,7 +319,7 @@
           (wm-change-state default-x11-display handle _NET_WM_STATE_FULLSCREEN)
           (when (get-toplevel)
             (XSetTransientForHint default-x11-display handle (get-handle~ (get-toplevel)))))
-        (ChangeProperty default-x11-display handle XdndAware XA_ATOM PropModeReplace (u32vector XdndVersion))
+        (x11-change-property default-x11-display handle XdndAware XA_ATOM PropModeReplace (u32vector XdndVersion))
         (XSetWMProtocols (get-default-x11-display) handle WM_DELETE_WINDOW)
         (XSelectInput
           default-x11-display
@@ -496,6 +496,7 @@
     ((MotionNotify)     (process-motion-notify-message window msg))
     ((KeyPress)         (process-key-press-message window msg))
     ((ConfigureNotify)  (process-configure-notify-message window msg))
+    ((SelectionNotify)  (process-selection-notify-message window msg))
     ((SelectionRequest) (process-selection-request-message window msg))
     ((ClientMessage)    (process-client-message-message window msg))
     (else               unprocessed)))
@@ -602,7 +603,7 @@
     (unless (or (translate-shortcut mod keysym)
                 ;; XIM filter for dead keys and composition
                 (XFilterEvent msg None))
-      (receive (sym str) (Xutf8LookupString (get-xic (get-handle~ window)) key-msg)
+      (receive (sym str) (x11-utf8-lookup-string (get-xic (get-handle~ window)) key-msg)
         (if str
             (iterate str
               (lambda (c)
@@ -620,14 +621,19 @@
     (call-position-change~ window x y)))
 
 
+(definition (process-selection-notify-message window msg)
+  ;; (terminal 'unprocessed 'selection-notify)
+  unprocessed)
+
+
 (definition (process-selection-request-message window msg)
-  (let* ((msg (XEvent-xselectionrequest-ref msg))
-         (requestor (XSelectionRequestEvent-requestor-ref msg))
-         (selection (XSelectionRequestEvent-selection-ref msg))
-         (target    (XSelectionRequestEvent-target-ref    msg))
-         (property  (XSelectionRequestEvent-property-ref  msg))
-         (time      (XSelectionRequestEvent-time-ref  msg)))
-    (XSendClipboardSelection default-x11-display (get-handle~ window) requestor selection target property time)))
+  (let ((msg (XEvent-xselectionrequest-ref msg)))
+    (let ((requestor (XSelectionRequestEvent-requestor-ref msg))
+          (selection (XSelectionRequestEvent-selection-ref msg))
+          (target    (XSelectionRequestEvent-target-ref msg))
+          (property  (XSelectionRequestEvent-property-ref msg))
+          (time      (XSelectionRequestEvent-time-ref msg)))
+      (x11-send-clipboard-selection default-x11-display (get-handle~ window) requestor selection target property time))))
 
 
 (definition (process-client-message-message window msg)
@@ -706,7 +712,7 @@
          (source (long*-ref data 0))
          (stamp (long*-ref data 2)))
     (when (equal? source DndSource)
-      (receive (actual_type_return actual_format_return nitems_return bytes_after_return prop_return) (XRetrieveSelection default-x11-display (get-handle~ window) XdndSelection text/uri-list stamp)
+      (receive (actual_type_return actual_format_return nitems_return bytes_after_return prop_return) (x11-retrieve-selection default-x11-display (get-handle~ window) XdndSelection text/uri-list stamp)
         (let ((files (collect (lambda (x)
                                 (and (not (equal? x ""))
                                      (let ((splitted (split x "://")))

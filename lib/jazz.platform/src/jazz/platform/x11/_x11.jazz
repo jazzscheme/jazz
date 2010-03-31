@@ -511,7 +511,7 @@
 
 
 (constant XA_PRIMARY 1)
-(constant XA_ATOM 4)
+(constant XA_ATOM    4)
 (constant XA_STRING 31)
 
 (definition package XA_CLIPBOARD {})
@@ -926,9 +926,9 @@
 (c-external char*        (setlocale              int char-string))
 (c-external char*        (XSetLocaleModifiers    char-string))
 (c-external bool         (XSupportsLocale))
-(c-external bool         (XFilterEvent XEvent* Window))
-(c-external KeySym       (XLookupKeysym XKeyEvent* int))
-(c-external void         (XSetTransientForHint Display* Window Window))
+(c-external bool         (XFilterEvent           XEvent* Window))
+(c-external KeySym       (XLookupKeysym          XKeyEvent* int))
+(c-external void         (XSetTransientForHint   Display* Window Window))
 
 
 (definition package (XGetAtomName display atom)
@@ -964,7 +964,7 @@ display window))
   (XBell default-x11-display 50))
 
 
-(definition package (ChangeProperty display window property type mode data)
+(definition package (x11-change-property display window property type mode data)
   (let* ((format    (cond ((u8vector? data) 8)
                           ((u32vector? data) 32)
                           (else (error "Format not supported"))))
@@ -1017,7 +1017,7 @@ display window))
     "free(___arg1);"))
 
 
-(definition package ProcessClientMessage
+(definition package x11-process-client-message
   (c-function (Display* XClientMessageEvent*) bool
     "Atom wm_delete_window = XInternAtom(___arg1, \"WM_DELETE_WINDOW\", False);
      if( ___arg2->data.l[0] == wm_delete_window )
@@ -1157,48 +1157,50 @@ display window))
     (values actual_type_return actual_format_return nitems_return bytes_after_return prop_return))))
 
 
-(definition package (XRetrieveSelection display toplevel selection target timestamp)
-  (XConvertSelection display selection target None toplevel timestamp)
+(definition package (x11-retrieve-selection display window selection target timestamp)
+  (XConvertSelection display selection target None window timestamp)
   (let ((ev (XEvent-make)))
-    (let loop ((i 0)
-               (return #f))
-         (if (and (< i 1000000) (not return))
-             (loop (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
-           (let* ((property (if return (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
-                  (result (if (= property None)
-                              #f
-                            (XGetWindowProperty display toplevel (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) 0 100000 #f target))))
-             (XEvent-free ev)
-             result)))))
+    (let (iterate (i 0) (event? #f))
+      (if (and (< i 1000000) (not event?))
+          (iterate (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
+        (let* ((property (if event? (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
+               (result (if (= property None)
+                           {}
+                         (XGetWindowProperty display window (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) 0 100000 #f target))))
+          (XEvent-free ev)
+          result)))))
 
 
-(definition package (XGetClipboardString display toplevel selection)
+(definition package (x11-get-clipboard-string display window selection)
   (let ((owner (XGetSelectionOwner display selection)))
-    (if (= owner toplevel)
+    (if (= owner window)
         clipboard-string
-      (XConvertSelection display selection XA_STRING None toplevel CurrentTime)
+      (XConvertSelection display selection XA_STRING None window CurrentTime)
       (let ((ev (XEvent-make)))
-        (let loop ((i 0)
-                   (return #f))
-          (if (and (< i 1000000) (not return))
-              (loop (+ i 1) (XCheckTypedEvent display SelectionNotify ev))
-            (let* ((property (if return (XSelectionEvent-property-ref (XEvent-xselection-ref ev)) None))
-                   (result (if (= property None)
-                               #f
-                             (receive (type format nitems bytes_after data) (XGetWindowProperty display toplevel property 0 100000 #f XA_STRING)
-                               (prog1 (uint8*->char-string data)
-                                 (XFree data))))))
-              (XEvent-free ev)
-              result)))))))
+        (let (iterate (i 0) (event? #f))
+          (cond (event?
+                 (let* ((property (XSelectionEvent-property-ref (XEvent-xselection-ref ev)))
+                        (result (if (= property None)
+                                    {}
+                                  (receive (type format nitems bytes_after data) (XGetWindowProperty display window property 0 100000 #f XA_STRING)
+                                    (prog1 (uint8*->char-string data)
+                                      (XFree data))))))
+                   (XEvent-free ev)
+                   result))
+                ((< i 1000000)
+                 (iterate (+ i 1) (XCheckTypedEvent display SelectionNotify ev)))
+                (else
+                 (XEvent-free ev)
+                 {})))))))
 
 
-(definition package (XSetClipboardString display window string selection)
+(definition package (x11-set-clipboard-string display window string selection)
   (set! clipboard-string string)
   (set! clipboard-stamp (x11-get-timestamp))
   (XSetSelectionOwner display selection window clipboard-stamp))
 
 
-(definition package (XSendClipboardSelection display toplevel requestor selection target property time)
+(definition package (x11-send-clipboard-selection display window requestor selection target property time)
   (define (send-event property)
     (let* ((ev (XEvent-make))
            (xselection (XEvent-xselection-ref ev)))
@@ -1214,10 +1216,10 @@ display window))
       (XEvent-free ev)))
   
   (cond ((eq? target TIMESTAMP)
-         (ChangeProperty display requestor property target PropModeReplace (u32vector clipboard-stamp))
+         (x11-change-property display requestor property target PropModeReplace (u32vector clipboard-stamp))
          (send-event property))
         ((eq? target TARGETS)
-         (ChangeProperty display requestor property target PropModeReplace (u32vector TIMESTAMP TARGETS XA_STRING)))
+         (x11-change-property display requestor property target PropModeReplace (u32vector TIMESTAMP TARGETS XA_STRING)))
         ((eq? target XA_STRING)
          (let ((data (char-string->uint8* clipboard-string))
                (nitems (+ (string-length clipboard-string) 1)))
@@ -1248,7 +1250,7 @@ display window))
     "XSetWMProtocols( ___arg1, ___arg2, &___arg3, 1 );"))
 
 
-(definition package (Xutf8LookupString xic event)
+(definition package (x11-utf8-lookup-string xic event)
   (let ((func (c-function (XIC XKeyEvent* char* int ulong* int*) int "Xutf8LookupString"))
         (str-buffer (char*-alloc 20))
         (sym-buffer (ulong*-alloc 1))

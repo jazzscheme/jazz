@@ -48,6 +48,10 @@
 
 
   (property client initialize {} accessors explicit)
+  
+  
+  (slot client-selection initialize {})
+  (slot client-position  initialize {})
 
 
   (form
@@ -59,7 +63,7 @@
         (<!>                        name: content    layout-type: fill
           (<Tree-Header>            name: header     shown?: #f
             (<!>                    name: content
-              (<Tree-View>          name: chapters   portfolio: :images show-header?: #f selection-handler: {Selection-Handler :form on-selection-change #t}
+              (<Chapters-Tree>      name: chapters   portfolio: :images show-header?: #f selection-handler: {Selection-Handler :form on-selection-change #t} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
                 (<Tree-Node-Column>                  title: "Chapters" width: 329))))))))
   
   
@@ -89,6 +93,12 @@
   
   (method override (client-deactivate)
     (set-client {}))
+  
+  
+  (method (tree-focus-gained)
+    (when client
+      (set! client-selection (get-selection~ client))
+      (set! client-position (get-scrolled-position~ client))))
  
 
   ;;;
@@ -112,6 +122,16 @@
   
   (method (get-occurence?)
     (get-selected?~ (locate 'occurence?)))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (guest-actions)
+    (cons (find-actions 'chapters-browser)
+          (nextmethod)))
  
 
   ;;;
@@ -139,6 +159,35 @@
                      (len (paragraph-length~ client row)))
                 (set-selection~ client (new Range$Cell$ (new Cell row col) (new Cell row len)) ensure-displayed?: #f)
                 (ensure-displayed~ client force-vertical: 'head))))))))
+  
+  
+  (method (on-double-click evt)
+    (finish-focus))
+  
+  
+  (method override (on-return-press key)
+    (finish-focus))
+  
+  
+  (method override (on-escape-press key)
+    (cancel-focus))
+  
+  
+  (method (on-cancel evt)
+    (cancel-focus))
+  
+  
+  (method (finish-focus)
+    (when client
+      (acquire-focus~ client)))
+  
+  
+  (method (cancel-focus)
+    (when client
+      (when client-selection
+        (set-selection~ client client-selection)
+        (scroll-to~ client client-position))
+      (acquire-focus~ client)))
   
   
   ;;;
@@ -207,4 +256,20 @@
       (when client
         (with-update-locked~ tree
           (lambda ()
-            (insert-children tree {} (build-tree client)))))))))
+            (insert-children tree {} (build-tree client))))))))
+
+
+;;;
+;;;; Chapters-Tree
+;;;
+
+
+(class Chapters-Tree extends Tree-View
+  
+  
+  (method override (focus-gained)
+    (nextmethod)
+    (tree-focus-gained~ (get-guest))))
+
+
+(register-autoclass Chapters-Tree))

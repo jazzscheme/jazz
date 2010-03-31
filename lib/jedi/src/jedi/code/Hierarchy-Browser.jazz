@@ -45,13 +45,19 @@
         (jazz.library.component)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (jedi))
 
 
 (class Hierarchy-Browser extends Layout-View
 
 
-  (property client initialize {} accessors explicit)
+  (property client initialize {} accessors generate)
+  
+  
+  (slot client-entry     initialize {})
+  (slot client-selection initialize {})
+  (slot client-position  initialize {})
   
 
   (form
@@ -63,7 +69,7 @@
         (<!>                        name: content     layout-type: fill
           (<Tree-Header>            name: header      shown?: #f
             (<!>                    name: content
-              (<Code-Tree>          name: definitions portfolio: :images show-header?: #f selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click}
+              (<Hierarchy-Tree>     name: definitions portfolio: :images show-header?: #f selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
                 (<Tree-Node-Column>                   title: "Hierarchy" width: 329))))))))
   
   
@@ -86,28 +92,33 @@
   
   (method override (client-activate)
     (define (client-entry guest)
-      (when guest
-        (if (is? guest Code-Text-View)
-            (let ((moniker (get-moniker~ (get-controller~ guest))))
-              (when moniker
-                (let ((ext (get-extension~ moniker)))
-                  (if (ci=? ext "jml")
-                      (safe-read-from-file moniker)
-                    (let* ((appl (get-application))
-                           (cataloguer (get-cataloguer~ appl))
-                           (entries (get-file-entries~ cataloguer moniker context: (get-context~ guest))))
-                      (when (= 1 (length entries))
-                        (car entries)))))))
-          {})))
+      (when (is? guest Code-Text-View)
+        (let ((moniker (get-moniker~ (get-controller~ guest))))
+          (when moniker
+            (let ((ext (get-extension~ moniker)))
+              (if (ci=? ext "jml")
+                  (safe-read-from-file moniker)
+                (let* ((appl (get-application))
+                       (cataloguer (get-cataloguer~ appl))
+                       (entries (get-file-entries~ cataloguer moniker context: (get-context~ guest))))
+                  (when (= 1 (length entries))
+                    (car entries)))))))))
     
-    (let ((entry (client-entry (current-document))))
-      (if (not entry)
-          (set-client {})
-        (set-client entry))))
+    (let ((guest (current-document)))
+      (let ((entry (client-entry guest)))
+        (if (not entry)
+            (set-client/entry {} {})
+          (set-client/entry guest entry)))))
   
   
   (method override (client-deactivate)
-    (set-client {}))
+    (set-client/entry {} {}))
+  
+  
+  (method (tree-focus-gained)
+    (when client
+      (set! client-selection (get-selection~ client))
+      (set! client-position (get-scrolled-position~ client))))
  
 
   ;;;
@@ -135,6 +146,16 @@
   
   (method (get-sorted?)
     (not (get-occurence?)))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (guest-actions)
+    (cons (find-actions 'hierarchy-browser)
+          (nextmethod)))
  
 
   ;;;
@@ -148,17 +169,14 @@
   
   
   (method (on-update evt)
-    (define (reload-jml-client)
-      (let ((document (current-document)))
-        (if document
-            (let ((moniker (get-moniker~ (get-controller~ document))))
-              (if moniker
-                  (set! client (safe-read-from-file moniker))
-                (set! client {})))
-          (set! client {}))))
+    (define (reload-jml)
+      (let ((moniker (get-moniker~ (get-controller~ client))))
+        (if moniker
+            (set! client-entry (safe-read-from-file moniker))
+          (set! client-entry {}))))
     
-    (when (or (is? client Exception) (is? client Form))
-      (reload-jml-client))
+    (when (or (is? client-entry Exception) (is? client-entry Form))
+      (reload-jml))
     (update))
 
 
@@ -166,7 +184,7 @@
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
         ((definitions)
-          (selection-change sender #f)))))
+         (selection-change sender #f)))))
 
 
   (method (on-double-click evt)
@@ -174,6 +192,31 @@
       (case (get-name~ sender)
         ((definitions)
          (selection-change sender #t)))))
+  
+  
+  (method override (on-return-press key)
+    (finish-focus))
+  
+  
+  (method override (on-escape-press key)
+    (cancel-focus))
+  
+  
+  (method (on-cancel evt)
+    (cancel-focus))
+  
+  
+  (method (finish-focus)
+    (when client
+      (acquire-focus~ client)))
+  
+  
+  (method (cancel-focus)
+    (when client
+      (when client-selection
+        (set-selection~ client client-selection ensure-displayed?: #f)
+        (scroll-to~ client client-position))
+      (acquire-focus~ client)))
   
   
   ;;;
@@ -184,7 +227,7 @@
   (method (edit-definitions definition)
     (define (edit-jml-definition definition)
       (let* ((appl (get-application))
-             (moniker (get-origin~ client))
+             (moniker (get-origin~ client-entry))
              (frame (edit-document~ appl moniker visible?: #f))
              (text (get-guest~ frame))
              (location (append (get-location~ definition) (list 0)))
@@ -202,30 +245,27 @@
   ;;;; Client
   ;;;
 
-
-  (method public (get-client)
-    client)
-
  
-  (method public (set-client clt)
-    (when (neq? clt client)
+  (method public (set-client/entry clt entry)
+    (when (neq? entry client-entry)
       (set! client clt)
+      (set! client-entry entry)
       (update)))
   
   
   (method (update)
-    (define (get-client-title client)
-      (if (is? client JML-Node)
+    (define (get-entry-title entry)
+      (if (is? entry JML-Node)
           "JML"
-        (get-title~ client)))
+        (get-title~ entry)))
     
     ;; All this should be abstracted into an Hierarchy-Client class
     ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
     
-    (define (insert-client-definition tree client)
-      (if (is? client JML-Node)
-          (insert-jml-definition tree {} 0 client (get-sorted?))
-        (insert-definition~ tree {} 0 client (get-sorted?))))
+    (define (insert-entry-definition tree entry)
+      (if (is? entry JML-Node)
+          (insert-jml-definition tree {} 0 entry (get-sorted?))
+        (insert-definition~ tree {} 0 entry (get-sorted?))))
     
     (define (insert-jml-definition tree father level node sort?)
       (define (insert-definition father level node sort?)
@@ -272,18 +312,18 @@
       (insert-definition father level node sort?))
     
     (let ((tree (locate 'definitions)))
-      (cond ((not client)
+      (cond ((not client-entry)
              (set-title "Class Browser")
              (remove-every-row~ tree))
-            ((is? client Exception)
+            ((is? client-entry Exception)
              (remove-every-row~ tree)
-             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client) image: {Image-Resource "Debugger"})) user-data: client))
+             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client-entry) image: {Image-Resource "Debugger"})) user-data: client-entry))
             (else
-             (set-title (format "Class {a}" (get-client-title client)))
+             (set-title (format "Class {a}" (get-entry-title client-entry)))
              (remove-every-row~ tree)
              (with-update-locked~ tree
                (lambda ()
-                 (insert-client-definition tree client)))))))
+                 (insert-entry-definition tree client-entry)))))))
   
   
   ;;;
@@ -303,4 +343,20 @@
             (let ((definition (get-user-data~ (get-row~ tree selection))))
               (unless (is? definition Exception)
                 (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                  (edit-definitions definition)))))))))))
+                  (edit-definitions definition))))))))))
+
+
+;;;
+;;;; Hierarchy-Tree
+;;;
+
+
+(class Hierarchy-Tree extends Code-Tree
+  
+  
+  (method override (focus-gained)
+    (nextmethod)
+    (tree-focus-gained~ (get-guest))))
+
+
+(register-autoclass Hierarchy-Tree))

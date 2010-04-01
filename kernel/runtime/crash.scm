@@ -61,17 +61,17 @@
 
       static void setup_low_level_windows_crash_handler()
       {
-        SetUnhandledExceptionFilter( unhandled_exception_filter );
+        SetUnhandledExceptionFilter(unhandled_exception_filter);
       }
 END-OF-DECLARES
     )
     (c-initialize "setup_low_level_windows_crash_handler();")
     
-    (c-declare "const DWORD PROCESS_FAILURE = (DWORD) 0xE0000001L;")
+    (c-declare "const DWORD CRASH_PROCESS = (DWORD) 0xE0000001L;")
     
     (define jazz.crash-process
       (c-lambda () void
-        "RaiseException(PROCESS_FAILURE, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
+        "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
   (else
    (c-define (crash_call_exit) () void "crash_call_exit" ""
      (exit 1))
@@ -84,15 +84,15 @@ END-OF-DECLARES
 
       static void error_signal_handler(int sig_num)
       {
-        jazz_call_crash_reporter(NULL);
+        jazz_call_crash_reporter(sig_num);
         fflush(stdout);
         crash_call_exit();
       }
 
       static void setup_low_level_unix_crash_handler()
       {
-        signal( SIGBUS, error_signal_handler );
-        signal( SIGSEGV, error_signal_handler );
+        signal(SIGBUS, error_signal_handler);
+        signal(SIGSEGV, error_signal_handler);
       }
 END-OF-DECLARES
    )
@@ -101,4 +101,4 @@ END-OF-DECLARES
 
    (define jazz.crash-process
      (c-lambda () void
-       "raise( SIGSEGV );"))))
+       "raise(SIGSEGV);"))))

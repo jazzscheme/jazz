@@ -38,7 +38,8 @@
 (module protected jazz.platform.crash.windows jazz
 
 
-(import (jazz.platform.windows.WinTypes)
+(import (jazz.platform.types)
+        (jazz.platform.windows.WinTypes)
         (jazz.snapshot))
 
 
@@ -47,34 +48,18 @@
 ;;;
 
 
-(c-definition (SnapshotProcess) () VOID "snapshot_process" ""
-  (snapshot-process))
+(c-definition (SnapshotProcess code desc) (unsigned-int wchar_t-string) VOID "snapshot_process" ""
+  (snapshot-process reason: (either desc (format "Received 0x{x}" code))))
 
 
 (c-declare #<<END-OF-CRASH
-#define ANSISIZE 512
-#define UNICODESIZE 512
-
-static TCHAR Crashfile[_MAX_FNAME];
-static TCHAR Module[_MAX_PATH];
-static TCHAR Drive[_MAX_DRIVE];
-static TCHAR Filename[_MAX_FNAME];
-static TCHAR Directory[_MAX_DIR];
-
-static SYSTEMTIME SystemTime;
-
-static CHAR AnsiLog[ANSISIZE];
-static TCHAR UnicodeLog[UNICODESIZE];
-
-static void internal_error(int exitCode)
-{
-    ExitProcess(exitCode);
-}
-
-static LPWSTR exception_description(int code)
+static LPWSTR exception_description(DWORD code)
 {
     switch (code)
     {
+        case 0xE0000001L:
+            return L"Crash process";
+
         case EXCEPTION_ACCESS_VIOLATION:
             return L"Access violation";
 
@@ -95,116 +80,15 @@ static LPWSTR exception_description(int code)
     }
 }
 
-static void log_printf(HANDLE handle, LPWSTR fmt, ...)
-{
-    va_list    args;
-    
-    va_start(args, fmt);
-    wvsprintf(UnicodeLog, fmt, args);
-    va_end(args);
-    
-    int size = wcslen(UnicodeLog);
-
-    WideCharToMultiByte(CP_ACP, 0, UnicodeLog, -1, AnsiLog, size + 1, NULL, NULL);
-
-    DWORD len, written;
-
-    len = strlen(AnsiLog);
-
-    WriteFile(handle, AnsiLog, len, &written, NULL);
-
-    if (written != len)
-        internal_error(-4);
-}
-
-static void log_error(HANDLE handle, LPEXCEPTION_RECORD record)
-{
-    LPWSTR desc = exception_description(record->ExceptionCode);
-    
-    log_printf(handle, L"error: ");
-    if (desc)
-        log_printf(handle, L"%s", desc);
-    else
-        log_printf(handle, L"0x%.2x", record->ExceptionCode);
-}
-
-static BOOL filename_exists(LPWSTR filename)
-{
-    return GetFileAttributes(filename) != INVALID_FILE_ATTRIBUTES;
-}
-
-static void timestamped_filename(LPWSTR buffer, LPWSTR dir, LPWSTR ext)
-{
-    INT    n = 0;
-    TCHAR  suffix[8];
-    BOOL   done;
-    
-    done = FALSE;
-    while (! done)
-    {
-        SYSTEMTIME    st;
-    
-        GetLocalTime(&st);
-        
-        if (n == 0)
-            wsprintf(suffix, L"");
-        else
-            wsprintf(suffix, L"_%d", n);
-        
-        wsprintf(buffer, L"%s\\%04d-%02d-%02d_%02d-%02d-%02d%s.%s", dir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, suffix, ext);
-    
-        if (! filename_exists(buffer))
-            done = TRUE;
-        else
-            n++;
-    }
-}
-
-static void fill_crashfile()
-{
-    TCHAR    dir[_MAX_PATH];
-    
-    GetModuleFileName(NULL, Module, _MAX_PATH);
-
-    _wsplitpath(Module, Drive, Directory, NULL, NULL);
-    Directory[wcslen(Directory) - 1] = 0;
-
-    wsprintf(dir, L"%s%s", Drive, Directory);
-    
-    timestamped_filename(Crashfile, dir, L"crash");
-}
-
-static void snapshot_exception(LPEXCEPTION_RECORD record, PCONTEXT context)
-{
-    fill_crashfile();
-
-    HANDLE handle = CreateFile(Crashfile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-
-    if (handle == INVALID_HANDLE_VALUE)
-        internal_error(-2);
-
-    GetModuleFileName(NULL, Module, _MAX_PATH);
-    _wsplitpath(Module, NULL, NULL, Filename, NULL);
-
-    log_printf(handle, L"process: %s\r\n", Filename);
-    GetLocalTime(&SystemTime);
-    log_printf(handle, L"date: %d/%d/%d %d:%d:%.2d\r\n", SystemTime.wYear, SystemTime.wMonth, SystemTime.wDay, SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
-    log_printf(handle, L"\r\n");
-
-    log_error(handle, record);
-    log_printf(handle, L"\r\n");
-
-    CloseHandle(handle);
-}
-
-static VOID windows_unhandled_exception_handler( PVOID arg )
+static VOID windows_unhandled_exception_handler(PVOID arg)
 {
     LPEXCEPTION_POINTERS info = (LPEXCEPTION_POINTERS) arg;
     LPEXCEPTION_RECORD record = info->ExceptionRecord;
-    PCONTEXT context = info->ContextRecord;
 
-    snapshot_exception(record, context);
-    snapshot_process();
+    DWORD code = record->ExceptionCode;
+    LPWSTR desc = exception_description(code);
+    
+    snapshot_process(code, desc);
 }
 END-OF-CRASH
 )
@@ -213,4 +97,4 @@ END-OF-CRASH
 (definition package (setup-crash-handler)
   (jazz.set-crash-reporter 
     (c-function (PVOID) VOID
-      "windows_unhandled_exception_handler( ___arg1 );"))))
+      "windows_unhandled_exception_handler(___arg1);"))))

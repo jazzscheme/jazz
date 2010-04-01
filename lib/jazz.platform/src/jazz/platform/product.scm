@@ -142,13 +142,25 @@
 
 
 (cond-expand
- (mac
-  (define jazz.clipboard-units
-    '((jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
-      (jazz.platform.carbon.clipboard ld-options: "-framework Carbon"))))
- (else
-  (define jazz.clipboard-units
-    '())))
+  (mac
+   (define jazz.clipboard-units
+     '((jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
+       (jazz.platform.carbon.clipboard ld-options: "-framework Carbon"))))
+  (else
+   (define jazz.clipboard-units
+     '())))
+
+
+(cond-expand
+  (mac
+   (define jazz.crash-units
+     '((jazz.platform.crash.mac))))
+  (unix
+   (define jazz.crash-units
+     '((jazz.platform.crash.unix))))
+  (windows
+   (define jazz.crash-units
+     '())))
 
 
 (cond-expand
@@ -156,7 +168,7 @@
     (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           (jazz.platform.crash)
-                          (jazz.platform.crash.carbon)
+                          ,@jazz.crash-units
                           ,@jazz.types-units
                           ,@jazz.cairo-units
                           ,@jazz.font-units
@@ -182,6 +194,7 @@
         
         (let ((unit-specs `((jazz.platform)
                             (jazz.platform.crash)
+                            ,@jazz.crash-units
                             ,@jazz.types-units
                             ,@jazz.cairo-units
                             ,@jazz.font-units
@@ -193,7 +206,7 @@
     (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           (jazz.platform.crash)
-                          (jazz.platform.crash.x11)
+                          ,@jazz.crash-units
                           ,@jazz.types-units
                           ,@jazz.cairo-units
                           ,@jazz.font-units

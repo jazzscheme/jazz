@@ -37,11 +37,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(c-define (jazz.call_crash_reporter arg) ((pointer void)) void "jazz_call_crash_reporter" ""
-  (jazz.crash-reporter arg))
-
-
-(define (jazz.log-backtrace arg)
+(define (jazz.log-backtrace ignore)
   (continuation-capture
     (lambda (k)
       (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
@@ -52,6 +48,9 @@
 
 (cond-expand
   (windows
+    (c-define (jazz.call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
+      (jazz.crash-reporter ignore))
+
     (c-declare #<<END-OF-DECLARES
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
       {
@@ -73,6 +72,9 @@ END-OF-DECLARES
       (c-lambda () void
         "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
   (else
+   (c-define (jazz.call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
+     (jazz.crash-reporter ignore))
+
    (c-define (crash_call_exit) () void "crash_call_exit" ""
      (exit 1))
 

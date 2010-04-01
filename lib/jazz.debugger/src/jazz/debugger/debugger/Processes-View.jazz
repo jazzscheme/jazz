@@ -116,7 +116,7 @@
 
   (method override (install rest)
     (nextmethod rest)
-    (update-processes))
+    (update))
 
   
   ;;;
@@ -173,7 +173,7 @@
   (method (on-update evt)
     (when (get-shift?~ evt)
       (for-each validate-processes~ (get-debuggers)))
-    (update-processes user-origin?: #t))
+    (update user-origin?: #t))
   
   
   (method (process-change)
@@ -189,7 +189,7 @@
   ;;;
   
   
-  (method public (update-processes (user-origin?: user-origin? #f))
+  (method public (update (user-origin?: user-origin? #f))
     (define (process-image process live? focused?)
       (cond ((not live?)
              {Image-Resource "ProcessDead"})
@@ -197,6 +197,106 @@
              (either (get-icon~ process) {Image-Resource "Process"}))
             (else
              {Image-Resource "Script"})))
+    
+    (define (update-processes tree)
+      (let ((manager (get-debugger-manager)))
+        (for-each-process~ manager
+          (lambda (debugger process live? focused?)
+            (let ((title (get-title~ process))
+                  (image (process-image process live? focused?))
+                  (frame-color (get-stopped-frame-color~ manager process))
+                  (background (get-visited-highlight-color~ manager process)))
+              (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
+    
+    (define (update-snapshots snapshots)
+      @convert
+      (for-each (function (snapshot)
+                          (bind (process file) snapshot
+                            (let ((handler (essay executable (new Symbol-Handler executable))))
+                              (let* ((title (format "{a}{? : {a}~}" (get-process~ process) (essay file (get-base~ file))))
+                                     (threads (get-threads~ process))
+                                     (process-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Spy"})) user-data: snapshot)))
+                                (for-each (function (thread)
+                                                    (let* ((title (get-label~ thread))
+                                                           (state (get-state~ thread))
+                                                           (image (if (> state 0) {Bitmap-Resource "ThreadError"} {Bitmap-Resource "ThreadRun"}))
+                                                           (thread-row (add-row father: process-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread))
+                                                           (call-stack (get-call-stack~ thread))
+                                                           (frames (coalesce-frames thread (map (function (info)
+                                                                                                          (bind (address . parameters) info
+                                                                                                            (get-frame-snapshot thread handler address parameters)))
+                                                                                                call-stack)))
+                                                           (c? (show-c-frames?)))
+                                                      (for-each (function (frame)
+                                                                          (let ((title (present~ frame))
+                                                                                (image (get-image~ frame)))
+                                                                            (when (or c? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
+                                                                              (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame))))
+                                                                frames)))
+                                          threads)))))
+                snapshots))
+    
+    (define (get-frame-snapshot thread handler address parameters)
+      @convert
+      (let* ((address (->string address))
+             (kind (if (starts-with? address "#x") 'c 'lisp)))
+        (case kind
+          ((c)
+           (let* ((addr (extract-address address))
+                  (sym (get-sym-from-addr~ handler addr))
+                  (title (standardize-sym sym)))
+             (when title
+               (let ((info (get-line-from-addr~ handler addr)))
+                 (if (null? info)
+                     (new C-Frame-Snapshot thread title {} {} parameters)
+                   (receive (filename line) info
+                     (let ((file (new File (tokenise filename))))
+                       (new C-Frame-Snapshot thread title file line parameters))))))))
+          ((lisp)
+           (let* ((title address)
+                  (pos (find title #\period)))
+             (if (null? pos)
+                 (new Lisp-Frame-Snapshot thread title {} {} parameters)
+               (let* ((model (string->symbol (subseq title 0 pos)))
+                      (method-name (string->symbol (subseq title (+ pos 1) (find title #\period start: (+ pos 1))))))
+                 (new Lisp-Frame-Snapshot thread title model method-name parameters))))))))
+    
+    (define (coalesce-frames thread frames)
+      @convert
+      (let ((fact (new List-Factory))
+            (get-type
+              (function (frame)
+                        (cond ((null? frame)
+                               'none)
+                              ((and (is? frame C-Frame-Snapshot)
+                                    (let ((title (get-title~ frame)))
+                                      (or (starts-with? title "JCompiledClosure::")
+                                          (starts-with? title "JCompiledExternal::"))))
+                               'eval)
+                              ((is? frame C-Frame-Snapshot)
+                               'c)
+                              ((is? frame Lisp-Frame-Snapshot)
+                               'lisp)
+                              (else
+                               'other)))))
+        (while (not-null? frames)
+          (let ((first (car frames)))
+            (set! frames (cdr frames))
+            (when first
+              (let* ((second (car frames))
+                     (third (cadr frames))
+                     (f (get-type first))
+                     (s (get-type second))
+                     (t (get-type third)))
+                (cond ((and (eq? f 'lisp) (memq? s '(none c)) (eq? t 'eval))
+                       (put~ fact (new Coalesced-Frames-Snapshot thread first second third))
+                       (set! frames (cddr frames)))
+                      ((and (eq? f 'c) (eq? s 'eval))
+                       (put~ fact (new Coalesced-Frames-Snapshot thread {} first second))
+                       (set! frames (cdr frames)))
+                      (else
+                       (put~ fact first)))))))
+        (get-output~ fact)))
     
     (with-system-exception-debugger
       (lambda ()
@@ -206,17 +306,15 @@
               (remove-every-row~ tree)
               (with-update-locked~ tree
                 (lambda ()
-                  (let ((manager (get-debugger-manager)))
-                    (for-each-process~ manager
-                      (lambda (debugger process live? focused?)
-                        (let ((title (get-title~ process))
-                              (image (process-image process live? focused?))
-                              (frame-color (get-stopped-frame-color~ manager process))
-                              (background (get-visited-highlight-color~ manager process)))
-                          (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))))
+                  (update-processes tree))))
             use: 'data
             test: debugged=?
             generate-event?: user-origin?)))))
+
+  
+  ;;;
+  ;;;; Highlight
+  ;;;
   
   
   (method public (update-highlight process)
@@ -297,7 +395,7 @@
   (method (close-selected-snapshot)
     (let ((object (selected-object)))
       (set! snapshots (remove! object snapshots))
-      (update-processes)))
+      (update)))
   
   
   (method (focus-selected-process)
@@ -314,17 +412,13 @@
   (method public (open-snapshot file . rest)
     (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
       (lambda (reader)
-        (let* ((snapshot (read reader))
-               (crash-file? (ci=? (get-extension~ file) "crash"))
-               (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
-          (unless (or (not crash-file?) (exists?~ executable))
-            (error "Unable to locate snapshot executable: {t}" executable))
-          (add-snapshot snapshot file executable)))))
+        (let ((snapshot (read reader)))
+          (add-snapshot snapshot file)))))
   
   
-  (method public (add-snapshot snapshot file executable)
-    (set! snapshots (cons (list snapshot file executable) snapshots))
-    (update-processes)))
+  (method public (add-snapshot snapshot file)
+    (set! snapshots (cons (list snapshot file) snapshots))
+    (update)))
 
 
 ;;;

@@ -1,0 +1,290 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Snapshot Debugger
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.debugger.jazz.Snapshot-Debugger jazz
+
+
+(import (jazz.console)
+        (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.io)
+        (jazz.editor.jazz)
+        (jazz.editor.jazz.inspector)
+        (jazz.jrm)
+        (jazz.media)
+        (jazz.network)
+        (jazz.system)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace))
+
+
+(class Snapshot-Debugger extends Debugger
+
+  
+  (slot processes initialize '())
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method override (start-debugger)
+    )
+  
+  
+  (method override (stop-debugger)
+    )
+  
+  
+  (method override (get-processes (validate-liveness?: validate-liveness? #f))
+    processes)
+  
+  
+  (method override (detach-processes)
+    )
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method override (process=? x y)
+    (eq? x y))
+  
+  
+  (method override (process-live? process)
+    #t)
+  
+  
+  (method override (process-title process)
+    (get-property~ process 'name))
+  
+  
+  (method override (process-icon process)
+    (get-property~ process 'icon))
+  
+  
+  (method override (process-threads process)
+    (get-children~ process))
+  
+  
+  (method override (present-process process)
+    (format "{a} - {a}"
+            (get-property~ process 'name)
+            (get-base~ (get-property~ process 'file))))
+  
+  
+  (method override (reload-process process)
+    )
+  
+  
+  (method override (process-focusable? process)
+    #f)
+  
+  
+  (method override (evaluate-expressions process syntax str container line col)
+    )
+  
+  
+  (method override (inspect-serial process serial)
+    )
+  
+  
+  (method override (process-detach process)
+    )
+  
+  
+  (method override (process-exit process)
+    (detach-process process))
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method override (thread=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (thread-name process thread)
+    (get-property~ thread 'name))
+  
+  
+  (method override (thread-state process thread)
+    (get-property~ thread 'state))
+  
+  
+  (method override (thread-stops process thread)
+    ;; quick try as all this is typeless
+    (list thread))
+  
+  
+  (method override (thread-active-stop process thread)
+    (let ((stops (thread-stops process thread)))
+      (if (null? stops)
+          {}
+        (last stops))))
+  
+  
+  (method override (break-thread process thread)
+    )
+  
+  
+  (method override (set-repl-frame process thread frame)
+    )
+    
+  
+  ;;;
+  ;;;; Restart
+  ;;;
+  
+  
+  (method override (restart=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (restart-name process restart)
+    (get-property~ restart 'name))
+  
+  
+  (method override (restart-message process restart)
+    (get-property~ restart 'message))
+
+  
+  (method override (restart-stop process restart)
+    (restart-stop~ process restart))
+
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method override (stop=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (stop-kind process stop)
+    (get-property~ stop 'kind))
+  
+  
+  (method override (stop-reason process stop)
+    (get-property~ stop 'reason))
+  
+  
+  (method override (stop-detail process stop)
+    (get-property~ stop 'detail))
+  
+  
+  (method override (stop-location process stop)
+    (get-property~ stop 'location))
+  
+  
+  (method override (stop-restarts process stop)
+    '())
+  
+  
+  (method override (stop-frames process stop)
+    (get-children~ stop))
+  
+  
+  (method override (continue-stop process stop)
+    )
+  
+  
+  (method override (step-stop process stop command)
+    )
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method override (frame=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (frame-name process frame)
+    (get-property~ frame 'name))
+  
+  
+  (method override (frame-interpreted? process frame)
+    (get-property~ frame 'interpreted?))
+  
+  
+  (method override (frame-location process frame)
+    (get-property~ frame 'location))
+  
+  
+  (method override (frame-variables process frame kind)
+    (map (lambda (variable)
+           (let ((name (get-property~ variable 'name))
+                 (value (get-property~ variable 'value))
+                 (mutable? #t))
+             (cons name (package-info value mutable?: mutable?))))
+         (get-children~ frame)))
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+
+
+  (method (attach-process process focus?)
+    (unless (member? process processes test: process=?)
+      (call-event
+        (lambda ()
+          (set! processes (append! processes (list process)))
+          (let ((debugged-process (new Debugged-Process self process process)))
+            (attach-process~ (get-debugger-manager) debugged-process focus?)
+            debugged-process)))))
+
+
+  (method (detach-process process)
+    (when (member? process processes test: process=?)
+      (execute-event
+        (lambda ()
+          (set! processes (remove! process processes test: process=?))
+          (let ((debugged-process (new Debugged-Process self process process))
+                ;; temp. logic should be done by the debugger manager
+                (best-debugged-process (new Debugged-Process (get-local-debugger~ (get-application)) (get-local-process) (get-local-process))))
+            (detach-process~ (get-debugger-manager) debugged-process best-debugged-process))))))))

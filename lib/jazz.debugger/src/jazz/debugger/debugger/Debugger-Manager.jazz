@@ -53,13 +53,13 @@
 (class Debugger-Manager extends Object
   
   
-  (slot debugged-stops    initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot debugged-to-visit initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot focused-process   initialize {} getter generate)
+  (slot active-stops    initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unvisited-stops initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot focused-process initialize {} getter generate)
   
-  (slot process           initialize {} getter generate)
-  (slot thread            initialize {} getter generate)
-  (slot frame             initialize {} getter generate)
+  (slot process         initialize {} getter generate)
+  (slot thread          initialize {} getter generate)
+  (slot frame           initialize {} getter generate)
   
   
   ;;;
@@ -69,7 +69,7 @@
   
   (method public (visit-debugged debugged)
     (unless (debugged-visited? debugged)
-      (table-set! debugged-to-visit debugged)
+      (table-set! unvisited-stops debugged)
       (update-status)
       #t))
   
@@ -78,8 +78,8 @@
     (let ((toolbar (find-toolbar~ (get-application))))
       (when toolbar
         (let ((button (find-component~ toolbar 'debugger))
-              (visited? (> (table-length debugged-to-visit) 0))
-              (stopped? (> (table-length debugged-stops) 0)))
+              (visited? (> (table-length unvisited-stops) 0))
+              (stopped? (> (table-length active-stops) 0)))
           (when button
             (notify~ button visited? stopped?))))))
   
@@ -95,15 +95,15 @@
   
   
   (method (debugged-stopped? debugged)
-    (not-null? (table-ref debugged-stops debugged '())))
+    (not-null? (table-ref active-stops debugged '())))
   
   
   (method (debugged-visited? debugged)
-    (not (table-ref debugged-to-visit debugged #f)))
+    (not (table-ref unvisited-stops debugged #f)))
   
   
   ;;;
-  ;;;; Focused Process
+  ;;;; Focused
   ;;;
   
   
@@ -127,7 +127,7 @@
   
   
   (method public (attach-process process focus?)
-    (when (or focus? (not focused-process))
+    (when (and focus? (focusable?~ process))
       (set-focus-process process))
     (when (get-processes-view)
       (update~ (get-processes-view))))
@@ -143,8 +143,8 @@
     (when (and best-process (debugged=? focused-process process))
       (set-focus-process best-process))
     (close-process-debugger-resources process)
-    (cleanup-stops debugged-stops)
-    (cleanup-stops debugged-to-visit)
+    (cleanup-stops active-stops)
+    (cleanup-stops unvisited-stops)
     (let ((view (get-processes-view)))
       (when view
         (update~ view)
@@ -156,10 +156,10 @@
   (method public (for-each-process proc)
     (for-each (lambda (debugger)
                 (for-each (lambda (process)
-                            (let ((debugged (new Debugged-Process debugger process process)))
-                              (let ((live? (live?~ debugged))
-                                    (focused? (debugged=? focused-process debugged)))
-                                (proc debugger debugged live? focused?))))
+                            (let ((debugged-process (new Debugged-Process debugger process process)))
+                              (let ((live? (live?~ debugged-process))
+                                    (focused? (debugged=? focused-process debugged-process)))
+                                (proc debugger debugged-process live? focused?))))
                           (get-processes~ debugger)))
               (get-debuggers)))
   
@@ -189,15 +189,15 @@
   (method public (for-each-thread proc (detailed?: detailed? #f))
     (define system-threads
       '(message-pump
-         debuggee-console-pump
-         debugger-console-pump
-         remote-listener
-         remote-connection
-         catalog
-         autorepeat
-         autoscroll
-         caret
-         hovering))
+        debuggee-console-pump
+        debugger-console-pump
+        remote-listener
+        remote-connection
+        catalog
+        autorepeat
+        autoscroll
+        caret
+        hovering))
     
     (define (system-thread? thread)
       (let ((name (get-name~ thread)))
@@ -208,10 +208,9 @@
     (when process
       (let ((debugger (get-debugger~ process)))
         (for-each (lambda (thread)
-                    (let ((thread (new Debugged-Thread debugger process thread)))
-                      (when (or detailed? (not (system-thread? thread)))
-                        (let ((stop (get-active-stop~ thread)))
-                          (proc thread stop detailed?)))))
+                    (when (or detailed? (not (system-thread? thread)))
+                      (let ((stop (get-active-stop~ thread)))
+                        (proc thread stop detailed?))))
                   (get-threads~ process)))))
   
   
@@ -239,13 +238,9 @@
   
   (method public (for-each-frame proc)
     (when (and process thread)
-      (let ((debugger (get-debugger~ process))
-            (stop (get-active-stop~ thread)))
+      (let ((stop (get-active-stop~ thread)))
         (when stop
-          (for-each (lambda (frame)
-                      (let ((frame (new Debugged-Frame debugger process frame)))
-                        (proc frame)))
-                    (get-frames~ stop))))))
+          (for-each proc (get-frames~ stop))))))
   
   
   (method public (frame-changed new-frame (user-origin?: user-origin? #f))
@@ -312,16 +307,16 @@
           (thread-changed~ (get-exception-view) thread)))
       (update-status))
     
-    (define (add-debugged-stop debugged stop)
-      (table-add debugged-stops debugged stop))
+    (define (add-active-stop debugged stop)
+      (table-add active-stops debugged stop))
     
-    (define (add-debugged-to-visit debugged)
-      (table-set! debugged-to-visit debugged #t))
+    (define (add-unvisited-stops debugged)
+      (table-set! unvisited-stops debugged #t))
     
-    (add-debugged-stop process stop)
-    (add-debugged-stop thread stop)
-    (add-debugged-to-visit process)
-    (add-debugged-to-visit thread)
+    (add-active-stop process stop)
+    (add-active-stop thread stop)
+    (add-unvisited-stops process)
+    (add-unvisited-stops thread)
     (unless step?
       (error-sound))
     (update-process)
@@ -338,23 +333,23 @@
           (thread-changed~ (get-exception-view) thread)))
       (update-status))
     
-    (define (remove-debugged-stop debugged stop)
-      (let ((stops (remove! stop (table-ref debugged-stops debugged '()) test: debugged=?)))
+    (define (remove-active-stop debugged stop)
+      (let ((stops (remove! stop (table-ref active-stops debugged '()) test: debugged=?)))
         (if (not-null? stops)
-            (table-set! debugged-stops debugged stops)
-          (table-set! debugged-stops debugged))))
+            (table-set! active-stops debugged stops)
+          (table-set! active-stops debugged))))
     
-    (define (remove-debugged-to-visit debugged)
-      (unless (and (table-ref debugged-to-visit debugged #f)
+    (define (remove-unvisited-stops debugged)
+      (unless (and (table-ref unvisited-stops debugged #f)
                    (some? (lambda (stop)
-                            (table-ref debugged-to-visit debugged #f))
-                          (table-ref debugged-stops debugged '())))
-        (table-set! debugged-to-visit debugged)))
+                            (table-ref unvisited-stops debugged #f))
+                          (table-ref active-stops debugged '())))
+        (table-set! unvisited-stops debugged)))
     
-    (remove-debugged-stop process stop)
-    (remove-debugged-stop thread stop)
-    (remove-debugged-to-visit process)
-    (remove-debugged-to-visit thread)
+    (remove-active-stop process stop)
+    (remove-active-stop thread stop)
+    (remove-unvisited-stops process)
+    (remove-unvisited-stops thread)
     (update-processes-highlight process)
     (let ((view (get-threads-view)))
       (when view

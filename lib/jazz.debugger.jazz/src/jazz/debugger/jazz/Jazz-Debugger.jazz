@@ -80,16 +80,16 @@
   (method override (detach-processes)
     (validate-processes)
     (let ((local-process (get-local-process)))
-      (for-each (lambda (process-proxy)
-                  (when (not (proxy=? process-proxy local-process))
-                    (detach-process~ process-proxy)))
+      (for-each (lambda (process)
+                  (when (not (proxy=? process local-process))
+                    (detach-process~ process)))
                 processes)))
   
   
   (method public (validate-processes)
-    (define (live-process? process-proxy)
-      (or (is? process-proxy Local-Proxy)
-          (live?~ process-proxy)))
+    (define (live-process? process)
+      (or (is? process Local-Proxy)
+          (live?~ process)))
     
     (let ((valid (new-queue)))
       (for-each (lambda (process)
@@ -112,50 +112,54 @@
     (proxy-server=? x y))
   
   
-  (method override (process-live? process-proxy)
-    (live?~ process-proxy))
+  (method override (process-live? process)
+    (live?~ process))
   
   
-  (method override (process-title process-proxy)
-    (get-title~ process-proxy))
+  (method override (process-title process)
+    (get-title~ process))
   
   
-  (method override (process-icon process-proxy)
-    (get-icon~ process-proxy))
+  (method override (process-icon process)
+    (get-icon~ process))
   
   
-  (method override (process-threads process-proxy)
-    (get-threads~ process-proxy))
+  (method override (process-threads process)
+    (get-threads~ process))
   
   
-  (method override (present-process process-proxy)
-    (let ((title (either (get-title~ process-proxy) "Process")))
-      (if (local-proxy? process-proxy)
+  (method override (present-process process)
+    (let ((title (either (get-title~ process) "Process")))
+      (if (local-proxy? process)
           title
-        (let ((host (get-host~ (get-ior~ process-proxy))))
+        (let ((host (get-host~ (get-ior~ process))))
           (if (host=? host (listening-host~ (get-remote-listener)))
               title
             (format "{a} at {a}" title (host->string host)))))))
   
   
-  (method override (reload-process process-proxy)
-    (reload-process~ process-proxy))
+  (method override (reload-process process)
+    (reload-process~ process))
   
   
-  (method override (evaluate-expressions process-proxy syntax str container line col)
-    (evaluate-expressions~ process-proxy syntax str container line col))
+  (method override (process-focusable? process)
+    #t)
   
   
-  (method override (inspect-serial process-proxy serial)
-    (inspect-serial~ process-proxy serial))
+  (method override (evaluate-expressions process syntax str container line col)
+    (evaluate-expressions~ process syntax str container line col))
   
   
-  (method override (process-detach process-proxy)
-    (detach-process~ process-proxy))
+  (method override (inspect-serial process serial)
+    (inspect-serial~ process serial))
   
   
-  (method override (process-exit process-proxy)
-    (exit-process~ process-proxy))
+  (method override (process-detach process)
+    (detach-process~ process))
+  
+  
+  (method override (process-exit process)
+    (exit-process~ process))
   
   
   ;;;
@@ -168,31 +172,31 @@
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method override (thread-name process-proxy thread-proxy)
-    (get-name~ thread-proxy))
+  (method override (thread-name process thread)
+    (get-name~ thread))
   
   
-  (method override (thread-state process-proxy thread-proxy)
-    (get-state~ thread-proxy))
+  (method override (thread-state process thread)
+    (get-state~ thread))
   
   
-  (method override (thread-stops process-proxy thread-proxy)
-    (get-stops~ thread-proxy))
+  (method override (thread-stops process thread)
+    (get-stops~ thread))
   
   
-  (method override (thread-active-stop process-proxy thread-proxy)
-    (let ((stops (thread-stops process-proxy thread-proxy)))
+  (method override (thread-active-stop process thread)
+    (let ((stops (thread-stops process thread)))
       (if (null? stops)
           {}
         (last stops))))
   
   
-  (method override (break-thread process-proxy thread-proxy)
-    (break-thread~ process-proxy thread-proxy))
+  (method override (break-thread process thread)
+    (break-thread~ process thread))
   
   
-  (method override (set-repl-frame process-proxy thread-proxy frame-proxy)
-    (set-repl-frame~ thread-proxy frame-proxy))
+  (method override (set-repl-frame process thread frame)
+    (set-repl-frame~ thread frame))
     
   
   ;;;
@@ -205,16 +209,16 @@
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method override (restart-name process-proxy restart-proxy)
-    (get-name~ restart-proxy))
+  (method override (restart-name process restart)
+    (get-name~ restart))
   
   
-  (method override (restart-message process-proxy restart-proxy)
-    (get-message~ restart-proxy))
+  (method override (restart-message process restart)
+    (get-message~ restart))
 
   
-  (method override (restart-stop process-proxy restart-proxy)
-    (restart-stop~ process-proxy restart-proxy))
+  (method override (restart-stop process restart)
+    (restart-stop~ process restart))
 
   
   ;;;
@@ -227,36 +231,36 @@
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method override (stop-kind process-proxy stop-proxy)
-    (get-kind~ stop-proxy))
+  (method override (stop-kind process stop)
+    (get-kind~ stop))
   
   
-  (method override (stop-reason process-proxy stop-proxy)
-    (get-reason~ stop-proxy))
+  (method override (stop-reason process stop)
+    (get-reason~ stop))
   
   
-  (method override (stop-detail process-proxy stop-proxy)
-    (get-detail~ stop-proxy))
+  (method override (stop-detail process stop)
+    (get-detail~ stop))
   
   
-  (method override (stop-location process-proxy stop-proxy)
-    (get-location~ stop-proxy))
+  (method override (stop-location process stop)
+    (get-location~ stop))
   
   
-  (method override (stop-restarts process-proxy stop-proxy)
-    (get-restarts~ stop-proxy))
+  (method override (stop-restarts process stop)
+    (get-restarts~ stop))
   
   
-  (method override (stop-frames process-proxy stop-proxy)
-    (get-frames~ stop-proxy))
+  (method override (stop-frames process stop)
+    (get-frames~ stop))
   
   
-  (method override (continue-stop process-proxy stop-proxy)
-    (continue-stop~ process-proxy stop-proxy))
+  (method override (continue-stop process stop)
+    (continue-stop~ process stop))
   
   
-  (method override (step-stop process-proxy stop-proxy command)
-    (step-stop~ process-proxy stop-proxy command))
+  (method override (step-stop process stop command)
+    (step-stop~ process stop command))
   
   
   ;;;
@@ -269,20 +273,20 @@
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method override (frame-name process-proxy frame-proxy)
-    (get-name~ frame-proxy))
+  (method override (frame-name process frame)
+    (get-name~ frame))
   
   
-  (method override (frame-interpreted? process-proxy frame-proxy)
-    (get-interpreted?~ frame-proxy))
+  (method override (frame-interpreted? process frame)
+    (get-interpreted?~ frame))
   
   
-  (method override (frame-location process-proxy frame-proxy)
-    (get-location~ frame-proxy))
+  (method override (frame-location process frame)
+    (get-location~ frame))
   
   
-  (method override (frame-variables process-proxy frame-proxy kind)
-    (get-variables~ frame-proxy kind))
+  (method override (frame-variables process frame kind)
+    (get-variables~ frame kind))
   
   
   ;;;
@@ -290,14 +294,14 @@
   ;;;
   
   
-  (method public (inspect process-proxy info)
+  (method public (inspect process info)
     (post-event
       (lambda ()
         (bind (serial presented more? mutable? kind) info
           (let ((title (format "Inspector - {a}" presented))
-                (process (new Debugged-Process self process-proxy process-proxy))
+                (debugged-process (new Debugged-Process self process process))
                 (client (cons info :remote)))
-            (new-frame Inspector-View host-title: title process: process client: client))))))
+            (new-frame Inspector-View host-title: title process: debugged-process client: client))))))
   
   
   ;;;
@@ -305,15 +309,15 @@
   ;;;
 
 
-  (method (attach-process process-proxy select?)
-    (unless (member? process-proxy processes test: process=?)
+  (method (attach-process process focus?)
+    (unless (member? process processes test: process=?)
       (execute-event
         (lambda ()
-          (set! processes (append! processes (list process-proxy)))
-          (attach-process~ (get-debugger-manager) (new Debugged-Process self process-proxy process-proxy) select?)))))
+          (set! processes (append! processes (list process)))
+          (attach-process~ (get-debugger-manager) (new Debugged-Process self process process) focus?)))))
   
   
-  (method (ready-process process-proxy cookie)
+  (method (ready-process process cookie)
     (execute-event
       (lambda ()
         (when cookie
@@ -322,11 +326,11 @@
               (proc cookie)))))))
   
   
-  (method (update-process process-proxy)
-    (when (remote-proxy? process-proxy)
-      (let ((actual (find-in processes process-proxy test: process=?)))
+  (method (update-process process)
+    (when (remote-proxy? process)
+      (let ((actual (find-in processes process test: process=?)))
         (when (and actual (remote-proxy? actual))
-          (set-values~ actual (get-values~ process-proxy))
+          (set-values~ actual (get-values~ process))
           (execute-event
             (lambda ()
               (update~ (get-processes-view))
@@ -334,15 +338,15 @@
               (update-console-buttons~ (get-console-manager))))))))
 
 
-  (method (detach-process process-proxy)
-    (when (member? process-proxy processes test: process=?)
+  (method (detach-process process)
+    (when (member? process processes test: process=?)
       (execute-event
         (lambda ()
-          (set! processes (remove! process-proxy processes test: process=?))
-          (let ((process (new Debugged-Process self process-proxy process-proxy))
-                (best-process (unless (proxy=? process-proxy (get-local-process))
-                                (new Debugged-Process self (get-local-process) (get-local-process)))))
-            (detach-process~ (get-debugger-manager) process best-process))))))
+          (set! processes (remove! process processes test: process=?))
+          (let ((debugged-process (new Debugged-Process self process process))
+                (best-debugged-process (unless (proxy=? process (get-local-process))
+                                         (new Debugged-Process self (get-local-process) (get-local-process)))))
+            (detach-process~ (get-debugger-manager) debugged-process best-debugged-process))))))
   
   
   ;;;
@@ -350,16 +354,16 @@
   ;;;
   
   
-  (method public (register-console process-proxy thread-proxy select?)
+  (method public (register-console process thread select?)
     (call-event
       (lambda ()
-        (let ((actual (find-in processes process-proxy test: process=?)))
-          (let ((process (new Debugged-Process self actual actual))
-                (thread (new Debugged-Thread self actual thread-proxy))
-                (text (register-debugger-console actual thread-proxy select?)))
+        (let ((actual (find-in processes process test: process=?)))
+          (let ((debugged-process (new Debugged-Process self actual actual))
+                (debugged-thread (new Debugged-Thread self actual thread))
+                (text (register-debugger-console actual thread select?)))
             (let ((console (new Debugger-Resource
-                             process
-                             thread
+                             debugged-process
+                             debugged-thread
                              text
                              (lambda ()
                                (unregister-debugger-console text)))))
@@ -405,19 +409,19 @@
   ;;;
   
   
-  (method public (register-stop process-proxy thread-proxy stop-proxy (step?: step? #f))
-    (let ((process (new Debugged-Process self process-proxy process-proxy))
-          (thread (new Debugged-Thread self process-proxy thread-proxy))
-          (stop (new Debugged-Stop self process-proxy stop-proxy)))
+  (method public (register-stop process thread stop (step?: step? #f))
+    (let ((debugged-process (new Debugged-Process self process process))
+          (debugged-thread (new Debugged-Thread self process thread))
+          (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
-          (register-stop~ (get-debugger-manager) process thread stop step?: step?)))))
+          (register-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop step?: step?)))))
   
   
-  (method public (unregister-stop process-proxy thread-proxy stop-proxy)
-    (let ((process (new Debugged-Process self process-proxy process-proxy))
-          (thread (new Debugged-Thread self process-proxy thread-proxy))
-          (stop (new Debugged-Stop self process-proxy stop-proxy)))
+  (method public (unregister-stop process thread stop)
+    (let ((debugged-process (new Debugged-Process self process process))
+          (debugged-thread (new Debugged-Thread self process thread))
+          (debugged-stop (new Debugged-Stop self process stop)))
       (execute-event
         (lambda ()
-          (unregister-stop~ (get-debugger-manager) process thread stop)))))))
+          (unregister-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))))

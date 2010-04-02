@@ -50,18 +50,13 @@
 
 
 (class Processes-View extends Layout-View
-
-
-  (property snapshots initialize '() accessors generate)
   
 
   (form
     (<install>                                   layout-type: border
       (<Layout-View>            name: tools
-        @wait
         (<Push-Tool>            name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :form on-open-snapshot})
-        @wait
-        (<Separator>                             size: {Dimension 2 0})
+        (<Separator>                             size: {Dimension 6 0})
         (<Push-Tool>            name: focus      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Focus" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :form on-focus})
         (<Separator>                             size: {Dimension 2 0})
         (<Push-Tool>            name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-update}))
@@ -142,12 +137,12 @@
   
   (method (on-double-click evt)
     (let ((process (selected-process)))
-      (when process
+      (when (and process (focusable?~ process))
         (focus-selected-process))))
   
   
   (definition Snapshot-Extensions
-    '(("Crash Files" . "crash")))
+    '(("Snapshot Files" . "snapshot")))
   
   
   (method (on-open-snapshot evt)
@@ -156,9 +151,10 @@
         (let ((file (if (get-shift?~ evt)
                         (with-preserved-current-directory
                           (lambda ()
-                            (choose-file directory: {Directory Build} extensions: Snapshot-Extensions)))
+                            (choose-file directory: {Directory Home ".jazz"} extensions: Snapshot-Extensions)))
                       (choose-file extensions: Snapshot-Extensions))))
-          (open-snapshot file)))))
+          (set-selected-process (open-snapshot file))
+          (acquire-focus~ (locate 'processes))))))
 
 
   (method (on-select-process evt)
@@ -181,7 +177,8 @@
   
   
   (method (update-tools)
-    (set-enabled?~ (locate 'focus) (selected-process)))
+    (let ((process (selected-process)))
+      (set-enabled?~ (locate 'focus) (and process (focusable?~ process)))))
 
   
   ;;;
@@ -202,101 +199,11 @@
       (let ((manager (get-debugger-manager)))
         (for-each-process~ manager
           (lambda (debugger process live? focused?)
-            (let ((title (get-title~ process))
+            (let ((title (present~ process))
                   (image (process-image process live? focused?))
                   (frame-color (get-stopped-frame-color~ manager process))
                   (background (get-visited-highlight-color~ manager process)))
               (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
-    
-    (define (update-snapshots snapshots)
-      @convert
-      (for-each (function (snapshot)
-                          (bind (process file) snapshot
-                            (let ((handler (essay executable (new Symbol-Handler executable))))
-                              (let* ((title (format "{a}{? : {a}~}" (get-process~ process) (essay file (get-base~ file))))
-                                     (threads (get-threads~ process))
-                                     (process-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Spy"})) user-data: snapshot)))
-                                (for-each (function (thread)
-                                                    (let* ((title (get-label~ thread))
-                                                           (state (get-state~ thread))
-                                                           (image (if (> state 0) {Bitmap-Resource "ThreadError"} {Bitmap-Resource "ThreadRun"}))
-                                                           (thread-row (add-row father: process-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread))
-                                                           (call-stack (get-call-stack~ thread))
-                                                           (frames (coalesce-frames thread (map (function (info)
-                                                                                                          (bind (address . parameters) info
-                                                                                                            (get-frame-snapshot thread handler address parameters)))
-                                                                                                call-stack)))
-                                                           (c? (show-c-frames?)))
-                                                      (for-each (function (frame)
-                                                                          (let ((title (present~ frame))
-                                                                                (image (get-image~ frame)))
-                                                                            (when (or c? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
-                                                                              (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame))))
-                                                                frames)))
-                                          threads)))))
-                snapshots))
-    
-    (define (get-frame-snapshot thread handler address parameters)
-      @convert
-      (let* ((address (->string address))
-             (kind (if (starts-with? address "#x") 'c 'lisp)))
-        (case kind
-          ((c)
-           (let* ((addr (extract-address address))
-                  (sym (get-sym-from-addr~ handler addr))
-                  (title (standardize-sym sym)))
-             (when title
-               (let ((info (get-line-from-addr~ handler addr)))
-                 (if (null? info)
-                     (new C-Frame-Snapshot thread title {} {} parameters)
-                   (receive (filename line) info
-                     (let ((file (new File (tokenise filename))))
-                       (new C-Frame-Snapshot thread title file line parameters))))))))
-          ((lisp)
-           (let* ((title address)
-                  (pos (find title #\period)))
-             (if (null? pos)
-                 (new Lisp-Frame-Snapshot thread title {} {} parameters)
-               (let* ((model (string->symbol (subseq title 0 pos)))
-                      (method-name (string->symbol (subseq title (+ pos 1) (find title #\period start: (+ pos 1))))))
-                 (new Lisp-Frame-Snapshot thread title model method-name parameters))))))))
-    
-    (define (coalesce-frames thread frames)
-      @convert
-      (let ((fact (new List-Factory))
-            (get-type
-              (function (frame)
-                        (cond ((null? frame)
-                               'none)
-                              ((and (is? frame C-Frame-Snapshot)
-                                    (let ((title (get-title~ frame)))
-                                      (or (starts-with? title "JCompiledClosure::")
-                                          (starts-with? title "JCompiledExternal::"))))
-                               'eval)
-                              ((is? frame C-Frame-Snapshot)
-                               'c)
-                              ((is? frame Lisp-Frame-Snapshot)
-                               'lisp)
-                              (else
-                               'other)))))
-        (while (not-null? frames)
-          (let ((first (car frames)))
-            (set! frames (cdr frames))
-            (when first
-              (let* ((second (car frames))
-                     (third (cadr frames))
-                     (f (get-type first))
-                     (s (get-type second))
-                     (t (get-type third)))
-                (cond ((and (eq? f 'lisp) (memq? s '(none c)) (eq? t 'eval))
-                       (put~ fact (new Coalesced-Frames-Snapshot thread first second third))
-                       (set! frames (cddr frames)))
-                      ((and (eq? f 'c) (eq? s 'eval))
-                       (put~ fact (new Coalesced-Frames-Snapshot thread {} first second))
-                       (set! frames (cdr frames)))
-                      (else
-                       (put~ fact first)))))))
-        (get-output~ fact)))
     
     (with-system-exception-debugger
       (lambda ()
@@ -378,10 +285,16 @@
   
   
   (method (new-context-menu object)
+    (define (new-process-menu)
+      (let ((menu (new Process-Menu client: self)))
+        (when (not (focusable?~ object))
+          (set-visible?~ (locate~ menu 'focus) #f))
+        (cleanup-separators~ menu)
+        (layout-menu~ menu)
+        menu))
+    
     (typecase object
-      ((Debugged-Process) (new Process-Menu client: self))
-      @convert/wait
-      ((Pair) (new Snapshot-Menu))
+      ((Debugged-Process) (new-process-menu))
       (else {})))
   
   
@@ -390,12 +303,6 @@
       (exit~ object)
       (let ((tree (locate 'processes)))
         (set-selection~ tree '()))))
-  
-  
-  (method (close-selected-snapshot)
-    (let ((object (selected-object)))
-      (set! snapshots (remove! object snapshots))
-      (update)))
   
   
   (method (focus-selected-process)
@@ -409,16 +316,14 @@
       (select-foreground-window toplevel-hwnd)))
   
   
-  (method public (open-snapshot file . rest)
-    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (reader)
-        (let ((snapshot (read reader)))
-          (add-snapshot snapshot file)))))
+  (method public (open-snapshot file)
+    (let ((snapshot (load-jml file)))
+      (set-property~ snapshot 'file file)
+      (add-snapshot snapshot)))
   
   
-  (method public (add-snapshot snapshot file)
-    (set! snapshots (cons (list snapshot file) snapshots))
-    (update)))
+  (method public (add-snapshot snapshot)
+    (attach-process~ (get-snapshot-debugger~ (get-application)) snapshot #f)))
 
 
 ;;;
@@ -466,22 +371,4 @@
   
   
   (method (on-exit evt)
-    (exit-selected-process~ client)))
-
-
-;;;
-;;;; Snapshot-Menu
-;;;
-
-
-(class Snapshot-Menu extends Context-Menu
-  
-  
-  (form
-    (<install>
-      (<Label-Item> name: close title: "Close" action-handler: {Event-Handler :form on-close})))
-  
-  
-  (method (on-close evt)
-    @convert
-    (close-selected-snapshot))))
+    (exit-selected-process~ client))))

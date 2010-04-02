@@ -68,17 +68,18 @@
 (class IDE extends Application
 
 
-  (slot local-debugger  initialize {})
-  (slot cataloguer      initialize (new Cataloguer))
-  (slot catalog-context initialize {})
-  (slot catalog-file    initialize {})
-  (slot search          initialize {})
-  (slot recorder        initialize (new Macro-Recorder))
+  (slot local-debugger    initialize {})
+  (slot snapshot-debugger initialize {})
+  (slot cataloguer        initialize (new Cataloguer))
+  (slot catalog-context   initialize {})
+  (slot catalog-file      initialize {})
+  (slot search            initialize {})
+  (slot recorder          initialize (new Macro-Recorder))
   
   
   (method override (start-process)
     (nextmethod)
-    (start-jazz-debugger))
+    (start-debuggers))
 
 
   (method override (prepare-workbench)
@@ -125,7 +126,7 @@
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
     (when (not (get-controller-debugger))
-      (attach-to-controller (get-local-register) #f)
+      (attach-to-controller (get-local-register) #t)
       (ready-to-controller {})
       (current-input-port (console-input-port))
       (current-output-port (console-output-port))))
@@ -399,19 +400,28 @@
 
   
   ;;;
-  ;;;; Debugger
+  ;;;; Debuggers
   ;;;
     
   
   (method override (get-local-debugger)
     local-debugger)
+    
+  
+  (method override (get-snapshot-debugger)
+    snapshot-debugger)
 
   
-  (method (start-jazz-debugger)
+  (method (start-debuggers)
     (when (not local-debugger)
       (set! local-debugger (new Jazz-Debugger))
       (start-debugger~ local-debugger)
-      (register-debugger local-debugger)))
+      (register-debugger local-debugger)
+      (set-current-debugger local-debugger))
+    (when (not snapshot-debugger)
+      (set! snapshot-debugger (new Snapshot-Debugger))
+      (start-debugger~ snapshot-debugger)
+      (register-debugger snapshot-debugger)))
   
   
   (definition (detach-debugger-processes)

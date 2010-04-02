@@ -177,7 +177,8 @@
    (requires        %%get-module-declaration-requires        %%set-module-declaration-requires)
    (exports         %%get-module-declaration-exports         %%set-module-declaration-exports)
    (imports         %%get-module-declaration-imports         %%set-module-declaration-imports)
-   (proclaims       %%get-module-declaration-proclaims       ())))
+   (proclaims       %%get-module-declaration-proclaims       ())
+   (inclusions      %%get-module-declaration-inclusions      %%set-module-declaration-inclusions)))
 
 
 ;;;
@@ -456,7 +457,6 @@
    (literals   %%get-walker-literals   %%set-walker-literals)
    (variables  %%get-walker-variables  ())
    (references %%get-walker-references ())
-   (inclusions %%get-walker-inclusions %%set-walker-inclusions)
    (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
 
 
@@ -483,10 +483,6 @@
   (%%get-walker-variables (%%get-module-declaration-walker lib-decl)))
 (define (%%get-module-declaration-references lib-decl)
   (%%get-walker-references (%%get-module-declaration-walker lib-decl)))
-(define (%%get-module-declaration-inclusions lib-decl)
-  (%%get-walker-inclusions (%%get-module-declaration-walker lib-decl)))
-(define (%%set-module-declaration-inclusions lib-decl value)
-  (%%set-walker-inclusions (%%get-module-declaration-walker lib-decl) value))
 (define (%%get-module-declaration-autoloads lib-decl)
   (%%get-walker-autoloads (%%get-module-declaration-walker lib-decl)))
 (define (%%set-module-declaration-autoloads lib-decl value)
@@ -1140,5 +1136,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals variables references inclusions autoloads) jazz.Object-Class jazz.allocate-core-walker
+(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-core-walker
   ()))

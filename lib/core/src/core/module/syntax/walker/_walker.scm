@@ -502,7 +502,7 @@
 
 
 (define (jazz.new-module-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?))))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -5052,7 +5052,7 @@
 
 
 (define (jazz.new-core-walker)
-  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '() '()))
+  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz.encapsulate-class jazz.Core-Walker))

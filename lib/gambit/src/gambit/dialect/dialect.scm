@@ -70,7 +70,7 @@
 
 
 (define (jazz.new-gambit-walker)
-  (jazz.allocate-gambit-walker jazz.Gambit-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '() '()))
+  (jazz.allocate-gambit-walker jazz.Gambit-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz.encapsulate-class jazz.Gambit-Walker)

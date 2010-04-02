@@ -240,7 +240,7 @@
 
 
 (define (jazz.new-scheme-walker)
-  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '() '()))
+  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz.define-method (jazz.runtime-export (jazz.Scheme-Walker walker) declaration)

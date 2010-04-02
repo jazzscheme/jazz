@@ -124,7 +124,7 @@
 (jazz.define-method (jazz.fold-declaration (jazz.C-Definition-Declaration declaration) f k s)
   (f declaration
      (k (jazz.fold-statement (%%get-c-definition-declaration-body declaration) f k s)
-           s)))
+        s)))
 
 
 (jazz.encapsulate-class jazz.C-Definition-Declaration)

@@ -475,17 +475,17 @@
 
 
 ;; provide virtual access to some walker slots via the module-declaration
-(define (%%get-module-declaration-literals lib-decl)
+(define (%%get-module-declaration-walker-literals lib-decl)
   (%%get-walker-literals (%%get-module-declaration-walker lib-decl)))
-(define (%%set-module-declaration-literals lib-decl value)
+(define (%%set-module-declaration-walker-literals lib-decl value)
   (%%set-walker-literals (%%get-module-declaration-walker lib-decl) value))
-(define (%%get-module-declaration-variables lib-decl)
+(define (%%get-module-declaration-walker-variables lib-decl)
   (%%get-walker-variables (%%get-module-declaration-walker lib-decl)))
-(define (%%get-module-declaration-references lib-decl)
+(define (%%get-module-declaration-walker-references lib-decl)
   (%%get-walker-references (%%get-module-declaration-walker lib-decl)))
-(define (%%get-module-declaration-autoloads lib-decl)
+(define (%%get-module-declaration-walker-autoloads lib-decl)
   (%%get-walker-autoloads (%%get-module-declaration-walker lib-decl)))
-(define (%%set-module-declaration-autoloads lib-decl value)
+(define (%%set-module-declaration-walker-autoloads lib-decl value)
   (%%set-walker-autoloads (%%get-module-declaration-walker lib-decl) value))
 
 

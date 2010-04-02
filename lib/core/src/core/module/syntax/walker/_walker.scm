@@ -458,7 +458,7 @@
     (%%when (and declaration
                  (%%neq? namespace-declaration (%%get-declaration-toplevel declaration)))
       (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
-             (references-table (%%get-module-declaration-references module-declaration)))
+             (references-table (%%get-module-declaration-walker-references module-declaration)))
         (%%when (%%neq? module-declaration (%%get-declaration-toplevel declaration))
           (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
   
@@ -635,7 +635,7 @@
            (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-name)))))
   
   (let ((partition (%%make-table test: eq?)))
-    (%%iterate-table (%%get-module-declaration-references module-declaration)
+    (%%iterate-table (%%get-module-declaration-walker-references module-declaration)
       (lambda (locator declaration)
         (let ((resolved-declaration (jazz.resolve-binding declaration)))
           (let ((module (%%get-declaration-toplevel resolved-declaration)))
@@ -3300,7 +3300,7 @@
          (let ((name (%%car info))
                (value (%%cdr info)))
            `(define ,name ,(jazz.sourcified-form (jazz.emit-expression value module-declaration '())))))
-       (%%get-module-declaration-literals module-declaration)))
+       (%%get-module-declaration-walker-literals module-declaration)))
 
 
 (define (jazz.emit-module-variables module-declaration)
@@ -3308,7 +3308,7 @@
          (let ((symbol (%%car variable))
                (value (%%cdr variable)))
            `(jazz.define-variable ,symbol ,value)))
-       (jazz.queue-list (%%get-module-declaration-variables module-declaration))))
+       (jazz.queue-list (%%get-module-declaration-walker-variables module-declaration))))
 
 
 (define (jazz.emit-module-autoloads module-declaration environment)
@@ -3328,7 +3328,7 @@
                                      (jazz.load-unit ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
                                      (set! loaded? #t)))
                                ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration module-declaration environment))))))))))
-              (%%get-module-declaration-autoloads module-declaration))
+              (%%get-module-declaration-walker-autoloads module-declaration))
     (jazz.queue-list queue)))
 
 
@@ -3479,9 +3479,9 @@
 
 
 (define (jazz.register-autoload-declaration module-declaration autoload-declaration)
-  (let ((declarations (%%get-module-declaration-autoloads module-declaration)))
+  (let ((declarations (%%get-module-declaration-walker-autoloads module-declaration)))
     (%%when (%%not (%%memq autoload-declaration declarations))
-      (%%set-module-declaration-autoloads module-declaration (%%cons autoload-declaration declarations)))))
+      (%%set-module-declaration-walker-autoloads module-declaration (%%cons autoload-declaration declarations)))))
 
 
 ;;;
@@ -4095,7 +4095,7 @@
     (let ((locator (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator module-declaration)) ".lit"))))
       ;; it is important to register before any subliterals to ensure they come before us
       (let ((info (%%cons locator #f)))
-        (%%set-module-declaration-literals module-declaration (%%cons info (%%get-module-declaration-literals module-declaration)))
+        (%%set-module-declaration-walker-literals module-declaration (%%cons info (%%get-module-declaration-walker-literals module-declaration)))
         (%%set-cdr! info (walk-literal/constant walker resume declaration literal/constant)))
       ;; this way of getting a reference to the literal's class is a quick solution
       (let ((literal-type (if literal?
@@ -4173,7 +4173,7 @@
   (let ((module-declaration (%%get-declaration-toplevel declaration)))
     (let ((symbol (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator module-declaration)) "." suffix))))
       (let ((variable (%%cons symbol value)))
-        (jazz.enqueue (%%get-module-declaration-variables module-declaration) variable)
+        (jazz.enqueue (%%get-module-declaration-walker-variables module-declaration) variable)
         variable))))
 
 

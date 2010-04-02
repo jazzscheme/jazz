@@ -1355,7 +1355,7 @@
       (%%when (and method-declaration
                    (%%neq? namespace-declaration (%%get-declaration-toplevel method-declaration)))
         (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
-               (references-table (%%get-module-declaration-references module-declaration)))
+               (references-table (%%get-module-declaration-walker-references module-declaration)))
           (%%when (%%neq? module-declaration (%%get-declaration-toplevel method-declaration))
             (%%table-set! references-table (%%get-declaration-locator method-declaration) method-declaration)))))
     

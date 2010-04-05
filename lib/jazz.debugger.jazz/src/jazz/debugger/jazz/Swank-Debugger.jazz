@@ -1,0 +1,485 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Swank Debugger
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.debugger.jazz.Swank-Debugger jazz
+
+
+(import (jazz.console)
+        (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.debugger.jazz)
+        (jazz.io)
+        (jazz.editor.jazz)
+        (jazz.editor.jazz.inspector)
+        (jazz.jrm)
+        (jazz.media)
+        (jazz.network)
+        (jazz.system)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace))
+
+
+(class Swank-Debugger extends Debugger
+  
+  
+  (slot processes initialize '())
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method override (start-debugger)
+    )
+  
+  
+  (method override (stop-debugger)
+    )
+  
+  
+  (method override (get-processes (validate-liveness?: validate-liveness? #f))
+    processes)
+  
+  
+  (method override (validate-processes)
+    )
+  
+  
+  (method override (detach-processes)
+    )
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method override (process=? x y)
+    (eq? x y))
+  
+  
+  (method override (process-live? process)
+    #t)
+  
+  
+  (method override (process-title process)
+    "Title")
+  
+  
+  (method override (process-icon process)
+    "Process")
+  
+  
+  (method override (process-threads process)
+    '())
+  
+  
+  (method override (present-process process)
+    "Process")
+  
+  
+  (method override (reload-process process)
+    )
+  
+  
+  (method override (process-focusable? process)
+    #t)
+  
+  
+  (method override (evaluate-expressions process syntax str container line col)
+    )
+  
+  
+  (method override (inspect-serial process serial)
+    )
+  
+  
+  (method override (process-detach process)
+    )
+  
+  
+  (method override (process-exit process)
+    (swank-disconnect process)
+    (detach-process process))
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method override (thread=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (thread-name process thread)
+    "Thread")
+  
+  
+  (method override (thread-state process thread)
+    {})
+  
+  
+  (method override (thread-stops process thread)
+    '())
+  
+  
+  (method override (thread-active-stop process thread)
+    (let ((stops (thread-stops process thread)))
+      (if (null? stops)
+          {}
+        (last stops))))
+  
+  
+  (method override (break-thread process thread)
+    )
+  
+  
+  (method override (set-repl-frame process thread frame)
+    )
+    
+  
+  ;;;
+  ;;;; Restart
+  ;;;
+  
+  
+  (method override (restart=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (restart-name process restart)
+    "Restart")
+  
+  
+  (method override (restart-message process restart)
+    "Message")
+
+  
+  (method override (restart-stop process restart)
+    )
+
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method override (stop=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (stop-kind process stop)
+    'break)
+  
+  
+  (method override (stop-reason process stop)
+    "Reason")
+  
+  
+  (method override (stop-detail process stop)
+    {})
+  
+  
+  (method override (stop-location process stop)
+    {})
+  
+  
+  (method override (stop-restarts process stop)
+    '())
+  
+  
+  (method override (stop-frames process stop)
+    '())
+  
+  
+  (method override (continue-stop process stop)
+    )
+  
+  
+  (method override (step-stop process stop command)
+    )
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method override (frame=? x-process x y-process y)
+    (eq? x y))
+  
+  
+  (method override (frame-name process frame)
+    "Frame")
+  
+  
+  (method override (frame-interpreted? process frame)
+    #t)
+  
+  
+  (method override (frame-location process frame)
+    {})
+  
+  
+  (method override (frame-variables process frame kind)
+    '())
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+
+
+  (method (attach-process process focus?)
+    (unless (member? process processes test: process=?)
+      (call-event
+        (lambda ()
+          (set! processes (append! processes (list process)))
+          (let ((debugged-process (new Debugged-Process self process process)))
+            (attach-process~ (get-debugger-manager) debugged-process focus?)
+            debugged-process)))))
+
+
+  (method (detach-process process)
+    (when (member? process processes test: process=?)
+      (execute-event
+        (lambda ()
+          (set! processes (remove! process processes test: process=?))
+          (let ((debugged-process (new Debugged-Process self process process))
+                ;; temp. logic should be done by the debugger manager
+                (best-debugged-process (new Debugged-Process (get-local-debugger~ (get-application)) (get-local-process) (get-local-process))))
+            (detach-process~ (get-debugger-manager) debugged-process best-debugged-process))))))
+  
+  
+  ;;;
+  ;;;; Swank
+  ;;;
+  
+  
+  (definition swank-port-number
+    4005)
+  
+  
+  (method (swank-connect)
+    (let ((port (open-tcp-client (list port-number: swank-port-number))))
+      (let ((process (new Swank-Process port)))
+        (attach-process process #f)
+        (let ((info (swank-connection-info process)))
+          (let ((implementation (getf info :lisp-implementation))
+                (package (getf info :package)))
+            (let ((type (getf implementation :type))
+                  (version (getf implementation :version)))
+              (set-process-id~ process (getf info :pid))
+              (set-package-name~ process (essay package (getf package :name)))
+              (swank-create-repl process)
+              (let ((text (register-console process type #t)))
+                (set-console~ process text)
+                (when (and type version)
+                  (console-write process (format "{a} {a}{%}{%}" type version))))))))))
+  
+  
+  (method (swank-disconnect process)
+    (let ((console (get-console~ process)))
+      (close-port (get-port~ process))
+      (unregister-console console)))
+  
+  
+  (method (register-console process title select?)
+    (define (setup-debugger-console-ports text)
+      (receive (head tail) (open-string-pipe (list permanent-close: #f))
+        (set-console-port~ text head)
+        tail))
+    
+    (let ((manager (get-console-manager)))
+      (let ((text (register-console~ manager title select?)))
+        (let ((port (setup-debugger-console-ports text))
+              (resource (new Debugger-Resource
+                             process
+                             {}
+                             text
+                             (lambda ()
+                               (unregister-console text)))))
+          (register-debugger-resource process resource)
+          (start-swank-repl process port)
+          (set-console~ process text)
+          (set-console-resource~ process resource)
+          (when select?
+            (acquire-focus~ text))
+          text))))
+  
+  
+  (method (unregister-console text)
+    (unregister-console~ (get-console-text-manager text) text))
+  
+  
+  (method (console-write process str)
+    (let ((text (get-console~ process)))
+      (execute-event
+        (lambda ()
+          (set-caret~ text (text-ending~ text))
+          (insert-formatted-line~ text str)))))
+  
+  
+  (method (start-swank-repl process port)
+    (define (swank-repl)
+      (let (loop)
+        (console-write process (prompt 0))
+        (let ((expr (read port)))
+          (if (eof-object? expr)
+              (begin
+                (swank-disconnect process)
+                (console-write process "disconnected"))
+            (swank-eval process expr)
+            (loop)))))
+    
+    (define (prompt level)
+      (if (> level 0)
+          (format "{a}> " level)
+        "> "))
+    
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (swank-repl))
+        'swank-repl)))
+  
+  
+  (method (swank-connection-info process)
+    (let ((id (swank-unique-id process)))
+      (send-swank-message process `(:emacs-rex (swank:connection-info) "COMMON-LISP-USER" t ,id))
+      (wait-swank-response process id)))
+  
+  
+  (method (swank-create-repl process)
+    (let ((package (get-package-name~ process))
+          (id (swank-unique-id process)))
+      (send-swank-message process `(:emacs-rex (swank:create-repl nil) ,package t ,id))
+      (wait-swank-response process id)))
+  
+  
+  (method (swank-eval process expr)
+    (let ((package (get-package-name~ process))
+          (id (swank-unique-id process))
+          (str (format "{s}" expr)))
+      (send-swank-message process `(:emacs-rex (swank:listener-eval ,str) ,package :repl-thread ,id))
+      (wait-swank-response process id)))
+  
+  
+  (method (swank-restart process n)
+    (let ((package (get-package-name~ process))
+          (id (swank-unique-id process)))
+      (send-swank-message process `(:emacs-rex (swank:invoke-nth-restart-for-emacs 1 ,n) ,package 0 ,id))
+      (wait-swank-response process id)))
+  
+  
+  (method (swank-unique-id process)
+    (generate-unique-id~ process))
+  
+  
+  (method (send-swank-message process expr)
+    (define (encode-length message)
+      (format "{x width: 6 justify: :right padding: :v}" (cardinality message) #\0))
+    
+    (let ((port (get-port~ process))
+          (message (->string expr :reader)))
+      (let ((message-length (encode-length message)))
+        (display message-length port)
+        (display message port)
+        (force-output port))))
+  
+  
+  (method (receive-swank-response process)
+    (let ((port (get-port~ process))
+          (header (make-string 6)))
+      (when (= (read-substring header 0 6 port) 6)
+        (let ((count (string->number header 16)))
+          (let ((response (make-string count)))
+            (when (= (read-substring response 0 count port) count)
+              (read-string-element response)))))))
+  
+
+  (method (wait-swank-response process target-id)
+    (let (loop)
+      (let ((response (receive-swank-response process)))
+        (if (not response)
+            (swank-disconnect process)
+          (let ((kind (car response)))
+            (case kind
+              ((:return)
+               (let ((id (caddr response)))
+                 (if (= target-id id)
+                     (case (car (cadr response))
+                       ((:ok)
+                        (cadr (cadr response)))
+                       ((:abort)
+                        (process-swank-abort process response)
+                        (loop)))
+                   (process-swank-problem process response)
+                   (loop))))
+              ((:debug)
+               (bind (kind thread level condition restarts frames ids) response
+                 (if (memv target-id ids)
+                     response
+                   (process-swank-problem process response)
+                   (loop))))
+              (else
+               (process-swank-event process response)
+               (loop))))))))
+  
+  
+  (method (process-swank-abort process abort)
+    (debug 'swank 'abort abort))
+  
+  
+  (method (process-swank-problem process problem)
+    (debug 'swank 'problem problem))
+  
+  
+  (method (process-swank-event process event)
+    (let ((kind (car event)))
+      (case kind
+        ((:write-string)
+         (console-write process (cadr event)))
+        ((:new-features)
+         )
+        ((:indentation-update)
+         )
+        (else
+         (debug 'swank 'event process (->string event))))))))

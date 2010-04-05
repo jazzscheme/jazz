@@ -1,0 +1,148 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Swank Snooper
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.debugger.jazz.Swank-Snooper jazz
+
+
+(import (jazz.io)
+        (jazz.system))
+
+
+(class Swank-Snooper extends Object
+  
+  
+  (definition swank-port-number
+    4005)
+  
+  (definition snooper-port-number
+    4006)
+  
+  (definition snooper-thread
+    {})
+  
+  (definition snooper-stop?
+    #f)
+  
+  
+  (method (start feedback)
+    (define (snoop slime-port file-port done)
+      (feedback 'waiting 'for 'swank)
+      (let ((swank-port (open-tcp-client (list port-number: swank-port-number))))
+        (feedback 'connected 'to 'swank 'at swank-port-number)
+        (let ((slime-thread
+                (thread-start!
+                  (new-thread
+                    (lambda ()
+                      (snoop-slime slime-port swank-port file-port))
+                    'slime)))
+              (swank-thread
+                (thread-start!
+                  (new-thread
+                    (lambda ()
+                      (snoop-swank slime-port swank-port file-port))
+                    'swank))))
+          (thread-join! slime-thread)
+          (close-port slime-port)
+          (close-port swank-port)
+          (thread-join! swank-thread)
+          (feedback 'slime 'done))))
+    
+    (define (snoop-slime slime-port swank-port file-port)
+      (with-exception-catcher
+        (lambda (exc)
+          #f)
+        (lambda ()
+          (let (loop)
+            (let ((header (make-string 6)))
+              (when (= (read-substring header 0 6 slime-port) 6)
+                (let ((count (string->number header 16)))
+                  (let ((message (make-string count)))
+                    (when (= (read-substring message 0 count slime-port) count)
+                      (feedback 'slime '---> count)
+                      (format file-port "slime ---> {s}{%}" (read-string-element message))
+                      (force-output file-port)
+                      (display header swank-port)
+                      (display message swank-port)
+                      (force-output swank-port)
+                      (loop))))))))))
+    
+    (define (snoop-swank slime-port swank-port file-port)
+      (with-exception-catcher
+        (lambda (exc)
+          #f)
+        (lambda ()
+          (let (loop)
+            (let ((header (make-string 6)))
+              (when (= (read-substring header 0 6 swank-port) 6)
+                (let ((count (string->number header 16)))
+                  (let ((message (make-string count)))
+                    (when (= (read-substring message 0 count swank-port) count)
+                      (feedback 'swank '<--- count)
+                      (format file-port "swank <---{%}")
+                      (pp (read-string-element message) file-port)
+                      (newline file-port)
+                      (newline file-port)
+                      (force-output file-port)
+                      (display header slime-port)
+                      (display message slime-port)
+                      (force-output slime-port)
+                      (loop))))))))))
+    
+    (continuation-capture
+      (lambda (done)
+        (set! snooper-thread
+              (thread-start!
+                (new-thread
+                  (lambda ()
+                    (call-with-output-file (list path: "~/snoop.jazz" append: #t)
+                      (lambda (file-port)
+                        (set! snooper-stop? #f)
+                        (let ((server-port (open-tcp-server (list port-number: snooper-port-number))))
+                          (let (loop)
+                            (feedback 'waiting 'for 'slime)
+                            (let ((slime-port (read server-port)))
+                              (feedback 'received 'slime 'connection 'at snooper-port-number)
+                              (snoop slime-port file-port done)
+                              (unless snooper-stop?
+                                (loop))))))))
+                  'snooper))))))
+  
+  
+  (method (stop feedback)
+    (set! snooper-stop? #t)
+    (thread-interrupt! snooper-thread thread-exit)
+    (feedback 'snooper 'done))))

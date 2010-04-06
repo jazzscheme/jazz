@@ -58,6 +58,7 @@
   
   
   (slot processes initialize '())
+  (slot stops     initialize '())
   
   
   ;;;
@@ -99,19 +100,23 @@
   
   
   (method override (process-title process)
-    "Title")
+    (get-title~ process))
   
   
   (method override (process-icon process)
-    "Process")
+    "Grab")
   
   
   (method override (process-threads process)
-    '())
+    (collect (lambda (stop)
+               (let ((thread (get-thread~ stop)))
+                 (when (process=? (get-process~ thread) process)
+                   thread)))
+             stops))
   
   
   (method override (present-process process)
-    "Process")
+    (process-title process))
   
   
   (method override (reload-process process)
@@ -145,7 +150,8 @@
   
   
   (method override (thread=? x y)
-    (eq? x y))
+    (and (process=? (get-process~ x) (get-process~ y))
+         (= (get-id~ x) (get-id~ y))))
   
   
   (method override (thread-name process thread)
@@ -157,7 +163,9 @@
   
   
   (method override (thread-stops process thread)
-    '())
+    (collect-if (lambda (stop)
+                  (thread=? (get-thread~ stop) thread))
+                stops))
   
   
   (method override (thread-active-stop process thread)
@@ -185,15 +193,15 @@
   
   
   (method override (restart-name process restart)
-    "Restart")
+    (get-title~ restart))
   
   
   (method override (restart-message process restart)
-    "Message")
+    (format "[{a}] {a}" (get-title~ restart) (get-message~ restart)))
 
   
   (method override (restart-stop process restart)
-    )
+    (swank-restart process (get-rank~ restart)))
 
   
   ;;;
@@ -202,15 +210,16 @@
   
   
   (method override (stop=? x y)
-    (eq? x y))
+    (and (thread=? (get-thread~ x) (get-thread~ y))
+         (= (get-id~ x) (get-id~ y))))
   
   
   (method override (stop-kind process stop)
-    'break)
+    'error)
   
   
   (method override (stop-reason process stop)
-    "Reason")
+    (car (get-condition~ stop)))
   
   
   (method override (stop-detail process stop)
@@ -222,11 +231,11 @@
   
   
   (method override (stop-restarts process stop)
-    '())
+    (get-restarts~ stop))
   
   
   (method override (stop-frames process stop)
-    '())
+    (get-frames~ stop))
   
   
   (method override (continue-stop process stop)
@@ -247,7 +256,7 @@
   
   
   (method override (frame-name process frame)
-    "Frame")
+    (cadr frame))
   
   
   (method override (frame-interpreted? process frame)
@@ -259,7 +268,12 @@
   
   
   (method override (frame-variables process frame kind)
-    '())
+    (map (lambda (variable)
+           (let ((name (getf variable :name))
+                 (value (getf variable :value))
+                 (mutable? #f))
+             (cons name (package-info value mutable?: mutable?))))
+         (swank-frame-variables process (car frame) kind)))
   
   
   ;;;
@@ -300,15 +314,16 @@
   (method (swank-connect)
     (let ((port (open-tcp-client (list port-number: swank-port-number))))
       (let ((process (new Swank-Process port)))
-        (attach-process process #f)
         (let ((info (swank-connection-info process)))
           (let ((implementation (getf info :lisp-implementation))
                 (package (getf info :package)))
             (let ((type (getf implementation :type))
                   (version (getf implementation :version)))
+              (set-title~ process type)
               (set-process-id~ process (getf info :pid))
               (set-package-name~ process (essay package (getf package :name)))
               (swank-create-repl process)
+              (attach-process process #f)
               (let ((text (register-console process type #t)))
                 (set-console~ process text)
                 (when (and type version)
@@ -381,6 +396,26 @@
         'swank-repl)))
   
   
+  (method (register-stop process thread stop)
+    (let ((debugged-process (new Debugged-Process self process process))
+          (debugged-thread (new Debugged-Thread self process thread))
+          (debugged-stop (new Debugged-Stop self process stop)))
+      (execute-event
+        (lambda ()
+          (set! stops (cons stop stops))
+          (register-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
+  
+  
+  (method (unregister-stop process thread stop)
+    (let ((debugged-process (new Debugged-Process self process process))
+          (debugged-thread (new Debugged-Thread self process thread))
+          (debugged-stop (new Debugged-Stop self process stop)))
+      (execute-event
+        (lambda ()
+          (set! stops (remove! stop stops test: stop=?))
+          (unregister-stop~ (get-debugger-manager) debugged-process debugged-thread debugged-stop)))))
+  
+  
   (method (swank-connection-info process)
     (let ((id (swank-unique-id process)))
       (send-swank-message process `(:emacs-rex (swank:connection-info) "COMMON-LISP-USER" t ,id))
@@ -401,12 +436,38 @@
       (send-swank-message process `(:emacs-rex (swank:listener-eval ,str) ,package :repl-thread ,id))
       (wait-swank-response process id)))
   
+
+  (method (swank-frame-variables process frame kind)
+    (let ((package (get-package-name~ process))
+          (id (swank-unique-id process)))
+      (send-swank-message process `(:emacs-rex (swank:frame-locals-and-catch-tags ,frame) ,package :repl-thread ,id))
+      (bind (locals catch-tags) (wait-swank-response process id)
+        (append (swank-decode locals)
+                ;; need to understand the format of catch-tags
+                '()))))
+  
+  
+  (method (swank-decode expr)
+    (if (eq? expr 'nil)
+        '()
+      expr))
+  
   
   (method (swank-restart process n)
     (let ((package (get-package-name~ process))
           (id (swank-unique-id process)))
       (send-swank-message process `(:emacs-rex (swank:invoke-nth-restart-for-emacs 1 ,n) ,package 0 ,id))
       (wait-swank-response process id)))
+  
+  
+  (method (swank-debug-return process thread level)
+    (let ((thread (new Swank-Thread process thread)))
+      (let ((stop (find-if (lambda (stop)
+                             (and (thread=? (get-thread~ stop) thread)
+                                  (= (get-level~ stop) level)))
+                           stops)))
+        (when stop
+          (unregister-stop process thread stop)))))
   
   
   (method (swank-unique-id process)
@@ -434,12 +495,40 @@
             (when (= (read-substring response 0 count port) count)
               (read-string-element response)))))))
   
+  
+  (method (receive-swank-response-non-blocking process)
+    (let ((port (get-port~ process))
+          (header (make-string 6)))
+      (input-port-timeout-set! port 0.1)
+      (when (= (read-substring header 0 6 port) 6)
+        (let ((count (string->number header 16)))
+          (let ((response (make-string count)))
+            (input-port-timeout-set! port 0.1)
+            (when (= (read-substring response 0 count port) count)
+              (read-string-element response)))))))
+  
 
   (method (wait-swank-response process target-id)
+    (define (create-restarts restarts)
+      (map (lambda (restart rank)
+             (let ((title (car restart))
+                   (message (cadr restart)))
+               (new Swank-Restart title message rank)))
+           restarts
+           (naturals 0 (length restarts))))
+    
+    ;; quick try
+    (define (process-events)
+      (let (loop)
+        (let ((response (receive-swank-response-non-blocking process)))
+          (when response
+            (process-swank-event process response)
+            (loop)))))
+    
     (let (loop)
       (let ((response (receive-swank-response process)))
         (if (not response)
-            (swank-disconnect process)
+            {}
           (let ((kind (car response)))
             (case kind
               ((:return)
@@ -447,16 +536,21 @@
                  (if (= target-id id)
                      (case (car (cadr response))
                        ((:ok)
+                        ;(process-events)
                         (cadr (cadr response)))
                        ((:abort)
-                        (process-swank-abort process response)
-                        (loop)))
+                        ;(process-events)
+                        (process-swank-abort process response)))
                    (process-swank-problem process response)
                    (loop))))
               ((:debug)
                (bind (kind thread level condition restarts frames ids) response
                  (if (memv target-id ids)
-                     response
+                     (let ((thread (new Swank-Thread process thread)))
+                       (let ((stop (new Swank-Stop thread target-id level condition (create-restarts restarts) frames)))
+                         (register-stop process thread stop)
+                         ;(process-events)
+                         response))
                    (process-swank-problem process response)
                    (loop))))
               (else
@@ -465,10 +559,13 @@
   
   
   (method (process-swank-abort process abort)
-    (debug 'swank 'abort abort))
+    @debug
+    (debug 'swank 'abort abort)
+    {})
   
   
   (method (process-swank-problem process problem)
+    @debug
     (debug 'swank 'problem problem))
   
   
@@ -481,5 +578,8 @@
          )
         ((:indentation-update)
          )
+        ((:debug-return)
+         (swank-debug-return process (cadr event) (caddr event)))
         (else
-         (debug 'swank 'event process (->string event))))))))
+         @debug
+         (debug 'swank 'event process event)))))))

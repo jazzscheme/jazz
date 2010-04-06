@@ -38,7 +38,8 @@
 (module jazz.snapshot jazz
 
 
-(import (jazz.io)
+(import (jazz.debuggee)
+        (jazz.io)
         (jazz.locale)
         (jazz.platform)
         (jazz.system)
@@ -81,10 +82,22 @@
                 (print-thread thread {})))))
   
   (define (print-thread thread continuation)
+    (define (stop-kind thread)
+      (let ((stops (get-thread-stops thread)))
+        (when (not-null? stops)
+          (get-kind~ (last stops)))))
+    
     (format printer "{%}")
-    (let ((name (present-thread-name (thread-name thread)))
-          (state (present-thread-state (thread-state thread))))
-      (format printer "  (<thread> name: {s} state: {s}" name state))
+    (let ((name (thread-name thread))
+          (state (present-thread-state (thread-state thread)))
+          (stop (stop-kind thread)))
+      (format printer "  (<thread>")
+      (when (and name (specified? name))
+        (format printer " name: {s}" name))
+      (when state
+        (format printer " state: {s}" state))
+      (when stop
+        (format printer " stop: {s}" stop)))
     (when continuation
       (print-stack continuation))
     (format printer ")"))

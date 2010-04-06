@@ -253,24 +253,25 @@
   
   (method protected (update-threads (user-origin?: user-origin? #f))
     (define (thread-title thread stop detailed?)
-      (define (stop-title stop)
+      (define (stop-title stop default)
         (let ((reason (get-reason~ stop)))
           (if reason
               (car (split reason "\n"))
-            "Break")))
+            default)))
       
       (let ((name (present-thread-name (get-name~ thread))))
-        (if stop
-            (format "{a} - {a}" name (stop-title stop))
-          (if detailed?
-              (format "{a} - {a}" name (get-state~ thread))
-            (->string name)))))
+        (case (if stop (get-kind~ stop) 'run)
+          ((exception) (format "{a} - {a}" name (stop-title stop "Exception")))
+          ((break)     (format "{a} - {a}" name (stop-title stop "Break")))
+          (else        (if detailed?
+                           (format "{a} - {a}" name (get-state~ thread))
+                         (->string name))))))
     
     (define (thread-image thread stop)
-      (case (and stop (get-kind~ stop))
+      (case (if stop (get-kind~ stop) 'run)
         ((exception) {Image-Resource "ThreadError"})
-        ((#f)        {Image-Resource "ThreadRun"})
-        (else        {Image-Resource "ThreadBreak"})))
+        ((break)     {Image-Resource "ThreadBreak"})
+        (else        {Image-Resource "ThreadRun"})))
     
     (let ((manager (get-debugger-manager)))
       (with-system-exception-debugger

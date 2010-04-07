@@ -46,7 +46,7 @@
 ;;;
 
 
-(definition presented-limit
+(definition presentation-limit
   128)
 
 
@@ -58,7 +58,7 @@
   Unbound)
 
 
-(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t))
+(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t) (max-width: max-width {}))
   (define (more-value? value)
     (cond ((pair? value) #t)
           ((table? value) (> (table-length value) 0))
@@ -70,13 +70,13 @@
   (let* ((unbound? (eq? value Unbound))
          (raw? (eq? kind :raw))
          (serial (object->serial value))
-         (presented (cond (unbound? "<unbound>")
-                          (raw? (->string value))
-                          (else (present-object value))))
+         (presentation (cond (unbound? "<unbound>")
+                             (raw? (->string value))
+                             (else (present-object value max-width))))
          (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (when (> (cardinality presented) presented-limit)
-      (set! presented (concatenate (subseq presented 0 presented-limit) "...")))
-    (list serial presented more? mutable? kind)))
+    (when (> (cardinality presentation) presentation-limit)
+      (set! presentation (concatenate (subseq presentation 0 presentation-limit) "...")))
+    (list serial presentation more? mutable? kind)))
 
 
 ;;;
@@ -88,7 +88,7 @@
   100)
 
 
-(definition public (inspect-value value)
+(definition public (inspect-value value (max-width: max-width {}) (max-content: max-content inspect-rank-limit))
   (define (inspect-structure struct)
     (let ((kind (structure-kind struct)))
       (let (iter (kind kind)
@@ -105,8 +105,8 @@
   (define (inspect-list lst)
     (let (iter (scan lst)
                (rank 0))
-      (cond ((>= rank inspect-rank-limit)
-             (list (inspect-limit rank (+ rank (length scan)))))
+      (cond ((>= rank max-content)
+             (list (inspect-limit rank (+ rank (proper-length scan)))))
             ((pair? scan)
              (cons (cons rank (package-info (car scan)))
                    (iter (cdr scan) (+ rank 1))))
@@ -116,16 +116,18 @@
              '()))))
   
   (define (inspect-table table)
-    (let ((sorted '()))
-      (iterate-table table
-        (lambda (key value)
-          (let ((data (cons (present-object key)
-                            (package-info value))))
-            (set! sorted (insert-ordered! data sorted key: car test: string<=?)))))
-      (if (> (table-length table) inspect-rank-limit)
-          (append (subseq sorted 0 inspect-rank-limit)
-                  (list (inspect-limit inspect-rank-limit (table-length table))))
-        sorted)))
+    (define (sort-content lst)
+      (sort string<=? lst key: (lambda (pair) (present-object (car pair) max-width))))
+    
+    (map (lambda (pair)
+           (bind (key . value) pair
+             (cons (present-object key max-width)
+                   (package-info value))))
+         (let ((lst (table->list table)))
+           (if (> (table-length table) max-content)
+               (append (sort-content (subseq lst 0 max-content))
+                       (list (inspect-limit max-content (table-length table))))
+             (sort-content lst)))))
   
   (define (inspect-object object)
     (define (class-slots class)

@@ -102,7 +102,7 @@
   
   
   (method override (process-threads process)
-    (get-children~ process))
+    (get-children~ (find-node~ process 'threads)))
   
   
   (method override (present-process process)
@@ -124,7 +124,23 @@
   
   
   (method override (inspect-serial process serial)
-    '())
+    (let ((value (serial->value process serial)))
+      (map (lambda (info)
+             (bind (name serial) info
+               (inspect-name/serial process name serial)))
+           (get-property~ value 'content '()))))
+  
+  
+  (method (inspect-name/serial process name serial)
+    (let ((mutable? #f)
+          (value (serial->value process serial)))
+      (if (not value)
+          (begin
+            (debug 'found 'unbound 'value serial)
+            '())
+        (let ((presentation (get-property~ value 'presentation))
+              (content (get-property~ value 'content '())))
+          (cons name (list serial presentation (not-null? content) mutable? :raw))))))
   
   
   (method override (process-detach process)
@@ -257,10 +273,27 @@
   (method override (frame-variables process frame kind)
     (map (lambda (variable)
            (let ((name (get-property~ variable 'name))
-                 (value (get-property~ variable 'value))
-                 (mutable? #f))
-             (cons name (package-info value kind: :raw mutable?: mutable?))))
+                 (serial (get-property~ variable 'serial)))
+             (inspect-name/serial process name serial)))
          (get-children~ frame)))
+  
+  
+  ;;;
+  ;;;; Values
+  ;;;
+  
+  
+  (method (setup-values process)
+    (let ((values (make-table test: eqv?)))
+      (for-each (lambda (value)
+                  (let ((serial (get-property~ value 'serial)))
+                    (table-set! values serial value)))
+                (get-children~ (find-node~ process 'values)))
+      (set-property~ process 'values values)))
+  
+  
+  (method (serial->value process serial)
+    (table-ref (get-property~ process 'values) serial {}))
   
   
   ;;;
@@ -272,6 +305,7 @@
     (unless (member? process processes test: process=?)
       (call-event
         (lambda ()
+          (setup-values process)
           (set! processes (append! processes (list process)))
           (let ((debugged-process (new Debugged-Process self process process)))
             (attach-process~ (get-debugger-manager) debugged-process focus?)

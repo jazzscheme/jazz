@@ -39,6 +39,7 @@
 
 
 (import (jazz.debuggee)
+        (jazz.editor.jazz.inspector)
         (jazz.io)
         (jazz.locale)
         (jazz.platform)
@@ -59,63 +60,111 @@
     file))
 
 
-(definition (print-process-snapshot printer (continuation: continuation {}) (reason: reason {}) (exception: exception {}))
-  (define (print-process)
-    (let ((name (current-process-present))
-          (date (present-date (current-date))))
-      (format printer "(<process> name: {s} date: {s}" name date))
-    (when reason
-      (format printer " reason: {s}" reason))
-    (when exception
-      (format printer " exception: {s}" (exception-reason exception)))
-    (print-threads)
-    (format printer "){%}"))
-  
-  (define (print-threads)
-    (if continuation
-        (print-thread (current-thread) continuation)
+(definition (print-process-snapshot printer (reason: reason {}) (exception: exception {}) (max-depth: max-depth 1) (max-width: max-width 128) (max-content: max-content 100) (max-entries: max-entries {}))
+  (let ((values (make-table test: eq?)))
+    (define (register-value value depth)
+      (either (value->serial value)
+              (when (or (not max-entries) (< (table-length values) max-entries))
+                (let ((serial (object->serial value))
+                      (content (if (< depth max-depth) (register-content value (+ depth 1)) '())))
+                  (table-set! values value (cons serial content))
+                  serial))))
+    
+    (define (register-content value depth)
+      (map (lambda (info)
+             (bind (name serial) info
+               (list name (register-value (serial->object serial) depth))))
+           (inspect-value value max-width: max-width max-content: max-content)))
+    
+    (define (value->serial value)
+      (let ((info (table-ref values value {})))
+        (when info
+          (car info))))
+    
+    (define (print-process)
+      (let ((name (current-process-present))
+            (date (present-date (current-date))))
+        (format printer "(<process> name: {s} date: {s}" name date))
+      (when reason
+        (format printer " reason: {s}" reason))
+      (when exception
+        (format printer " exception: {s}" (exception-reason exception)))
+      (print-threads)
+      (print-values)
+      (format printer "){%}"))
+    
+    (define (print-threads)
+      (format printer "{%}")
+      (format printer "  (<threads>")
       (continuation-capture
         (lambda (continuation)
-          (print-thread (current-thread) continuation))))
-    (loop (for thread in (top-threads))
-          (do (when (neq? thread (current-thread))
-                (print-thread thread {})))))
-  
-  (define (print-thread thread continuation)
-    (define (stop-kind thread)
-      (let ((stops (get-thread-stops thread)))
-        (when (not-null? stops)
-          (get-kind~ (last stops)))))
+          (print-thread (current-thread) continuation)))
+      @buggy
+      (loop (for thread in (top-threads))
+            (do (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
+                  (thread-interrupt! thread
+                    (lambda ()
+                      (continuation-capture
+                        (lambda (continuation)
+                          (print-thread thread continuation)))))
+                  (thread-join! thread))))
+      (format printer ")"))
     
-    (format printer "{%}")
-    (let ((name (thread-name thread))
-          (state (present-thread-state (thread-state thread)))
-          (stop (stop-kind thread)))
-      (format printer "  (<thread>")
-      (when (and name (specified? name))
-        (format printer " name: {s}" name))
-      (when state
-        (format printer " state: {s}" state))
-      (when stop
-        (format printer " stop: {s}" stop)))
-    (when continuation
-      (print-stack continuation))
-    (format printer ")"))
+    (define (print-thread thread continuation)
+      (define (stop-kind thread)
+        (let ((stops (get-thread-stops thread)))
+          (when (not-null? stops)
+            (get-kind~ (last stops)))))
+      
+      (format printer "{%}")
+      (let ((name (thread-name thread))
+            (state (present-thread-state (thread-state thread)))
+            (stop (stop-kind thread)))
+        (format printer "    (<thread>")
+        (when (and name (specified? name))
+          (format printer " name: {s}" name))
+        (when state
+          (format printer " state: {s}" state))
+        (when stop
+          (format printer " stop: {s}" stop)))
+      (when continuation
+        (print-stack continuation))
+      (format printer ")"))
+    
+    (define (print-stack continuation)
+      (define (skip-snapshot-frames frames)
+        (let (iterate (scan frames))
+          (cond ((null? scan) frames)
+                ((eq? (get-continuation-name (car scan)) 'jazz.snapshot.print-process-snapshot) (cdddr scan))
+                (else (iterate (cdr scan))))))
+      
+      (let ((stack (skip-snapshot-frames (get-continuation-stack continuation #f))))
+        (loop (for cont in stack)
+              (do (let ((name (get-continuation-name cont))
+                        (variables (get-continuation-lexical-environment cont)))
+                    (format printer "{%}")
+                    (format printer "      (<frame> name: {a}" name)
+                    (loop (for variable in variables)
+                          (do (format printer "{%}")
+                              (bind (name value mutable?) variable
+                                (format printer "        (<variable> name: {s} serial: {s})" name (register-value value 0)))))
+                    (format printer ")"))))))
+    
+    (define (print-values)
+      (format printer "{%}")
+      (format printer "    (<values>")
+      (for-each (lambda (info)
+                  (bind (value serial . content) info
+                    (format printer "{%}")
+                    (format printer "      (<value> serial: {a} presentation: {s}" serial (present-object value max-width))
+                    (when (not-null? content)
+                      (format printer " content: {s}" content))
+                    (format printer ")")))
+                (sort < (table->list values) key: cadr))
+      (format printer ")"))
+          
   
-  (define (print-stack continuation)
-    (let ((stack (get-continuation-stack continuation #f)))
-      (loop (for cont in stack)
-            (do (format printer "{%}")
-                (let ((name (get-continuation-name cont))
-                      (variables (get-continuation-lexical-environment cont)))
-                  (format printer "    (<frame> name: {a}" name)
-                  (loop (for variable in variables)
-                        (do (format printer "{%}")
-                            (bind (name value mutable?) variable
-                              (format printer "      (<variable> name: {s} value: {s})" name (present-object value)))))
-                  (format printer ")"))))))
-  
-  (print-process))
+    (print-process)))
 
 
 (definition public (snapshot-exception-debugger (feedback: feedback {}))

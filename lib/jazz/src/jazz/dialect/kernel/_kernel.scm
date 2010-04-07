@@ -317,6 +317,7 @@
 (native fxwrap-)
 (native subu8vector->base64-string)
 (native u8vector->base64-string)
+(native object->string)
 
 
 ;;;
@@ -736,7 +737,6 @@
 (native force-output)
 (native current-error-port)
 (native with-output-to-port)
-(native write-u8)
 
 
 ;;;

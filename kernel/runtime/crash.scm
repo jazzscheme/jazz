@@ -93,8 +93,14 @@ END-OF-DECLARES
 
       static void setup_low_level_unix_crash_handler()
       {
-        signal(SIGBUS, error_signal_handler);
+        // core dumping signals
+        signal(SIGQUIT, error_signal_handler);
+        signal(SIGILL,  error_signal_handler);
+        signal(SIGABRT, error_signal_handler);
+        signal(SIGFPE,  error_signal_handler);
+        signal(SIGBUS,  error_signal_handler);
         signal(SIGSEGV, error_signal_handler);
+        signal(SIGSYS,  error_signal_handler);
       }
 END-OF-DECLARES
    )

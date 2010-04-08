@@ -485,17 +485,26 @@
     (table-ref definitions-index (canonicalize-name name) '()))
   
   
-  (method (search-definitions target (whole-words?: whole-words? #t) (ignore-case?: ignore-case? #f))
+  (method (search-definitions multi-search-context)
     (with-mutex
       (lambda ()
-        (if (and whole-words? (not ignore-case?))
-            (%%get-definitions target)
-          (let ((fact (new List-Factory)))
-            (iterate-table definitions-index
-              (lambda (name definitions)
-                (when (search (->string name) (->string target) whole-words?: whole-words? ignore-case?: ignore-case?)
-                  (put-sequence~ fact definitions))))
-            (get-output~ fact))))))
+        (let ((fact (new List-Factory)))
+          (iterate-table definitions-index
+            (lambda (name definitions)
+              (when (multisearch (->string name) multi-search-context)
+                (put-sequence~ fact definitions))))
+          (get-output~ fact)))))
+  
+  
+  (method (search-references multi-search-context)
+    (with-mutex
+      (lambda ()
+        (let ((fact (new List-Factory)))
+          (iterate-table references-index
+            (lambda (name references)
+              (when (multisearch (->string name) multi-search-context)
+                (put-sequence~ fact references))))
+          (remove-duplicates (get-output~ fact))))))
   
   
   (method override (get-references name)

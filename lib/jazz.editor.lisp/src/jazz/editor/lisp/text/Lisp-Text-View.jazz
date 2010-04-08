@@ -707,15 +707,18 @@
         (remove-highlights range))))
   
   
-  (method public (find-expression range constant)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range)))
-          (constant (standardize-form constant)))
+  (method public (find-expression range target)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
       (continuation-capture
         (lambda (return)
           (iterate-expression~ expl
             (lambda (mode)
-              (when (and (constant?~ expl) (eqv? (standardize-form (get-constant~ expl)) constant))
-                (continuation-return return (get-range~ expl)))))
+              (when (constant?~ expl)
+                (let ((found (multisearch (get-marked~ expl) target)))
+                  (when found
+                    (let ((start (nu+ (get-start~ expl) (car found))))
+                      (let ((end (nu+ start (- (cdr found) (car found)))))
+                        (continuation-return return (new Range$Cell$ start end)))))))))
           {}))))
   
   

@@ -294,7 +294,7 @@
           (appl (get-application)))
       (when form
         (let ((form (standardize-form form)))
-          (edit-references~ appl form history-item: (current-history-item) context: (get-context))))))
+          (edit-references~ appl form constituent-test: (get-constituent-test) history-item: (current-history-item) context: (get-context))))))
     
   
   (method (standardize-form form)
@@ -333,11 +333,11 @@
                          (form (standardize-form (if (keyword? form) (keyword->symbol form) form))))
                      (if (use-composite-name-heuristic? form)
                          (edit-composite appl item form)
-                       (let ((list (get-coalesced-definitions~ cataloguer form context: (get-context))))
-                         (case (length list)
+                       (let ((definitions (get-coalesced-definitions~ cataloguer form context: (get-context))))
+                         (case (length definitions)
                            ((0) (bell))
-                           ((1) (add-history~ appl item) (edit~ (car list)))
-                           (else (track-popup-menu (new Definitions-Menu history-item: item definitions: list) pos)))))))))))))
+                           ((1) (add-history~ appl item) (edit~ (car definitions)))
+                           (else (track-popup-menu (new Definitions-Menu history-item: item definitions: definitions) pos)))))))))))))
 
 
   (method protected (edit-references pos)
@@ -348,11 +348,12 @@
           (when cataloguer
             (let* ((item (current-history-item))
                    (form (standardize-form form))
-                   (list (get-references~ cataloguer form context: (get-context))))
-              (case (length list)
+                   (references (get-references~ cataloguer form context: (get-context)))
+                   (target (list (make-search-context (->string form) whole-words?: #t constituent-test: (get-constituent-test)))))
+              (case (length references)
                 ((0) (bell))
-                ((1) (add-history~ appl item) (edit-reference~ (car list) form))
-                (else (track-popup-menu (new References-Menu history-item: item target: form definitions: list) pos)))))))))
+                ((1) (add-history~ appl item) (edit-reference~ (car references) target))
+                (else (track-popup-menu (new References-Menu history-item: item target: target definitions: references) pos)))))))))
   
   
   (definition (edit-composite appl item form)

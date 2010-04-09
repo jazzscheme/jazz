@@ -73,6 +73,7 @@
   (property layer                                initialize 0                  accessors explicit)
   (property effect                               initialize {}                 accessors explicit)
   (property user-data                            initialize {}                 accessors generate)
+  (property disabled-navigate?                   initialize #f                 accessors generate)
 
   
   (property focus-gained-handler                 initialize {} accessors generate)
@@ -2871,18 +2872,22 @@
 
     (let ((to (navigated-view from backward?)))
       (if to
-          (when (neq? to from)
-            (if (is? to View)
-                (navigate-tab~ to self backward?)
-              (navigate from to)))
+          (let ((enabled (get-enabled?~ to)))
+            (while (and (not disabled-navigate?) (not enabled))
+              (set! to (navigated-view to backward?))
+              (set! enabled (get-enabled?~ to)))
+            (when (neq? to from)
+              (if (is? to View)
+                  (navigate-tab~ to self backward?)
+                (navigate from to))))
         (navigate from self))))
   
   
-  (method public (navigated-view from backward?)
+  (method public (navigated-view from backward? (test: test {}))
     (let ((stops (get-tab-stops)))
       (when stops
         (let ((count (length stops))
-              (rank (find stops from)))
+              (rank (find stops from test: test)))
           (when rank
             (let ((new-rank (if backward? (if (= rank 0) (- count 1) (- rank 1)) (modulo (+ rank 1) count))))
               (element stops new-rank)))))))

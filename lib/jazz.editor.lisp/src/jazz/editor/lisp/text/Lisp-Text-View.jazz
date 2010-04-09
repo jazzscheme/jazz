@@ -694,10 +694,11 @@
         (let ((constant (range-expr expr-range)))
           (if (not (constant? constant))
               (bell)
-            (let ((style (get-style-at (get-end~ expr-range))))
+            (let ((target (list (make-search-context (->string constant) whole-words?: #t constituent-test: (get-constituent-test))))
+                  (style (get-style-at (get-end~ expr-range))))
               (if (highlight-style? style)
-                  (unhighlight-expression declaration-range constant)
-                (highlight-expression declaration-range constant))))))))
+                  (unhighlight-expression declaration-range target)
+                (highlight-expression declaration-range target))))))))
   
   
   (method (on-remove-highlights evt)
@@ -708,36 +709,24 @@
   
   
   (method public (find-expression range target)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
-      (continuation-capture
-        (lambda (return)
-          (iterate-expression~ expl
-            (lambda (mode)
-              (when (constant?~ expl)
-                (let ((found (multisearch (get-marked~ expl) target)))
-                  (when found
-                    (let ((start (nu+ (get-start~ expl) (car found))))
-                      (let ((end (nu+ start (- (cdr found) (car found)))))
-                        (continuation-return return (new Range$Cell$ start end)))))))))
-          {}))))
+    (continuation-capture
+      (lambda (return)
+        (iterate-expression-target range target
+          (lambda (found)
+            (continuation-return return found)))
+        {})))
   
   
-  (method public (highlight-expression range constant)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range)))
-          (constant (standardize-form constant)))
-      (iterate-expression~ expl
-        (lambda (mode)
-          (when (and (constant?~ expl) (eqv? (standardize-form (get-constant~ expl)) constant))
-            (apply-style 'Reference (get-start~ expl) (get-end~ expl)))))))
+  (method public (highlight-expression range target)
+    (iterate-expression-target range target
+      (lambda (found)
+        (apply-style 'Reference (get-start~ found) (get-end~ found)))))
   
   
-  (method public (unhighlight-expression range constant)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range)))
-          (constant (standardize-form constant)))
-      (iterate-expression~ expl
-        (lambda (mode)
-          (when (and (constant?~ expl) (eqv? (standardize-form (get-constant~ expl)) constant))
-            (apply-style default-style (get-start~ expl) (get-end~ expl)))))))
+  (method public (unhighlight-expression range target)
+    (iterate-expression-target range target
+      (lambda (found)
+        (apply-style default-style (get-start~ found) (get-end~ found)))))
   
   
   (method public (remove-highlights range)
@@ -749,4 +738,16 @@
                                           (invalidate-paragraph paragraph))))
                                     (get-runs~ paragraph)))
                         start: (get-row~ (get-start~ range))
-                        end: (get-row~ (get-end~ range))))))
+                        end: (get-row~ (get-end~ range))))
+  
+  
+  (method (iterate-expression-target range target proc)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
+      (iterate-expression~ expl
+        (lambda (mode)
+          (when (constant?~ expl)
+            (let ((found (multisearch (get-marked~ expl) target)))
+              (when found
+                (let ((start (nu+ (get-start~ expl) (car found))))
+                  (let ((end (nu+ start (- (cdr found) (car found)))))
+                    (proc (new Range$Cell$ start end)))))))))))))

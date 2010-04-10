@@ -1,0 +1,192 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Restarts View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.debugger.debugger.Restarts-View jazz
+
+
+(import (jazz.debugger)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui))
+
+
+(class Restarts-View extends Layout-View
+  
+  
+  (property process initialize {} accessors generate)
+  (property thread  initialize {})
+  
+  
+  (form
+    (<install>                                layout-type: border
+      (<Layout-View>           name: tools
+        (<Push-Tool>           name: restart  size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Restart" resource: {Image-Resource "Restart"} portfolio: :images action-handler: {Event-Handler :form on-invoke-restart}))
+      (<Scroller-View>         name: scroller location: center vscroll?: #t flat?: #t
+        (<!>                   name: content  layout-type: fill
+          (<Tree-Header>       name: header   shown?: #f
+            (<!>               name: content
+              (<Restarts-Tree> name: restarts multiple-selection?: #f selection-mode: row double-click-handler: {Event-Handler :form on-invoke-restart})))))))
+  
+  
+  (method meta override (external-name . rest)
+    'restarts-view)
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Force"})
+  
+  
+  (method meta override (host-title)
+    "Restarts")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method override (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method override (focus-default)
+    (let ((tree (locate 'restarts)))
+      (acquire-focus~ tree)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-thread)
+    thread)
+  
+  
+  (method public (set-thread value)
+    (set! thread value)
+    (update-restarts))
+  
+  
+  (method public (thread-changed new-thread)
+    (set! process (get-process~ (get-debugger-manager)))
+    (set! thread new-thread)
+    (update-restarts))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method (on-invoke-restart evt)
+    (let ((restart (selected-restart)))
+      (when restart
+        (restart-stop~ process restart))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-restarts)
+    (with-system-exception-debugger
+      (lambda ()
+        (let ((tree (locate 'restarts)))
+          (with-preserved-selection~ tree
+            (lambda ()
+              (remove-every-row~ tree)
+              (with-update-locked~ tree
+                (lambda ()
+                  (when thread
+                    (let ((stop (get-active-stop~ thread)))
+                      (when stop
+                        (for-each (lambda (restart)
+                                    (let ((title (get-message~ restart))
+                                          (image {Image-Resource "Force"}))
+                                      (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: restart)))
+                                  (get-restarts~ stop))))))))
+            use: 'data
+            test: debugged=?
+            generate-event?: #t)))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method public (selected-restart)
+    (let ((row (selected-row)))
+      (when row
+        (get-user-data~ row))))
+  
+  
+  (method (selected-row)
+    (let* ((tree (locate 'restarts))
+           (n (get-single-selection~ tree)))
+      (when n
+        (get-row~ tree n)))))
+
+
+;;;
+;;;; Restarts-Tree
+;;;
+
+
+(class Restarts-Tree extends Tree-View
+  
+  
+  (form
+    (<install>            portfolio: :images
+      (<Tree-Node-Column> title: "Restart" width: 431 toplevel-controls?: #f))))
+
+
+(register-autoclass Restarts-Tree))

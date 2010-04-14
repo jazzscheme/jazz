@@ -61,6 +61,9 @@
     (nextmethod)
     (set! content~self content))
   
+  (method (crlf port)
+    (write-subu8vector #u8(13 10) 0 2 port))
+  
   
   ;;;
   ;;;; Headers
@@ -90,9 +93,12 @@
   
   
   (method (print-headers port)
-    ;; put in logic to check for content and output Content-Length header here
-    (if content
-        (add-header "Content-Length" (string-length content)))
+    (when content
+      (add-header "Content-Length" 
+                  ((if (string? content)
+                       string-length
+                     car) ;; assume it's a u8 content bag
+                   content)))
     (iterate-table 
       headers
       (lambda (name value)
@@ -100,7 +106,8 @@
   
   
   (method (print-header name value port)
-    (format port "{%}{a}: {a}" name value))
+    (format port "{a}: {a}" name value)
+    (crlf port))
   
   (method virtual (send port)
     )

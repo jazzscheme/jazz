@@ -59,9 +59,10 @@
   
   (slot protected resizing?          initialize #f)
   (slot protected autofiting?        initialize #f)
-  (slot protected resize-last-h      initialize {})
   (slot protected resized-column     initialize {})
   (slot protected resized-column-ref initialize 0)
+  (slot protected resize-start-width initialize {})
+  (slot protected resize-start-h     initialize {})
   (slot protected initial-row        initialize {})
 
   
@@ -323,9 +324,10 @@
                   (let ((column (get-column col)))
                     (header-down~ column (header-coordinates col pos)))))
             (set! resizing? #t)
-            (set! resize-last-h h)
             (set! resized-column (get-column col))
-            (set! resized-column-ref col)))
+            (set! resized-column-ref col)
+            (set! resize-start-width (get-width~ resized-column))
+            (set! resize-start-h h)))
         @wait-buggy-when-resizing-a-column-and-scrolled-vertically
         (let ((tree (get-client)))
           (let ((row-no (v->row~ tree v)))
@@ -344,12 +346,9 @@
               (when col
                 (let ((column (get-column col)))
                   (header-move~ column (header-coordinates col pos)))))
-          (let ((delta (- h resize-last-h)))
-            (when (/= delta 0)
-              (set! resize-last-h h)
-              (let ((width (+ (get-width~ resized-column) delta)))
-                (when (>= width min-column-width)
-                  (resize-column resized-column (+ (get-width~ resized-column) delta)))))))
+          (let ((delta (- h resize-start-h)))
+            (let ((width (max (+ resize-start-width delta) min-column-width)))
+              (resize-column resized-column width))))
         @wait-buggy-when-resizing-a-column-and-scrolled-vertically
         (when initial-row
           (let ((client (get-client)))

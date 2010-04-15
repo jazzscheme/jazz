@@ -530,10 +530,12 @@
   (method override (key-press key)
     (hide-text-cursor)
     (char-press (translate-key~ syntax key)))
-  
+
   
   (method override (backspace-press key (word?: word? #f))
-    (backspace word?))
+    (insert-char/backspace #\backspace word?: word?)
+    (when completion-active?
+      (complete-at (get-start))))
   
   
   (method (delete-press key (word?: word? #f))
@@ -4358,14 +4360,15 @@
 
 
   (method protected (insert-char/backspace c (word?: word? #f))
-    (when c
-      (parameterize ((keyboard-input? #t))
-        (if (not (eqv? c #\backspace))
-            (insert-char c)
-          ; remove competion before doing backspace
-          (when completion-active?
-            (delete-selection))
-          (backspace word?)))))
+    (parameterize ((keyboard-input? #t))
+      (case c
+        ((#\backspace)
+         ; remove competion before doing backspace
+         (when completion-active?
+           (delete-selection))
+         (backspace word?))
+        (else
+         (insert-char c)))))
 
   
   ;;;

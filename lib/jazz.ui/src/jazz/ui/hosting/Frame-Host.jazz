@@ -55,7 +55,9 @@
   
   (slot dragging?          initialize #f)
   (slot current-part)
-  (slot old-position)
+  (slot start-mouse)
+  (slot start-position)
+  (slot start-size)
   (slot preserved-position initialize {}  getter generate)
   (slot preserved-size     initialize {}  getter generate)
   (slot workspace          initialize {}  accessors generate)
@@ -457,24 +459,37 @@
         (when (moveable?)
           (let ((part (find-resize-part pos (get-size) full?: #t)))
             (when (or part in-caption?)
-              (set! dragging? #t)
-              (set! current-part (essay (resizeable?) part))
-              (set! old-position (to-desktop pos))
-              (acquire-capture)))))))
+              (let ((host (get-host)))
+                (set! dragging? #t)
+                (set! current-part (essay (resizeable?) part))
+                (set! start-mouse (to-desktop pos))
+                (set! start-position (get-position~ host))
+                (set! start-size (get-size~ host))
+                (acquire-capture))))))))
   
   
   (method override (drag-move pos)
     (when dragging?
-      (let* ((desktop-pos (to-desktop pos))
-             (delta (point- desktop-pos old-position))
+      (let* ((host (get-host))
+             (desktop-pos (to-desktop pos))
+             (delta (point- desktop-pos start-mouse))
              (dh (get-h~ delta))
-             (dv (get-v~ delta)))
+             (dv (get-v~ delta))
+             (max-position (nu+ start-position (nu- start-size {Dimension 100 100}))))
         (if (not current-part)
-            (move-figure~ (get-host) (get-h~ delta) (get-v~ delta))
+            (set-position~ host (nu+ start-position delta))
           (resize-client dh dv current-part
             (lambda (dh dv dwidth dheight)
-              (resize-host dh dv dwidth dheight))))
-        (set! old-position desktop-pos))))
+              (let ((new-position (nu+ start-position (new Dimension dh dv)))
+                    (new-size (nu+ start-size (new Dimension dwidth dheight))))
+                (let ((effective-position (new Point
+                                            (min (get-h~ new-position) (get-h~ max-position))
+                                            (min (get-v~ new-position) (get-v~ max-position))))
+                      (effective-size (new Dimension
+                                        (max (get-width~ new-size) 100)
+                                        (max (get-height~ new-size) 100))))
+                  (set-position~ host effective-position)
+                  (set-size~ host effective-size)))))))))
   
   
   (method override (drag-up pos . rest)
@@ -497,10 +512,6 @@
     (else
       (method (in-close-rect? pos)
         #f)))
-  
-  
-  (method protected virtual (resize-host dh dv dwidth dheight)
-    (grow-bounds dh dv dwidth dheight))
   
   
   (method protected virtual (toggle-maximized)

@@ -53,6 +53,10 @@
 (class Tree-Header extends Header-View
   
   
+  (definition min-column-width
+    9)
+  
+  
   (slot protected resizing?          initialize #f)
   (slot protected autofiting?        initialize #f)
   (slot protected resize-last-h      initialize {})
@@ -343,7 +347,9 @@
           (let ((delta (- h resize-last-h)))
             (when (/= delta 0)
               (set! resize-last-h h)
-              (resize-column resized-column (+ (get-width~ resized-column) delta)))))
+              (let ((width (+ (get-width~ resized-column) delta)))
+                (when (>= width min-column-width)
+                  (resize-column resized-column (+ (get-width~ resized-column) delta)))))))
         @wait-buggy-when-resizing-a-column-and-scrolled-vertically
         (when initial-row
           (let ((client (get-client)))
@@ -408,7 +414,7 @@
     (let ((client (get-client)))
       (let ((tree client)
             (col (column-rank~ client column))
-            (max 0))
+            (max-width 0))
         (for-each-visible-row~ tree
           (lambda (row rank)
             (let ((data (get-child~ row col)))
@@ -418,10 +424,9 @@
                     (let ((width (+ (text-h~ column (get-level~ row))
                                     (text-width~ (get-font~ tree) title)
                                     2)))
-                      (when (> width max)
-                        (set! max width)))))))))
-        (when (> max 0)
-          (resize-column column max)))))
+                      (when (> width max-width)
+                        (set! max-width width)))))))))
+        (resize-column column (max max-width min-column-width)))))
   
   
   (method (header-coordinates col pos)

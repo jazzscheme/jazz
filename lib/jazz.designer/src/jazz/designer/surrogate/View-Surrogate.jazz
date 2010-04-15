@@ -75,11 +75,13 @@
   (slot protected client-return-press-handler    initialize {})
   
   
-  (slot dragging?      initialize #f)
-  (slot processing?    initialize #f)
-  (slot current-part   initialize {})
-  (slot start-position initialize {})
-  (slot old-position   initialize {})
+  (slot dragging?       initialize #f)
+  (slot processing?     initialize #f)
+  (slot current-part    initialize {})
+  (slot start-mouse     initialize {})
+  (slot start-positions initialize {})
+  (slot start-position  initialize {})
+  (slot start-size      initialize {})
 
 
   ;;;
@@ -422,11 +424,14 @@
         (select)
         (let ((outer (outer-client~ (get-surrogate~ client))))
           (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
-            (set! processing? #t)
-            (set! current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))
-            (set! start-position (to-desktop~ client pos))
-            (set! old-position start-position)
-            (acquire-capture~ client)))))
+            (let ((selection (get-selection)))
+              (set! processing? #t)
+              (set! current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))
+              (set! start-mouse (to-desktop~ client pos))
+              (set! start-positions (map get-position~ selection))
+              (set! start-position (get-position~ client))
+              (set! start-size (get-size~ client))
+              (acquire-capture~ client))))))
     (acquire-focus~ client))
   
   
@@ -435,30 +440,39 @@
   
   
   (method public virtual (drag-move pos)
-    (cond
-      (dragging?
-       (let ((delta (nu- pos start-position)))
-         (scroll~ client delta)))
-      (processing?
-       (let ((desktop-pos (to-desktop~ client pos)))
-         (when (or current-part (not start-position) (>= (distance desktop-pos start-position) Drag-Tolerance))
-           (set! start-position {})
-           (let* ((old-pos (from-desktop~ client old-position))
-                  (delta (nu- pos old-pos))
-                  (dh (get-h~ delta))
-                  (dv (get-v~ delta)))
-             (if (not current-part)
-                 (move-selection dh dv NoModifiers)
-               (resize-client dh dv current-part
-                 (lambda (dh dv dwidth dheight)
-                   (let ((nw (+ (get-width~ client) dwidth))
-                         (nh (+ (get-height~ client) dheight)))
-                     ;; quick solution to start with
-                     (when (and (>= nw 15) (>= nh 15))
-                       (move-client dh dv)
-                       (size-client dwidth dheight))))))
-             (set! old-position desktop-pos)
-             (update-window~ (get-player~ client))))))))
+    (cond (dragging?
+           (let ((delta (nu- pos start-position)))
+             (scroll~ client delta)))
+          (processing?
+           (let ((desktop-pos (to-desktop~ client pos)))
+             (when (or current-part (not start-position) (>= (distance desktop-pos start-position) Drag-Tolerance))
+               (let* ((start (from-desktop~ client start-mouse))
+                      (delta (nu- pos start))
+                      (dh (get-h~ delta))
+                      (dv (get-v~ delta)))
+                 (if (not current-part)
+                     (let ((selection (get-selection)))
+                       (for-each (lambda (view start-position)
+                                   (let ((actual-delta (nu- (nu+ start-position delta) (get-position~ view))))
+                                     (move-client~ (get-surrogate~ view) (get-h~ actual-delta) (get-v~ actual-delta))))
+                                 selection
+                                 start-positions))
+                   (resize-client dh dv current-part
+                     (lambda (dh dv dwidth dheight)
+                       (let ((max-position (nu+ start-position (nu- start-size {Dimension 10 10})))
+                             (new-position (nu+ start-position (new Dimension dh dv)))
+                             (new-size (nu+ start-size (new Dimension dwidth dheight))))
+                         (let ((effective-position (new Point
+                                                     (min (get-h~ new-position) (get-h~ max-position))
+                                                     (min (get-v~ new-position) (get-v~ max-position))))
+                               (effective-size (new Dimension
+                                                 (max (get-width~ new-size) 10)
+                                                 (max (get-height~ new-size) 10))))
+                           (let ((actual-delta (nu- effective-position (get-position~ client))))
+                             (move-client (get-h~ actual-delta) (get-v~ actual-delta)))
+                           (let ((actual-delta (nu- effective-size (get-size~ client))))
+                             (size-client (get-width~ actual-delta) (get-height~ actual-delta))))))))
+                 (update-window~ (get-player~ client))))))))
   
   
   (method public virtual (drag-up pos)

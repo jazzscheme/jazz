@@ -529,7 +529,7 @@
   
   (method override (key-press key)
     (hide-text-cursor)
-    (char-press key (translate-key~ syntax key)))
+    (char-press (translate-key~ syntax key)))
   
   
   (method override (backspace-press key (word?: word? #f))
@@ -603,11 +603,11 @@
            (insert-char #\tab))))
   
   
-  (method public virtual (char-press key translated)
+  (method public virtual (char-press key)
     (parameterize ((keyboard-input? #t))
       (if (auto-complete?)
-          (auto-complete translated)
-        (insert-char translated))))
+          (auto-complete key)
+        (insert-char key))))
   
   
   (method (reset-mode (keep: keep {}))
@@ -4243,11 +4243,11 @@
     (assoc-value name (favorite-completions) {}))
 
 
-  (method protected virtual (completion-name pos postfix)
+  (method protected virtual (completion-name pos)
     )
 
 
-  (method (completion-string pos postfix)
+  (method (completion-string pos)
     (define (skip-prefix name)
       (if name
           (let ((len (string-length name)))
@@ -4264,7 +4264,7 @@
                                         completions)))))
         (coerce alphabet-char String)))
     
-    (let ((name (skip-prefix (completion-name pos postfix))))
+    (let ((name (skip-prefix (completion-name pos))))
       (when name
         (let ((size (string-length name))
               (favorite (essay (favorite-completions?) (either (get-user-completion name) (favorite-completion name))))
@@ -4273,33 +4273,33 @@
               (begin
                 (when feedback?
                   (clear-user-message))
-                (concatenate (either postfix "") (subseq favorite size)))
+                (subseq favorite size))
             (when (complete-name? size)
               (let* ((completions (symbol-completions name))
                      (count (length completions)))
-                (cond ((null? completions)
+                (cond ((= count 0)
                        (when feedback?
                          (clear-user-message))
                        {})
-                      ((null? (cdr completions))
+                      ((= count 1)
                        (let ((found (car completions)))
                          (when feedback?
                            (user-message "{a}" found))
                          (if (string=? name found)
                              {}
-                           (concatenate (either postfix "") (subseq found size)))))
+                           (subseq found size))))
                       ((> count 5)
                        (let* ((common (completions-prefix completions))
                               (offset (string-length common))
                               (alphabet (alphabetize-completion completions offset)))
                          (when feedback?
                            (user-message "{a} ... [{a}]" common alphabet))
-                         (concatenate (either postfix "") (subseq common size))))
+                         (subseq common size)))
                       (else
                        (let ((common (completions-prefix completions)))
                          (when feedback?
                            (user-message "{l detail: :human}" completions))
-                         (concatenate (either postfix "") (subseq common size))))))))))))
+                         (subseq common size)))))))))))
   
   
   (method protected virtual (complete-name? size)
@@ -4320,33 +4320,29 @@
            (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
            (class (class-of self)))
       (if (not (auto-complete-char? key last))
-          (complete-current key (get-start) (string key) #f #t)
-        (let* ((completion-string (join-lines (selection-lines)))
-               (offset (essay completion-string (find completion-string key)))
-               (replacement-string (essay offset (subseq completion-string 0 offset))))
-          (when (and completion-active? @w (memq? key (auto-complete-characters~ class)) replacement-string)
-            (replace-selection (list replacement-string)))
+          (begin
+            (insert-char key)
+            (complete-at (get-start)))
+        (let* ((completion (join-lines (selection-lines)))
+               (offset (essay completion (find completion key)))
+               (replacement (essay offset (subseq completion 0 offset))))
+          (when (and completion-active? replacement)
+            (replace-selection (list replacement)))
           (end-completion)
           (insert-char/backspace key)
-          (complete-current {} (get-start) {} #f #f)))))
+          (complete-at (get-start))))))
   
   
   (method protected virtual (auto-complete-char? key last)
     (auto-complete-char?~ syntax key last))
   
 
-  (method (complete-current key pos <Cell> postfix back? inserted?)
-    (if (textual-style? (get-style-at pos))
-        (insert-char/backspace key)
-      (let ((string (completion-string pos postfix)))
-        (if (not string)
-            (begin
-              (insert-char/backspace key)
-              (end-completion))
-          (if back?
-              (replace-text (new Range$Cell$ (previous-cell (get-start)) (get-end)) (list string))
-            (insert-string string))
-          (set-completion (new Range$Cell$ (if inserted? (next-cell pos) pos) (+ pos (cast <fx> (cardinality string)))))))))
+  (method (complete-at pos <Cell>)
+    (unless (textual-style? (get-style-at pos))
+      (let ((completion (completion-string pos)))
+        (when completion
+          (insert-string completion)
+          (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))))))))
   
   
   (method protected (convert-completion)

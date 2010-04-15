@@ -109,15 +109,13 @@
 
   
   (method override (backspace-press key (word?: word? #f))
-    (let ((previous (previous-cell (get-start))))
-      (if (not completion-active?)
-          (insert-char/backspace #\backspace word?: word?)
-        (when previous
-          (complete-current #\backspace previous {} #t #f)))))
+    (insert-char/backspace #\backspace word?: word?)
+    (when completion-active?
+      (complete-at (get-start))))
 
 
-  (method override (char-press key translated)
-    (nextmethod key translated)
+  (method override (char-press key)
+    (nextmethod key)
     (when (eqv? key #\space)
       (show-arguments)))
 
@@ -728,20 +726,18 @@
     #t)
 
 
-  (method override (completion-name pos postfix)
+  (method override (completion-name pos)
     (unless (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos)))
       (let ((prev (previous-cell pos)))
-        (if (not prev)
-            postfix
+        (when prev
           (let ((c (get-char prev)))
             (unless (string-delimiter? c)
-              (if (not (text-constituent?~ syntax c))
-                  postfix
+              (when (text-constituent?~ syntax c)
                 (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
                   (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol keyword string)))
                     (let ((c (char-backward~ expl 0)))
                       (when (or (not c) (not (string-delimiter? c)))
-                        (string-append (get-symbol-string~ expl) (either postfix "")))))))))))))
+                        (get-symbol-string~ expl))))))))))))
   
   
   (method override (symbol-completions name)

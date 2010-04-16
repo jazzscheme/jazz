@@ -82,10 +82,6 @@
   controller-debugger)
 
 
-(definition public (remote-debugger?)
-  (and controller-debugger (remote-proxy? controller-debugger)))
-
-
 (definition public (attach-to-controller controller-register focus?)
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
@@ -622,6 +618,19 @@
 (definition public (with-jazz-exception-debugger thunk)
   (with-exception-debugger jazz-exception-debugger
     thunk))
+
+
+(definition public (local-debugger?)
+  (and (eq? (current-exception-debugger) jazz-exception-debugger)
+       controller-debugger
+       (local-proxy? controller-debugger)))
+
+
+(definition public (without-local-debugger thunk)
+  (if (local-debugger?)
+      (with-system-exception-debugger
+        thunk)
+    (thunk)))
 
 
 (definition protected (break-internal (reason: reason {}))

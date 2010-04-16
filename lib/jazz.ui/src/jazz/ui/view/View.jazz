@@ -1176,28 +1176,55 @@
       (set-scroll-info~ scroller part min max page)))
   
   
+  (method public (compute-scroll-info)
+    (let ((vmin {})
+          (vmax {})
+          (vpage {})
+          (vscroll? #f)
+          (hmin {})
+          (hmax {})
+          (hpage {})
+          (hscroll? #f))
+      (define (vupdate)
+        (let ((adjust (if hscroll? scrollbar-size 0)))
+          (set! vmin  0)
+          (set! vmax  (- (get-height) adjust))
+          (set! vpage (- (get-page-size 'vert) adjust))
+          (set! vscroll? (> vmax vpage))))
+      
+      (define (hupdate)
+        (let ((adjust (if vscroll? scrollbar-size 0)))
+          (set! hmin  0)
+          (set! hmax  (- (get-width) adjust))
+          (set! hpage (- (get-page-size 'horz) adjust))
+          (set! hscroll? (> hmax hpage))))
+      
+      (vupdate)
+      (hupdate)
+      (vupdate)
+      (hupdate)
+      (values vmin vmax vpage hmin hmax hpage)))
+  
+  
   (method public (update-scrollbars)
     (when (and scroller (not update-locked?))
-      (let ((min  0)
-            (max  (get-height))
-            (page (get-page-size 'vert)))
-        (set-vscroll-needed?~ scroller (> max page))
+      (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+        (set-vscroll-needed?~ scroller (> vmax vpage))
         (when (get-vscroll?~ scroller)
-          (set-scroll-info 'vert min max page)))
-      (let ((min  0)
-            (max  (- (get-width) (if (get-vscroll?~ scroller) 13 0)))
-            (page (get-page-size 'horz)))
-        (set-hscroll-needed?~ scroller (> max page))
+          (set-scroll-info 'vert vmin vmax vpage))
+        (set-hscroll-needed?~ scroller (> hmax hpage))
         (when (get-hscroll?~ scroller)
-          (set-scroll-info 'horz min max page)))))
+          (set-scroll-info 'horz hmin hmax hpage)))))
   
   
   (method public (vscroll-needed?)
-    (> (get-height) (get-page-size 'vert)))
+    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+      (> vmax vpage)))
   
   
   (method public (hscroll-needed?)
-    (> (- (get-width) (if (get-vscroll?~ scroller) 13 0)) (get-page-size 'horz)))
+    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+      (> hmax hpage)))
   
   
   (method public (scroll delta <Point>)
@@ -1373,7 +1400,7 @@
   
   
   (method public virtual (layout-scrollee)
-    (define (fit-in-scroller)
+    (define (scroll-to-fit)
       (let ((bottom (get-bottom))
             (fit (get-display-height)))
         (when (< bottom fit)
@@ -1392,7 +1419,7 @@
         (let ((size (scrollee-size)))
           (when size
             (set-size size)
-            (fit-in-scroller)
+            (scroll-to-fit)
             ;; prevents multiple useless layouts that can occur when update scrollbars
             ;; resizes a view that will call layout-scrollee in response (ex: tree header)
             (unless scrollee-locked?

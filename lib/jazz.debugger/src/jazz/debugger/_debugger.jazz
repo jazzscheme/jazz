@@ -286,25 +286,6 @@
 
 
 ;;;
-;;;; Exception
-;;;
-
-
-(definition public (break-exception process exception frame accountable)
-  @convert
-  (let* ((message       (exception-reason exception))
-         (closure-frame (essay frame (frame-toplevel-closure-frame frame)))
-         (closure       (essay closure-frame (frame-procedure closure-frame)))
-         (location      (essay closure (object-location accountable (closure-function closure)))))
-    (let* ((process (get-process))
-           (controller-debugger (get-controller-debugger))
-           (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
-      (focus-process~ controller-debugger process)
-      (select-foreground-window controller-toplevel-hwnd))
-    (break-action type: 'error message: message location: location frame: frame)))
-
-
-;;;
 ;;;; Calls
 ;;;
 
@@ -437,79 +418,4 @@
 
 
 (definition public (get-variables-view)
-  (get-guest~ (singleton-docked Variables-View {})))
-
-
-;;;
-;;;; Highlight
-;;;
-
-
-(definition public (get-visit-highlight)
-  {Color red: 255 green: 205 blue: 205})
-
-
-;;;
-;;;; Frame
-;;;
-
-
-(definition public (active-frame)
-  (let ((appl (get-application)))
-    (let ((view (find-palette Processes-View)))
-      (either (essay view (selected-frame~ view))
-              (get-frame~ (get-loop~ (get-application)))))))
-
-
-;;;
-;;;; Break
-;;;
-
-
-(definition break-indicator
-  {})
-
-
-(definition Break-Color
-  {Color name: Yellow})
-
-
-(definition public (call-break message edit? location frame)
-  (break-action message: message edit?: edit? location: location frame: frame))
-
-
-(definition public (break-action (type: type 'break) (message: message {}) (edit?: edit? #t) (location: location {}) (frame: frame {}))
-  (define (install-break edit? frame code-location)
-    (catch (Location-Error err
-             (message-box (exception-reason err)))
-      (when edit?
-        (when code-location
-          (let ((location (find-location~ code-location)))
-            (receive (frame text range) location
-              (fill~ text Break-Color (get-start~ range)))
-            (set! break-indicator location)))
-        (with-locked-update
-          (lambda ()
-            (let ((view (select-palette Processes-View workspace: 'debugger)))
-              (when view
-                (select-first-frame~ view frame))))))))
-  
-  (define (uninstall-break)
-    (when break-indicator
-      (catch (Location-Error err
-               (message-box (exception-reason err)))
-        (receive (frame text range) break-indicator
-          (unfill~ text (get-start~ range)))
-        (set! break-indicator {}))))
-  
-  (let* ((appl (get-application))
-         (debugger (get-controller-debugger))
-         (location (essay edit? location))
-         (frame (essay edit? frame)))
-    (if (is? debugger Remote-Proxy)
-        (break-loop~ (get-loop~ (get-application)) type: type message: message frame: frame)
-      (let ((code-location (essay location (new Jazz-Code-Location location))))
-        (unwind-protect
-            (break-loop~ (get-loop~ (get-application)) type: type message: message frame: frame proc: (lambda () (install-break edit? frame code-location)))
-          (when edit?
-            (uninstall-break))))))))
+  (get-guest~ (singleton-docked Variables-View {}))))

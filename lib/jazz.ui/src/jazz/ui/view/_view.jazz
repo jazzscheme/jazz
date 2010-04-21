@@ -408,12 +408,22 @@
 
 
 (definition public (all-frames (include-invisibles?: include-invisibles? #f))
-  (let ((queue (new-queue)))
-    (for-each (lambda (stage)
-                (let ((frames (get-views~ stage include-invisibles?: include-invisibles?)))
-                  (enqueue-list queue frames)))
-              (get-stages))
-    (queue-list queue)))
+  (append (all-internal-frames include-invisibles?: include-invisibles?)
+          (all-external-frames include-invisibles?: include-invisibles?)))
+
+
+(definition public (all-internal-frames (include-invisibles?: include-invisibles? #f))
+  (collect-if (lambda (frame)
+                (and (is? frame Internal-Frame-Host)
+                     (or include-invisibles? (get-visible?~ frame))))
+              (get-frames)))
+
+
+(definition public (all-external-frames (include-invisibles?: include-invisibles? #f))
+  (collect-if (lambda (frame)
+                (and (is? frame External-Frame-Host)
+                     (or include-invisibles? (get-visible?~ frame))))
+              (get-frames)))
 
 
 (definition public (first-frame)
@@ -435,6 +445,14 @@
     (if (null? frames)
         {}
       (last frames))))
+
+
+(definition public (collect-frames)
+  (collect-if (lambda (frame)
+                (let ((guest (get-guest~ frame)))
+                  (or (is-not? guest Document)
+                      (not (get-tool?~ (get-controller~ guest))))))
+              (all-frames)))
 
 
 (definition public (find-frame-host guest-type)
@@ -604,9 +622,21 @@
 
 
 (definition public (new-frame guest-class . rest)
+  (bind-keywords ((kind {}) . others) rest
+    (case (either kind 'internal)
+      ((internal) (apply new-internal-frame guest-class others))
+      ((external) (apply new-external-frame guest-class others)))))
+
+
+;;;
+;;;; Internal Frame
+;;;
+
+
+(definition public (new-internal-frame guest-class . rest)
   (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
     (let ((guest (either guest (new-guest guest-class others))))
-      (let ((host (new Frame-Host parent: (current-stage) visible?: #f)))
+      (let ((host (new Internal-Frame-Host parent: (current-stage) visible?: #f)))
         (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
         (when host-position
           (set-position~ host host-position))
@@ -629,25 +659,16 @@
         host))))
 
 
-(definition public (collect-frames)
-  (collect-if (lambda (frame)
-                (or (is-not? frame Frame-Host)
-                    (let ((guest (get-guest~ frame)))
-                      (or (is-not? guest Document)
-                          (not (get-tool?~ (get-controller~ guest)))))))
-              (all-frames)))
-
-
 ;;;
 ;;;; External Frame
 ;;;
 
 
 (definition public (new-external-frame guest-class . rest)
-  (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let* ((player (new Frame visible?: #f))
+  (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
+    (let* ((player (new External-Frame visible?: #f))
            (host (get-root~ player)))
-      (set-title~ player (either host-title (host-title~ guest-class) "Frame"))
+      (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
       (when host-position
         (set-position~ player host-position))
       (when host-size
@@ -662,7 +683,10 @@
           (initialize host guest))
         (layout-view~ host)
         (when host-visible?
-          (fade-in~ player))
+          (fade-in~ player)
+          (when host-focus?
+            (focus-host~ host))
+          (activate-frame~ host))
         host))))
 
 
@@ -1005,9 +1029,7 @@
 
 
 (definition public (current-frame)
-  (let ((stage (current-stage)))
-    (when stage
-      (first-view~ stage))))
+  (first-frame))
 
 
 (definition public (current-document)

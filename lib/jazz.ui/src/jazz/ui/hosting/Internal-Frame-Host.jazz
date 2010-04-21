@@ -1,0 +1,537 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Internal Frame Host
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.hosting.Internal-Frame-Host jazz
+
+
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.locale)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.resizer)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace))
+
+
+(class undocumented Internal-Frame-Host extends Frame-Host
+  
+  
+  (slot dragging?          initialize #f)
+  (slot current-part)
+  (slot start-mouse)
+  (slot start-position)
+  (slot start-size)
+  (slot preserved-position initialize {}  getter generate)
+  (slot preserved-size     initialize {}  getter generate)
+  (slot workspace          initialize {}  accessors generate)
+  (slot workspace-stages   initialize '() accessors generate)
+  (slot maximized?         initialize #f)
+
+  
+  (form
+    (<install>
+      (<Frame-Button> name: maximize type: maximize tooltip?: #t tooltip-text: {Locales english: "Maximize" french: "Agrandir"} action-handler: {Event-Handler :form on-maximize})
+      (<Frame-Button> name: close    type: close tooltip?: #t tooltip-text: {Locales english: "Close" french: "Fermer"} action-handler: {Event-Handler :form on-close})))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-stage)
+    (get-parent))
+  
+  
+  (method public (get-maximized?)
+    maximized?)
+  
+  
+  (method public (set-maximized? value)
+    (if value
+        (maximize)
+      (restore)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (size-change size)
+    (nextmethod size)
+    (invalidate-caption)
+    (invalidate-border insets: {Rect 4 4 4 4}))
+  
+  
+  (method protected virtual (on-maximize evt)
+    (maximize~ (get-stage)))
+  
+  
+  (method protected virtual (on-close evt)
+    (close-host))
+  
+  
+  ;;;
+  ;;;; Activate
+  ;;;
+  
+  
+  (method override (activate-frame)
+    (nextmethod)
+    (set-caption~ (get-toplevel) (essay (get-maximized?~ (get-stage)) (get-title))))
+
+  
+  (method override (deactivate-frame)
+    (nextmethod)
+    (let ((stage (get-stage)))
+      (when (and (null? (get-views~ stage)) (get-player~ stage))
+        (stage-empty-activate~ stage)
+        (acquire-focus~ stage))))
+    
+
+  ;;;
+  ;;;; Close
+  ;;;
+  
+  
+  (method override (close-host)
+    (close-with-confirm))
+    
+
+  ;;;
+  ;;;; Destroy
+  ;;;
+  
+  
+  (method override (destroy)
+    (let ((was-active? (eq? self (active-frame))))
+      (let ((new-active (essay was-active? (second-frame))))
+        (nextmethod)
+        (when was-active?
+          (deactivate-frame)
+          (when new-active
+            (activate-frame~ new-active)
+            (focus-host~ new-active))))))
+
+
+  ;;;
+  ;;;; Visibility
+  ;;;
+  
+  
+  (method override (show)
+    (nextmethod)
+    (maximize/restore))
+  
+  
+  (method protected (maximize/restore)
+    (let ((stage (get-stage)))
+      (cond ((get-maximized?~ stage)
+             (maximize)
+             (maximize-bounds (get-size~ stage))
+             (maximize~ guest))
+            (else
+             (restore)
+             (restore~ guest)))))
+
+
+  ;;;
+  ;;;; Workspace
+  ;;;
+  
+
+  (method public (select-workspace)
+    (when guest
+      (let ((pref (get-workspace-preferences)))
+        (when pref
+          (let ((current (get-name~ pref))
+                (workspaces
+                 (cond (workspace
+                        (list workspace))
+                       (else
+                        (effective-host-workspaces~ guest)))))
+            (when (and (not-null? workspaces) (not (memq? current workspaces)))
+              (let ((pref (get-preferences (list 'workspaces (car workspaces)) error?: #f)))
+                (when pref
+                  (apply-preferences~ pref restore-focus?: {})))))))))
+
+  
+  (method public (ensure-displayed)
+    (let ((outer (get-size~ parent))
+          (rect (get-rect)))
+      (receive (new-position new-size) (fit-within outer rect padding: 8)
+        (set-size new-size)
+        (set-position new-position))))
+  
+  
+  (method public (remember-workspace-stage)
+    (set! workspace-stages (cons (get-stage) (difference workspace-stages (get-active-stages)))))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method override (get-effective-position)
+    (if (get-maximized?)
+        (get-preserved-position)
+      (get-position)))
+  
+  
+  (method override (get-effective-size)
+    (if (get-maximized?)
+        (get-preserved-size)
+      (get-size)))
+  
+  
+  ;;;
+  ;;;; Mouse Copy
+  ;;;
+  
+  
+  (method (dispatch-mouse-copy)
+    (let ((view (mouse-view))
+          (dest (get-focus)))
+      (when (and view dest)
+        (mouse-copy~ view (mouse-position~ view) dest))))
+  
+  
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method (caption-rect)
+    (let ((border (if maximized? 0 4)))
+      (new Rect border border (- (get-width) border) (+ border 20))))
+  
+  
+  (method protected virtual (maximize-rect top right)
+    (new Rect (- right 37) (+ top 3) (- right 21) (+ top 17)))
+  
+  
+  (method protected virtual (close-rect top right)
+    (new Rect (- right 19) (+ top 3) (- right  3) (+ top 17)))
+
+  
+  ;;;
+  ;;;; Activation
+  ;;;
+  
+  
+  (method override (mouse-activate?)
+    #t)
+  
+  
+  (method override (mouse-activate)
+    (bring-to-front)
+    (nextmethod))
+  
+  
+  (method override (activate-focus)
+    (nextmethod)
+    (invalidate-caption)
+    (let ((stage (get-stage)))
+      (when (in-player?~ stage)
+        (set-current-stage stage))))
+  
+  
+  (method override (deactivate-focus)
+    (nextmethod)
+    (invalidate-caption))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method override (maximize)
+    (unless maximized?
+      (set! preserved-position (get-position))
+      (set! preserved-size (get-size)))
+    (set! maximized? #t)
+    (update-buttons))
+  
+  
+  (method public (maximize-bounds size)
+    (set-position {Point 0 0})
+    (set-size size)
+    (layout-view)
+    (invalidate-view))
+  
+  
+  (method override (restore)
+    ;; test necessary because of temporary-fix
+    (when preserved-position
+      (set-position preserved-position))
+    ;; test necessary because of temporary-fix
+    (when preserved-size
+      (set-size preserved-size))
+    (set! maximized? #f)
+    (update-buttons)
+    (layout-view)
+    (invalidate-view))
+    
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method override (layout)
+    (let* ((caption? (caption-visible?))
+           (border (if caption? 4 0))
+           (caption-rect (caption-rect))
+           (caption-height (rect-height caption-rect)))
+      (layout-buttons)
+      (when content
+        (set-position~ content (new Point border (if caption? (+ border caption-height) 0)))
+        (set-size~ content (new Dimension (- (get-width) border border) (- (get-height) border border (if caption? caption-height 0)))))))
+  
+  
+  (method protected virtual (layout-buttons)
+    (let* ((border (buttons-border))
+           (top border)
+           (bounds (get-bounds))
+           (right (- (get-right~ bounds) border)))
+      (set-rect~ (locate 'maximize) (maximize-rect top right))
+      (set-rect~ (locate 'close) (close-rect top right))))
+  
+  
+  (method protected virtual (buttons-border)
+    (if (caption-visible?) 4 0))
+
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method override (invalidate-caption)
+    (invalidate-rect (caption-rect)))
+  
+  
+  (method protected virtual (update-buttons)
+    (let ((visible? (caption-visible?)))
+      (set-visible?~ (locate 'maximize) visible?)
+      (set-visible?~ (locate 'close) visible?)))
+
+
+  ;;;
+  ;;;; Caption
+  ;;;
+  
+  
+  (method (caption-icon)
+    (guest-icon~ guest))
+  
+  
+  (method (caption-title)
+    (get-title))
+  
+  
+  (method (caption-font)
+    {Font name: Caption})
+  
+  
+  (method (caption-focused?)
+    (eq? self (get-focused-host)))
+  
+  
+  (method (caption-visible?)
+    (not maximized?))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (ensure-container-focusable)
+    (select-workspace)
+    (set-visible? #t)
+    (bring-to-front))
+
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method override (cursor-update pos)
+    (if (not (resizeable?))
+        (set-cursor :arrow)
+      (let ((part (essay (not maximized?) (find-resize-part pos (get-size) full?: #t))))
+        (if (not part)
+            (set-cursor :arrow)
+          (set-cursor (get-resize-cursor part))))))
+  
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method protected virtual (moveable?)
+    #t)
+  
+  
+  (method protected virtual (resizeable?)
+    #t)
+
+  
+  (method override (mouse-down pos)
+    (let ((in-caption? (in-rect? pos (caption-rect))))
+      (if (and in-caption? (control-down?))
+          (send-to-back)
+        (when (moveable?)
+          (let ((part (find-resize-part pos (get-size) full?: #t)))
+            (when (or part in-caption?)
+              (set! dragging? #t)
+              (set! current-part (essay (resizeable?) part))
+              (set! start-mouse (to-desktop pos))
+              (set! start-position (get-position))
+              (set! start-size (get-size))
+              (acquire-capture)))))))
+  
+  
+  (method override (drag-move pos)
+    (when dragging?
+      (let* ((desktop-pos (to-desktop pos))
+             (delta (point- desktop-pos start-mouse))
+             (dh (get-h~ delta))
+             (dv (get-v~ delta)))
+        (if (not current-part)
+            (set-position (nu+ start-position delta))
+          (resize-client dh dv current-part
+            (lambda (dh dv dwidth dheight)
+              (let ((max-position (nu+ start-position (nu- start-size {Dimension 100 100})))
+                    (new-position (nu+ start-position (new Dimension dh dv)))
+                    (new-size (nu+ start-size (new Dimension dwidth dheight))))
+                (let ((effective-position (new Point
+                                            (min (get-h~ new-position) (get-h~ max-position))
+                                            (min (get-v~ new-position) (get-v~ max-position))))
+                      (effective-size (new Dimension
+                                        (max (get-width~ new-size) 100)
+                                        (max (get-height~ new-size) 100))))
+                  (set-position effective-position)
+                  (set-size effective-size)))))))))
+  
+  
+  (method override (drag-up pos . rest)
+    (when dragging?
+      (release-capture)
+      (set! dragging? #f)))
+  
+  
+  (method override (double-click pos)
+    (cond ((in-close-rect? pos)
+           (close-host))
+          ((in-rect? pos (caption-rect))
+           (toggle-maximized))))
+  
+  
+  (cond-expand
+    (windows
+      (method (in-close-rect? pos)
+        (in-rect? pos {Rect 6 6 22 22})))
+    (else
+      (method (in-close-rect? pos)
+        #f)))
+  
+  
+  (method protected virtual (toggle-maximized)
+    (toggle-maximized~ (get-stage)))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+  
+  (definition Active-Colors
+    (list {Color red: 0 green: 84 blue: 227} {Color red: 28 green: 113 blue: 255}))
+  
+  (definition Inactive-Colors
+    (list {Color red: 122 green: 150 blue: 223} {Color red: 157 green: 185 blue: 235}))
+
+  
+  (method override (draw surface context lh lv)
+    (when (not maximized?)
+      (let ((bounds (get-bounds)))
+        (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle)))
+    (when (caption-visible?)
+      (draw-caption surface context)))
+
+  
+  (method (draw-caption surface context)
+    (let ((rect (caption-rect)))
+      (let* ((icon (caption-icon))
+             (title (caption-title))
+             (font (caption-font))
+             (focused? (caption-focused?))
+             (colors (if focused? Active-Colors Inactive-Colors))
+             (start (first colors))
+             (end (second colors))
+             (width (get-width))
+             (height (get-height)))
+        (set-color~ surface {Color name: Light})
+        (line~ surface 1 1 (- width 3) 1)
+        (line~ surface 1 1 1 24)
+        (gradient-fill~ surface rect (list (list 0 end) (list 1 start)) direction: 'vertical)
+        (when icon
+          (let ((offset (icon-offset)))
+            (draw-image~ (get-images-cache~ (get-application)) surface context icon (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)))))
+        (set-font~ surface font)
+        (set-text-color~ surface {Color name: White})
+        (let ((offset (title-offset)))
+          (draw-text~ surface (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)) title)))))
+  
+  
+  (method protected virtual (icon-offset)
+    {Point 2 2})
+  
+  
+  (method protected virtual (title-offset)
+    {Point 22 3})))

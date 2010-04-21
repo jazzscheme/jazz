@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; OpenGL Windows
+;;;; External Frames
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,67 +35,51 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.opengl.platform.OpenGL-Window jazz
+(module protected jazz.ui.window.External-Frame jazz
 
 
-(import (jazz.debuggee)
-        (jazz.graphic.opengl)
-        (jazz.system)
-        (jazz.ui))
+(import (jazz.ui)
+        (jazz.ui.window))
 
 
-(class OpenGL-Window extends Window
+(class External-Frame extends Overlapped
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method override (default-parent)
+    (get-desktop))
+  
+
+  ;;;
+  ;;;; Root
+  ;;;
   
   
-  (property fullscreen? initialize #f accessors generate)
+  (method override (new-root)
+    (new External-Frame-Host offscreen?: #t))
+  
+
+  ;;;
+  ;;;; Host
+  ;;;
   
   
-  (slot device initialize {} accessors generate)
-  (slot render initialize {} accessors generate)
+  (method (get-host)
+    (when root
+      (get-host~ root)))
   
-  
-  (method protected virtual (initialize-opengl)
-    (gl-shade-model GL_SMOOTH)
-    (gl-clear-color 0.0 0.0 0.0 0.5)
-    (gl-clear-depth 1.0)
-    (gl-enable GL_LINE_SMOOTH)
-    (gl-enable GL_POLYGON_SMOOTH)
-    (gl-enable GL_COLOR_MATERIAL)
-    ;(gl-enable #x809D)
-    ;(gl-enable GL_BLEND)
-    ;(gl-enable GL_SRC_COLOR)
-    (gl-enable GL_DEPTH_TEST)
-    (gl-depth-func GL_LEQUAL)
-    (glPolygonMode GL_FRONT_AND_BACK GL_FILL)
-    (gl-hint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
-  
-  
-  (method protected virtual (resize-scene width height)
-    (gl-viewport 0 0 width height)
-    (gl-matrix-mode GL_PROJECTION)
-    (gl-load-identity)
-    (glu-perspective 45.0 (fl/ width height) 0.1 100.0)
-    (gl-matrix-mode GL_MODELVIEW)
-    (gl-load-identity))
+
+  ;;;
+  ;;;; Close
+  ;;;
   
   
   (method override (close-window)
-    (nextmethod)
-    (let ((toplevel (get-toplevel)))
-      (when (or (not toplevel) (eq? self toplevel))
-        (exit))))
-  
-  
-  (method protected virtual (draw-scene)
-    )
-  
-  
-  (method protected virtual (render-scene)
-    (make-render-current self render)
-    (draw-scene)
-    (swap-buffers self))
-  
-  
-  (method override (timer-pulse)
-    (unless (> (current-repl-level) 0)
-      (render-scene)))))
+    (let ((host (get-host)))
+      (when host
+        (confirm-close~ host)))
+    (close))))

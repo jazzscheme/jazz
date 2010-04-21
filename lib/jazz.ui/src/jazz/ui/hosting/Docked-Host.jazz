@@ -78,13 +78,12 @@
   ;; to rely on any palette being there.
   @code-will-have-to-be-modified-for-this-to-work
   (method (on-close evt)
-    (let* ((host (get-host))
-           (parent (get-parent~ host))
+    (let* ((parent (get-parent))
            (grand (get-parent~ parent)))
       (with-locked-update
         (lambda ()
-          (set-visible?~ host #f)
-          (set-parent~ host (get-toplevel))
+          (set-visible? #f)
+          (set-parent (get-toplevel))
           (cond ((is? parent Splitter-View)
                  (let ((other (first-view~ parent)))
                    (when other
@@ -108,13 +107,12 @@
   
   
   (method public (hide-splitted)
-    (let* ((host (get-host))
-           (parent (get-parent~ host))
+    (let* ((parent (get-parent))
            (grand (get-parent~ parent)))
       (with-locked-update
         (lambda ()
-          (set-visible?~ host #f)
-          (set-parent~ host (get-toplevel))
+          (set-visible? #f)
+          (set-parent (get-toplevel))
           (cond ((is? parent Splitter-View)
                  (let ((other (first-view~ parent)))
                    (when other
@@ -158,8 +156,7 @@
   
   
   (method override (install-tools)
-    (let* ((host (get-host))
-           (guest (get-guest~ host))
+    (let* ((guest (get-guest))
            (view (get-tools-view~ guest)))
       (when view
         (let ((tools (get-children~ view))
@@ -214,9 +211,7 @@
         (nextmethod handler sender)
       (let ((name (get-target-name~ handler)))
         (if (eq? name :form)
-            (let* ((host (get-host))
-                   (guest (get-guest~ host)))
-              guest)
+            guest
           (nextmethod handler sender)))))
   
 
@@ -237,14 +232,14 @@
             (height (get-height))
             (tools (locate 'tools)))
         (cond (fullscreen?
-                (set-visible?~ tools #f)
-                (set-position~ guest {Point 0 0})
-                (set-size~ guest (new Dimension width height)))
+               (set-visible?~ tools #f)
+               (set-position~ guest {Point 0 0})
+               (set-size~ guest (new Dimension width height)))
               (caption?
-                (layout-tools width)
-                (set-visible?~ tools #t)
-                (set-position~ guest {Point 1 25})
-                (set-size~ guest (new Dimension (- width 2) (- height 26))))
+               (layout-tools width)
+               (set-visible?~ tools #t)
+               (set-position~ guest {Point 1 25})
+               (set-size~ guest (new Dimension (- width 2) (- height 26))))
               (else
                (set-visible?~ tools #f)
                (set-position~ guest {Point 1 1})
@@ -299,8 +294,7 @@
 
   
   (method override (draw surface context lh lv)
-    (let ((host (get-host))
-          (bounds (get-bounds))
+    (let ((bounds (get-bounds))
           (focused? (eq? self (get-focused-host)))
           (all (collect-all)))
       (frame-rect~ surface bounds Frame-Color)
@@ -310,7 +304,7 @@
                     (let ((title (get-title~ docked))
                           (icon (host-icon~ (class-of (get-guest~ docked))))
                           (first? (eq? docked first))
-                          (selected? (eq? docked host)))
+                          (selected? (eq? docked self)))
                       (let* ((left (- h .5))
                              (top .5)
                              (width (+ (get-text-width~ surface title) 37))
@@ -348,10 +342,10 @@
 
   
   (method override (mouse-down pos)
-    (for-each-docked
+    (for-all
       (lambda (docked rect)
         (when (in-rect? pos rect)
-          (let ((parent (get-parent~ (get-host))))
+          (let ((parent (get-parent)))
             (when (is? parent Pad-View)
               (set-selection~ parent docked))
             (unless (focused-host? docked)
@@ -359,10 +353,9 @@
   
   
   (method (toggle-docked pos)
-    (let* ((host (get-host))
-           (parent (get-parent~ host)))
+    (let ((parent (get-parent)))
       (when (is? parent Pad-View)
-        (let* ((title (localize (get-title~ host)))
+        (let* ((title (localize (get-title)))
                (font {Font name: Label})
                (h (+ 28 (text-width~ font title))))
           (when (< (get-h~ pos) h)
@@ -373,9 +366,8 @@
   
   (method override (double-click pos)
     (when zoomable?
-      (let* ((host (get-host))
-             (parent (get-parent~ host))
-             (target (if (is? parent Pad-View) parent host)))
+      (let* ((parent (get-parent))
+             (target (if (is? parent Pad-View) parent self)))
         (if (shift-down?)
             (toggle-full-screen~ (get-application) target)
           (let ((splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
@@ -385,6 +377,16 @@
                   (if (eq? (get-state~ splitter) 'split)
                       (zoom~ splitter target)
                     (unzoom~ splitter))))))))))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (ensure-container-focusable)
+    (when (is? parent Pad-View)
+      (set-selection~ parent self)))
   
 
   ;;;
@@ -392,7 +394,7 @@
   ;;;
   
   
-  (method (for-each-docked proc)
+  (method (for-all proc)
     (let ((all (collect-all)))
       (let ((h 0)
             (first (first all)))
@@ -409,17 +411,17 @@
   
   
   (method (collect-all)
-    (let ((pad (get-parent~ (get-host))))
+    (let ((pad (get-parent)))
       (if (is? pad Pad-View)
           (get-children~ pad)
-        (list (get-host)))))
+        (list self))))
   
   
-  (method (collect-others host)
-    (let ((pad (get-parent~ (get-host))))
+  (method (collect-brothers)
+    (let ((pad (get-parent)))
       (when (is? pad Pad-View)
-        (collect-if (lambda (hst)
-                      (neq? hst host))
+        (collect-if (lambda (host)
+                      (neq? host self))
                     (get-children~ pad)))))
   
 
@@ -429,24 +431,23 @@
   
   
   (method (select-menu)
-    (let* ((host (get-host))
-           (others (collect-others host)))
-      (when others
+    (let ((brothers (collect-brothers)))
+      (when brothers
         (let ((menu (new Context-Menu)))
           (for-each (lambda (docked)
                       (let* ((guest (get-guest~ docked))
                              (title (get-title~ docked))
                              (icon (host-icon~ (class-of guest))))
                         (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-select properties: (list host: docked)))))
-                    others)
+                    brothers)
           (layout-menu~ menu)
           (track-popup-menu menu {Point 2 25})))))
   
   
   (method (on-select evt)
-    (let ((parent (get-parent~ (get-host)))
+    (let ((pad (get-parent))
           (host (get-property~ evt host:)))
       (with-locked-update
         (lambda ()
-          (set-selection~ parent host)
+          (set-selection~ pad host)
           (focus-host~ host)))))))

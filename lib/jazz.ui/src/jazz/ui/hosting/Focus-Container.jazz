@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Container Views
+;;;; Focus Container
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,38 +35,81 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.view.Container jazz
+(module protected jazz.ui.hosting.Focus-Container jazz
 
 
-(import (jazz.jml)
-        (jazz.ui))
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class Container extends Layout-View
+(class undocumented Focus-Container extends View
   
   
-  (form
-    (<install>
-      (<Content-View> name: content)))
+  (slot focused initialize {})
 
   
   ;;;
-  ;;;; Content
+  ;;;; Activation
   ;;;
   
   
-  (method public (get-content)
-    (child 'content))
+  (method override (mouse-activate?)
+    #f)
+  
+  
+  (method public virtual (mouse-activate)
+    (focus-host))
+
+  
+  ;;;
+  ;;;; View
+  ;;;
+
+
+  (method override (get-focus-container)
+    self)
   
   
   ;;;
-  ;;;; Outer
+  ;;;; Focus
   ;;;
   
   
-  (method override (inner? view)
-    (eq? view (get-content)))
+  (method public (get-focused)
+    ;; only return a valid focused as certain operations like
+    ;; changing parent can leave the focused to be invalid
+    (if (and focused (eq? (get-focus-container~ focused) self))
+        focused
+      {}))
   
   
-  (method public virtual (content-inner? view)
-    #f)))
+  (method public (set-focused view)
+    (set! focused view))
+  
+  
+  (method public virtual (focus-host)
+    (let ((focused (get-focused)))
+      (cond (focused
+             (acquire-focus~ focused))
+            (else
+             (acquire-focus)))))
+    
+  
+  (method public (preserve-focused focus)
+    (set! focused (focus-master~ focus)))
+  
+  
+  (method public virtual (ensure-container-focusable)
+    )
+  
+  
+  (method override (focus-default)
+    )
+  
+  
+  (method protected (view-destroyed view)
+    (when (eq? focused view)
+      (set! focused {})))))

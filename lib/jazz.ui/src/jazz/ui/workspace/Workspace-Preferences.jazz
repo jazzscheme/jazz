@@ -66,16 +66,14 @@
   ;;;
   
   
-  (method override (apply-preferences . rest)
+  (method override (apply-preferences (restore-focus?: restore-focus? #t))
     (without-local-debugger
       (lambda ()
         (when (selected-workspace)
           (deactivate~ (selected-workspace)))
-        (unwind-protect
-            (begin
-              (set-locked-activations? #t)
-              (activate))
-          (set-locked-activations? #f)))))
+        (assert (not (workspace-activation?)))
+        (parameterize ((workspace-activation? #t))
+          (activate restore-focus?: restore-focus?)))))
   
   
   ;;;
@@ -83,52 +81,9 @@
   ;;;
   
   
-  (method (activate)
+  (method (activate (restore-focus?: restore-focus? #t))
     (define (close-palettes)
       (for-each close~ (collect-palettes)))
-    
-    (define (collect-visibilities)
-      (let ((frames (all-frames include-invisibles?: #t)))
-        (reverse!
-          (collect (lambda (frame)
-                     (let ((visible? (get-visible?~ frame))
-                           (guest (get-guest~ frame)))
-                       (when guest
-                         (let ((ws (get-workspace~ frame)))
-                           (let ((lst (if ws (list ws) (effective-host-workspaces~ guest))))
-                             (cons frame
-                                   (or (memq? name lst)
-                                       (and (null? lst) visible?))))))))
-                   frames))))
-    
-    (define (process-frames visibilities flag)
-      (let ((active-stages (get-active-stages)))
-        (for-each (lambda (info)
-                    (bind (frame . visible?) info
-                      (when (eq? visible? flag)
-                        (when visible?
-                          (let ((preferred (intersection active-stages (get-workspace-stages~ frame))))
-                            (if (not-null? preferred)
-                                (set-parent~ frame (car preferred))
-                              (let ((stage (current-stage)))
-                                (set-parent~ frame stage)
-                                (remember-workspace-stage~ frame)))))
-                        (if (and visible? (get-visible?~ frame))
-                            (maximize/restore~ frame)
-                          (set-visible?~ frame visible?))
-                        @wait-bug-fix-on-x11
-                        (unless maximized?
-                          (ensure-displayed~ frame)))))
-                  visibilities)))
-    
-    (define (process-activation)
-      (let ((frames (all-frames)))
-        (if (null? frames)
-            (let ((stage (current-stage)))
-              (when stage
-                (stage-activate~ stage)))
-          (for-each-docked
-            client-activate~))))
     
     (define (process-palettes)
       (for-each (lambda (preferences)
@@ -147,9 +102,66 @@
                       (set-visible?~ palette #t))))
                 children))
     
+    (define (collect-visibilities)
+      (let ((frames (all-frames include-invisibles?: #t)))
+        (reverse!
+          (collect (lambda (frame)
+                     (let ((visible? (get-visible?~ frame))
+                           (guest (get-guest~ frame)))
+                       (when guest
+                         (let ((ws (get-workspace~ frame)))
+                           (let ((lst (if ws (list ws) (effective-host-workspaces~ guest))))
+                             (cons frame
+                                   (or (memq? name lst)
+                                       (and (null? lst) visible?))))))))
+                   frames))))
+    
+    (define (hide-frames visibilities)
+      (for-each (lambda (info)
+                  (bind (frame . visible?) info
+                    (when (not visible?)
+                      (set-visible?~ frame #f))))
+                visibilities))
+    
+    (define (show-frames visibilities)
+      (let ((active-stages (get-active-stages)))
+        (for-each (lambda (info)
+                    (bind (frame . visible?) info
+                      (when visible?
+                        (let ((preferred (intersection active-stages (get-workspace-stages~ frame))))
+                          (if (not-null? preferred)
+                              (set-parent~ frame (car preferred))
+                            (let ((stage (current-stage)))
+                              (set-parent~ frame stage)
+                              (remember-workspace-stage~ frame))))
+                        (if (get-visible?~ frame)
+                            (maximize/restore~ frame)
+                          (set-visible?~ frame #t))
+                        @wait-bug-fix-on-x11
+                        (unless maximized?
+                          (ensure-displayed~ frame)))))
+                  visibilities)))
+    
+    (define (process-activation)
+      (let ((frames (all-frames)))
+        (if (null? frames)
+            (let ((stage (current-stage)))
+              (when stage
+                (stage-empty-activate~ stage)))
+          (for-each-docked
+            client-activate~))))
+    
     (define (restore-focus focus)
       (when (in-player?~ focus)
-        (set-focus focus)))
+        (acquire-focus~ focus)))
+    
+    (define (focus-stage)
+      (let ((stage (current-stage)))
+        (when stage
+          (let ((frame (first-view~ stage)))
+            (if frame
+                (focus-host~ frame)
+              (acquire-focus~ stage))))))
     
     (let ((appl (get-application))
           (toplevel (get-toplevel))
@@ -160,7 +172,7 @@
         (lambda ()
           (close-palettes)
           (full-screen-stage~ appl #f)
-          (process-frames visibilities #f)
+          (hide-frames visibilities)
           (reset-current-stage)
           (let ((root-preferences (find-located 'root)))
             (when root-preferences
@@ -179,10 +191,17 @@
               (set-placement~ toplevel position size)
             (when (get-visible?~ toplevel)
               (restore-state~ toplevel)))
-          (process-frames visibilities #t)
+          (show-frames visibilities)
           (process-activation)
-          (cond (focus (restore-focus focus))
-                ((and stage (in-player?~ stage)) (set-current-stage stage)))))))
+          (when (and stage (in-player?~ stage))
+            (set-current-stage stage))
+          (if (and focus restore-focus?)
+              (restore-focus focus)
+            (focus-stage))))))
+  
+  
+  (method (deactivate)
+    (process-application-event~ (get-application) 'workspace 'deactivate self workspace: self))
   
   
   (method public (update-status)
@@ -192,10 +211,6 @@
       (when label
         (set-title~ label (get-title))
         (set-icon~ label (get-icon)))))
-  
-  
-  (method (deactivate)
-    (process-application-event~ (get-application) 'workspace 'deactivate self workspace: self))
   
   
   ;;;

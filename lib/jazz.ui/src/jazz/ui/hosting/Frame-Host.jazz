@@ -109,7 +109,7 @@
   
   
   (method (close-host)
-    (close-with-confirm~ (get-host)))
+    (close-with-confirm))
 
 
   (method override (close-with-confirm)
@@ -126,24 +126,19 @@
   (method (activate-frame)
     (close-popups)
     (set-active-frame self)
-    (unless (get-locked-activations?)
-      (for-each-docked
-        (lambda (view)
-          (client-activate~ view))))
-    (unless (get-locked-activations?)
-      (select-workspace))
-    (let ((stage (get-stage)))
-      (when (get-maximized?~ stage)
-        (set-caption~ (get-toplevel) (get-title))))
-    (simulate-mouse-move~ (get-player))
-    (update-windowing-actions~ (get-application)))
+    (for-each-docked
+      client-activate~)
+    (set-caption~ (get-toplevel) (essay (get-maximized?~ (get-stage)) (get-title)))
+    (update-windowing-actions~ (get-application))
+    (when (get-player)
+      (simulate-mouse-move~ (get-player))))
 
   
   (method (deactivate-frame)
     (set-active-frame {})
     (let ((stage (get-stage)))
       (when (and (null? (get-views~ stage)) (get-player~ stage))
-        (stage-activate~ stage)
+        (stage-empty-activate~ stage)
         (acquire-focus~ stage))))
     
 
@@ -155,7 +150,7 @@
   (method override (destroy)
     (when (get-surrogate)
       (remove-surrogate))
-    (let ((was-active? (eq? self (get-active-frame))))
+    (let ((was-active? (eq? self (active-frame))))
       (let ((new-active (essay was-active? (second-view~ parent))))
         (nextmethod)
         (when was-active?
@@ -164,22 +159,6 @@
             (activate-frame~ new-active)
             (focus-host~ new-active)))))
     (update-windowing-actions~ (get-application)))
-    
-
-  ;;;
-  ;;;; Level
-  ;;;
-  
-  
-  (method override (bring-to-front)
-    (nextmethod)
-    (when (get-visible?)
-      (activate-front)))
-  
-  
-  (method override (send-to-back)
-    (nextmethod)
-    (activate-front))
 
 
   ;;;
@@ -189,8 +168,7 @@
   
   (method override (show)
     (nextmethod)
-    (maximize/restore)
-    (activate-front force?: #t))
+    (maximize/restore))
   
   
   (method protected (maximize/restore)
@@ -222,7 +200,7 @@
             (when (and (not-null? workspaces) (not (memq? current workspaces)))
               (let ((pref (get-preferences (list 'workspaces (car workspaces)) error?: #f)))
                 (when pref
-                  (apply-preferences~ pref)))))))))
+                  (apply-preferences~ pref restore-focus?: {})))))))))
 
   
   (method public (ensure-displayed)
@@ -327,34 +305,31 @@
   
   
   (method override (maximize)
-    (let ((host (get-host)))
-      (unless maximized?
-        (set! preserved-position (get-position~ host))
-        (set! preserved-size (get-size~ host)))
-      (set! maximized? #t)
-      (update-buttons)))
+    (unless maximized?
+      (set! preserved-position (get-position))
+      (set! preserved-size (get-size)))
+    (set! maximized? #t)
+    (update-buttons))
   
   
   (method public (maximize-bounds size)
-    (let ((host (get-host)))
-      (set-position~ host {Point 0 0})
-      (set-size~ host size)
-      (layout-view)
-      (invalidate-view)))
+    (set-position {Point 0 0})
+    (set-size size)
+    (layout-view)
+    (invalidate-view))
   
   
   (method override (restore)
-    (let ((host (get-host)))
-      ;; test necessary because of temporary-fix
-      (when preserved-position
-        (set-position~ host preserved-position))
-      ;; test necessary because of temporary-fix
-      (when preserved-size
-        (set-size~ host preserved-size))
-      (set! maximized? #f)
-      (update-buttons)
-      (layout-view)
-      (invalidate-view)))
+    ;; test necessary because of temporary-fix
+    (when preserved-position
+      (set-position preserved-position))
+    ;; test necessary because of temporary-fix
+    (when preserved-size
+      (set-size preserved-size))
+    (set! maximized? #f)
+    (update-buttons)
+    (layout-view)
+    (invalidate-view))
     
 
   ;;;
@@ -407,14 +382,11 @@
   
   
   (method override (caption-icon)
-    (let* ((host (get-host))
-           (guest (get-guest~ host)))
-      (guest-icon~ guest)))
+    (guest-icon~ guest))
   
   
   (method override (caption-title)
-    (let ((host (get-host)))
-      (get-title~ host)))
+    (get-title))
   
   
   (method override (caption-focused?)
@@ -423,6 +395,17 @@
   
   (method override (caption-visible?)
     (not maximized?))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (ensure-container-focusable)
+    (select-workspace)
+    (set-visible? #t)
+    (bring-to-front))
 
 
   ;;;
@@ -459,24 +442,22 @@
         (when (moveable?)
           (let ((part (find-resize-part pos (get-size) full?: #t)))
             (when (or part in-caption?)
-              (let ((host (get-host)))
-                (set! dragging? #t)
-                (set! current-part (essay (resizeable?) part))
-                (set! start-mouse (to-desktop pos))
-                (set! start-position (get-position~ host))
-                (set! start-size (get-size~ host))
-                (acquire-capture))))))))
+              (set! dragging? #t)
+              (set! current-part (essay (resizeable?) part))
+              (set! start-mouse (to-desktop pos))
+              (set! start-position (get-position))
+              (set! start-size (get-size))
+              (acquire-capture)))))))
   
   
   (method override (drag-move pos)
     (when dragging?
-      (let* ((host (get-host))
-             (desktop-pos (to-desktop pos))
+      (let* ((desktop-pos (to-desktop pos))
              (delta (point- desktop-pos start-mouse))
              (dh (get-h~ delta))
              (dv (get-v~ delta)))
         (if (not current-part)
-            (set-position~ host (nu+ start-position delta))
+            (set-position (nu+ start-position delta))
           (resize-client dh dv current-part
             (lambda (dh dv dwidth dheight)
               (let ((max-position (nu+ start-position (nu- start-size {Dimension 100 100})))
@@ -488,8 +469,8 @@
                       (effective-size (new Dimension
                                         (max (get-width~ new-size) 100)
                                         (max (get-height~ new-size) 100))))
-                  (set-position~ host effective-position)
-                  (set-size~ host effective-size)))))))))
+                  (set-position effective-position)
+                  (set-size effective-size)))))))))
   
   
   (method override (drag-up pos . rest)

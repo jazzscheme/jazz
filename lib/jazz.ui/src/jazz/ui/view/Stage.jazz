@@ -79,18 +79,19 @@
   
   
   (method public virtual (stage-activate)
+    (set-caption?~ (get-toplevel) maximized?))
+  
+  
+  (method public virtual (stage-empty-activate)
     (assert (get-player))
     (for-each-docked
-      (lambda (view)
-        (client-deactivate~ view))))
-  
-  
-  (method public virtual (stage-deactivate)
-    )
+      client-deactivate~)
+    (set-caption~ (get-toplevel) {}))
   
   
   (method override (focus-gained)
-    (set-current-stage self))
+    (unless (workspace-activation?)
+      (set-current-stage self)))
   
   
   ;;;
@@ -116,13 +117,13 @@
     (with-locked-update
       (lambda ()
         (let* ((border (get-border))
+               (toplevel (get-toplevel))
                (player (get-player))
                (appl (get-application))
                (menubar (find-menubar~ appl))
                (current (first-view)))
           (set! maximized? #t)
-          (when player
-            (set-caption?~ player #t))
+          (set-caption?~ toplevel #t)
           (for-each (lambda (frame)
                       (when (get-visible?~ frame)
                         (maximize~ (get-host~ frame))
@@ -131,8 +132,8 @@
           (maximize~ border)
           (when menubar
             (maximize~ menubar))
-          (when (and player current)
-            (set-caption~ player (get-title~ current)))))))
+          (when current
+            (set-caption~ toplevel (get-title~ current)))))))
   
   
   (method override (restore)

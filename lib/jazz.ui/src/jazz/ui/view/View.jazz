@@ -221,7 +221,7 @@
         (set! player plr)
         (nextmethod plr)
         (when (and player focus)
-          (set-focus focus)))))
+          (acquire-focus~ focus)))))
   
   
   (method public (in-player?)
@@ -362,26 +362,24 @@
                 (host-workspaces)))))
   
   
-  (method public (for-each-palette proc)
+  (method public (for-each-view-docked proc)
     (for-each (lambda (child)
                 (cond ((is? child Splitter-View)
-                       (for-each-palette~ child proc))
+                       (for-each-view-docked~ child proc))
                       ((is? child Pad-View)
-                       (for-each proc (get-children~ child)))
-                      (else
-                       (proc child))))
+                       (for-each proc (map get-guest~ (get-children~ child))))
+                      ((is? child Host-View)
+                       (proc (get-guest~ child)))))
               children))
   
   
-  (method public (find-palette type)
+  (method public (find-view-docked type)
     (continuation-capture
       (lambda (return)
-        (for-each-palette
-          (lambda (palette)
-            (when (is? palette Host-View)
-              (let ((view (get-guest~ palette)))
-                (when (is? view type)
-                  (continuation-return return view))))))
+        (for-each-view-docked
+          (lambda (guest)
+            (when (is? guest type)
+              (continuation-return return guest))))
         {})))
   
   
@@ -408,7 +406,7 @@
 
 
   (method public (get-frame)
-    (get-host))
+    (find-ascendant Frame-Host))
   
   
   (method public virtual (guest-icon)
@@ -1039,7 +1037,7 @@
                (ws (new Page-Workspace name: 'page previous: current)))
           (apply-preferences~ ws)
           (let* ((toplevel (get-toplevel))
-                 (toolbar (find-palette~ toplevel Page-Toolbar)))
+                 (toolbar (find-docked~ toplevel Page-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
             (layout-view~ toolbar))
           (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
@@ -1056,7 +1054,7 @@
                (ws (new Preview-Workspace name: 'preview previous: current pane: pane)))
           (apply-preferences~ ws)
           (let* ((toplevel (get-toplevel))
-                 (toolbar (find-palette~ toplevel Preview-Toolbar)))
+                 (toolbar (find-docked~ toplevel Preview-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
             (layout-view~ toolbar))
           (set-visible?~ frame #t)
@@ -1872,6 +1870,16 @@
   
   (method public virtual (focus-update-actions)
     )
+
+
+  (method public virtual (get-focus-container)
+    (find-ascendant Focus-Container))
+  
+  
+  (method public virtual (ensure-focusable)
+    (let ((container (get-focus-container)))
+      (when container
+        (ensure-container-focusable~ container))))
 
 
   ;;;

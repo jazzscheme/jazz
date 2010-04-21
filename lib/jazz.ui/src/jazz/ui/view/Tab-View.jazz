@@ -88,7 +88,7 @@
       (set! selection (- selection 1)))
     (when (= (length children) 1)
       (invalidate-tab selection)
-      (set-visible?~ (child-ranked selection) #f)
+      (set-visible?~ (sheet-ranked selection) #f)
       (set! selection #f))
     (nextmethod child)
     (update-borders)
@@ -217,20 +217,24 @@
     selection)
   
   
-  (method public (set-selection sel (force?: force? #f) (user-origin?: user-origin? #f))
+  (method public (set-selection sel (focus?: focus? #t) (force?: force? #f) (user-origin?: user-origin? #f))
     (let ((old selection))
       (when old
-        (set-visible?~ (child-ranked old) #f))
+        (let ((sheet (sheet-ranked old)))
+          (set-visible?~ sheet #f)))
       (set! selection sel)
       (when sel
-        (set-visible?~ (child-ranked sel) #t))
+        (let ((sheet (sheet-ranked sel)))
+          (set-visible?~ sheet #t)
+          (when focus?
+            (focus-host~ sheet))))
       (invalidate-tab old)
       (invalidate-tab selection)
       (call-selection-handler old selection force? user-origin?)))
 
 
   (method public (invalidate-tab n)
-    (bind (lf . rg) (get-borders~ (child-ranked n))
+    (bind (lf . rg) (get-borders~ (sheet-ranked n))
       (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
 
 
@@ -238,13 +242,17 @@
     (get-name~ (selected-sheet)))
   
   
-  (method public (set-selection-name name)
+  (method public (set-selection-name name (focus?: focus? #t))
     (let* ((sheet (child name))
            (rank (child-rank sheet)))
-      (set-selection rank)))
+      (set-selection rank focus?: focus?)))
   
   
   (method public (selected-sheet)
+    (sheet-ranked selection))
+  
+  
+  (method (sheet-ranked n)
     (child-ranked selection))
   
   

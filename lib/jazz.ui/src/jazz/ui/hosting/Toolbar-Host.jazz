@@ -61,13 +61,12 @@
   
   
   (method (on-close evt)
-    (let* ((host (get-host))
-           (parent (get-parent~ host))
+    (let* ((parent (get-parent))
            (grand (get-parent~ parent)))
       (with-locked-update
         (lambda ()
-          (set-visible?~ host #f)
-          (set-parent~ host (get-toplevel))
+          (set-visible? #f)
+          (set-parent (get-toplevel))
           (cond ((is? parent Splitter-View)
                  (let ((other (first-view~ parent)))
                    (when other
@@ -161,10 +160,9 @@
   
   
   (method (toggle-docked pos)
-    (let* ((host (get-host))
-           (parent (get-parent~ host)))
+    (let ((parent (get-parent)))
       (when (is? parent Pad-View)
-        (let* ((title (get-title~ host))
+        (let* ((title (get-title))
                (font {Font name: Label})
                (h (+ 28 (text-width~ font title))))
           (when (< (get-h~ pos) h)
@@ -174,9 +172,8 @@
   
   
   (method override (double-click pos)
-    (let* ((host (get-host))
-           (parent (get-parent~ host))
-           (target (if (is? parent Pad-View) parent host))
+    (let* ((parent (get-parent))
+           (target (if (is? parent Pad-View) parent self))
            (splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
       (when (is? splitter Splitter-View)
         (with-locked-update
@@ -192,30 +189,29 @@
   
   
   (method (select-menu)
-    (let* ((host (get-host))
-           (others (collect-others host)))
-      (when others
+    (let ((brothers (collect-brothers)))
+      (when brothers
         (let ((menu (new Context-Menu)))
           (for-each (lambda (docked)
                       (let* ((guest (get-guest~ docked))
                              (title (get-title~ docked))
                              (icon (host-icon~ (class-of guest))))
                         (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-select properties: (list host: docked)))))
-                    others)
+                    brothers)
           (layout-menu~ menu)
           (track-popup-menu menu {Point 2 25})))))
   
   
-  (method (collect-others host)
-    (let ((pad (get-parent~ (get-host))))
+  (method (collect-brothers)
+    (let ((pad (get-parent)))
       (when (is? pad Pad-View)
-        (collect-if (lambda (hst)
-                      (/= hst host))
+        (collect-if (lambda (host)
+                      (neq? host self))
                     (get-children~ pad)))))
   
   
   (method (on-select evt)
-    (let ((parent (get-parent~ (get-host)))
+    (let ((parent (get-parent))
           (host (get-property~ evt host:)))
       (with-locked-update
         (lambda ()

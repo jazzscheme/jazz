@@ -1574,7 +1574,7 @@
     (if (and (> nbrow 0) (> nbcol 0))
         (let ((cell-data (get-cell-data cell)))
           (if cell-data
-              (let ((title (get-title~ (get-cell-data cell)))
+              (let ((title (get-cell-title cell))
                     (site (cell->site cell)))
                 (when site
                   (when (get-merge-cell site)
@@ -1591,7 +1591,7 @@
                           (loop (for r from cell-row below (+ cell-row nbrow))
                                 (loop (for c from cell-col below (+ cell-col nbcol))
                                       (let ((merged-cell (new Cell r c)))
-                                        (if #t @creates-problems-with-edited-cells (equal? title (get-title~ (get-cell-data merged-cell)))
+                                        (if #t @creates-problems-with-edited-cells (equal? title (get-cell-title merged-cell))
                                             (let ((new-row (get-row r))
                                                   (new-column (get-column c))
                                                   (new-site (new Site (get-row r) (get-column c))))
@@ -2112,7 +2112,8 @@
                                       (else (car selection))))))
       (when saved-edited
         (let ((edited (restore-cell saved-edited)))
-          (when edited
+          (if (not edited)
+              (kill-edition)
             (replace-cell edited cell-editor)
             (set! edited-cell edited))))
       (let ((selection (restore-selection saved-selection)))
@@ -2522,6 +2523,18 @@
         (when after-end
           (after-end cell))
         (invalidate-rect bounds))))
+  
+  
+  (method public (kill-edition)
+    (when edited-cell
+      (bell)
+      (let ((cell edited-cell)
+            (editor cell-editor))
+        (set! edited-cell {})
+        (set! cell-editor {})
+        (if close-cell-editor?
+            (close~ editor)
+          (set-parent~ editor {})))))
   
   
   (method public (replace-cell cell child)

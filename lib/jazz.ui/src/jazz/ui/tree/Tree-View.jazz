@@ -1627,11 +1627,11 @@
   
   
   (method public (add-merged-row row merge-cell)
-    (let ((merged-title (get-title~ (get-cell-data (get-first-cell~ merge-cell))))
+    (let ((merged-title (get-cell-title (get-first-cell~ merge-cell)))
           (is-valid? #t)
           (site-list '()))
       (for-each (lambda (column)
-                  (let ((new-title (get-title~ (get-child~ row (column-rank column)))))
+                  (let ((new-title (get-data-title (get-child~ row (column-rank column)))))
                     (if (equal? merged-title new-title)
                         (let ((site (new Site row column)))
                           (set-merge-cell! site merge-cell)
@@ -1641,6 +1641,7 @@
       (if is-valid?
           (add-merged-row~ merge-cell row)
         (for-each clear-merge-cell site-list))
+      @creates-problems-with-edited-cells
       (when (not is-valid?)
         (error "Merged cells title must be identical"))))
 
@@ -1787,22 +1788,30 @@
       (set-element! (get-children~ row) (get-col~ cell) data)))
   
   
+  (method public (get-data-title data)
+    (cond ((is? data Tree-Label)
+           (get-title~ data))
+          ((is? data Tree-Data-View)
+           (get-title~ (get-preserved-data~ data)))))
+  
+  
+  (method public (set-data-title data title)
+    (cond ((is? data Tree-Label)
+           (set-title~ data title))
+          ((is? data Tree-Data-View)
+           (set-title~ (get-preserved-data~ data) title))))
+  
+  
   (method public (get-cell-title cell)
     (let ((data (get-cell-data cell)))
       (when data
-        (cond ((is? data Tree-Label)
-               (get-title~ data))
-              ((is? data Tree-Data-View)
-               (get-title~ (get-preserved-data~ data)))))))
+        (get-data-title data))))
   
   
   (method public (set-cell-title cell title)
     (let ((data (get-cell-data cell)))
       (when data
-        (cond ((is? data Tree-Label)
-               (set-title~ data title))
-              ((is? data Tree-Data-View)
-               (set-title~ (get-preserved-data~ data) title))))))
+        (set-data-title data title))))
 
   
   (method public (invalidate-cell cell)

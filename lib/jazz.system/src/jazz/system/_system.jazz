@@ -54,11 +54,45 @@
 ;;;
 
 
-(definition public (argument/setting arg prop)
-  (either (command-argument arg)
-          (get-setting prop)))
+(definition public (get-argument arg arg-parser (default (unspecified)))
+  (let ((arg (essay arg (command-argument arg))))
+    (if arg
+        (arg-parser arg)
+      (if (specified? default)
+          default
+        (error "Mandatory argument not found: {a}" arg)))))
 
 
+;;;
+;;;; Parameters
+;;;
+
+
+(definition public (get-parameter arg arg-parser setting setting-parser (default (unspecified)))
+  (let ((arg (essay arg (command-argument arg))))
+    (if arg
+        (arg-parser arg)
+      (let ((setting (essay setting (get-setting setting Not-Found))))
+        (if (neq? setting Not-Found)
+            (setting-parser setting)
+          (if (specified? default)
+              default
+            (error "Mandatory parameter not found: {a} / {a}" arg setting)))))))
+
+
+(definition public (boolean-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-boolean setting identity default))
+
+
+(definition public (integer-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-integer setting identity default))
+
+
+(definition public (string-parameter arg setting (default (unspecified)))
+  (get-parameter arg identity setting identity default))
+
+
+@convert
 (definition public (pathname-argument name)
   (let ((arg (command-argument name)))
     (if (not arg)
@@ -69,80 +103,33 @@
           arg)))))
 
 
-(definition public (require-argument key)
-  (unimplemented 'require-argument)
-  @command-argument
-  (either (command-argument key)
-          (error "Mandatory argument /{a} was not found in command line:{%}{a}" key (command-line))))
+(definition public (file-parameter arg setting extension (default (unspecified)))
+  (define (parse-file str)
+    (let ((file (new File (tokenise-filename str))))
+      (if (/= (get-extension~ file) extension)
+          (error "Argument /{a} is not of the expected .{a} type" arg extension)
+        file)))
+  
+  (get-parameter arg parse-file setting identity default))
 
 
-(definition public (require-argument/setting arg prop)
-  (unimplemented 'require-argument/setting)
-  @command-line
-  (either (argument/setting arg prop)
-          (error "Mandatory argument /{a} was not found on command line or in properties:{%}{a}" arg (command-line))))
+(definition public (directory-parameter arg setting (default (unspecified)))
+  (define (parse-directory str)
+    (new Directory (tokenise-filename str)))
+  
+  (get-parameter arg parse-directory setting identity default))
 
 
-(definition public (boolean-argument/setting arg prop default)
-  (let ((value (argument/setting arg prop)))
-    (if (not value)
-        default
-      (parse-boolean value))))
-
-
-(definition public (integer-argument/setting arg prop)
-  (let ((str/int (argument/setting arg prop)))
-    (when str/int
-      (if (integer? str/int)
-          str/int
-        (parse-integer str/int)))))
-
-
-(definition public (file-argument/setting arg prop extension)
-  (let ((str (argument/setting arg prop)))
-    (when str
-      (make-file str arg extension))))
-
-
-(definition public (require-file-argument/setting arg prop extension)
-  (make-file (require-argument/setting arg prop) arg extension))
-
-
-(definition (make-file str arg extension)
-  (unimplemented 'make-file)
-  @Pathname
-  (let ((file (new File (tokenise-filename str))))
-    (if (/= (get-extension~ file) extension)
-        (error "Argument /{a} is not of the expected .{a} type in command line:{%}{a}" arg extension (command-line))
-      file)))
-
-
-(definition public (directory-argument/setting arg prop)
-  (let ((str (argument/setting arg prop)))
-    (when str
-      (make-directory str))))
-
-
-(definition public (require-directory-argument/setting arg prop)
-  (make-directory (require-argument/setting arg prop)))
-
-
-(definition (make-directory str)
-  (unimplemented 'make-directory)
-  @Pathname
-  (new Directory (tokenise-filename str)))
-
-
-(definition public (host-argument/setting arg prop)
-  (unimplemented 'host-argument/setting)
+(definition public (host-parameter arg setting (default (unspecified)))
+  (unimplemented 'host-parameter)
   @Host
-  (let ((name (argument/setting arg prop)))
+  (let ((name (string-parameter arg setting {})))
     (when name
       (new Host name: name))))
 
 
-(definition public (port-argument/setting arg prop)
-  (argument/setting arg prop))
+(definition public (service-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-integer setting identity default))
 
 
 ;;;

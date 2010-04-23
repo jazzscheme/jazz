@@ -120,7 +120,7 @@
                                                            (jazz.product-descriptor-update product-descriptor))))
                         (for-each
                           (lambda (unit)
-                            (jazz.for-each-subunit 
+                            (jazz.for-each-subunit
                               unit
                               (lambda (sub-unit declaration phase)
                                 (if (eq? sub-unit unit-name)

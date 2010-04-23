@@ -131,7 +131,7 @@
   (lambda (str)
     (base64-substring->u8vector str 0 (string-length str))))
 
-(define base64-substring->u8vector 
+(define base64-substring->u8vector
   (lambda (str start end)
 
     (define err

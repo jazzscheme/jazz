@@ -2279,7 +2279,7 @@
                                     ~utf8?))))
                    (and next
                         (lp (cdar ls) (new-state-number next) flags next))))
-                ((/ - & ~) 
+                ((/ - & ~)
                  (let ((ranges
                         (sre->cset (car ls)
                                    (flag-set? flags ~case-insensitive?))))

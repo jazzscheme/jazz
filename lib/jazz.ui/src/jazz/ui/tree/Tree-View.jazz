@@ -337,6 +337,25 @@
     (let ((header (get-header)))
       (when header
         (invalidate-view~ header))))
+  
+  
+  ;;;
+  ;;;; Hierarchy
+  ;;;
+  
+  
+  (method override (find-subdrawing pos <Point> ignore)
+    (either (continuation-capture
+              (lambda (return)
+                (for-each (lambda (merge-cell)
+                            (let ((data (get-cell-data (get-master-cell~ merge-cell))))
+                              (when (is? data View)
+                                (let ((rect (merge-cell-rect merge-cell)))
+                                  (when (in-rect? pos rect)
+                                    (continuation-return return (find-drawing~ data (acquire~ data self pos))))))))
+                          merge-cell-list)
+                {}))
+            (nextmethod pos ignore)))
 
 
   ;;;
@@ -521,10 +540,10 @@
           (receive (left top width height) (merge-geometry top-left bottom-right)
             (let ((left-rank (get-col~ top-left))
                   (top-rank (get-row~ top-left))
-                  (top-left-data (get-cell-data top-left))
+                  (data (get-cell-data (get-master-cell~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
               (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
-                (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height top-left-data)))))))
+                (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height data)))))))
     
     (nextmethod surface context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
@@ -1333,7 +1352,7 @@
         (when site
           (let ((merge-cell (get-merge-cell site)))
             (if merge-cell
-                (get-first-row~ merge-cell)
+                (get-last-row~ merge-cell)
               (get-row~ cell))))))
 
     (let* ((count (get-visible-count))
@@ -1600,30 +1619,32 @@
                                               (set! new-columns-list (cons new-column new-columns-list))
                                               (set! new-site-list (cons new-site new-site-list)))
                                           (error "Merged cells title must be identical")))))
-                          (let ((new-merge-cell (new Merge-Cell new-rows-list new-columns-list self)))
+                          (let ((new-merge-cell (new Merge-Cell cell new-rows-list new-columns-list self)))
                             (set! merge-cell-list (cons new-merge-cell merge-cell-list))
                             (for-each (lambda (merged-site)
                                         (set-merge-cell! merged-site new-merge-cell))
                                       new-site-list)
-                            (for-each invalidate-cell
-                                      new-merged-cells-list)))
+                            (let ((rect (merge-cell-rect new-merge-cell)))
+                              (when rect
+                                (when (is? cell-data View)
+                                  (set-rect~ cell-data (acquire~ (get-parent~ cell-data) self rect)))
+                                (invalidate-rect rect)))))
                       (error "Merge cell out of tree bounds")))))
-            (error "The first cell as no data")))
+            (error "First cell has no data")))
       (error "Invalid merge-cells")))
-            
+  
   
   (method public (unmerge-cells cell)
-    (let* ((site (cell->site cell))
-           (merge-cell-to-remove (get-merge-cell site)))
+    (let ((merge-cell-to-remove (get-merge-cell (cell->site cell))))
       (when merge-cell-to-remove
-        (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
-        (for-each (lambda (row)
-                    (for-each (lambda (column)
-                                (let ((site (row-col->site row column)))
-                                  (clear-merge-cell site)
-                                  (invalidate-cell (site->cell site))))
-                              (get-merged-columns~ merge-cell-to-remove)))
-                  (get-merged-rows~ merge-cell-to-remove)))))
+        (let ((rect (merge-cell-rect merge-cell-to-remove)))
+          (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
+          (for-each-cell~ merge-cell-to-remove
+            (lambda (row column)
+              (let ((site (row-col->site row column)))
+                (clear-merge-cell site))))
+          (when rect
+            (invalidate-rect rect))))))
   
   
   (method public (add-merged-row row merge-cell)
@@ -1984,7 +2005,7 @@
       cell))
 
 
-    ; temporary - converts from a row column to Site
+  ; temporary - converts from a row column to Site
   (method (row-col->site row col)
     (new Site row col))
 
@@ -2483,26 +2504,25 @@
     edited-cell)
   
   
-  (method public (edit-cell cell (editor: editor {}) (location: location {Point 0 0}) (draw-preserved?: draw-preserved? #f) (close-editor?: close-editor? #t) (before-end: before-end {}) (after-end: after-end {}))
+  (method public (edit-cell cell (editor: editor {}) (location: location {Point 0 0}) (close-editor?: close-editor? #t) (before-end: before-end {}) (after-end: after-end {}))
     (assert (not update-locked?))
-    (when (< (get-col~ cell) (get-columns-count))
-      (end-edition)
-      (ensure-row-exists (get-row~ cell))
-      (let ((bounds (cell-editor-rect cell)))
-        (when bounds
-          (let ((view (new Tree-Data-View
-                        location: (new Point (+ (get-left~ bounds) (get-h~ location)) (get-v~ location))
-                        draw-preserved?: draw-preserved?
-                        preserved-data: (get-cell-data cell)
-                        before-end: before-end
-                        after-end: after-end
-                        children: (list editor))))
-            (replace-cell (get-top-cell cell) view)
-            (set-bounds~ view (expand-rect (offset-rect bounds 0 (- (get-top~ bounds))) (get-h~ location) (get-v~ location) 0 0))
-            (invalidate-rect bounds)
-            (set! edited-cell cell)
-            (set! cell-editor view)
-            (set! close-cell-editor? close-editor?))))))
+    (assert (< (get-col~ cell) (get-columns-count)))
+    (end-edition)
+    (ensure-row-exists (get-row~ cell))
+    (let ((bounds (cell-editor-rect cell)))
+      (when bounds
+        (let ((view (new Tree-Data-View
+                      location: (new Point (+ (get-left~ bounds) (get-h~ location)) (get-v~ location))
+                      preserved-data: (get-cell-data cell)
+                      before-end: before-end
+                      after-end: after-end
+                      children: (list editor))))
+          (replace-cell (get-top-cell cell) view)
+          (set-bounds~ view (expand-rect (offset-rect bounds 0 (- (get-top~ bounds))) (get-h~ location) (get-v~ location) 0 0))
+          (invalidate-rect bounds)
+          (set! edited-cell cell)
+          (set! cell-editor view)
+          (set! close-cell-editor? close-editor?)))))
   
   
   (method public (end-edition)
@@ -2516,16 +2536,11 @@
           (before-end cell))
         (set! edited-cell {})
         (set! cell-editor {})
-        (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+        (let ((preserved-data (get-preserved-data~ editor))
+              (merge-cell (safe-get-merge-cell (cell->site cell))))
           (if merge-cell
-              (let ((scan-rows (get-merged-rows~ merge-cell))
-                    (scan-cols (get-merged-columns~ merge-cell)))
-                (for-each (lambda (row-merged)
-                            (for-each (lambda (column-merged)
-                                        (replace-cell (new Cell (row-rank row-merged) (column-rank column-merged)) (get-preserved-data~ editor)))
-                                      scan-cols))
-                          scan-rows))
-            (replace-cell cell (get-preserved-data~ editor))))
+              (replace-cell (get-master-cell~ merge-cell) preserved-data)
+            (replace-cell cell preserved-data)))
         (if close-cell-editor?
             (close~ editor)
           (set-parent~ editor {}))
@@ -2695,21 +2710,23 @@
 
 
 ;;;
-;;;; Merged Cells
+;;;; Merge-Cell
 ;;;
 
 
 (class Merge-Cell extends Object
   
   
-  (slot merged-cells initialize '() accessors generate)
-  (slot merged-rows initialize '() accessors generate)
+  (slot master-cell    initialize {}  accessors generate)
+  (slot merged-cells   initialize '() accessors generate)
+  (slot merged-rows    initialize '() accessors generate)
   (slot merged-columns initialize '() accessors generate)
-  (slot tree initialize '() accessors generate)
+  (slot tree           initialize {}  accessors generate)
   
   
-  (method override (initialize rows-list columns-list cells-tree)
+  (method override (initialize cell rows-list columns-list cells-tree)
     (nextmethod)
+    (set! master-cell cell)
     (set! merged-rows rows-list)
     (set! merged-columns columns-list)
     (set! tree cells-tree))
@@ -2725,6 +2742,14 @@
   
   (method public (add-merged-row row)
     (set! merged-rows (cons row merged-rows)))
+  
+  
+  (method public (for-each-cell proc)
+    (for-each (lambda (row)
+                (for-each (lambda (column)
+                            (proc row column))
+                          merged-columns))
+              merged-rows))
   
   
   (method public (get-first-col)
@@ -2786,54 +2811,6 @@
           (last-column (get-last-col)))
       (new Cell last-row last-column)))
 )
-
-
-;;;
-;;;; Site
-;;;
-
-
-(class Site extends Object
-
-
-  (slot row accessors generate)
-  (slot col accessors generate)
-
-
-  (method override (initialize row col)
-    (set! row~self row)
-    (set! col~self col))
-
-
-  (method override (copy-object deep?)
-    (new Site row col))
-
-
-  (method override (compare-object target)
-    (if (is-not? target Site)
-        :incompatible
-      (let ((compared (compare row (get-row~ target))))
-        (if (not (eq? compared :equal))
-            compared
-          (compare col (get-col~ target))))))
-
-
-  (method override (print printer readably)
-    (format printer "~{{a} {a} {a}}"
-      (category-name (class-of self))
-      row
-      col))
-  )
-
-
-(specialize inline as site=? (= s1 <Site> s2 <Site>) <bool>
-  (and (eq? (get-row~ s1) (get-row~ s2))
-       (eq? (get-col~ s1) (get-col~ s2))))
-
-
-(definition public (site-hash s <Site>)
-  (fxwrap+ (eqv?-hash (get-row~ s))
-           (eqv?-hash (get-col~ s))))
 
 
 ;;;

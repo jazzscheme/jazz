@@ -1003,10 +1003,10 @@
 ;;;
 
 
-(define jazz.kernel-test?
+(define jazz.testing?
   (make-parameter #f))
 
-(define jazz.kernel-test
+(define jazz.testing
   (make-parameter #f))
 
 

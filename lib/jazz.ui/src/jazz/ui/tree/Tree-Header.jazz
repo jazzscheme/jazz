@@ -57,7 +57,7 @@
     9)
   
   
-  (property highlight?               initialize #f accessors explicit)
+  (property empty-background         initialize #f accessors explicit)
   
   
   (slot protected resizing?          initialize #f)
@@ -79,13 +79,13 @@
   ;;;
 
 
-  (method public (get-highlight?)
-    highlight?)
+  (method public (get-empty-background)
+    empty-background)
 
 
-  (method public (set-highlight? value)
-    (when (neq? value highlight?)
-      (set! highlight? value)
+  (method public (set-empty-background value)
+    (when (neq? value empty-background)
+      (set! empty-background value)
       (invalidate-view)))
 
 
@@ -246,41 +246,48 @@
           (fill-rect~ surface inner (either background (header-color~ client)))
           (set-text-color~ surface {Color name: Black}))))
     
-    (let ((client (get-client))
-          (clipper (get-logical-clipper~ surface))
-          (height (get-header-height))
-          (background (either background {Color name: Dark})))
-      (when (< (get-top~ clipper) height)
-        (fill-rect~ surface clipper (either background {Color name: Dark}))
-        (when client
-          (let* ((h (get-hscroll-amount))
-                 (cs (get-column-spacing~ client))
-                 (sorted-column (get-sorted-column~ client))
-                 (sort-ascending? (get-sort-ascending?~ client))
-                 (spaced? (and (> cs 0) (not highlight?)))
-                 (columns (get-columns))
-                 (last-column (essay (not-null? columns) (last columns)))
-                 (flat? (flat-look?))
-                 (enabled? (get-enabled?~ client))
-                 (rank 0))
-            (for-each (lambda (column)
-                        (when (get-visible?~ column)
-                          (let ((width (get-width~ column))
-                                (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {}))
-                                (spaced? (and spaced? (neq? column last-column))))
-                            (draw-header~ column surface context lh lv h 0 width height sorted spaced? flat? enabled?)
-                            (increase! h (+ width cs))
-                            (increase! rank))))
-                      columns)))
-        (when selector?
-          (let ((v (get-vscroll-amount))
-                (cs (get-row-spacing~ client)))
-            (iterate (get-rows)
-                     (lambda (row)
-                       (let ((row-height (get-height~ row)))
-                         (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
-                         (increase! v (+ row-height cs))))))
-          (draw-intersection client 0 0 (get-selector-width) (get-header-height))))))
+    (let ((client (get-client)))
+      (let ((clipper (get-logical-clipper~ surface))
+            (right (get-columns-right~ client))
+            (width (get-width))
+            (height (get-header-height))
+            (background (if (get-enabled?~ client) (either background {Color name: Dark}) {Color name: Dark}))
+            (empty-background (if (get-enabled?~ client) (either empty-background {Color name: Dark}) {Color name: Medium})))
+        (when (< (get-top~ clipper) height)
+          (fill-rect~ surface (new Rect 0 0 right height) background)
+          (fill-rect~ surface (new Rect right 0 width height) empty-background)
+          (when client
+            (let* ((h (get-hscroll-amount))
+                   (cs (get-column-spacing~ client))
+                   (sorted-column (get-sorted-column~ client))
+                   (sort-ascending? (get-sort-ascending?~ client))
+                   (spaced? (> cs 0))
+                   (columns (get-columns))
+                   (last-column (essay (not-null? columns) (last columns)))
+                   (flat? (flat-look?))
+                   (enabled? (get-enabled?~ client))
+                   (rank 0))
+              (for-each (lambda (column)
+                          (when (get-visible?~ column)
+                            (let ((width (get-width~ column))
+                                  (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {})))
+                              (draw-header~ column surface context lh lv h 0 width height sorted spaced? flat? enabled?)
+                              (when (eq? column last-column)
+                                (set-color~ surface background)
+                                (let ((h (- right 1)))
+                                  (line~ surface h 0 h height)))
+                              (increase! h (+ width cs))
+                              (increase! rank))))
+                        columns)))
+          (when selector?
+            (let ((v (get-vscroll-amount))
+                  (cs (get-row-spacing~ client)))
+              (iterate (get-rows)
+                       (lambda (row)
+                         (let ((row-height (get-height~ row)))
+                           (draw-selector~ row surface context 0 v (get-selector-width) row-height (flat-look?))
+                           (increase! v (+ row-height cs))))))
+            (draw-intersection client 0 0 (get-selector-width) (get-header-height)))))))
 
 
   ;;;
@@ -289,7 +296,7 @@
 
 
   (method override (cursor-update pos)
-    (if (or resizing? (resized-col (- (get-h~ pos) (get-hscroll-amount))))
+    (if (and (get-enabled?~ client) (or resizing? (resized-col (- (get-h~ pos) (get-hscroll-amount)))))
         (set-cursor :west-east)
       (set-cursor :arrow)))
   
@@ -334,7 +341,7 @@
   
   
   (method override (mouse-down pos)
-    (when pos
+    (when (and pos (get-enabled?~ client))
       (acquire-capture)
       (set! autofiting? #f)
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
@@ -360,7 +367,7 @@
   
   
   (method override (drag-move pos)
-    (when pos
+    (when (and pos (get-enabled?~ client))
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
             (v (- (get-v~ pos) (get-vscroll-amount))))
         (if (not resizing?)
@@ -381,7 +388,7 @@
   
   
   (method override (drag-up pos . rest)
-    (when pos
+    (when (and pos (get-enabled?~ client))
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
             (v (- (get-v~ pos) (get-vscroll-amount))))
         (if (not resizing?)
@@ -402,7 +409,7 @@
   
   
   (method override (double-click pos)
-    (when pos
+    (when (and pos (get-enabled?~ client))
       (let ((h (- (get-h~ pos) (get-hscroll-amount)))
             (v (get-v~ pos)))
         (let ((col (resized-col h)))

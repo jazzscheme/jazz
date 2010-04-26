@@ -643,11 +643,8 @@
     (let ((guest (either guest (new-guest guest-class others))))
       (let ((host (new Internal-Frame-Host parent: (current-stage) visible?: #f)))
         (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
-        (when host-position
-          (set-position~ host host-position))
-        (if host-size
-            (set-size~ host host-size)
-          (set-size~ host (nu+ (get-size~ guest) {Point 8 28})))
+        (set-position~ host (either host-position (cascade-position host guest)))
+        (set-size~ host (either host-size (nu+ (get-size~ guest) {Point 8 28})))
         (when host-workspace
           (set-workspace~ host host-workspace))
         (set-guest~ host guest)
@@ -662,6 +659,36 @@
           (when host-focus?
             (focus-host~ host)))
         host))))
+
+
+;;;
+;;;; Cascade
+;;;
+
+
+(definition Cascade-Position
+  {Point 25 25})
+
+(definition Cascade-Step
+  {Dimension 22 22})
+
+
+(definition (cascade-position host guest)
+  (define (collect-positions stage)
+    (let ((maximized? (get-maximized?~ stage)))
+      (collect (lambda (frame)
+                 (when (and (is? frame Internal-Frame-Host)
+                            (eq? (class-of (get-guest~ frame)) (class-of guest)))
+                   (if maximized?
+                       (get-preserved-position~ frame)
+                     (get-position~ frame))))
+                 (get-views~ stage))))
+  
+  (let ((positions (collect-positions (get-stage~ host))))
+    (let (iterate (pos Cascade-Position))
+      (if (member? pos positions test: nu=?)
+          (iterate (nu+ pos Cascade-Step))
+        pos))))
 
 
 ;;;

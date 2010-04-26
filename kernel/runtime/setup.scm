@@ -134,19 +134,33 @@
 (define jazz.jobs
   #f)
 
-(define jazz.jazzini-file
-  "~/.jazz/.jazzini")
+(define jazz.jazzini
+  ".jazzini")
 
-(define jazz.buildini-file
-  "~/.jazz/.buildini")
+(define jazz.buildini
+  ".buildini")
 
 (define jazz.warnings
   #f)
 
 
-(define (jazz.process-jazzini-file)
-  (if (file-exists? jazz.jazzini-file)
-      (jazz.load jazz.jazzini-file)))
+(define (jazz.load-configuration-files filename)
+  (define (load-if-exists file)
+    (if (file-exists? file)
+        (jazz.load file)))
+  
+  (let ((global (%%string-append "~/.jazz/" filename))
+        (local (and jazz.kernel-source (%%string-append jazz.kernel-source filename))))
+    (load-if-exists global)
+    (load-if-exists local)))
+
+
+(define (jazz.process-jazzini)
+  (jazz.load-configuration-files jazz.jazzini))
+
+
+(define (jazz.process-buildini)
+  (jazz.load-configuration-files jazz.buildini))
 
 
 (define jazz.image-load-counter 0)
@@ -168,7 +182,7 @@
 
 
 (define (jazz.library-main)
-  (jazz.process-jazzini-file)
+  (jazz.process-jazzini)
   (jazz.prepare-repositories)
   (jazz.setup-repositories))
 
@@ -289,7 +303,7 @@
         (define (setup-kernel)
           (set! ##allow-inner-global-define? #t)
           (set! jazz.debugger debugger)
-          (jazz.process-jazzini-file)
+          (jazz.process-jazzini)
           (jazz.prepare-repositories build-repository jazz-repository user-repository repositories)
           (jazz.setup-repositories))
           
@@ -299,7 +313,7 @@
         
         (define (setup-build)
           (setup-kernel)
-          (process-buildini-file)
+          (jazz.process-buildini)
           (set! jazz.link (or link (jazz.build-link)))
           (set! jazz.link-options (jazz.parse-link jazz.link))
           (set! jazz.jobs jobs)
@@ -312,10 +326,6 @@
               (set! jazz.compile-options (%%cons 'keep-c jazz.compile-options)))
           (if expansion
               (set! jazz.compile-options (%%cons 'expansion jazz.compile-options))))
-        
-        (define (process-buildini-file)
-          (if (file-exists? jazz.buildini-file)
-              (jazz.load jazz.buildini-file)))
         
         (cond (ev
                 (setup-runtime)

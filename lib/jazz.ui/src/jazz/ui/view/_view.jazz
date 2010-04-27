@@ -41,6 +41,7 @@
 (import (jazz.debuggee)
         (jazz.geometry)
         (jazz.graphic)
+        (jazz.library)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.window)
@@ -916,6 +917,25 @@
       (throw-cancel))
     thunk))
 
+
+(definition public (with-safe-explore proc (action: action 'ask))
+  (with-exception-filter
+    (lambda (obj)
+      (let ((exc (and (object? obj) (is? obj Explore-Error) obj)))
+        (when exc
+          (let ((result (case action
+                          ((ask)
+                           (message-box (exception-reason exc) type: 'confirmation yes: "Show Me" no: "Debug" cancel: "Ignore"))
+                          ((ignore)
+                           'cancel))))
+            (when (eq? result 'yes)
+              (let ((source (get-source~ exc))
+                    (range (get-range~ exc)))
+                (edit-document~ (get-application) source selection: range)))
+            (neq? result 'no)))))
+    (lambda (exc)
+      (throw-cancel))
+    proc))
 
 ;;;
 ;;;; Request

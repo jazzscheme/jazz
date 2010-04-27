@@ -53,8 +53,8 @@
   (slot uri getter generate)
 
   ;; synthetic parameters (come from uri and content)
-  (slot get-parameters  initialize (make-table test: equal?) getter generate)
-  (slot post-parameters initialize (make-table test: equal?) getter generate)
+  (slot get-parameters  initialize () getter generate)
+  (slot post-parameters initialize () getter generate)
   
   
   (slot cookie-header-name initialize "Cookie")
@@ -62,10 +62,12 @@
   
   (method override (initialize (http-method: http-method {}) 
                                (uri: uri {})
+                               (get-parameters: get-parameters ())
                                (content: content #f))
     (nextmethod)
     (set! http-method~self http-method)
     (set! uri~self uri)
+    (set! get-parameters~self get-parameters)
     (set! content~self content))
   
   
@@ -162,12 +164,12 @@ Cookie: SessionID=nil
   ;;;
 
 
-  (method (get-parameter name (error?: error? #t))
-    (let ((info (assoc name get-parameters)))
-      (if info
-          (cdr info)
-        (when error?
-          (error "Unknown parameter: {s}" name)))))
+  (method (get-parameter name)
+    (let ((entry (assoc name get-parameters)))
+      (terminal entry)
+      (if entry
+          (cdr entry)
+        #f)))
   
   
   ;;;

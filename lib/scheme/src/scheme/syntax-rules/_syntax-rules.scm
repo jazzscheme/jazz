@@ -35,6 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+#; ;; wait-hygiene
 (module scheme.syntax-rules scheme
 
 

@@ -39,6 +39,7 @@
 
 
 (import (jazz.dialect.kernel)
+        #; ;; wait-hygiene
         (scheme.syntax-rules))
 
 
@@ -59,6 +60,7 @@
       form-src)))
 
 
+#; ;; wait-hygiene
 (define-syntax package expand-body
   (syntax-rules ()
     ((_)
@@ -67,6 +69,20 @@
      (begin expr ...))))
 
 
+(syntax public (when form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src))))
+    (sourcify-if
+      `(if ,test
+           (begin
+             ,@(if (null? body)
+                   (list (list 'unspecified))
+                 body))
+         #f)
+      form-src)))
+
+
+#; ;; wait-hygiene
 (define-syntax public when
   (syntax-rules ()
     ((when test expr ...)
@@ -75,12 +91,35 @@
        #f))))
 
 
+(syntax public (unless form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src))))
+    (sourcify-if
+      `(if (not ,test)
+           (begin ,@body)
+         #f)
+      form-src)))
+
+
+#; ;; wait-hygiene
 (define-syntax public unless
   (syntax-rules ()
     ((unless test expr ...)
      (when (not test) expr ...))))
 
 
+(syntax public (prog1 form-src)
+  (let ((returned (cadr (source-code form-src)))
+        (body (cddr (source-code form-src)))
+        (value (generate-symbol)))
+    (sourcify-if
+      `(let ((,value ,returned))
+         (begin ,@body)
+         ,value)
+      form-src)))
+
+
+#; ;; wait-hygiene
 (define-syntax public prog1
   (syntax-rules ()
     ((prog1 returned expr ...)
@@ -89,6 +128,20 @@
        value))))
 
 
+(syntax public (while form-src)
+  (let ((test (cadr (source-code form-src)))
+        (body (cddr (source-code form-src)))
+        (iter (generate-symbol "iter")))
+    (sourcify-if
+      `(let (,iter)
+         (if ,test
+             (begin
+               ,@body
+               (,iter))))
+      form-src)))
+
+
+#; ;; wait-hygiene
 (define-syntax public while
   (syntax-rules ()
     ((while test expr ...)
@@ -99,6 +152,17 @@
              (iterate)))))))
 
 
+(syntax public (unwind-protect form-src)
+  (let ((body (cadr (source-code form-src)))
+        (protection (cddr (source-code form-src))))
+    (sourcify-if
+      `(dynamic-wind (lambda () #f)
+                     (lambda () ,body)
+                     (lambda () ,@protection))
+      form-src)))
+
+
+#; ;; wait-hygiene
 (define-syntax public unwind-protect
   (syntax-rules ()
     ((unwind-protect body protection ...)

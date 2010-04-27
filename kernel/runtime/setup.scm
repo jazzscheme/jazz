@@ -150,7 +150,7 @@
         (jazz.load file)))
   
   (let ((global (%%string-append "~/.jazz/" filename))
-        (local (and jazz.kernel-source (%%string-append jazz.kernel-source filename))))
+        (local filename))
     (load-if-exists global)
     (load-if-exists local)))
 

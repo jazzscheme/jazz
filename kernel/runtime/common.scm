@@ -448,7 +448,7 @@
 (define (jazz.load-updated-manifest name manifest-filepath src-filepath)
   (let ((manifest (jazz.load/create-manifest name manifest-filepath)))
     (let ((digest (%%manifest-digest manifest)))
-      (if (jazz.updated-digest-source? digest src-filepath)
+      (if (and src-filepath (jazz.updated-digest-source? digest src-filepath))
           (jazz.save-manifest manifest-filepath manifest))
       manifest)))
 

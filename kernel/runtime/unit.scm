@@ -815,7 +815,7 @@
                                (jazz.load-updated-manifest
                                  unit-name
                                  (jazz.manifest-pathname (%%resource-package obj/bin) obj/bin)
-                                 (jazz.resource-pathname src))))))
+                                 (and src (jazz.resource-pathname src)))))))
           (let ((uptodate? (or (%%not src)
                                (and manifest
                                     (jazz.manifest-uptodate? manifest)

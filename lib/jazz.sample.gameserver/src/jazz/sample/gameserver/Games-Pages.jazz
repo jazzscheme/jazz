@@ -39,34 +39,35 @@
 
 
 (import (jazz.jml)
-        (jazz.network))
+        (jazz.jml.xhtml.XHTML-Parser)
+        (jazz.network.http.Handler)
+        (jazz.network.http.HTTP-Response)
+        (jazz.network.http.HTTP-Request))
 
 
-(class Games-Pages extends HTTP-Pages
+(class Games-Pages extends HTTP-Request-Handler
   
   
-  (definition Pattern-Associations
-    '(("Games" (<games>))))
-  
-  
-  (method override (get-pattern-associations)
-    Pattern-Associations)
-  
-  
-  ;;;
-  ;;;; Menu
-  ;;;
-  
-  
-  (pattern (games node)
-    (bind (tag) node
-      `(<html>
-         (<head>
-           (<title> "Games"))
-         (<body>
-           (<h3> "Games")
-           (<ul>
-             (<li> (<a> href: "C4" "C4")))
-           (<ul>
-             (<li> (<a> href: "Gomoku" "Gomoku")))
-           ,@(debug-info)))))))
+  (method override (handle-request request port server)
+    (when (equal? (get-uri~ request) "/")
+      (new HTTP-Response
+        code: 'ok
+        content:
+        (let ((printer (open-output-string)))
+          (render~ 
+            (new XHTML-Renderer (new JML-Preferences))
+            (parse~ (new XHTML-Parser)
+              '(<html>
+                 (<head>
+                   (<title> "Games"))
+                 (<body>
+                   (<h3> "Games")
+                   (<ul>
+                     (<li> (<a> href: "C4" "C4")))
+                   (<ul>
+                     (<li> (<a> href: "Gomoku" "Gomoku"))))))
+            printer)
+          (get-output-string printer)))))
+    
+  )
+)

@@ -39,10 +39,18 @@
 
 
 (import (jazz.network)
-        (jazz.sample.gameserver))
+        (jazz.network.http.Handler)
+        (jazz.network.http.HTTP-Response)
+        (jazz.network.http.HTTP-Request)
+        (jazz.jml.xhtml.XHTML-Renderer)
+        (jazz.jml.preference.JML-Preferences)
+        (jazz.jml.xhtml.XHTML-Parser))
 
 
-(class Game-Pages extends HTTP-Pages
+(class Game-Pages extends HTTP-Request-Handler
+  
+  
+  (slot page-name accessors generate)
   
   
   ;;;
@@ -103,7 +111,7 @@
   (method (deserialize-game request game goto current)
     (define (deserialize-moves)
       (let (loop (rank 0))
-        (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
+        (let ((value (get-parameter~ request (format "move{a}" rank))))
           (when value
             (let ((move (deserialize-move game value)))
               (if (or (not goto) (<= rank goto))
@@ -120,4 +128,23 @@
   
   
   (method protected virtual (deserialize-move game value)
-    )))
+    )
+  
+  
+  (method virtual (render-game request)
+    )
+  
+  
+  (method override (handle-request request port server)
+    (when (starts-with? (get-uri~ request) page-name)
+      (new HTTP-Response
+        code: 'ok
+        content:
+        (let ((printer (open-output-string)))
+          (render~ 
+            (new XHTML-Renderer (new JML-Preferences))
+            (parse~ (new XHTML-Parser)
+              (render-game request))
+            printer)
+          (get-output-string printer)))))
+  ))

@@ -38,25 +38,33 @@
 (module protected jazz.sample.gameserver.Game-Server jazz
 
 
-(import (jazz.network)
-        (jazz.sample.c4.C4-Pages)
+(import (jazz.io)
+        (jazz.network)
         (jazz.sample.gameserver)
-        (jazz.sample.gomoku.Gomoku-Pages))
+        (jazz.sample.gameserver.Gomoku-Pages)
+        (jazz.sample.gameserver.C4-Pages)
+        (jazz.network.http.Directory-Handler)
+        (jazz.platform)
+        (jazz.system)
+        (jazz.system.process))
 
 
-(class Game-Server extends Web-Server
-
-  
-  ;;;
-  ;;;; Pages
-  ;;;
+(class Game-Server-Process extends Process
   
   
-  (definition Pages-Associations
-    '(("Games"      Games-Pages)
-      ("C4"         C4-Pages)
-      ("Gomoku"     Gomoku-Pages)))
+  (method override (start-process)
+    (let ((server (new Web-Server))
+          (directory-handler 
+            (new Directory-Handler
+              root-directory: {Directory Jazz "lib" "jazz.sample.gameserver" "content"})))
+      
+      (add-handler~ (get-dispatcher~ server) (new Games-Pages))
+      (add-handler~ (get-dispatcher~ server) (new C4-Pages))
+      (add-handler~ (get-dispatcher~ server) (new Gomoku-Pages))
+      
+      (add-handler~ (get-dispatcher~ server) directory-handler)
+      
+      (start~ server)))
   
-  
-  (method override (get-pages-associations)
-    Pages-Associations)))
+  )
+)

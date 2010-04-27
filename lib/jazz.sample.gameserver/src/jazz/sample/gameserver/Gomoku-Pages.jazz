@@ -35,32 +35,24 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.sample.gomoku.Gomoku-Pages jazz
+(module protected jazz.sample.gameserver.Gomoku-Pages jazz
 
 
 (import (jazz.jml)
         (jazz.sample.game.minimax)
-        (jazz.sample.gameserver)
-        (jazz.sample.gomoku))
+        (jazz.sample.gomoku)
+        ;;(jazz.network.http.HTTP-Request)
+        (jazz.sample.gameserver.Game-Pages))
 
 
 (class Gomoku-Pages extends Game-Pages
-  
-  
-  (definition Pattern-Associations
-    '(("Gomoku" (<gomoku>))))
-  
-  
-  (method override (get-pattern-associations)
-    Pattern-Associations)
-  
-  
-  ;;;
-  ;;;; Gomoku
-  ;;;
 
   
-  (pattern (gomoku node)
+  (method override (initialize)
+    (set! page-name~self "/Gomoku"))
+
+  
+  (method override (render-game request)
     (define (new-game size)
       (case size
         ((small) (new Gomoku-Game rows: 9 columns: 9))
@@ -93,15 +85,14 @@
             ((nu=? players "ch") (list (new Gomoku-AI game BLACK) (new Gomoku-Human game WHITE)))
             ((nu=? players "cc") (list (new Gomoku-AI game BLACK) (new Gomoku-AI game WHITE)))))
     
-    (let ((request (get-request)))
-      (let ((size (effective-size (get-parameter~ request "size" error?: #f)))
-            (players (effective-players (get-parameter~ request "players" error?: #f)))
-            (current (effective-current (get-parameter~ request "current" error?: #f))))
-        (let ((game (new-game size)))
-          (let ((goto (effective-goto game (get-parameter~ request "goto" error?: #f))))
-            (register-players~ game (create-players game players))
+    (let ((size (effective-size (get-parameter~ request "size")))
+          (players (effective-players (get-parameter~ request "players")))
+          (current (effective-current (get-parameter~ request "current"))))
+      (let ((game (new-game size)))
+        (let ((goto (effective-goto game (get-parameter~ request "goto"))))
+          (register-players~ game (create-players game players))
             (deserialize-game request game goto current)
-            (let ((move (effective-move game (get-parameter~ request "move" error?: #f)))
+            (let ((move (effective-move game (get-parameter~ request "move")))
                   (all-computers? (every? computer?~ (get-players~ game))))
               (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
                 (play-players game move)))
@@ -270,8 +261,7 @@
                              (<td>)
                              (<td>)
                              (<td>)))
-                       '())
-                   ,@(debug-info))))))))))
+                       '())))))))))
   
   
   ;;;

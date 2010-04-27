@@ -1394,7 +1394,6 @@
                                 (list
                                   path: (kernel-path)
                                   arguments: `("-:dq-" "-build" ,(%%number->string active-count) ,@(if jazz.link `("-link" ,(%%symbol->string jazz.link)) '()) "-jobs" "1")
-                                  directory: jazz.kernel-install
                                   stdin-redirection: #t
                                   stdout-redirection: #t
                                   stderr-redirection: #f))))

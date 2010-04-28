@@ -158,7 +158,6 @@
 (define (jazz.process-jazzini)
   (jazz.load-configuration-files jazz.jazzini))
 
-
 (define (jazz.process-buildini)
   (jazz.load-configuration-files jazz.buildini))
 
@@ -303,17 +302,21 @@
         (define (setup-kernel)
           (set! ##allow-inner-global-define? #t)
           (set! jazz.debugger debugger)
-          (jazz.process-jazzini)
+          (jazz.process-jazzini))
+        
+        (define (setup-repositories)
           (jazz.prepare-repositories build-repository jazz-repository user-repository repositories)
           (jazz.setup-repositories))
           
         (define (setup-runtime)
           (setup-kernel)
+          (setup-repositories)
           (jazz.load-libraries))
         
         (define (setup-build)
           (setup-kernel)
           (jazz.process-buildini)
+          (setup-repositories)
           (set! jazz.link (or link (jazz.build-link)))
           (set! jazz.link-options (jazz.parse-link jazz.link))
           (set! jazz.jobs jobs)

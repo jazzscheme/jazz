@@ -139,12 +139,16 @@
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
         (gambit-library (if include-compiler? "gambcgsc" "gambc"))
         (library-image? (%%eq? image 'library)))
-    (let ((kernel-dir (string-append destination-directory "build/kernel/"))
+    (let ((build-directory (if product (%%repository-directory jazz.Build-Repository) destination-directory))
+          (kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
         (%%string-append source path))
       
       (define (build-file path)
+        (%%string-append build-directory path))
+      
+      (define (dest-file path)
         (%%string-append destination-directory path))
       
       (define (kernel-file path)
@@ -516,7 +520,7 @@
       ;;;
       
       (define (generate-configuration)
-        (let ((file (build-file ".configuration")))
+        (let ((file (dest-file ".configuration")))
           (if (%%not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
@@ -529,7 +533,7 @@
       ;;;
       
       (define (generate-gambcini)
-        (let ((file (build-file ".gambcini")))
+        (let ((file (dest-file ".gambcini")))
           (if (%%not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)

@@ -178,19 +178,19 @@
         (jazz.update-product-descriptor descriptor))))
   (windows
     (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
-      (let ((install jazz.kernel-install)
+      (let ((build (%%repository-directory jazz.Build-Repository))
             (source jazz.kernel-source))
-        (define (install-file path)
-          (string-append install path))
+        (define (build-file path)
+          (string-append build path))
         
         (define (source-file path)
           (string-append source path))
         
         (define (copy-platform-files)
-          (jazz.copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (install-file "libcairo-2.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (install-file "libpng13.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (install-file "zlib1.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
+          (jazz.copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (build-file "libcairo-2.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (build-file "libpng13.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (build-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (let ((unit-specs `((jazz.platform)
                             (jazz.platform.crash)

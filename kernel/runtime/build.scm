@@ -197,7 +197,7 @@
           
           (proc rebuild? rebuild-architecture? touch touched?)
           (if (or was-touched? (%%not (file-exists? version-file)))
-              (call-with-output-file version-file
+              (call-with-output-file (list path: version-file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                 (lambda (output)
                   (write (jazz.get-source-version-number) output)
                   (newline output)
@@ -277,7 +277,7 @@
           (if (or rebuild? rebuild-architecture? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file file
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
                     (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)))
                 #t)
@@ -364,7 +364,7 @@
           (if (or rebuild? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file file
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
                     (newline output)
@@ -385,7 +385,7 @@
           (if (or rebuild? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file file
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
                     (cond (library-image?
                             (display "(jazz.library-main)" output)
@@ -524,7 +524,7 @@
           (if (%%not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file file
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
                     (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination output)))))))
       
@@ -537,7 +537,7 @@
           (if (%%not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file file
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
                     (print ";;;==============" output)
                     (print ";;;  JazzScheme" output)
@@ -707,7 +707,7 @@
     (subunits-uptodate? sub-units))
   
   (define (make-library-header header- library sub-units)
-    (call-with-output-file header-
+    (call-with-output-file (list path: header- eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (port)
         (display (string-append "(jazz.register-image-units '" (%%symbol->string library) " '(") port)
         (newline port)

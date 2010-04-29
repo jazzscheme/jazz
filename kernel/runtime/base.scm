@@ -385,6 +385,12 @@
                    (jazz.directory-content directory)))
 
 
+(define (jazz.platform-eol-encoding platform)
+  (case platform
+    ((windows) 'cr-lf)
+    (else 'lf)))
+
+
 ;;;
 ;;;; Command Line
 ;;;

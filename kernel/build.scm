@@ -269,7 +269,7 @@
   
   (receive (anonymous named) (split-configurations jazz.configurations)
     (if anonymous
-        (call-with-output-file jazz.anonymous-configuration-file
+        (call-with-output-file (list path: jazz.anonymous-configuration-file eol-encoding: (jazz.platform-eol-encoding (jazz.guess-platform)))
           (lambda (output)
             (print-configuration anonymous output)))
       (if (file-exists? jazz.anonymous-configuration-file)
@@ -278,7 +278,7 @@
       (if (not (null? configurations))
           (begin
             (jazz.create-directories "~/.jazz" feedback: jazz.feedback)
-            (call-with-output-file jazz.named-configurations-file
+            (call-with-output-file (list path: jazz.named-configurations-file eol-encoding: (jazz.platform-eol-encoding (jazz.guess-platform)))
               (lambda (output)
                 (for-each (lambda (configuration)
                             (print-configuration configuration output))
@@ -422,15 +422,16 @@
     unix))
 
 
+(define (jazz.guess-platform)
+  (let ((system (cadr (system-type)))
+        (os (caddr (system-type))))
+    (cond ((eq? system 'apple) 'mac)
+          ((eq? os 'linux-gnu) 'unix)
+          (else 'windows))))
+
+
 (define (jazz.require-platform platform)
-  (define (guess-platform)
-    (let ((system (cadr (system-type)))
-          (os (caddr (system-type))))
-      (cond ((eq? system 'apple) 'mac)
-            ((eq? os 'linux-gnu) 'unix)
-            (else 'windows))))
-  
-  (or platform (guess-platform)))
+  (or platform (jazz.guess-platform)))
 
 
 (define (jazz.validate-platform platform)

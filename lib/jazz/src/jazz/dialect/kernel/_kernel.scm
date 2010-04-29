@@ -493,6 +493,7 @@
 (native jazz.kernel-source)
 (native jazz.kernel-version)
 (native jazz.get-source-version-number)
+(native jazz.platform-eol-encoding)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
 (native jazz.warn-interpreted?)

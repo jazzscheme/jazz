@@ -401,7 +401,7 @@
         (digest (%%manifest-digest manifest))
         (references (%%manifest-references manifest)))
     (jazz.create-directories (jazz.pathname-dir filepath))
-    (call-with-output-file filepath
+    (call-with-output-file (list path: filepath eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (output)
         (display "(manifest " output)
         (display name output)

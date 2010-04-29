@@ -317,7 +317,7 @@
 
 (define (jazz.make-repository name directory library-root #!key (binary? #f) (create? #f))
   (define (create-repository repository-file)
-    (call-with-output-file repository-file
+    (call-with-output-file (list path: repository-file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (output)
         (display "(repository " output)
         (display name output)

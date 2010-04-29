@@ -1021,24 +1021,40 @@
             (not (shortcut-hook shortcut)))
         (let ((action-items (get-bound-actions shortcut)))
           (when (not-null? action-items)
-            (invoke~ (car action-items) self {})
-            #t))
+            (let ((action (car action-items)))
+              (when (action-allowed? action)
+                (invoke~ action self {})
+                #t))))
       #t))
   
   
   (method public (get-bound-actions shortcut)
-    (define (filter-enabled actions)
-      (collect-if (lambda (action)
-                    (get-enabled?~ action))
-                  actions))
+    (define (filter-allowed actions)
+      (collect-if action-allowed? actions))
     
     (let ((actions (table-ref shortcut-table shortcut '())))
       ;; This temporary test is because I am not sure it is what we want in general
       ;; It could be very surprising to do a shortcut that's supposed to do nothing
       ;; as it's disabled and find out that something completly different happened!
       (if (shortcut=? shortcut {Shortcut :control #\X})
-          (filter-enabled actions)
+          (filter-allowed actions)
         actions)))
+  
+  
+  (method public (action-allowed? action-item)
+    (define (application-action?)
+      (memq (get-parent~ action-item) (class-actions)))
+    
+    (and (get-enabled?~ action-item)
+         (or (allow-orphaned-actions?)
+             (not-null? (get-actionables~ action-item))
+             (not (application-action?)))))
+  
+  
+  ;; quick solution. probably better would be some way for applications like jedi
+  ;; to register those orphaned actions somewhere user accessible
+  (method protected virtual (allow-orphaned-actions?)
+    #f)
   
   
   ;;;

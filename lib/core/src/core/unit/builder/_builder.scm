@@ -115,17 +115,14 @@
                 (let* ((product-name (jazz.product-descriptor-name product-descriptor))
                        (product (jazz.get-product product-name))
                        (update-descriptor (jazz.product-descriptor-update product-descriptor)))
-                  (if update-descriptor
-                      (let ((update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
-                                                           (jazz.product-descriptor-update product-descriptor))))
-                        (for-each
-                          (lambda (unit)
-                            (jazz.for-each-subunit
-                              unit
-                              (lambda (sub-unit declaration phase)
-                                (if (eq? sub-unit unit-name)
-                                    (continuation-return return product)))))
-                          update)))))
+                  (let ((update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
+                                                       (jazz.product-descriptor-update product-descriptor))))
+                    (for-each (lambda (unit)
+                                (jazz.for-each-subunit unit
+                                  (lambda (sub-unit declaration phase)
+                                    (if (eq? sub-unit unit-name)
+                                        (continuation-return return product)))))
+                              update))))
               products)
             #f))))))
 

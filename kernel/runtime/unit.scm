@@ -1097,7 +1097,7 @@
   (let ((pair (%%assq 'update (%%cdr descriptor))))
     (if pair
         (%%cdr pair)
-      #f)))
+      '())))
 
 (define (jazz.product-descriptor-build descriptor)
   (let ((pair (%%assq 'build (%%cdr descriptor))))
@@ -1270,6 +1270,7 @@
   (lambda ()
     (jazz.error "ill-formed {a} field in product descriptor for product {a}" field-name product-name)))
 
+
 (define (jazz.cond-expand-each error-proc updates)
   (define (apply-cond-expand exp)
     (cond ((and (%%pair? exp)
@@ -1311,9 +1312,7 @@
   (let* ((name (jazz.product-descriptor-name descriptor))
          (update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" name)
                                         (jazz.product-descriptor-update descriptor))))
-    (if update
-        (for-each jazz.build-unit update)
-      (jazz.error "Product is not updateable: {s}" name))))
+    (for-each jazz.build-unit update)))
 
 
 (define (jazz.build-product name)

@@ -140,7 +140,7 @@
   ;;;
   
   
-  (method override (launch (executable: executable {}) (directory: directory {}) (action: action {}) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (launch (executable: executable {}) (directory: directory {}) (kernel-arguments: kernel-arguments {}) (action: action {}) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (define (determine-kernel)
       (cond ((eq? executable :choose) (choose-kernel))
             (executable executable)
@@ -158,6 +158,7 @@
       (let* ((executable               (determine-kernel))
              (runtime-arg              (list @wait "-:m250000,h1000000"))
              (product-arg              (list (either action "-run") (->string product)))
+             (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
              (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
              (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string (either debugger-cookie (register-debugger-cookie (lambda (cookie) (clear-user-message)))))) '()))
              (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
@@ -165,7 +166,7 @@
              (profile-arg              (if profile (list "-profile" (->string profile)) '()))
              (action-arg               (if command-action (list command-action) '()))
              (arguments-arg            (if command-arguments command-arguments '()))
-             (arguments                (append runtime-arg action-arg product-arg debugger-arg debugger-cookie-arg debugger-interactive-arg profile-arg arguments-arg)))
+             (arguments                (append runtime-arg action-arg product-arg kernel-arguments-arg debugger-arg debugger-cookie-arg debugger-interactive-arg profile-arg arguments-arg)))
         (save-all~ ide)
         (when debugger?
           (user-message "Debugging {a}..." (get-presentation-property)))

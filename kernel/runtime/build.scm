@@ -385,7 +385,7 @@
           (if (or rebuild? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                (call-with-output-file (list path: file eol-encoding: 'lf)
                   (lambda (output)
                     (cond (library-image?
                             (display "(jazz.library-main)" output)

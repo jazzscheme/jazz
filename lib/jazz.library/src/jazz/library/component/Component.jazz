@@ -57,7 +57,11 @@
   
   (definition Installed-Flag    #x00000001)
   (definition Finished-Flag     #x00000002)
-  (definition Visible-Flag      #x00000004)
+  (definition Initialized-Flag  #x00000004)
+  (definition Visible-Flag      #x00000008)
+  (definition Must-Destroy-Flag #x00000010)
+  (definition Destroying-Flag   #x00000020)
+  (definition Destroyed-Flag    #x00000040)
   (definition Layout-Valid-Flag #x00000100)
   
   
@@ -189,7 +193,6 @@
   (method protected (get-installed?)
     (mask-bit-set? flags Installed-Flag))
   
-  
   (method protected (set-installed? flag <bool>)
     (set! flags (mask-bit-set flags Installed-Flag flag)))
   
@@ -197,14 +200,47 @@
   (method protected (get-finished?)
     (mask-bit-set? flags Finished-Flag))
   
-  
   (method (set-finished? flag <bool>)
     (set! flags (mask-bit-set flags Finished-Flag flag)))
   
   
+  (method protected (get-initialized?)
+    (mask-bit-set? flags Initialized-Flag))
+  
+  (method (set-initialized? flag <bool>)
+    (set! flags (mask-bit-set flags Initialized-Flag flag)))
+    
+  
+  (method public (get-visible-flag)
+    (mask-bit-set? flags Visible-Flag))
+  
+  (method public (set-visible-flag flag <bool>)
+    (set! flags (mask-bit-set flags Visible-Flag flag)))
+
+  
+  (method (get-must-destroy?)
+    (mask-bit-set? flags Must-Destroy-Flag))
+  
+  (method (set-must-destroy? flag <bool>)
+    (set! flags (mask-bit-set flags Must-Destroy-Flag flag)))
+
+  
+  (method (get-destroying?)
+    (mask-bit-set? flags Destroying-Flag))
+  
+  (method (set-destroying? flag <bool>)
+    (set! flags (mask-bit-set flags Destroying-Flag flag)))
+
+  
+  (method (get-destroyed?)
+    (mask-bit-set? flags Destroyed-Flag))
+  
+  (method (set-destroyed? flag <bool>)
+    (set! flags (mask-bit-set flags Destroyed-Flag flag)))
+
+  
   (method (get-layout-valid?)
     (mask-bit-set? flags Layout-Valid-Flag))
-  
   
   (method (set-layout-valid? flag <bool>)
     (set! flags (mask-bit-set flags Layout-Valid-Flag flag)))
@@ -242,6 +278,7 @@
     (install-in-parent)
     (set-finished? #t)
     (conclude rest)
+    (set-initialized? #t)
     (let ((visible? (get-visible?)))
       (when (neq? visible? (initially-visible?))
         (if visible?
@@ -392,9 +429,25 @@
     )
 
 
+  (method override (initialized?)
+    (get-initialized?))
+
+
   ;;;
   ;;;; Destruction
   ;;;
+
+
+  (method override (destroy-mandatory)
+    (set-must-destroy? #t))
+
+
+  (method override (destroying?)
+    (get-destroying?))
+
+
+  (method override (destroyed?)
+    (get-destroyed?))
 
 
   (method override (close)
@@ -404,11 +457,13 @@
 
   ;; called before children are destroyed
   (method chained (destroy-component)
+    (set-destroying? #t)
     (for-each (lambda (child)
                 (when (is? child Component)
                   (destroy-component~ child)))
               children)
-    (call-destroy self))
+    (destroy)
+    (set-destroyed? #t))
   
   
   ;; called after children are destroyed
@@ -456,14 +511,6 @@
   
   (method public virtual (hide)
     (set-visible-flag #f))
-  
-  
-  (method public (get-visible-flag)
-    (mask-bit-set? flags Visible-Flag))
-  
-  
-  (method public (set-visible-flag flag <bool>)
-    (set! flags (mask-bit-set flags Visible-Flag flag)))
 
 
   ;;;

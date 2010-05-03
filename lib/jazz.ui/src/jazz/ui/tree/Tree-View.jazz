@@ -1653,7 +1653,7 @@
   
   
   (method public (add-merged-row row merge-cell)
-    (let ((merged-title (get-cell-title (get-first-cell~ merge-cell)))
+    (let ((merged-title (get-cell-title (get-master-cell~ merge-cell)))
           (is-valid? #t)
           (site-list '()))
       (for-each (lambda (column)
@@ -1723,6 +1723,13 @@
           (receive (dh dv sc) (get-delta~ root self)
             (with-closed ((region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
               (invalidate-region~ player region)))))))
+  
+  
+  (method public (get-master-cell cell)
+    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+      (if merge-cell
+          (get-master-cell~ merge-cell)
+        cell)))
   
   
   (method public (get-top-cell cell)
@@ -2153,8 +2160,8 @@
         (let ((edited (restore-cell saved-edited)))
           (if (not edited)
               (kill-edition)
-            (replace-cell edited cell-editor)
-            (set! edited-cell edited))))
+            (set! edited-cell (get-master-cell edited))
+            (replace-cell edited-cell cell-editor))))
       (let ((selection (restore-selection saved-selection)))
         (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)
         (scroll-to (nu- saved-position (selection-position selection))))))

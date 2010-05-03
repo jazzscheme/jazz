@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Web Server
+;;;; Sessions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,48 +35,55 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.Web-Server jazz
+(module protected jazz.network.http.Session jazz
 
 
-(import (jazz.io)
-        (jazz.jml)
-        (jazz.network)
-        (jazz.network.http.Dispatcher)
-        (jazz.network.http.Session-Manager)
-        (webserver))
+(import (jazz.library)
+        (jazz.network))
+
+;;; TODO:
+;; needs last-access timestamp for timeouts
+;; needs to be tied to client info to prevent session hijacking
 
 
-(class Web-Server extends Object
+(class Session extends Object
+
+  
+  (slot id         initialize {}  getter generate)
+  (slot properties initialize '() getter generate)
   
   
-  (slot dispatcher initialize (new HTTP-Dispatcher) accessors generate)
-  ;;(slot session-manager initialize (new Session-Manager) accessors generate)
-  (slot port-number initialize 8080 accessors generate)
-  (slot gambit-webserver accessors generate)
+  (method override (initialize id)
+    (nextmethod)
+    (set! id~self id))
   
   
-  ;; gambit webserver dispatcher: (lambda (connection method uri parameters headers content)
-  ;; uri is a define-type
-  ;; parameters is an alist
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "id: {s}" id))))
   
   
-  (method public (start)
-    (define gambit-webserver-dispatch-hook
-      (lambda (connection method uri parameters headers content)
-        (let ((request 
-                (new HTTP-Request 
-                  http-method: method
-                  uri: (uri-path uri) ;; fixme
-                  ;; parameters: xxx
-                  ;; headers: xxx
-                  content: content
-                  )))
-          (dispatch~ dispatcher request connection self))))    
-    
-    (set! gambit-webserver 
-          (make-http-server port-number: port-number
-                            dispatcher: gambit-webserver-dispatch-hook))
-    (http-server-start! gambit-webserver))
-      
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (definition Not-Found
+    {Box not-found})
+
+
+  (method public (get-property name (error?: error? #t))
+    (let ((value (getf properties name not-found: Not-Found)))
+      (if (neq? value Not-Found)
+          value
+        (when error?
+          (error "Unknown property: {s}" name)))))
+  
+  
+  (method public (set-property name value)
+    (if (getprop properties name)
+        (setf properties name value)
+      (set! properties (addf properties name value))))
   )
 )

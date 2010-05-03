@@ -41,79 +41,25 @@
 (import (jazz.network))
 
 
-(class HTTP-Message extends Object
+(class HTTP-Message extends Object ;; ABSTRACT
   
   
-  (slot headers initialize (make-table test: equal?) getter generate)
-  (slot cookies initialize (make-table test: equal?) getter generate)
+  (slot protocol initialize "HTTP/1.1"                getter generate)
+  (slot headers  initialize (make-table test: equal?) getter generate)
+  (slot content  initialize #f                        getter generate)
+  
+  ;; synthetic/cached slot
+  (slot cookies  initialize (make-table test: equal?) getter generate)
   
   
-  ;;;
-  ;;;; Parsing
-  ;;;
-
-  
-  @seems-doing-char-input-is-illegal-before-read-subu8vector
-  (method (read-line/headers port)
-    (let ((line (read-line port))
-          (fact (new List-Factory)))
-      (let (loop)
-        (let ((str (read-line port)))
-          (if (empty-string? str)
-              (values line (get-output~ fact))
-            (put~ fact str)
-            (loop))))))
+  ;; abstract slot?
+  (slot cookie-header-name)
   
   
-  (method (read-line/headers port)
-    (let ((output (open-output-u8vector)))
-      (let (loop (c0 #f)
-                 (c1 #f)
-                 (c2 #f)
-                 (c3 (read-u8 port)))
-        (write-u8 c3 output)
-        (if (and (eqv? c0 13)
-                 (eqv? c1 10)
-                 (eqv? c2 13)
-                 (eqv? c3 10))
-            (call-with-input-u8vector (list init: (get-output-u8vector output) eol-encoding: 'cr-lf)
-              (lambda (input)
-                (values (read-line input)
-                        (read-all input read-line))))
-          (loop c1 c2 c3 (read-u8 port))))))
-
-  
-  (method (parse-headers headers)
-    (for-each (lambda (header)
-                (unless (empty-string? header)
-                  (let* ((pos (find header #\colon))
-                         (name (subseq header 0 pos))
-                         (value (subseq header (+ pos 2))))
-                    (add-header name value))))
-              headers))
-  
-  
-  (method (parse-cookies header)
-    (define (parse-cookie cookie-value)
-      (let* ((pos (find cookie-value #\=))
-             (semi (find cookie-value #\;))
-             (name (subseq cookie-value 0 pos))
-             (value (subseq cookie-value (+ pos 1) semi)))
-        (add-cookie (new HTTP-Cookie name value))))
-    
-    (let ((headers (get-list-header header error?: #f)))
-      (when headers
-        (for-each parse-cookie headers))))
-  
-  
-  (method (read-body port)
-    (let ((content-length (get-header "Content-Length" error?: #f)))
-      (if (not content-length)
-          #f
-        (let ((content-length (parse-integer content-length)))
-          (let ((body (make-u8vector content-length)))
-            (read-subu8vector body 0 content-length port)
-            body)))))
+  (method override (initialize
+                     (content: content #f))
+    (nextmethod)
+    (set! content~self content))
   
   
   ;;;
@@ -143,6 +89,20 @@
       (table-set! headers name new-value)))
   
   
+  (method (print-headers port)
+    ;; put in logic to check for content and output Content-Length header here
+    (iterate-table 
+      headers
+      (lambda (name value)
+        (print-header name value port))))
+  
+  
+  (method (print-header name value port)
+    (format port "{%}{a}: {a}" name value))
+  
+  (method virtual (send port)
+    )
+  
   ;;;
   ;;;; Cookies
   ;;;
@@ -150,12 +110,6 @@
 
   (method public (get-cookie name)
     (table-ref cookies name #f))
-  
-  
-  (method public (get-cookie-value name)
-    (let ((cookie (get-cookie name)))
-      (when cookie
-        (get-value~ cookie))))
   
   
   (method public (add-cookie cookie)
@@ -167,37 +121,21 @@
     (iterate-table cookies proc))
   
   
-  ;;;
-  ;;;; Send
-  ;;;
-  
-  
-  (method public virtual (send-message port)
-    (let ((str (message-string)))
-      (display str port)))
-  
-  
-  (method protected virtual (message-string)
-    )
-  
-  
-  ;;;
-  ;;;; Output
-  ;;;
-  
-  
-  (method (output-headers printer)
-    (iterate-table headers
-      (lambda (name value)
-        (output-header name value printer))))
-  
-  
-  (method (output-header name value printer)
-    (format printer "{%}{a}: {a}" name value))
-  
-  
-  (method (output-cookies header printer)
+  (method (print-cookies port)
     (for-each-cookie
-      (lambda (name cookie)
-        (let ((value (get-value~ cookie)))
-          (output-header header (format "{a}={a}; Path=/" name value) printer)))))))
+      (lambda (cookie-name cookie)
+        (print-header cookie-header-name
+                      (print~ cookie) ;; FIXME
+                      port))))
+  
+  ;; (method (parse-cookies) ;; called after init/after add header??
+;;     (let ((headers (get-list-header cookie-header-name error?: #f)))
+;;       (when headers
+;;         (for-each (lambda (header-line)
+;;                     (add-cookie (parse-cookie header-line))) 
+;;                   headers))))
+
+  ;; (method (parse-cookie header-line)
+  ;;)
+    )
+)

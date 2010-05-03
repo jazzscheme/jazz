@@ -40,30 +40,29 @@
 
 (import (jazz.network))
 
+;;; TODO:
+;; fix cookie output
 
 (class HTTP-Response extends HTTP-Message
   
   
-  (definition Cookie-Header
-    "Set-Cookie")
-  
-  
-  (slot version getter generate)
   (slot code    getter generate)
-  (slot body    getter generate)
   
   
-  (method override (initialize (code: code {}) (body: body {}) (port: port {}))
+  (slot cookie-header-name initialize "Cookie-Out")
+  
+  
+  (method override (initialize 
+                     (code: code {})
+                     (content: content #f))
     (nextmethod)
     (set! code~self (either code 'ok))
-    (set! body~self body)
-    (when port
-      (parse-response port)))
+    (set! content~self content))
   
   
   ;;;
   ;;;; Parsing
-  ;;;
+  ;;; FIXME, later
 
 
 @response-from-www.yahoo.com
@@ -90,19 +89,20 @@ Set-Cookie: SessionID=nil
 ..."
   
   
+  @fixme
   (method (parse-response port)
     (receive (line headers) (read-line/headers port)
       (bind (version code code-text) (split line " ")
-        (set! version~self version)
         (set! code~self (parse-code code))
         (parse-headers headers)
         (parse-cookies Cookie-Header)
-        (set! body~self (read-body port)))))
+        ;;(set! body~self (read-body port))
+        )))
   
   
   ;;;
   ;;;; Codes
-  ;;;
+  ;;; this needs a little more thought
   
   
   (definition Response-Codes
@@ -129,13 +129,11 @@ Set-Cookie: SessionID=nil
   ;;;
   
   
-  (method override (message-string)
-    (let ((printer (open-output-string)))
-      (output-control printer)
-      (output-headers printer)
-      (output-cookies Cookie-Header printer)
-      (output-body printer)
-      (get-output-string printer)))
+  (method override (send port)
+    (output-control port)
+    (print-headers port)
+    ;; (output-cookies "Set-Cookie" port) fixme
+    (output-content port))
   
   
   (method (output-control printer)
@@ -143,7 +141,7 @@ Set-Cookie: SessionID=nil
       (format printer "HTTP/1.1 {a} {a}" number text)))
   
   
-  (method (output-body printer)
+  (method (output-content printer)
     (format printer "{%}{%}")
-    (when body
-      (format printer "{a}" body)))))
+    (when content
+      (format printer "{a}" content)))))

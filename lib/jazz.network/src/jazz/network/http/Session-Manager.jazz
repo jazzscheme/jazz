@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; HTTP Sessions
+;;;; Session Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,88 +35,49 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.HTTP-Session jazz
+(module protected jazz.network.http.Session-Manager jazz
 
 
 (import (jazz.library)
-        (jazz.network))
+        (jazz.network)
+        (jazz.network.http.Session))
 
 
-;;;
-;;;; Manager
-;;;
+;;; TODO:
+;; session timeout
+;; make thread-safe
+;; 
 
 
-(definition Session-Id
-  0)
-
-
-(definition Sessions
-  '())
-
-
-(definition public (get-sessions)
-  Sessions)
-
-
-(definition public (new-session)
-  (let ((session (new HTTP-Session Session-Id)))
-    (set! Sessions (cons session Sessions))
-    (increase! Session-Id)
-    session))
-
-
-(definition public (close-session session)
-  (set! Sessions (remove! session Sessions)))
-
-
-(definition public (find-session session-id)
-  (find-if (lambda (session)
-             (= (get-id~ session) session-id))
-           Sessions))
-
-
-;;;
-;;;; Session
-;;;
-
-
-(class HTTP-Session extends Object
+(class Session-Manager extends Object
   
   
-  (slot id         initialize {}  getter generate)
-  (slot properties initialize '() getter generate)
+  (slot id-counter        initialize 0    accessors generate)
+  (slot sessions          initialize '()  accessors generate)
+  ;; (slot session-timeout   initialize 3600 accessors generate)
+  ;; (slot session-list-lock initialize '()) ;; FIXME
   
-  
-  (method override (initialize id)
-    (nextmethod)
-    (set! id~self id))
-  
-  
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (format printer "id: {s}" id))))
-  
-  
-  ;;;
-  ;;;; Properties
-  ;;;
-  
-  
-  (definition Not-Found
-    {Box not-found})
+
+  (method public (new-session) ;; signature should be: (request port reply)
+    (let ((session (new Session id-counter)))
+      (set! sessions (cons session sessions))
+      (increase! id-counter)
+      session))
 
 
-  (method public (get-property name (error?: error? #t))
-    (let ((value (getf properties name not-found: Not-Found)))
-      (if (neq? value Not-Found)
-          value
-        (when error?
-          (error "Unknown property: {s}" name)))))
+  (method public (end-session session)
+    (set! sessions (remove! session sessions)))
+
+
+  (method public (get-session request port)
+    @fixme
+    (let ((session-id
+            0)) ;; fixme
+      (find-if (lambda (session)
+                 (= (get-id~ session) session-id))
+               sessions))
+    #f
+    )
   
-  
-  (method public (set-property name value)
-    (if (getprop properties name)
-        (setf properties name value)
-      (set! properties (addf properties name value))))))
+  )
+)

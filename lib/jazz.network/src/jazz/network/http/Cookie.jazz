@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Web Server
+;;;; Cookies
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,48 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.Web-Server jazz
+(module protected jazz.network.http.Cookie jazz
 
 
-(import (jazz.io)
-        (jazz.jml)
-        (jazz.network)
-        (jazz.network.http.Dispatcher)
-        (jazz.network.http.Session-Manager)
-        (webserver))
-
-
-(class Web-Server extends Object
+(class Cookie extends Object
   
   
-  (slot dispatcher initialize (new HTTP-Dispatcher) accessors generate)
-  ;;(slot session-manager initialize (new Session-Manager) accessors generate)
-  (slot port-number initialize 8080 accessors generate)
-  (slot gambit-webserver accessors generate)
+  (slot name    getter    generate)
+  (slot value   getter    generate)
+  (slot expires accessors generate)
+  (slot path    accessors generate)
+  (slot domain  accessors generate)
+  (slot secure? accessors generate)
   
   
-  ;; gambit webserver dispatcher: (lambda (connection method uri parameters headers content)
-  ;; uri is a define-type
-  ;; parameters is an alist
+  (method override (initialize name value)
+    (nextmethod)
+    (set! name~self name)
+    (set! value~self value))
   
   
-  (method public (start)
-    (define gambit-webserver-dispatch-hook
-      (lambda (connection method uri parameters headers content)
-        (let ((request 
-                (new HTTP-Request 
-                  http-method: method
-                  uri: (uri-path uri) ;; fixme
-                  ;; parameters: xxx
-                  ;; headers: xxx
-                  content: content
-                  )))
-          (dispatch~ dispatcher request connection self))))    
-    
-    (set! gambit-webserver 
-          (make-http-server port-number: port-number
-                            dispatcher: gambit-webserver-dispatch-hook))
-    (http-server-start! gambit-webserver))
-      
+  (method override (print printer readably) ;; FIXME
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{s} {s}" name value))))
+  
+  
+  (define (parse-cookie cookie-string) ;; FIXME
+    (let* ((pos (find cookie-string #\=))
+           (semi (find cookie-string #\;))
+           (name (subseq cookie-string 0 pos))
+           (value (subseq cookie-string (+ pos 1) semi)))
+      (new Cookie name value)))
+  
   )
 )

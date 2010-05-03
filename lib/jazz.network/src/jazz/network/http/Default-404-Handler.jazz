@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Web Server
+;;;; Handler
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -34,49 +34,23 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
-
-(module protected jazz.network.http.Web-Server jazz
-
-
-(import (jazz.io)
-        (jazz.jml)
-        (jazz.network)
-        (jazz.network.http.Dispatcher)
-        (jazz.network.http.Session-Manager)
-        (webserver))
+(module jazz.network.http.Default-404-Handler jazz
 
 
-(class Web-Server extends Object
+(import (jazz.network.http.Handler)
+        (jazz.network.http.HTTP-Response))
+
+
+(class Default-404-Handler extends HTTP-Request-Handler
   
   
-  (slot dispatcher initialize (new HTTP-Dispatcher) accessors generate)
-  ;;(slot session-manager initialize (new Session-Manager) accessors generate)
-  (slot port-number initialize 8080 accessors generate)
-  (slot gambit-webserver accessors generate)
+  ;; static/class allocated slot (slot reply404 initialize (new HTTP-Response "404 not found"))
   
   
-  ;; gambit webserver dispatcher: (lambda (connection method uri parameters headers content)
-  ;; uri is a define-type
-  ;; parameters is an alist
+  (method override (handle-request request port server)
+    (new HTTP-Response
+      code: 'not-found
+      content: "DOCUMENT NOT FOUND"))
   
-  
-  (method public (start)
-    (define gambit-webserver-dispatch-hook
-      (lambda (connection method uri parameters headers content)
-        (let ((request 
-                (new HTTP-Request 
-                  http-method: method
-                  uri: (uri-path uri) ;; fixme
-                  ;; parameters: xxx
-                  ;; headers: xxx
-                  content: content
-                  )))
-          (dispatch~ dispatcher request connection self))))    
-    
-    (set! gambit-webserver 
-          (make-http-server port-number: port-number
-                            dispatcher: gambit-webserver-dispatch-hook))
-    (http-server-start! gambit-webserver))
-      
   )
 )

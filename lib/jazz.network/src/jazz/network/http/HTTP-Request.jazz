@@ -43,33 +43,30 @@
 
 
 (class HTTP-Request extends HTTP-Message
+
+  
+  ;; (slot remote-address getter generate) ;; FIXME
+  ;; (slot remote-port getter generate) ;; use Gambit's tcp-client-peer-socket-info
+  ;; the two parameters shouldn't be here - TCP stuff
+  
+  (slot http-method getter generate)
+  (slot uri getter generate)
+
+  ;; synthetic parameters (come from uri and content)
+  (slot get-parameters  initialize (make-table test: equal?) getter generate)
+  (slot post-parameters initialize (make-table test: equal?) getter generate)
   
   
-  (definition Cookie-Header
-    "Cookie")
+  (slot cookie-header-name initialize "Cookie")
   
   
-  (slot host                     getter generate)
-  (slot service                  getter generate)
-  (slot operation                getter generate)
-  (slot resource                 getter generate)
-  (slot version                  getter generate)
-  (slot parameters               getter generate)
-  (slot server     initialize {} accessors generate)
-  (slot session    initialize {} accessors generate)
-  
-  
-  (method override (initialize (operation: operation {}) (resource: resource {}) (parameters: parameters '()) (port: port {}))
+  (method override (initialize (http-method: http-method {}) 
+                               (uri: uri {})
+                               (content: content #f))
     (nextmethod)
-    (set! operation~self operation)
-    (set! resource~self resource)
-    (set! parameters~self parameters)
-    (when port
-      @convert
-      (set! host (get-host~ port))
-      @convert
-      (set! service (get-service~ port))
-      (parse-request port)))
+    (set! http-method~self http-method)
+    (set! uri~self uri)
+    (set! content~self content))
   
   
   ;;;
@@ -112,13 +109,13 @@ Cookie: SessionID=nil
   
   
   (method (parse-request port)
-    (define (parse-resource resource)
-      (let ((pos (find resource #\question-mark)))
+    (define (parse-uri uri)
+      (let ((pos (find uri #\question-mark)))
         (if (not pos)
-            (values (url-decode (subseq resource 1))
+            (values (url-decode (subseq uri 1))
                     {})
-          (values (url-decode (subseq resource 1 pos))
-                  (subseq resource (+ pos 1))))))
+          (values (url-decode (subseq uri 1 pos))
+                  (subseq uri (+ pos 1))))))
     
     (define (parse-parameters fragment port)
       (define (split-parameters port)
@@ -130,28 +127,34 @@ Cookie: SessionID=nil
                    (cons (url-decode name) (url-decode value))))
                parameters)))
       
-      (if fragment
-          (call-with-input-string fragment
-            (lambda (port)
-              (set! parameters~self (split-parameters port))))
-        (let ((body (read-body port)))
-          (when body
-            (call-with-input-u8vector body
-              (lambda (port)
-                (set! parameters~self (split-parameters port))))))))
+      ;; (if fragment
+;;           (call-with-input-string fragment
+;;             (lambda (port)
+;;               (set! get-parameters~self (split-parameters port))))
+;;         (let ((body (read-body port)))
+;;           (when body
+;;             (call-with-input-u8vector body
+;;               (lambda (port)
+;;                 (set! post-parameters~self (split-parameters port))))))
+;;         )
+      #f
+      )
     
     (define (parse-value value)
       (substitute #\+ #\space value))
     
-    (receive (line headers) (read-line/headers port)
-      (bind (operation resource version) (split line " ")
-        (receive (resource fragment) (parse-resource resource)
-          (set! operation~self operation)
-          (set! resource~self resource)
-          (set! version~self version)
-          (parse-headers headers)
-          (parse-cookies Cookie-Header)
-          (parse-parameters fragment port)))))
+    ;; (receive (line headers) (read-line/headers port)
+;;       (bind (http-method uri protocol) (split line " ")
+;;         (receive (uri fragment) (parse-uri uri)
+;;           (set! http-method~self http-method)
+;;           (set! uri~self uri)
+;;           (set! protocol~self protocol)
+;;           (parse-headers headers)
+;;           (parse-cookies "Cookie")
+;;           (parse-parameters fragment port))))
+    
+    #f
+    )
   
   
   ;;;
@@ -159,17 +162,12 @@ Cookie: SessionID=nil
   ;;;
 
 
-  (method public (get-parameter name (error?: error? #t))
-    (let ((info (assoc name parameters)))
+  (method (get-parameter name (error?: error? #t))
+    (let ((info (assoc name get-parameters)))
       (if info
           (cdr info)
         (when error?
           (error "Unknown parameter: {s}" name)))))
-  
-  
-  (method public (close-session)
-    (close-session~ HTTP-Session session)
-    (set! session {}))
   
   
   ;;;
@@ -177,27 +175,26 @@ Cookie: SessionID=nil
   ;;;
   
   
-  (method override (message-string)
-    (let ((printer (open-output-string)))
-      (output-control printer)
-      (output-headers printer)
-      (output-cookies Cookie-Header printer)
-      (when (= operation "POST")
-        (format printer "{%}{%}")
-        (output-parameters printer))
-      (get-output-string printer)))
+  (method override (send port)
+    (output-control port)
+    (print-headers port)
+    ;; (output-cookies "Cookie" port)
+    (when (= http-method "POST")
+      (format port "{%}{%}")
+      (output-parameters port))
+    (get-output-string port))
   
   
   (method (output-control printer)
-    (format printer "{a} {a}" operation resource)
-    (when (= operation "GET")
+    (format printer "{a} {a}" http-method uri)
+    (when (= http-method "GET")
       (format printer "?")
       (output-parameters printer))
     (format printer " HTTP/1.1"))
   
   
   (method (output-parameters printer)
-    (loop (for parameter in parameters)
+    (loop (for parameter in get-parameters)
           (for first? first #t then #f)
           (do (bind (name . value) parameter
                 (unless first?

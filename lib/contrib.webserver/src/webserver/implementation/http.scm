@@ -528,21 +528,18 @@
   (lambda (server)
     (let ((server-port
            (open-tcp-server
-            (list server-address: '#u8(127 0 0 1) ; on localhost interface only
+            (list server-address: '#u8(0 0 0 0)
                   port-number: (server-port-number server)
                   backlog: 128
                   reuse-address: #t
                   char-encoding: 'ISO-8859-1))))
-      (thread-start!
-       (make-thread
-        (lambda ()
-          (let loop ()
-            (let ((connection (read server-port)))
-              (thread-start!
-               (make-thread
-                (lambda ()
-                  (serve-connection server connection)))))
-            (loop))))))))
+      (let loop ()
+        (let ((connection (read server-port)))
+          (thread-start!
+           (make-thread
+            (lambda ()
+              (serve-connection server connection)))))
+        (loop)))))
 
 (define serve-connection
   (lambda (server connection)

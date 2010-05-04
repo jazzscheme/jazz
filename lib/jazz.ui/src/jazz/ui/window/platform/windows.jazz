@@ -632,20 +632,21 @@
 
 
 (definition package (with-platform-painting window platform-data proc)
-  (let ((handle (get-handle~ window)))
-    (with ((ps (PAINTSTRUCT-make)))
-      (let ((hdc (BeginPaint handle ps)))
-        (with ((surface (new Surface (cairo_win32_surface_create hdc))))
-          (unwind-protect
-              (proc surface)
-            (close~ surface)
-            (EndPaint handle ps))))
-      (PAINTSTRUCT-free ps)))
-  processed)
+  (if *debug-paint*
+      (debugging-with-platform-painting window platform-data proc)
+    (let ((handle (get-handle~ window)))
+      (with ((ps (PAINTSTRUCT-make)))
+        (let ((hdc (BeginPaint handle ps)))
+          (with ((surface (new Surface (cairo_win32_surface_create hdc))))
+            (unwind-protect
+                (proc surface)
+              (close~ surface)
+              (EndPaint handle ps))))
+        (PAINTSTRUCT-free ps)))
+    processed))
 
 
-@usefull-to-debug-painting
-(definition package (with-platform-painting window platform-data proc)
+(definition (debugging-with-platform-painting window platform-data proc)
   (let ((handle (get-handle~ window)))
     (let ((hdc (GetDC handle)))
       (ValidateRgn handle NULL)

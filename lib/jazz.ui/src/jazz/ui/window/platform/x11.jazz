@@ -508,11 +508,11 @@
           (top  (XExposeEvent-y-ref msg)))
       (let ((right (+ left (XExposeEvent-width-ref msg)))
             (bottom (+ top (XExposeEvent-height-ref msg))))
-        (let ((region (new Rect left top right bottom))
+        (let ((region (new Region rect: (new Rect left top right bottom)))
               (old-region (table-ref expose-store window #f)))
-          (unless (nu=? region {Rect 0 0 0 0})
+          (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
             (if old-region
-                (table-set! expose-store window (rect-union old-region region))
+                (table-set! expose-store window (region-union old-region region))
               (table-set! expose-store window region))
             processed))))))
 
@@ -1129,9 +1129,8 @@
 
 (definition package (platform-redraw-window handle rect region)
   (if region
-      (for-each (lambda (rect) (paint~ (get-window handle) rect))
-                (get-rectangles~ region))
-    (paint~ (get-window handle) rect)))
+      (paint~ (get-window handle) region)
+    (paint~ (get-window handle) (new Region rect: rect))))
 
 
 (definition package (platform-get-update-rect handle)
@@ -1162,7 +1161,7 @@
   (let ((rect (table-ref inval-rects handle #f)))
     (when rect
       (table-set! inval-rects handle)
-      (paint~ (get-window handle) rect))))
+      (paint~ (get-window handle) (new Region rect: rect)))))
   
   
 (definition package (platform-show-noactivate handle)

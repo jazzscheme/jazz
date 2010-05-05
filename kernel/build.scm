@@ -992,8 +992,7 @@
       (jazz.call-process (kernel-path) `("-:dq-" "-make"
                                          ,(symbol->string product)
                                          ,@(if link `("-link" ,(symbol->string link)) '())
-                                         ,@(if jobs `("-jobs" ,(number->string jobs)) '()))
-        destdir)))
+                                         ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
   
   (jazz.make-kernel configuration #f #f)
   (product-make product configuration jobs))

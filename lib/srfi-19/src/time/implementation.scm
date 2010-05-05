@@ -712,10 +712,20 @@
     ))
 
 
+;; added
+(define *timezone-proc*
+  (lambda () 0))
+
+(define (set-timezone-proc proc)
+  (set! *timezone-proc* proc))
+
+(define (get-timezone-proc)
+  *timezone-proc*)
+
 (cond-expand
   (gambit
     (define (tm:local-tz-offset)
-      0))
+      (*timezone-proc*)))
   (else
     ;; relies on the fact that we named our time zone accessor
     ;; differently from MzScheme's....

@@ -112,6 +112,9 @@
 (jazz.define-setting jazz.debug-build?
   #f)
 
+(jazz.define-setting jazz.build-single-objects?
+  #f)
+
 (jazz.define-setting jazz.build-link
   'objects)
 

@@ -1567,8 +1567,8 @@
        (let ((candidate (string-append pathname (%%number->string n))))
          (if (file-exists? candidate)
              (begin
-               (proc candidate)
-               (iter (%%fx+ n 1)))))))
+               (iter (%%fx+ n 1))
+               (proc candidate))))))
 
 
 (define (jazz.with-numbered-pathname pathname fresh? n0 proc)

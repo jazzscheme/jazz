@@ -174,39 +174,51 @@
 (define (jazz.compile-file src needs-compile? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
   (define unit-uniqueness-prefix
     "unit:")
-
-  (let* ((pathname (jazz.resource-pathname src))
-         (bin- (jazz.binary-with-extension src ""))
-         (bin-c (string-append bin- ".c"))
-         (bin-o (string-append bin- ".o"))
-         (bin-o1 (jazz.probe-numbered-pathname bin-o 1))
-         (linkfile (string-append bin-o1 ".c")))
-
-    (if needs-compile?
-        (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name))))
-          (if (not (and (compile-file-to-c pathname output: bin-c options: options module-name: unique-module-name)
-                        (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
-              (jazz.error "compilation failed"))))
-
-    (if (jazz.link-objects?)
+  
+  (define bin-pathname-base
+    (jazz.binary-with-extension src ""))
+  
+  (define (compile)
+    (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name)))
+          (src-pathname (jazz.resource-pathname src))
+          (bin-c (string-append bin-pathname-base ".c")))
+      (if (not (and (compile-file-to-c src-pathname output: bin-c options: options module-name: unique-module-name)
+                    (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+          (jazz.error "compilation failed"))))
+  
+  (define (delete-o1-files)
+    (jazz.for-each-numbered-pathname (string-append bin-pathname-base ".o") 1 delete-file))
+  
+  (define (determine-o1)
+    (if (jazz.build-single-objects?)
         (begin
-          (link-flat (%%list bin-) output: linkfile warnings?: #f)
-          (let ((exit-status
-                  (##gambc-cc
-                    'dyn
-                    (jazz.resource-build-dir src)
-                    (%%list linkfile bin-o)
-                    bin-o1
-                    cc-options
-                    ""
-                    ld-options
-                    #f)))
-            (if (not (= exit-status 0))
-                (jazz.error "C compilation failed while linking module"))
-            (delete-file linkfile)))
-      
-      ; else delete the .o1, .o2... files
-      (jazz.for-each-numbered-pathname bin-o 1 delete-file))))
+          (delete-o1-files)
+          (string-append bin-pathname-base ".o1"))
+      (jazz.probe-numbered-pathname (string-append bin-pathname-base ".o") 1)))
+  
+  (define (link-o1)
+    (let ((bin-o1 (determine-o1)))
+      (let ((linkfile (string-append bin-o1 ".c")))
+        (link-flat (%%list bin-pathname-base) output: linkfile warnings?: #f)
+        (let ((exit-status
+                (##gambc-cc
+                  'dyn
+                  (jazz.resource-build-dir src)
+                  (%%list linkfile (string-append bin-pathname-base ".o"))
+                  bin-o1
+                  cc-options
+                  ""
+                  ld-options
+                  #f)))
+          (if (not (= exit-status 0))
+              (jazz.error "C compilation failed while linking module"))
+          (delete-file linkfile)))))
+  
+  (if needs-compile?
+      (compile))
+  (if (jazz.link-objects?)
+      (link-o1)
+    (delete-o1-files)))
 
 
 ;;;

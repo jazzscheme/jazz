@@ -716,11 +716,11 @@
 (define *timezone-proc*
   (lambda () 0))
 
-(define (set-timezone-proc proc)
-  (set! *timezone-proc* proc))
-
 (define (get-timezone-proc)
   *timezone-proc*)
+
+(define (set-timezone-proc proc)
+  (set! *timezone-proc* proc))
 
 (cond-expand
   (gambit

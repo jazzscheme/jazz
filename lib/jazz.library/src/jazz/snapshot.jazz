@@ -89,7 +89,9 @@
         (format printer " reason: {s}" reason))
       (when exception
         (format printer " exception: {s}" (exception-reason exception)))
+      (force-output printer)
       (print-threads)
+      (force-output printer)
       (print-values)
       (format printer "){%}"))
     
@@ -147,7 +149,9 @@
                     (loop (for variable in variables)
                           (do (format printer "{%}")
                               (bind (name value mutable?) variable
-                                (format printer "        (<variable> name: {s} serial: {s})" name (register-value value 0)))))
+                                (let ((serial (register-value value 0))
+                                      (atomic? (or (boolean? value) (number? value) (string? value))))
+                                  (format printer "        (<variable> name: {s} serial: {s}{?: value: {s}~})" name serial atomic? value)))))
                     (format printer ")"))))))
     
     (define (print-values)

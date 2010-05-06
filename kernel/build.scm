@@ -982,7 +982,7 @@
      `("-:dq-" "-make"
        ,(symbol->string product)
        ,@(if link `("-link" ,(symbol->string link)) '())
-       ,@(if jobs `("-jobs" ,(number->string jobs)) '())))(product-make product configuration jobs))
+       ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))
 
 
 ;;;

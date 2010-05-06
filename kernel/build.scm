@@ -976,26 +976,13 @@
 
 
 (define (jazz.make-product product configuration link jobs)
-  (define (product-make product configuration jobs)
-    (let ((destdir (jazz.configuration-directory configuration))
-          (platform (jazz.configuration-platform configuration)))
-      (define (build-file path)
-        (string-append destdir path))
-      
-      (define (kernel-path)
-        (case platform
-          ((windows)
-           (build-file "kernel"))
-          (else
-           "./kernel")))
-      
-      (jazz.call-process (kernel-path) `("-:dq-" "-make"
-                                         ,(symbol->string product)
-                                         ,@(if link `("-link" ,(symbol->string link)) '())
-                                         ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
-  
   (jazz.make-kernel configuration #f #f)
-  (product-make product configuration jobs))
+  (jazz.call-process
+     (string-append (jazz.configuration-directory configuration) "kernel")
+     `("-:dq-" "-make"
+       ,(symbol->string product)
+       ,@(if link `("-link" ,(symbol->string link)) '())
+       ,@(if jobs `("-jobs" ,(number->string jobs)) '())))(product-make product configuration jobs))
 
 
 ;;;

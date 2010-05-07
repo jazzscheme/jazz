@@ -54,10 +54,11 @@
   (slot state             initialize 'stopped)
   (slot hits              initialize 0        getter generate)
   (slot debug?                                accessors generate)
+  (slot reuse-address?    initialize #t       accessors generate)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((name {}) (host {}) (service {}) (debug? #f)) rest
+    (bind-keywords ((name {}) (host {}) (service {}) (debug? #f) (reuse-address? #t)) rest
       (nextmethod)
       (set! name~self name)
       (set! host~self host)
@@ -65,7 +66,8 @@
       (set! socket-info~self {})
       (set! server-thread~self {})
       (set! started-condition~self (make-condition))
-      (set! debug?~self debug?)))
+      (set! debug?~self debug?)
+      (set! reuse-address?~self reuse-address?)))
 
   
   ;;;
@@ -166,7 +168,7 @@
   (method (start-listener)
     (let ((address (resolve-host (server-host)))
           (number (resolve-service (server-service))))
-      (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf))))
+      (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf reuse-address: reuse-address?))))
         (unwind-protect
             (begin
               (set! socket-info (tcp-server-socket-info server-port))

@@ -53,9 +53,9 @@
 (class Surface extends Object
   
   
-  (slot clipper            <Rect>       initialize (new Rect 0 0 0 0))
   (slot surface                                       getter generate)
   (slot context                                       getter generate)
+  (slot clipper            <Rect>       initialize (new Rect 0 0 0 0))
   (slot font                            initialize {})
   (slot dash-array                      initialize {})
   (slot empty-array                     initialize {})
@@ -64,6 +64,7 @@
   (slot landscape?         <bool>       initialize #f)
   (slot landscape-rotation <symbol+>    initialize {})
   (slot landscape-page     <Dimension+> initialize {})
+  (slot update-region      <Region+>    initialize {} accessors generate)
 
   
   (method override (initialize surface . rest)
@@ -167,9 +168,10 @@
 
 
   (method public (select-clipper rect <Rect>)
-    (cairo_reset_clip context)
-    (draw-rectangle rect)
-    (cairo_clip context))
+    (unless (debug-painting?)
+      (cairo_reset_clip context)
+      (draw-rectangle rect)
+      (cairo_clip context)))
   
   
   (method public (with-clipper clip-rect <Rect> proc <procedure>)
@@ -636,13 +638,15 @@
       x y))
   
   
-  (method public (blit-surface surface <Surface>
-                               (position: position {Point 0 0})
-                               (size: size 'tofix)
-                               (destination: destination {Point 0 0})
-                               (destination-size: destination-size {}))
+  (method public (blit-surface surface <Surface> (destination: destination {Point 0 0}))
     (set-source-surface surface (get-h~ destination) (get-v~ destination))
     (paint))
+  
+  
+  (method public (blit-surface-ext surface <Surface> h v width height destination-h destination-v)
+    (set-source-surface surface (- destination-h h) (- destination-v v))
+    (cairo_rectangle context (cast <fl> destination-h) (cast <fl> destination-v) (cast <fl> width) (cast <fl> height))
+    (cairo_fill context))
   
   
   ;;;

@@ -49,21 +49,22 @@
   (slot rectangles getter generate)
   
   
-  (method override (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
+  (method override (initialize . rest)
     (nextmethod)
-    (cond (handle
-           (set! handle~self handle))
-          (rect
-           (set! handle~self (with ((rect (rect->RECT rect)))
-                               (prog1 (CreateRectRgnIndirect rect)
-                                 (RECT-free rect))))
-           (set! rectangles (list rect)))
-          (left
-           (set! handle~self (CreateRectRgn left top right bottom))
-           (set! rectangles (list (new Rect left top right bottom))))
-          (else
-           (set! handle~self (CreateRectRgn 0 0 0 0))
-           (set! rectangles (list (new Rect 0 0 0 0)))))
+    (if (null? rest)
+        (begin
+          (set! handle (CreateRectRgn 0 0 0 0))
+          (set! rectangles (list (new Rect 0 0 0 0))))
+      (let ((first (car rest)))
+        (cond ((foreign? first)
+               (set! handle first))
+              ((is? first Rect)
+               (set! handle (CreateRectRgn (get-left~ first) (get-top~ first) (get-right~ first) (get-bottom~ first)))
+               (set! rectangles (list first)))
+              (else
+               (bind (top right bottom) (cdr rest)
+                 (set! handle (CreateRectRgn first top right bottom))
+                 (set! rectangles (list (new Rect first top right bottom))))))))
     (destroy-mandatory))
 
   
@@ -82,15 +83,28 @@
   (method public (combine! region mode)
     (define (get-combine-mode mode)
       (case mode
-        ((or)  RGN_OR)
-        ((xor) RGN_XOR)
+        ((and)  RGN_AND)
+        ((or)   RGN_OR)
+        ((xor)  RGN_XOR)
+        ((diff) RGN_DIFF)
         (else (error "Unknown combine mode: {t}" mode))))
     
     (CombineRgn handle handle (get-handle~ region) (get-combine-mode mode))
-    (set! rectangles (append rectangles (get-rectangles~ region))))
+    (when (or (eq? mode 'or) (eq? mode 'xor))
+      (set! rectangles (append rectangles (get-rectangles~ region)))))
+  
+  
+  (method public (empty?) <bool>
+    (= (get-box) {Rect 0 0 0 0}))
+  
+  
+  (method public (intersects-rect? rect) <bool>
+    (with-closed ((region (new Region rect)))
+      (combine!~ region self 'and)
+      (not (empty?~ region))))
 
 
-  (method public (get-box)
+  (method public (get-box) <Rect>
     (with ((rect (RECT-make)))
       (GetRgnBox handle rect)
       (prog1 (RECT->rect rect)

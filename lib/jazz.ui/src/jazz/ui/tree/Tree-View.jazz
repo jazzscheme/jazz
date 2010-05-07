@@ -469,7 +469,7 @@
       ;; probably buggy in ftx fix with alain
       (when (and enabled? empty-background (<= columns-right right))
         (let ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
-          (fill-rect~ surface rect (if *debug-paint* (cycle-debug-color!) empty-background)))))
+          (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
     (draw-highlighted surface))
   
   
@@ -477,7 +477,7 @@
   (method override (draw-empty surface top bottom sh sv sc sc? rt width)
     (when (and enabled? empty-background (<= rt bottom))
       (let ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
-        (fill-rect~ surface rect (if *debug-paint* (cycle-debug-color!) empty-background)))))
+        (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
   
   
   (method (draw-highlighted surface)
@@ -518,7 +518,7 @@
     {Color name: Medium})
   
   
-  (method override (draw-children surface <Surface> context lh <fx> lv <fx> sh sv sc sc?)
+  (method override (draw-children surface <Surface> nodes context lh <fx> lv <fx> sh sv sc sc?)
     (define (paint-data context column row lh lv h v width height data)
       (let ((cell-h (+ lh h))
             (cell-v (+ lv v)))
@@ -546,7 +546,7 @@
               (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
                 (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height data)))))))
     
-    (nextmethod surface context lh lv sh sv sc sc?)
+    (nextmethod surface nodes context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
   
   
@@ -1721,7 +1721,7 @@
       (when player
         (let ((root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
-            (with-closed ((region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
+            (with-closed ((region (new Region (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
               (invalidate-region~ player region)))))))
   
   
@@ -2310,14 +2310,14 @@
   (method override (selection-region sel dh dv sc)
     (define (element-region element)
       (case selection-mode
-        ((cell) (new Region rect: (acquire-delta dh dv sc (cell-rect element))))
+        ((cell) (new Region (acquire-delta dh dv sc (cell-rect element))))
         (else (selection-row-region element dh dv sc))))
     
     (let ((region (new Region)))
       (loop (for element in sel)
             (let ((merge-cell (safe-get-merge-cell (cell->site element))))
               (if merge-cell
-                  (with-closed ((row-region (new Region rect: (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
+                  (with-closed ((row-region (new Region (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
                     (combine!~ region row-region 'or))
                 (with-closed ((row-region (element-region element)))
                   (combine!~ region row-region 'or)))))
@@ -2411,7 +2411,7 @@
   
   
   (method public (cell-region cell <Cell>) <Region>
-    (new Region rect: (cell-rect cell)))
+    (new Region (cell-rect cell)))
   
   
   (method (cell-content-rect cell <Cell>) <Rect>

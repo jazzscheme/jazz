@@ -48,21 +48,24 @@
   
   (slot handle     getter generate)
   (slot rectangles getter generate)
-    
-    
-  (method override (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
+  
+  
+  (method override (initialize . rest)
     (nextmethod)
-    (cond (handle
-           (set! handle~self handle))
-          (rect
-           (set! handle~self (RectRgn (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))
-           (set! rectangles (list rect)))
-          (left
-           (set! handle~self (RectRgn left top right bottom))
-           (set! rectangles (list (new Rect left top right bottom))))
-          (else
-           (set! handle~self (NewRgn))
-           (set! rectangles (list (new Rect 0 0 0 0)))))
+    (if (null? rest)
+        (begin
+          (set! handle (NewRgn))
+          (set! rectangles (list (new Rect 0 0 0 0))))
+      (let ((first (car rest)))
+        (cond ((foreign? first)
+               (set! handle first))
+              ((is? first Rect)
+               (set! handle (RectRgn (get-left~ first) (get-top~ first) (get-right~ first) (get-bottom~ first)))
+               (set! rectangles (list first)))
+              (else
+               (bind (top right bottom) (cdr rest)
+                 (set! handle (RectRgn first top right bottom))
+                 (set! rectangles (list (new Rect first top right bottom))))))))
     (destroy-mandatory))
 
   
@@ -83,8 +86,16 @@
       ((or xor) (UnionRgn handle (get-handle~ region) handle))
       (else (error "Unknown combine mode: {t}" mode)))
     (set! rectangles (append rectangles (get-rectangles~ region))))
+  
+  
+  (method public (empty?) <bool>
+    (= (get-box) {Rect 0 0 0 0}))
+  
+  
+  (method public (intersects-rect?~ rect) <bool>
+    (rects-intersect? (get-box) rect))
 
 
-  (method public (get-box)
+  (method public (get-box) <Rect>
     (receive (l t b r) (GetRegionBounds handle)
       (new Rect l t r b)))))

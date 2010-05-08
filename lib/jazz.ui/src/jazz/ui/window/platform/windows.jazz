@@ -579,7 +579,7 @@
   
   (ecase msg
     ((WM_ERASEBKGND)      (erase-background~ window wparam))
-    ((WM_PAINT)           (with-closed ((region (platform-get-update-region (get-handle~ window))))
+    ((WM_PAINT)           (with ((region (platform-get-update-region (get-handle~ window))))
                             (paint~ window region)))
     ((WM_SETCURSOR)       (cursor-update~ window (= (loword lparam) HTCLIENT)))
     ((WM_MOUSEMOVE)       (mouse-move~ window (get-x-lparam lparam) (get-y-lparam lparam)))
@@ -635,9 +635,9 @@
   (if (debug-painting?)
       (debugging-with-platform-painting window platform-data proc)
     (let ((handle (get-handle~ window)))
-      (with ((ps (PAINTSTRUCT-make)))
+      (let ((ps (PAINTSTRUCT-make)))
         (let ((hdc (BeginPaint handle ps)))
-          (with ((surface (new Surface (cairo_win32_surface_create hdc))))
+          (let ((surface (new Surface (cairo_win32_surface_create hdc))))
             (unwind-protect
                 (proc surface)
               (close~ surface)
@@ -650,7 +650,7 @@
   (let ((handle (get-handle~ window)))
     (let ((hdc (GetDC handle)))
       (ValidateRgn handle NULL)
-      (with ((surface (new Surface (cairo_win32_surface_create hdc))))
+      (let ((surface (new Surface (cairo_win32_surface_create hdc))))
         (unwind-protect
             (proc surface)
           (close~ surface)))))
@@ -738,7 +738,7 @@
 
 
 (definition (track-mouse-event handle flags (time: time HOVER_DEFAULT))
-  (with ((rec (TRACKMOUSEEVENT-make)))
+  (let ((rec (TRACKMOUSEEVENT-make)))
     (TRACKMOUSEEVENT-cbSize-set! rec (TRACKMOUSEEVENT-sizeof))
     (TRACKMOUSEEVENT-dwFlags-set! rec flags)
     (TRACKMOUSEEVENT-hwndTrack-set! rec handle)
@@ -806,14 +806,14 @@
 
 
 (definition package (platform-translate-to-root handle pt)
-  (with ((pos (point->POINT pt)))
+  (let ((pos (point->POINT pt)))
     (MapWindowPoints handle NULL pos 1)
     (prog1 (new Point (POINT-x-ref pos) (POINT-y-ref pos))
       (POINT-free pos))))
 
 
 (definition package (platform-get-position handle parent-handle) <Point>
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (when (and parent-handle (child-window? handle))
       (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
@@ -826,7 +826,7 @@
 
 
 (definition package (platform-get-size handle) <Dimension>
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetClientRect handle rect)
     (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
       (RECT-free rect))))
@@ -849,7 +849,7 @@
 
 
 (definition package (platform-get-rect handle parent-handle) <Rect>
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (when parent-handle
       (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
@@ -858,7 +858,7 @@
 
 
 (definition package (platform-get-bounds handle) <Rect>
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (MapWindowPoints NULL handle rect 2)
     (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
@@ -866,14 +866,14 @@
 
 
 (definition package (platform-mouse-position) <Point>
-  (with ((point (POINT-make)))
+  (let ((point (POINT-make)))
     (GetCursorPos point)
     (prog1 (new Point (POINT-x-ref point) (POINT-y-ref point))
       (POINT-free point))))
 
 
 (definition package (platform-window-from-point point)
-  (with ((pt (POINT-make)))
+  (let ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
     (prog1 (WindowFromPoint pt)
@@ -881,7 +881,7 @@
 
 
 (definition package (platform-child-window-from-point handle point)
-  (with ((pt (POINT-make)))
+  (let ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
     (prog1 (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))
@@ -905,7 +905,7 @@
 
 
 (definition package (platform-get-client-rect handle)
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetClientRect handle rect)
     (prog1 (RECT->rect rect)
       (RECT-free rect))))
@@ -913,8 +913,8 @@
 
 (definition package (platform-scroll-window handle dh dv rect clip-rect)
   (let ((flags SW_INVALIDATE))
-    (with ((rect (rect->RECT rect))
-           (clip-rect (rect->RECT clip-rect)))
+    (let ((rect (rect->RECT rect))
+          (clip-rect (rect->RECT clip-rect)))
       (prog1 (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags)
         (RECT-free rect)
         (RECT-free clip-rect)))))
@@ -946,14 +946,14 @@
     ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
     (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
-      (with ((rect (if (not rect) NULL (rect->RECT rect))))
+      (let ((rect (if (not rect) NULL (rect->RECT rect))))
         (prog1 (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)
           (when rect
             (RECT-free rect)))))))
 
 
 (definition package (platform-get-update-rect handle)
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetUpdateRect handle rect #f)
     (prog1 (RECT->rect rect)
       (RECT-free rect))))
@@ -1092,7 +1092,7 @@
 
 
 (definition package (platform-redraw-view-only view hwnd)
-  (with ((hrgn (CreateRectRgn 0 0 0 0)))
+  (let ((hrgn (CreateRectRgn 0 0 0 0)))
     ;; preserve the current update region
     (GetUpdateRgn hwnd hrgn #f)
     ;; reset it
@@ -1128,7 +1128,7 @@
             ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
         rect)))
   
-  (with ((area (RECT-make)))
+  (let ((area (RECT-make)))
     (SystemParametersInfo SPI_GETWORKAREA 0 area 0)
     (prog1 (adjust-work-area-with-taskbar (RECT->rect area))
       (RECT-free area))))
@@ -1137,18 +1137,20 @@
 (definition public (get-taskbar-state)
   (unimplemented 'get-taskbar-state)
   @convert
-  (with ((data (new APPBARDATA)))
+  (let ((data (new APPBARDATA)))
     (set data 'cbSize (size-of APPBARDATA))
-    (SHAppBarMessage ABM_GETSTATE data)))
+    (prog1 (SHAppBarMessage ABM_GETSTATE data)
+      (APPBARDATA-free data))))
 
 
 (definition public (get-taskbar-edge)
   (unimplemented 'get-taskbar-edge)
   @convert
-  (with ((data (new APPBARDATA)))
+  (let ((data (new APPBARDATA)))
     (set data 'cbSize (size-of APPBARDATA))
     (SHAppBarMessage ABM_GETTASKBARPOS data)
-    (get data 'uEdge)))
+    (prog1 (get data 'uEdge)
+      (APPBARDATA-free data))))
 
 
 ;;;

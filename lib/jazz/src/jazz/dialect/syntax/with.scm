@@ -41,22 +41,9 @@
 (import (jazz.dialect.kernel))
 
 
-;; should prolly expand into a let to be consistant with the naming
-(syntax public (with form-src)
-  (let ((bindings (source-code (cadr (source-code form-src))))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      `(let* ,bindings
-         (prog1 (begin ,@body)
-           ,@(map (lambda (binding)
-                    `(release~ ,(source-code (car (source-code binding)))))
-                  (reverse bindings))))
-      form-src)))
-
-
 ;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
 ;; the second rect will incorrectly refer to the first rect
-(syntax public (with-closed form-src)
+(syntax public (with form-src)
   (let ((bindings (source-code (cadr (source-code form-src))))
         (body (cddr (source-code form-src))))
     (sourcify-if

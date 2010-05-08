@@ -447,7 +447,7 @@
 
 (definition package (process-messages-single-threaded thunk)
   (declare (proper-tail-calls))
-  (with ((msg (XEvent-make))
+  (let* ((msg (XEvent-make))
          (display-fd (ConnectionNumber x11-default-display))
          (fdset (setup-fdset display-fd)))
     (let (loop)
@@ -469,14 +469,15 @@
 (definition package (process-messages-multi-threaded)
   (define (process)
     (declare (proper-tail-calls))
-    (with ((msg (XEvent-make)))
+    (let ((msg (XEvent-make)))
       (let (loop)
         (XNextEvent x11-default-display msg)
         (process-message msg)
         (when (= 0 (XPending x11-default-display))
           (process-expose))
         (when (thread-loop? (current-thread))
-          (loop)))))
+          (loop)))
+      (XEvent-free msg)))
   
   (new-thread process 'message-pump))
 
@@ -824,7 +825,7 @@
 (definition package (with-platform-painting window platform-data proc)
   (let* ((screen-no (XDefaultScreen x11-default-display))
          (visual    (XDefaultVisual x11-default-display screen-no)))
-    (with ((surface (new Surface (cairo_xlib_surface_create x11-default-display (get-handle~ window) visual (get-width~ window) (get-height~ window) ))))
+    (let ((surface (new Surface (cairo_xlib_surface_create x11-default-display (get-handle~ window) visual (get-width~ window) (get-height~ window) ))))
       (unwind-protect
           (proc surface)
         (close~ surface))))
@@ -944,7 +945,7 @@
   
 
 (definition package (platform-get-size handle)
-  (with ((infos (XWindowAttributes-make)))
+  (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes x11-default-display handle infos)
     (let ((width (XWindowAttributes-width-ref infos))
           (height (XWindowAttributes-height-ref infos)))
@@ -983,10 +984,11 @@
 (definition package (platform-get-bounds handle)
   (unimplemented 'platform-get-bounds)
   @windows
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (MapWindowPoints NULL handle rect 2)
-    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
 
 
 (definition package (platform-mouse-position)
@@ -1136,9 +1138,10 @@
 (definition package (platform-get-update-rect handle)
   (unimplemented 'platform-get-update-rect)
   @windows
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetUpdateRect handle rect #f)
-    (RECT->rect rect)))
+    (prog1 (RECT->rect rect)
+      (RECT-free rect))))
 
 
 (definition package (platform-get-update-region handle)

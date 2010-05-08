@@ -131,7 +131,7 @@
         (when description
           (let ((local-machine-key [Local-Machine Registry])
                 (service-path (format "SYSTEM/CurrentControlSet/Services/{a}" name)))
-            (with-closed ((service-key (create-key~ local-machine-key service-path)))
+            (with ((service-key (create-key~ local-machine-key service-path)))
               (set-value~ service-key "Description" description)))))
       ;; event log message file
       (let ((messages (service-messages)))
@@ -140,21 +140,21 @@
                  (local-machine-key [Local-Machine Registry])
                  (application-path (format "SYSTEM/CurrentControlSet/Services/Eventlog/Application/{a}" presentation))
                  (message-file (new-file~ {Directory Build} messages)))
-            (with-closed ((application-key (create-key~ local-machine-key application-path)))
+            (with ((application-key (create-key~ local-machine-key application-path)))
               (set-value~ application-key "EventMessageFile" (parse~ message-file))))))
       ;; create service - must come last because the windows service manager is not releasing registry keys
-      (with-closed ((manager (new Service-Manager)))
+      (with ((manager (new Service-Manager)))
         (let* ((presentation (service-presentation))
                (executable (service-executable))
                (command (format "{a} run" (parse~ executable))))
-          (with-closed ((handle (create-service~ manager name command presentation: presentation)))
+          (with ((handle (create-service~ manager name command presentation: presentation)))
             )))))
   
   
   (method (unregister-service)
-    (with-closed ((manager (new Service-Manager)))
+    (with ((manager (new Service-Manager)))
       (let ((name (service-name)))
-        (with-closed ((handle (open-service~ manager name)))
+        (with ((handle (open-service~ manager name)))
           (delete-service~ handle)))))
 
 
@@ -421,8 +421,9 @@
   
   
   (method (track-menu config)
-    (with ((point (new POINT)))
+    (let ((point (new POINT)))
       (GetCursorPos point)
+      (POINT-free point)
       (let ((menu (CreatePopupMenu))
             (id 1))
         (for-each (lambda (config)
@@ -443,7 +444,7 @@
   
   
   (method (insert-item menu (title: title {}) (separator?: separator? #f) (default?: default? #f) (id: id {}))
-    (with ((info (new MENUITEMINFO)))
+    (let ((info (new MENUITEMINFO)))
       (set info 'cbSize (size-of MENUITEMINFO))
       (set info 'fMask (bitwise-ior MIIM_TYPE MIIM_STATE MIIM_ID))
       (set info 'fType (if separator? MFT_SEPARATOR MFT_STRING))
@@ -451,5 +452,6 @@
       (set info 'wID id)
       (set info 'dwTypeData title)
       (set info 'cch (length title))
-      (InsertMenuItem menu (if separator? MF_SEPARATOR 0) #f info)))))
+      (InsertMenuItem menu (if separator? MF_SEPARATOR 0) #f info)
+      (MENUITEMINFO-free info)))))
 )

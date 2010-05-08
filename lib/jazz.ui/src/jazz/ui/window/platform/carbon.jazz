@@ -549,10 +549,11 @@
 (definition package (platform-get-bounds handle)
   (unimplemented 'platform-get-bounds)
   @windows
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (MapWindowPoints NULL handle rect 2)
-    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
 
 
 (definition package (platform-mouse-position)
@@ -562,19 +563,21 @@
 (definition package (platform-window-from-point point)
   {}
   @windows
-  (with ((pt (POINT-make)))
+  (let ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (WindowFromPoint pt)))
+    (prog1 (WindowFromPoint pt)
+      (POINT-free pt))))
 
 
 (definition package (platform-child-window-from-point handle point)
   {}
   @windows
-  (with ((pt (POINT-make)))
+  (let ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
+    (prog1 (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))
+      (POINT-free pt))))
 
 
 (definition package (platform-move-window handle x y cx cy)
@@ -642,9 +645,10 @@
 (definition package (platform-get-update-rect handle)
   (unimplemented 'platform-get-update-rect)
   @windows
-  (with ((rect (RECT-make)))
+  (let ((rect (RECT-make)))
     (GetUpdateRect handle rect #f)
-    (RECT->rect rect)))
+    (prog1 (RECT->rect rect)
+      (RECT-free rect))))
 
 
 (definition package (platform-get-update-region handle)

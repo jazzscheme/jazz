@@ -608,14 +608,13 @@
 (class Rect metaclass Rect-Class extends Object
   
   
-  ;; put types back to fx when we have Rect<fl> templates
-  (slot left   <number> accessors generate)
-  (slot top    <number> accessors generate)
-  (slot right  <number> accessors generate)
-  (slot bottom <number> accessors generate)
+  (slot left   <fx> accessors generate)
+  (slot top    <fx> accessors generate)
+  (slot right  <fx> accessors generate)
+  (slot bottom <fx> accessors generate)
   
   
-  (method override (initialize l <number> t <number> r <number> b <number>)
+  (method override (initialize l <fx> t <fx> r <fx> b <fx>)
     (nextmethod)
     (set! left l)
     (set! top t)
@@ -649,14 +648,85 @@
   (is? obj Rect))
 
 
-(definition public inline (new-rect left top right bottom)
+(definition public inline (new-rect left <fx> top <fx> right <fx> bottom <fx>)
   (construct Rect left top right bottom))
 
-(specialize inline (new class <category<Rect>> left <number> top <number> right <number> bottom <number>) <Rect>
+(specialize inline (new class <category<Rect>> left <fx> top <fx> right <fx> bottom <fx>) <Rect>
   (new-rect left top right bottom))
 
 
 (specialize inline as rect=? (= r1 <Rect> r2 <Rect>) <bool>
+  (and (= (get-left~ r1) (get-left~ r2))
+       (= (get-top~ r1) (get-top~ r2))
+       (= (get-right~ r1) (get-right~ r2))
+       (= (get-bottom~ r1) (get-bottom~ r2))))
+
+
+;;;
+;;;; Rect$fl$
+;;;
+
+
+(class Rect$fl$-Class extends Class
+  
+  
+  (method override (coerce-object object)
+    (typecase object
+      ((Point) (new Rect$fl$ (get-h~ object) (get-v~ object) 0 0))
+      (else (nextmethod object)))))
+
+
+(class Rect$fl$ metaclass Rect$fl$-Class extends Object
+  
+  
+  (slot left   <fl> accessors generate)
+  (slot top    <fl> accessors generate)
+  (slot right  <fl> accessors generate)
+  (slot bottom <fl> accessors generate)
+  
+  
+  (method override (initialize l <fl> t <fl> r <fl> b <fl>)
+    (nextmethod)
+    (set! left l)
+    (set! top t)
+    (set! right r)
+    (set! bottom b))
+  
+  
+  (method override (copy-object deep?)
+    (new Rect$fl$ left top right bottom))
+
+
+  (method override (compare-object target)
+    (cond ((is-not? target Rect$fl$)
+           :incompatible)
+          ((and (= left (get-left~ target)) (= top (get-top~ target)) (= right (get-right~ target)) (= bottom (get-bottom~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print printer readably)
+    (format printer "~{{a} {a} {a} {a} {a}}"
+            (category-name (class-of self))
+            left
+            top
+            right
+            bottom)))
+
+
+(definition public inline (rect$fl$? obj)
+  (is? obj Rect$fl$))
+
+
+(definition public inline (new-rect$fl$ left <fl> top <fl> right <fl> bottom <fl>)
+  (construct Rect$fl$ left top right bottom))
+
+(specialize inline (new class <category<Rect$fl$>> left <fl> top <fl> right <fl> bottom <fl>) <Rect$fl$>
+  (new-rect$fl$ left top right bottom))
+
+
+(specialize inline as rect$fl$=? (= r1 <Rect$fl$> r2 <Rect$fl$>) <bool>
   (and (= (get-left~ r1) (get-left~ r2))
        (= (get-top~ r1) (get-top~ r2))
        (= (get-right~ r1) (get-right~ r2))

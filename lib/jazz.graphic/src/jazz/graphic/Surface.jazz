@@ -53,9 +53,9 @@
 (class Surface extends Object
   
   
-  (slot clipper            <Rect>       initialize (new Rect 0 0 0 0))
   (slot surface                                       getter generate)
   (slot context                                       getter generate)
+  (slot clipper            <Rect>       initialize (new Rect 0 0 0 0))
   (slot font                            initialize {})
   (slot dash-array                      initialize {})
   (slot empty-array                     initialize {})
@@ -64,6 +64,7 @@
   (slot landscape?         <bool>       initialize #f)
   (slot landscape-rotation <symbol+>    initialize {})
   (slot landscape-page     <Dimension+> initialize {})
+  (slot update-region      <Region+>    initialize {} accessors generate)
 
   
   (method override (initialize surface . rest)
@@ -167,9 +168,10 @@
 
 
   (method public (select-clipper rect <Rect>)
-    (cairo_reset_clip context)
-    (draw-rectangle rect)
-    (cairo_clip context))
+    (unless (debug-painting?)
+      (cairo_reset_clip context)
+      (draw-rectangle rect)
+      (cairo_clip context)))
   
   
   (method public (with-clipper clip-rect <Rect> proc <procedure>)
@@ -290,7 +292,7 @@
   (method public (get-char-width n <fx>)
     (let ((ext (cairo_text_extents_t-make))
           (gly (cairo_glyph_t-make)))
-      (let ((ch (cairo_glyph_index font surface n)))
+      (let ((ch (cairo_glyph_index font n)))
         (cairo_glyph_t-index-set! gly ch)
         (cairo_glyph_t-x-set! gly 0.)
         (cairo_glyph_t-y-set! gly 0.)
@@ -307,7 +309,7 @@
       (let ((vec (make-vector (+ (- last first) 1))))
         (loop (for i from first to last)
               (do
-                (let ((ch (cairo_glyph_index font surface i)))
+                (let ((ch (cairo_glyph_index font i)))
                   (cairo_glyph_t-index-set! gly ch)
                   (cairo_glyph_t-x-set! gly 0.)
                   (cairo_glyph_t-y-set! gly 0.)
@@ -319,8 +321,8 @@
   
 
   (method public (get-text-extent text <string>)
-    (with ((extents (cairo_text_extents_t-make))
-           (metrics (get-text-metrics)))
+    (let ((extents (cairo_text_extents_t-make))
+          (metrics (get-text-metrics)))
       (cairo_text_extents context text extents)
       (prog1 (new Dimension
                (fxround (cairo_text_extents_t-x_advance-ref extents))
@@ -330,7 +332,7 @@
     
   
   (method public (get-font-height)
-    (with ((extents (cairo_font_extents_t-make)))
+    (let ((extents (cairo_font_extents_t-make)))
       (cairo_font_extents context extents)
       (prog1 (fxround (cairo_font_extents_t-height-ref extents))
         (cairo_font_extents_t-free extents))))
@@ -343,7 +345,7 @@
   
 
   (method public (get-text-width text <string>)
-    (with ((extents (cairo_text_extents_t-make)))
+    (let ((extents (cairo_text_extents_t-make)))
       (cairo_text_extents context text extents)
       (prog1 (fxceiling (cairo_text_extents_t-x_advance-ref extents))
         (cairo_text_extents_t-free extents))))
@@ -364,7 +366,7 @@
         (let (iter (i 0))
           (when (< i len)
             (let ((glyph (glyph-array-ref glyph-array i))
-                  (ch (cairo_glyph_index font surface (char->integer (element str i)))))
+                  (ch (cairo_glyph_index font (char->integer (element str i)))))
               (cairo_glyph_t-index-set! glyph ch)
               (cairo_glyph_t-x-set! glyph (cast <fl> uph))
               (cairo_glyph_t-y-set! glyph (cast <fl> y))
@@ -395,7 +397,7 @@
           (let (iter (i 0))
             (when (< i len)
               (let ((glyph (glyph-array-ref glyph-array i))
-                    (ch (cairo_glyph_index font surface (char->integer (element str i)))))
+                    (ch (cairo_glyph_index font (char->integer (element str i)))))
                 (cairo_glyph_t-index-set! glyph ch)
                 (cairo_glyph_t-x-set! glyph (cast <fl> uph))
                 (cairo_glyph_t-y-set! glyph (cast <fl> y))
@@ -636,13 +638,15 @@
       x y))
   
   
-  (method public (blit-surface surface <Surface>
-                               (position: position {Point 0 0})
-                               (size: size 'tofix)
-                               (destination: destination {Point 0 0})
-                               (destination-size: destination-size {}))
+  (method public (blit-surface surface <Surface> (destination: destination {Point 0 0}))
     (set-source-surface surface (get-h~ destination) (get-v~ destination))
     (paint))
+  
+  
+  (method public (blit-surface-ext surface <Surface> h v width height destination-h destination-v)
+    (set-source-surface surface (- destination-h h) (- destination-v v))
+    (cairo_rectangle context (cast <fl> destination-h) (cast <fl> destination-v) (cast <fl> width) (cast <fl> height))
+    (cairo_fill context))
   
   
   ;;;
@@ -739,10 +743,29 @@
                (line (get-left~ rect) (- (get-bottom~ rect) 1) (get-right~ rect) (- (get-bottom~ rect) 1)))))))
   
 
-  (method public (fill-rect rect <Rect> color)
+  (method public (fill-rect rect <Rect> color <Color>)
     (set-color color)
     (draw-rectangle rect)
     (fill))
+  
+  
+  (method public (fill-insets rect <Rect> insets <Rect> color <Color>)
+    (let ((l (get-left~ rect))
+          (t (get-top~ rect))
+          (r (get-right~ rect))
+          (b (get-bottom~ rect))
+          (li (get-left~ insets))
+          (ti (get-top~ insets))
+          (ri (get-right~ insets))
+          (bi (get-bottom~ insets)))
+      (let ((tti (+ t ti))
+            (bbi (- b bi)))
+        (set-color color)
+        (draw-rectangle (new Rect l t r tti))
+        (draw-rectangle (new Rect l bbi r b))
+        (draw-rectangle (new Rect l tti (+ l li) bbi))
+        (draw-rectangle (new Rect (- r ri) tti r bbi))
+        (fill))))
   
   
   (method public (draw-check h <fx> v <fx>)
@@ -849,8 +872,8 @@
   (method public (frame-rect rect <Rect> color)
     (set-line-width 1)
     (set-color color)
-    (draw-rectangle
-      (new Rect
+    (draw-rectangle$fl$
+      (new Rect$fl$
         (+ (get-left~ rect) 0.5)
         (+ (get-top~ rect) 0.5)
         (- (get-right~ rect) 0.5)
@@ -861,9 +884,9 @@
   (method public (rectangle rect <Rect> outside inside)
     (with-outside/inside outside inside
       (lambda ()
-        (draw-rectangle (inflate-rect rect -0.5 -0.5)))
+        (draw-rectangle$fl$ (inflate-rect rect -0.5 -0.5)))
       (lambda ()
-        (draw-rectangle rect))))
+        (draw-rectangle$fl$ (rect->rect$fl$ rect)))))
   
   
   ;;;
@@ -999,6 +1022,18 @@
                        (cast <fl> y)
                        (cast <fl> w)
                        (cast <fl> h))))
+
+  
+  (method public (draw-rectangle$fl$ rect <Rect$fl$>)
+    (let ((x (get-left~ rect))
+          (y (get-top~ rect))
+          (w (- (get-right~ rect) (get-left~ rect)))
+          (h (- (get-bottom~ rect) (get-top~ rect))))
+      (cairo_rectangle context
+                       x
+                       y
+                       w
+                       h)))
   
   
   (method public (set-color color <Color>)

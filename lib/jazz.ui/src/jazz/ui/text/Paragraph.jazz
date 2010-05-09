@@ -112,7 +112,9 @@
       (cond ;; full paragraph
             ((and (= rs 0) (not end))
              (let ((rect (new Rect left top (+ left width) (+ top (get-height~ size)))))
-               (new Region rect: (acquire-delta dh dv sc rect))))
+               (let ((region (new Region (acquire-delta dh dv sc rect))))
+                 (keep-rectangles~ region)
+                 region)))
             ;; end of the last line
             ((and (= rs re) (not end))
              (let* ((line <Line> (last lines))
@@ -120,16 +122,19 @@
                     (right (+ left-padding (- width left))))
                (let* ((rect (new Rect beginning (get-top~ line) right (get-bottom~ line)))
                       (offset (offset-rect rect left top)))
-                 (new Region rect: (acquire-delta dh dv sc offset)))))
+                 (let ((region (new Region (acquire-delta dh dv sc offset))))
+                   (keep-rectangles~ region)
+                   region))))
             ;; partial range
             (else
              (let ((s (col->text rs))
                    (e (col->text re))
                    (w (+ left-padding (- width left)))
                    (region (new Region)))
+               (keep-rectangles~ region)
                (for-each-logical-range s e 0
                  (lambda (line <Line> beginning limit)
-                   (with-closed ((sub (range-region~ line left top w beginning (if (not end) {} limit) self dh dv sc)))
+                   (with ((sub (range-region~ line left top w beginning (if (not end) {} limit) self dh dv sc)))
                      (combine!~ region sub 'or))))
                region)))))
   

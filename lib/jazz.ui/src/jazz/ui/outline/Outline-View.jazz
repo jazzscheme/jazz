@@ -324,9 +324,9 @@
   ;;;
   
   
-  (method override (draw-children surface context lh lv sh sv sc sc?)
+  (method override (draw-children surface nodes context lh lv sh sv sc sc?)
     (let ((clipper (get-logical-clipper~ surface)))
-      (let ((background (cond (*debug-paint*
+      (let ((background (cond ((debug-paint?)
                                (cycle-debug-color!))
                               ((not enabled?)
                                {Color name: Medium})
@@ -347,7 +347,7 @@
                (pos <Point> (get-position~ row)))
           (set-font~ surface (effective-font))
           (let ((new-context (optimize-context selected? rank context)))
-            (paint-drawing~ row surface new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+            (paint-content~ row surface #t '() new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
       
       (let ((row (get-first-displayed~ outline))
             (rank <fx> (get-first-displayed-rank~ outline))
@@ -681,7 +681,7 @@
       (when player
         (let ((root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
-            (with-closed ((region (selection-region sel dh dv sc)))
+            (with ((region (selection-region sel dh dv sc)))
               (invalidate-region~ player region)))))))
   
   
@@ -690,7 +690,7 @@
   
   
   (method protected (selection-row-region n dh dv sc)
-    (new Region rect: (acquire-delta dh dv sc (selection-row-rect n))))
+    (new Region (acquire-delta dh dv sc (selection-row-rect n))))
     
   
   (method protected virtual (selection-row-rect n)
@@ -1071,7 +1071,7 @@
   
   
   (method (row-region n)
-    (new Region rect: (get-bounds~ (get-row n))))
+    (new Region (get-bounds~ (get-row n))))
   
   
   (method protected (row->v r)

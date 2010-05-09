@@ -40,6 +40,7 @@
 
 
 (import (jazz.designer)
+        (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
@@ -114,6 +115,7 @@
   (slot protected caret-position         initialize {})
   (slot protected caret-pulse            initialize {})
   (slot protected caret-visible?         initialize #f)
+  (slot protected caret-pulse?           initialize #t)
   (slot protected completion-active?     initialize #f)
   (slot protected text-listeners         initialize '())
   (slot protected undoer                 initialize (new Undoer self)     getter generate)
@@ -167,7 +169,8 @@
       (when pref
         (let ((background (get-background~ pref)))
           (when background
-            (set-background (symbolic-color background)))))))
+            (set-background (symbolic-color background))))
+        (set! caret-pulse? (get-pulse-caret?~ pref)))))
     
   
   (method override (install-child form creator creator-branch restore-form)
@@ -816,24 +819,26 @@
         (set! caret-visible? (not caret-visible?))
         (invalidate-caret)))
     
-    (when (and editable? (not caret-pulse) (has-focus?))
+    (when (and editable? (not caret-visible?) (has-focus?))
       (set! caret-visible? #t)
-      (set! caret-pulse (new Pulse 'caret 0.5 pulse-caret))
+      (when caret-pulse?
+        (set! caret-pulse (new Pulse 'caret 0.5 pulse-caret)))
       (invalidate-caret)))
   
   
   (method (hide-caret)
-    (when (and editable? caret-pulse)
-      (close~ caret-pulse)
+    (when editable?
+      (when caret-pulse
+        (close~ caret-pulse))
       (set! caret-visible? #f)
       (set! caret-pulse #f)
       (invalidate-caret)))
   
   
   (method (without-caret proc)
-    (if (or (not editable?) (not caret-pulse))
+    (if (not editable?)
         (proc)
-      (let ((shown? caret-pulse))
+      (let ((shown? caret-visible?))
         (unwind-protect
             (begin
               (hide-caret)
@@ -843,7 +848,7 @@
   
   
   (method (update-caret)
-    (when (and player editable? (has-focus?) )
+    (when (and player editable? (has-focus?))
       (if (has-selection?)
           (hide-caret)
         (set-caret-position (get-start))
@@ -974,7 +979,7 @@
                (root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
             (change-selection pos)
-            (with-closed ((region (multi-part-region parts dh dv sc)))
+            (with ((region (multi-part-region parts dh dv sc)))
               (when region
                 (if final?
                     (invalidate-region~ player region)
@@ -1114,11 +1119,11 @@
     (case (length parts)
       ((0) {})
       ((1) (range-region (car parts) dh dv sc))
-      ((2) (with-closed ((region (range-region (first parts) dh dv sc)))
-           (let ((union (range-region (second parts) dh dv sc)))
-             (when (and region union)
-               (combine!~ union region 'or)
-               union))))))
+      ((2) (with ((region (range-region (first parts) dh dv sc)))
+             (let ((union (range-region (second parts) dh dv sc)))
+               (when (and region union)
+                 (combine!~ union region 'or)
+                 union))))))
   
   
   (method (calculate-autoscroll-amount view)
@@ -1459,11 +1464,17 @@
   
   
   (method (range-region range <Range$Cell$> dh dv sc (top: top {}) (bottom: bottom {}))
-    (let ((region (new Region)))
+    (let ((root (get-root))
+          (region (new Region)))
+      (keep-rectangles~ region)
       (for-each-logical-range range
         (lambda (paragraph start end)
-          (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
+          (with ((sub (range-region~ paragraph left-padding start end dh dv sc)))
             (combine!~ region sub 'or))))
+      (let ((clipper (get-root-clipper)))
+        (when clipper
+          (with ((clipper (new Region clipper)))
+            (combine!~ region clipper 'and))))
       region))
   
   
@@ -1493,7 +1504,7 @@
       (when player
         (let ((root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
-            (with-closed ((region (range-region range dh dv sc)))
+            (with ((region (range-region range dh dv sc)))
               (invalidate-region~ player region)))))))
   
   
@@ -1726,9 +1737,9 @@
           (set! selection range)
         (let ((root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
-            (with-closed ((old (selection-region-all dh dv sc)))
+            (with ((old (selection-region-all dh dv sc)))
               (set! selection range)
-              (with-closed ((new (selection-region-all dh dv sc)))
+              (with ((new (selection-region-all dh dv sc)))
                 (if (and old new)
                     (begin
                       (combine!~ new old 'xor)
@@ -2221,7 +2232,7 @@
   
   (method protected (draw-selection surface top bottom)
     (when (or (has-focus?) show-unfocused-selection?)
-      (with-closed ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
+      (with ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
         (when region
           (fill-region~ surface region
             (if (has-focus?)
@@ -2234,6 +2245,7 @@
       (let ((proc
              (lambda (rect)
                (set-color~ surface caret-color)
+               (set-line-width~ surface 1)
                (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
         (let ((rect <Rect> (caret-rect (get-caret) 0)))
           (if (not sc?)
@@ -4320,22 +4332,24 @@
   
   
   (method protected virtual (auto-complete key)
-    (get-style-at (get-start))
-    (let* ((end (get-end))
-           (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
-           (class (class-of self)))
-      (if (not (auto-complete-char? key last))
-          (begin
-            (insert-char key)
-            (complete-at (get-start)))
-        (let* ((completion (join-lines (selection-lines)))
-               (offset (essay completion (find completion key)))
-               (replacement (essay offset (subseq completion 0 offset))))
-          (when (and completion-active? replacement)
-            (replace-selection (list replacement)))
-          (end-completion)
-          (insert-char/backspace key)
-          (complete-at (get-start))))))
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (get-style-at (get-start))
+        (let* ((end (get-end))
+               (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
+               (class (class-of self)))
+          (if (not (auto-complete-char? key last))
+              (begin
+                (insert-char key)
+                (complete-at (get-start)))
+            (let* ((completion (join-lines (selection-lines)))
+                   (offset (essay completion (find completion key)))
+                   (replacement (essay offset (subseq completion 0 offset))))
+              (when (and completion-active? replacement)
+                (replace-selection (list replacement)))
+              (end-completion)
+              (insert-char/backspace key)
+              (complete-at (get-start))))))))
   
   
   (method protected virtual (auto-complete-char? key last)

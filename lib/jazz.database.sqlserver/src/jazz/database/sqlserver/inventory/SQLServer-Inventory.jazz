@@ -64,7 +64,7 @@
     (Connect~ server servername username password)
     (validate-version "SQLServer" 'sqlserver {} (get-version) register: :sqlserver-version cleanup: destroy-inventory)
     (when databasename
-      (with-closed ((databases (get-Databases~ server)))
+      (with ((databases (get-Databases~ server)))
         (set! database (Item~ databases databasename {}))))
     (destroy-mandatory))
   
@@ -137,7 +137,7 @@
   
   
   (method (get-tables)
-    (with-closed ((tables (get-Tables~ database)))
+    (with ((tables (get-Tables~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ tables))
               (let ((table (Item~ tables n {})))
@@ -148,7 +148,7 @@
   
   
   (method (get-table name)
-    (with-closed ((tables (get-Tables~ database)))
+    (with ((tables (get-Tables~ database)))
       (new SQLServer-Inventory-Table self self (Item~ tables name {}))))
   
   
@@ -159,12 +159,12 @@
   
   
   (method (append-table table)
-    (with-closed ((tables (get-Tables~ database)))
+    (with ((tables (get-Tables~ database)))
       (Add~ tables (get-handle~ table))))
 
   
   (method (remove-table name)
-    (with-closed ((tables (get-Tables~ database)))
+    (with ((tables (get-Tables~ database)))
       (Remove~ tables name {})))
   
   
@@ -178,7 +178,7 @@
   
   
   (method (get-views)
-    (with-closed ((views (get-Views~ database)))
+    (with ((views (get-Views~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ views))
               (let ((view (Item~ views n {})))
@@ -189,7 +189,7 @@
   
   
   (method (get-view name (error?: error? #t))
-    (with-closed ((views (get-Views~ database)))
+    (with ((views (get-Views~ database)))
       (let* ((action
                (lambda ()
                  (Item~ views name {})))
@@ -208,12 +208,12 @@
   
   
   (method (append-view view)
-    (with-closed ((views (get-Views~ database)))
+    (with ((views (get-Views~ database)))
       (Add~ views (get-handle~ view))))
   
   
   (method (remove-view name)
-    (with-closed ((views (get-Views~ database)))
+    (with ((views (get-Views~ database)))
       (Remove~ views name {})))
   
   
@@ -238,26 +238,26 @@
     (let ((new-key (com-create SQLDMO.Key)))
       (put-Name~ new-key relation-name)
       (put-Type~ new-key SQLDMO.SQLDMOKey_Foreign)
-      (with-closed ((columns (get-KeyColumns~ new-key)))
+      (with ((columns (get-KeyColumns~ new-key)))
         (for-each (lambda (field)
                     (Add~ columns field))
                   foreign-fields))
       (put-ReferencedTable~ new-key primary-table)
-      (with-closed ((columns (get-ReferencedColumns~ new-key)))
+      (with ((columns (get-ReferencedColumns~ new-key)))
         (for-each (lambda (field)
                     (Add~ columns field))
                   primary-fields))
-      (with-closed ((tables (get-Tables~ database))
-                    (foreign-table (Item~ tables foreign-table {}))
-                    (foreign-keys (get-Keys~ foreign-table)))
+      (with ((tables (get-Tables~ database))
+             (foreign-table (Item~ tables foreign-table {}))
+             (foreign-keys (get-Keys~ foreign-table)))
         (Add~ foreign-keys new-key))
       (new SQLServer-Inventory-Relation self self new-key)))
   
   
   (method (remove-relation relation-name table-name)
-    (with-closed ((tables (get-Tables~ database))
-                  (table (Item~ tables table-name {}))
-                  (keys (get-Keys~ table)))
+    (with ((tables (get-Tables~ database))
+           (table (Item~ tables table-name {}))
+           (keys (get-Keys~ table)))
       (Remove~ keys relation-name)))
   
   
@@ -275,7 +275,7 @@
   
 
   (method (get-procedures)
-    (with-closed ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ procedures))
               (let ((procedure (Item~ procedures n {})))
@@ -290,7 +290,7 @@
   
   
   (method (get-procedure name (error?: error? #t))
-    (with-closed ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures~ database)))
       (let* ((action
                (lambda ()
                  (Item~ procedures name {})))
@@ -309,12 +309,12 @@
   
   
   (method (append-procedure procedure)
-    (with-closed ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures~ database)))
       (Add~ procedures (get-handle~ procedure))))
   
   
   (method (remove-procedure name)
-    (with-closed ((procedures (get-StoredProcedures~ database)))
+    (with ((procedures (get-StoredProcedures~ database)))
       (Remove~ procedures name {})))
   
   
@@ -324,7 +324,7 @@
   
   
   (method public (restore-database database backup)
-    (with-closed ((restore (com-create SQLDMO.Restore)))
+    (with ((restore (com-create SQLDMO.Restore)))
       (put-Database~ restore database)
       (put-Files~ restore (parse~ backup))
       (SQLRestore~ restore server)))))

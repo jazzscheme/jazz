@@ -38,31 +38,30 @@
 (module protected jazz.graphic.platform.carbon.Region jazz
 
 
-(import (jazz.geometry)
+(import (jazz.graphic)
+        (jazz.geometry)
         (jazz.library)
         (jazz.platform))
 
 
-(class Region extends Object
+(class Region extends Rectangles-Region
   
   
-  (slot handle     getter generate)
-  (slot rectangles getter generate)
-    
-    
-  (method override (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
-    (nextmethod)
-    (cond (handle
-           (set! handle~self handle))
-          (rect
-           (set! handle~self (RectRgn (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))
-           (set! rectangles (list rect)))
-          (left
-           (set! handle~self (RectRgn left top right bottom))
-           (set! rectangles (list (new Rect left top right bottom))))
-          (else
-           (set! handle~self (NewRgn))
-           (set! rectangles (list (new Rect 0 0 0 0)))))
+  (slot handle getter generate)
+  
+  
+  (method override (initialize . rest)
+    (nextmethod #f rest)
+    (if (null? rest)
+        (set! handle (NewRgn))
+      (let ((first (car rest)))
+        (cond ((foreign? first)
+               (set! handle first))
+              ((rect? first)
+               (set! handle (RectRgn (get-left~ first) (get-top~ first) (get-right~ first) (get-bottom~ first))))
+              ((fixnum? first)
+               (bind (top right bottom) (cdr rest)
+                 (set! handle (RectRgn first top right bottom)))))))
     (destroy-mandatory))
 
   
@@ -71,20 +70,26 @@
     (nextmethod))
   
   
-  (method public (offset! h v)
+  (method override (offset! h v)
     (OffsetRgn handle h v)
-    (for-each (lambda (rect)
-                (offset-rect! rect h v))
-              rectangles))
+    (nextmethod h v))
 
 
-  (method public (combine! region mode)
+  (method override (combine! region mode)
     (case mode
       ((or xor) (UnionRgn handle (get-handle~ region) handle))
       (else (error "Unknown combine mode: {t}" mode)))
-    (set! rectangles (append rectangles (get-rectangles~ region))))
+    (nextmethod region mode))
+  
+  
+  (method override (empty?) <bool>
+    (= (get-box) {Rect 0 0 0 0}))
+  
+  
+  (method override (intersects-rect?~ rect) <bool>
+    (rect-intersect? (get-box) rect))
 
 
-  (method public (get-box)
+  (method override (get-box) <Rect>
     (receive (l t b r) (GetRegionBounds handle)
       (new Rect l t r b)))))

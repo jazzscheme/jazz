@@ -38,32 +38,29 @@
 (module protected jazz.graphic.platform.windows.Region jazz
 
 
-(import (jazz.geometry)
+(import (jazz.graphic)
+        (jazz.geometry)
         (jazz.platform))
 
 
-(class Region extends Object
+(class Region extends Rectangles-Region
   
   
-  (slot handle     getter generate)
-  (slot rectangles getter generate)
+  (slot handle getter generate)
   
   
-  (method override (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
-    (nextmethod)
-    (cond (handle
-           (set! handle~self handle))
-          (rect
-           (set! handle~self (with ((rect (rect->RECT rect)))
-                               (prog1 (CreateRectRgnIndirect rect)
-                                 (RECT-free rect))))
-           (set! rectangles (list rect)))
-          (left
-           (set! handle~self (CreateRectRgn left top right bottom))
-           (set! rectangles (list (new Rect left top right bottom))))
-          (else
-           (set! handle~self (CreateRectRgn 0 0 0 0))
-           (set! rectangles (list (new Rect 0 0 0 0)))))
+  (method override (initialize . rest)
+    (nextmethod #f rest)
+    (if (null? rest)
+        (set! handle (CreateRectRgn 0 0 0 0))
+      (let ((first (car rest)))
+        (cond ((foreign? first)
+               (set! handle first))
+              ((rect? first)
+               (set! handle (CreateRectRgn (get-left~ first) (get-top~ first) (get-right~ first) (get-bottom~ first))))
+              ((fixnum? first)
+               (bind (top right bottom) (cdr rest)
+                 (set! handle (CreateRectRgn first top right bottom)))))))
     (destroy-mandatory))
 
   
@@ -72,26 +69,36 @@
     (nextmethod))
   
   
-  (method public (offset! h v)
+  (method override (offset! h v)
     (OffsetRgn handle h v)
-    (for-each (lambda (rect)
-                (offset-rect! rect h v))
-              rectangles))
+    (nextmethod h v))
 
 
-  (method public (combine! region mode)
+  (method override (combine! region mode)
     (define (get-combine-mode mode)
       (case mode
-        ((or)  RGN_OR)
-        ((xor) RGN_XOR)
+        ((and)  RGN_AND)
+        ((or)   RGN_OR)
+        ((xor)  RGN_XOR)
+        ((diff) RGN_DIFF)
         (else (error "Unknown combine mode: {t}" mode))))
     
     (CombineRgn handle handle (get-handle~ region) (get-combine-mode mode))
-    (set! rectangles (append rectangles (get-rectangles~ region))))
+    (nextmethod region mode))
+  
+  
+  (method override (empty?) <bool>
+    (= (get-box) {Rect 0 0 0 0}))
+  
+  
+  (method override (intersects-rect? rect) <bool>
+    (with ((region (new Region rect)))
+      (combine!~ region self 'and)
+      (not (empty?~ region))))
 
 
-  (method public (get-box)
-    (with ((rect (RECT-make)))
+  (method override (get-box) <Rect>
+    (let ((rect (RECT-make)))
       (GetRgnBox handle rect)
       (prog1 (RECT->rect rect)
         (RECT-free rect))))))

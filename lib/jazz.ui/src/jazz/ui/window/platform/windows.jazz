@@ -1027,6 +1027,9 @@
 (definition public Current-Cursor
   {})
 
+(definition public Cursor-Cache
+  (make-table test: eqv?))
+
 
 (definition public Cursors
   (list
@@ -1051,11 +1054,22 @@
 
 
 (definition (load-cursor cursor)
-  (if (number? cursor)
-      (LoadCursorInt cursor)
-    (let* ((cursor (if (file? cursor) cursor (get-resource~ (get-application) 'cursor (get-name~ cursor))))
-           (ident (parse~ cursor)))
-      (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
+  (define (cursor-name cursor)
+    (if (number? cursor)
+        cursor
+      (get-name~ cursor)))
+  
+  (define (load name)
+    (if (number? name)
+      (LoadCursorInt name)
+      (let ((ident (parse~ (get-resource~ (get-application) 'cursor name))))
+        (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
+  
+  (let ((name (cursor-name cursor)))
+    (either (table-ref Cursor-Cache name {})
+            (let ((cursor (load name)))
+              (table-set! Cursor-Cache name cursor)
+              cursor))))
 
 
 (definition (get-named-cursor name)

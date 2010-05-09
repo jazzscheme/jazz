@@ -115,6 +115,7 @@
   (slot protected caret-position         initialize {})
   (slot protected caret-pulse            initialize {})
   (slot protected caret-visible?         initialize #f)
+  (slot protected caret-pulse?           initialize #t)
   (slot protected completion-active?     initialize #f)
   (slot protected text-listeners         initialize '())
   (slot protected undoer                 initialize (new Undoer self)     getter generate)
@@ -168,7 +169,8 @@
       (when pref
         (let ((background (get-background~ pref)))
           (when background
-            (set-background (symbolic-color background)))))))
+            (set-background (symbolic-color background))))
+        (set! caret-pulse? (get-pulse-caret?~ pref)))))
     
   
   (method override (install-child form creator creator-branch restore-form)
@@ -817,24 +819,26 @@
         (set! caret-visible? (not caret-visible?))
         (invalidate-caret)))
     
-    (when (and editable? (not caret-pulse) (has-focus?))
+    (when (and editable? (not caret-visible?) (has-focus?))
       (set! caret-visible? #t)
-      (set! caret-pulse (new Pulse 'caret 0.5 pulse-caret))
+      (when caret-pulse?
+        (set! caret-pulse (new Pulse 'caret 0.5 pulse-caret)))
       (invalidate-caret)))
   
   
   (method (hide-caret)
-    (when (and editable? caret-pulse)
-      (close~ caret-pulse)
+    (when editable?
+      (when caret-pulse
+        (close~ caret-pulse))
       (set! caret-visible? #f)
       (set! caret-pulse #f)
       (invalidate-caret)))
   
   
   (method (without-caret proc)
-    (if (or (not editable?) (not caret-pulse))
+    (if (not editable?)
         (proc)
-      (let ((shown? caret-pulse))
+      (let ((shown? caret-visible?))
         (unwind-protect
             (begin
               (hide-caret)
@@ -844,7 +848,7 @@
   
   
   (method (update-caret)
-    (when (and player editable? (has-focus?) )
+    (when (and player editable? (has-focus?))
       (if (has-selection?)
           (hide-caret)
         (set-caret-position (get-start))

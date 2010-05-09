@@ -3211,7 +3211,7 @@
       (when player
         (let ((root (get-root)))
           (assert root)
-          (let ((acquired (acquire~ root self rect)))
+          (let ((acquired (acquire~ root self (rect-intersection rect (get-clipper)))))
             (invalidate-rect~ player acquired))))))
   
   
@@ -3222,6 +3222,8 @@
         (let* ((root (get-root))
                (delta (- (get-lie) (get-lie~ root))))
           (offset!~ region (get-h~ delta) (get-v~ delta))
+          (with ((clipper (new Region (acquire~ root self (get-clipper)))))
+            (combine!~ region clipper 'and))
           (invalidate-region~ player region)))))
   
   
@@ -3230,15 +3232,17 @@
       (when player
         (let ((root (get-root)))
           (cond (rect
-                  (let ((acquired (acquire~ root self rect)))
+                  (let ((acquired (acquire~ root self (rect-intersection rect (get-clipper)))))
                     (redraw-window~ player rect: acquired)))
                 ;; todo: not using acquire is a potentiel scaling bug...
                 (region
                   (let ((delta (- (get-lie) (get-lie~ root))))
                     (offset!~ region (get-h~ delta) (get-v~ delta))
+                    (with ((clipper (new Region (acquire~ root self (get-clipper)))))
+                      (combine!~ region clipper 'and))
                     (redraw-window~ player region: region)))
                 (else
-                 (let ((acquired (acquire~ root self (get-bounds))))
+                 (let ((acquired (acquire~ root self (rect-intersection (get-bounds) (get-clipper)))))
                    (redraw-window~ player rect: acquired))))))))
   
 

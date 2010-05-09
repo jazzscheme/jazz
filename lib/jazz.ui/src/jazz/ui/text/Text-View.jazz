@@ -4330,22 +4330,24 @@
   
   
   (method protected virtual (auto-complete key)
-    (get-style-at (get-start))
-    (let* ((end (get-end))
-           (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
-           (class (class-of self)))
-      (if (not (auto-complete-char? key last))
-          (begin
-            (insert-char key)
-            (complete-at (get-start)))
-        (let* ((completion (join-lines (selection-lines)))
-               (offset (essay completion (find completion key)))
-               (replacement (essay offset (subseq completion 0 offset))))
-          (when (and completion-active? replacement)
-            (replace-selection (list replacement)))
-          (end-completion)
-          (insert-char/backspace key)
-          (complete-at (get-start))))))
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (get-style-at (get-start))
+        (let* ((end (get-end))
+               (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
+               (class (class-of self)))
+          (if (not (auto-complete-char? key last))
+              (begin
+                (insert-char key)
+                (complete-at (get-start)))
+            (let* ((completion (join-lines (selection-lines)))
+                   (offset (essay completion (find completion key)))
+                   (replacement (essay offset (subseq completion 0 offset))))
+              (when (and completion-active? replacement)
+                (replace-selection (list replacement)))
+              (end-completion)
+              (insert-char/backspace key)
+              (complete-at (get-start))))))))
   
   
   (method protected virtual (auto-complete-char? key last)

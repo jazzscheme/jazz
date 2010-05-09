@@ -445,15 +445,15 @@
                             (close~ child-coverage)))))))))
             (cons (region-intersection region coverage) (cons view (cons (not (empty?~ update)) nodes)))))))
     
-    ;; temporary patch
+    ;; temporary patch until full-fledged regions in X11
     (if (neq? kernel-platform 'windows)
-        (full-tree)
+        (full-painting-tree)
       (bind (coverage . node) (make-tree self region lh lv)
         (close~ coverage)
         node)))
   
   
-  (method public (full-tree)
+  (method public (full-painting-tree)
     (define (make-tree view)
       (let ((nodes '()))
         (for-each-view-reversed~ view
@@ -465,45 +465,23 @@
 
   
   (method public (paint surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
-    (when (get-visible?)
-      (if (not (get-offscreen?))
-          (paint-content surface draw-self? nodes context lh lv sh sv sc sc?)
-        (let ((offscreen (get-offscreen surface)))
-          (set-clipper~ offscreen (get-clipper~ surface))
-          (set-update-region~ offscreen (get-update-region~ surface))
-          (paint-content offscreen draw-self? nodes context lh lv sh sv sc sc?)
-          (blit-surface~ surface offscreen)
-          @convert-to-cairo
-          (let ((effect (get-effect)))
-            (if (not effect)
-                (let ((lie (new Point lh lv)))
-                  (animate~ effect offscreen surface lie size))
-              (set-effect {})))))))
+    (if (not (get-offscreen?))
+        (paint-content surface draw-self? nodes context lh lv sh sv sc sc?)
+      (let ((offscreen (get-offscreen surface)))
+        (set-clipper~ offscreen (get-clipper~ surface))
+        (set-update-region~ offscreen (get-update-region~ surface))
+        (paint-content offscreen draw-self? nodes context lh lv sh sv sc sc?)
+        (blit-surface~ surface offscreen))))
   
   
   (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
-    (define (scaled-lie sh <fx> sv <fx> sc <fl>) <Point>
-      (let* ((dh (- lh sh))
-             (dv (- lv sv))
-             (dx (+ sh (* dh sc)))
-             (dy (+ sv (* dv sc))))
-        (new Point (inexact->exact (round dx)) (inexact->exact (round dy)))))
-
-    (let* ((scaled? (get-scaled?))
-           (scaling (get-scaling))
-           (new-sh (if (not scaled?) sh lh))
-           (new-sv (if (not scaled?) sv lv))
-           (new-sc (if (not scaled?) sc scaling))
-           (new-sc? (if (not scaled?) sc? #t)))
-      (with-transform~ surface lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
-        (lambda ()
-          (when (let ((lie (if new-sc?
-                               (scaled-lie new-sh new-sv new-sc)
-                             (new Point lh lv))))
-                  (and (let ((region (get-update-region~ surface)))
-                         (or (not region)
-                             (intersects-rect?~ region (position/size->rect lie size))))
-                       (rects-intersect? (get-clipper~ surface) lie size)))
+    (let ((scaled? (get-scaled?)))
+      (let ((new-sh (if (not scaled?) sh lh))
+            (new-sv (if (not scaled?) sv lv))
+            (new-sc (if (not scaled?) sc (get-scaling)))
+            (new-sc? (if (not scaled?) sc? #t)))
+        (with-transform~ surface lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
+          (lambda ()
             (render surface draw-self? nodes context lh lv new-sh new-sv new-sc new-sc?))))))
 
   
@@ -512,7 +490,7 @@
       (if (debug-paint?)
           (fill-rect~ surface (get-bounds) (cycle-debug-color!))
         (draw-background surface context))
-      (draw-content surface context lh lv sh sv sc sc?))
+      (draw-content surface context lh lv))
     (draw-children surface nodes context lh lv sh sv sc sc?))
 
   
@@ -520,7 +498,7 @@
     )
   
   
-  (method public virtual (draw-content surface <Surface> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public virtual (draw-content surface <Surface> context <list> lh <fx> lv <fx>) <void>
     (draw surface context lh lv))
     
   

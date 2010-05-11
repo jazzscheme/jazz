@@ -305,7 +305,11 @@
           (jazz.process-jazzini))
         
         (define (setup-repositories)
-          (jazz.prepare-repositories build-repository jazz-repository user-repository repositories)
+          (if build-repository (jazz.build-repository build-repository))
+          (if jazz-repository (jazz.jazz-repository jazz-repository))
+          (if user-repository (jazz.user-repository user-repository))
+          (if repositories (jazz.repositories repositories))
+          (jazz.prepare-repositories)
           (jazz.setup-repositories))
           
         (define (setup-runtime)

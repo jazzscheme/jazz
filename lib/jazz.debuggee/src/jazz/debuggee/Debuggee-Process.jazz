@@ -41,7 +41,8 @@
 (import (jazz.debuggee)
         (jazz.debuggee.stub)
         (jazz.editor.jazz.inspector)
-        (jazz.system))
+        (jazz.system)
+        (statprof))
 
 
 (class Debuggee-Process extends Object
@@ -207,6 +208,43 @@
                                (walk-for 'eval))
                   (present (eval expr))))
             (present (eval expr)))))))
+  
+  
+  ;;;
+  ;;;; Profiler
+  ;;;
+  
+  
+  (method public (profiler-start)
+    (start-profile))
+  
+  
+  (method public (profiler-stop)
+    (stop-profile))
+  
+  
+  (method public (profiler-reset)
+    (reset-profile))
+  
+  
+  (method public (profiler-result)
+    (define (frame->symbol frame)
+      (or (when frame
+            (bind (creator locat) frame
+              (when creator
+                (let ((name (get-procedure-name creator)))
+                  (if name
+                      (list (present-identifier name) locat)
+                    (list {} locat))))))
+          frame))
+    
+    (let ((profile (active-profile)))
+      (list (profile-total profile)
+            (profile-unknown profile)
+            (map (lambda (kv)
+                   (bind (stack . count) kv
+                     (cons (map frame->symbol stack) count)))
+                 (table->list (profile-calls profile))))))
   
   
   ;;;

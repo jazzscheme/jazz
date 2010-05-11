@@ -293,7 +293,7 @@
   jazz.Build-Repository)
 
 
-(define (jazz.prepare-repositories #!optional (build-repository #f) (jazz-repository #f) (user-repository #f) (repositories #f))
+(define (jazz.prepare-repositories)
   (define (all-repositories build jazz user repositories)
     (define (listify repository)
       (if repository
@@ -307,10 +307,10 @@
       ,@(listify jazz)
       ,@(listify user)))
   
-  (let ((build (jazz.make-repository 'Build (or build-repository (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
-        (jazz (jazz.make-repository 'Jazz (or jazz-repository (jazz.jazz-repository) jazz.kernel-source) "lib"))
-        (user (jazz.make-repository 'User (or user-repository (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
-        (repositories (or repositories (jazz.repositories))))
+  (let ((build (jazz.make-repository 'Build (or (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
+        (jazz (jazz.make-repository 'Jazz (or (jazz.jazz-repository) jazz.kernel-source) "lib"))
+        (user (jazz.make-repository 'User (or (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
+        (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
     (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz user repositories)))))
 
@@ -1385,7 +1385,12 @@
                (let ((process (open-process
                                 (list
                                   path: (%%string-append jazz.kernel-install "kernel")
-                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count) ,@(if jazz.link `("-link" ,(%%symbol->string jazz.link)) '()) "-jobs" "1")
+                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count)
+                                               ,@(if (jazz.build-repository) `("-build-repository" ,(jazz.build-repository)) '())
+                                               ,@(if (jazz.jazz-repository) `("-jazz-repository" ,(jazz.jazz-repository)) '())
+                                               ,@(if (jazz.user-repository) `("-user-repository" ,(jazz.user-repository)) '())
+                                               ,@(if (jazz.repositories) `("-repositories" ,(jazz.repositories)) '())
+                                               "-jobs" "1")
                                   stdin-redirection: #t
                                   stdout-redirection: #t
                                   stderr-redirection: #f))))

@@ -49,6 +49,7 @@
   (slot host                                  getter generate)
   (slot service                               getter generate)
   (slot socket-info                           getter generate)
+  (slot server-port       initialize {}       accessors generate)
   (slot server-thread)
   (slot started-condition)
   (slot state             initialize 'stopped)
@@ -99,12 +100,7 @@
   
   (method (start)
     (set-state 'starting)
-    (set! server-thread
-          (thread-start!
-            (create-thread
-              (lambda ()
-                (start-listener))
-              (server-name)))))
+    (start-listener))
   
   
   (method (stop)
@@ -168,26 +164,36 @@
   (method (start-listener)
     (let ((address (resolve-host (server-host)))
           (number (resolve-service (server-service))))
-      (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf reuse-address: reuse-address?))))
-        (unwind-protect
-            (begin
-              (set! socket-info (tcp-server-socket-info server-port))
-              (set-state 'started)
-              ;;(condition-broadcast! started-condition)
-              (let (loop)
-                (let ((port (read server-port)))
-                  (server-hit)
-                  (thread-start!
-                    (create-thread
-                      (lambda ()
-                        (unwind-protect
-                            (accept-connection port)
-                          (close-port port)))
-                      (connection-name)))
-                  (loop))))
-          (close-port server-port)
+      (with-exception-filter
+        (lambda (exc)
+          #t)
+        (lambda (exc)
+          (when server-port
+            (close-port server-port))
           (set-state 'stopped)
-          (set! socket-info {})))))
+          (set! socket-info {})
+          (throw exc))
+        (lambda ()
+          (set! server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf reuse-address: reuse-address?)))
+          (set! socket-info (tcp-server-socket-info server-port))
+          (set-state 'started)
+          ;;(condition-broadcast! started-condition)
+          (set! server-thread
+                (thread-start!
+                  (create-thread
+                    (lambda ()
+                      (let (loop)
+                        (let ((port (read server-port)))
+                          (server-hit)
+                          (thread-start!
+                            (create-thread
+                              (lambda ()
+                                (unwind-protect
+                                    (accept-connection port)
+                                  (close-port port)))
+                              (connection-name)))
+                          (loop))))
+                    (server-name))))))))
   
   
   (method (listening-host)

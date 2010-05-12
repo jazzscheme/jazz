@@ -120,13 +120,31 @@
               (server-service~ server)))
     
     (define (start-server)
+      (define (format-exception exc)
+        (cond
+          ((os-exception? exc)
+           "address/port already in use"
+           @missing-message-and-code-in-exception-from-gambit
+           (format "OS exception {?- {a}~}{?({x})~}"
+                   (os-exception-message exc)
+                   (os-exception-code exc)))
+          (else
+           exc)))
+      
       (let ((state (get-state~ server)))
         (case state
           ((stopped)
-           (start~ server)
-           (if (not (wait-started~ server error?: #f))
-               (error "Unable to start server")
-             (format output "Server started at {a}{%}" (server-at))))
+           (with-exception-filter
+             (lambda (exc)
+               #t)
+             (lambda (exc)
+               (format output "Unable to start server: {a}{%}"
+                 (format-exception exc)))
+             (lambda ()
+               (start~ server)
+               (if (not (wait-started~ server error?: #f))
+                   (error "Unable to start server")
+                 (format output "Server started at {a}{%}" (server-at))))))
           (else
            (format output "Server is {s}{%}" state)))))
     

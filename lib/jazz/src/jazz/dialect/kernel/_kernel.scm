@@ -318,6 +318,11 @@
 (native subu8vector->base64-string)
 (native u8vector->base64-string)
 (native object->string)
+(native os-exception-arguments)
+(native os-exception-code)
+(native os-exception-message)
+(native os-exception-procedure)
+(native os-exception?)
 
 
 ;;;

@@ -42,6 +42,10 @@
   (%%gc))
 
 
+(define (jazz.gc-report-set! flag)
+  (gc-report-set! flag))
+
+
 ;;;
 ;;;; Memory
 ;;;

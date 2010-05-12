@@ -29,7 +29,7 @@
 
 
 (define (make-profile depth)
-  (%%vector 'profile depth 0 0 (%%make-table test: equal?)))
+  (%%vector 'profile depth 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-depth profile)
@@ -49,6 +49,12 @@
 
 (define (profile-calls profile)
   (%%vector-ref profile 4))
+
+(define (profile-last-counter profile)
+  (%%vector-ref profile 5))
+
+(define (profile-last-counter-set! profile counter)
+  (%%vector-set! profile 5 counter))
 
 
 ;;;
@@ -73,6 +79,25 @@
 
 
 ;;;
+;;;; Counter
+;;;
+
+
+(define (secs->msecs x)
+  (inexact->exact (round (* x 1000))))
+
+
+(define get-performance-frequency
+  (lambda ()
+    1000))
+
+
+(define get-performance-counter
+  (lambda ()
+    (secs->msecs (real-time))))
+
+
+;;;
 ;;;; Interruption
 ;;;
 
@@ -82,8 +107,10 @@
 
 
 (define (start-profile)
+  (profile-last-counter-set! *profile* (get-performance-counter))
   (%%interrupt-vector-set! 1 profile-heartbeat!)
   (set! *profile-running?* #t))
+
 
 (define (stop-profile)
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
@@ -114,13 +141,20 @@
 
 
 (define (register-continuation cont)
-  (let ((stack (identify-stack cont (profile-depth *profile*))))
+  (define (duration)
+    (let ((counter (get-performance-counter))
+          (last-counter (profile-last-counter *profile*)))
+      (profile-last-counter-set! *profile* counter)
+      (- counter last-counter)))
+  
+  (let ((duration (max 1 (duration)))
+        (stack (identify-stack cont (profile-depth *profile*))))
     (if (%%not stack)
-        (profile-unknown-set! *profile* (%%fx+ (profile-unknown *profile*) 1))
+        (profile-unknown-set! *profile* (+ (profile-unknown *profile*) duration))
       (begin
-        (profile-total-set! *profile* (%%fx+ (profile-total *profile*) 1))
+        (profile-total-set! *profile* (+ (profile-total *profile*) duration))
         (let ((actual (%%table-ref (profile-calls *profile*) stack 0)))
-          (%%table-set! (profile-calls *profile*) stack (%%fx+ actual 1)))))))
+          (%%table-set! (profile-calls *profile*) stack (+ actual duration)))))))
 
 
 ;;;

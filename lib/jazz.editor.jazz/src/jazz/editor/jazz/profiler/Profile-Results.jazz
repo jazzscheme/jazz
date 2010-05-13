@@ -201,7 +201,7 @@
   (form
     (<install>                              portfolio: :images filled-column: procedure
       (<Tree-Node-Column>  name: procedure  title: "Procedure" width: 250)
-      (<Tree-Label-Column> name: count      title: "Time" width: 75)
+      (<Tree-Label-Column> name: count      title: "Milliseconds" width: 75)
       (<Tree-Label-Column> name: percentage title: "Percentage" width: 75)))
   
   
@@ -215,28 +215,30 @@
     (with-update-locked
       (lambda ()
         (bind (total unknown calls) profiler-result
-          (define (calculate-percentage count)
-            (let ((precision 100.))
-              (/ (round (* (/ count total) 100 precision)) precision)))
-          
-          (define (make-children frame count)
-            (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
-                  (count (if count (->string count) ""))
-                  (percentage (if count (->string (calculate-percentage count)) "")))
-              (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: percentage))))
-          
-          (when (> unknown 0)
-            (add-row children: (make-children "<unknown>" unknown) user-data: {}))
-          (for-each (lambda (call)
-                      (bind (stack . count) call
-                        (if (null? stack)
-                            (add-row children: (make-children "(interaction)" count) user-data: {})
-                          (bind (head-frame . frames) (reverse stack)
-                            (let ((row (add-row children: (make-children head-frame count) user-data: head-frame)))
-                              (for-each (lambda (frame)
-                                          (add-row father: row children: (make-children frame #f) user-data: frame))
-                                        frames))))))
-                    (sort > calls key: cdr)))))))
+          (let ((frequency (profiler-performance-frequency)))
+            (define (calculate-percentage count)
+              (let ((precision 100.))
+                (/ (round (* (/ count total) 100 precision)) precision)))
+            
+            (define (make-children frame count)
+              (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
+                    (time (if count (->string (secs->msecs (/ count frequency))) ""))
+                    (percentage (if count (->string (calculate-percentage count)) "")))
+                (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+            
+            (add-row children: (list (new Tree-Node title: "<total>" image: {Image-Resource "Link"}) (new Tree-Label title: (->string total)) (new Tree-Label title: "100")))
+            (when (> unknown 0)
+              (add-row children: (make-children "<unknown>" unknown) user-data: {}))
+            (for-each (lambda (call)
+                        (bind (stack . count) call
+                          (if (null? stack)
+                              (add-row children: (make-children "(interaction)" count) user-data: {})
+                            (bind (head-frame . frames) (reverse stack)
+                              (let ((row (add-row children: (make-children head-frame count) user-data: head-frame)))
+                                (for-each (lambda (frame)
+                                            (add-row father: row children: (make-children frame #f) user-data: frame))
+                                          frames))))))
+                      (sort > calls key: cdr))))))))
 
 
 (register-autoclass Calls-Tree))

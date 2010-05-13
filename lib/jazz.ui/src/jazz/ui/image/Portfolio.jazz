@@ -38,7 +38,9 @@
 (module protected jazz.ui.image.Portfolio jazz
 
 
-(import (jazz.library)
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.library)
         (jazz.platform.cairo)
         (jazz.ui.image))
 
@@ -46,7 +48,8 @@
 (class Portfolio extends Component
 
 
-  (slot images initialize (make-table test: equal?))
+  (slot images        initialize (make-table test: equal?))
+  (slot opaque-images initialize (make-table test: equal?))
   
   
   ;;;
@@ -68,17 +71,17 @@
     (define (destroy-image image)
       (cairo_surface_destroy image))
     
+    (define (destroy-opaque-image image)
+      (close~ image))
+    
     (for-each destroy-image (table-values images))
+    (for-each destroy-opaque-image (table-values opaque-images))
     (nextmethod))
   
   
   ;;;
-  ;;;; Interface
+  ;;;; Image
   ;;;
-  
-  
-  (method public (preload resource)
-    (get-image resource))
 
 
   (method public (get-image resource)
@@ -92,17 +95,29 @@
         (table-set! images (get-name~ resource) image)
         image))
     
-    
     (define (add-image resource)
       (let ((image (load-image 'image resource)))
         (table-set! images (get-name~ resource) image)
         image))
     
     (let ((name (get-name~ resource)))
-      (either (table-ref images name #f)
-              (begin
-                (add-resource resource)
-                (table-ref images name #f)))))
+      (either (table-ref images name {})
+              (add-resource resource))))
+  
+  
+  (method public (get-opaque-image resource background)
+    (define (add-opaque-image key)
+      (let ((image (get-image resource)))
+        (let ((size (get-cairo-image-surface-size image)))
+          (let ((surface (new Memory-Surface {} size)))
+            (fill-rect~ surface (size-rect size) background)
+            (draw-image~ surface image 0 0)
+            (table-set! opaque-images key surface)
+            surface))))
+    
+    (let ((key (cons (get-name~ resource) (get-name~ background))))
+      (either (table-ref opaque-images key {})
+              (add-opaque-image key))))
   
   
   ;;;
@@ -110,6 +125,11 @@
   ;;;
 
 
-  (method public (draw-image surface context resource h v . rest)
+  (method public (draw-image surface context resource h v)
     (let ((image (get-image resource)))
-      (draw-image~ surface image h v)))))
+      (draw-image~ surface image h v)))
+  
+  
+  (method public (draw-opaque-image surface context resource background h v)
+    (let ((image (get-opaque-image resource background)))
+      (draw-image~ surface (get-surface~ image) h v)))))

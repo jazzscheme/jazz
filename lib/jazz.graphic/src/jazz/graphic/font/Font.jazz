@@ -61,6 +61,7 @@
   (slot scaled-font initialize {} getter generate)
   (slot metrics     initialize {})
   (slot all-widths  initialize {})
+  (slot glyph-cache initialize {})
   
   
   (method override (initialize (name: name {})
@@ -116,7 +117,8 @@
     (set! local?~self (symbol? font-name))
     (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
     (set! font-face~self (create-cairo-font-face local? handle~self))
-    (set! scaled-font (create-cairo-scaled-font font-face)))
+    (set! scaled-font (create-cairo-scaled-font font-face))
+    (set! glyph-cache (make-table test: eqv?)))
   
   
   (cond-expand
@@ -211,6 +213,15 @@
   (method public (font-height)
     (set-font~ (work-dc) self)
     (get-font-height~ (work-dc)))
+  
+  
+  (method public (glyph-index char)
+    (if (> char 255)
+        (cairo_glyph_index self char)
+      (either (table-ref glyph-cache char {})
+              (let ((index (cairo_glyph_index self char)))
+                (table-set! glyph-cache char index)
+                index))))
   
 
   ;;;

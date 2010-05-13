@@ -19,7 +19,7 @@
 ;;;
 
 
-(jazz.define-setting profiler-depth
+(jazz.define-setting default-profiler-depth
   2)
 
 
@@ -29,32 +29,38 @@
 
 
 (define (make-profile depth)
-  (%%vector 'profile depth 0 0 (%%make-table test: equal?) 0))
+  (%%vector 'profile depth #f 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-depth profile)
   (%%vector-ref profile 1))
 
-(define (profile-total profile)
+(define (profile-frame-count profile)
   (%%vector-ref profile 2))
 
-(define (profile-total-set! profile total)
-  (%%vector-set! profile 2 total))
+(define (profile-frame-count-set! profile count)
+  (%%vector-set! profile 2 count))
 
-(define (profile-unknown profile)
+(define (profile-total profile)
   (%%vector-ref profile 3))
 
-(define (profile-unknown-set! profile unknown)
-  (%%vector-set! profile 3 unknown))
+(define (profile-total-set! profile total)
+  (%%vector-set! profile 3 total))
 
-(define (profile-calls profile)
+(define (profile-unknown profile)
   (%%vector-ref profile 4))
 
-(define (profile-last-counter profile)
+(define (profile-unknown-set! profile unknown)
+  (%%vector-set! profile 4 unknown))
+
+(define (profile-calls profile)
   (%%vector-ref profile 5))
 
+(define (profile-last-counter profile)
+  (%%vector-ref profile 6))
+
 (define (profile-last-counter-set! profile counter)
-  (%%vector-set! profile 5 counter))
+  (%%vector-set! profile 6 counter))
 
 
 ;;;
@@ -63,7 +69,7 @@
 
 
 (define *profile*
-  (make-profile (profiler-depth)))
+  (make-profile (default-profiler-depth)))
 
 
 (define (active-profile)
@@ -71,11 +77,15 @@
 
 
 (define (new-profile #!key (depth #f))
-  (set! *profile* (make-profile (or depth profiler-depth))))
+  (set! *profile* (make-profile (or depth default-profiler-depth))))
 
 
 (define (reset-profile)
   (set! *profile* (make-profile (profile-depth *profile*))))
+
+
+(define (profile-frames profile)
+  (or (profile-frame-count *profile*) 1))
 
 
 ;;;
@@ -83,7 +93,7 @@
 ;;;
 
 
-(define (secs->msecs x)
+(define (seconds->milliseconds x)
   (inexact->exact (round (* x 1000))))
 
 
@@ -100,7 +110,7 @@
 
 (set! profiler-performance-counter
       (lambda ()
-        (secs->msecs (real-time))))
+        (seconds->milliseconds (real-time))))
 
 
 (define (profiler-performance-frequency-set! proc)
@@ -120,15 +130,22 @@
   #f)
 
 
+(define (frame-profile)
+  (profile-frame-count-set! *profile* (+ (or (profile-frame-count *profile*) 0) 1)))
+
+
 (define (start-profile)
   (profile-last-counter-set! *profile* (profiler-performance-counter))
-  (%%interrupt-vector-set! 1 profile-heartbeat!)
-  (set! *profile-running?* #t))
+  (set! *profile-running?* #t)
+  (if (%%not (%%fx= (profile-depth *profile*) 0))
+      (%%interrupt-vector-set! 1 profile-heartbeat!)))
 
 
 (define (stop-profile)
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
-  (set! *profile-running?* #f))
+  (set! *profile-running?* #f)
+  (if (%%fx= (profile-depth *profile*) 0)
+      (profile-total-set! *profile* (- (profiler-performance-counter) (profile-last-counter *profile*)))))
 
 
 (define (profile-running?)

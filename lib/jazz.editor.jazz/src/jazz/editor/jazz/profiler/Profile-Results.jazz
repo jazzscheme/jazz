@@ -55,10 +55,14 @@
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
       (<Layout-View>          name: tools
+        (<Label-View>         name: fps             size: {Dimension 120 23} location: tail justification: tail)
+        (<Separator>                                size: {Dimension 14 0})
         (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" resource: {Image-Resource "Run"} portfolio: :images action-handler: {Event-Handler :form on-start-profile})
         (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" resource: {Image-Resource "Stop"} portfolio: :images action-handler: {Event-Handler :form on-stop-profile})
         (<Separator>)
-        (<Push-Tool>          name: reset           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Reset" resource: {Image-Resource "Clear"} portfolio: :images action-handler: {Event-Handler :form on-reset-profile})
+        (<Push-Combo>         name: backward        action-handler: {Event-Handler :form on-reset-profile}
+          (<!>                name: body            resource: {Image-Resource "Clear"} tooltip-text: "Reset" action-handler: {Event-Handler :form on-reset-profile})
+          (<!>                name: pick            action-handler: {Event-Handler :form on-reset-menu}))
         (<Separator>                                size: {Dimension 6 0})
         (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh-profile}))
       (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
@@ -135,9 +139,28 @@
   
   
   (method (on-reset-profile evt)
-    (profiler-reset~ (get-active-process))
-    (view-profile)
-    (user-message "Profile reset"))
+    (let ((depth (get-property~ evt depth:)))
+      (profiler-reset~ (get-active-process) depth)
+      (view-profile)
+      (user-message "Profile reset{? to depth {a}~}" depth)))
+  
+  
+  (method (on-reset-menu evt)
+    (let ((depth (profiler-depth~ (get-active-process)))
+          (sender (get-sender~ evt)))
+      (let ((initiator (get-combo~ sender))
+            (pos (new Point 0 (get-height~ (get-size~ sender)))))
+        (let ((menu (new Reset-Menu client: self)))
+          (for-each (lambda (child)
+                      (when (eqv? (get-name~ child) depth)
+                        (set-selected?~ child #t)))
+                    (get-children~ menu))
+          (layout-menu~ menu)
+          (track-popup-menu~ sender menu pos initiator: initiator)))))
+  
+  
+  (definition public (track-history sender initiator)
+    )
   
   
   (method (on-refresh-profile evt)
@@ -201,7 +224,7 @@
   (form
     (<install>                              portfolio: :images filled-column: procedure
       (<Tree-Node-Column>  name: procedure  title: "Procedure" width: 250)
-      (<Tree-Label-Column> name: count      title: "Milliseconds" width: 75)
+      (<Tree-Label-Column> name: count      title: "Microseconds" width: 75)
       (<Tree-Label-Column> name: percentage title: "Percentage" width: 75)))
   
   
@@ -214,31 +237,61 @@
     (remove-every-row)
     (with-update-locked
       (lambda ()
-        (bind (total unknown calls) profiler-result
+        (bind (frames total unknown calls) profiler-result
           (let ((frequency (profiler-performance-frequency)))
-            (define (calculate-percentage count)
-              (let ((precision 100.))
-                (/ (round (* (/ count total) 100 precision)) precision)))
-            
-            (define (make-children frame count)
-              (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
-                    (time (if count (->string (secs->msecs (/ count frequency))) ""))
-                    (percentage (if count (->string (calculate-percentage count)) "")))
-                (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: time) (new Tree-Label title: percentage))))
-            
-            (add-row children: (list (new Tree-Node title: "<total>" image: {Image-Resource "Link"}) (new Tree-Label title: (->string total)) (new Tree-Label title: "100")))
-            (when (> unknown 0)
-              (add-row children: (make-children "<unknown>" unknown) user-data: {}))
-            (for-each (lambda (call)
-                        (bind (stack . count) call
-                          (if (null? stack)
-                              (add-row children: (make-children "(interaction)" count) user-data: {})
-                            (bind (head-frame . frames) (reverse stack)
-                              (let ((row (add-row children: (make-children head-frame count) user-data: head-frame)))
-                                (for-each (lambda (frame)
-                                            (add-row father: row children: (make-children frame #f) user-data: frame))
-                                          frames))))))
-                      (sort > calls key: cdr))))))))
+            (let ((seconds (/ total frequency)))
+              (define (truncate n)
+                (let ((precision 100.))
+                  (/ (round (* n precision)) precision)))
+              
+              (define (calculate-time count)
+                (seconds->microseconds (/ count frequency frames)))
+              
+              (define (calculate-percentage count)
+                (truncate (* (/ count total) 100)))
+              
+              (define (calculate-fps)
+                (if (= seconds 0)
+                    ""
+                  (format "{a} ms, {a} fps"
+                          (seconds->milliseconds (/ seconds frames))
+                          (truncate (/ frames seconds)))))
+              
+              (define (make-children frame count)
+                (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
+                      (time (if count (->string (calculate-time count)) ""))
+                      (percentage (if count (->string (calculate-percentage count)) "")))
+                  (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+              
+              (set-title~ (locate~ creator 'fps) (calculate-fps))
+              (for-each (lambda (call)
+                          (bind (stack . count) call
+                            (if (null? stack)
+                                (add-row children: (make-children "(interaction)" count) user-data: {})
+                              (bind (head-frame . frames) (reverse stack)
+                                (let ((row (add-row children: (make-children head-frame count) user-data: head-frame)))
+                                  (for-each (lambda (frame)
+                                              (add-row father: row children: (make-children frame #f) user-data: frame))
+                                            frames))))))
+                        (sort > calls key: cdr))
+              (when (> unknown 0)
+                (add-row children: (make-children "<unknown>" unknown) user-data: {})))))))))
 
 
-(register-autoclass Calls-Tree))
+(register-autoclass Calls-Tree)
+
+
+;;;
+;;;; Reset-Menu
+;;;
+
+
+(class Reset-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Radio-Item> name: 0 title: "0" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 0})
+      (<Radio-Item> name: 1 title: "1" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 1})
+      (<Radio-Item> name: 2 title: "2" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 2})
+      (<Radio-Item> name: 3 title: "3" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 3})))))

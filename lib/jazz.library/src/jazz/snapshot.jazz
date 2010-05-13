@@ -62,24 +62,29 @@
 
 (definition (print-process-snapshot printer (reason: reason {}) (exception: exception {}) (max-depth: max-depth 2) (max-width: max-width 256) (max-content: max-content 100) (max-entries: max-entries {}))
   (let ((values (make-table test: eq?)))
-    (define (register-value value depth)
-      (either (value->serial value)
-              (when (or (not max-entries) (< (table-length values) max-entries))
-                (let ((serial (object->serial value))
-                      (content (if (< depth max-depth) (register-content value (+ depth 1)) '())))
-                  (table-set! values value (cons serial content))
-                  serial))))
+    (define package-info-serial first)
+    (define package-info-presentation second)
+    (define package-info-more? third)
     
-    (define (register-content value depth)
-      (map (lambda (info)
-             (bind (name serial) info
-               (list name (register-value (serial->object serial) depth))))
-           (inspect-value value max-width: max-width max-content: max-content)))
+    (define (register-package-info info depth)
+      (let ((serial (package-info-serial info)))
+        (cond ((table-ref values serial {})
+               serial)
+              ((and max-entries (>= (table-length values) max-entries))
+               #f)
+              (else
+               (let ((presentation (package-info-presentation info))
+                     (content (if (package-info-more? info) (register-content serial (+ depth 1)) '())))
+                 (table-set! values serial (cons presentation content))
+                 serial)))))
     
-    (define (value->serial value)
-      (let ((info (table-ref values value {})))
-        (when info
-          (car info))))
+    (define (register-content serial depth)
+      (if (< depth max-depth)
+          '()
+        (let ((value (serial->object serial)))
+          (map (lambda (info)
+                 (register-package-info info depth))
+               (inspect-value value max-width: max-width max-content: max-content)))))
     
     (define (print-process)
       (let ((name (current-process-present))
@@ -149,22 +154,24 @@
                     (loop (for variable in variables)
                           (do (format printer "{%}")
                               (bind (name value mutable?) variable
-                                (let ((serial (register-value value 0))
-                                      (atomic? (or (boolean? value) (number? value) (string? value))))
-                                  (format printer "        (<variable> name: {s} serial: {s}{?: value: {s}~})" name serial atomic? value)))))
+                                (let ((info (package-info value mutable?: mutable? max-width: max-width)))
+                                  (let ((serial (register-package-info info 0))
+                                        (atomic? (or (boolean? value) (number? value) (string? value)))
+                                        (presentation (package-info-presentation info)))
+                                    (format printer "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation))))))
                     (format printer ")"))))))
     
     (define (print-values)
       (format printer "{%}")
       (format printer "    (<values>")
       (for-each (lambda (info)
-                  (bind (value serial . content) info
+                  (bind (serial presentation . content) info
                     (format printer "{%}")
-                    (format printer "      (<value> serial: {a} presentation: {s}" serial (present-object value max-width))
+                    (format printer "      (<value> serial: {a} presentation: {s}" serial presentation)
                     (when (not-null? content)
                       (format printer " content: {s}" content))
                     (format printer ")")))
-                (sort < (table->list values) key: cadr))
+                (sort < (table->list values) key: car))
       (format printer ")"))
           
   

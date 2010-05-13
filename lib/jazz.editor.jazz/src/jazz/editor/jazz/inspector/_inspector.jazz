@@ -47,7 +47,7 @@
 
 
 (definition presentation-limit
-  128)
+  256)
 
 
 (definition Unbound
@@ -67,15 +67,19 @@
           ((object? value) (not-null? (get-instance-slots~ (class-of value))))
           (else #f)))
   
+  (define (truncate str)
+    (let ((limit (or max-width presentation-limit)))
+      (if (> (cardinality str) limit)
+          (concatenate (subseq str 0 limit) "...")
+        str)))
+  
   (let* ((unbound? (eq? value Unbound))
          (raw? (eq? kind :raw))
          (serial (object->serial value))
          (presentation (cond (unbound? "<unbound>")
-                             (raw? (->string value))
-                             (else (present-object value max-width))))
+                             (raw? (truncate (->string value)))
+                             (else (present-object value (or max-width presentation-limit)))))
          (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (when (> (cardinality presentation) presentation-limit)
-      (set! presentation (concatenate (subseq presentation 0 presentation-limit) "...")))
     (list serial presentation more? mutable? kind)))
 
 

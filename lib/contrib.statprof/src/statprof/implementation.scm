@@ -87,14 +87,28 @@
   (inexact->exact (round (* x 1000))))
 
 
-(define get-performance-frequency
-  (lambda ()
-    1000))
+(define profiler-performance-frequency
+  #f)
+
+(set! profiler-performance-frequency
+      (lambda ()
+        1000))
 
 
-(define get-performance-counter
-  (lambda ()
-    (secs->msecs (real-time))))
+(define profiler-performance-counter
+  #f)
+
+(set! profiler-performance-counter
+      (lambda ()
+        (secs->msecs (real-time))))
+
+
+(define (profiler-performance-frequency-set! proc)
+  (set! profiler-performance-frequency proc))
+
+
+(define (profiler-performance-counter-set! proc)
+  (set! profiler-performance-counter proc))
 
 
 ;;;
@@ -107,7 +121,7 @@
 
 
 (define (start-profile)
-  (profile-last-counter-set! *profile* (get-performance-counter))
+  (profile-last-counter-set! *profile* (profiler-performance-counter))
   (%%interrupt-vector-set! 1 profile-heartbeat!)
   (set! *profile-running?* #t))
 
@@ -142,7 +156,7 @@
 
 (define (register-continuation cont)
   (define (duration)
-    (let ((counter (get-performance-counter))
+    (let ((counter (profiler-performance-counter))
           (last-counter (profile-last-counter *profile*)))
       (profile-last-counter-set! *profile* counter)
       (- counter last-counter)))

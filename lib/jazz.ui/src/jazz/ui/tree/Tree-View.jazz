@@ -1083,8 +1083,8 @@
            (height (get-height~ row))
            (bitmap (unspecified))
            (mask (unspecified)))
-      (with ((memdc (new Memory-Surface cdc size: (new Dimension width height) keep-bitmap?: #t))
-             (maskdc (new Memory-Surface cdc size: (new Dimension width height) keep-bitmap?: #t)))
+      (with ((memdc (new Memory-Surface cdc (new Dimension width height) keep-bitmap?: #t))
+             (maskdc (new Memory-Surface cdc (new Dimension width height) keep-bitmap?: #t)))
         (fill-rect~ memdc (new Rect 0 0 width height) {Color name: White})
         (fill-rect~ maskdc (new Rect 0 0 width height) {Color name: White})
         (draw-image~ portfolio memdc {} image 0 0)
@@ -1737,6 +1737,18 @@
       (if merge-cell
           (get-first-cell~ merge-cell)
         cell)))
+  
+  
+  (method package (find-merged-view view)
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (merge-cell)
+                    (let ((data (get-cell-data (get-master-cell~ merge-cell))))
+                      (when (eq? data view)
+                        (continuation-return return merge-cell))))
+                  merge-cell-list)
+        {})))
+  
 
   ;;;
   ;;;; User
@@ -1852,7 +1864,7 @@
   
   
   (method public (redraw-cell cell)
-    (invalidate-rect (cell-rect cell))
+    (invalidate-cell cell)
     (update-view))
 
 
@@ -2525,24 +2537,22 @@
     edited-cell)
   
   
-  (method public (edit-cell cell (editor: editor {}) (location: location {Point 0 0}) (close-editor?: close-editor? #t) (before-end: before-end {}) (after-end: after-end {}))
+  (method public (edit-cell cell (editor: editor {}) (cover-spacing?: cover-spacing? #f) (close-editor?: close-editor? #t) (before-end: before-end {}) (after-end: after-end {}))
     (assert (not update-locked?))
     (assert (< (get-col~ cell) (get-columns-count)))
     (end-edition)
-    (let ((bounds (cell-editor-rect cell)))
-      (when bounds
-        (let ((view (new Tree-Data-View
-                      location: (new Point (+ (get-left~ bounds) (get-h~ location)) (get-v~ location))
-                      preserved-data: (get-cell-data cell)
-                      before-end: before-end
-                      after-end: after-end
-                      children: (list editor))))
-          (replace-cell (get-top-cell cell) view)
-          (set-bounds~ view (expand-rect (offset-rect bounds 0 (- (get-top~ bounds))) (get-h~ location) (get-v~ location) 0 0))
-          (invalidate-rect bounds)
-          (set! edited-cell cell)
-          (set! cell-editor view)
-          (set! close-cell-editor? close-editor?)))))
+    (let ((rect (cell-editor-rect cell))
+          (view (new Tree-Data-View
+                  cover-spacing?: cover-spacing?
+                  preserved-data: (get-cell-data cell)
+                  before-end: before-end
+                  after-end: after-end
+                  children: (list editor))))
+      (replace-cell (get-top-cell cell) view)
+      (set-rect~ view (acquire~ (get-parent~ view) self rect))
+      (set! edited-cell cell)
+      (set! cell-editor view)
+      (set! close-cell-editor? close-editor?)))
   
   
   (method public (end-edition)

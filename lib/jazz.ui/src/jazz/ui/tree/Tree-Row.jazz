@@ -316,6 +316,24 @@
              (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
         (fill-rect~ surface inner (either background (header-color~ parent)))
         (set-text-color~ surface {Color name: Black}))))
+
+  
+  ;;;
+  ;;;; Clipping
+  ;;;
+  
+  
+  (method override (get-parent/child-clipper child h v)
+    (let ((tree (get-tree)))
+      (let ((merge-cell (find-merged-view~ tree child)))
+        (if (not merge-cell)
+            (nextmethod child h v)
+          ;; skip row clipping
+          (let ((th (- h (get-h~ (get-position~ child)) (get-h~ position)))
+                (tv (- v (get-v~ (get-position~ child)) (get-v~ position))))
+            (let ((t (get-translated-clipper~ tree th tv))
+                  (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
+              (rect-intersection t c)))))))
   
   
   ;;;

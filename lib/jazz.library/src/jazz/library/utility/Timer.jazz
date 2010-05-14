@@ -44,7 +44,8 @@
 (class Timer extends Object
 
 
-  (slot start)
+  (slot real-start)
+  (slot cpu-start)
 
 
   (method override (initialize)
@@ -53,23 +54,29 @@
 
 
   (method public (reset)
-    (reset-clock))
+    (set! real-start (real-time))
+    (set! cpu-start (cpu-time)))
 
 
-  (method public (reset-clock)
-    (set! start (cpu-time)))
+  (method public (real-duration)
+    (- (real-time) real-start))
+  
+  (method public (real-duration-in-milliseconds)
+    (seconds->milliseconds (real-duration)))
+  
+  (method public (cpu-duration)
+    (- (cpu-time) cpu-start))
 
-
-  (method public (get-duration (reset?: reset? #t))
-    (prog1 (- (cpu-time) start)
-      (when reset?
-        (reset-clock))))
-
-
-  (method public (get-duration-in-seconds)
-    (get-duration))
+  (method public (cpu-duration-in-milliseconds)
+    (seconds->milliseconds (cpu-duration)))
 
 
   (method public (report-duration)
-    (user-message "Duration: {s} seconds"
-                  (get-duration-in-seconds)))))
+    (user-message "Duration: {s} ms real, {s} ms cpu"
+                  (real-duration-in-milliseconds)
+                  (cpu-duration-in-milliseconds)))
+
+
+  (method public (report-fps)
+    (user-message "FPS: {s}"
+                  (/ 1 (real-duration))))))

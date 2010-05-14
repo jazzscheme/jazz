@@ -999,7 +999,7 @@
   
   
   (definition (new-offscreen surface <Surface> width <fx> height <fx>)
-    (new Memory-Surface surface size: (new Dimension width height)))
+    (new Memory-Surface surface (new Dimension width height)))
   
   
   (method package (close-offscreen)
@@ -1136,7 +1136,7 @@
   
   
   (method public (export-picture (context: context '()) (where: where 'file) (destination: destination {}))
-    (with ((surface (new Memory-Surface {} size: (get-size))))
+    (with ((surface (new Memory-Surface {} (get-size))))
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
       (paint-drawing surface context 0 0 0 0 1.0 #f)
       (export-to-png~ surface (either destination (choose-new-file default-extension: "png")))))
@@ -1341,12 +1341,13 @@
             (scroll-window~ player (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
   
   
-  (method public (scroll-view2 dh dv rect)
+  ;; an attempt at a platform-independant scroll-view
+  (method public (scroll-view2 dh dv rect (clip-rect: clip-rect {}))
     (let ((player (get-player))
           (root (get-root)))
       (when player
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (get-clipper))))
+              (clip-rect (acquire~ root self (either clip-rect (get-clipper)))))
           (scroll-offscreen~ root dh dv acquired clip-rect)))))
   
   
@@ -1655,7 +1656,7 @@
     background)
   
   
-  (method public (set-background color)
+  (method public virtual (set-background color)
     (set! background color)
     (invalidate-view))
   
@@ -3174,18 +3175,16 @@
   ;;;
   
   
-  (method override (get-translated-clipper h v)
-    (let ((r (offset-rect (get-bounds) (fxround h) (fxround v))))
-      (if (not parent)
-          r
-        (let ((sc <fl> (if scaled? scaling 1.0)))
-          (let ((p <Rect> (get-translated-clipper~ parent (- (* h sc) (get-h~ position)) (- (* v sc) (get-v~ position)))))
-            (when scaled?
-              (set-left~ p (fxround (/ (get-left~ p) sc)))
-              (set-top~ p (fxround (/ (get-top~ p) sc)))
-              (set-right~ p (fxround (/ (get-right~ p) sc)))
-              (set-bottom~ p (fxround (/ (get-bottom~ p) sc))))
-            (rect-intersection p r))))))
+  (method override (get-parent/child-clipper child h v)
+    (let ((sc <fl> (if scaled? scaling 1.0)))
+      (let ((p (get-translated-clipper (- (* h sc) (get-h~ (get-position~ child))) (- (* v sc) (get-v~ (get-position~ child)))))
+            (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
+        (when scaled?
+          (set-left~ p (fxround (/ (get-left~ p) sc)))
+          (set-top~ p (fxround (/ (get-top~ p) sc)))
+          (set-right~ p (fxround (/ (get-right~ p) sc)))
+          (set-bottom~ p (fxround (/ (get-bottom~ p) sc))))
+        (rect-intersection p c))))
   
   
   ;;;

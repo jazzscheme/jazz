@@ -47,6 +47,7 @@
 (class Image extends Object
 
 
+  (slot background    initialize {}          accessors generate)
   (slot portfolio     initialize {}          accessors generate)
   (slot resource      initialize {}          accessors generate)
   (slot moniker       initialize {})
@@ -56,11 +57,13 @@
   
   
   (method override (initialize
+                     (background: background {})
                      (portfolio: portfolio {})
                      (resource: resource {})
                      (view-position: view-position {Point 0 0})
                      (view-size: view-size {}))
     (nextmethod)
+    (set! background~self background)
     (set! portfolio~self portfolio)
     (set! resource~self resource)
     (set! view-position~self view-position)
@@ -75,7 +78,9 @@
   (method public (draw surface context h v)
     (define (draw-image h v)
       (when resource
-        (draw-image~ portfolio surface context resource h v)))
+        (if background
+            (draw-opaque-image~ portfolio surface context resource background h v)
+          (draw-image~ portfolio surface context resource h v))))
     
     (define (draw-handle h v)
       (draw-image~ surface handle h v))
@@ -84,16 +89,6 @@
           (v (+ (get-v~ view-position) v)))
       (cond (portfolio (draw-image h v))
             (handle (draw-handle h v)))))
-  
-  
-  ;;;
-  ;;;; Preload
-  ;;;
-  
-  
-  (method public (preload-image)
-    (when (and portfolio resource)
-      (preload~ portfolio resource)))
 
 
   ;;;

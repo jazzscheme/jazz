@@ -303,11 +303,11 @@
         (copy-file src dst))))
 
 
-(define (jazz.copy-directory src dst #!key (feedback #f))
+(define (jazz.copy-files src dst #!key (feedback #f))
   (if (not (file-exists? dst))
       (begin
         (if feedback
-            (feedback "; copying direcotry {a}..." src))
+            (feedback "; copying {a}..." src))
         (create-directory dst)))
   (for-each (lambda (file)
               (let ((src-pathname (string-append src "/" file))

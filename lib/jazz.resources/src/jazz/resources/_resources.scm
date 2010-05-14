@@ -47,8 +47,8 @@
     (define (source-file path)
       (string-append source path))
     
-    (define (copy-directory dir)
-      (jazz.copy-directory (source-file dir) (build-file dir) feedback: jazz.feedback))
+    (define (copy-files dir)
+      (jazz.copy-files (source-file dir) (build-file dir) feedback: jazz.feedback))
     
     (define (ensure-directory-exists dir)
       (if (not (file-exists? dir))
@@ -57,10 +57,10 @@
     (define (copy-resource-directories)
       (ensure-directory-exists (build-file "lib"))
       (ensure-directory-exists (build-file "lib/jazz.resources"))
-      (copy-directory "lib/jazz.resources/resources")
-      (copy-directory "lib/jazz.resources/resources/cursors")
-      (copy-directory "lib/jazz.resources/resources/images")
-      (copy-directory "lib/jazz.resources/resources/sounds"))
+      (copy-files "lib/jazz.resources/resources")
+      (copy-files "lib/jazz.resources/resources/cursors")
+      (copy-files "lib/jazz.resources/resources/images")
+      (copy-files "lib/jazz.resources/resources/sounds"))
     
     (jazz.custom-compile/build '() unit: unit pre-build: copy-resource-directories force?: force?)
     (jazz.update-product-descriptor descriptor)))

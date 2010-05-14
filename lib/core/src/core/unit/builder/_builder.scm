@@ -49,8 +49,9 @@
 
 (define (jazz.manifest-references-valid? bin)
   (define (get-manifest-references)
-    (let ((manifest-filepath (jazz.manifest-pathname (%%resource-package bin) bin)))
-      (let ((manifest (jazz.load-manifest manifest-filepath)))
+    (let ((sha1-filepath (jazz.sha1-pathname (%%resource-package bin) bin))
+          (manifest-filepath (jazz.manifest-pathname (%%resource-package bin) bin)))
+      (let ((manifest (jazz.load-manifest sha1-filepath manifest-filepath)))
         (and manifest (%%manifest-references manifest)))))
   
   (define (module-references-valid? lst)
@@ -159,7 +160,8 @@
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
                   (jazz.compile-file src (or force? (%%not uptodate?)) options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
-            (let ((manifest-filepath (jazz.manifest-pathname build-package src))
+            (let ((sha1-filepath (jazz.sha1-pathname build-package src))
+                  (manifest-filepath (jazz.manifest-pathname build-package src))
                   (src-filepath (jazz.resource-pathname src))
                   (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
                                 (cond ((%%is? module-declaration jazz.Module-Declaration)
@@ -168,7 +170,7 @@
                                        '())
                                       (else ; pure scheme
                                        '())))))
-              (jazz.update-manifest-compile-time manifest-name manifest-filepath src-filepath references)))))))
+              (jazz.update-manifest-compile-time manifest-name sha1-filepath manifest-filepath src-filepath references)))))))
 
 
 (define (jazz.compile-file src needs-compile? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))

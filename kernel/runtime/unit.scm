@@ -814,6 +814,7 @@
                           (and obj/bin
                                (jazz.load-updated-manifest
                                  unit-name
+                                 (jazz.sha1-pathname (%%resource-package obj/bin) obj/bin)
                                  (jazz.manifest-pathname (%%resource-package obj/bin) obj/bin)
                                  (and src (jazz.resource-pathname src)))))))
           (let ((uptodate? (or (%%not src)
@@ -1607,6 +1608,13 @@
                          (%%string-append (%%resource-path resource)
                                           "."
                                           jazz.Manifest-Extension)))
+
+
+(define (jazz.sha1-pathname package resource)
+  (jazz.package-pathname package
+                         (%%string-append (%%resource-path resource)
+                                          "."
+                                          jazz.SHA1-Extension)))
 
 
 ;;;

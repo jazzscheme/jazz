@@ -388,7 +388,7 @@
   "mnf")
 
 (define jazz.SHA1-Extension
-  "sha1")
+  "digest")
 
 
 (define (jazz.load-manifest sha1-filepath manifest-filepath)

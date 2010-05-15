@@ -194,7 +194,7 @@
                        (location (range-location range))
                        (text (essay location (present-location location))))
                   (when text
-                    (let ((bounds (row-range-rect (get-row~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
+                    (let ((bounds (line-range-rect (get-line~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
                       (when (in-rect? view bounds)
                         (new Tooltip-Context
                           view: self
@@ -255,7 +255,7 @@
                      (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
                      (kind (forward-expr~ expl))
                      (end (get-end~ expl)))
-                (when (and (eq? kind 'symbol) (= (get-row~ end) row))
+                (when (and (eq? kind 'symbol) (= (get-line~ end) row))
                   (apply-style 'Named-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
             (set! col (+ comment 1)))))))
   
@@ -286,21 +286,21 @@
     
     (define (package-expressions namespaces expressions)
       (let ((first (if (not-null? namespaces) (car namespaces) range)))
-        (let ((first-row (get-row~ (get-start~ first)))
+        (let ((first-line (get-line~ (get-start~ first)))
               (first-col (get-col~ (get-start~ first))))
-          (let ((row first-row)
+          (let ((line first-line)
                 (col first-col)
                 (output (open-output-string)))
             (define (fill rng)
-              (let ((r (get-row~ (get-start~ rng)))
+              (let ((l (get-line~ (get-start~ rng)))
                     (c (get-col~ (get-start~ rng))))
                 (let (iterate)
-                  (if (= r row)
+                  (if (= l line)
                       (begin
                         (display (make-string (- c col) #\space) output)
                         (set! col c))
                     (display #\newline output)
-                    (set! row (+ row 1))
+                    (set! line (+ line 1))
                     (set! col 0)
                     (iterate)))))
             
@@ -314,7 +314,7 @@
                                              (if (not last?)
                                                  (begin
                                                    (newline output)
-                                                   (set! row (+ row 1))
+                                                   (set! line (+ line 1))
                                                    (set! col 0))
                                                (set! col (+ col (cardinality line))))))
                                          (split namespace (string #\newline)))))
@@ -322,7 +322,7 @@
             (fill range)
             (display expressions output)
             (display (make-string (length namespaces) #\)) output)
-            (values (get-output-string output) first-row first-col)))))
+            (values (get-output-string output) first-line first-col)))))
     
     (let ((container (get-locat-container))
           (namespaces (collect-namespaces))
@@ -358,7 +358,7 @@
           (let ((run (get-run-at (+ (get-start~ range) 1))))
             (when run
               (set-style~ run default-style)
-              (invalidate-paragraph (get-paragraph (get-row~ (get-start~ range))))))))))
+              (invalidate-paragraph (get-paragraph (get-line~ (get-start~ range))))))))))
 
   
   ;;;

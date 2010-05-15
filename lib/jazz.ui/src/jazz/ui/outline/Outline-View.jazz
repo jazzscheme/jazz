@@ -45,14 +45,17 @@
         (jazz.ui.view))
 
 
-;; Terminology
-
-;; visible   : a row that has all its parents expanded
-;; displayed : a row that is displayed on-screen even if only partially
-;; rank      : the rank of a visible row
-
-
 (class Outline-View extends View
+  
+  
+  ;;;
+  ;;;; Lexicon
+  ;;;
+
+  
+  ;; visible   : a row that has all its parents expanded
+  ;; displayed : a row that is displayed on-screen even if only partially
+  ;; line      : the rank of a visible row
 
   
   (property protected default-row-height <fx>   initialize 17 accessors generate)
@@ -339,26 +342,26 @@
   
   (method protected virtual (draw-outline surface context clipper lh lv sh sv sc sc?)
     (define (draw-rows top bottom)
-      (define (draw-row row rank)
+      (define (draw-row row line)
         (let* ((width (get-width))
                (height (get-height~ row))
                (total-height (+ height row-spacing))
-               (selected? (row-draw-selected? rank))
+               (selected? (line-draw-selected? line))
                (pos <Point> (get-position~ row)))
           (set-font~ surface (effective-font))
-          (let ((new-context (optimize-context selected? rank context)))
+          (let ((new-context (optimize-context selected? line context)))
             (paint-content~ row surface #t '() new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
       
       (let ((row (get-first-displayed~ outline))
-            (rank <fx> (get-first-displayed-rank~ outline))
+            (line <fx> (get-first-displayed-line~ outline))
             (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
             (width <fx> (get-width)))
         (while (and row (< rt bottom))
           (let* ((height <fx> (get-height~ row))
                  (rb <fx> (+ rt height)))
             (when (>= rb top)
-              (draw-row row rank))
-            (increase! rank)
+              (draw-row row line))
+            (increase! line)
             (set! rt rb)
             (set! row (get-next~ row))
             (increase! rt row-spacing)))
@@ -377,14 +380,14 @@
   ;; this memory optimization should work because as drawing always
   ;; occurs in the primary thread, it is implicitly synchronized...
   (definition optimized-context
-    (list selected?: {} row-rank: 0))
+    (list selected?: {} line: 0))
   
   
-  (definition (optimize-context selected? rank context)
+  (definition (optimize-context selected? line context)
     (if context
-        (cons selected?: (cons selected? (cons row-rank: (cons rank context))))
+        (cons selected?: (cons selected? (cons line: (cons line context))))
       (set-second! optimized-context selected?)
-      (set-fourth! optimized-context rank)
+      (set-fourth! optimized-context line)
       optimized-context))
 
 
@@ -444,13 +447,13 @@
               (update-visible-width-incremental level (get-effective-width~ row))
               (update-displayed)
               (update-visible)
-              (let* ((rank (row-rank row))
-                     (top (row-top rank))
+              (let* ((line (row->line row))
+                     (top (row-top line))
                      (display (get-display))
                      (display-size (get-size~ display))
                      (display-width (get-width~ display-size))
                      (display-height (get-height~ display-size)))
-                (added-update-selection rank 1)
+                (added-update-selection line 1)
                 (layout-scrollee)
                 (when (< top (- display-height height))
                   (scroll-view~ display 0 height (new Rect 0 top display-width (- display-height height))))))))
@@ -468,8 +471,8 @@
       (let* ((father (get-father~ row))
              (visible? (row-visible?~ row))
              (height (node-height~ row))
-             (rank (row-rank row))
-             (top (essay rank (row-top rank))))
+             (line (row->line row))
+             (top (essay line (row-top line))))
         (when visible?
           (decrease! visible-count (+ 1 (count-visible~ row)))
           (decrease! visible-height height))
@@ -477,8 +480,8 @@
         @is-this-really-a-good-idea
         (when (= (cardinality (get-sons~ father)) 0)
           (set-state~ father 'collapsed))
-        (when rank
-          (removed-update-selection rank 1))
+        (when line
+          (removed-update-selection line 1))
         (when (and (not update-locked?) visible?)
           (update-displayed)
           (update-visible)
@@ -542,61 +545,61 @@
     (get-next~ root-row))
   
   
-  (method public (get-row n <fx>) <Outline-Row>
+  (method public (get-row line <fx>) <Outline-Row>
     ;; this test is necessary because an update lock will stop update-displayed...
     (if update-locked?
-        (get-row-from~ outline root-row (+ n 1))
-      (get-row~ outline n)))
+        (get-row-from~ outline root-row (+ line 1))
+      (get-row~ outline line)))
   
   
-  (method public (get-visible-row n)
+  (method public (get-visible-row l)
     (continuation-capture
       (lambda (return)
         (for-each-visible-row
-          (lambda (row rank)
-            (when (= rank n)
+          (lambda (row line)
+            (when (= line l)
               (continuation-return return row))))
         {})))
   
   
   ;; for debugging...
-  (method (get-row-classic n)
+  (method (get-row-classic line)
     (let ((row root-row))
-      (while (and row (>= n 0))
+      (while (and row (>= line 0))
         (set! row (get-next~ row))
-        (decrease! n))
+        (decrease! line))
       row))
   
   
-  (method public (row-rank target)
+  (method public (row->line target)
     (continuation-capture
       (lambda (return)
         (for-each-visible-row
-          (lambda (row rank)
+          (lambda (row line)
             (when (eq? row target)
-              (continuation-return return rank))))
+              (continuation-return return line))))
         {})))
   
   
-  (method public (rows-ranks targets)
-    (map row-rank targets))
+  (method public (rows->lines targets)
+    (map row->line targets))
   
   
   (method public (row-title row)
     (get-title~ (first-child~ row)))
   
   
-  (method (forward row n)
-    (while (> n 0)
+  (method (forward row line)
+    (while (> line 0)
       (set! row (get-next~ row))
-      (decrease! n))
+      (decrease! line))
     row)
   
   
-  (method (backward row n)
-    (while (> n 0)
+  (method (backward row line)
+    (while (> line 0)
       (set! row (get-previous~ row))
-      (decrease! n))
+      (decrease! line))
     row)
   
   
@@ -604,8 +607,8 @@
     (ensure-visible-count (+ row 1)))
   
   
-  (method public (ensure-visible-count n)
-    (while (< visible-count n)
+  (method public (ensure-visible-count line)
+    (while (< visible-count line)
       (add-empty-row)))
   
   
@@ -614,12 +617,12 @@
       (add-row father: father)))
   
   
-  (method protected virtual (row-selected? row)
-    (= row selection))
+  (method protected virtual (line-selected? line)
+    (= line selection))
   
   
-  (method protected virtual (row-draw-selected? row)
-    (row-selected? row))
+  (method protected virtual (line-draw-selected? line)
+    (line-selected? line))
   
 
   (method public (get-row-count)
@@ -689,26 +692,26 @@
     (selection-row-region sel dh dv sc))
   
   
-  (method protected (selection-row-region n dh dv sc)
-    (new Region (acquire-delta dh dv sc (selection-row-rect n))))
+  (method protected (selection-row-region line dh dv sc)
+    (new Region (acquire-delta dh dv sc (selection-row-rect line))))
     
   
-  (method protected virtual (selection-row-rect n)
-    (get-rect~ (get-row n)))
+  (method protected virtual (selection-row-rect line)
+    (get-rect~ (get-row line)))
 
   
-  ;; update slots that are rank based
-  (method protected virtual (added-update-selection rank count)
-    (when (and selection (>= selection rank))
+  ;; update slots that are line based
+  (method protected virtual (added-update-selection line count)
+    (when (and selection (>= selection line))
       (increase! selection count)))
   
   
-  ;; update slots that are rank based
-  (method protected virtual (removed-update-selection rank count)
+  ;; update slots that are line based
+  (method protected virtual (removed-update-selection line count)
     (when (not-null? selection)
       (let ((selected? #f))
-        (when (>= selection rank)
-          (if (>= selection (+ rank count))
+        (when (>= selection line)
+          (if (>= selection (+ line count))
               (decrease! selection count)
             (set! selection '())
             (set! selected? #t)))
@@ -721,13 +724,13 @@
   
   
   (method public (for-each-row proc)
-    (let ((rank 0))
+    (let ((line 0))
       (define (recurse row visible?)
         (let* ((visible? (and visible? (get-visible-flag~ row)))
                (son-visible? (and visible? (expanded?~ row))))
-          (proc row (essay visible? rank))
+          (proc row (essay visible? line))
           (when visible?
-            (increase! rank))
+            (increase! line))
           (recurse-sons row son-visible?)))
       
       (define (recurse-sons row son-visible?)
@@ -740,12 +743,12 @@
   
   (method public (for-each-visible-row proc (start: start {}) (end: end {}) (wrap?: wrap? #f))
     (let ((row (either start (get-next~ root-row)))
-          (rank (if start (row-rank start) 0)))
-      (when rank
+          (line (if start (row->line start) 0)))
+      (when line
         (while (and row (neq? row end))
-          (proc row rank)
+          (proc row line)
           (set! row (get-next~ row))
-          (increase! rank))
+          (increase! line))
         (when (and wrap? start (not row))
           (for-each-visible-row proc end: (either end start))))))
   
@@ -761,7 +764,7 @@
   (method public (collect-visible-rows)
     (let ((queue (new-queue)))
       (for-each-visible-row
-        (lambda (row rank)
+        (lambda (row line)
           (enqueue queue row)))
       (queue-list queue)))
 
@@ -867,20 +870,20 @@
             (in-collapse? #t))
         (if (not first)
             (set-state~ row 'collapsed)
-          (let ((rank (row-rank row))
-                (top (get-v~ (get-position~ row)))
-                (selected? (row-selected? row)))
-            (invalidate-collapse rank row top selected?))
+          (let ((line (row->line row))
+                (top (get-v~ (get-position~ row))))
+            (let ((selected? (line-selected? line)))
+              (invalidate-collapse line row top selected?)))
           (hide-rows first (last-proper-descendant~ row) (row-visible?~ row) in-collapse?)))))
   
   
-  (method protected virtual (collapse-selection rank selected?)
+  (method protected virtual (collapse-selection line selected?)
     )
   
   
-  (method protected virtual (invalidate-collapse rank row top selected?)
+  (method protected virtual (invalidate-collapse line row top selected?)
     (when selected?
-      (invalidate-rect (row-rect rank))))
+      (invalidate-rect (line-rect line))))
   
   
   (method public (collapse-all row)
@@ -944,14 +947,14 @@
         (update-visible-width-incremental (get-level~ previous) width)
         (update-displayed)
         (update-visible)
-        (let* ((rank (either (row-rank previous) -1))
+        (let* ((line (either (row->line previous) -1))
                (top (either (get-v~ (get-position~ previous)) 0))
                (opens (+ top (get-height~ previous)))
                (display (get-display))
                (display-size (get-size~ display))
                (display-width (get-width~ display-size))
                (display-height (get-height~ display-size)))
-          (added-update-selection (+ rank 1) count)
+          (added-update-selection (+ line 1) count)
           (invalidate-view)
           @buggy
           (when (< (+ top (get-scrolled-v)) display-height)
@@ -960,7 +963,7 @@
             (scroll-view~ display 0 height (new Rect 0 opens display-width display-height)))
           (layout-scrollee)
           (when (> count 0)
-            (ensure-row-range-displayed (+ rank 1) (+ rank count)))))))
+            (ensure-row-range-displayed (+ line 1) (+ line count)))))))
   
   
   (method package (hide-rows first last visible? in-collapse?)
@@ -975,20 +978,20 @@
         (when (and (not update-locked?) visible?)
           (update-displayed)
           (update-visible)
-          (let* ((rank (either (row-rank previous) -1))
+          (let* ((line (either (row->line previous) -1))
                  (top (either (get-v~ (get-position~ previous)) 0))
                  (opens (+ top (get-height~ first)))
-                 (removed (removed-update-selection (+ rank 1) count))
+                 (removed (removed-update-selection (+ line 1) count))
                  (display (get-display))
                  (display-size (get-size~ display))
                  (display-width (get-width~ display-size))
                  (display-height (get-height~ display-size)))
             (when (and previous in-collapse?)
-              (collapse-selection rank removed))
+              (collapse-selection line removed))
             (invalidate-view)
             @buggy
             (when (< top display-height)
-              (invalidate-collapse rank first top removed)
+              (invalidate-collapse line first top removed)
               (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
           (layout-scrollee)))))
   
@@ -1023,8 +1026,8 @@
       (ensure-row-displayed selection)))
   
   
-  (method public (ensure-row-displayed n)
-    (let* ((row (get-row n))
+  (method public (ensure-row-displayed line)
+    (let* ((row (get-row line))
            (top (get-top~ row))
            (bottom (get-bottom~ row)))
       (scroll (scroll-needed (new Point 0 top) (new Point 0 bottom) (get-scroll-context)))))
@@ -1051,27 +1054,27 @@
   
   ;; This method gets called before the row is layed out.
   ;; This is why it cannot simply get the position of the row...
-  (method protected (row-top n)
+  (method protected (row-top line)
     (let ((row (first-visible-row))
           (v 0))
-      (while (> n 0)
-        (decrease! n)
+      (while (> line 0)
+        (decrease! line)
         (increase! v (get-height~ row))
         (increase! v row-spacing)
         (set! row (get-next~ row)))
       v))
   
   
-  (method protected virtual (row-rect n)
-    (let ((row   (get-row n))
+  (method protected virtual (line-rect line)
+    (let ((row   (get-row line))
           (left  0)
-          (top   (row-top n))
+          (top   (row-top line))
           (right (get-width)))
       (new Rect left top right (+ top (get-height~ row)))))
   
   
-  (method (row-region n)
-    (new Region (get-bounds~ (get-row n))))
+  (method (row-region line)
+    (new Region (get-bounds~ (get-row line))))
   
   
   (method protected (row->v r)
@@ -1080,8 +1083,8 @@
 
   (method protected (v->row v)
     (call-with-v->row v
-      (lambda (rank v height)
-        rank)))
+      (lambda (line v height)
+        line)))
 
 
   (method protected (call-with-v->row v proc)

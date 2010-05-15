@@ -58,23 +58,23 @@
 (class Cell extends Numeric
   
   
-  (slot row <fx> accessors generate)
-  (slot col <fx> accessors generate)
+  (slot line <fx> accessors generate)
+  (slot col  <fx> accessors generate)
   
   
-  (method override (initialize r <fx> c <fx>)
-    (set! row r)
+  (method override (initialize l <fx> c <fx>)
+    (set! line l)
     (set! col c))
   
   
   (method override (copy-object deep?)
-    (new Cell row col))
+    (new Cell line col))
 
 
   (method override (compare-object target)
     (if (is-not? target Cell)
         :incompatible
-      (let ((compared (compare row (get-row~ target))))
+      (let ((compared (compare line (get-line~ target))))
         (if (not (eq? compared :equal))
             compared
           (compare col (get-col~ target))))))
@@ -83,7 +83,7 @@
   (method override (print printer readably)
     (format printer "~{{a} {a} {a}}"
             (category-name (class-of self))
-            row
+            line
             col))
 
 
@@ -92,18 +92,18 @@
 
 
   (method override (numeric-add n)
-    (cond ((is? n Cell) (new Cell (+ row (get-row~ n)) (+ col (get-col~ n))))
-          ((integer? n) (new Cell row (+ col n)))
+    (cond ((is? n Cell) (new Cell (+ line (get-line~ n)) (+ col (get-col~ n))))
+          ((integer? n) (new Cell line (+ col n)))
           (else (error "Cannot add {t} to {t}" n self))))
 
 
   (method override (numeric-negate)
-    (new Cell (- row) (- col)))
+    (new Cell (- line) (- col)))
 
 
   (method override (numeric-multiply n)
     (if (integer? n)
-        (new Cell (* row n) (* col n))
+        (new Cell (* line n) (* col n))
       (error "Cannot multiply {t} to {t}" n self)))
 
 
@@ -111,8 +111,8 @@
     (error "Cannot inverse {t}" self))
   
   
-  (method public (increase-row (delta <fx> 1))
-    (set! row (+ row delta)))
+  (method public (increase-line (delta <fx> 1))
+    (set! line (+ line delta)))
   
   
   (method public (increase-col (delta <fx> 1))
@@ -124,80 +124,80 @@
     #t))
 
 
-(definition public inline (new-cell row col)
-  (construct Cell row col))
+(definition public inline (new-cell line col)
+  (construct Cell line col))
 
-(specialize inline (new class <category<Cell>> row <fx> col <fx>) <Cell>
-  (new-cell row col))
+(specialize inline (new class <category<Cell>> line <fx> col <fx>) <Cell>
+  (new-cell line col))
 
 
 (specialize inline as copy-cell (copy c <Cell>) <Cell>
-  (new Cell (get-row~ c) (get-col~ c)))
+  (new Cell (get-line~ c) (get-col~ c)))
 
 
 (specialize inline as cell=? (= c1 <Cell> c2 <Cell>) <bool>
-  (and (= (get-row~ c1) (get-row~ c2))
+  (and (= (get-line~ c1) (get-line~ c2))
        (= (get-col~ c1) (get-col~ c2))))
 
 
 (specialize as cell<? (< c1 <Cell> c2 <Cell>) <bool>
-  (let ((r1 (get-row~ c1))
-        (r2 (get-row~ c2)))
-    (or (< r1 r2)
-        (and (= r1 r2)
+  (let ((l1 (get-line~ c1))
+        (l2 (get-line~ c2)))
+    (or (< l1 l2)
+        (and (= l1 l2)
              (< (get-col~ c1) (get-col~ c2))))))
 
 
 (specialize as cell<=? (<= c1 <Cell> c2 <Cell>) <bool>
-  (let ((r1 (get-row~ c1))
-        (r2 (get-row~ c2)))
-    (or (< r1 r2)
-        (and (= r1 r2)
+  (let ((l1 (get-line~ c1))
+        (l2 (get-line~ c2)))
+    (or (< l1 l2)
+        (and (= l1 l2)
              (<= (get-col~ c1) (get-col~ c2))))))
 
 
 (specialize as cell>? (> c1 <Cell> c2 <Cell>) <bool>
-  (let ((r1 (get-row~ c1))
-        (r2 (get-row~ c2)))
-    (or (> r1 r2)
-        (and (= r1 r2)
+  (let ((l1 (get-line~ c1))
+        (l2 (get-line~ c2)))
+    (or (> l1 l2)
+        (and (= l1 l2)
              (> (get-col~ c1) (get-col~ c2))))))
 
 
 (specialize as cell>=? (>= c1 <Cell> c2 <Cell>) <bool>
-  (let ((r1 (get-row~ c1))
-        (r2 (get-row~ c2)))
-    (or (> r1 r2)
-        (and (= r1 r2)
+  (let ((l1 (get-line~ c1))
+        (l2 (get-line~ c2)))
+    (or (> l1 l2)
+        (and (= l1 l2)
              (>= (get-col~ c1) (get-col~ c2))))))
 
 
 (specialize inline as cell+ (+ c1 <Cell> c2 <Cell>) <Cell>
   (new Cell
-    (+ (get-row~ c1) (get-row~ c2))
+    (+ (get-line~ c1) (get-line~ c2))
     (+ (get-col~ c1) (get-col~ c2))))
 
 
 (specialize inline (+ c <Cell> n <int>) <Cell>
   (new Cell
-    (get-row~ c)
+    (get-line~ c)
     (+ (get-col~ c) n)))
 
 
 (specialize inline as cell- (- c1 <Cell> c2 <Cell>) <Cell>
   (new Cell
-    (- (get-row~ c1) (get-row~ c2))
+    (- (get-line~ c1) (get-line~ c2))
     (- (get-col~ c1) (get-col~ c2))))
 
 
 (specialize inline (- c <Cell> n <int>) <Cell>
   (new Cell
-    (get-row~ c)
+    (get-line~ c)
     (- (get-col~ c) n)))
 
 
 (definition public (cell-hash c <Cell>)
-  (fxwrap+ (eqv?-hash (get-row~ c))
+  (fxwrap+ (eqv?-hash (get-line~ c))
            (eqv?-hash (get-col~ c))))
 
 

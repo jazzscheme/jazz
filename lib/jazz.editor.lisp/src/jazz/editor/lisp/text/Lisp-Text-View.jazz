@@ -241,23 +241,23 @@
   (method override (colorize-comments expl colorizer (start: start {}) (end: end {}))
     (for-each-comment~ expl
       (lambda (start <Cell> end <Cell> title?)
-        (let* ((row (get-row~ start))
-               (len (paragraph-length row))
-               (end (new Cell row len)))
+        (let* ((line (get-line~ start))
+               (len (paragraph-length line))
+               (end (new Cell line len)))
           (if (not title?)
               (apply-coloring colorizer start end 'Comment)
             (apply-coloring colorizer start (+ start 4) 'Comment)
             (apply-coloring colorizer (+ start 4) end 'Title))))
-      start-row: start
-      end-row: end))
+      start-line: start
+      end-line: end))
 
   
-  (method override (recolorize-text start end-row)
-    (define (recolorize-declarations start-row end-row)
+  (method override (recolorize-text start end-line)
+    (define (recolorize-declarations start-line end-line)
       (define (explorer)
-        (let* ((line (paragraph-string start-row))
+        (let* ((line (paragraph-string start-line))
                (col (skip-whitespace line))
-               (pos (new Cell start-row col)))
+               (pos (new Cell start-line col)))
           (new (explorer-class) self start: pos end: pos)))
       
       (catch Explore-Error
@@ -267,7 +267,7 @@
             (lambda (exit)
               (set-line-hook~ expl
                 (lambda (expl)
-                  (when (> (get-row~ (get-end~ expl)) end-row)
+                  (when (> (get-line~ (get-end~ expl)) end-line)
                     (continuation-return exit))))
               (let (iterate)
                 (colorize-declarations expl colorizer)
@@ -275,11 +275,11 @@
                   (iterate)))))
           (finish-current~ colorizer))))
     
-    (define (recolorize-comments start-row end-row)
+    (define (recolorize-comments start-line end-line)
       (define (explorer)
-        (let* ((line (paragraph-string start-row))
+        (let* ((line (paragraph-string start-line))
                (col (skip-whitespace line))
-               (pos (new Cell start-row col)))
+               (pos (new Cell start-line col)))
           (new (explorer-class) self start: pos end: pos)))
       
       (catch Explore-Error
@@ -289,14 +289,14 @@
             (lambda (exit)
               (set-line-hook~ expl
                 (lambda (expl)
-                  (when (> (get-row~ (get-end~ expl)) end-row)
+                  (when (> (get-line~ (get-end~ expl)) end-line)
                     (continuation-return exit))))
-              (colorize-comments expl colorizer start: start-row end: end-row)))
+              (colorize-comments expl colorizer start: start-line end: end-line)))
           (finish-current~ colorizer))))
     
-    (nextmethod start end-row)
-    (recolorize-declarations (get-row~ start) end-row)
-    (recolorize-comments (get-row~ start) end-row))
+    (nextmethod start end-line)
+    (recolorize-declarations (get-line~ start) end-line)
+    (recolorize-comments (get-line~ start) end-line))
   
   
   ;;;
@@ -380,7 +380,7 @@
           (with-safe-explore
             (lambda ()
               (set-caret (get-start))
-              (receive (modified? last-delta <fx>) (tabulate-lines (get-row~ start) (get-row~ end))
+              (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
                 (set-caret (+ end last-delta))
                 (when modified?
                   (set-modified? #t))))
@@ -430,8 +430,8 @@
     (define (first-on-last-line expressions count)
       (let* ((reversed (if (> count 1) (reverse (cdr expressions)) (reverse expressions)))
              (first (car reversed))
-             (line (get-row~ (get-start~ (get-range~ first)))))
-        (while (and (not-null? reversed) (= (get-row~ (get-start~ (get-range~ (car reversed)))) line))
+             (line (get-line~ (get-start~ (get-range~ first)))))
+        (while (and (not-null? reversed) (= (get-line~ (get-start~ (get-range~ (car reversed)))) line))
           (set! first (car reversed))
           (set! reversed (cdr reversed)))
         first))
@@ -473,8 +473,8 @@
                                    (essay tabulate (list modifiers tabulate)))))))
               (if (not info)
                   (let ((first-last (first-on-last-line expressions count))
-                        (first-row (get-row~ (get-start~ (get-range~ first)))))
-                    (if (and (= (get-row~ (get-start~ (get-range~ first-last))) first-row) (or first-call-with? first-with? first-without? first-dispatch? (/= count 2)) (neq? first-symbol 'else))
+                        (first-line (get-line~ (get-start~ (get-range~ first)))))
+                    (if (and (= (get-line~ (get-start~ (get-range~ first-last))) first-line) (or first-call-with? first-with? first-without? first-dispatch? (/= count 2)) (neq? first-symbol 'else))
                         (set! col (+ (get-col~ opening) 2))
                       (let ((proposed-col (+ (get-col~ (get-start~ (get-range~ first-last))) (if (= count 1) first-indent 0)))
                             (threshold (+ (get-col~ opening) 2 4))
@@ -650,8 +650,8 @@
                 (name (form-expr~ expl)))
             (cond ((namespace-name?~ expl name)
                    (if (or ;; anywhere on first line
-                           (= (get-row~ pos)
-                              (get-row~ (get-start~ new-range)))
+                           (= (get-line~ pos)
+                              (get-line~ (get-start~ new-range)))
                            ;; exactly at end
                            (nu=? pos (get-end~ new-range)))
                        new-range
@@ -737,8 +737,8 @@
                                           (set-style~ run default-style)
                                           (invalidate-paragraph paragraph))))
                                     (get-runs~ paragraph)))
-                        start: (get-row~ (get-start~ range))
-                        end: (get-row~ (get-end~ range))))
+                        start: (get-line~ (get-start~ range))
+                        end: (get-line~ (get-end~ range))))
   
   
   (method (iterate-expression-target range target proc)

@@ -52,17 +52,31 @@
         (jazz.ui.window))
 
 
-;; For now, cell selection-mode only supports single select mode
-
-
-;; Terminology
-
-;; visible   : a row that has all its parents expanded
-;; displayed : a row that is displayed on-screen even if only partially
-
-
 (class Tree-View extends Outline-View implements Selection-Provider
   
+
+  ;;;
+  ;;;; Lexicon
+  ;;;
+  
+  
+  ;; visible   : a row that has all its parents expanded
+  ;; displayed : a row that is displayed on-screen even if only partially
+  ;; row       : Row object
+  ;; column    : Column object
+  ;; site      : row + column
+  ;; line      : rank of a row
+  ;; col       : rank of a column
+  ;; cell      : line + col
+  
+  
+  ;;;
+  ;;;; Notes
+  ;;;
+  
+  
+  ;; For now, cell selection-mode only supports single select mode
+
   
   (definition delayed-autorow
     {})
@@ -408,7 +422,7 @@
             (height 0)
             (first? #t))
         (for-each-visible-row
-          (lambda (row rank)
+          (lambda (row line)
             (increase! count)
             (increase! height (get-effective-height~ row))
             (if first?
@@ -425,7 +439,7 @@
           ;; a quick not too clean solution for now...
           (when (is? node-column Tree-Node-Column)
             (for-each-visible-row
-              (lambda (row rank)
+              (lambda (row line)
                 (let* ((highlight-border 3)
                        (nw (+ (either (get-node-width~ row) 0) highlight-border))
                        (w (+ (text-h~ node-column (get-level~ row)) nw)))
@@ -539,12 +553,12 @@
       (receive (top-left bottom-right) (merge-corner-cell merge-cell)
         (when (and top-left bottom-right)
           (receive (left top width height) (merge-geometry top-left bottom-right)
-            (let ((left-rank (get-col~ top-left))
-                  (top-rank (get-row~ top-left))
+            (let ((left-col (get-col~ top-left))
+                  (top-line (get-line~ top-left))
                   (data (get-cell-data (get-master-cell~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
-              (let ((new-context (cons selected?: (cons selected? (cons row-rank: (cons top-rank context))))))
-                (paint-data new-context (get-column left-rank) #f (+ lh left) (+ lv top) 0 0 width height data)))))))
+              (let ((new-context (cons selected?: (cons selected? (cons line: (cons top-line context))))))
+                (paint-data new-context (get-column left-col) #f (+ lh left) (+ lv top) 0 0 width height data)))))))
     
     (nextmethod surface nodes context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
@@ -587,16 +601,16 @@
   
   (method (highlighted-target-rect row col)
     (if (not col)
-        (cell-text-rect (new Cell (row-rank row) 0))
-      (cell-rect (new Cell (row-rank row) col))))
+        (cell-text-rect (new Cell (row->line row) 0))
+      (cell-rect (new Cell (row->line row) col))))
   
   
   (method (highlighted-insert-rect row insert)
     (let* ((height (get-height))
-           (rank (row-rank row))
-           (rect (row-rect rank) @old-l&f-probably-better (cell-content-rect (new Cell (row-rank row) 0)))
-           (before-first? (and (= rank 0) (eq? insert 'before)))
-           (after-last? (and (= rank (- visible-count 1)) (eq? insert 'after)))
+           (line (row->line row))
+           (rect (line-rect line) @old-l&f-probably-better (cell-content-rect (new Cell line 0)))
+           (before-first? (and (= line 0) (eq? insert 'before)))
+           (after-last? (and (= line (- visible-count 1)) (eq? insert 'after)))
            (half-spacing (- (fxround/ row-spacing 2) 1))
            (offset (cond (before-first? 0)
                          (after-last? -2)
@@ -698,7 +712,7 @@
       ;; selected (necessary for dnd) but this code is a not very elegant quick solution
       (when (and cell (not dragging?))
         (let ((pos (cell-coordinates cell view))
-              (row (get-row (get-row~ cell)))
+              (row (get-row (get-line~ cell)))
               (column (get-column (get-col~ cell))))
           (unless (mouse-down-part-control?~ selection-manager)
             (complete-mouse-down~ column cell pos shift? control?)
@@ -736,7 +750,7 @@
   (method override (context-menu view)
     (let ((cell (view->tree view)))
       (when cell
-        (let ((row (get-row (get-row~ cell))))
+        (let ((row (get-row (get-line~ cell))))
           (context-menu~ row (acquire~ row self view))))))
   
   
@@ -784,7 +798,7 @@
 
   
   (method public virtual (header-click column)
-    (sort-column (column-rank column))
+    (sort-column (column->col column))
     (ensure-displayed))
   
 
@@ -795,27 +809,27 @@
        (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
          (let ((select-list
                  (loop (for n from 0 below (get-columns-count))
-                       (collect (new Cell (row-rank row) n)))))
+                       (collect (new Cell (row->line row) n)))))
            (set-selection select-list))))
       (else
-       (set-selection (list (row-rank row))))))
+       (set-selection (list (row->line row))))))
   
   
-  (method public (selector-multi-select row initial-row)
-    (let ((new-row-rank (row-rank row)))
-      (let ((from-row (min initial-row new-row-rank))
-            (to-row (max initial-row new-row-rank)))
+  (method public (selector-multi-select row initial-line)
+    (let ((new-line (row->line row)))
+      (let ((from-line (min initial-line new-line))
+            (to-line (max initial-line new-line)))
         (case selection-mode
           ((cell)
            (let ((select-list (new-queue)))
-             (loop (for row-num from from-row to to-row)
-                   (loop (for col-num from 0 below (get-columns-count))
-                         (enqueue select-list (new Cell row-num col-num))))
+             (loop (for line from from-line to to-line)
+                   (loop (for col from 0 below (get-columns-count))
+                         (enqueue select-list (new Cell line col))))
              (set-selection (queue-list select-list))))
           (else
            (let ((select-list
-                   (loop (for n from from-row to to-row)
-                         (collect n))))
+                   (loop (for line from from-line to to-line)
+                         (collect line))))
              (set-selection select-list)))))))
 
   
@@ -894,14 +908,14 @@
       (if (not cell)
           (when can-select-empty?
             (set-selection '()))
-        (let ((row (get-row (get-row~ cell))))
+        (let ((row (get-row (get-line~ cell))))
           (case selection-mode
             ((cell)
              (unless (member? cell (get-selection))
                (set-selection (list cell))))
             (else
-             (unless (memq? (get-row~ cell) (get-selection))
-               (set-selection (list (get-row~ cell))))))
+             (unless (memq? (get-line~ cell) (get-selection))
+               (set-selection (list (get-line~ cell))))))
           (when auto-expand/collapse?
             (auto-select~ row)))
         (update-view))
@@ -992,7 +1006,7 @@
         (nextmethod pos)
       (let ((cell (view->tree pos)))
         (when cell
-          (let ((row (get-row (get-row~ cell)))
+          (let ((row (get-row (get-line~ cell)))
                 (column (get-column (get-col~ cell)))
                 (text (localize (get-cell-tooltip cell))))
             (when text
@@ -1048,7 +1062,7 @@
   (method override (get-drag-source)
     (let* ((pos (get-drag-position))
            (cell (view->tree pos))
-           (row (get-row (get-row~ cell)))
+           (row (get-row (get-line~ cell)))
            (col (get-col~ cell)))
       (get-drag-cell-source pos row col)))
   
@@ -1059,7 +1073,7 @@
   
   (method override (get-drag-hotspot)
     (let* ((cell (view->tree mouse-down-point))
-           (row (get-row (get-row~ cell)))
+           (row (get-row (get-line~ cell)))
            (left (image-h~ node-column (get-level~ row)))
            (top (get-v~ (get-position~ row))))
       (new Point left top)))
@@ -1067,16 +1081,16 @@
   
   (method override (get-drag-image pos)
     (let* ((cell (view->tree pos))
-           (row (get-row~ cell)))
-      (get-node-image row)))
+           (line (get-line~ cell)))
+      (get-node-image line)))
 
   
-  (method public (get-node-image n)
+  (method public (get-node-image line)
     @old
     (let* ((cdc (new Client-Surface player))
            (font (effective-font))
-           (row (get-row n))
-           (data (get-cell-data (new Cell n 0)))
+           (row (get-row line))
+           (data (get-cell-data (new Cell line 0)))
            (image (get-image~ data))
            (title (get-title~ data))
            (width (column-width (get-node-column-index)))
@@ -1112,10 +1126,10 @@
       (call-with-view->tree pos
         (lambda (cell v height)
           (when cell
-            (let* ((rank (get-row~ cell))
+            (let* ((line (get-line~ cell))
                    (quarter (get-row-quarter v height))
                    (current (get-target~ drag-drop))
-                   (row (get-row rank)))
+                   (row (get-row line)))
               (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
                   current
                 (get-row-reorder-target drag-drop row quarter)))))))
@@ -1136,15 +1150,15 @@
   
   
   (method protected virtual (get-row-reorder-target drag-drop row quarter)
-    (let* ((same-row? (memq? (row-rank row) selection))
+    (let* ((same-row? (memq? (row->line row) selection))
            (src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
            (src-range (contiguous-range src-selection))
            (dst (get-user-data~ row))
-           (dst-rank (row-rank row))
-           (current-rank (if (memq? quarter '(1 2)) dst-rank (+ dst-rank 1)))
+           (dst-line (row->line row))
+           (current-rank (if (memq? quarter '(1 2)) dst-line (+ dst-line 1)))
            (accept? (or (not src-range) (and (not (memq? current-rank src-selection)) (/= current-rank (+ (cdr src-range) 1))))))
       (when accept?
-        (let ((part (if (= current-rank dst-rank) 'before 'after)))
+        (let ((part (if (= current-rank dst-line) 'before 'after)))
           (new Tree-Drop-Target view: self row: row part: part)))))
   
   
@@ -1152,7 +1166,7 @@
     (call-with-view->tree pos
       (lambda (cell v height)
         (when cell
-          (let ((row (get-row (get-row~ cell)))
+          (let ((row (get-row (get-line~ cell)))
                 (current (get-target~ drag-drop)))
             (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
                 current
@@ -1163,7 +1177,7 @@
     (call-with-view->tree pos
       (lambda (cell v height)
         (when cell
-          (let ((row (get-row (get-row~ cell)))
+          (let ((row (get-row (get-line~ cell)))
                 (col (get-col~ cell))
                 (source (get-source~ drag-drop))
                 (current (get-target~ drag-drop)))
@@ -1278,7 +1292,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (> col 0)
-               (move-cell (new Cell (get-row~ cell) (- col 1)) 'left user?))))))
+               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user?))))))
       ((row)
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1286,7 +1300,7 @@
            (if (expanded?~ row)
                (expand/collapse row)
              (when (> (get-level~ row) 0)
-               (set-selection (list (row-rank (get-father~ row)))))))))))
+               (set-selection (list (row->line (get-father~ row)))))))))))
 
 
   (method override (up-arrow-press modifiers)
@@ -1299,8 +1313,8 @@
         (when site
           (let ((merge-cell (get-merge-cell site)))
             (if merge-cell
-                (get-first-row~ merge-cell)
-              (get-row~ cell))))))
+                (get-first-line~ merge-cell)
+              (get-line~ cell))))))
     
     (case selection-mode
       ((cell)
@@ -1338,7 +1352,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (< col (- (get-columns-count) 1))
-               (move-cell (new Cell (get-row~ cell) (+ col 1)) 'right user?))))))
+               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user?))))))
       (else
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1357,8 +1371,8 @@
         (when site
           (let ((merge-cell (get-merge-cell site)))
             (if merge-cell
-                (get-last-row~ merge-cell)
-              (get-row~ cell))))))
+                (get-last-line~ merge-cell)
+              (get-line~ cell))))))
 
     (let* ((count (get-visible-count))
            (last (- count 1)))
@@ -1378,11 +1392,11 @@
                (move-selection (+ row 1) 'forward user?))))))))
     
   
-  (method (move-selection n direction user?)
+  (method (move-selection line direction user?)
     (when user?
       (acquire-focus))
-    (let ((row (get-row n)))
-      (set-selection (list n) user-origin?: #t)
+    (let ((row (get-row line)))
+      (set-selection (list line) user-origin?: #t)
       (when auto-expand/collapse?
         (auto-select~ row))
       (update-view)))
@@ -1401,8 +1415,8 @@
     (update-view))
   
   
-  (method (row-displayed? n)
-    (let* ((row (get-row n))
+  (method (line-displayed? line)
+    (let* ((row (get-row line))
            (top (get-top~ row))
            (bottom (get-bottom~ row))
            (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) {})))
@@ -1437,9 +1451,9 @@
     (when (and filled-column (not-null? columns-borders))
       (let ((column (find-filled-column filled-column)))
         (when column
-          (let ((rank (column-rank column)))
-            (when (< rank (length columns-borders))
-              (let* ((filled-borders (element columns-borders rank))
+          (let ((col (column->col column)))
+            (when (< col (length columns-borders))
+              (let* ((filled-borders (element columns-borders col))
                      (space-after (- columns-right (borders-right filled-borders)))
                      (size (get-display-size))
                      (delta (max (- (borders-width filled-borders)) (- (get-width~ size) space-after (borders-right filled-borders))))
@@ -1448,7 +1462,7 @@
                 (for-each (lambda (pair)
                             (set-car! pair (+ (car pair) delta))
                             (set-cdr! pair (+ (cdr pair) delta)))
-                          (tail columns-borders (+ rank 1)))
+                          (tail columns-borders (+ col 1)))
                 (set-cdr! filled-borders new-right)
                 (increase! columns-right delta)
                 (set-width~ column (+ (get-width~ column) delta))
@@ -1537,8 +1551,8 @@
     (length columns))
     
   
-  (method public (get-column n)
-    (element columns n))
+  (method public (get-column col)
+    (element columns col))
   
   
   (method public (find-column name)
@@ -1546,10 +1560,10 @@
   
   
   (method public (get-node-column-index)
-    (column-rank node-column))
+    (column->col node-column))
   
   
-  (method public (column-rank column)
+  (method public (column->col column)
     (find columns column))
 
   
@@ -1564,8 +1578,8 @@
   
   (method override (update-father-control father)
     (when (and (not update-locked?) (neq? father root-row) (row-visible?~ father))
-      (let* ((rank (row-rank father))
-             (top (row-top rank)))
+      (let* ((line (row->line father))
+             (top (row-top line)))
         (when (< top (get-height))
           (invalidate-rect (control-rect~ node-column father top))
           (invalidate-rect (image-rect~ node-column father top))))))
@@ -1578,14 +1592,14 @@
                                              columns))))
   
   
-  (method override (row-selected? row)
+  (method override (line-selected? line)
     (case selection-mode
-      ((cell) (some? (lambda (cell) (= (get-row~ cell) row)) selection))
-      (else (memq? row selection))))
+      ((cell) (some? (lambda (cell) (= (get-line~ cell) line)) selection))
+      (else (memq? line selection))))
   
   
-  (method override (row-draw-selected? row)
-    (and (nextmethod row)
+  (method override (line-draw-selected? line)
+    (and (nextmethod line)
          (or (has-focus?) show-unfocused-selection?)))
 
   
@@ -1594,8 +1608,8 @@
   ;;;
   
   
-  (method public (merge-cells cell nbrow nbcol)
-    (if (and (> nbrow 0) (> nbcol 0))
+  (method public (merge-cells cell nbline nbcol)
+    (if (and (> nbline 0) (> nbcol 0))
         (let ((cell-data (get-cell-data cell)))
           (if cell-data
               (let ((title (get-cell-title cell))
@@ -1603,16 +1617,16 @@
                 (when site
                   (when (get-merge-cell site)
                     (unmerge-cells cell)))
-                (when (or (> nbrow 1) (> nbcol 1))
-                  (let ((cell-row (get-row~ cell))
+                (when (or (> nbline 1) (> nbcol 1))
+                  (let ((cell-line (get-line~ cell))
                         (cell-col (get-col~ cell)))
-                    (if (and (< (+ cell-row nbrow -1) (get-row-count))
+                    (if (and (< (+ cell-line nbline -1) (get-row-count))
                              (< (+ cell-col nbcol -1) (get-columns-count)))
                         (let ((new-site-list '())
                               (new-merged-cells-list '())
                               (new-rows-list '())
                               (new-columns-list '()))
-                          (loop (for r from cell-row below (+ cell-row nbrow))
+                          (loop (for r from cell-line below (+ cell-line nbline))
                                 (loop (for c from cell-col below (+ cell-col nbcol))
                                       (let ((merged-cell (new Cell r c)))
                                         (if #t @creates-problems-with-edited-cells (equal? title (get-cell-title merged-cell))
@@ -1646,7 +1660,7 @@
           (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
           (for-each-cell~ merge-cell-to-remove
             (lambda (row column)
-              (let ((site (row-col->site row column)))
+              (let ((site (row/column->site row column)))
                 (clear-merge-cell site))))
           (when rect
             (invalidate-rect rect))))))
@@ -1657,7 +1671,7 @@
           (is-valid? #t)
           (site-list '()))
       (for-each (lambda (column)
-                  (let ((new-title (get-data-title (get-child~ row (column-rank column)))))
+                  (let ((new-title (get-data-title (get-child~ row (column->col column)))))
                     (if (equal? merged-title new-title)
                         (let ((site (new Site row column)))
                           (set-merge-cell! site merge-cell)
@@ -1759,9 +1773,9 @@
     (continuation-capture
       (lambda (return)
         (for-each-visible-row
-          (lambda (row rank)
+          (lambda (row line)
             (when (eq? row target)
-              (continuation-return return rank))))
+              (continuation-return return line))))
         {})))
 
 
@@ -1769,7 +1783,7 @@
     (continuation-capture
       (lambda (return)
         ((if visible? for-each-visible-row for-each-row)
-         (lambda (row rank)
+         (lambda (row line)
            (when (test (get-user-data~ row) data)
              (continuation-return return row))))
         {})))
@@ -1778,32 +1792,32 @@
   (method public (user-data-rows data-list (test: test eqv?) (visible?: visible? #t))
     (let ((fact (new List-Factory)))
       ((if visible? for-each-visible-row for-each-row)
-       (lambda (row rank)
+       (lambda (row line)
          (let ((user-data (get-user-data~ row)))
            (when (member? user-data data-list test: test)
              (put~ fact row)))))
       (get-output~ fact)))
 
 
-  ;; Because it returns the rank, this method only makes sense on visible rows
+  ;; Because it returns the line, this method only makes sense on visible rows
   (method public (user-data-index data (test: test eqv?))
     (continuation-capture
       (lambda (return)
         (for-each-visible-row
-          (lambda (row rank)
+          (lambda (row line)
             (when (test (get-user-data~ row) data)
-              (continuation-return return rank))))
+              (continuation-return return line))))
         {})))
 
 
-  ;; Because it returns the rank, this method only makes sense on visible rows
+  ;; Because it returns the line, this method only makes sense on visible rows
   (method public (user-data-indexes data-list (test: test eqv?))
     (let ((fact (new List-Factory)))
       (for-each-visible-row
-        (lambda (row rank)
+        (lambda (row line)
           (let ((user-data (get-user-data~ row)))
             (when (member? user-data data-list test: test)
-              (put~ fact rank)))))
+              (put~ fact line)))))
       (get-output~ fact)))
   
   
@@ -1811,7 +1825,7 @@
     (let ((row (user-data-row data)))
       (if (not row)
           (error "Unable to select user-data: {t}" data)
-        (set-single-selection (row-rank row)))))
+        (set-single-selection (row->line row)))))
 
   
   ;;;
@@ -1820,7 +1834,7 @@
   
   
   (method public (get-cell-data cell)
-    (let ((row (get-row (get-row~ cell))))
+    (let ((row (get-row (get-line~ cell))))
       (when row
         (when (>= (get-col~ cell) (length (get-children~ row)))
           (set! selection '())
@@ -1829,7 +1843,7 @@
   
   
   (method public (set-cell-data cell data)
-    (let ((row (get-row (get-row~ cell))))
+    (let ((row (get-row (get-line~ cell))))
       (set-element! (get-children~ row) (get-col~ cell) data)))
   
   
@@ -1894,24 +1908,24 @@
         (invalidate-rect (plus/minus-rect~ node-column row top)))))
   
   
-  (method override (invalidate-collapse rank row top selected?)
+  (method override (invalidate-collapse line row top selected?)
     (when node-column
       (invalidate-rect (image-rect~ node-column row top))
       (if selected?
-          (invalidate-rect (row-rect rank))
+          (invalidate-rect (line-rect line))
         (invalidate-rect (plus/minus-rect~ node-column row top)))))
   
   
-  (method override (collapse-selection rank removed)
+  (method override (collapse-selection line removed)
     (case selection-mode
       ((cell)
        (when removed
-         (let ((cell (new Cell rank (get-col~ removed))))
+         (let ((cell (new Cell line (get-col~ removed))))
            (unless (member? cell selection)
              (set-selection (cons cell selection))))))
       (else
-       (when (and removed (not (row-selected? rank)))
-         (set-selection (cons rank selection)))))
+       (when (and removed (not (line-selected? line)))
+         (set-selection (cons line selection)))))
     (unless selection-pivot
       (set! selection-pivot (and (not-null? selection) (car selection)))))
   
@@ -1992,8 +2006,8 @@
   (method public (set-dynamic row)
     (when (neq? (get-state~ row) 'dynamic)
       (set-state~ row 'dynamic)
-      (let* ((rank (row-rank row))
-             (top (row-top rank)))
+      (let* ((line (row->line row))
+             (top (row-top line)))
         (invalidate-rect (control-rect~ node-column row top)))))
 
   
@@ -2020,31 +2034,28 @@
   ;;;
 
 
-  ; temporary - converts from a normal Cell to Site
   (method (cell->site cell)
     (if (is? cell Cell)
-      (let ((col (get-column (get-col~ cell)))
-            (row (get-row    (get-row~ cell))))
-        (new Site row col))
+        (let ((column (get-column (get-col~ cell)))
+              (row (get-row (get-line~ cell))))
+          (new Site row column))
       cell))
 
 
-  ; temporary - converts from a row column to Site
-  (method (row-col->site row col)
-    (new Site row col))
+  (method (row/column->site row column)
+    (new Site row column))
 
 
-  ; temporary - converts from a Site to a normal Cell
-  (method (site->cell cell)
-    (if (is? cell Site)
-      (let ((col (column-rank (get-col~ cell)))
-            (row (row-rank    (get-row~ cell))))
-        (new Cell row col))
-      cell))
+  (method (site->cell site)
+    (if (is? site Site)
+        (let ((col (column->col (get-column~ site)))
+              (line (row->line (get-row~ site))))
+          (new Cell line col))
+      site))
 
 
   (method public (process-selection cell shift? control?)
-    (let ((element (case selection-mode ((cell) cell) (else (get-row~ cell)))))
+    (let ((element (case selection-mode ((cell) cell) (else (get-line~ cell)))))
       (if (and multiple-selection? (or shift? control?))
           (cond ((and shift? control?)
                  (set! selection-pivot element)
@@ -2129,7 +2140,7 @@
         (else (map save-row selection))))
     
     (define (save-cell cell)
-      (cons (save-row (get-row~ cell)) (get-col~ cell)))
+      (cons (save-row (get-line~ cell)) (get-col~ cell)))
     
     (define (save-row row)
       (case use
@@ -2151,7 +2162,7 @@
     
     (define (restore-row saved)
       (case use
-        ((row) (row-rank saved))
+        ((row) (row->line saved))
         ((rank) saved)
         ((data) (user-data-index saved test: test))))
     
@@ -2199,7 +2210,7 @@
     (case selection-mode
       ((cell)
        (lambda (cell)
-         (get-row (get-row~ cell))))
+         (get-row (get-line~ cell))))
       (else
        get-row)))
   
@@ -2225,8 +2236,8 @@
   
   
   (method public (get-selection-data selection)
-    (map (lambda (n)
-           (let ((row (get-row n)))
+    (map (lambda (line)
+           (let ((row (get-row line)))
              (get-user-data~ row)))
          selection))
   
@@ -2247,7 +2258,7 @@
     (case selection-mode
       ((cell)
        (map (lambda (cell)
-              (cons (get-visible-row (get-row~ cell)) (get-col~ cell)))
+              (cons (get-visible-row (get-line~ cell)) (get-col~ cell)))
             selection))
       (else
        (map get-visible-row selection))))
@@ -2264,20 +2275,20 @@
        (remove-nils (map row-index rows)))))
   
   
-  ;; update slots that are rank based
-  (method override (added-update-selection rank count)
-    (when (and edited-cell (>= (get-row~ edited-cell) rank))
-      (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
+  ;; update slots that are line based
+  (method override (added-update-selection line count)
+    (when (and edited-cell (>= (get-line~ edited-cell) line))
+      (set-line~ edited-cell (+ (get-line~ edited-cell) count)))
     (let ((proc (case selection-mode
                   ((cell) (lambda (cell)
-                            (let ((r (get-row~ cell)))
-                              (if (>= r rank)
-                                  (new Cell (+ r count) (get-col~ cell))
+                            (let ((l (get-line~ cell)))
+                              (if (>= l line)
+                                  (new Cell (+ l count) (get-col~ cell))
                                 cell))))
-                  (else (lambda (r)
-                          (if (>= r rank)
-                              (+ r count)
-                            r))))))
+                  (else (lambda (l)
+                          (if (>= l line)
+                              (+ l count)
+                            l))))))
       (set! selection (map proc selection))
       (when selection-pivot
         (let ((new-pivot (proc selection-pivot)))
@@ -2285,26 +2296,26 @@
             (set! selection-pivot new-pivot))))))
   
   
-  ;; update slots that are rank based
-  (method override (removed-update-selection rank count)
-    (when (and edited-cell (>= (get-row~ edited-cell) rank))
-      (set-row~ edited-cell (- (get-row~ edited-cell) count)))
-    (let ((end-rank (+ rank count))
+  ;; update slots that are line based
+  (method override (removed-update-selection line count)
+    (when (and edited-cell (>= (get-line~ edited-cell) line))
+      (set-line~ edited-cell (- (get-line~ edited-cell) count)))
+    (let ((end-line (+ line count))
           (removed #f))
       (let ((proc (case selection-mode
                     ((cell) (lambda (cell)
-                              (let ((r (get-row~ cell)))
-                                (cond ((< r rank)
+                              (let ((l (get-line~ cell)))
+                                (cond ((< l line)
                                        cell)
-                                      ((>= r end-rank)
-                                       (new Cell (- r count) (get-col~ cell)))
+                                      ((>= l end-line)
+                                       (new Cell (- l count) (get-col~ cell)))
                                       (else
                                        #f)))))
-                    (else (lambda (r)
-                            (cond ((< r rank)
-                                   r)
-                                  ((>= r end-rank)
-                                   (- r count))
+                    (else (lambda (l)
+                            (cond ((< l line)
+                                   l)
+                                  ((>= l end-line)
+                                   (- l count))
                                   (else
                                    #f)))))))
         (set! selection (collect (lambda (old)
@@ -2340,8 +2351,8 @@
       region))
     
   
-  (method override (selection-row-rect n)
-    (let* ((row (get-row n))
+  (method override (selection-row-rect line)
+    (let* ((row (get-row line))
            (node-left (row-text-left~ node-column row))
            (left (if (> (length columns-borders) 1)
                      (min node-left (car (second columns-borders)))
@@ -2353,7 +2364,7 @@
   
   (method (selection-row element)
     (case selection-mode
-      ((cell) (get-row~ element))
+      ((cell) (get-line~ element))
       (else element)))
   
   
@@ -2363,7 +2374,7 @@
   
   
   (method public (cell-visible? cell)
-    (and (< (get-row~ cell) visible-count)
+    (and (< (get-line~ cell) visible-count)
          (< (get-col~ cell) (get-columns-count))))
 
 
@@ -2399,8 +2410,8 @@
   
   
   ;; temp patch to be virtual...
-  (method override (row-rect n <fx>) <Rect>
-    (let* ((row   (get-row n))
+  (method override (line-rect line <fx>) <Rect>
+    (let* ((row   (get-row line))
            (left  (borders-left (car columns-borders)))
            (top   (get-v~ (get-position~ row)))
            (right columns-right))
@@ -2421,7 +2432,7 @@
   
   (method public (unmerged-cell-rect cell <Cell>) <Rect>
     (let* ((borders (get-borders (get-col~ cell)))
-           (row (get-row (get-row~ cell)))
+           (row (get-row (get-line~ cell)))
            (top (get-v~ (get-position~ row))))
       (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
   
@@ -2431,9 +2442,9 @@
   
   
   (method (cell-content-rect cell <Cell>) <Rect>
-    (let* ((n       (get-row~ cell))
+    (let* ((line    (get-line~ cell))
            (col     (get-col~ cell))
-           (row     (get-row n))
+           (row     (get-row line))
            (top     (get-v~ (get-position~ row)))
            (data    (get-cell-data cell))
            (width   (column-width col))
@@ -2443,9 +2454,9 @@
     
   
   (method (cell-text-rect cell <Cell>) <Rect>
-    (let* ((n     (get-row~ cell))
+    (let* ((line  (get-line~ cell))
            (col   (get-col~ cell))
-           (row   (get-row n))
+           (row   (get-row line))
            (top   (get-v~ (get-position~ row)))
            (data  (get-cell-data cell))
            (width (column-width (get-node-column-index))))
@@ -2453,14 +2464,14 @@
 
 
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
-    (let ((row (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
+    (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
           (col (h->col (get-h~ pos))))
-      (when (not row)
-        (set! row (v->merged-cells-row (get-v~ pos))))
+      (when (not line)
+        (set! line (v->merged-cells-line (get-v~ pos))))
       (when (not col)
         (set! col (h->merged-cells-col (get-h~ pos))))
-      (when (and row col (>= row 0))
-        (let ((cell (new Cell row col)))
+      (when (and line col (>= line 0))
+        (let ((cell (new Cell line col)))
           (set! cell (get-top-cell cell))
           (if any?
               cell
@@ -2485,22 +2496,22 @@
   (method public (tree->view cell)
     (new Point
       (col->h (get-col~ cell))
-      (row->v (get-row~ cell))))
+      (row->v (get-line~ cell))))
   
 
   (method public (h->col h)
     (continuation-capture
       (lambda (return)
         (loop (for borders in columns-borders)
-              (for n from 0 below (get-columns-count))
+              (for col from 0 below (get-columns-count))
               (bind (left . right) borders
                 (when (and (>= h left) (<= h right) (/= left right))
-                  (continuation-return return n))))
+                  (continuation-return return col))))
         {})))
 
 
-  (method (col->h n)
-    (borders-left (get-borders n)))
+  (method (col->h col)
+    (borders-left (get-borders col)))
 
 
   (method public (h->merged-cells-col h)
@@ -2515,7 +2526,7 @@
         {})))
 
 
-  (method public (v->merged-cells-row v)
+  (method public (v->merged-cells-line v)
     (continuation-capture
       (lambda (return)
         (loop (for merge-cell in merge-cell-list)
@@ -2524,7 +2535,7 @@
                   (let ((top (get-top~ rect))
                         (bottom (get-bottom~ rect)))
                     (when (and (>= v top) (<= v bottom) (/= top bottom))
-                      (continuation-return return (get-first-row~ merge-cell)))))))
+                      (continuation-return return (get-first-line~ merge-cell)))))))
         {})))
   
   
@@ -2591,7 +2602,7 @@
   
   
   (method public (replace-cell cell child)
-    (replace-child~ (get-row (get-row~ cell)) (get-col~ cell) child))
+    (replace-child~ (get-row (get-line~ cell)) (get-col~ cell) child))
   
   
   (method (cell-editor-rect cell)
@@ -2599,9 +2610,9 @@
     (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
       (if merge-cell
           (merge-cell-rect merge-cell)
-        (let* ((n       (get-row~ cell))
+        (let* ((line    (get-line~ cell))
                (col     (get-col~ cell))
-               (row     (get-row n))
+               (row     (get-row line))
                (column  (get-column col))
                (top     (get-v~ (get-position~ row)))
                (cell    (get-cell-data cell))
@@ -2615,42 +2626,42 @@
   
   (method public (cell-up cell)
     (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((row (- (if merge-cell
-                        (get-first-row~ merge-cell)
-                      (get-row~ cell)) 1))
+      (let ((line (- (if merge-cell
+                         (get-first-line~ merge-cell)
+                       (get-line~ cell)) 1))
             (col (get-col~ cell)))
-        (when (>= row 0)
-          (new Cell row col)))))
+        (when (>= line 0)
+          (new Cell line col)))))
   
   
   (method public (cell-down cell (validate? #t))
     (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((row (+ (if merge-cell
-                        (get-last-row~ merge-cell)
-                      (get-row~ cell)) 1))
+      (let ((line (+ (if merge-cell
+                         (get-last-line~ merge-cell)
+                       (get-line~ cell)) 1))
             (col (get-col~ cell)))
-        (when (or (not validate?) (< row (get-visible-count)))
-          (new Cell row col)))))
+        (when (or (not validate?) (< line (get-visible-count)))
+          (new Cell line col)))))
     
   
   (method public (cell-left cell)
     (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((row (get-row~ cell))
+      (let ((line (get-line~ cell))
             (col (- (if merge-cell
                         (get-first-col~ merge-cell)
                       (get-col~ cell)) 1)))
         (when (>= col 0)
-          (new Cell row col)))))
+          (new Cell line col)))))
 
   
   (method public (cell-right cell)
     (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((row (get-row~ cell))
+      (let ((line (get-line~ cell))
             (col (+ (if merge-cell
                         (get-first-col~ merge-cell)
                       (get-col~ cell)) 1)))
         (when (< col (get-columns-count))
-          (new Cell row col)))))
+          (new Cell line col)))))
   
   
   (method public (select-up cell)
@@ -2682,7 +2693,7 @@
   
   
   (method public virtual (select-cell cell)
-    (set-single-selection (get-row~ cell)))
+    (set-single-selection (get-line~ cell)))
   
   
   ;;;
@@ -2717,7 +2728,7 @@
         (case (get-selection-mode~ tree)
           ((cell)
            (set! column (if sel (get-col~ sel) 0))
-           (cons (essay sel (get-row~ tree (get-row~ sel)))
+           (cons (essay sel (get-row~ tree (get-line~ sel)))
                  (lambda (row) (element (get-children~ row) column))))
           (else
            (cons (essay sel (get-row~ tree sel))
@@ -2725,18 +2736,18 @@
     
     (bind (row . proc2) (prepare-iterate)
       (for-each-visible-row~ tree
-        (lambda (row rank)
+        (lambda (row line)
           (let* ((node (proc2 row))
                  (title (get-title~ node)))
-            (proc title rank)))
+            (proc title line)))
         start: (when row (if prefix row (get-next~ row)))
         wrap?: #t)))
   
   
-  (method override (select rank)
+  (method override (select line)
     (case (get-selection-mode~ tree)
-      ((cell) (set-single-selection~ tree (new Cell rank column)))
-      (else (set-single-selection~ tree rank)))))
+      ((cell) (set-single-selection~ tree (new Cell line column)))
+      (else (set-single-selection~ tree line)))))
 
 
 ;;;
@@ -2785,10 +2796,10 @@
     (let ((first-col #f))
       (for-each (lambda (column)
                   (when (get-visible?~ column)
-                    (let ((col-rank (column-rank~ tree column)))
+                    (let ((col (column->col~ tree column)))
                       (when (or (not first-col)
-                                (< col-rank first-col))
-                        (set! first-col col-rank)))))
+                                (< col first-col))
+                        (set! first-col col)))))
                 merged-columns)
       first-col))
   
@@ -2797,48 +2808,48 @@
     (let ((last-col 0))
       (for-each (lambda (column)
                   (when (get-visible?~ column)
-                      (let ((col-rank (column-rank~ tree column)))
-                        (when (> col-rank last-col)
-                          (set! last-col col-rank)))))
+                      (let ((col (column->col~ tree column)))
+                        (when (> col last-col)
+                          (set! last-col col)))))
                 merged-columns)
       last-col))
   
   
-  (method public (get-first-row)
-    (let ((first-row #f))
+  (method public (get-first-line)
+    (let ((first-line #f))
       (for-each (lambda (row)
                   (when (get-visible?~ row)
-                      (let ((row-rank (row-rank~ tree row)))
-                        (when (or (not first-row)
-                                  (< row-rank first-row))
-                          (set! first-row row-rank)))))
+                      (let ((line (row->line~ tree row)))
+                        (when (or (not first-line)
+                                  (< line first-line))
+                          (set! first-line line)))))
                 merged-rows)
-      first-row))
+      first-line))
   
   
-  (method public (get-last-row)
-    (let ((last-row 0))
+  (method public (get-last-line)
+    (let ((last-line 0))
       (for-each (lambda (row)
                   (when (get-visible?~ row)
-                      (let ((row-rank (row-rank~ tree row)))
-                        (when (> row-rank last-row)
-                          (set! last-row row-rank)))))
+                      (let ((line (row->line~ tree row)))
+                        (when (> line last-line)
+                          (set! last-line line)))))
                 merged-rows)
-      last-row))
+      last-line))
 
 
   (method public (get-first-cell)
-    (let ((first-row (get-first-row))
-          (first-column (get-first-col)))
-      (if (and first-row first-column)
-          (new Cell first-row first-column)
-        #f)))
+    (let ((first-line (get-first-line))
+          (first-col (get-first-col)))
+      (if (and first-line first-col)
+          (new Cell first-line first-col)
+        {})))
 
 
   (method public (get-last-cell)
-    (let ((last-row (get-last-row))
-          (last-column (get-last-col)))
-      (new Cell last-row last-column)))
+    (let ((last-line (get-last-line))
+          (last-col (get-last-col)))
+      (new Cell last-line last-col)))
 )
 
 

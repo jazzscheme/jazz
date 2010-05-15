@@ -45,7 +45,7 @@
   
   
   (slot first-displayed               initialize {} getter generate)   ;; first row that is displayed even if only partially
-  (slot first-displayed-rank   <fx>   initialize 0  getter generate)   ;; first displayed row's rank
+  (slot first-displayed-line   <fx>   initialize 0  getter generate)   ;; first displayed row's line
   (slot first-displayed-offset <fx>   initialize 0  getter generate)   ;; amount of scroll that would be needed to uncover a partially displayed row
   
   
@@ -55,8 +55,8 @@
   
   
   (method override (get-row n)
-    (if (and first-displayed (>= n first-displayed-rank))
-        (get-row-from first-displayed (- n first-displayed-rank))
+    (if (and first-displayed (>= n first-displayed-line))
+        (get-row-from first-displayed (- n first-displayed-line))
       (nextmethod n)))
 
 
@@ -65,17 +65,17 @@
         (let* ((displayed? (>= v (- scrolled)))
                (v (if displayed? (+ v scrolled) v))
                (row (if displayed? first-displayed (first-visible-row)))
-               (rank (if displayed? first-displayed-rank 0))
+               (line (if displayed? first-displayed-line 0))
                (top (if displayed? (- first-displayed-offset) 0))
                (bottom (+ top (get-height~ row) row-spacing)))
           (while (and row (or (< v top) (>= v bottom)))
-            (increase! rank)
+            (increase! line)
             (set! row (get-next~ row))
             (when row
               (set! top bottom)
               (set! bottom (+ top (get-height~ row) row-spacing))))
           (if (and row (< v (- bottom row-spacing)))
-              (proc rank (- v top) (- bottom top))
+              (proc line (- v top) (- bottom top))
             (proc {} {} {})))
       (proc {} {} {})))
   
@@ -87,7 +87,7 @@
   
   (method (update-displayed display-v)
     (let ((row (first-visible-son~ root-row))
-          (rank <fx> 0)
+          (line <fx> 0)
           (v display-v))
       (when row
         (let ((bottom <fx> (- v (get-height~ row))))
@@ -96,11 +96,11 @@
               (if (not next)
                   (set! bottom 0)
                 (set! row next)
-                (increase! rank)
+                (increase! line)
                 (set! v (- bottom row-spacing))
                 (set! bottom (- v (get-height~ row))))))))
       (set! first-displayed row)
-      (set! first-displayed-rank rank)
+      (set! first-displayed-line line)
       (set! first-displayed-offset (if row v 0))))
   
   
@@ -114,7 +114,7 @@
                 (increase! first-displayed-offset v)
                 (set! v 0))
             (set! first-displayed (get-next~ first-displayed))
-            (increase! first-displayed-rank)
+            (increase! first-displayed-line)
             (decrease! v remaining)
             (set! first-displayed-offset 0))))
       #t)
@@ -130,7 +130,7 @@
               (set! first-displayed (get-previous~ first-displayed))
               (if (not first-displayed)
                   (continuation-return return #f)
-                (decrease! first-displayed-rank)
+                (decrease! first-displayed-line)
                 (decrease! v (+ first-displayed-offset 1))
                 (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
           #t)))

@@ -61,8 +61,8 @@
   ;;;
   
   
-  ;; row -> numerical value of paragraph rank
-  ;; col -> character offset into a paragraph string
+  ;; line -> numerical value of paragraph rank
+  ;; col  -> character offset into a paragraph string
   
   
   (definition public Active-Selection-Color
@@ -465,7 +465,7 @@
   
   (method (on-text-font evt)
     (let* ((caret (get-caret))
-           (par (get-paragraph (get-row~ caret)))
+           (par (get-paragraph (get-line~ caret)))
            (run (get-run~ par (get-col~ caret)))
            (current (essay run (get-font~ (get-style~ run))))
            (font (get-modal Font-Request initial-font: current)))
@@ -555,14 +555,14 @@
   (method (on-kill-line evt)
     (define (kill-range)
       (let* ((pos (selection-tail 'forward))
-             (row (get-row~ pos))
+             (line (get-line~ pos))
              (col (get-col~ pos))
-             (len (paragraph-length row)))
+             (len (paragraph-length line)))
         (if (= col len)
-            (if (= row (get-limit))
+            (if (= line (get-limit))
                 {}
-              (new Range pos (new Cell (+ row 1) 0)))
-          (new Range pos (new Cell row len)))))
+              (new Range pos (new Cell (+ line 1) 0)))
+          (new Range pos (new Cell line len)))))
     
     (let ((range (kill-range)))
       (when range
@@ -747,11 +747,11 @@
   
   
   (method public (reload-content lst)
-    (let ((row (get-row~ (get-start))))
+    (let ((line (get-line~ (get-start))))
       (remove-every-row)
       (set-content lst)
       (colorize-syntax)
-      (set-caret (new Cell (min row (cardinality (get-paragraphs))) 0))
+      (set-caret (new Cell (min line (cardinality (get-paragraphs))) 0))
       (set-modified? #f)
       (update-status)))
   
@@ -794,7 +794,7 @@
     (when (and enabled? selectable?)
       (if (alt-down?)
           (set-cursor :finger)
-        (let ((par (get-paragraph (get-row~ (view->text view)))))
+        (let ((par (get-paragraph (get-line~ (view->text view)))))
           (if (< (get-h~ view) (paragraph-left~ par))
               (set-cursor :left-arrow)
             (set-cursor :ibeam))))))
@@ -873,7 +873,7 @@
   (method (caret-rect caret-pos <Cell+> width)
     (when caret-pos
       (let* ((pos <Point> (text->view caret-pos))
-             (par <Paragraph> (get-paragraph (get-row~ caret-pos)))
+             (par <Paragraph> (get-paragraph (get-line~ caret-pos)))
              (lne (get-line-at~ par (get-col~ caret-pos)))
              (run (get-run~ par (get-col~ caret-pos)))
              (height <fx> (if run (get-height~ run) (get-height~ par)))
@@ -901,9 +901,9 @@
           (set! selection-mode 'char)
           (unless (or (shift-down?) (not focus?))
             (reset-selection pos))
-          (let ((par (get-paragraph (get-row~ pos))))
+          (let ((par (get-paragraph (get-line~ pos))))
             (if (< (get-h~ view) (paragraph-left~ par))
-                (set-selection (selection-line (get-row~ pos)) set-anchor?: #t)
+                (set-selection (selection-line (get-line~ pos)) set-anchor?: #t)
               (when (or focus? (not focus-selects-all?))
                 (if (shift-down?)
                     (change-selection pos)
@@ -969,9 +969,9 @@
     (let ((pos (view->text view)))
       ;; patch to manage the line selection border
       (when (and pos
-                 (< (get-h~ view) (paragraph-left~ (get-paragraph (get-row~ pos))))
+                 (< (get-h~ view) (paragraph-left~ (get-paragraph (get-line~ pos))))
                  (cell>=? pos (get-end~ selection-anchor)))
-        (set! pos (get-end~ (selection-line (get-row~ pos)))))
+        (set! pos (get-end~ (selection-line (get-line~ pos)))))
       (when (and pos #t @parameterized-fix-me (/= pos previous-position))
         (let* ((range (selection-range pos))
                (parts (range-difference range selection))
@@ -990,9 +990,9 @@
   (method override (double-click view)
     (if (and enabled? selectable?)
         (let* ((pos (view->text view))
-               (par (get-paragraph (get-row~ pos))))
+               (par (get-paragraph (get-line~ pos))))
           (if (< (get-h~ view) (paragraph-left~ par))
-              (select-paragraph (get-row~ pos))
+              (select-paragraph (get-line~ pos))
             (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
               (with-safe-explore
                 (lambda ()
@@ -1178,9 +1178,9 @@
             (change-selection (text-beginning))
           (set-caret (text-beginning)))
       (let* ((pos (selection-tail 'backward))
-             (row (get-row~ pos))
-             (col (home-column row (get-col~ pos)))
-             (start (new Cell row col)))
+             (line (get-line~ pos))
+             (col (home-column line (get-col~ pos)))
+             (start (new Cell line col)))
         (if extend?
             (change-selection start)
           (set-caret start))
@@ -1205,7 +1205,7 @@
   
   (method public (goto-paragraph-end (extend-selection?: extend-selection? #f))
     (let* ((pos (selection-tail 'forward))
-           (end (new Cell (get-row~ pos) (paragraph-length (get-row~ pos)))))
+           (end (new Cell (get-line~ pos) (paragraph-length (get-line~ pos)))))
       (if extend-selection?
           (change-selection end)
         (set-caret end))))
@@ -1252,14 +1252,14 @@
   (method protected virtual (up-arrow-move extend? scroll?)
     (reset-mode-on-anchor)
     (let* ((pos (if extend? (selection-tail 'backward) (get-start)))
-           (row (get-row~ pos))
+           (line (get-line~ pos))
            (col (get-col~ pos)))
       (cond (scroll?
               (let ((height (get-default-height)))
                 (scroll (new Point 0 height))))
             (else
-             (if (> row 0)
-                 (move-verticaly row col -1 'backward extend?)
+             (if (> line 0)
+                 (move-verticaly line col -1 'backward extend?)
                (unless extend? (reset-selection (get-start))))
              (process-selection-change)))))
   
@@ -1267,14 +1267,14 @@
   (method protected virtual (down-arrow-move extend? scroll?)
     (reset-mode-on-anchor)
     (let* ((pos (if extend? (selection-tail 'forward) (get-end)))
-           (row (get-row~ pos))
+           (line (get-line~ pos))
            (col (get-col~ pos)))
       (cond (scroll?
               (let ((height (get-default-height)))
                 (scroll (new Point 0 (- height)))))
             (else
-             (if (< row (get-limit))
-                 (move-verticaly row col 1 'forward extend?)
+             (if (< line (get-limit))
+                 (move-verticaly line col 1 'forward extend?)
                (unless extend? (reset-selection (get-end))))
              (process-selection-change)))))
   
@@ -1383,7 +1383,7 @@
   
   (method override (prior-page shift?)
     (let* ((start (get-start))
-           (v (row->display-v (get-row~ start))))
+           (v (line->display-v (get-line~ start))))
       (scroll (new Point 0 (get-page-size 'vert)))
       (let* ((row (display-v->row v))
              (dest (new Cell row 0)))
@@ -1394,7 +1394,7 @@
   
   (method override (next-page shift?)
     (let* ((start (get-start))
-           (v (row->display-v (get-row~ start))))
+           (v (line->display-v (get-line~ start))))
       (scroll (new Point 0 (- (get-page-size 'vert))))
       (let* ((row (display-v->row v))
              (dest (new Cell row 0)))
@@ -1403,9 +1403,9 @@
           (set-caret dest)))))
   
   
-  (method (row->display-v row) <fx>
+  (method (line->display-v line) <fx>
     (let ((top (- (get-v~ position)))
-          (v (row->view row)))
+          (v (line->view line)))
       (- v top)))
   
   
@@ -1440,7 +1440,7 @@
       (backward-whitespaces~ expl)
       (forward-whitespaces~ expl)
       (let* ((range (get-range~ expl))
-             (one-left? (and (= (get-row~ (get-start~ range)) (get-row~ (get-end~ range))) (= (+ (get-col~ (get-start~ range)) 1) (get-col~ (get-end~ range))))))
+             (one-left? (and (= (get-line~ (get-start~ range)) (get-line~ (get-end~ range))) (= (+ (get-col~ (get-start~ range)) 1) (get-col~ (get-end~ range))))))
         (replace (get-range~ expl)
                  (case keep
                    ((none) (list ""))
@@ -1452,8 +1452,8 @@
     (let ((start (get-start))
           (end (get-end)))
       (user-message "Start: ~{row {a}, col {a}} End: ~{row {a}, col {a}}"
-                    (+ (get-row~ start) 1) (+ (get-col~ start) 1)
-                    (+ (get-row~ end) 1) (+ (get-col~ end) 1))))
+                    (+ (get-line~ start) 1) (+ (get-col~ start) 1)
+                    (+ (get-line~ end) 1) (+ (get-col~ end) 1))))
   
   
   (method package (on-user-code evt)
@@ -1482,25 +1482,25 @@
       region))
   
   
-  (method (row-range-rect row start end)
-    (let ((paragraph (get-paragraph row)))
+  (method (line-range-rect line start end)
+    (let ((paragraph (get-paragraph line)))
       (new Rect
         (get-h~ (col->view~ paragraph start))
-        (row->view row)
+        (line->view line)
         (if end (get-h~ (col->view~ paragraph (max 1 end))) (get-width))
-        (+ (row->view row) (if end (get-height~ (get-line-at~ paragraph end)) (get-default-height))))))
+        (+ (line->view line) (if end (get-height~ (get-line-at~ paragraph end)) (get-default-height))))))
   
   
   (method (block-rect start end)
     (new Rect
       left-padding
-      (row->view start)
+      (line->view start)
       (get-width)
-      (row->view end)))
+      (line->view end)))
   
   
-  (method public (invalidate-row row)
-    (invalidate-rect (row-range-rect row 0 {})))
+  (method public (invalidate-line line)
+    (invalidate-rect (line-range-rect line 0 {})))
   
   
   (method (invalidate-range range <Range$Cell$>)
@@ -1535,14 +1535,14 @@
     (let ((start (get-start~ range))
           (end (get-end~ range)))
       (when (/= start end)
-        (if (= (get-row~ start) (get-row~ end))
-            (proc (get-paragraph (get-row~ start)) (get-col~ start) (get-col~ end))
-          (let ((beginning (get-row~ start))
-                (limit (get-row~ end)))
-            (loop (for n from beginning to limit)
-                  (let ((paragraph (get-paragraph n)))
-                    (cond ((= n beginning) (proc paragraph (get-col~ start) {}))
-                          ((= n limit) (proc paragraph {} (get-col~ end)))
+        (if (= (get-line~ start) (get-line~ end))
+            (proc (get-paragraph (get-line~ start)) (get-col~ start) (get-col~ end))
+          (let ((beginning (get-line~ start))
+                (limit (get-line~ end)))
+            (loop (for line from beginning to limit)
+                  (let ((paragraph (get-paragraph line)))
+                    (cond ((= line beginning) (proc paragraph (get-col~ start) {}))
+                          ((= line limit) (proc paragraph {} (get-col~ end)))
                           (else (proc paragraph {} {}))))))))))
   
   
@@ -1688,7 +1688,7 @@
     (new Range$Cell$ (text-beginning) (text-ending)))
   
   
-  (method override (row-selected? row) <bool>
+  (method override (line-selected? line) <bool>
     #f)
   
   
@@ -1805,14 +1805,14 @@
   
   (method (fit-caret)
     (when caret-position
-      (let ((row (get-row~ caret-position))
+      (let ((line (get-line~ caret-position))
             (col (get-col~ caret-position))
             (count (cardinality (get-paragraphs))))
-        (if (>= row count)
+        (if (>= line count)
             (set! caret-position (new Cell (- count 1) 0))
-          (let ((len (paragraph-length row)))
+          (let ((len (paragraph-length line)))
             (when (> col len)
-              (set! caret-position (new Cell row len))))))))
+              (set! caret-position (new Cell line len))))))))
   
   
   (method public (get-caret) <Cell>
@@ -1822,13 +1822,13 @@
   (method public (set-caret pos)
     (when pos
       ;; lisp tabulate can return negative col
-      (let* ((row (min (max 0 (get-row~ pos)) (get-limit)))
-             (par (get-paragraph row))
+      (let* ((line (min (max 0 (get-line~ pos)) (get-limit)))
+             (par (get-paragraph line))
              (col (min (max 0 (get-col~ pos)) (get-length~ par))))
-        (if (and (= row (get-row~ pos))
+        (if (and (= line (get-line~ pos))
                  (= col (get-col~ pos)))
             (reset-selection pos)
-          (reset-selection (new Cell row col))))))
+          (reset-selection (new Cell line col))))))
   
   
   (method protected virtual (selection-change)
@@ -1860,8 +1860,8 @@
   (method public (selected-lines)
     (let* ((start (get-start))
            (end (get-end))
-           (end-row (if (= (get-col~ end) 0) (- (get-row~ end) 1) (get-row~ end))))
-      (naturals (get-row~ start) (+ end-row 1))))
+           (end-line (if (= (get-col~ end) 0) (- (get-line~ end) 1) (get-line~ end))))
+      (naturals (get-line~ start) (+ end-line 1))))
   
   
   (method override (invalidate-selection sel)
@@ -1873,9 +1873,9 @@
   
   
   (method public (get-char pos <Cell>) <char>
-    (let ((row (get-row~ pos))
+    (let ((line (get-line~ pos))
           (col (get-col~ pos)))
-      (let ((string (get-string~ (get-paragraph row))))
+      (let ((string (get-string~ (get-paragraph line))))
         (if (< col (cardinality string))
             (element string col)
           #\newline))))
@@ -1886,11 +1886,11 @@
   
   
   (method public (next! pos <Cell>) <bool>
-    (cond ((/= (get-col~ pos) (paragraph-length (get-row~ pos)))
+    (cond ((/= (get-col~ pos) (paragraph-length (get-line~ pos)))
            (increase-col~ pos)
            #t)
-          ((< (get-row~ pos) (get-limit))
-           (increase-row~ pos)
+          ((< (get-line~ pos) (get-limit))
+           (increase-line~ pos)
            (set-col~ pos 0)
            #t)
           (else
@@ -1901,9 +1901,9 @@
     (cond ((/= (get-col~ pos) 0)
            (increase-col~ pos -1)
            #t)
-          ((> (get-row~ pos) 0)
-           (increase-row~ pos -1)
-           (set-col~ pos (paragraph-length (get-row~ pos)))
+          ((> (get-line~ pos) 0)
+           (increase-line~ pos -1)
+           (set-col~ pos (paragraph-length (get-line~ pos)))
            #t)
           (else
            #f)))
@@ -1967,7 +1967,7 @@
   
   (method (on-goto-line evt)
     (let* ((start (get-start))
-           (line (+ (get-row~ start) 1))
+           (line (+ (get-line~ start) 1))
            (string (request-string title: "Goto Line" prefix: "Line no:" initial-value: (->string line))))
       (goto-line (- (parse-integer string) 1))))
   
@@ -1982,11 +1982,11 @@
            (set-selection (new Range$Cell$ (new Cell line 0) (new Cell (+ line 1) 0))))))
   
   
-  (method override (added-update-selection rank count)
+  (method override (added-update-selection line count)
     )
   
   
-  (method override (removed-update-selection rank count)
+  (method override (removed-update-selection line count)
     #f)
   
   
@@ -2108,16 +2108,16 @@
     (- (get-length) 1))
   
   
-  (method public (get-paragraph n <fx>) <Paragraph>
-    (element (get-paragraphs) n))
+  (method public (get-paragraph line <fx>) <Paragraph>
+    (element (get-paragraphs) line))
   
   
-  (method public (paragraph-string n <fx>) <string>
-    (get-string~ (get-paragraph n)))
+  (method public (paragraph-string line <fx>) <string>
+    (get-string~ (get-paragraph line)))
   
   
-  (method public (paragraph-length n <fx>) <fx>
-    (cardinality (paragraph-string n)))
+  (method public (paragraph-length line <fx>) <fx>
+    (cardinality (paragraph-string line)))
   
   
   (method (paragraph->string paragraph <Paragraph>) <string>
@@ -2139,16 +2139,16 @@
   
   (method override (paginate page-width page-height)
     (let* ((selected? #f @tmp (has-selection?))
-           (start (if selected? (get-row~ (get-start)) 0))
-           (end (+ (if selected? (get-row~ (get-end)) (get-limit)) 1))
+           (start (if selected? (get-line~ (get-start)) 0))
+           (end (+ (if selected? (get-line~ (get-end)) (get-limit)) 1))
            (pages (new List-Factory))
            (page 0)
            (top 0)
            (bottom 0)
            (together {}))
       (for-each-paragraph
-        (lambda (rank <fx> paragraph <Paragraph>)
-          (when (and (>= rank start) (< rank end))
+        (lambda (line <fx> paragraph <Paragraph>)
+          (when (and (>= line start) (< line end))
             (let* ((paragraph-top bottom)
                    (string (get-string~ paragraph))
                    (format (get-format~ paragraph))
@@ -2211,7 +2211,7 @@
                             (style (get-style~ highlight)))
                         (let* ((start (get-start~ range))
                                (end (get-end~ range))
-                               (paragraph (get-paragraph (get-row~ start)))
+                               (paragraph (get-paragraph (get-line~ start)))
                                (target (subseq (get-string~ paragraph) (get-col~ start) (get-col~ end)))
                                (info (text->view-extended start))
                                (line (car info))
@@ -2314,8 +2314,8 @@
   
   
   (method public (center-caret)
-    (let* ((start (get-bottom~ (get-row (get-row~ (get-start)))))
-           (end (get-top~ (get-row (get-row~ (get-end)))))
+    (let* ((start (get-bottom~ (get-row (get-line~ (get-start)))))
+           (end (get-top~ (get-row (get-line~ (get-end)))))
            (size (- end start))
            (height (get-display-height))
            (top (if (>= size height)
@@ -2332,7 +2332,7 @@
   
   
   (method public (top-caret)
-    (let ((start (get-top~ (get-row (get-row~ (get-start))))))
+    (let ((start (get-top~ (get-row (get-line~ (get-start))))))
       (scroll-to (new Point 0 (- start)))))
   
   
@@ -2410,9 +2410,9 @@
   
   
   (method public (insert-bulleted-line line)
-    (let ((row (get-row~ (get-start))))
+    (let ((line (get-line~ (get-start))))
       (insert-line line)
-      (toggle-bulleted row)))
+      (toggle-bulleted line)))
   
   
   (method public (insert-newline)
@@ -2434,7 +2434,7 @@
   (method public (insert-view view/form)
     (let* ((view (if (is? view/form View) view/form (instantiate~ view/form)))
            (end (get-end))
-           (paragraph (get-paragraph (get-row~ end))))
+           (paragraph (get-paragraph (get-line~ end))))
       (set-parent~ view paragraph)
       (let ((style (new View-Style view: view)))
         (insert-styled " " style))))
@@ -2465,7 +2465,7 @@
           (when (not header?)
             (increase! height 16))
           (let ((row-height (quotient height (cast <fx> row-count))))
-            (for-each (lambda (n)
+            (for-each (lambda (line)
                         (let ((children (map (lambda (column)
                                                (new Formatted-Text-View))
                                              columns)))
@@ -2550,7 +2550,7 @@
                  (end   (get-end~ range))
                  (count (length strings))
                  (old   (range-strings range))
-                 (ufd?  (<= (get-row~ start) (get-first-displayed-rank~ outline)))
+                 (ufd?  (<= (get-line~ start) (get-first-displayed-line~ outline)))
                  (caret (replace-range range strings))
                  (appl  (get-application))
                  (old-selection (copy selection))
@@ -2560,11 +2560,11 @@
             (when ufd?
               (update-displayed)
               @todo-replace-the-update-displayed-with-incremental-behavior
-              (set! first-displayed (get-paragraph first-displayed-rank)))
+              (set! first-displayed (get-paragraph first-displayed-line)))
             (fit-selection)
             (fit-anchor)
             (fit-caret)
-            (recolorize-text start (- (+ (get-row~ start) count) 1))
+            (recolorize-text start (- (+ (get-line~ start) count) 1))
             (set-modified? #t)
             (if #f @commented-because-buggy-with-multiple-undo inserting-single-char?
                 (if (not contiguous-undo-range)
@@ -2600,22 +2600,22 @@
     (define (replace-paragraphs range <Range$Cell$> strings)
       (let* ((start       (get-start~ range))
              (end         (get-end~ range))
-             (sr          (get-row~ start))
-             (er          (get-row~ end))
-             (replaced    (+ (- er sr) 1))
+             (sl          (get-line~ start))
+             (el          (get-line~ end))
+             (replaced    (+ (- el sl) 1))
              (inserted    (length strings))
-             (before      (range-height sr er))
-             (first-par   (get-paragraph sr))
-             (last-par    (get-paragraph er))
+             (before      (range-height sl el))
+             (first-par   (get-paragraph sl))
+             (last-par    (get-paragraph el))
              (bottom      (get-bottom~ last-par))
              (paragraphs  (strings->paragraphs first-par strings))
              (first-runs  (range-runs~ first-par 0 (get-col~ start)))
              (last-runs   (range-runs~ last-par (get-col~ end) (get-length~ last-par)))
              (last-length (cardinality (cast <string> (last strings))))
-             (caret-row   (+ sr inserted -1))
+             (caret-row   (+ sl inserted -1))
              (caret-col   (+ (if (= inserted 1) (get-col~ start) 0) last-length)))
-        (replace-sons~ root-row paragraphs first-par sr (get-next~ last-par) (+ er 1))
-        (replace-beginning~ (get-paragraph sr) first-runs)
+        (replace-sons~ root-row paragraphs first-par sl (get-next~ last-par) (+ el 1))
+        (replace-beginning~ (get-paragraph sl) first-runs)
         (replace-ending~ (get-paragraph caret-row) last-runs)
         (invalidate-replacements paragraphs replaced inserted bottom before)
         (new Cell caret-row caret-col)))
@@ -2673,9 +2673,9 @@
     (let ((start (get-start~ range))
           (end   (get-end~ range))
           (count (length strings)))
-      (if (and (= (get-row~ start) (get-row~ end)) (= 1 count))
-          (replace-paragraph (get-row~ start) (get-col~ start) (get-col~ end) (car strings))
-        (if (<= count (- (get-row~ end) (get-row~ start)))
+      (if (and (= (get-line~ start) (get-line~ end)) (= 1 count))
+          (replace-paragraph (get-line~ start) (get-col~ start) (get-col~ end) (car strings))
+        (if (<= count (- (get-line~ end) (get-line~ start)))
             (with-update-locked
               (lambda ()
                 (replace-paragraphs range strings)))
@@ -2703,7 +2703,7 @@
     )
   
   
-  (method protected virtual (recolorize-text start end-row)
+  (method protected virtual (recolorize-text start end-line)
     )
   
   
@@ -3110,8 +3110,8 @@
     (define (range-paragraph-runs paragraph range <Range$Cell$>)
       (if (not range)
           (get-runs~ paragraph)
-        (let ((first? (eq? paragraph (get-paragraph (get-row~ (get-start~ range)))))
-              (last?  (eq? paragraph (get-paragraph (get-row~ (get-end~ range))))))
+        (let ((first? (eq? paragraph (get-paragraph (get-line~ (get-start~ range)))))
+              (last?  (eq? paragraph (get-paragraph (get-line~ (get-end~ range))))))
           (let ((start (if first? (get-col~ (get-start~ range)) 0))
                 (end (if last? (get-col~ (get-end~ range)) (get-length~ paragraph))))
             (range-runs~ paragraph start end)))))
@@ -3239,7 +3239,7 @@
   (method (range-paragraphs range <Range$Cell$>)
     (let ((last {})
           (fact (new List-Factory)))
-      (loop (for row from (get-row~ (get-start~ range)) to (get-row~ (get-end~ range)))
+      (loop (for row from (get-line~ (get-start~ range)) to (get-line~ (get-end~ range)))
             (let ((paragraph (get-paragraph row)))
               (if (not paragraph)
                   (put~ fact row)
@@ -3300,8 +3300,8 @@
         (car (read-string-content (get-output-string printer)))))
     
     (define (apply-formats/styles range <Range$Cell$>)
-      (let* ((start (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range))))
-             (end   (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range)))))
+      (let* ((start (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range))))
+             (end   (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range)))))
         (for-each (lambda (paragraph)
                     (bind (format . runs) paragraph
                       (for-each (lambda (run)
@@ -3311,14 +3311,14 @@
                                       (set-style (new Range$Cell$ start end) style)
                                       (set-col~ start (get-col~ end)))))
                                 runs)
-                      (let* ((full-paragraph (get-paragraph (get-row~ start)))
+                      (let* ((full-paragraph (get-paragraph (get-line~ start)))
                              (line-length (- (get-length~ full-paragraph) 1)))
-                        (when (and (inside?~ range (new Cell (get-row~ start) 0))
-                                   (inside?~ range (new Cell (get-row~ start) line-length)))
-                          (set-format~ (get-paragraph (get-row~ start)) (reference-format formats format)))
+                        (when (and (inside?~ range (new Cell (get-line~ start) 0))
+                                   (inside?~ range (new Cell (get-line~ start) line-length)))
+                          (set-format~ (get-paragraph (get-line~ start)) (reference-format formats format)))
                         (fix-view-style-parent full-paragraph)))
-                    (set-row~ start (+ (get-row~ start) 1))
-                    (set-row~ end (+ (get-row~ end) 1))
+                    (set-line~ start (+ (get-line~ start) 1))
+                    (set-line~ end (+ (get-line~ end) 1))
                     (set-col~ start 0))
                   paragraphs)))
     
@@ -3329,7 +3329,7 @@
                  (end   (get-end~ range))
                  (count (length strings))
                  (old   (range-formatted-text range))
-                 (ufd?  (<= (get-row~ start) (get-first-displayed-rank~ outline)))
+                 (ufd?  (<= (get-line~ start) (get-first-displayed-line~ outline)))
                  (caret (replace-range range strings))
                  (appl  (get-application)))
             (apply-formats/styles (new Range$Cell$ start caret))
@@ -3338,11 +3338,11 @@
             (when ufd?
               (update-displayed)
               @todo-replace-the-update-displayed-with-incremental-behavior
-              (set! first-displayed (get-paragraph first-displayed-rank)))
+              (set! first-displayed (get-paragraph first-displayed-line)))
             (fit-selection)
             (fit-anchor)
             (fit-caret)
-            (recolorize-text start (- (+ (get-row~ start) count) 1))
+            (recolorize-text start (- (+ (get-line~ start) count) 1))
             (set-modified? #t)
             (register-undo~ undoer
                             (let ((range (new Range$Cell$ start caret))
@@ -3403,7 +3403,7 @@
   
   (method public (stylize name/style start (end {}))
     (when (not end)
-      (set! end (new Cell (get-row~ start) (paragraph-length (get-row~ start)))))
+      (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
     (set-text-style (new Range$Cell$ start end) (get-style name/style)))
   
   
@@ -3505,8 +3505,8 @@
   (method public (for-each-selected-paragraph proc)
     (let ((selection (get-selection)))
       (for-each-paragraph proc
-                          start: (get-row~ (get-start~ selection))
-                          end: (get-row~ (get-end~ selection)))))
+                          start: (get-line~ (get-start~ selection))
+                          end: (get-line~ (get-end~ selection)))))
   
   
   ;;;
@@ -3739,7 +3739,7 @@
   
   
   (method public (get-height-at pos <Cell>) <fx>
-    (get-height~ (get-line-at~ (get-paragraph (get-row~ pos)) (get-col~ pos))))
+    (get-height~ (get-line-at~ (get-paragraph (get-line~ pos)) (get-col~ pos))))
   
   
   ;;;
@@ -3750,7 +3750,7 @@
   (method public (compute-width) <fx>
     (let ((width 0))
       (for-each-paragraph
-        (lambda (rank <fx> paragraph <Paragraph>)
+        (lambda (line <fx> paragraph <Paragraph>)
           (let ((w (compute-width~ paragraph)))
             (when (> w width)
               (set! width w)))))
@@ -3774,10 +3774,10 @@
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
-                        (let ((row (get-row~ from))
+                        (let ((line (get-line~ from))
                               (col (get-col~ from)))
-                          (when (= col (get-column row))
-                            (let ((string (paragraph-string row)))
+                          (when (= col (get-column line))
+                            (let ((string (paragraph-string line)))
                               (let ((header (subseq string col (get-col~ to)))
                                     (level (if (= col 0) 1 2))
                                     (label (get-chapter-label string col from to)))
@@ -3875,12 +3875,12 @@
   (method public (range-strings range <Range$Cell$>) <list>
     (let ((start (get-start~ range))
           (end (get-end~ range)))
-      (if (= (get-row~ start) (get-row~ end))
-          (list (subseq (paragraph-string (get-row~ start)) (get-col~ start) (get-col~ end)))
+      (if (= (get-line~ start) (get-line~ end))
+          (list (subseq (paragraph-string (get-line~ start)) (get-col~ start) (get-col~ end)))
         (let ((dest (new List-Factory)))
-          (put~ dest (subseq (paragraph-string (get-row~ start)) (get-col~ start)))
-          (put-sequence~ dest (map paragraph-string (naturals (+ (get-row~ start) 1) (get-row~ end))))
-          (put~ dest (subseq (paragraph-string (get-row~ end)) 0 (get-col~ end)))
+          (put~ dest (subseq (paragraph-string (get-line~ start)) (get-col~ start)))
+          (put-sequence~ dest (map paragraph-string (naturals (+ (get-line~ start) 1) (get-line~ end))))
+          (put~ dest (subseq (paragraph-string (get-line~ end)) 0 (get-col~ end)))
           (get-output~ dest)))))
   
   
@@ -3916,7 +3916,6 @@
     (if (or (has-selection?) (not Marked-Column))
         (bell)
       (let* ((start (get-start))
-             (row (get-row~ start))
              (col (get-col~ start))
              (delta (- Marked-Column col)))
         (case (sign delta)
@@ -3929,10 +3928,10 @@
   
   
   (method (position-offset pos <Cell>) <fx>
-    (let ((row (get-row~ pos))
+    (let ((line (get-line~ pos))
           (col (get-col~ pos))
           (offset 0))
-      (loop (for n from 0 below row)
+      (loop (for n from 0 below line)
             (increase! offset (+ (paragraph-length n) 1)))
       (+ offset col)))
   
@@ -3942,10 +3941,10 @@
       (continuation-capture
         (lambda (return)
           (for-each-paragraph
-            (lambda (rank <fx> paragraph <Paragraph>)
+            (lambda (line <fx> paragraph <Paragraph>)
               (let ((next (+ scan (cardinality (get-string~ paragraph)) 1)))
                 (if (> next offset)
-                    (continuation-return return (new Cell rank (- offset scan)))
+                    (continuation-return return (new Cell line (- offset scan)))
                   (set! scan next)))))))))
   
   
@@ -3990,7 +3989,7 @@
   
   
   (method public (get-run-at pos <Cell>) <Run>
-    (let ((paragraph (get-paragraph (get-row~ pos))))
+    (let ((paragraph (get-paragraph (get-line~ pos))))
       (get-run~ paragraph (get-col~ pos))))
   
   
@@ -4009,7 +4008,7 @@
   
   (method public (colorize color <Color> start <Cell> (end {}))
     (when (not end)
-      (set! end (new Cell (get-row~ start) (paragraph-length (get-row~ start)))))
+      (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
     (set-text-color (new Range$Cell$ start end) color))
   
   
@@ -4047,25 +4046,25 @@
   
   
   (method public (text->view pos <Cell>) <Point>
-    (let* ((par (get-paragraph (get-row~ pos)))
+    (let* ((par (get-paragraph (get-line~ pos)))
            (view (col->view~ par (get-col~ pos))))
       (new Point
         (get-h~ view)
-        (+ (row->view (get-row~ pos)) (get-v~ view)))))
+        (+ (line->view (get-line~ pos)) (get-v~ view)))))
   
   
   (method public (text->view-extended pos <Cell>) <Point>
-    (let* ((par (get-paragraph (get-row~ pos)))
+    (let* ((par (get-paragraph (get-line~ pos)))
            (info (col->view-extended~ par (get-col~ pos)))
            (line (car info))
            (view (cdr info)))
       (cons line (new Point
                    (get-h~ view)
-                   (+ (row->view (get-row~ pos)) (get-v~ view))))))
+                   (+ (line->view (get-line~ pos)) (get-v~ view))))))
   
   
-  (method (row->view row <fx>) <fx>
-    (let ((par (get-paragraph row)))
+  (method (line->view line <fx>) <fx>
+    (let ((par (get-paragraph line)))
       (get-v~ (get-position~ par))))
   
   
@@ -4085,8 +4084,8 @@
     (let ((limit (get-limit))
           (start (get-start~ range))
           (end (get-end~ range)))
-      (when (or (> (get-row~ start) limit)
-                (> (get-row~ end) limit))
+      (when (or (> (get-line~ start) limit)
+                (> (get-line~ end) limit))
         (error "Invalid text range: {t}" range))))
   
   
@@ -4097,16 +4096,16 @@
   (method public (restrict-range range)
     (let ((limit (get-limit)))
       (define (restrict-row cell)
-        (if (> (get-row~ cell) limit)
+        (if (> (get-line~ cell) limit)
             (new Cell limit 0)
           cell))
       
       (define (restrict-col cell)
-        (let ((row (get-row~ cell))
+        (let ((line (get-line~ cell))
               (col (get-col~ cell)))
-          (let ((len (paragraph-length row)))
+          (let ((len (paragraph-length line)))
             (if (> col len)
-                (new Cell row len)
+                (new Cell line len)
               cell))))
     
       (new Range$Cell$
@@ -4125,22 +4124,22 @@
            (selection (get-selection))
            (start (get-start))
            (end (get-end))
-           (span? (neq? (get-paragraph (get-row~ start)) (get-paragraph (get-row~ end)))))
+           (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
       (when style
         (cond ((or (empty-selection?) span?)
                (for-each-paragraph
                  (lambda (row <fx> paragraph <Paragraph>)
                    (set-text-style (new Range$Cell$ (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
-                start: (get-row~ start)
-                end: (get-row~ end)))
+                start: (get-line~ start)
+                end: (get-line~ end)))
               (else
                (set-text-style selection style))))
       (when format
         (for-each-paragraph
           (lambda (row <fx> paragraph <Paragraph>)
             (set-paragraph-format paragraph format))
-         start: (get-row~ start)
-         end: (get-row~ end)))
+         start: (get-line~ start)
+         end: (get-line~ end)))
       (set-modified? #t)
       (layout-scrollee)
       (invalidate-view)))
@@ -4523,9 +4522,9 @@
                   (cons (offset-position from) (offset-position to))))))
         (let ((pos (either start (if reversed? (text-ending) (text-beginning))))
               (end (either end (get-limit))))
-          (let ((row (get-row~ pos))
+          (let ((line (get-line~ pos))
                 (col (get-col~ pos)))
-            (let (iter (n row) (start col))
+            (let (iter (n line) (start col))
               (if (if reversed? (>= n 0) (<= n end))
                   (let ((string (paragraph-string n)))
                     (let ((found (multisearch string multi-search-context constituent-test: constituent-test start: start reversed?: reversed?)))
@@ -4661,7 +4660,7 @@
     (let ((start (get-start~ range))
           (end (get-end~ range)))
       (format "{a}, {a}, {a}, {a}"
-              (get-row~ start)
+              (get-line~ start)
               (get-col~ start)
-              (get-row~ end)
+              (get-line~ end)
               (get-col~ end)))))))

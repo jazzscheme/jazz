@@ -103,7 +103,7 @@
     (if (or (has-completion?)
             (not accepts-returns?))
         (nextmethod key modifiers)
-      (if (or (empty-selection?) (= (get-row~ (get-start)) (get-row~ (get-end))))
+      (if (or (empty-selection?) (= (get-line~ (get-start)) (get-line~ (get-end))))
           (insert-char #\tab)
         (tabulate))))
 
@@ -502,10 +502,10 @@
   (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
     (let ((title? (and title-char (eqv? (get-char (next-pos start 2)) title-char))))
       (if (not title?)
-          (apply-coloring colorizer start (new Cell (get-row~ start) (paragraph-length (get-row~ start))) line-style)
+          (apply-coloring colorizer start (new Cell (get-line~ start) (paragraph-length (get-line~ start))) line-style)
         (apply-coloring colorizer start (nu+ start 3) line-style)
-        (apply-coloring colorizer (nu+ start 3) (new Cell (get-row~ start) (paragraph-length (get-row~ start))) title-style))
-      (let ((row (get-row~ start)))
+        (apply-coloring colorizer (nu+ start 3) (new Cell (get-line~ start) (paragraph-length (get-line~ start))) title-style))
+      (let ((row (get-line~ start)))
         (set! found (cdr found))
         (while (and (not-null? found) (= (second (car found)) row))
           (set! found (cdr found)))
@@ -518,19 +518,19 @@
   
   
   (method (find-specifier-end start)
-    (let* ((row (get-row~ start))
+    (let* ((line (get-line~ start))
            (col (get-col~ start))
-           (str (paragraph-string row)))
+           (str (paragraph-string line)))
       (unless (>= (+ col 1) (cardinality str))
         (let ((nxt (element str (+ col 1))))
           (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
             (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
               (when col
-                (new Cell row (+ col 1)))))))))
+                (new Cell line (+ col 1)))))))))
 
   
-  (method override (recolorize-text start end-row)
-    (let ((pos (new Cell (get-row~ start) 0))
+  (method override (recolorize-text start end-line)
+    (let ((pos (new Cell (get-line~ start) 0))
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
@@ -539,11 +539,11 @@
             (bind (start . (target type)) opening
               (when (eq? type 'open)
                 (set! pos start))))))
-      (let ((range (naturals (get-row~ pos) (+ end-row 1))))
+      (let ((range (naturals (get-line~ pos) (+ end-line 1))))
         (for-each uncolorize-row range))
       (let ((automata (syntax-automata)))
         (when automata
-          (let ((found (automata-search automata (new TextTape (get-paragraphs) end-row (get-row~ pos) (get-col~ pos))))
+          (let ((found (automata-search automata (new TextTape (get-paragraphs) end-line (get-line~ pos) (get-col~ pos))))
                 (colorizer (new-colorizer self)))
             (while (not-null? found)
               (let ((info (car found)))
@@ -642,11 +642,11 @@
   
   
   (definition (offset-pos/range pos range)
-    (if (= 0 (get-row~ (get-start~ range)) (get-row~ (get-end~ range)))
+    (if (= 0 (get-line~ (get-start~ range)) (get-line~ (get-end~ range)))
         (new Range$Cell$ (+ pos (get-start~ range)) (+ pos (get-end~ range)))
       (new Range$Cell$
-        (new Cell (+ (get-row~ pos) (get-row~ (get-start~ range))) (get-col~ (get-start~ range)))
-        (new Cell (+ (get-row~ pos) (get-row~ (get-end~ range))) (get-col~ (get-end~ range))))))
+        (new Cell (+ (get-line~ pos) (get-line~ (get-start~ range))) (get-col~ (get-start~ range)))
+        (new Cell (+ (get-line~ pos) (get-line~ (get-end~ range))) (get-col~ (get-end~ range))))))
 
   
   ;;;
@@ -680,9 +680,9 @@
 
 
   (method public virtual (tabulate)
-    (define (untabulate-line row)
-      (when (space/tab? (get-char (new Cell row 0)))
-        (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 1))
+    (define (untabulate-line line)
+      (when (space/tab? (get-char (new Cell line 0)))
+        (replace-text (new Range$Cell$ (new Cell line 0) (new Cell line 1))
                       (list ""))))
     
     (define (space/tab? c)
@@ -692,10 +692,10 @@
         (for-each (if (shift-down?) untabulate-line tabulate-line)
                   (selected-lines))
       (let* ((pos (get-start))
-             (row (get-row~ pos))
+             (line (get-line~ pos))
              (col (get-col~ pos)))
-        (when (and (> row 0) (= col 0))
-          (let* ((line (paragraph-string (- row 1)))
+        (when (and (> line 0) (= col 0))
+          (let* ((line (paragraph-string (- line 1)))
                  (rank (find-if (lambda (c) (not (whitespace? c))) line return: 'position)))
             (if (not rank)
                 (insert-string line)
@@ -807,7 +807,7 @@
                           (list (append! (make-string tabs #\tab)
                                          (make-string spaces #\space))))))))
     
-    (for-each tabify-line (naturals (get-row~ (get-start)) (+ (get-row~ (get-end)) 1))))
+    (for-each tabify-line (naturals (get-line~ (get-start)) (+ (get-line~ (get-end)) 1))))
   
 
   ;;;

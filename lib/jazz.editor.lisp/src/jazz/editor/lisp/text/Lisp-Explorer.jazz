@@ -347,14 +347,14 @@
     (forward)
     (continuation-capture
       (lambda (return)
-        (let ((name (subseq (paragraph-string (get-row~ end)) (get-col~ end))))
-          (set-end (new Cell (+ (get-row~ end) 1) 0))
-          (while (< (get-row~ end) limit)
-            (if (nu=? (subseq (paragraph-string (get-row~ end)) (get-col~ end)) name)
+        (let ((name (subseq (paragraph-string (get-line~ end)) (get-col~ end))))
+          (set-end (new Cell (+ (get-line~ end) 1) 0))
+          (while (< (get-line~ end) limit)
+            (if (nu=? (subseq (paragraph-string (get-line~ end)) (get-col~ end)) name)
                 (begin
-                  (set-end (new Cell (+ (get-row~ end) 1) 0))
+                  (set-end (new Cell (+ (get-line~ end) 1) 0))
                   (continuation-return return 'named-string))
-              (set-end (new Cell (+ (get-row~ end) 1) 0)))))
+              (set-end (new Cell (+ (get-line~ end) 1) 0)))))
         #f)))
 
   
@@ -580,14 +580,14 @@
 
   
   (method (backward-lisp-comment) <bool>
-    (define (find-lisp-comment row <fx>) <fx+>
-      (let ((max-col (paragraph-length row))
+    (define (find-lisp-comment line <fx>) <fx+>
+      (let ((max-col (paragraph-length line))
             (preserved-end (copy end))
             (result #f))
-        (set-end (new Cell row 0))
+        (set-end (new Cell line 0))
         (let ((result
                 (let (iterate)
-                  (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
+                  (when (and (= (get-line~ end) line) (< (get-col~ end) max-col))
                     (let ((c0 (char-forward 0)))
                       (cond ((eqv? c0 #\double-quote)
                              (forward-string)
@@ -613,12 +613,12 @@
           (set-end preserved-end)
           result)))
     
-    (let ((start-row (get-row~ start))
+    (let ((start-line (get-line~ start))
           (start-col (get-col~ start)))
-      (let ((col (if (eqv? start-row find-comment-last-row)
+      (let ((col (if (eqv? start-line find-comment-last-row)
                      find-comment-last-col
-                   (let ((col (find-lisp-comment start-row)))
-                     (set! find-comment-last-row start-row)
+                   (let ((col (find-lisp-comment start-line)))
+                     (set! find-comment-last-row start-line)
                      (set! find-comment-last-col col)
                      col))))
         (when (and col (< col start-col))
@@ -914,23 +914,23 @@
   ;;;
   
   
-  (method public (for-each-comment proc <procedure> (start-row: start-row {}) (end-row: end-row {}))
-    (let* ((previous-row {})
+  (method public (for-each-comment proc <procedure> (start-line: start-line {}) (end-line: end-line {}))
+    (let* ((previous-line {})
            (title-comment (title-comment-string~ (get-syntax~ text)))
            (title-comment-size (string-length title-comment)))
       (for-each (lambda (pos <Cell>)
-                  (let ((row (get-row~ pos))
+                  (let ((line (get-line~ pos))
                         (col (get-col~ pos)))
-                    (when (or (not previous-row) (/= row previous-row))
-                      (let ((string (paragraph-string row))
+                    (when (or (not previous-line) (/= line previous-line))
+                      (let ((string (paragraph-string line))
                             (style (get-style-at~ text pos))
                             (start pos))
                         (unless (or (memq? (get-name~ style) '(Expr-Comment Named-Comment)) (string-style?~ text style))
-                          (set! previous-row (get-row~ pos))
+                          (set! previous-line (get-line~ pos))
                           (set-end pos)
                           (paragraph-end)
                           (proc start end (and (< (+ col title-comment-size) (cast <fx> (cardinality string))) (string=? (subseq string col (+ col title-comment-size)) title-comment))))))))
-                (text-search-all~ text (comment-string~ (get-syntax~ text)) start: start-row end: end-row))))
+                (text-search-all~ text (comment-string~ (get-syntax~ text)) start: start-line end: end-line))))
 
 
   ;;;

@@ -170,7 +170,7 @@
               (dst (string-append output name ".c"))
               (sha1 (string-append output name "." jazz.SHA1-Extension))
               (mnf (string-append output name "." jazz.Manifest-Extension)))
-          (let ((hash-changed? (%%not (jazz.manifest-uptodate? (jazz.load-updated-manifest name sha1 mnf src)))))
+          (let ((hash-changed? (%%not (jazz.manifest-uptodate? src (jazz.load-updated-manifest name sha1 mnf src)))))
             (if (or rebuild? hash-changed? (%%not (jazz.file-exists? dst)))
                 (let ((path (%%string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())
@@ -693,12 +693,11 @@
         (and image-unit-compile-time-hash
              (jazz.with-unit-resources unit-name #f
                (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                 (and manifest
-                      (jazz.manifest-uptodate? manifest)
-                      (%%not (jazz.manifest-needs-rebuild? manifest))
-                      (%%string=? image-unit-compile-time-hash
-                                  (%%digest-source-hash (%%manifest-digest manifest)))))))))
-      
+                 (let ((src-pathname (jazz.resource-pathname src)))
+                   (let ((digest (and manifest (jazz.manifest-uptodate? src-pathname manifest))))
+                     (and (%%not (jazz.manifest-needs-rebuild? manifest))
+                          (%%string=? image-unit-compile-time-hash (%%digest-hash digest))))))))))
+    
     (define (subunits-uptodate? units)
       (or (%%null? units)
           (and (unit-uptodate? (%%car units))
@@ -715,11 +714,10 @@
         (for-each (lambda (unit-name)
                     (jazz.with-unit-resources unit-name #f
                       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                        (let ((digest (%%manifest-digest manifest)))
-                          (display (string-append "  (" (%%symbol->string unit-name) " ") port)
-                          (write (%%digest-compile-time-hash digest) port)
-                          (display ")" port)
-                          (newline port)))))
+                        (display (string-append "  (" (%%symbol->string unit-name) " ") port)
+                        (write (%%manifest-compile-time-hash manifest) port)
+                        (display ")" port)
+                        (newline port))))
                   sub-units)
         (display "))" port)
         (newline port))))

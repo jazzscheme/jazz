@@ -819,7 +819,7 @@
                                  (and src (jazz.resource-pathname src)))))))
           (let ((uptodate? (or (%%not src)
                                (and manifest
-                                    (jazz.manifest-uptodate? manifest)
+                                    (jazz.manifest-uptodate? (jazz.resource-pathname src) manifest)
                                     (%%not (jazz.manifest-needs-rebuild? manifest))))))
             (if uptodate?
                 (values obj
@@ -859,7 +859,7 @@
                    (or (%%not (or src bin))
                        ; validate lib against manifest
                        (and manifest
-                            (jazz.image-unit-uptodate? image-unit manifest)
+                            (jazz.image-unit-uptodate? image-unit src manifest)
                             (%%not (jazz.manifest-needs-rebuild? manifest))
                             (%%not force-interpreted?))
                        ; validate lib against source
@@ -897,9 +897,9 @@
       (or bin-uptodate? lib-uptodate?))))
 
 
-(define (jazz.image-unit-uptodate? image-unit manifest)
-  (let ((digest (%%manifest-digest manifest)))
-    (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-source-hash digest))))
+(define (jazz.image-unit-uptodate? image-unit src manifest)
+  (let ((digest (jazz.find-source-digest (jazz.resource-pathname src) manifest)))
+    (and digest (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-hash digest)))))
 
 
 (define (jazz.image-unit-uptodate-src? image-unit src)

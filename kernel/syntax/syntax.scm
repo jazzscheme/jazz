@@ -249,27 +249,27 @@
 ;;;
 
 
-(jazz.define-macro (%%make-digest compile-time-hash source-hash source-time)
-  `(%%vector 'digest ,compile-time-hash ,source-hash ,source-time))
+(jazz.define-macro (%%make-digest pathname hash time)
+  `(%%vector 'digest ,pathname ,hash ,time))
 
 
-(jazz.define-macro (%%digest-compile-time-hash digest)
+(jazz.define-macro (%%digest-pathname digest)
   `(%%vector-ref ,digest 1))
 
-(jazz.define-macro (%%digest-compile-time-hash-set! digest compile-time-hash)
-  `(%%vector-set! ,digest 1 ,compile-time-hash))
+(jazz.define-macro (%%digest-pathname-set! digest pathname)
+  `(%%vector-set! ,digest 1 ,pathname))
 
-(jazz.define-macro (%%digest-source-hash digest)
+(jazz.define-macro (%%digest-hash digest)
   `(%%vector-ref ,digest 2))
 
-(jazz.define-macro (%%digest-source-hash-set! digest source-hash)
-  `(%%vector-set! ,digest 2 ,source-hash))
+(jazz.define-macro (%%digest-hash-set! digest hash)
+  `(%%vector-set! ,digest 2 ,hash))
 
-(jazz.define-macro (%%digest-source-time digest)
+(jazz.define-macro (%%digest-time digest)
   `(%%vector-ref ,digest 3))
 
-(jazz.define-macro (%%digest-source-time-set! digest source-time)
-  `(%%vector-set! ,digest 3 ,source-time))
+(jazz.define-macro (%%digest-time-set! digest time)
+  `(%%vector-set! ,digest 3 ,time))
 
 
 ;;;
@@ -277,8 +277,8 @@
 ;;;
 
 
-(jazz.define-macro (%%make-manifest name version digest references)
-  `(%%vector 'manifest ,name ,version ,digest ,references))
+(jazz.define-macro (%%make-manifest name version compile-time-hash source-digests references)
+  `(%%vector 'manifest ,name ,version ,compile-time-hash ,source-digests ,references))
 
 
 (jazz.define-macro (%%manifest-name manifest)
@@ -290,14 +290,23 @@
 (jazz.define-macro (%%manifest-version-set! manifest version)
   `(%%vector-set! ,manifest 2 ,version))
 
-(jazz.define-macro (%%manifest-digest manifest)
+(jazz.define-macro (%%manifest-compile-time-hash manifest)
   `(%%vector-ref ,manifest 3))
 
-(jazz.define-macro (%%manifest-references manifest)
+(jazz.define-macro (%%manifest-compile-time-hash-set! manifest compile-time-hash)
+  `(%%vector-set! ,manifest 3 ,compile-time-hash))
+
+(jazz.define-macro (%%manifest-source-digests manifest)
   `(%%vector-ref ,manifest 4))
 
+(jazz.define-macro (%%manifest-source-digests-set! manifest source-digests)
+  `(%%vector-set! ,manifest 4 ,source-digests))
+
+(jazz.define-macro (%%manifest-references manifest)
+  `(%%vector-ref ,manifest 5))
+
 (jazz.define-macro (%%manifest-references-set! manifest references)
-  `(%%vector-set! ,manifest 4 ,references))
+  `(%%vector-set! ,manifest 5 ,references))
 
 
 ;;;

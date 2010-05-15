@@ -496,7 +496,6 @@
       digest))
   
   (or (find-digest) (new-digest)))
-    
 
 
 (define (jazz.manifest-uptodate? src-pathname manifest)
@@ -511,8 +510,8 @@
 
 (define (jazz.load-updated-manifest name digest-filepath manifest-filepath src-filepath)
   (let ((manifest (jazz.load/create-manifest name digest-filepath manifest-filepath)))
-    (let ((digest (jazz.find-source-digest src-filepath manifest)))
-      (if (and src-filepath
+    (let ((digest (and src-filepath (jazz.find-source-digest src-filepath manifest))))
+      (if (and digest
                (jazz.updated-digest-source? digest src-filepath))
           (jazz.save-digest digest-filepath manifest))
       manifest)))

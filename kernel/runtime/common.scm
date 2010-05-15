@@ -387,13 +387,13 @@
 (define jazz.Manifest-Extension
   "mnf")
 
-(define jazz.SHA1-Extension
+(define jazz.Digest-Extension
   "digest")
 
 
-(define (jazz.load-source-digests sha1-filepath)
-  (if (jazz.file-exists? sha1-filepath)
-      (call-with-input-file (%%list path: sha1-filepath eol-encoding: 'cr-lf)
+(define (jazz.load-source-digests digest-filepath)
+  (if (jazz.file-exists? digest-filepath)
+      (call-with-input-file (%%list path: digest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
           (let ((digest-forms (read input)))
             (map (lambda (form)
@@ -405,7 +405,7 @@
     '()))
 
 
-(define (jazz.load-manifest sha1-filepath manifest-filepath)
+(define (jazz.load-manifest digest-filepath manifest-filepath)
   (if (jazz.file-exists? manifest-filepath)
       (call-with-input-file (%%list path: manifest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
@@ -417,18 +417,19 @@
               (let (;; test is for backward compatibility and could be removed in the future
                     (version (if version-form (%%cadr version-form) #f))
                     (compile-time-hash (%%cadr digest-form))
-                    (source-digests (jazz.load-source-digests sha1-filepath))
+                    (source-digests (jazz.load-source-digests digest-filepath))
                     (references (if references-form (%%cdr references-form) #f)))
                 (%%make-manifest name version compile-time-hash source-digests references))))))
     #f))
 
 
-(define (jazz.save-sha1 filepath manifest)
+(define (jazz.save-digest filepath manifest)
   (let ((digests (%%manifest-source-digests manifest)))
     (jazz.create-directories (jazz.pathname-dir filepath))
     (call-with-output-file (list path: filepath eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (output)
-        (display "(digest " output)
+        (display "(digest" output)
+        (newline output)
         (for-each (lambda (digest)
                     (newline output)
                     (display "  (file " output)
@@ -503,22 +504,22 @@
     (%%string=? (%%digest-hash digest) (%%manifest-compile-time-hash manifest))))
 
 
-(define (jazz.load/create-manifest name sha1-filepath manifest-filepath)
-  (or (jazz.load-manifest sha1-filepath manifest-filepath)
+(define (jazz.load/create-manifest name digest-filepath manifest-filepath)
+  (or (jazz.load-manifest digest-filepath manifest-filepath)
       (%%make-manifest name jazz.kernel-version "" '() #f)))
 
 
-(define (jazz.load-updated-manifest name sha1-filepath manifest-filepath src-filepath)
-  (let ((manifest (jazz.load/create-manifest name sha1-filepath manifest-filepath)))
+(define (jazz.load-updated-manifest name digest-filepath manifest-filepath src-filepath)
+  (let ((manifest (jazz.load/create-manifest name digest-filepath manifest-filepath)))
     (let ((digest (jazz.find-source-digest src-filepath manifest)))
       (if (and src-filepath
                (jazz.updated-digest-source? digest src-filepath))
-          (jazz.save-sha1 sha1-filepath manifest))
+          (jazz.save-digest digest-filepath manifest))
       manifest)))
 
 
-(define (jazz.update-manifest-compile-time name sha1-filepath manifest-filepath src-filepath updated-references)
-  (let ((manifest (jazz.load/create-manifest name sha1-filepath manifest-filepath)))
+(define (jazz.update-manifest-compile-time name digest-filepath manifest-filepath src-filepath updated-references)
+  (let ((manifest (jazz.load/create-manifest name digest-filepath manifest-filepath)))
     (%%manifest-version-set! manifest jazz.kernel-version)
     (let ((digest (jazz.find-source-digest src-filepath manifest)))
       (jazz.updated-digest-source? digest src-filepath)

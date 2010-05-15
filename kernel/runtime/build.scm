@@ -168,9 +168,9 @@
       (define (compile-file rebuild? name dir output)
         (let ((src (string-append dir name ".scm"))
               (dst (string-append output name ".c"))
-              (sha1 (string-append output name "." jazz.SHA1-Extension))
+              (digest (string-append output name "." jazz.Digest-Extension))
               (mnf (string-append output name "." jazz.Manifest-Extension)))
-          (let ((hash-changed? (%%not (jazz.manifest-uptodate? src (jazz.load-updated-manifest name sha1 mnf src)))))
+          (let ((hash-changed? (%%not (jazz.manifest-uptodate? src (jazz.load-updated-manifest name digest mnf src)))))
             (if (or rebuild? hash-changed? (%%not (jazz.file-exists? dst)))
                 (let ((path (%%string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())
@@ -180,7 +180,7 @@
                   (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
                     (feedback-message "; compiling {a}..." path)
                     (compile-file-to-c standardized-path options: options output: output)
-                    (jazz.update-manifest-compile-time name sha1 mnf src #f))
+                    (jazz.update-manifest-compile-time name digest mnf src #f))
                   #t)
               #f))))
       
@@ -676,7 +676,7 @@
  
   ; is the lib up-to-date according to the lib manifest?
   (define (library-manifest-uptodate? header sub-units)
-    (define sha1-table (%%make-table test: eq?))
+    (define digest-table (%%make-table test: eq?))
       
     (define (load-image-units-manifest)
       (if (jazz.file-exists? header)
@@ -684,12 +684,12 @@
             (set! jazz.register-image-units
                   (lambda (lib-name units)
                     (for-each (lambda (unit)
-                                (%%table-set! sha1-table (%%car unit) (%%cadr unit)))
+                                (%%table-set! digest-table (%%car unit) (%%cadr unit)))
                               units)))
             (load header))))
     
     (define (unit-uptodate? unit-name)
-      (let ((image-unit-compile-time-hash (%%table-ref sha1-table unit-name #f)))
+      (let ((image-unit-compile-time-hash (%%table-ref digest-table unit-name #f)))
         (and image-unit-compile-time-hash
              (jazz.with-unit-resources unit-name #f
                (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)

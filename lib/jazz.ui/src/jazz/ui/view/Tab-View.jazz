@@ -38,7 +38,9 @@
 (module protected jazz.ui.view.Tab-View jazz
 
 
-(import (jazz.graphic)
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.jml)
         (jazz.platform.cairo)
         (jazz.library)
         (jazz.locale)
@@ -48,9 +50,9 @@
 (class Tab-View extends View
 
 
-  (definition close-border-right   4)
-  (definition close-border-left   18)
+  (definition close-border-left  -20)
   (definition close-border-top     3)
+  (definition close-border-right  -4)
   (definition close-border-bottom 17)
 
   
@@ -62,6 +64,10 @@
   (slot headers-height      initialize 20)
   (slot selection           initialize 0)
   (slot close-button-enter  initialize #f   accessors generate)
+  
+  
+  (form
+    (<install> background: {Color name: Medium}))
   
   
   (method override (default-size)
@@ -125,7 +131,7 @@
   (method override (mouse-down pos)
     (let ((header (find-tab-sheet pos)))
       (when header
-        (if (is-close-button?~ header pos)
+        (if (in-close-button?~ header pos)
             (close-button-down~ header)
           (set-selection (find-header pos))))))
   
@@ -133,7 +139,7 @@
   (method override (mouse-up pos)
     (let ((header (find-tab-sheet pos)))
       (when header
-        (when (and (is-close-button?~ header pos)
+        (when (and (in-close-button?~ header pos)
                    (get-close-button-down?~ header))
           (close-button-up~ header)
           (remove-child header)))))
@@ -142,7 +148,7 @@
   (method override (mouse-move pos)
     (let ((header (find-tab-sheet pos)))
       (if header
-          (if (is-close-button?~ header pos)
+          (if (in-close-button?~ header pos)
               (unless (and close-button-enter
                            (eq? close-button-enter header))
                 (when close-button-enter
@@ -160,7 +166,7 @@
 
   (method override (mouse-leave)
     (when close-button-enter
-       (close-button-leave~ close-button-enter)))
+      (close-button-leave~ close-button-enter)))
 
 
   ;;;
@@ -179,9 +185,6 @@
                                                   (> (length children) 1)))))
                          (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title)) (if closable? 8 0)) 10) padding)))
                     (set-borders~ header (cons h next))
-                    (if closable?
-                        (set-close-button-borders~ header (list (- next close-border-left) (- next close-border-right) close-border-top close-border-bottom))
-                      (set-close-button-borders~ header (list 0 0 0 0)))
                     (increase! n)
                     (set! h next)))
                 children)))
@@ -208,6 +211,16 @@
       (if rank
           (list-ref children rank)
         {})))
+  
+  
+  (method (get-close-button-borders header)
+    (bind (lf . rg) (get-borders~ header)
+      (let ((selected? (eq? header (selected-sheet))))
+        (let ((left (if selected? 4 2))
+              (top (if selected? 0 2)))
+          (offset-rect (new Rect (+ rg close-border-left) close-border-top (+ rg close-border-right) close-border-bottom)
+                       left
+                       top)))))
   
   
   ;;;
@@ -307,9 +320,9 @@
              (bottom  (get-height~ size))
              (content (if (null? children) top (+ top headers-height -1))))
         (set-font~ surface {Font name: Label})
-        (draw-edge~ surface (new Rect left content right bottom) inner: 'raised outer: 'raised edges: '(right bottom))
         (set-color~ surface {Color name: Light})
         (set-line-width~ surface 1)
+        (draw-edge~ surface (new Rect left content right bottom) inner: 'raised outer: 'raised edges: '(right bottom))
         (move-to~ surface 0 content)
         (line-to~ surface 0 bottom)
         (for-each (lambda (header n)
@@ -352,14 +365,16 @@
                         (unless selected?
                           (move-to~ surface lf content)
                           (line-to~ surface rg content))
+                        ;; title
                         (when title
                           (set-text-color~ surface (either title-color {Color name: Black}))
                           (draw-text~ surface (+ lf 5) (+ top 3) title))
+                        ;; close
                         (when (and (get-closable?~ header)
                                    (or (not keep-one-sheet?)
                                        (and keep-one-sheet?
                                             (> (length children) 1))))
-                          (let ((rect (new Rect (- rg close-border-left) (+ top close-border-top) (- rg close-border-right) (+ top close-border-bottom))))
+                          (let ((rect (get-close-button-borders header)))
                             (draw-caption~ surface rect 'close (get-close-button-down?~ header) (get-close-button-enter?~ header))) ))))
                   children
                   (naturals 0 (length children)))

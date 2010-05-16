@@ -121,8 +121,8 @@
   (%%table-set! jazz.Core-Classes name class))
 
 
-(define (jazz.set-core-class-redefined name class)
-  (%%table-set! jazz.Core-Classes name #t))
+(define (jazz.set-core-class-redefined name core-class-locator)
+  (%%table-set! jazz.Core-Classes name core-class-locator))
 
 
 ;;;

@@ -89,10 +89,10 @@
                 (jazz.naturals (%%fx+ jazz.object-size ascendant-size) instance-size))
          (jazz.define-macro (,(%%string->symbol (%%string-append (%%symbol->string name) "-implement")))
            `(begin
-             (define ,',name
-               (jazz.new-core-class ,',class-accessor ',',name (%%make-table test: eq?) ,',ascendant-accessor ',',slot-names ,',instance-size))
-             (jazz.set-core-class ',',(jazz.identifier-name name) ,',name)
-             (jazz.validate-inherited-slots ',',name ,',ascendant-accessor ',',inherited-slot-names)))))))
+              (define ,',name
+                (jazz.new-core-class ,',class-accessor ',',name (%%make-table test: eq?) ,',ascendant-accessor ',',slot-names ,',instance-size))
+              (jazz.set-core-class ',',(jazz.identifier-name name) ,',name)
+              (jazz.validate-inherited-slots ',',name ,',ascendant-accessor ',',inherited-slot-names)))))))
 
 
 (jazz.define-macro (jazz.define-class-runtime name)

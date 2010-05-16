@@ -541,8 +541,8 @@
           (paint-drawing~ data surface context cell-h cell-v sh sv sc sc?))))
     
     (define (merge-geometry top-left bottom-right)
-      (let ((top-left-rect (cell-rect top-left))
-            (bottom-right-rect (cell-rect bottom-right)))
+      (let ((top-left-rect (unmerged-site-rect top-left))
+            (bottom-right-rect (unmerged-site-rect bottom-right)))
         (let ((top (get-top~ top-left-rect))
               (left (get-left~ top-left-rect))
               (right (get-right~ bottom-right-rect))
@@ -550,15 +550,15 @@
           (values left top (- right left) (- bottom top)))))
     
     (define (paint-merge-cell-data merge-cell)
-      (receive (top-left bottom-right) (merge-corner-cell merge-cell)
+      (receive (top-left bottom-right) (merge-corner-site merge-cell)
         (when (and top-left bottom-right)
           (receive (left top width height) (merge-geometry top-left bottom-right)
-            (let ((left-col (get-col~ top-left))
-                  (top-line (get-line~ top-left))
+            (let ((left-column (get-column~ top-left))
+                  (top-line (row->line (get-row~ top-left)))
                   (data (get-cell-data (get-master-cell~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
               (let ((new-context (cons selected?: (cons selected? (cons line: (cons top-line context))))))
-                (paint-data new-context (get-column left-col) #f (+ lh left) (+ lv top) 0 0 width height data)))))))
+                (paint-data new-context left-column #f (+ lh left) (+ lv top) 0 0 width height data)))))))
     
     (nextmethod surface nodes context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
@@ -1622,10 +1622,9 @@
                         (cell-col (get-col~ cell)))
                     (if (and (< (+ cell-line nbline -1) (get-row-count))
                              (< (+ cell-col nbcol -1) (get-columns-count)))
-                        (let ((new-site-list '())
-                              (new-merged-cells-list '())
-                              (new-rows-list '())
-                              (new-columns-list '()))
+                        (let ((new-rows (new-queue))
+                              (new-columns (new-queue))
+                              (new-sites (new-queue)))
                           (loop (for r from cell-line below (+ cell-line nbline))
                                 (loop (for c from cell-col below (+ cell-col nbcol))
                                       (let ((merged-cell (new Cell r c)))
@@ -1633,16 +1632,15 @@
                                             (let ((new-row (get-row r))
                                                   (new-column (get-column c))
                                                   (new-site (new Site (get-row r) (get-column c))))
-                                              (set! new-merged-cells-list (cons merged-cell new-merged-cells-list))
-                                              (set! new-rows-list (cons new-row new-rows-list))
-                                              (set! new-columns-list (cons new-column new-columns-list))
-                                              (set! new-site-list (cons new-site new-site-list)))
+                                              (enqueue new-rows new-row)
+                                              (enqueue new-columns new-column)
+                                              (enqueue new-sites new-site))
                                           (error "Merged cells title must be identical")))))
-                          (let ((new-merge-cell (new Merge-Cell cell new-rows-list new-columns-list self)))
+                          (let ((new-merge-cell (new Merge-Cell cell (queue-list new-rows) (queue-list new-columns) self)))
                             (set! merge-cell-list (cons new-merge-cell merge-cell-list))
                             (for-each (lambda (merged-site)
                                         (set-merge-cell! merged-site new-merge-cell))
-                                      new-site-list)
+                                      (queue-list new-sites))
                             (let ((rect (merge-cell-rect new-merge-cell)))
                               (when rect
                                 (when (is? cell-data View)
@@ -1717,15 +1715,19 @@
             #f))))
     
 
+  (method (merge-corner-site merge-cell)
+    (values (get-first-site~ merge-cell) (get-last-site~ merge-cell)))
+    
+
   (method (merge-corner-cell merge-cell)
     (values (get-first-cell~ merge-cell) (get-last-cell~ merge-cell)))
   
   
   (method public (merge-cell-rect merge-cell)
-    (receive (top-left bottom-right) (merge-corner-cell merge-cell)
+    (receive (top-left bottom-right) (merge-corner-site merge-cell)
       (if (and top-left bottom-right)
-          (let ((top-left-rect (unmerged-cell-rect top-left))
-                (bottom-right-rect (unmerged-cell-rect bottom-right)))
+          (let ((top-left-rect (unmerged-site-rect top-left))
+                (bottom-right-rect (unmerged-site-rect bottom-right)))
             (new Rect (get-left~ top-left-rect) (get-top~ top-left-rect) (get-right~ bottom-right-rect) (get-bottom~ bottom-right-rect)))
         #f)))
   
@@ -2430,6 +2432,13 @@
         (unmerged-cell-rect cell))))
 
   
+  (method public (unmerged-site-rect site <Site>) <Rect>
+    (let* ((borders (get-borders (column->col (get-column~ site))))
+           (row (get-row~ site))
+           (top (get-v~ (get-position~ row))))
+      (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
+
+  
   (method public (unmerged-cell-rect cell <Cell>) <Rect>
     (let* ((borders (get-borders (get-col~ cell)))
            (row (get-row (get-line~ cell)))
@@ -2792,27 +2801,28 @@
               merged-rows))
   
   
-  (method public (get-first-col)
-    (let ((first-col #f))
-      (for-each (lambda (column)
-                  (when (get-visible?~ column)
-                    (let ((col (column->col~ tree column)))
-                      (when (or (not first-col)
-                                (< col first-col))
-                        (set! first-col col)))))
-                merged-columns)
-      first-col))
+  (method public (get-first-row)
+    (first merged-rows))
   
   
-  (method public (get-last-col)
-    (let ((last-col 0))
-      (for-each (lambda (column)
-                  (when (get-visible?~ column)
-                      (let ((col (column->col~ tree column)))
-                        (when (> col last-col)
-                          (set! last-col col)))))
-                merged-columns)
-      last-col))
+  (method public (get-last-row)
+    (last merged-rows))
+  
+  
+  (method public (get-first-column)
+    (first merged-columns))
+  
+  
+  (method public (get-last-column)
+    (last merged-columns))
+  
+  
+  (method public (get-first-site)
+    (new Site (get-first-row) (get-first-column)))
+  
+  
+  (method public (get-last-site)
+    (new Site (get-last-row) (get-last-column)))
   
   
   (method public (get-first-line)
@@ -2836,6 +2846,29 @@
                           (set! last-line line)))))
                 merged-rows)
       last-line))
+  
+  
+  (method public (get-first-col)
+    (let ((first-col #f))
+      (for-each (lambda (column)
+                  (when (get-visible?~ column)
+                    (let ((col (column->col~ tree column)))
+                      (when (or (not first-col)
+                                (< col first-col))
+                        (set! first-col col)))))
+                merged-columns)
+      first-col))
+  
+  
+  (method public (get-last-col)
+    (let ((last-col 0))
+      (for-each (lambda (column)
+                  (when (get-visible?~ column)
+                      (let ((col (column->col~ tree column)))
+                        (when (> col last-col)
+                          (set! last-col col)))))
+                merged-columns)
+      last-col))
 
 
   (method public (get-first-cell)

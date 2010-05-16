@@ -278,27 +278,48 @@
 
 
 (definition public (justify inner outer justification)
-  (let ((proc
-          (lambda (i o j)
-            (if (integer? j)
-                (if (>= j 0)
-                    j
-                  (- (+ o j) i))
-              (case j
-                ((head) 0)
-                ((center) (quotient (- o i) 2))
-                ((tail) (- o i))
-                (else (error "Unknown justification: {t}" j)))))))
-    (cond ((and (is? inner Dimension) (is? outer Dimension))
-           (new Point
-             (proc (get-width~ inner) (get-width~ outer) (if (pair? justification) (first justification) justification))
-             (proc (get-height~ inner) (get-height~ outer) (if (pair? justification) (second justification) justification))))
-          ((and (number? inner) (number? outer))
-           (proc inner outer justification))
-          (else
-           (error "Unable to justify a {t} into a {t}"
-                  (category-identifier (class-of inner))
-                  (category-identifier (class-of outer)))))))
+  (define (just i o j)
+    (if (integer? j)
+        (if (>= j 0)
+            j
+          (- (+ o j) i))
+      (case j
+        ((head) 0)
+        ((center) (quotient (- o i) 2))
+        ((tail) (- o i))
+        (else (error "Unknown justification: {t}" j)))))
+  
+  (cond ((and (is? inner Dimension) (is? outer Dimension))
+         (new Point
+           (just (get-width~ inner) (get-width~ outer) (first justification))
+           (just (get-height~ inner) (get-height~ outer) (second justification))))
+        ((and (number? inner) (number? outer))
+         (just inner outer justification))
+        (else
+         (error "Unable to justify a {t} into a {t}"
+                (category-identifier (class-of inner))
+                (category-identifier (class-of outer))))))
+
+
+(definition public (justify-lazy inner outer justification)
+  (define (direct j)
+    (cond ((eq? j 'head) 0)
+          ((and (number? j) (positive? j)) j)
+          (else {})))
+  
+  (define (non-lazy)
+    (justify (inner) (outer) justification))
+  
+  (if (pair? justification)
+      (let ((first (direct (first justification))))
+        (if first
+            (let ((second (direct (second justification))))
+              (if second
+                  (new Point first second)
+                (non-lazy)))
+          (non-lazy)))
+    (either (direct justification)
+            (non-lazy))))
 
 
 ;;;

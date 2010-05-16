@@ -1106,4 +1106,6 @@
 (native jazz.outline-unit)
 (native jazz.walk-unit)
 (native jazz.expand-unit)
+(native jazz.expand-to-port)
+(native jazz.expand-to-file)
 (native jazz.find-declaration))

@@ -84,16 +84,16 @@
   (apply jazz.expand-to-port unit-name (current-output-port) rest))
 
 
-(define (jazz.expand-to-file unit-name #!key (file #f) #!rest rest)
-  (call-with-output-file (or file "x.scm")
-    (lambda (port)
-      (apply jazz.expand-to-port unit-name port rest))))
-
-
 (define (jazz.expand-to-port unit-name port . rest)
   (pretty-print
     (jazz.desourcify-all (apply jazz.expand-unit unit-name rest))
     port))
+
+
+(define (jazz.expand-to-file unit-name #!key (file #f) #!rest rest)
+  (call-with-output-file (or file "x.scm")
+    (lambda (port)
+      (apply jazz.expand-to-port unit-name port rest))))
 
 
 (define (jazz.expand-source unit-name . rest)

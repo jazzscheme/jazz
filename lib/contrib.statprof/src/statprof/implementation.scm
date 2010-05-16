@@ -145,7 +145,7 @@
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
   (set! *profile-running?* #f)
   (if (%%fx= (profile-depth *profile*) 0)
-      (profile-total-set! *profile* (- (profiler-performance-counter) (profile-last-counter *profile*)))))
+      (profile-total-set! *profile* (+ (profile-total *profile*) (- (profiler-performance-counter) (profile-last-counter *profile*))))))
 
 
 (define (profile-running?)

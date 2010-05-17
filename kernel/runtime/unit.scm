@@ -220,6 +220,17 @@
 
 
 ;;;
+;;;; Marker
+;;;
+
+
+(define (jazz.marker? obj)
+  (or (%%eq? obj #!optional)
+      (%%eq? obj #!key)
+      (%%eq? obj #!rest)))
+
+
+;;;
 ;;;; Product
 ;;;
 

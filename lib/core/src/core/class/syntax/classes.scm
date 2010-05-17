@@ -205,6 +205,7 @@
 (jazz.define-class jazz.Values-Class       jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.EOF-Class          jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Unspecified-Class  jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class jazz.Marker-Class       jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 
 
 (jazz.define-class jazz.Boolean      jazz.Object   () jazz.Boolean-Class      () ())
@@ -246,6 +247,7 @@
 (jazz.define-class jazz.Values       jazz.Object   () jazz.Values-Class       () ())
 (jazz.define-class jazz.EOF          jazz.Object   () jazz.EOF-Class          () ())
 (jazz.define-class jazz.Unspecified  jazz.Object   () jazz.Unspecified-Class  () ())
+(jazz.define-class jazz.Marker       jazz.Object   () jazz.Marker-Class       () ())
 
 
 ;;;

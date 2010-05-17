@@ -677,6 +677,7 @@
         ((%%values? expr)       jazz.Values)
         ((%%eof-object? expr)   jazz.EOF)
         ((%%unspecified? expr)  jazz.Unspecified)
+        ((jazz.marker? expr)    jazz.Marker)
         (else
          (or (jazz.structure-type expr)
              (jazz.error "Unable to get class of {s}" expr)))))
@@ -1888,6 +1889,35 @@
 
 
 ;;;
+;;;; Marker
+;;;
+
+
+(jazz.define-class-runtime jazz.Marker-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Marker-Class class) object)
+  (jazz.marker? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Marker-Class class))
+  'marker)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Marker-Class type) value source-declaration environment)
+  `(jazz.marker? ,value))
+
+
+(jazz.encapsulate-class jazz.Marker-Class)
+
+
+(jazz.define-class-runtime jazz.Marker)
+
+
+(jazz.encapsulate-class jazz.Marker)
+
+
+;;;
 ;;;; Types
 ;;;
 
@@ -1936,11 +1966,14 @@
     (%%vector-set! jazz.subtypes jazz.subtype-f64vector    jazz.F64Vector)
     (%%vector-set! jazz.subtypes jazz.subtype-boxvalues    jazz.Values)
     
-    (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
-    (%%vector-set! jazz.specialtypes 1 jazz.Boolean)
-    (%%vector-set! jazz.specialtypes 2 jazz.Null)
-    (%%vector-set! jazz.specialtypes 3 jazz.EOF)
-    (%%vector-set! jazz.specialtypes 4 jazz.Unspecified))
+    (%%vector-set! jazz.specialtypes  0 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes  1 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes  2 jazz.Null)
+    (%%vector-set! jazz.specialtypes  3 jazz.EOF)
+    (%%vector-set! jazz.specialtypes  8 jazz.Marker)   ;; #!optional
+    (%%vector-set! jazz.specialtypes  9 jazz.Marker)   ;; #!key
+    (%%vector-set! jazz.specialtypes 10 jazz.Marker)   ;; #!rest
+    )
   
   (else))
 

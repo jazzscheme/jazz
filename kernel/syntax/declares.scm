@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block declares
+
+
 (cond-expand
   (gambit
     (jazz.define-macro (jazz.kernel-declares)
@@ -93,4 +96,4 @@
                        '((not inline-primitives))
                      '((not safe)))))))
   
-  (else))
+  (else)))

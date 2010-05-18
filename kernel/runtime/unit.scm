@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Runtime
+;;;; Kernel Unit
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -34,6 +34,9 @@
 ;;;  of this file under the terms of any one of the MPL or the GPL.
 ;;;
 ;;;  See www.jazzscheme.org for details.
+
+
+(block unit
 
 
 (jazz.kernel-declares)
@@ -2008,4 +2011,4 @@
 
 (jazz.register-reader-extension "scm"
   (lambda ()
-    jazz.scheme-readtable))
+    jazz.scheme-readtable)))

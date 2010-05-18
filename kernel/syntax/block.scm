@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Features
+;;;; Block Macro
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,36 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block features
-
-
-;;;
-;;;; Features
-;;;
-
-
-(define-macro (jazz.install-features)
-  (let ((features (list jazz.kernel-system jazz.kernel-platform jazz.kernel-windowing jazz.kernel-safety)))
-    (for-each (lambda (feature)
-                (if feature
-                    (set! ##cond-expand-features (cons feature ##cond-expand-features))))
-              features)
-    `(for-each (lambda (feature)
-                 (if feature
-                     (set! ##cond-expand-features (cons feature ##cond-expand-features))))
-               ',features)))
-
-
-(jazz.install-features)
-
-
-;;;
-;;;; Safety
-;;;
-
-
-(define jazz.debug-core?
-  (eq? jazz.kernel-safety 'core))
-
-(define jazz.debug-user?
-  (not (eq? jazz.kernel-safety 'release))))
+(jazz.define-syntax block
+  (lambda (form-src)
+    (let ((body (cddr (##source-code form-src))))
+      `(begin
+         ,@body))))

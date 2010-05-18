@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block runtime
+
+
 (jazz.kernel-declares)
 
 
@@ -125,4 +128,4 @@
 (define (jazz.feature-satisfied? feature-requirement)
   (if (%%symbol? feature-requirement)
       (%%memq feature-requirement ##cond-expand-features)
-    (error "Features can only be symbols for now")))
+    (error "Features can only be symbols for now"))))

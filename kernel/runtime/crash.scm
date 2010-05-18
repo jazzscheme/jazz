@@ -37,6 +37,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block crash
+
+
 (define (jazz.log-backtrace ignore)
   (continuation-capture
     (lambda (k)
@@ -109,4 +112,4 @@ END-OF-DECLARES
 
    (define jazz.crash-process
      (c-lambda () void
-       "raise(SIGSEGV);"))))
+       "raise(SIGSEGV);")))))

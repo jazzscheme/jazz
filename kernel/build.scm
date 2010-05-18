@@ -1445,7 +1445,8 @@
 
 (define (jazz.load-kernel-build)
   (load "kernel/syntax/header")
-  (load "kernel/syntax/macros")
+  (load "kernel/syntax/macro")
+  (load "kernel/syntax/block")
   (load "kernel/syntax/expansion")
   (load "kernel/syntax/features")
   (load "kernel/syntax/declares")

@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block syntax
+
+
 (jazz.kernel-declares)
 
 
@@ -321,4 +324,4 @@
 
 (jazz.define-syntax require
   (lambda (form-src)
-    (jazz.expand-require (%%cdr (jazz.source-code form-src)))))
+    (jazz.expand-require (%%cdr (jazz.source-code form-src))))))

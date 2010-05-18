@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Runtime Settings
+;;;; Kernel Settings
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -33,6 +33,9 @@
 ;;;  of this file under the terms of any one of the MPL or the GPL.
 ;;;
 ;;;  See www.jazzscheme.org for details.
+
+
+(block settings
 
 
 (jazz.kernel-declares)
@@ -163,4 +166,4 @@
 
 
 (jazz.define-setting jazz.keep-instances-statistics
-  #f)
+  #f))

@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block build
+
+
 (jazz.kernel-declares)
 
 
@@ -243,7 +246,8 @@
                 
                 ;; load syntax
                 (load (source-file "kernel/syntax/header"))
-                (load (source-file "kernel/syntax/macros"))
+                (load (source-file "kernel/syntax/macro"))
+                (load (source-file "kernel/syntax/block"))
                 (load (source-file "kernel/syntax/expansion"))
                 (load (source-file "kernel/syntax/features"))
                 (load (source-file "kernel/syntax/declares"))
@@ -255,7 +259,8 @@
               (compile-kernel-file "_architecture"))
           
           (compile-source-file "syntax/" "header")
-          (compile-source-file "syntax/" "macros")
+          (compile-source-file "syntax/" "macro")
+          (compile-source-file "syntax/" "block")
           (compile-source-file "syntax/" "expansion")
           (compile-source-file "syntax/" "features")
           (compile-source-file "syntax/" "declares")
@@ -321,7 +326,8 @@
                 (let ((files `(,(kernel-file "_architecture")
                                ,(product-file (product-filename))
                                ,(kernel-file "syntax/header")
-                               ,(kernel-file "syntax/macros")
+                               ,(kernel-file "syntax/macro")
+                               ,(kernel-file "syntax/block")
                                ,(kernel-file "syntax/expansion")
                                ,(kernel-file "syntax/features")
                                ,(kernel-file "syntax/declares")
@@ -483,7 +489,8 @@
           `(,(jazz.quote-gcc-pathname (kernel-file "_architecture.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append (product-filename) ".c")) platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/header.c") platform)
-            ,(jazz.quote-gcc-pathname (kernel-file "syntax/macros.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/macro.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "syntax/block.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/expansion.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/features.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "syntax/declares.c") platform)
@@ -827,4 +834,4 @@
 
 (set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
 (set! jazz.build-image jazz.build-image-impl)
-(set! jazz.build-library jazz.build-library-impl)
+(set! jazz.build-library jazz.build-library-impl))

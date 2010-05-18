@@ -38,7 +38,8 @@
 (define jazz.Kernel
   (list
     "kernel/syntax/header"
-    "kernel/syntax/macros"
+    "kernel/syntax/macro"
+    "kernel/syntax/block"
     "kernel/syntax/expansion"
     "kernel/syntax/features"
     "kernel/syntax/declares"

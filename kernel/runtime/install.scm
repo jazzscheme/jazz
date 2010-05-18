@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block install
+
+
 (jazz.kernel-declares)
   
 
@@ -93,4 +96,4 @@
         (let ((path (platform-executable-path)))
           (if path
               (jazz.pathname-dir (jazz.pathname-normalize path))
-            #f))))
+            #f)))))

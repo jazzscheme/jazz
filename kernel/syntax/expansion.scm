@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block expansion
+
+
 (define (jazz.source-code expr)
   (if (##source? expr)
       (##source-code expr)
@@ -139,4 +142,4 @@
 
 (jazz.define-check-macro %%check-symbol
   ##symbol?
-  "SYMBOL")
+  "SYMBOL"))

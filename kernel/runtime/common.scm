@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Runtime
+;;;; Kernel Common
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -33,6 +33,9 @@
 ;;;  of this file under the terms of any one of the MPL or the GPL.
 ;;;
 ;;;  See www.jazzscheme.org for details.
+
+
+(block common
 
 
 (jazz.kernel-declares)
@@ -534,4 +537,4 @@
 
 
 (define jazz.Library-Extension "l")
-(define jazz.Library-Manifest-Extension "lmf")
+(define jazz.Library-Manifest-Extension "lmf"))

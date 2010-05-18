@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block primitives
+
+
 (jazz.kernel-declares)
 
 
@@ -1193,4 +1196,4 @@
      `(vector-set! ,vector ,n ,value))
    
    (jazz.define-macro (%%vector-copy vector . rest)
-     `(vector-copy ,vector ,@rest))))
+     `(vector-copy ,vector ,@rest)))))

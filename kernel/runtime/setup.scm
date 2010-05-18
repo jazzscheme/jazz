@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block setup
+
+
 (jazz.kernel-declares)
 
 
@@ -382,4 +385,4 @@
       (newline output-port)
       (newline output-port)
       (force-output output-port)
-      #f)))
+      #f))))

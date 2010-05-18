@@ -348,6 +348,15 @@
     (string-append dir "/")))
 
 
+(cond-expand
+  (windows
+    (define (jazz.path=? path1 path2)
+      (string-ci=? path1 path2)))
+  (else
+   (define (jazz.path=? path1 path2)
+     (string=? path1 path2))))
+
+
 (define (jazz.create-directory dir #!key (feedback #f))
   (if (not (file-exists? dir))
       (begin

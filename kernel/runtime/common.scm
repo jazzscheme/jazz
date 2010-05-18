@@ -485,7 +485,7 @@
       (let iter ((digests (%%manifest-source-digests manifest)))
            (if (%%pair? digests)
                (let ((digest (%%car digests)))
-                 (if (%%string=? pathname (%%digest-pathname digest))
+                 (if (jazz.path=? pathname (%%digest-pathname digest))
                      digest
                    (iter (%%cdr digests))))
              #f))))

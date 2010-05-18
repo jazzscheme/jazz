@@ -388,7 +388,7 @@
   "mnf")
 
 (define jazz.Digest-Extension
-  "digest")
+  "dgs")
 
 
 (define (jazz.load-source-digests digest-filepath)

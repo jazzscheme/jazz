@@ -74,7 +74,9 @@
            (kind (jazz.source-code (car (jazz.source-code form))))
            (rest (cdr (jazz.source-code form))))
       (parameterize ((jazz.requested-unit-name unit-name)
-                     (jazz.requested-unit-resource src))
+                     (jazz.requested-unit-resource src)
+                     (jazz.generate-symbol-context unit-name)
+                     (jazz.generate-symbol-counter 0))
         (case kind
           ((unit) (jazz.expand-unit-source rest))
           ((module) (jazz.expand-module-source rest)))))))
@@ -91,9 +93,10 @@
 
 
 (define (jazz.expand-to-file unit-name #!key (file #f) #!rest rest)
-  (call-with-output-file (or file "x.scm")
-    (lambda (port)
-      (apply jazz.expand-to-port unit-name port rest))))
+  (parameterize ((current-readtable jazz.scheme-readtable))
+    (call-with-output-file (or file "x.scm")
+      (lambda (port)
+        (apply jazz.expand-to-port unit-name port rest)))))
 
 
 (define (jazz.expand-source unit-name . rest)

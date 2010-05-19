@@ -1085,17 +1085,6 @@
              (iter (+ n 1)))))))
 
 
-(define (jazz.string-replace str old new)
-  (let ((cpy (string-copy str)))
-    (let iter ((n (- (string-length cpy) 1)))
-      (if (>= n 0)
-          (begin
-            (if (eqv? (string-ref cpy n) old)
-                (string-set! cpy n new))
-            (iter (- n 1)))))
-    cpy))
-
-
 (define (jazz.string-ends-with? str target)
   (let ((sl (string-length str))
         (tl (string-length target)))

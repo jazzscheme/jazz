@@ -343,6 +343,23 @@
 
 
 ;;;
+;;;; String
+;;;
+
+
+(define (jazz.string-replace str old new)
+  (declare (proper-tail-calls))
+  (let ((cpy (string-copy str)))
+    (let iter ((n (- (string-length cpy) 1)))
+      (if (>= n 0)
+          (begin
+            (if (eqv? (string-ref cpy n) old)
+                (string-set! cpy n new))
+            (iter (- n 1)))))
+    cpy))
+
+
+;;;
 ;;;; Pathname
 ;;;
 

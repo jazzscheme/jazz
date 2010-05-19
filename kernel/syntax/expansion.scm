@@ -38,22 +38,30 @@
 (block expansion
 
 
-(define (jazz.source-code expr)
-  (if (##source? expr)
-      (##source-code expr)
-    expr))
-
-
-(define jazz.generate-symbol
-  (let ((unique 0))
-    (lambda rest
-      (let ((prefix (if (##null? rest) "sym" (##car rest))))
-        (let lp ()
-          (let ((name (##string-append "__" prefix "^" (##number->string unique))))
-            (set! unique (##fixnum.+ unique 1))
-            (if (##find-interned-symbol name)
-                (lp)
+(define (jazz.generate-symbol #!optional (prefix "sym"))
+  (let ((context (jazz.generate-symbol-context))
+        (counter (jazz.generate-symbol-counter)))
+    (if (not context)
+        (error "Invalid call to generate-symbol without a context")
+      (let ((module (jazz.string-replace (##symbol->string context) #\. #\/)))
+        (let ((name (##string-append module "_" prefix "^" (##number->string counter))))
+          (if (##find-interned-symbol name)
+              (error "Detected invalid state")
+            (begin
+              (jazz.generate-symbol-counter (+ counter 1))
               (##string->symbol name))))))))
+
+
+(define (jazz.generate-lexical-symbol #!optional (prefix "sym"))
+  (let ((counter (jazz.generate-symbol-counter)))
+    (if (not counter)
+        (error "Invalid call to generate-symbol without a counter")
+      (let ((name (##string-append prefix "^" (##number->string counter))))
+        (if (##find-interned-symbol name)
+            (error "Detected invalid state")
+          (begin
+            (jazz.generate-symbol-counter (+ counter 1))
+            (##string->symbol name)))))))
 
 
 (define (jazz.simplify-begin form)

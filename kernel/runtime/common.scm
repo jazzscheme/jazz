@@ -148,18 +148,6 @@
            (iter (%%fx- n 1))))))
 
 
-(define (jazz.string-replace str old new)
-  (declare (proper-tail-calls))
-  (let ((cpy (string-copy str)))
-    (let iter ((n (%%fx- (%%string-length cpy) 1)))
-      (if (%%fx>= n 0)
-          (begin
-            (if (%%eqv? (%%string-ref cpy n) old)
-                (%%string-set! cpy n new))
-            (iter (%%fx- n 1)))))
-    cpy))
-
-
 (define (jazz.string-starts-with? str target)
   (let ((sl (%%string-length str))
         (tl (%%string-length target)))

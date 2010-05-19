@@ -1018,13 +1018,6 @@
 ;;;
 
 
-(define jazz.testing?
-  (make-parameter #f))
-
-(define jazz.testing
-  (make-parameter #f))
-
-
 (define (jazz.setup-debuggee)
   (jazz.load-unit 'core.module)
   (jazz.load-unit 'jazz)
@@ -1727,10 +1720,12 @@
                          (jazz.feedback "Warning: Loading {a} interpreted" unit-name)
                          (if (and (%%pair? warn) (%%memq unit-name warn))
                              (pp jazz.Load-Stack))))))
-                (parameterize ((jazz.walk-for 'interpret))
+                (parameterize ((jazz.walk-for 'interpret)
+                               (jazz.generate-symbol-context unit-name)
+                               (jazz.generate-symbol-counter 0))
                   (jazz.with-extension-reader (%%resource-extension src)
-                                              (lambda ()
-                                                (jazz.load-resource src)))))
+                    (lambda ()
+                      (jazz.load-resource src)))))
               (else
                (jazz.error "Unable to find unit: {s}" unit-name)))))))
 

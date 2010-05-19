@@ -592,6 +592,8 @@
 (native jazz.global-value)
 (native jazz.testing?)
 (native jazz.testing)
+(native jazz.generate-symbol-context)
+(native jazz.generate-symbol-counter)
 (native jazz.image-load-counter)
 (native jazz.object-load-counter)
 (native jazz.interpreted-load-counter)

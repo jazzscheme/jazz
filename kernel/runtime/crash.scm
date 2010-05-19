@@ -37,7 +37,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block crash
+(block kernel.crash
 
 
 (define (jazz.log-backtrace ignore)

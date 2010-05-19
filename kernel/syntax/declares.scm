@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block declares
+(block kernel.declares
 
 
 (cond-expand

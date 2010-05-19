@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block primitives
+(block kernel.primitives
 
 
 (jazz.kernel-declares)

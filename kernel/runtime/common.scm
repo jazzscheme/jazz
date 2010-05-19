@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block common
+(block kernel.common
 
 
 (jazz.kernel-declares)

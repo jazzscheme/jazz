@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block settings
+(block kernel.settings
 
 
 (jazz.kernel-declares)

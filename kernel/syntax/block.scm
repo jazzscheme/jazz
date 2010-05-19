@@ -59,7 +59,7 @@
   (lambda (form-src)
     (let ((name (jazz.source-code (cadr (jazz.source-code form-src))))
           (body (cddr (jazz.source-code form-src))))
-      (jazz.generate-symbol-context (##string->symbol (##string-append "kernel." (##symbol->string name))))
+      (jazz.generate-symbol-context name)
       (jazz.generate-symbol-counter 0)
       `(begin
          ,@body))))

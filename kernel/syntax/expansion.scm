@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block expansion
+(block kernel.expansion
 
 
 (define (jazz.generate-symbol #!optional (prefix "sym"))

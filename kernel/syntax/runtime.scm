@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block runtime
+(block kernel.runtime
 
 
 (jazz.kernel-declares)

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block features
+(block kernel.features
 
 
 ;;;

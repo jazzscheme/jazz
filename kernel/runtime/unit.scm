@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block unit
+(block kernel.unit
 
 
 (jazz.kernel-declares)

@@ -45,7 +45,7 @@
     (if (not context)
         (error "Invalid call to generate-symbol without a context")
       (let ((module (jazz.string-replace (##symbol->string context) #\. #\/)))
-        (let ((name (##string-append module (if for (##string-append "_" for) "") "_" prefix "^" (##number->string counter))))
+        (let ((name (##string-append module "_" prefix (or for "^") (##number->string counter))))
           (if (##find-interned-symbol name)
               (error "Detected invalid state:" name)
             (begin
@@ -54,10 +54,11 @@
 
 
 (define (jazz.generate-lexical-symbol #!optional (prefix "sym"))
-  (let ((counter (jazz.generate-symbol-counter)))
+  (let ((for (jazz.generate-symbol-for))
+        (counter (jazz.generate-symbol-counter)))
     (if (not counter)
         (error "Invalid call to generate-symbol without a counter")
-      (let ((name (##string-append prefix "^" (##number->string counter))))
+      (let ((name (##string-append prefix (or for "^") (##number->string counter))))
         (if (##find-interned-symbol name)
             (error "Detected invalid state:" name)
           (begin

@@ -184,7 +184,7 @@
     (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz.resource-pathname src))
           (bin-c (string-append bin-pathname-base ".c")))
-      (parameterize ((jazz.generate-symbol-for "compile")
+      (parameterize ((jazz.generate-symbol-for "^")
                      (jazz.generate-symbol-context unit-name)
                      (jazz.generate-symbol-counter 0))
         (if (not (and (compile-file-to-c src-pathname output: bin-c options: options module-name: unique-module-name)

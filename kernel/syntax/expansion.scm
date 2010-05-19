@@ -40,6 +40,16 @@
 
 (define (jazz.generate-symbol #!optional (prefix "sym"))
   (let ((for (jazz.generate-symbol-for))
+        (counter (jazz.generate-symbol-counter)))
+    (if (not counter)
+        (error "Invalid call to generate-symbol without a counter")
+      (let ((name (##string-append prefix (or for "^") (##number->string counter))))
+        (jazz.generate-symbol-counter (+ counter 1))
+        (##string->symbol name)))))
+
+
+(define (jazz.generate-global-symbol #!optional (prefix "sym"))
+  (let ((for (jazz.generate-symbol-for))
         (context (jazz.generate-symbol-context))
         (counter (jazz.generate-symbol-counter)))
     (if (not context)
@@ -51,19 +61,6 @@
             (begin
               (jazz.generate-symbol-counter (+ counter 1))
               (##string->symbol name))))))))
-
-
-(define (jazz.generate-lexical-symbol #!optional (prefix "sym"))
-  (let ((for (jazz.generate-symbol-for))
-        (counter (jazz.generate-symbol-counter)))
-    (if (not counter)
-        (error "Invalid call to generate-symbol without a counter")
-      (let ((name (##string-append prefix (or for "^") (##number->string counter))))
-        (if (##find-interned-symbol name)
-            (error "Detected invalid state:" name)
-          (begin
-            (jazz.generate-symbol-counter (+ counter 1))
-            (##string->symbol name)))))))
 
 
 (define (jazz.simplify-begin form)

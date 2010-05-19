@@ -725,6 +725,7 @@
 (native call-with-input-string)
 (native with-input-from-string)
 (native call-with-output-string)
+(native with-output-to-string)
 (native read-substring)
 (native open-vector)
 (native call-with-input-u8vector)

@@ -1721,6 +1721,7 @@
                          (if (and (%%pair? warn) (%%memq unit-name warn))
                              (pp jazz.Load-Stack))))))
                 (parameterize ((jazz.walk-for 'interpret)
+                               (jazz.generate-symbol-for "load")
                                (jazz.generate-symbol-context unit-name)
                                (jazz.generate-symbol-counter 0))
                   (jazz.with-extension-reader (%%resource-extension src)

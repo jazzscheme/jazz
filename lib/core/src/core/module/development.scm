@@ -75,6 +75,7 @@
            (rest (cdr (jazz.source-code form))))
       (parameterize ((jazz.requested-unit-name unit-name)
                      (jazz.requested-unit-resource src)
+                     (jazz.generate-symbol-for "expand")
                      (jazz.generate-symbol-context unit-name)
                      (jazz.generate-symbol-counter 0))
         (case kind

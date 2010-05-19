@@ -42,6 +42,9 @@
   (make-parameter #f))
 
 
+(define jazz.generate-symbol-for
+  (make-parameter #f))
+
 (define jazz.generate-symbol-context
   (make-parameter #f))
 

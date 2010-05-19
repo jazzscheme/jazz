@@ -4106,7 +4106,7 @@
 
     ;; calling jazz.get-registered-literal to only register when not already there
     ;; doesnt work directly because some literals are interned and thus can be shared
-    (let ((locator (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator module-declaration)) ".lit"))))
+    (let ((locator (jazz.generate-symbol "lit")))
       ;; it is important to register before any subliterals to ensure they come before us
       (let ((info (%%cons locator #f)))
         (%%set-module-declaration-walker-literals module-declaration (%%cons info (%%get-module-declaration-walker-literals module-declaration)))
@@ -4185,7 +4185,7 @@
 
 (define (jazz.register-variable declaration suffix value)
   (let ((module-declaration (%%get-declaration-toplevel declaration)))
-    (let ((symbol (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator module-declaration)) "." suffix))))
+    (let ((symbol (jazz.generate-symbol suffix)))
       (let ((variable (%%cons symbol value)))
         (jazz.enqueue (%%get-module-declaration-walker-variables module-declaration) variable)
         variable))))
@@ -4960,6 +4960,7 @@
               (parameterize ((jazz.requested-unit-name unit-name)
                              (jazz.requested-unit-resource src)
                              (jazz.walk-for 'interpret)
+                             (jazz.generate-symbol-for "outline")
                              (jazz.generate-symbol-context unit-name)
                              (jazz.generate-symbol-counter 0))
                 (let ((kind (jazz.source-code (%%car (jazz.source-code form)))))

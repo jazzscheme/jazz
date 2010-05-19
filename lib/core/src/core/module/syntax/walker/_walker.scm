@@ -677,49 +677,61 @@
        ,@(case (jazz.walk-for)
            ((eval) '())
            (else (jazz.declares 'module)))
-       ,@(let ((queue (jazz.new-queue)))
-           (jazz.enqueue queue `(jazz.load-unit 'core.module))
+       ,@(let ((queue (jazz.new-queue))
+               (load-units (%%make-table test: eq?)))
+           (define (enqueue-load-unit unit-name)
+             (%%when (%%not (%%table-ref load-units unit-name #f))
+               (%%table-set! load-units unit-name #t)
+               (jazz.enqueue queue `(jazz.load-unit ',unit-name))))
+           
+           (enqueue-load-unit 'core.module)
            (let ((dialect-name (%%get-module-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'core)
-               (jazz.enqueue queue `(jazz.load-unit ',dialect-name))))
+               (enqueue-load-unit dialect-name)))
            (for-each (lambda (spec)
                        (jazz.parse-require spec
                          (lambda (unit-name feature-requirement phase)
-                           (jazz.enqueue queue `(jazz.load-unit ',unit-name)))))
+                           (enqueue-load-unit unit-name))))
                      (%%get-module-declaration-requires declaration))
            (for-each (lambda (module-invoice)
                        (let ((only (%%get-module-invoice-only module-invoice))
                              (autoload (%%get-export-invoice-autoload module-invoice)))
-                         (cond (only
-                                 )
-                               (autoload
-                                 (let ((unit-name (%%get-declaration-reference-name (%%get-module-invoice-module module-invoice))))
-                                   (for-each (lambda (decl)
-                                               (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
-                                                 (let ((symbol-name (jazz.compose-name unit-name name)))
-                                                   (jazz.enqueue queue `(jazz.register-autoload ',name ',unit-name
-                                                                          (lambda ()
-                                                                            (jazz.load-unit ',unit-name)
-                                                                            ,symbol-name))))))
-                                             autoload)))
-                               (else
-                                (let ((module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) declaration))
-                                      (phase (%%get-module-invoice-phase module-invoice)))
-                                  (%%when (and (%%neq? module-declaration declaration) (%%neq? phase 'syntax))
-                                    (jazz.enqueue queue `(jazz.load-unit ',(%%get-lexical-binding-name module-declaration)))))))))
+                         (%%when (and (%%not only) (%%not autoload))
+                           (let ((module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) declaration))
+                                 (phase (%%get-module-invoice-phase module-invoice)))
+                             (%%when (and (%%neq? module-declaration declaration) (%%neq? phase 'syntax))
+                               (enqueue-load-unit (%%get-lexical-binding-name module-declaration)))))))
                      (%%get-module-declaration-exports declaration))
+           (let ((auto (jazz.new-queue))
+                 (names (%%make-table test: eq?)))
+             (for-each (lambda (module-invoice)
+                         (let ((autoload (%%get-export-invoice-autoload module-invoice)))
+                           (%%when autoload
+                             (let ((unit-name (%%get-declaration-reference-name (%%get-module-invoice-module module-invoice))))
+                               (for-each (lambda (decl)
+                                           (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
+                                             (%%when (%%not (%%table-ref names name #f))
+                                               (%%table-set! names name #t)
+                                               (let ((symbol-name (jazz.compose-name unit-name name)))
+                                                 (jazz.enqueue auto `(jazz.register-autoload ',name ',unit-name
+                                                                       (lambda ()
+                                                                         (jazz.load-unit ',unit-name)
+                                                                         ,symbol-name)))))))
+                                         autoload)))))
+                       (%%get-module-declaration-exports declaration))
+             (jazz.enqueue-list queue (jazz.sort (jazz.queue-list auto) (lambda (x y) (%%string<? (%%symbol->string (%%cadr (%%cadr x))) (%%symbol->string (%%cadr (%%cadr y))))))))
            (for-each (lambda (module-invoice)
                        (let ((module-declaration (%%get-module-invoice-module module-invoice))
                              (phase (%%get-module-invoice-phase module-invoice)))
                          (%%when (and module-declaration (%%neq? phase 'syntax))
-                           (jazz.enqueue queue `(jazz.load-unit ',(%%get-lexical-binding-name module-declaration))))))
+                           (enqueue-load-unit (%%get-lexical-binding-name module-declaration)))))
                      (%%get-module-declaration-imports declaration))
            (jazz.queue-list queue))
+       ,@registration-expansion
        ,@inclusions-expansion
        ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
-       ,@registration-expansion
        ,@body-expansion)))
 
 
@@ -3331,7 +3343,7 @@
                                      (set! loaded? #t)))
                                ,(jazz.sourcified-form (jazz.emit-binding-reference referenced-declaration module-declaration environment))))))))))
               (%%get-module-declaration-walker-autoloads module-declaration))
-    (jazz.queue-list queue)))
+    (jazz.sort (jazz.queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%cadr x)) (%%symbol->string (%%cadr y)))))))
 
 
 (define (jazz.emit-module-registration declaration environment)
@@ -3343,7 +3355,7 @@
                         (%%when (and (%%not only) (%%not autoload))
                           (jazz.enqueue queue (%%get-module-invoice-name module-invoice)))))
                     (%%get-module-declaration-exports declaration))
-          (jazz.queue-list queue))
+          (jazz.sort (jazz.queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
       ',(let ((walker (%%get-module-declaration-walker declaration))
               (queue (jazz.new-queue)))
           (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
@@ -3354,7 +3366,7 @@
                 (let ((export (jazz.runtime-export walker decl)))
                   (if export
                       (jazz.enqueue queue (%%cons name export)))))))
-          (jazz.queue-list queue)))))
+          (jazz.sort (jazz.queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%car x)) (%%symbol->string (%%car y)))))))))
 
 
 (jazz.define-virtual-runtime (jazz.runtime-export (jazz.Walker walker) declaration))

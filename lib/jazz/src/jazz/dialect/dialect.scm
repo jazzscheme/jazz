@@ -1965,21 +1965,21 @@
         (receive (default-access default-propagation default-abstraction default-expansion default-generation) (parse-accessors accessors access)
           (receive (getter-access getter-propagation getter-abstraction getter-expansion getter-generation getter-name) (parse-accessor name default-access default-propagation default-abstraction default-expansion default-generation getter "get-")
             (receive (setter-access setter-propagation setter-abstraction setter-expansion setter-generation setter-name) (parse-accessor name default-access default-propagation default-abstraction default-expansion default-generation setter "set-")
-              (let* ((value (jazz.generate-symbol "value"))
-                     (generate-getter? (%%eq? getter-generation 'generate))
-                     (generate-setter? (%%eq? setter-generation 'generate))
-                     (specifier-list (if specifier (%%list specifier) '())))
+              (let ((name-self (%%string->symbol (%%string-append (%%symbol->string name) "~self")))
+                    (generate-getter? (%%eq? getter-generation 'generate))
+                    (generate-setter? (%%eq? setter-generation 'generate))
+                    (specifier-list (if specifier (%%list specifier) '())))
                 `(begin
                    ,(jazz.sourcify-if
                       `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                       form-src)
                    ,@(if generate-getter?
                          `((method ,(or getter-access 'public) ,getter-propagation ,getter-abstraction ,getter-expansion (,getter-name) ,@specifier-list
-                             ,name))
+                             ,name-self))
                        '())
                    ,@(if generate-setter?
-                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name ,value ,@specifier-list) <void>
-                             (set! ,name ,value)))
+                         `((method ,(or setter-access 'protected) ,setter-propagation ,setter-abstraction ,setter-expansion (,setter-name value ,@specifier-list) <void>
+                             (set! ,name-self value)))
                        '()))))))))))
 
 

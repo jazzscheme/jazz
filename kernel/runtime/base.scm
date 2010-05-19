@@ -313,6 +313,36 @@
 
 
 ;;;
+;;;; List
+;;;
+
+
+(define (jazz.sort l smaller)
+  (define (merge-sort l)
+    (define (merge l1 l2)
+      (cond ((null? l1) l2)
+            ((null? l2) l1)
+            (else
+             (let ((e1 (car l1)) (e2 (car l2)))
+               (if (smaller e1 e2)
+                   (cons e1 (merge (cdr l1) l2))
+                 (cons e2 (merge l1 (cdr l2))))))))
+    
+    (define (split l)
+      (if (or (null? l) (null? (cdr l)))
+          l
+        (cons (car l) (split (cddr l)))))
+    
+    (if (or (null? l) (null? (cdr l)))
+        l
+      (let* ((l1 (merge-sort (split l)))
+             (l2 (merge-sort (split (cdr l)))))
+        (merge l1 l2))))
+  
+  (merge-sort l))
+
+
+;;;
 ;;;; Pathname
 ;;;
 

@@ -409,6 +409,15 @@
   (force-output port))
 
 
+(definition *eval-count*
+  0)
+
+
+(definition public (eval-count)
+  (prog1 *eval-count*
+    (increase! *eval-count*)))
+
+
 (definition (read-eval-print-loop thread port level)
   (define (read-eval-print thread resume port level)
     (let ((console (thread-console thread)))
@@ -557,14 +566,19 @@
               (local-self (local-self local-variables)))
           (let ((effective-context (either local-self context)))
             (cond ((not effective-context)
-                   (evaluator (lambda (thunk)
-                                (thunk))
-                              expr))
+                   (parameterize ((generate-symbol-for (format "@{a}&" (eval-count)))
+                                  (generate-symbol-counter 0))
+                     (evaluator (lambda (thunk)
+                                  (thunk))
+                                expr)))
                   ((symbol? effective-context)
                    (let ((unit-name effective-context))
                      (load-unit unit-name)
                      (let ((module-declaration (outline-unit unit-name)))
-                       (parameterize ((requested-unit-name #f))
+                       (parameterize ((requested-unit-name #f)
+                                      (generate-symbol-for (format "@{a}&" (eval-count)))
+                                      (generate-symbol-context unit-name)
+                                      (generate-symbol-counter 0))
                          (evaluator (lambda (thunk)
                                       (parameterize ((current-console-context unit-name))
                                         (thunk)))
@@ -576,7 +590,10 @@
                      (receive (unit-name class-name) (split-composite class-identifier)
                        (load-unit unit-name)
                        (let ((module-declaration (outline-unit unit-name)))
-                         (parameterize ((requested-unit-name #f))
+                         (parameterize ((requested-unit-name #f)
+                                        (generate-symbol-for (format "@{a}&" (eval-count)))
+                                        (generate-symbol-context unit-name)
+                                        (generate-symbol-counter 0))
                            (evaluator (lambda (thunk)
                                         (parameterize ((current-console-context effective-context))
                                           (thunk)))

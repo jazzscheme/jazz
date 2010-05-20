@@ -1966,13 +1966,22 @@
     (%%vector-set! jazz.subtypes jazz.subtype-f64vector    jazz.F64Vector)
     (%%vector-set! jazz.subtypes jazz.subtype-boxvalues    jazz.Values)
     
-    (%%vector-set! jazz.specialtypes  0 jazz.Boolean)
-    (%%vector-set! jazz.specialtypes  1 jazz.Boolean)
-    (%%vector-set! jazz.specialtypes  2 jazz.Null)
-    (%%vector-set! jazz.specialtypes  3 jazz.EOF)
-    (%%vector-set! jazz.specialtypes  8 jazz.Marker)   ;; #!optional
-    (%%vector-set! jazz.specialtypes  9 jazz.Marker)   ;; #!key
-    (%%vector-set! jazz.specialtypes 10 jazz.Marker)   ;; #!rest
+    (%%vector-set! jazz.specialtypes #x0 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes #x1 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes #x2 jazz.Null)
+    (%%vector-set! jazz.specialtypes #x3 jazz.EOF)
+    (%%vector-set! jazz.specialtypes #x4 jazz.Unspecified)
+    (%%vector-set! jazz.specialtypes #x5 jazz.Marker)   ;; absent
+    (%%vector-set! jazz.specialtypes #x6 jazz.Marker)   ;; unbound
+    (%%vector-set! jazz.specialtypes #x7 jazz.Marker)   ;; unbound2
+    (%%vector-set! jazz.specialtypes #x8 jazz.Marker)   ;; optional
+    (%%vector-set! jazz.specialtypes #x9 jazz.Marker)   ;; key
+    (%%vector-set! jazz.specialtypes #xA jazz.Marker)   ;; rest
+    (%%vector-set! jazz.specialtypes #xB jazz.Marker)   ;; unused
+    (%%vector-set! jazz.specialtypes #xC jazz.Marker)   ;; deleted
+    (%%vector-set! jazz.specialtypes #xD jazz.Marker)   ;; promise
+    (%%vector-set! jazz.specialtypes #xE jazz.Marker)   ;; unassigned1
+    (%%vector-set! jazz.specialtypes #xF jazz.Marker)   ;; unassigned2
     )
   
   (else))

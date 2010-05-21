@@ -1394,6 +1394,9 @@
                                 (list
                                   path: (%%string-append jazz.kernel-install "kernel")
                                   arguments: `("-:dq-" "-subbuild"
+                                               ,@(if (%%memq 'keep-c jazz.compile-options) `("-keep-c") '())
+                                               ,@(if (%%memq 'expansion jazz.compile-options) `("-expansion") '())
+                                               ,@(if (jazz.save-emit?) `("-emit") '())
                                                ,@(if (jazz.build-repository) `("-build-repository" ,(jazz.build-repository)) '())
                                                ,@(if (jazz.jazz-repository) `("-jazz-repository" ,(jazz.jazz-repository)) '())
                                                ,@(if (jazz.user-repository) `("-user-repository" ,(jazz.user-repository)) '())

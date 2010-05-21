@@ -188,6 +188,8 @@
                      (jazz.generate-symbol-context unit-name)
                      (jazz.generate-symbol-counter 0)
                      (jazz.compiled-source src))
+        ;; temporary until a cleaner solution
+        (set! ##gensym-counter -1)
         (if (not (and (compile-file-to-c src-pathname output: bin-c options: options module-name: unique-module-name)
                       (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
             (jazz.error "compilation failed")))))

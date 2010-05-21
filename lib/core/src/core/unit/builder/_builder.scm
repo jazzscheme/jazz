@@ -186,7 +186,8 @@
           (bin-c (string-append bin-pathname-base ".c")))
       (parameterize ((jazz.generate-symbol-for "^")
                      (jazz.generate-symbol-context unit-name)
-                     (jazz.generate-symbol-counter 0))
+                     (jazz.generate-symbol-counter 0)
+                     (jazz.compiled-source src))
         (if (not (and (compile-file-to-c src-pathname output: bin-c options: options module-name: unique-module-name)
                       (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
             (jazz.error "compilation failed")))))
@@ -260,6 +261,14 @@
                (fill-bytes-offset dll-port offset size 0)))
            patches)
       (close-port dll-port))))
+
+
+(define (jazz.save-emit-if emit)
+  (%%when (and (jazz.save-emit?) (jazz.compiled-source))
+    (parameterize ((current-readtable jazz.scheme-readtable))
+      (call-with-output-file (list path: (jazz.binary-with-extension (jazz.compiled-source) ".scm") eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+        (lambda (port)
+          (pretty-print (jazz.present-source emit) port))))))
 
 
 ;;;

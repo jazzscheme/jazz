@@ -1819,6 +1819,10 @@
   (make-parameter #f))
 
 
+(define jazz.compiled-source
+  (make-parameter #f))
+
+
 (define (jazz.get-load-mutex)
   jazz.Load-Mutex)
 

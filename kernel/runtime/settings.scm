@@ -124,6 +124,9 @@
 (jazz.define-setting jazz.build-jobs
   1)
 
+(jazz.define-setting jazz.save-emit?
+  #f)
+
 
 ;;;
 ;;;; Debug

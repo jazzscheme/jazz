@@ -40,4 +40,6 @@
 
 (jazz.define-syntax module
   (lambda (form-src)
-    (jazz.expand-module-source (%%cdr (jazz.source-code form-src))))))
+    (let ((emit (jazz.expand-module-source (%%cdr (jazz.source-code form-src)))))
+      (jazz.save-emit-if emit)
+      emit))))

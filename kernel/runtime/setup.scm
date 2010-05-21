@@ -281,10 +281,11 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "build" "make" "compile" "keep-c" "expansion" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force" "subbuild") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "keep-c" "expansion" "debugger" "link" "jobs") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
             (force? (jazz.get-option "force" options))
+            (subbuild? (jazz.get-option "subbuild" options))
             (build-repository (jazz.get-option "build-repository" options))
             (jazz-repository (jazz.get-option "jazz-repository" options))
             (user-repository (jazz.get-option "user-repository" options))
@@ -294,8 +295,8 @@
             (test (jazz.get-option "test" options))
             (run (jazz.get-option "run" options))
             (update (jazz.get-option "update" options))
-            (build (jazz.get-option "build" options))
             (make (jazz.get-option "make" options))
+            (build (jazz.get-option "build" options))
             (compile (jazz.get-option "compile" options))
             (keep-c (jazz.get-option "keep-c" options))
             (expansion (jazz.get-option "expansion" options))
@@ -362,9 +363,12 @@
               (make
                 (setup-build)
                 (jazz.make-product (%%string->symbol make)))
-              (build
+              (subbuild?
                 (setup-build)
                 (jazz.subprocess-build-products))
+              (build
+                (setup-build)
+                (jazz.build-product (%%string->symbol build)))
               (else
                 (setup-runtime)
                 (jazz.repl-main))))))

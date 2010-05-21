@@ -1393,7 +1393,7 @@
                (let ((process (open-process
                                 (list
                                   path: (%%string-append jazz.kernel-install "kernel")
-                                  arguments: `("-:dq-" "-build" ,(%%number->string active-count)
+                                  arguments: `("-:dq-" "-subbuild"
                                                ,@(if (jazz.build-repository) `("-build-repository" ,(jazz.build-repository)) '())
                                                ,@(if (jazz.jazz-repository) `("-jazz-repository" ,(jazz.jazz-repository)) '())
                                                ,@(if (jazz.user-repository) `("-user-repository" ,(jazz.user-repository)) '())

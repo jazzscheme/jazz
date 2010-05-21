@@ -153,6 +153,19 @@
 
 
 ;;;
+;;;; Emit
+;;;
+
+
+(define (jazz.save-emit-if emit)
+  (%%when (and (jazz.save-emit?) (jazz.compiled-source))
+    (parameterize ((current-readtable jazz.scheme-readtable))
+      (call-with-output-file (list path: (jazz.binary-with-extension (jazz.compiled-source) ".scm") eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+        (lambda (port)
+          (pretty-print (jazz.present-source emit) port))))))
+
+
+;;;
 ;;;; Debug
 ;;;
 

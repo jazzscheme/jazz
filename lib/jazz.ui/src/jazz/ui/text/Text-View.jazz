@@ -431,27 +431,27 @@
   
   (method (on-bulleted evt)
     (for-each-selected-paragraph
-     (lambda (row paragraph)
-       (toggle-bulleted row))))
+      (lambda (line paragraph)
+        (toggle-bulleted line))))
   
   
   (method (on-decrease-indent evt)
     (for-each-selected-paragraph
-     (lambda (row paragraph)
-       (indent-paragraph row paragraph -32))))
+      (lambda (line paragraph)
+        (indent-paragraph line paragraph -32))))
   
   
   (method (on-increase-indent evt)
     (for-each-selected-paragraph
-     (lambda (row paragraph)
-       (indent-paragraph row paragraph 32))))
+      (lambda (line paragraph)
+        (indent-paragraph line paragraph 32))))
   
   
   (method (on-justify evt)
     (let ((justification (get-property~ evt justification:)))
       (for-each-selected-paragraph
-       (lambda (row paragraph)
-         (set-justification row paragraph justification)))))
+        (lambda (line paragraph)
+          (set-justification line paragraph justification)))))
   
   
   (method (on-alignment evt)
@@ -1159,8 +1159,8 @@
   ;;;
   
   
-  (method protected virtual (home-column row col)
-    (let ((column (get-column row)))
+  (method protected virtual (home-column line col)
+    (let ((column (get-column line)))
       (if (= col 0)
           column
         0)))
@@ -1451,7 +1451,7 @@
   (method package (on-display-info evt)
     (let ((start (get-start))
           (end (get-end)))
-      (user-message "Start: ~{row {a}, col {a}} End: ~{row {a}, col {a}}"
+      (user-message "Start: ~{line {a}, col {a}} End: ~{line {a}, col {a}}"
                     (+ (get-line~ start) 1) (+ (get-col~ start) 1)
                     (+ (get-line~ end) 1) (+ (get-col~ end) 1))))
   
@@ -2078,7 +2078,7 @@
   (method (calculate-scrollee-width)
     (let ((width 0))
       (for-each-paragraph
-        (lambda (row <fx> paragraph <Paragraph>)
+        (lambda (line <fx> paragraph <Paragraph>)
           (let ((paragraph-width (compute-width~ paragraph)))
             (when (> paragraph-width width)
               (set! width paragraph-width)))))
@@ -3066,7 +3066,7 @@
     (empty-content~ formats)
     (empty-content~ styles)
     (for-each-paragraph
-      (lambda (row <fx> paragraph <Paragraph>)
+      (lambda (line <fx> paragraph <Paragraph>)
         (set-format~ paragraph (intern-format (get-format~ paragraph)))
         (for-each (lambda (run)
                     (set-style~ run (intern-style (get-style~ run))))
@@ -3148,7 +3148,7 @@
       (define (get-formatted-paragraphs)
         (let ((fact (new List-Factory)))
           (for-each-paragraph
-            (lambda (row <fx> paragraph <Paragraph>)
+            (lambda (line <fx> paragraph <Paragraph>)
               (put~ fact (cons (format-reference (get-format~ paragraph) formats)
                                (map (lambda (run)
                                       (list (get-string~ run) (style-reference (get-style~ run) styles)))
@@ -3239,12 +3239,12 @@
   (method (range-paragraphs range <Range$Cell$>)
     (let ((last {})
           (fact (new List-Factory)))
-      (loop (for row from (get-line~ (get-start~ range)) to (get-line~ (get-end~ range)))
-            (let ((paragraph (get-paragraph row)))
+      (loop (for line from (get-line~ (get-start~ range)) to (get-line~ (get-end~ range)))
+            (let ((paragraph (get-paragraph line)))
               (if (not paragraph)
-                  (put~ fact row)
+                  (put~ fact line)
                 (unless (eq? paragraph last)
-                  (put~ fact (get-paragraph row))
+                  (put~ fact (get-paragraph line))
                   (set! last paragraph)))))
       (get-output~ fact)))
   
@@ -3361,8 +3361,8 @@
   ;;;
   
   
-  (method public (toggle-bulleted row)
-    (modify-format (get-paragraph row)
+  (method public (toggle-bulleted line)
+    (modify-format (get-paragraph line)
                    (lambda (format)
                      (let ((left-margin (get-left-margin~ format))
                            (bulleted? (get-bulleted?~ format)))
@@ -3370,14 +3370,14 @@
                        (set-left-margin~ format (+ left-margin (if bulleted? -16 16)))))))
   
   
-  (method public (indent-paragraph row paragraph delta)
+  (method public (indent-paragraph line paragraph delta)
     (modify-format paragraph
                    (lambda (format)
                      (let ((left (get-left-margin~ format)))
                        (set-left-margin~ format (+ left delta))))))
   
   
-  (method (set-justification row paragraph justification)
+  (method (set-justification line paragraph justification)
     (modify-format paragraph
                    (lambda (format)
                      (set-justification~ format justification))))
@@ -3498,8 +3498,8 @@
     (let ((start (either start 0))
           (end (either end (get-limit)))
           (paragraphs (get-paragraphs)))
-      (loop (for row from start to end)
-            (proc row (element paragraphs row)))))
+      (loop (for line from start to end)
+            (proc line (element paragraphs line)))))
   
   
   (method public (for-each-selected-paragraph proc)
@@ -4000,8 +4000,8 @@
         (get-style~ run))))
   
   
-  (method public (uncolorize-row row <fx>) <void>
-    (let ((paragraph (get-paragraph row)))
+  (method public (uncolorize-row line <fx>) <void>
+    (let ((paragraph (get-paragraph line)))
       (when (remove-coloring~ paragraph default-style)
         (invalidate-paragraph paragraph))))
   

@@ -45,7 +45,7 @@
         (error "Invalid call to generate-symbol without a counter")
       (let ((name (##string-append prefix (or for "^") (##number->string counter))))
         (jazz.generate-symbol-counter (+ counter 1))
-        (##string->symbol name)))))
+        (##make-uninterned-symbol name)))))
 
 
 (define (jazz.generate-global-symbol #!optional (prefix "sym"))

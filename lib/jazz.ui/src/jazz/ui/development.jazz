@@ -38,8 +38,44 @@
 (module jazz.ui.development jazz
 
 
-(import (jazz.io)
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.system)
         (jazz.ui))
+
+
+;;;
+;;;; Painting
+;;;
+
+
+(definition public (pt (root {}) (obj {}) (rect {}))
+  (define (pretty-print node)
+    (pretty-print~ (convert node) :console align-name?: #t))
+  
+  (define (convert node)
+    (bind (view draw? . nodes) node
+      (let ((properties (list
+                          'name (get-name~ view)
+                          'draw? (if draw? 'yes '| |)
+                          'position (let ((position (get-position~ view))) (list (get-h~ position) (get-v~ position)))
+                          'size (let ((size (get-size~ view))) (list (get-width~ size) (get-height~ size)))
+                          'background (let ((background (get-background~ view))) (if background (get-name~ background) {}))
+                          'opaque? (get-opaque?~ view)
+                          'serial (format "#{a}" (object->serial view)))))
+        (new JML-Element {} (category-name (class-of view)) properties: properties children: (map convert nodes)))))
+  
+  (let ((root (either root (get-root~ (get-toplevel)))))
+    (let ((update (if (not obj)
+                      {Rect 0 0 5000 5000}
+                    (typecase obj
+                      ((Rect) obj)
+                      ((View) (acquire~ root obj (rect-intersection (either rect (get-bounds~ obj)) (get-clipper~ obj))))))))
+      (with ((region (new Region update)))
+        (pretty-print (painting-tree~ root region 0 0))
+        (unspecified)))))
 
 
 ;;;

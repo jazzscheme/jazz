@@ -107,15 +107,20 @@
       (continuation-capture
         (lambda (continuation)
           (print-thread (current-thread) continuation)))
-      @buggy
-      (loop (for thread in (top-threads))
-            (do (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
-                  (thread-interrupt! thread
-                    (lambda ()
-                      (continuation-capture
-                        (lambda (continuation)
-                          (print-thread thread continuation)))))
-                  (thread-join! thread))))
+      (let ((active-threads (collect-if (lambda (thread)
+                                          (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread))))
+                                        (top-threads)))
+            (mutex (make-mutex 'snapshot)))
+        (mutex-lock! mutex)
+        (for-each (lambda (thread)
+                    (thread-interrupt! thread
+                                       (lambda ()
+                                         (continuation-capture
+                                           (lambda (continuation)
+                                             (print-thread thread continuation)))
+                                         (mutex-unlock! mutex)))
+                    (mutex-lock! mutex))
+                  active-threads))
       (format printer ")"))
     
     (define (print-thread thread continuation)
@@ -158,7 +163,7 @@
                               (bind (name value mutable?) variable
                                 (let ((info (package-info value mutable?: mutable? max-width: max-width)))
                                   (let ((serial (register-package-info info 0))
-                                        (atomic? (or (boolean? value) (number? value) (string? value)))
+                                        (atomic? (or (boolean? value) (number? value) (and (string? value) (< (string-length value) max-width))))
                                         (presentation (package-info-presentation info)))
                                     (format printer "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation))))))
                     (format printer ")")

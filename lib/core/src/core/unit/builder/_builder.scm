@@ -223,7 +223,7 @@
           (case platform
             ((windows)
              (if (jazz.build-single-objects?)
-                 (jazz.obliterate-DLL-timestamp bin-o1))))
+                 (jazz.obliterate-PE-timestamp bin-o1 'DLL))))
           (delete-file linkfile)))))
   
   (if needs-compile?
@@ -231,38 +231,6 @@
   (if (jazz.link-objects?)
       (link-o1)
     (delete-o1-files)))
-
-
-(define (jazz.obliterate-DLL-timestamp pathname)
-  (define (get-checksum-offset)
-    (let ((port (open-input-file pathname)))
-      (input-port-byte-position port #x22D)
-      (let ((b1 (read-u8 port)))
-        (let ((b2 (read-u8 port)))
-          (let ((result (+ (* #x10000 b2)
-                           (*   #x100 b1)
-                           (*    #x04 1))))
-            (close-port port)
-            result)))))
-  
-  (define (fill-bytes-offset port offset size byte-value)
-    (output-port-byte-position port offset)
-    (let loop ((i 0))
-         (if (< i size)
-             (begin
-               (write-u8 byte-value port)
-               (loop (+ i 1))))))
-  
-  (let ((patches `((#x88 4)
-                   (#xD8 4)
-                   (,(get-checksum-offset) 2))))
-    (let ((dll-port (open-output-file `(path: ,pathname truncate: #f))))
-      (map (lambda (patch)
-             (let ((offset (car patch))
-                   (size (cadr patch)))
-               (fill-bytes-offset dll-port offset size 0)))
-           patches)
-      (close-port dll-port))))
 
 
 ;;;
@@ -279,6 +247,7 @@
 ;;;
 ;;;; Unit
 ;;;
+
 
 (define (jazz.get-subunit-names-internal parent-name)
   (let* ((sub-units '())

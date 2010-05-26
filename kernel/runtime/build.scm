@@ -270,9 +270,9 @@
           (compile-source-file "runtime/" "base")
           (compile-source-file "runtime/" "crash")
           (compile-source-file "runtime/" "common")
+          (compile-source-file "runtime/" "settings")
           (if include-compiler?
               (compile-source-file "runtime/" "build"))
-          (compile-source-file "runtime/" "settings")
           (compile-source-file "runtime/" "install")
           (compile-source-file "runtime/" "digest")
           (compile-source-file "runtime/" "unit")
@@ -337,10 +337,10 @@
                                ,(kernel-file "runtime/base")
                                ,(kernel-file "runtime/crash")
                                ,(kernel-file "runtime/common")
+                               ,(kernel-file "runtime/settings")
                                ,@(if include-compiler?
                                      `(,(kernel-file "runtime/build"))
                                    '())
-                               ,(kernel-file "runtime/settings")
                                ,(kernel-file "runtime/install")
                                ,(kernel-file "runtime/digest")
                                ,(kernel-file "runtime/unit")
@@ -500,10 +500,10 @@
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/base.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/crash.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/common.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
             ,@(if include-compiler?
                   `(,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform))
                 '())
-            ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/install.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/digest.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/unit.c") platform)
@@ -516,7 +516,11 @@
             ,@(gambit-link-libraries)
             ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(jazz.quote-gcc-pathname (image-file) platform))))
+            "-o" ,(jazz.quote-gcc-pathname (image-file) platform)))
+        (case platform
+          ((windows)
+           (if (jazz.build-single-objects?)
+               (jazz.obliterate-PE-timestamp (image-file) 'EXE)))))
       
       (define (image-file)
         (if library-image?
@@ -585,6 +589,48 @@
       
       (if interpret-kernel?
           (generate-gambcini)))))
+
+
+;;;
+;;;; PE-Timestamps
+;;;
+
+
+(define (jazz.obliterate-PE-timestamp pathname type)
+  (define (get-checksum-offset)
+    (let ((port (open-input-file pathname)))
+      (input-port-byte-position port #x22D)
+      (let ((b1 (read-u8 port)))
+        (let ((b2 (read-u8 port)))
+          (let ((result (+ (* #x10000 b2)
+                           (*   #x100 b1)
+                           (*    #x04 1))))
+            (close-port port)
+            result)))))
+  
+  (define (fill-bytes-offset port offset size byte-value)
+    (output-port-byte-position port offset)
+    (let loop ((i 0))
+         (if (< i size)
+             (begin
+               (write-u8 byte-value port)
+               (loop (+ i 1))))))
+  
+  (let ((patches `((#x88 4)
+                   (#xD8 4)
+                   .
+                   ,(case type
+                      ((DLL dll)
+                       `((,(get-checksum-offset) 2)))
+                      (else
+                       '())))))
+    (let ((dll-port (open-output-file `(path: ,pathname truncate: #f))))
+      (map (lambda (patch)
+             (let ((offset (car patch))
+                   (size (cadr patch)))
+               (fill-bytes-offset dll-port offset size 0)))
+           patches)
+      (close-port dll-port))))
 
 
 ;;;
@@ -758,7 +804,7 @@
                                     sub-units))
                        output: linkfile
                        warnings?: #f)
-      
+            
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz.call-process
               "gcc"
@@ -776,7 +822,10 @@
                 ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
                 ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
                 ,@(link-options)))
-          
+            (case platform
+              ((windows)
+               (if (jazz.build-single-objects?)
+                   (jazz.obliterate-PE-timestamp library-o1 'DLL))))
             (map delete-file (%%list header-c header-o linkfile))
             #t)
 

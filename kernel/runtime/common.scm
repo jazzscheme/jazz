@@ -42,6 +42,74 @@
 
 
 ;;;
+;;;; Load
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (jazz.load pathname . rest)
+      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
+        (%%load pathname (lambda rest #f) #f #t quiet?))
+      (void)))
+  
+  (else
+    (define (jazz.load pathname . rest)
+      (load pathname))))
+
+
+;;;
+;;;; Configuration
+;;;
+
+
+(define jazz.debugger
+  #f)
+
+(define jazz.link
+  #f)
+
+(define jazz.link-options
+  #f)
+
+(define (jazz.link-objects?)
+  (%%memq 'objects jazz.link-options))
+
+(define (jazz.link-libraries?)
+  (%%memq 'libraries jazz.link-options))
+
+(define jazz.jobs
+  #f)
+
+(define jazz.jazzini
+  ".jazzini")
+
+(define jazz.buildini
+  ".buildini")
+
+(define jazz.warnings
+  #f)
+
+
+(define (jazz.load-configuration-files filename)
+  (define (load-if-exists file)
+    (if (file-exists? file)
+        (jazz.load file)))
+  
+  (let ((global (%%string-append "~/.jazz/" filename))
+        (local filename))
+    (load-if-exists global)
+    (load-if-exists local)))
+
+
+(define (jazz.process-jazzini)
+  (jazz.load-configuration-files jazz.jazzini))
+
+(define (jazz.process-buildini)
+  (jazz.load-configuration-files jazz.buildini))
+
+
+;;;
 ;;;; Build
 ;;;
 
@@ -54,7 +122,7 @@
 (define jazz.build-image #f)
 (set! jazz.build-image #f)
 
-(define jazz.build-library  #f)
+(define jazz.build-library #f)
 (set! jazz.build-library #f)
 
 

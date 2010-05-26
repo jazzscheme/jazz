@@ -1632,18 +1632,6 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define (jazz.load pathname . rest)
-      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
-        (%%load pathname (lambda rest #f) #f #t quiet?))
-      (void)))
-  
-  (else
-    (define (jazz.load pathname . rest)
-      (load pathname))))
-
-
 (define jazz.load-indent
   (make-parameter 0))
 

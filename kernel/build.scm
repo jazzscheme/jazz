@@ -1351,6 +1351,7 @@
                      (unknown-option (car remaining))))))
               ((equal? action "make")
                (jazz.load-kernel-build)
+               (jazz.process-buildini)
                (jazz.make-symbols (map read-argument arguments) #t)
                (exit))
               ((or (equal? action "help") (equal? action "?"))
@@ -1418,6 +1419,7 @@
   (load "kernel/syntax/syntax")
   (load "kernel/runtime/common")
   (load "kernel/runtime/digest")
+  (load "kernel/runtime/settings")
   (load "kernel/runtime/build"))
 
 

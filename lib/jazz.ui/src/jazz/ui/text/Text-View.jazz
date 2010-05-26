@@ -1504,12 +1504,11 @@
   
   
   (method (invalidate-range range <Range$Cell$>)
-    (let ((player (get-player)))
-      (when player
-        (let ((root (get-root)))
-          (receive (dh dv sc) (get-delta~ root self)
-            (with ((region (range-region range dh dv sc)))
-              (invalidate-region~ player region)))))))
+    (when (view-visible?)
+      (let ((root (get-root)))
+        (receive (dh dv sc) (get-delta~ root self)
+          (with ((region (range-region range dh dv sc)))
+            (invalidate-region~ player region))))))
   
   
   ;; this should be unified with selection-region
@@ -1736,22 +1735,21 @@
   
   
   (method public (update-selection range <Range$Cell$>)
-    (let ((player (get-player)))
-      (if (not player)
-          (set! selection range)
-        (let ((root (get-root)))
-          (receive (dh dv sc) (get-delta~ root self)
-            (with ((old (selection-region-all dh dv sc)))
-              (set! selection range)
-              (with ((new (selection-region-all dh dv sc)))
-                (if (and old new)
-                    (begin
-                      (combine!~ new old 'xor)
-                      (invalidate-region~ player new))
-                  (when old
-                    (invalidate-region~ player old))
-                  (when new
-                    (invalidate-region~ player new))))))))))
+    (if (not (view-visible?))
+        (set! selection range)
+      (let ((root (get-root)))
+        (receive (dh dv sc) (get-delta~ root self)
+          (with ((old (selection-region-all dh dv sc)))
+            (set! selection range)
+            (with ((new (selection-region-all dh dv sc)))
+              (if (and old new)
+                  (begin
+                    (combine!~ new old 'xor)
+                    (invalidate-region~ player new))
+                (when old
+                  (invalidate-region~ player old))
+                (when new
+                  (invalidate-region~ player new)))))))))
   
   
   (method public (reset-selection pos <Cell>)

@@ -1278,7 +1278,7 @@
     (left-arrow-action modifiers #t))
   
   
-  (method public (left-arrow-action modifiers user?)
+  (method public (left-arrow-action modifiers user-origin?)
     (define (logical-col cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1293,7 +1293,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (> col 0)
-               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user?))))))
+               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user-origin?))))))
       ((row)
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1308,7 +1308,7 @@
     (up-arrow-action modifiers #t))
   
   
-  (method public (up-arrow-action modifiers user?)
+  (method public (up-arrow-action modifiers user-origin?)
     (define (logical-row cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1323,22 +1323,22 @@
          (let ((cell selection-pivot))
            (let ((line (logical-row cell)))
              (when (> line 0)
-               (move-cell (new Cell (- line 1) (get-col~ cell)) 'up user?))))))
+               (move-cell (new Cell (- line 1) (get-col~ cell)) 'up user-origin?))))))
       (else
        (let ((count (get-visible-count)))
          (if (null? selection)
              (when (> count 0)
-               (move-selection (- count 1) 'backward user?))
+               (move-selection (- count 1) 'backward user-origin?))
            (let ((line (car selection)))
              (when (> line 0)
-               (move-selection (- line 1) 'backward user?))))))))
+               (move-selection (- line 1) 'backward user-origin?))))))))
 
 
   (method override (right-arrow-press modifiers)
     (right-arrow-action modifiers #t))
   
   
-  (method public (right-arrow-action modifiers user?)
+  (method public (right-arrow-action modifiers user-origin?)
     (define (logical-col cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1353,7 +1353,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (< col (- (get-columns-count) 1))
-               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user?))))))
+               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user-origin?))))))
       (else
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1366,7 +1366,7 @@
     (down-arrow-action modifiers #t))
   
   
-  (method public (down-arrow-action modifiers user?)
+  (method public (down-arrow-action modifiers user-origin?)
     (define (logical-row cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1383,37 +1383,35 @@
            (let ((cell selection-pivot))
              (let ((line (logical-row cell)))
                (when (< line last)
-                 (move-cell (new Cell (+ line 1) (get-col~ cell)) 'down user?))))))
+                 (move-cell (new Cell (+ line 1) (get-col~ cell)) 'down user-origin?))))))
         (else
          (if (null? selection)
              (when (> count 0)
-               (move-selection 0 'forward user?))
+               (move-selection 0 'forward user-origin?))
            (let ((line (car selection)))
              (when (< line last)
-               (move-selection (+ line 1) 'forward user?))))))))
+               (move-selection (+ line 1) 'forward user-origin?))))))))
     
   
-  (method (move-selection line direction user?)
-    (when user?
-      (acquire-focus))
+  (method (move-selection line direction user-origin?)
     (let ((row (get-row line)))
-      (set-selection (list line) user-origin?: #t)
+      (set-selection (list line) user-origin?: user-origin?)
       (when auto-expand/collapse?
         (auto-select~ row))
-      (update-view)))
+      (when user-origin?
+        (update-view))))
   
   
-  (method (move-cell cell direction user?)
-    (when user?
-      (acquire-focus))
-    (set-selection (list cell) ensure-displayed?: #f user-origin?: #t)
+  (method (move-cell cell direction user-origin?)
+    (set-selection (list cell) ensure-displayed?: #f user-origin?: user-origin?)
     (let ((rect (cell-rect cell)))
       (case direction
         ((left)  (scroll (new Point (horizontal-scroll-needed (get-left~ rect) 'backward) 0)))
         ((up)    (scroll (new Point 0 (vertical-scroll-needed (get-top~ rect) 'backward))))
         ((right) (scroll (new Point (horizontal-scroll-needed (get-right~ rect) 'forward) 0)))
         ((down)  (scroll (new Point 0 (vertical-scroll-needed (get-bottom~ rect) 'forward))))))
-    (update-view))
+    (when user-origin?
+      (update-view)))
   
   
   (method (line-displayed? line)
@@ -2026,7 +2024,7 @@
   
   
   (method (ensure-cell-displayed cell)
-    (let* ((rect (cell-rect cell)))
+    (let ((rect (cell-rect cell)))
       ;; the second pos should take in the cell width and height
       (scroll (scroll-needed (rect-position rect) (rect-end-position rect) (get-scroll-context)))))
 

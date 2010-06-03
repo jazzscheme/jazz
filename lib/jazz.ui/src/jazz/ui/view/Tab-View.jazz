@@ -340,15 +340,21 @@
                            (header-color (get-header-color~ header))
                            (header-end-color (get-header-end-color~ header))
                            (selected? (= n selection))
-                           (top (if selected? 0 2)))
+                           (previous? (= (+ n 1) selection))
+                           (next? (= (- n 1) selection))
+                           (top (if selected? 0 2))
+                           (background {Color red: 200 green: 198 blue: 187}))
                       (bind (lf . rg) (get-borders~ header)
                         (when selected?
                           (decrease! lf 2)
                           (increase! rg 2))
                         ;; background
-                        (when header-color
-                          (let ((rect (new Rect (+ lf (if (= (- n 1) selection) 3 1) 2) (+ top 2 1) (- rg 3) content)))
-                            (gradient-fill~ surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
+                        (cond (header-color
+                                (let ((rect (new Rect (+ lf (if next? 3 1) 2) (+ top 2 1) (- rg 3) content)))
+                                  (gradient-fill~ surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
+                              ((not selected?)
+                               (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
+                                 (fill-rect~ surface rect background))))
                         ;; border
                         (when border-color
                           (set-color~ surface border-color)
@@ -358,17 +364,17 @@
                           (line-to-preserve~ surface (+ lf 2) (- content 2))
                           (line-to~ surface (+ lf 2) (+ top 2)))
                         ;; right
-                        (unless (= (+ n 1) selection)
+                        (unless previous?
                           (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
-                          (set-color~ surface {Color name: Black})
+                          (set-color~ surface background)
                           (move-to~ surface (- rg 2) (+ top 1))
                           (line-to~ surface (- rg 1) (+ top 2)))
                         ;; top
-                        (set-color~ surface {Color name: Light})
-                        (move-to~ surface (- rg 3) top)
-                        (line-to-preserve~ surface (+ lf 2) top)
+                        (set-color~ surface (if selected? {Color name: Light} {Color red: 243 green: 243 blue: 241}))
+                        (move-to~ surface (- rg 2) top)
+                        (line-to-preserve~ surface (+ lf (if next? 1 2)) top)
                         ;; left
-                        (unless (= (- n 1) selection)
+                        (unless next?
                           (line-to-preserve~ surface lf (+ top 2))
                           (line-to~ surface lf content))
                         ;; bottom

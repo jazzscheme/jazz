@@ -41,7 +41,7 @@
 (jazz.define-literal Box                jazz.library.literals.construct-box)
 (jazz.define-literal Directory-Group    jazz.library.literals.construct-directory-group)
 (jazz.define-literal Locales            jazz.library.literals.construct-locales)
-(jazz.define-literal Image-Resource    jazz.library.literals.construct-image-resource)
+(jazz.define-literal Image-Resource     jazz.library.literals.construct-image-resource)
 (jazz.define-literal Icon-Resource      jazz.library.literals.construct-icon-resource)
 (jazz.define-literal Cursor-Resource    jazz.library.literals.construct-cursor-resource)
 (jazz.define-literal Event              jazz.library.literals.construct-event)

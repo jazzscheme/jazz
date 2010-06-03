@@ -127,7 +127,7 @@
   (method override (mouse-down pos)
     (let ((header (find-tab-sheet pos)))
       (when header
-        (if (in-close-button?~ header pos)
+        (if (and (selected-sheet? header) (in-close-button?~ header pos))
             (close-button-down~ header)
           (set-selection (find-header pos))))))
   
@@ -135,7 +135,8 @@
   (method override (mouse-up pos)
     (let ((header (find-tab-sheet pos)))
       (when header
-        (when (and (in-close-button?~ header pos)
+        (when (and (selected-sheet? header)
+                   (in-close-button?~ header pos)
                    (get-close-button-down?~ header))
           (close-button-up~ header)
           (remove-child header)))))
@@ -144,7 +145,7 @@
   (method override (mouse-move pos)
     (let ((header (find-tab-sheet pos)))
       (if header
-          (if (in-close-button?~ header pos)
+          (if (and (selected-sheet? header) (in-close-button?~ header pos))
               (unless (and close-button-enter
                            (eq? close-button-enter header))
                 (when close-button-enter
@@ -241,6 +242,8 @@
             (focus-host~ sheet))))
       (invalidate-header old)
       (invalidate-header selection)
+      (when (and user-origin? player)
+        (simulate-mouse-move~ player))
       (call-selection-handler old selection force? user-origin?)))
 
 
@@ -257,6 +260,10 @@
     (let* ((sheet (child name))
            (rank (child-rank sheet)))
       (set-selection rank focus?: focus?)))
+  
+  
+  (method public (selected-sheet? sheet)
+    (eq? sheet (selected-sheet)))
   
   
   (method public (selected-sheet)
@@ -374,11 +381,12 @@
                           (draw-text~ surface (+ lf 5) (+ top 3) title))
                         ;; close
                         (when (and (get-closable?~ header)
+                                   selected?
                                    (or (not keep-one-sheet?)
                                        (and keep-one-sheet?
                                             (> (length children) 1))))
                           (let ((rect (get-close-button-borders header)))
-                            (draw-caption~ surface rect 'close (get-close-button-down?~ header) (get-close-button-enter?~ header))) ))))
+                            (draw-caption~ surface rect 'close (get-close-button-down?~ header) (get-close-button-enter?~ header)))))))
                   children
                   (naturals 0 (length children)))
         (set-color~ surface {Color name: Light})

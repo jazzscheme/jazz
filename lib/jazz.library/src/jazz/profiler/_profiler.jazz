@@ -1,0 +1,224 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Profiler
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.profiler jazz
+
+
+(export (jazz.profiler.syntax))
+
+(import (jazz.jml)
+        (jazz.system))
+
+
+(definition public profiler-on?
+  (make-parameter #f))
+
+
+(definition *profiles*
+  (make-table test: eq?))
+
+
+(definition public (get-profiles)
+  *profiles*)
+
+(definition public (reset-profiles)
+  (empty-table *profiles*))
+
+
+;;;
+;;;; Overhead
+;;;
+
+
+(definition (compute-overhead)
+  )
+
+
+(definition (get-overhead)
+  0)
+
+
+;;;
+;;;; Profile-Frame
+;;;
+
+
+(definition active-profile-frame
+  (make-parameter {}))
+
+
+(class Profile-Frame extends Object
+  
+  
+  (slot back-link  getter generate)
+  (slot name       getter generate)
+  (slot parent     getter generate)
+  (slot profile    getter generate)
+  (slot recursive? getter generate)
+  (slot start      getter generate)
+  
+  
+  (method override (initialize n c)
+    (define (init p)
+      (set! back-link (active-profile-frame))
+      (set! name n)
+      (set! parent p)
+      (set! recursive? (boolean (find-profile n)))
+      (let ((object (table-ref *profiles* name {})))
+        (if object
+            (set! profile object)
+          (set! profile (new Profile-Info name parent))
+          (table-set! *profiles* name profile)))
+      (set! start (get-performance-counter))
+      (active-profile-frame self))
+    
+    (when (profiler-on?)
+      (init (essay c (find-profile c)))))
+  
+  
+  (method override (destroy)
+    (when (eq? (active-profile-frame) self)
+      (let ((end (get-performance-counter)))
+        (let ((duration (if (not recursive?)
+                            (- end start (get-overhead))
+                          0)))
+          (record-times~ profile 0 duration)
+          (active-profile-frame back-link))))))
+
+
+(definition (find-profile name)
+  (let (iterate (frame (active-profile-frame)))
+    (cond ((not frame)
+           {})
+          ((eq? (get-name~ frame) name)
+           (get-profile~ frame))
+          (else
+           (iterate (get-back-link~ frame))))))
+
+
+;;;
+;;;; Profile-Time
+;;;
+
+
+(class Profile-Time extends Object
+  
+  
+  (slot count initialize 0 accessors generate)
+  (slot total initialize 0 accessors generate))
+
+
+;;;
+;;;; Profile-Info
+;;;
+
+
+(class Profile-Info extends Object
+  
+  
+  (slot name             getter generate)
+  (slot parent           getter generate)
+  (slot previous-brother getter generate)
+  (slot last-child       accessors generate)
+  (slot time             getter generate)
+  
+  
+  (method override (initialize n p)
+    (set! name n)
+    (set! parent p)
+    (set! last-child {})
+    (if (not p)
+        (set! previous-brother {})
+      (set! previous-brother (get-last-child~ p))
+      (set-last-child~ p self))
+    (set! time (new Profile-Time)))
+  
+  
+  (method (record-times rank duration)
+    (set-count~ time (+ (get-count~ time) 1))
+    (set-total~ time (+ (get-total~ time) duration)))
+  
+  
+  (method (get-count)
+    (get-count~ time))
+  
+  
+  (method (get-total)
+    (get-total~ time)))
+
+
+(definition public (profile-code name condition thunk)
+  (with ((frame (new Profile-Frame name condition)))
+    (thunk)))
+
+
+;;;
+;;;; JML
+;;;
+
+
+(definition public (profiles->jml profiles)
+  (define (profile->jml parent profile)
+    (let ((node (profile-content parent profile)))
+      (insert-profile-children node profile)
+      node))
+  
+  (define (profile-content parent profile)
+    (let ((name (get-name~ profile))
+          (count (get-count~ profile))
+          (total (get-total~ profile)))
+      (new JML-Element parent 'profile properties: (list 'name name 'count count 'total total))))
+  
+  (define (insert-profile-children parent profile)
+    (map (lambda (child)
+           (profile->jml parent child))
+         (collect-profile-children profile)))
+  
+  (define (collect-profile-children profile)
+    (let ((children '())
+          (child (get-last-child~ profile)))
+      (while child
+        (set! children (cons child children))
+        (set! child (get-previous-brother~ child)))
+      children))
+  
+  (let ((nodes '()))
+    (iterate-table (get-profiles)
+      (lambda (name profile)
+        (when (not (get-parent~ profile))
+          (set! nodes (cons (profile->jml {} profile) nodes)))))
+    (sort nu<? nodes key: (lambda (node) (symbol->string (get-property~ node 'name)))))))

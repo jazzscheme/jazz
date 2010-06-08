@@ -38,13 +38,12 @@
 (module protected jazz.debuggee.view.Profiler-View jazz
 
 
-(import (jazz.ui))
-
-
-(class Profiler-View extends Layout-View)
-
-
-@old-profiler-not-ported
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.log)
+        (jazz.profiler)
+        (jazz.system)
+        (jazz.ui))
 
 
 (class Profiler-View extends Layout-View
@@ -75,58 +74,60 @@
   
   
   (method public (view-profiles profiles)
+    (define (insert-profile tree father profile)
+      (let ((row (insert-content tree father profile)))
+        (insert-children tree row profile)))
+    
+    (define (insert-content tree father profile)
+      (let* ((name (profile-name profile))
+             (count (profile-count profile))
+             (total (calculate-time (profile-total profile)))
+             (average (/ total count))
+             (parent-percentage (truncate (profile-parent-percentage profile)))
+             (toplevel-percentage (truncate (profile-toplevel-percentage profile))))
+        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node image: {Image-Resource "Link"} title: name) (new Tree-Label title: count) (new Tree-Label title: average) (new Tree-Label title: total) (new Tree-Label title: (either parent-percentage "")) (new Tree-Label title: (either toplevel-percentage ""))) user-data: profile)))
+    
+    (define (profile-parent-percentage profile)
+      (let ((parent (profile-parent profile)))
+        (when (and parent (eq? (get-tag~ parent) 'profile))
+          (percentage (profile-total profile)
+                      (profile-total parent)))))
+    
+    (define (profile-toplevel-percentage profile)
+      (let ((toplevel (profile-toplevel profile)))
+        (if (eq? toplevel profile)
+            100
+          (percentage (profile-total profile)
+                      (profile-total toplevel)))))
+    
+    (define (profile-toplevel profile)
+      (let ((parent (profile-parent profile)))
+        (if (or (not parent) (neq? (get-tag~ parent) 'profile))
+            profile
+          (profile-toplevel parent))))
+    
+    (define (insert-children tree father profile)
+      (insert-profiles tree father (get-children~ profile)))
+    
+    (define (insert-profiles tree father profiles)
+      (for-each (lambda (child)
+                  (insert-profile tree father child))
+                profiles))
+    
+    (define (calculate-time count)
+      (seconds->microseconds (/ count (get-performance-frequency))))
+    
+    (define (truncate n)
+      (if n
+          (let ((precision 100.))
+            (/ (round (* n precision)) precision))
+        {}))
+    
     (let ((tree (locate 'profiles)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
           (insert-profiles tree {} profiles)))))
-
-  
-  (method (insert-profile tree father profile)
-    (let ((row (insert-content tree father profile)))
-      (insert-children tree row profile)))
-  
-  
-  (method (insert-content tree father profile)
-    (let* ((name (profile-name profile))
-           (count (profile-count profile))
-           (total (profile-total profile))
-           (average (/ total count))
-           (parent-percentage (profile-parent-percentage profile))
-           (toplevel-percentage (profile-toplevel-percentage profile)))
-      (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node image: {Image-Resource "Link"} title: name) (new Tree-Label title: count) (new Tree-Label title: average) (new Tree-Label title: total) (new Tree-Label title: (either parent-percentage "")) (new Tree-Label title: (either toplevel-percentage ""))) user-data: profile)))
-  
-  
-  (method (profile-parent-percentage profile)
-    (let ((parent (profile-parent profile)))
-      (when (and parent (eq? (get-tag~ parent) 'profile))
-        (percentage (profile-total profile)
-                    (profile-total parent)))))
-  
-  
-  (method (profile-toplevel-percentage profile)
-    (let ((toplevel (profile-toplevel profile)))
-      (if (eq? toplevel profile)
-          100
-        (percentage (profile-total profile)
-                    (profile-total toplevel)))))
-  
-  
-  (method (profile-toplevel profile)
-    (let ((parent (profile-parent profile)))
-      (if (or (not parent) (neq? (get-tag~ parent) 'profile))
-          profile
-        (profile-toplevel parent))))
-  
-  
-  (method (insert-children tree father profile)
-    (insert-profiles tree father (get-children~ profile)))
-  
-  
-  (method (insert-profiles tree father profiles)
-    (for-each (lambda (child)
-                (insert-profile tree father child))
-              profiles))
   
   
   ;;;
@@ -134,19 +135,19 @@
   ;;;
   
   
-  (method (profile-parent profile)
+  (definition (profile-parent profile)
     (get-parent~ profile))
   
   
-  (method (profile-name profile)
+  (definition (profile-name profile)
     (get-property~ profile 'name))
   
   
-  (method (profile-count profile)
+  (definition (profile-count profile)
     (get-property~ profile 'count))
   
   
-  (method (profile-total profile)
+  (definition (profile-total profile)
     (get-property~ profile 'total))
   
   

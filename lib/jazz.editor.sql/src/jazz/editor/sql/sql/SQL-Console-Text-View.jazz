@@ -43,6 +43,7 @@
         (jazz.editor.sql.view)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -71,7 +72,10 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (display-banner (determine-banner)))
+    (set! banner (determine-banner))
+    (set! banner-prompt "> ")
+    (display-banner banner)
+    (display-prompt))
     
 
   ;;;
@@ -80,7 +84,7 @@
 
   
   (method override (determine-banner)
-    (format "SQL Console{%}{%}> "))
+    (format "SQL Console{%}{%}"))
     
 
   ;;;
@@ -89,7 +93,7 @@
   
   
   (method (display-prompt)
-    (insert-styled "> " 'Output))
+    (insert-styled "> " 'Prompt))
   
   
   (method (evaluation-break)
@@ -140,7 +144,8 @@
          (with-cursor :wait
            (lambda ()
              (let ((connection (get-connection))
-                   (affected 0))
+                   (affected 0)
+                   (timer (new Timer)))
                (with-transaction~ connection
                  (lambda ()
                    (for-each (lambda (statement)
@@ -150,43 +155,49 @@
                                      (else
                                       (increase! affected (execute~ connection statement)))))
                              statements)))
-               (clear-table)
-               (when console?
-                 (evaluation-break))
-               (display-result (format "{a} row{a} affected ({a} statements)" affected (format-plural affected) length) console?))))))))
+               (let ((duration (real-duration~ timer)))
+                 (clear-table)
+                 (when console?
+                   (evaluation-break))
+                 (display-result (format "{a} row{a} affected ({a} statements)" affected (format-plural affected) length) duration console?)))))))))
   
   
   (method public (evaluate command console?)
-    (define (eval-command command console?)
+    (define (eval-command)
       (with-cursor :wait
         (lambda ()
           (let ((connection (get-connection)))
             (set! current-request command)
-            (if (and console? (not (shift-down?)))
-                (process-sql connection command)
-              (load-sql connection command))))))
+            (let ((timer (new Timer)))
+              (let ((result (process-command connection)))
+                (values result (real-duration~ timer))))))))
+    
+    (define (process-command connection)
+      (if (and console? (not (shift-down?)))
+          (process-sql connection command)
+        (load-sql connection command)))
   
-    (define (display-evaluation tables console?)
+    (define (display-evaluation tables duration)
       (when console?
         (evaluation-break))
       (cond ((null? tables)
              (clear-table)
-             (display-result "0 rows affected" console?))
+             (display-result "0 rows affected" duration console?))
             ((integer? tables)
-             (display-result (format "{a} row{a} affected" tables (format-plural tables)) console?))
+             (display-result (format "{a} row{a} affected" tables (format-plural tables)) duration console?))
             (else
              (let ((max-display (get-max-display))
                    (first-table (car tables)))
                (if (not first-table)
-                   (display-result "0 rows affected" console?)
+                   (display-result "0 rows affected" duration console?)
                  (let* ((count (get-count~ first-table))
                         (missing? (get-missing?~ first-table))
                         (displayed (min count max-display))
                         (not-displayed (- count displayed)))
                    (display-tables tables max-display not-displayed)
-                   (display-affected count missing? not-displayed console?)))))))
+                   (display-affected count missing? not-displayed duration)))))))
     
-    (define (display-affected count missing? not-displayed console?)
+    (define (display-affected count missing? not-displayed duration)
       (display-result (format "{a} row{a} retrieved{a}{a}"
                               count
                               (format-plural count)
@@ -196,10 +207,11 @@
                               (if (= not-displayed 0)
                                   ""
                                 (format ", {a} not displayed" not-displayed)))
+                      duration
                       console?))
     
-    (let ((tables (eval-command command console?)))
-      (display-evaluation tables console?)))
+    (receive (tables duration) (eval-command)
+      (display-evaluation tables duration)))
   
   
   (definition (get-connection)
@@ -236,13 +248,14 @@
       (get-max-display~ pref)))
   
   
-  (method (display-result string console?)
-    (if (not console?)
-        (user-message "{a}" string)
-      (clear-user-message)
-      (let ((start (get-start)))
-        (insert-styled string 'Comment)
-        (insert-newline))))
+  (method (display-result string duration console?)
+    (let ((effective-string (format "{a} ({r precision: 3}s)" string duration)))
+      (if (not console?)
+          (user-message "{a}" effective-string)
+        (clear-user-message)
+        (let ((start (get-start)))
+          (insert-styled effective-string 'Output)
+          (insert-newline)))))
   
   
   (definition (present-value value)

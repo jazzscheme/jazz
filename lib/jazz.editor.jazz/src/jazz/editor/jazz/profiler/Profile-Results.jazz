@@ -240,27 +240,20 @@
         (bind (frames total unknown calls) profiler-result
           (let ((frequency (profiler-performance-frequency)))
             (let ((seconds (/ total frequency)))
-              (define (truncate n)
-                (let ((precision 100.))
-                  (/ (round (* n precision)) precision)))
-              
               (define (calculate-time count)
                 (seconds->microseconds (/ count frequency frames)))
-              
-              (define (calculate-percentage count)
-                (truncate (* (/ count total) 100)))
               
               (define (calculate-fps)
                 (if (= seconds 0)
                     ""
-                  (format "{a} ms, {a} fps"
+                  (format "{a} ms, {r precision: 2} fps"
                           (seconds->milliseconds (/ seconds frames))
-                          (truncate (/ frames seconds)))))
+                          (/ frames seconds))))
               
               (define (make-children frame count)
                 (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
                       (time (if count (->string (calculate-time count)) ""))
-                      (percentage (if count (->string (calculate-percentage count)) "")))
+                      (percentage (if count (format "{r precision: 2}" (percentage count total)) "")))
                   (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: time) (new Tree-Label title: percentage))))
               
               (set-title~ (locate~ creator 'fps) (calculate-fps))

@@ -107,20 +107,22 @@
       (continuation-capture
         (lambda (continuation)
           (print-thread (current-thread) continuation)))
-      (let ((active-threads (collect-if (lambda (thread)
-                                          (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread))))
-                                        (top-threads)))
-            (mutex (make-mutex 'snapshot)))
+      (let ((mutex (make-mutex 'snapshot)))
         (mutex-lock! mutex)
         (for-each (lambda (thread)
-                    (thread-interrupt! thread
-                                       (lambda ()
-                                         (continuation-capture
-                                           (lambda (continuation)
-                                             (print-thread thread continuation)))
-                                         (mutex-unlock! mutex)))
-                    (mutex-lock! mutex))
-                  active-threads))
+                    (with-exception-filter
+                      inactive-thread-exception?
+                      inactive-thread-exception?
+                      (lambda ()
+                        (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
+                          (thread-interrupt! thread
+                                             (lambda ()
+                                               (continuation-capture
+                                                 (lambda (continuation)
+                                                   (print-thread thread continuation)))
+                                               (mutex-unlock! mutex)))
+                          (mutex-lock! mutex)))))
+                  (top-threads)))
       (format printer ")"))
     
     (define (print-thread thread continuation)

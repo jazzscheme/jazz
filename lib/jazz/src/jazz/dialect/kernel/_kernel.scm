@@ -312,6 +312,7 @@
 (native compile-file)
 (native compile-file-to-c)
 (native datum-parsing-exception?)
+(native inactive-thread-exception?)
 (native fxwrap*)
 (native fxwrap+)
 (native fxwrap-)

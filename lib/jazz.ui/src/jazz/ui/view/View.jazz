@@ -551,11 +551,11 @@
   
   
   (method override (set-parent parent)
-    (let ((previous-invalidater (essay player (invalidater))))
+    (let ((invalidater (view-invalidater)))
       (nextmethod parent)
       (set-player (essay parent (get-player~ parent)))
-      (when previous-invalidater
-        (previous-invalidater))
+      (when invalidater
+        (invalidater))
       (when parent
         (invalidate-view))))
   
@@ -589,8 +589,10 @@
 
 
   (method override (hide)
-    (nextmethod)
-    (invalidate-view))
+    (let ((invalidater (view-invalidater)))
+      (nextmethod)
+      (when invalidater
+        (invalidater))))
   
   
   (method protected virtual (update-displayed)
@@ -3264,11 +3266,13 @@
         (update-window~ player))))
   
   
-  (method public (invalidater)
-    (let ((rect (acquire~ (get-root) self (get-bounds)))
-          (player player))
-      (lambda ()
-        (invalidate-rect~ player rect))))
+  (method public (view-invalidater)
+    (when player
+      (let ((rect (acquire~ (get-root) self (get-bounds)))
+            (player player))
+        (lambda ()
+          (when player
+            (invalidate-rect~ player rect))))))
 
   
   ;;;

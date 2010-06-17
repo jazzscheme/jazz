@@ -38,8 +38,6 @@
 (module scheme.syntax-rules scheme
 
 
-#; ;; wait-hygiene
-(
 (native private jazz.generate-symbol)
 (native private jazz.source?)
 (native private jazz.error)
@@ -267,4 +265,4 @@
          ;; (cond
          ;;  ((memq (caar (strip-syntactic-closures (car forms))) '(match))
          ;;   (display "expansion: ") (write (strip-syntactic-closures res)) (newline)))
-         res)))))))
+         res))))))

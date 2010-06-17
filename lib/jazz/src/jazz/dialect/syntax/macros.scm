@@ -39,7 +39,6 @@
 
 
 (import (jazz.dialect.kernel)
-        #; ;; wait-hygiene
         (scheme.syntax-rules))
 
 
@@ -60,7 +59,6 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax package expand-body
   (syntax-rules ()
     ((_)
@@ -69,6 +67,7 @@
      (begin expr ...))))
 
 
+#; ;; old
 (syntax public (when form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
@@ -82,7 +81,6 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax public when
   (syntax-rules ()
     ((when test expr ...)
@@ -91,6 +89,7 @@
        #f))))
 
 
+#; ;; old
 (syntax public (unless form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
@@ -101,13 +100,13 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax public unless
   (syntax-rules ()
     ((unless test expr ...)
      (when (not test) expr ...))))
 
 
+#; ;; old
 (syntax public (prog1 form-src)
   (let ((returned (cadr (source-code form-src)))
         (body (cddr (source-code form-src)))
@@ -119,7 +118,6 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax public prog1
   (syntax-rules ()
     ((prog1 returned expr ...)
@@ -128,6 +126,7 @@
        value))))
 
 
+#; ;; old
 (syntax public (while form-src)
   (let ((test (cadr (source-code form-src)))
         (body (cddr (source-code form-src)))
@@ -141,7 +140,6 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax public while
   (syntax-rules ()
     ((while test expr ...)
@@ -152,6 +150,7 @@
              (iterate)))))))
 
 
+#; ;; old
 (syntax public (unwind-protect form-src)
   (let ((body (cadr (source-code form-src)))
         (protection (cddr (source-code form-src))))
@@ -162,7 +161,6 @@
       form-src)))
 
 
-#; ;; wait-hygiene
 (define-syntax public unwind-protect
   (syntax-rules ()
     ((unwind-protect body protection ...)

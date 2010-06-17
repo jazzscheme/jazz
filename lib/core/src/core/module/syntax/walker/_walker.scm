@@ -3180,7 +3180,6 @@
   (jazz.emit-declaration (jazz.walk-module partial-form) '()))
 
 
-#; ;; wait-hygiene
 (define (jazz.rename-identifier-conflicts expressions environment)
   (jazz.tree-fold-list
    expressions
@@ -3237,7 +3236,6 @@
                (environment (%%cons declaration (jazz.walker-environment walker)))
                (body (jazz.walk-namespace walker resume declaration environment body)))
           (jazz.validate-walk-problems walker)
-          #; ;; wait-hygiene
           (jazz.rename-identifier-conflicts body environment)
           (%%set-namespace-declaration-body declaration body)
           declaration)))))

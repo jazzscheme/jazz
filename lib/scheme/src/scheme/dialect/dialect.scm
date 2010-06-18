@@ -136,7 +136,7 @@
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
           (jazz.walk-error walker resume declaration form-src "Special forms cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
-          (jazz.load-unit (%%get-declaration-locator parent-declaration))
+          (jazz.load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz.need-macro locator)))
             (%%apply expander (%%cdr form))))))))
 
@@ -187,7 +187,7 @@
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
           (jazz.walk-error walker resume declaration form-src "Macros cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
-          (jazz.load-unit (%%get-declaration-locator parent-declaration))
+          (jazz.load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz.need-macro locator)))
             (%%apply expander (%%cdr form))))))))
 

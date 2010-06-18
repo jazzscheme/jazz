@@ -1704,7 +1704,7 @@
       (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
           (jazz.walk-error walker resume declaration form-src "Macros cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (%%get-declaration-parent binding)))
-          (jazz.load-unit (%%get-declaration-locator parent-declaration))
+          (jazz.load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz.need-macro locator)))
             (%%apply expander (%%cdr form))))))))
 
@@ -1754,7 +1754,7 @@
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-error walker resume declaration form-src "Syntaxes cannot be used from within the same file: {s}" locator)
       (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-unit (%%get-declaration-locator parent-declaration))
+        (jazz.load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
         (let ((expander (jazz.need-macro locator)))
           (expander form-src))))))
 
@@ -1838,11 +1838,11 @@
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-warning walker resume declaration "Syntaxes shouldn't be used from within the same file: {s}" locator))
     (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-unit (%%get-declaration-locator parent-declaration))
-        (let* ((define-syntax-form (jazz.need-macro locator))
-               (expander (%%get-syntax-form-expander define-syntax-form))
-               (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
-          (expander form-src environment macro-environment)))))
+      (jazz.load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
+      (let* ((define-syntax-form (jazz.need-macro locator))
+             (expander (%%get-syntax-form-expander define-syntax-form))
+             (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
+        (expander form-src environment macro-environment)))))
 
 
 (jazz.encapsulate-class jazz.Define-Syntax-Declaration)

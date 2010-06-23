@@ -1,0 +1,273 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Git UI
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.git.ui jazz
+
+
+(import (jazz.git)
+        (jazz.graphic)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view))
+        
+
+;;;
+;;;; Git-Explorer
+;;;
+
+
+(class Git-Explorer extends Layout-View
+  
+  
+  (property depot initialize {} accessors generate)
+  
+  
+  (slot history)
+  
+  
+  (form
+    (<install>                                             layout-type: border
+      (<Layout-View>                  name: toolbar        size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Separator>                                       size: {Dimension 2 0})
+        (<Label-View>                 name: depot-label    justification: (head -3) title: "Depot:" size: {Dimension 37 20} font: {Font name: Label})
+        (<Border-View>                                     size: {Dimension 300 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>              name: depot-border   border-type: edge style: entry
+            (<Moniker-Widget>         name: depot          protocol: dir display-protocol?: #f display-logical?: #f return-press-handler: {Event-Handler :form on-return-press} moniker-update-handler: {Event-Handler :form on-moniker-update})))
+        (<Separator>                                       size: {Dimension 24 0})
+        (<Label-View>                 name: filter-label   justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font name: Label})
+        (<Border-View>                                     size: {Dimension 200 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>                                   border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #f vscroll?: #f
+              (<!>                    name: content        layout-type: fill
+                (<Filter-Text-View>   name: filter-text    target-name: history-tree)))))
+        (<Separator>                                       size: {Dimension 4 0})
+        (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter}))
+      (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50
+        (<Border-View>                name: diff-border    location: first border-type: edge style: entry
+          (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content        layout-type: fill
+              (<Tree-Header>                               style: document
+                (<!>                  name: content
+                  (<Git-History-Tree> name: history-tree   selection-handler: {Event-Handler :form on-selection-change}))))))
+        (<Border-View>                name: history-border location: second border-type: edge style: entry
+          (<Scroller-View>                                 hscroll?: #t vscroll?: #t
+            (<!>                      name: content        layout-type: fill
+              (<Diff-Text-View>       name: diff-text)))))))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+    
+  
+  (method meta override (host-icon)
+    {Image-Resource "Script"})
+  
+  
+  (method meta override (host-title)
+    "Git Explorer")
+  
+  
+  (method meta override (host-position)
+    {Point 28 14})
+  
+  
+  (method meta override (host-size)
+    {Dimension 800 500})
+  
+  
+  (method override (host-workspaces)
+    '(home))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (locate 'filter-text)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-moniker-update evt)
+    (update-depot))
+  
+  
+  (method override (on-return-press evt)
+    (update-depot))
+  
+  
+  (method (on-selection-change evt)
+    (update-diff))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-depot)
+    (set! depot (new Git-Depot (get-moniker~ (locate 'depot))))
+    (update))
+  
+  
+  (method (update)
+    (define (read-history input)
+      (let ((queue (new-queue)))
+        (let (iterate)
+          (input-port-timeout-set! input 0)
+          (let ((info (read-line input)))
+            (unless (eof-object? info)
+              (bind (digest date author message) (split info ";")
+                (enqueue queue (list digest date author message)))
+              (iterate))))
+        (queue-list queue)))
+    
+    (define (update-history)
+      (let ((tree (locate 'history-tree)))
+        (remove-every-row~ tree)
+        (with-update-locked~ tree
+          (lambda ()
+            (for-each (lambda (info)
+                        (bind (digest date author message) info
+                          (add-row~ tree children: (list (new Tree-Node title: digest)
+                                                         (new Tree-Label title: date)
+                                                         (new Tree-Label title: author)
+                                                         (new Tree-Label title: message))
+                            user-data: info)))
+                      history)))))
+    
+    (with-cursor :wait
+      (lambda ()
+        (receive (input output) (open-string-pipe)
+          (git~ depot (list "log" "--pretty=format:\"%H;%ai;%an;%s\"") output)
+          (set! history (read-history input))
+          (update-history)
+          (set-string-content~ (locate 'diff-text) "")))))
+  
+  
+  (method (update-diff)
+    (let ((commit (get-single-selected-data~ (locate 'history-tree))))
+      (when commit
+        (with-cursor :wait
+          (lambda ()
+            (let ((digest (first commit)))
+              (receive (input output) (open-string-pipe)
+                (git-show~ depot digest output)
+                (input-port-timeout-set! input 0)
+                (let ((content (read-content-string input)))
+                  (set-string-content~ (locate 'diff-text) content))))))))))
+
+
+;;;
+;;;; Git-History-Tree
+;;;
+
+
+(class Git-History-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                           filled-column: message
+      (<Tree-Node-Column>  name: digest  title: "Digest" width: 250 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: date    title: "Date" width: 150)
+      (<Tree-Label-Column> name: author  title: "Author" width: 150)
+      (<Tree-Label-Column> name: message title: "Message" width: 300))))
+
+
+(register-autoclass Git-History-Tree)
+
+
+;;;
+;;;; Filter-Text-View
+;;;
+
+
+(class Filter-Text-View extends Plain-Text-View
+  
+  
+  (property target-name initialize {} accessors generate)
+  
+  
+  (form
+    (<install> default-style: {Text-Style name: Default font: {Font name: Label}} left-padding: 2 top-padding: 2 accepts-returns?: #f focus-selects-all?: #t show-unfocused-selection?: #f))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (find-target)
+    (when target-name
+      (locate~ (find-ascendant Git-Explorer) target-name)))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+  
+  (method override (return-press key)
+    (filter-target))
+  
+  
+  (method (filter-target)
+    (define (determine-visible? row filter)
+      (some? (lambda (cell)
+               (search (get-title~ cell) filter ignore-case?: #t))
+             (get-children~ row)))
+    
+    (let ((target (find-target))
+          (filter (get-string-content)))
+      (when target
+        (with-cursor :wait
+          (lambda ()
+            ;; quicky
+            (set-selection~ target '())
+            (set-string-content~ (locate~ (find-ascendant Git-Explorer) 'diff-text) "")
+            (with-update-locked~ target
+              (lambda ()
+                (for-each-row~ target
+                  (lambda (row rank)
+                    (set-visible?~ row (determine-visible? row filter))))))))))))
+
+
+(register-autoclass Filter-Text-View))

@@ -38,7 +38,8 @@
 (module protected jazz.network.server.Server-Panel jazz
 
 
-(import (jazz.io)
+(import (jazz.debuggee)
+        (jazz.io)
         (jazz.system))
 
 
@@ -75,6 +76,9 @@
               ((restart) (restart-command arguments))
               ((info) (info-command arguments))
               ((debug) (debug-command arguments))
+              ((attach) (attach-command arguments))
+              ((detach) (detach-command arguments))
+              ((repl) (repl-command arguments))
               ((help ?) (help-command arguments))
               ((quit) (quit-command arguments))
               (else (error "Unknown command: {s}" command)))))))
@@ -96,15 +100,32 @@
                         (not (get-debug?~ server))
                       (car arguments))))
     
+    (define (attach-command arguments)
+      (let ((debugger (car arguments)))
+        (setup-debuggee debugger: debugger)
+        (format output "Attached to debugger {a}{%}" debugger)))
+    
+    (define (detach-command arguments)
+      (detach-from-controller)
+      (format output "Detached from debugger{%}"))
+    
+    (define (repl-command arguments)
+      (with-system-exception-debugger
+        (lambda ()
+          (repl))))
+    
     (define (help-command arguments)
       (format output "Commands are{%}")
-      (format output "  start        : Start the server{%}")
-      (format output "  stop         : Stop the server{%}")
-      (format output "  restart      : Restart the server{%}")
-      (format output "  info         : Show server information{%}")
-      (format output "  debug [flag] : Toggle or set debugging to flag{%}")
-      (format output "  help or ?    : Display available commands{%}")
-      (format output "  quit         : Quit the server panel{%}")
+      (format output "  start           : Start the server{%}")
+      (format output "  stop            : Stop the server{%}")
+      (format output "  restart         : Restart the server{%}")
+      (format output "  info            : Show server information{%}")
+      (format output "  debug [flag]    : Toggle or set debugging to flag{%}")
+      (format output "  attach debugger : Attach to debugger{%}")
+      (format output "  detach          : Detach from debugger{%}")
+      (format output "  repl            : Start a read-eval-print-loop{%}")
+      (format output "  help or ?       : Display available commands{%}")
+      (format output "  quit            : Quit the server panel{%}")
       (force-output output))
     
     (define (quit-command arguments)

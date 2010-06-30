@@ -1018,7 +1018,12 @@
 ;;;
 
 
-(define (jazz.setup-debuggee)
+(define (jazz.load-debuggee)
+  (jazz.load-debuggee-units)
+  (jazz.load-unit 'jazz.debuggee.setup))
+
+
+(define (jazz.load-debuggee-units)
   (jazz.load-unit 'core.module)
   (jazz.load-unit 'jazz)
   (jazz.load-unit 'jazz.debuggee)
@@ -1028,8 +1033,7 @@
   (jazz.load-unit 'jazz.debuggee.Debuggee-Thread)
   (jazz.load-unit 'jazz.debuggee.stub)
   (jazz.load-unit 'jazz.debugger.jazz.stub)
-  (jazz.load-unit 'jazz.debugger.jazz.stub-autoload)
-  (jazz.load-unit 'jazz.debuggee.setup))
+  (jazz.load-unit 'jazz.debugger.jazz.stub-autoload))
 
 
 ;;;
@@ -1221,7 +1225,7 @@
       (jazz.get-product name)
     (begin
       (set! jazz.process-name name)
-      (jazz.setup-debuggee)
+      (jazz.load-debuggee)
       (let ((product (jazz.get-product name)))
         (let ((descriptor (%%product-descriptor product)))
           (set! jazz.process-name name)

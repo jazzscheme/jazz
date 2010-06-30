@@ -112,13 +112,14 @@
     (detach-consoles)))
 
 
-(definition package (setup-debuggee)
-  (let ((arg (command-argument "debugger"))
+(definition package (setup-debuggee (debugger: debugger {}))
+  (let ((debugger-arg (either debugger (command-argument "debugger")))
         (interactive-arg (command-argument "debugger-interactive")))
-    (when arg
-      (receive (host port) (parse-host/service arg)
+    (when debugger-arg
+      (receive (host port) (parse-host/service debugger-arg)
         (if (not port)
-            (error "Ill-formed debugger argument: {a}" arg)
+            (error "Ill-formed debugger argument: {a}" debugger-arg)
+          (load-debuggee-units)
           (start-remote-listener)
           (attach-to-controller (new-remote-register (either host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
           (current-input-port (console-input-port))

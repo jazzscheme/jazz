@@ -272,6 +272,8 @@
 (native fx* <fx^fx:fx>)
 (native jazz.+infinity)
 (native jazz.-infinity)
+(native fxmodulo)
+(native fxquotient)
 
 
 ;;;
@@ -712,6 +714,7 @@
 
 
 (native open-string-pipe)
+(native open-u8vector-pipe)
 
 
 ;;;

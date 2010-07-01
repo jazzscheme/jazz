@@ -441,6 +441,7 @@
 
 (native command-line)
 (native user-name)
+(native host-name)
 
 
 ;;;

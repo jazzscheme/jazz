@@ -51,14 +51,26 @@
   {Directory Home ".jazz" "crashes"})
 
 
+(definition *snapshot-process-mutex*
+  (make-mutex))
+
+
 (definition public (snapshot-process . rest)
-  (bind-keywords ((directory {}) . others) rest
-    (let ((file (timestamped-file (or directory *snapshots-directory*) (current-process-present) "snapshot")))
-      (create-directories~ file)
-      (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
-        (lambda (printer)
-          (apply print-process-snapshot printer others)))
-      file)))
+  (define (with-mutex proc)
+    (mutex-lock! *snapshot-process-mutex*)
+    (unwind-protect
+        (proc)
+      (mutex-unlock! *snapshot-process-mutex*)))
+  
+  (with-mutex
+    (lambda ()
+      (bind-keywords ((directory {}) . others) rest
+        (let ((file (timestamped-file (or directory *snapshots-directory*) (current-process-present) "snapshot")))
+          (create-directories~ file)
+          (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
+            (lambda (printer)
+              (apply print-process-snapshot printer others)))
+          file)))))
 
 
 (definition (print-process-snapshot printer (reason: reason {}) (exception: exception {}) (max-depth: max-depth 2) (max-width: max-width 256) (max-content: max-content 100) (max-entries: max-entries {}))

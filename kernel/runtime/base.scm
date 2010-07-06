@@ -504,11 +504,12 @@
 ;;;
 
 
-(define (jazz.call-process path arguments)
+(define (jazz.call-process path arguments #!key (directory #f))
   (let ((port (open-process
                 (list
                   path: path
                   arguments: arguments
+                  directory: directory
                   stdin-redirection: #f
                   stdout-redirection: #f
                   stderr-redirection: #f))))

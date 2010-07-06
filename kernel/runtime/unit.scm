@@ -637,6 +637,11 @@
 
 
 (define (jazz.package-pathname package path)
+  (jazz.repository-pathname (%%package-repository package)
+                            (%%string-append (%%symbol->string (%%package-name package)) "/" path)))
+
+
+(define (jazz.package-root-pathname package path)
   (jazz.relocate-package-pathname (%%package-repository package) package path))
 
 
@@ -671,7 +676,7 @@
         (if (%%null? packages)
             (iter-repo (%%cdr repositories))
           (let ((package (%%car packages)))
-            (let ((package-pathname (jazz.package-pathname package "")))
+            (let ((package-pathname (jazz.package-root-pathname package "")))
               (let ((pathname-length (%%string-length pathname))
                     (package-length (%%string-length package-pathname)))
                 (if (and (%%fx<= package-length pathname-length)
@@ -759,7 +764,7 @@
   (define (find-src package path)
     (define (try path)
       (define (try-extension extension)
-        (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension)))
+        (if (jazz.file-exists? (jazz.package-root-pathname package (%%string-append path "." extension)))
             (%%make-resource package path extension)
           #f))
       
@@ -769,7 +774,7 @@
              (or (try-extension (%%car extensions))
                  (iter (%%cdr extensions))))))
     
-    (if (jazz.directory-exists? (jazz.package-pathname package path))
+    (if (jazz.directory-exists? (jazz.package-root-pathname package path))
         (try (%%string-append path "/_" (jazz.pathname-name path)))
       (try path)))
   
@@ -813,11 +818,11 @@
     (define (find package path extension)
       (define (try path)
         ;; we only test .o1 and let gambit find the right file by returning no extension when found
-        (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path extension)))
+        (if (jazz.file-exists? (jazz.package-root-pathname package (%%string-append path extension)))
             (%%make-resource package path #f)
           #f))
       
-      (if (jazz.directory-exists? (jazz.package-pathname package path))
+      (if (jazz.directory-exists? (jazz.package-root-pathname package path))
           (try (%%string-append path "/_" (jazz.pathname-name path)))
         (try path)))
     
@@ -994,7 +999,7 @@
   (let ((cache (if (%%repository-binary? (%%package-repository package))
                    jazz.*binary-packages-cache*
                  jazz.*source-packages-cache*))
-        (toplevel-dir (jazz.package-pathname package "")))
+        (toplevel-dir (jazz.package-root-pathname package "")))
     (if (jazz.directory-exists? toplevel-dir)
         (for-each (lambda (first-part)
                     (let ((first-dir (string-append toplevel-dir first-part "/")))
@@ -1542,7 +1547,7 @@
 
 
 (define (jazz.resource-pathname resource)
-  (jazz.package-pathname (%%resource-package resource)
+  (jazz.package-root-pathname (%%resource-package resource)
     (jazz.resource-package-pathname resource)))
 
 
@@ -1618,17 +1623,17 @@
 
 
 (define (jazz.manifest-pathname package resource)
-  (jazz.package-pathname package
-                         (%%string-append (%%resource-path resource)
-                                          "."
-                                          jazz.Manifest-Extension)))
+  (jazz.package-root-pathname package
+                              (%%string-append (%%resource-path resource)
+                                               "."
+                                               jazz.Manifest-Extension)))
 
 
 (define (jazz.digest-pathname package resource)
-  (jazz.package-pathname package
-                         (%%string-append (%%resource-path resource)
-                                          "."
-                                          jazz.Digest-Extension)))
+  (jazz.package-root-pathname package
+                              (%%string-append (%%resource-path resource)
+                                               "."
+                                               jazz.Digest-Extension)))
 
 
 ;;;

@@ -71,7 +71,7 @@
   (%%package-name package))
 
 (define (jazz.package-directory package)
-  (jazz.package-pathname package ""))
+  (jazz.package-root-pathname package ""))
 
 (define (jazz.package-products package)
   (%%package-products package))

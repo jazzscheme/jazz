@@ -133,6 +133,7 @@
           (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
           (destination-directory jazz.kernel-install)
+          (resources #f)
           (image #f)
           (kernel? #f)
           (console? #f)
@@ -432,28 +433,42 @@
       (define (generate-resources rebuild?)
         (case platform
           ((windows)
-           (let ((file (product-file (%%string-append product-name ".ico"))))
-             (if (or rebuild? (%%not (file-exists? file)))
-                 (begin
-                   (jazz.copy-file (source-file "etc/resources/windows/jazz.ico") file feedback: feedback)
-                   #t)
-               #f)))
+           (with-resources
+             (lambda (resources rc res)
+               (let ((rcfile (%%string-append resources "/" rc)))
+                 (if (or rebuild?
+                         (jazz.file-needs-update? rcfile res))
+                     (begin
+                       (feedback-message "; compiling {a}..." (%%string-append resources "/" rc))
+                       (jazz.call-process "windres" (list rc "-o" res) directory: resources)
+                       #t)
+                   #f)))))
           (else
            #f)))
       
       (define (resource-files)
         (case platform
           ((windows)
-           (let ()
-             (define (resource-file name)
-               (string-append (source-file "etc/resources/windows/") name "res.o"))
-             
-             (let ((file (resource-file product-name)))
-               (if (file-exists? file)
-                   (%%list (jazz.quote-gcc-pathname file platform))
-                 (%%list (jazz.quote-gcc-pathname (resource-file "jazz") platform))))))
+           (with-resources
+             (lambda (resources rc res)
+               (%%list (jazz.quote-gcc-pathname res platform)))))
           (else
            '())))
+      
+      (define (with-resources proc)
+        (case platform
+          ((windows)
+           (let ()
+             (define (split resources rcname)
+               (let ((rc (%%string-append rcname ".rc"))
+                     (res (%%string-append (jazz.pathname-normalize (product-file "")) product-name "res.o")))
+                 (proc resources rc res)))
+             
+             (if resources
+                 (split resources product-name)
+               (split (source-file "etc/resources/windows") "jazz"))))
+          (else
+           #f)))
       
       (define (gambit-link-libraries)
         (if (%%not library-image?)

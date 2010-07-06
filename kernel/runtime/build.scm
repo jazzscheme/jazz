@@ -439,7 +439,7 @@
                  (if (or rebuild?
                          (jazz.file-needs-update? rcfile res))
                      (begin
-                       (feedback-message "; compiling {a}..." (%%string-append resources "/" rc))
+                       (feedback-message "; compiling {a}..." rcfile)
                        (jazz.call-process "windres" (list rc "-o" res) directory: resources)
                        #t)
                    #f)))))
@@ -465,7 +465,7 @@
                  (proc resources rc res)))
              
              (if resources
-                 (split resources product-name)
+                 (split (jazz.package-pathname (%%product-package (jazz.get-product product)) resources) product-name)
                (split (source-file "etc/resources/windows") "jazz"))))
           (else
            #f)))

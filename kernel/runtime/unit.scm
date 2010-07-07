@@ -760,6 +760,24 @@
 ;;;
 
 
+(define (lower-case-unit-name? unit-name)
+  (define (first-char-of-last-name str)
+    (let loop ((offset (%%fx- (%%string-length str) 1)))
+         (let ((ch (%%string-ref str offset)))
+           (cond
+             ((%%char=? #\. (%%string-ref str offset))
+              (if (%%fx< (%%fx+ offset 1) (%%string-length str))
+                  (%%string-ref str (%%fx+ 1 offset))
+                (jazz.error "unit name {a} ends with a ." str)))
+             ((%%fx= offset 0)
+              ch)
+             (else
+              (loop (%%fx- offset 1)))))))
+  
+  (let ((first-char (first-char-of-last-name (%%symbol->string unit-name))))
+    (and (%%char<=? #\a first-char) (%%char<=? first-char #\z))))
+
+
 (define (jazz.find-unit-src unit-name extensions . rest)
   (define (find-src package path)
     (define (try path)
@@ -774,7 +792,8 @@
              (or (try-extension (%%car extensions))
                  (iter (%%cdr extensions))))))
     
-    (if (jazz.directory-exists? (jazz.package-root-pathname package path))
+    (if (and (jazz.directory-exists? (jazz.package-root-pathname package path))
+             (lower-case-unit-name? unit-name))
         (try (%%string-append path "/_" (jazz.pathname-name path)))
       (try path)))
   
@@ -822,7 +841,8 @@
             (%%make-resource package path #f)
           #f))
       
-      (if (jazz.directory-exists? (jazz.package-root-pathname package path))
+      (if (and (jazz.directory-exists? (jazz.package-root-pathname package path))
+               (lower-case-unit-name? unit-name))
           (try (%%string-append path "/_" (jazz.pathname-name path)))
         (try path)))
     

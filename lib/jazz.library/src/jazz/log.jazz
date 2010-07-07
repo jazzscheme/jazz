@@ -49,7 +49,7 @@
 ;;;
 
 
-(class undocumented Log extends Object
+(class Log extends Object
   
   
   (slot name           initialize {} getter generate)
@@ -85,11 +85,24 @@
   
   
   (method public (reload)
-    (if (null? file)
+    (if (not file)
         (error "Log {s} has no associated file" name)
       (load-toplevel-nodes)))
   
   
+  (method (load-toplevel-nodes)
+    (reset~ toplevel-nodes)
+    (call-with-input-file (parse~ file)
+      (lambda (port)
+        (let (iterate)
+          (let ((expr (read port)))
+            (when (not (eof-object? expr))
+              (let ((node (parse-jml expr)))
+                (put~ toplevel-nodes node))
+              (iterate)))))))
+  
+  
+  @convert
   (method (load-toplevel-nodes)
     (define (handle-read-error current-mark)
       ;; Should create a Mark class to encapsulate those four values
@@ -110,8 +123,6 @@
             (message-box (format "Cannot process log file {a}{%}at line {a}, column {a}" file-path line column)))
         (set! read-error? #t)))
     
-    #f
-    @convert
     (with ((reader (new File-Reader file sharing: 'read/write)))
       (when last-mark
         (set-reader-file-mark reader last-mark))
@@ -136,15 +147,17 @@
   
   
   (method (add-toplevel-node node)
-    (when (null? file)
+    (when (not file)
       (put~ toplevel-nodes node)))
   
   
   (method (output-toplevel-node node)
     (when file
-      (call-with-output-file (list (parse~ file) eol-encoding: (get-eol-encoding) mode: 'append sharing: 'read)
-        (lambda (printer)
-          (pretty-print~ node printer)))))
+      (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding) append: #t @convert sharing: @convert 'read)
+        (lambda (port)
+          (pretty-print~ node port)
+          (newline port)
+          (force-output port)))))
   
   
   ;;;
@@ -198,80 +211,67 @@
 ;;;
 
 
-(definition public undocumented Logs
+(definition Logs
   (new List-Factory))
 
 
-(definition public undocumented (get-logs)
+(definition package (get-logs)
   (get-list~ Logs))
 
-@unimplemented
-(definition public undocumented Add-Log-Lock
-  (new Lock))
+
+(definition with-add-log-mutex
+  (let ((mutex (make-mutex 'add-log)))
+    (lambda (thunk)
+      (mutex-lock! mutex)
+      (prog1 (thunk)
+        (mutex-unlock! mutex)))))
 
 
-(definition public undocumented (add-log log)
-  (unimplemented 'add-log)
-  @Mutex?
-  (synchronize Add-Log-Lock
-    (unless (memq? log (get-logs))
-      (put~ Logs log))))
+(definition package (add-log log)
+  (with-add-log-mutex
+    (lambda ()
+      (unless (memq? log (get-logs))
+        (put~ Logs log)))))
 
 
-(definition public undocumented (current-log)
-  (either (get-current-log)
+(definition package (effective-log)
+  (either (current-log)
           (let ((log (default-log)))
-            (set-current-log log)
+            (current-log log)
             (add-log log)
             log)))
 
 
 (definition (default-log)
-  (unimplemented 'default-log)
-  @Logs
   (new Log name: "Default"))
 
 
-(definition public undocumented (get-current-log)
-  (unimplemented 'get-current-log)
-  @Parameters
-  (get-parameter 'current-log))
+(definition public current-log
+  (make-parameter {}))
 
 
-(definition public undocumented (set-current-log log)
-  (unimplemented 'set-current-log)
-  @Parameters
-  (set-parameter 'current-log log))
+(definition public (with-log log proc (name: name {}) (file: file {}))
+  (parameterize ((current-log log))
+    (proc))
+  (let ((name (get-name~ log)))
+    (when (and name (not file))
+      (add-log log))))
 
 
-(definition public undocumented (with-log log proc (name: name {}) (file: file {}))
-  (unimplemented 'with-log)
-  @unwind-protect
-  (let ((preserved (get-current-log)))
-    (unwind-protect
-        (begin
-          (set-current-log log)
-          (proc))
-      (set-current-log preserved))
-    (let ((name (get-name~ log)))
-      (when (and name (not file))
-        (add-log log)))))
-
-
-(definition public undocumented (with-node proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+(definition public (with-node proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
   (let ((node (either node (new-entry~ log tag name message data))))
     (with-node~ log node proc)))
 
 
-(definition public undocumented (log-node node (log: log (current-log)))
+(definition public (log-node node (log: log (effective-log)))
   (log-node~ log node))
 
 
-(definition public undocumented (log-entry (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+(definition public (log-entry (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
   (log-entry~ log tag name message data))
 
 
-(definition public undocumented (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+(definition public (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
   (let ((printer (open-output-string))
         (first? #t))
     (for-each-property (lambda (property value)
@@ -284,7 +284,7 @@
       (log-entry tag: tag name: name message: message data: data log: log))))
 
 
-(definition public undocumented (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+(definition public (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
   (new-entry~ log tag name message data))
 
 
@@ -293,12 +293,11 @@
 ;;;
 
 
-(definition public undocumented (with-profile proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
-  (unimplemented 'with-profile)
-  @Profiling-later
+@wait
+(definition public (with-profile proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
   (with-node
     (lambda (node)
-      (let ((result))
+      (let ((result {}))
         (log-profile name: 'before log: log)
         ;; this is ugly but necessary not to change stack depth
         (set! result (proc node))
@@ -307,15 +306,13 @@
     node: (either node (new-entry~ log tag name message data))))
 
 
-(definition public undocumented (log-profile (name: name {}) (log: log (current-log)))
-  (unimplemented 'log-profile)
-  @Profiling-later (
+@wait
+(definition public (log-profile (name: name {}) (log: log (effective-log)))
   (gc)
-  (log-node (resources-snapshot~ Performance name: name) log: log)))
+  (log-node (resources-snapshot name: name) log: log))
 
 
-(definition public undocumented (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (current-log)))
-  (unimplemented 'log-stack)
-  @later
+@wait
+(definition public (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (effective-log)))
   (let ((data (new Stack-Snapshot)))
     (log-entry tag: tag name: name message: message data: data log: log))))

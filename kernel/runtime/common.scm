@@ -517,8 +517,21 @@
         (newline output)))))
 
 
+(define (filter proc lst)
+  (if (%%null? lst)
+      '()
+    (let ((head (%%car lst)))
+      (if (proc head)
+          (%%cons head (filter proc (%%cdr lst)))
+        (filter proc (%%cdr lst))))))
+
+
 (define (jazz.save-digest filepath manifest)
-  (let ((digests (%%manifest-source-digests manifest)))
+  (define (delete-digest-file)
+    (if (file-exists? filepath)
+        (delete-file filepath)))
+  
+  (define (save-digest digests)
     (jazz.create-directories (jazz.pathname-dir filepath))
     (call-with-output-file (list path: filepath eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (output)
@@ -535,7 +548,14 @@
                     (display ")" output))
                   digests)
         (display ")" output)
-        (newline output)))))
+        (newline output))))
+  
+  (let ((existing-files-digests (filter (lambda (digest)
+                                          (file-exists? (%%digest-pathname digest)))
+                                        (%%manifest-source-digests manifest))))
+    (if (%%null? existing-files-digests)
+        (delete-digest-file)
+      (save-digest existing-files-digests))))
 
 
 (define (jazz.find-source-digest src-pathname manifest)

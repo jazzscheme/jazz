@@ -62,7 +62,7 @@
       (<Layout-View>                       name: tools           size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 2 6 2 0}
         (<Push-Tool>                       name: memory-logs     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Browse Memory Logs" resource: {Image-Resource "Branch"} portfolio: :images action-handler: {Event-Handler :form on-memory-logs})
         (<Separator>)
-        (<Push-Tool>                       name: directory-logs  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Browse Directory Logs..." resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :form on-directory-logs})
+        (<Push-Tool>                       name: directory-logs  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Browse Logs..." resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :form on-directory-logs})
         (<Separator>)
         (<Push-Tool>                       name: refresh-logs    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh Logs" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh-logs})
         (<Push-Tool>                       name: open            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Open..." resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :form on-open})
@@ -113,7 +113,7 @@
   
   
   (method meta override (host-size)
-    {Point 850 500})
+    {Dimension 850 500})
   
   
   (method override (client-activate)
@@ -174,6 +174,7 @@
   
   (method public (refresh-logs)
     (close-data-viewer)
+    (view-log~ (locate 'log-view) {})
     (view-logs))
   
   
@@ -189,7 +190,6 @@
 
 
   (method (on-clear evt)
-    (unimplemented 'on-clear)
     (on-refresh evt))
 
 
@@ -202,29 +202,28 @@
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
         ((logs-tree)
-          (let ((selection (get-single-selection~ sender)))
-            (when selection
-              (let ((log-view (locate 'log-view))
-                    (log (get-user-data~ (get-row~ sender selection))))
-                (close-data-viewer)
-                (when (get-file~ log)
-                  (reload~ log))
-                (view-log~ log-view log)))))
+         (let ((selection (get-single-selection~ sender)))
+           (let ((log-view (locate 'log-view))
+                   (log (essay selection (get-user-data~ (get-row~ sender selection)))))
+             (close-data-viewer)
+             (when (and log (get-file~ log))
+               (reload~ log))
+             (view-log~ log-view log))))
         ((log-tree)
-          (let ((selection (get-single-selection~ sender)))
-            (when selection
-              (let ((node (get-user-data~ (get-row~ sender selection))))
-                (view-data node))))))))
+         (let ((selection (get-single-selection~ sender)))
+           (when selection
+             (let ((node (get-user-data~ (get-row~ sender selection))))
+               (view-data node))))))))
 
 
   (method (on-double-click evt)
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
         ((log-tree)
-          (let ((selection (get-single-selection~ sender)))
-            (when selection
-              (let ((node (get-user-data~ (get-row~ sender selection))))
-                (edit-data node))))))))
+         (let ((selection (get-single-selection~ sender)))
+           (when selection
+             (let ((node (get-user-data~ (get-row~ sender selection))))
+               (edit-data node))))))))
   
   
   (method override (on-return-press evt)
@@ -238,8 +237,9 @@
 
   (method (view-logs)
     (define (insert-log tree log)
-      (let ((name (->string (get-name~ log))))
-        (add-row~ tree children: (list (new Tree-Node title: name image: {Image-Resource "Script"})) user-data: log)))
+      (let ((name (->string (get-name~ log)))
+            (image (if (get-file~ log) {Image-Resource "Document"} {Image-Resource "Script"})))
+        (add-row~ tree children: (list (new Tree-Node title: name image: image)) user-data: log)))
     
     (define (insert-file tree file)
       (let ((name (get-base~ file)))
@@ -249,7 +249,7 @@
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (if (null? logs-directory)
+          (if (not logs-directory)
               (for-each (lambda (log)
                           (insert-log tree log))
                         (get-logs))

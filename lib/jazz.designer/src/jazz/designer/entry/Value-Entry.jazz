@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Project Files
+;;;; Value Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,83 +35,31 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.editor.jazz.builder.Jazz-File jazz
+(module protected jazz.designer.entry.Value-Entry jazz
 
 
 (import (jazz.designer)
-        (jedi))
+        (jazz.graphic)
+        (jazz.jml))
 
 
-(class Jazz-File extends Project-File
-
-
-  (property tester? initialize #f accessors generate)
-  
-  
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (format printer "{a}"
-                name))))
-  
+(class Value-Entry extends Text-Entry
+    
   
   ;;;
-  ;;;; Product
+  ;;;; Value
   ;;;
   
   
-  ;; Because for the moment, a product's project slot will point to it's container project
-  ;; which is strange but makes some sense because it is his owner... Need to think this through.
-  (method public (get-product)
-    {}
-    @obsolete
-    (if (is? self Product)
-        self
-      project))
+  (method override (get-value)
+    (let ((content (get-string-content~ (locate 'text))))
+      (if (or (empty-string? content) (string=? content "{}"))
+          {}
+        (read-string-element content))))
   
   
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor)
-    (new Jazz-File-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer))
-
-
-(class Jazz-File-Descriptor extends Project-File-Descriptor
-  
-  
-  (method override (class-presentation class)
-    "Jazz File")
-  
-  
-  (method override (class-property-presentation class property)
-    (case (field-name property)
-      ((tester?) "Tester?")
-      (else (nextmethod class property))))
-  
-  
-  (method override (component-can-rename-component? component)
-    #f)
-
-  
-  (method override (component-get-categorized-properties component)
-    '(@wait source @wait build? @wait tester?))
-  
-  
-  (method override (class-get-domain class property)
-    (case (field-name property)
-      ((tester?) (new Boolean-Row))
-      (else (nextmethod class property)))))))
+  (method override (set-value value)
+    (set-string-content~ (locate 'text)
+      (if (not value)
+          "{}"
+        (->string value :reader))))))

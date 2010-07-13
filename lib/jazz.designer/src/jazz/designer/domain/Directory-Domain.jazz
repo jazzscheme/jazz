@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Name Entry
+;;;; Directory Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,54 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.entry.Name-Entry jazz
+(module jazz.designer.domain.Directory-Domain jazz
 
 
 (import (jazz.designer)
-        (jazz.library)
-        (jazz.locale)
-        (jazz.tie))
+        (jazz.library))
 
 
-(class Name-Entry extends String-Entry
+(class Directory-Domain extends Domain
   
+  
+  (attributes (nullable?)
+    (width  initialize 100)
+    (height initialize 17))
   
   ;;;
   ;;;; Validation
   ;;;
   
   
-  (method override (validate domain)
-    (let ((content (get-string-content~ (locate 'text)))
-          (limit (get-limit~ domain))
-          (predicate? (get-predicate?~ domain)))
-      (cond ((empty-string? content)
-             (if (get-nullable?~ domain)
-                 {}
-               (new Property-Violation message: {Locales english: "This field is mandatory" french: "Ce champ est obligatoire"})))
-            ((and limit
-                  (> (string-length content) limit))
-             (new Property-Violation message: (new Locales english: (tie "This field can't contain more than {limit} characters") french: (format "Ce champ ne peut contenir plus de {a} caractère{a}" limit (format-plural limit)))))
-            (predicate?
-             (predicate? content))
-            (else
-             {}))))
+  (method override (validate-value property value component root client context manager)
+    (when (not (string? value))
+      (add-violation~ manager (new Integrity-Violation message: (format "Value must be a string: {t}" value) property: property) component root client)))
   
   
   ;;;
-  ;;;; Value
+  ;;;; Presentation
   ;;;
   
   
-  (method override (get-value)
-    (let ((content (get-string-content~ (locate 'text))))
-      (if (empty-string? content)
-          nil
-        content)))
+  (method override (present value)
+    value)
   
   
-  (method override (set-value value)
-    (set-string-content~ (locate 'text)
-      (if (nil? value)
-          ""
-        value)))))
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (let ((entry (new Pathname-Entry parent: view size: (new Dimension width height) domain: self)))
+      (set-protocol~ (locate~ entry 'moniker) 'dir)
+      entry))))

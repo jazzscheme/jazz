@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Date Entry
+;;;; Dimension Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.calendar.Date-Entry jazz
+(module protected jazz.designer.entry.Dimension-Entry jazz
 
 
-(import (jazz.calendar)
-        (jazz.designer)
+(import (jazz.designer)
+        (jazz.graphic)
         (jazz.jml)
-        (jazz.library)
-        (jazz.locale)
-        (jazz.ui.view)
-        (time))
+        (jazz.ui))
 
 
-(class Date-Entry extends String-Entry
+(class Dimension-Entry extends Property-Entry
   
   
   (form
     (<install>
-      @wait (<Action-Icon> name: action  size: {Dimension 22 22} resource: {Image-Resource "PageDate"} tooltip-text: "Choisir la date" action-handler: {Event-Handler :form on-choose-date})))
+      (<Border-View>           name: border   border-type: edge style: entry
+        (<Scroller-View>       name: scroller hscroll?: #f vscroll?: #f
+          (<!>                 name: content  layout-type: fill
+            (<Entry-Text-View> name: text left-padding: 0 top-padding: 0))))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'text) self))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method override (tab-view)
+    (locate 'text))
   
   
   ;;;
@@ -61,15 +75,11 @@
   
   
   (method override (validate domain)
-    (or (nextmethod domain)
-        (let ((content (get-string-content~ (locate 'text))))
-          (if (or (empty-string? content)
-                  (with-exception-filter
-                    (lambda (exception) #t)
-                    (lambda (exception) #f)
-                    (lambda () (parse-date-day content))))
-              {}
-            (new Property-Violation message: (new Locales english: "Date format is yyyy/mm/dd" french: "Le format de date est yyyy/mm/dd"))))))
+    (let ((content (get-string-content~ (locate-component 'text))))
+      (if (and (empty-string? content)
+               (not (get-nullable?~ domain)))
+          (new Property-Violation message: "This field is mandatory")
+        {})))
   
   
   ;;;
@@ -77,36 +87,48 @@
   ;;;
   
   
+  (method override (get-modified?)
+    (get-modified?~ (locate 'text)))
+  
+  
+  (method override (set-modified? value)
+    (set-modified?~ (locate 'text) value))  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
   (method override (get-value)
-    (let ((content (get-string-content~ (locate 'text))))
-      (if (or (empty-string? content) (string=? content "{}"))
-          nil
-        (parse-date-day content))))
+    (let ((list (read-delimited-string (get-string-content~ (locate 'text)) #\comma)))
+      (bind ((width) (height)) list
+        (new Dimension width height))))
   
   
-  (method override (set-value value)
+  (method override (set-value size)
     (set-string-content~ (locate 'text)
-      (if (nil? value)
-          "{}"
-        (present-date-day value))))
-    
+      (if (nil? size)
+          ""
+        (format "{a}, {a}"
+                (get-width~ size)
+                (get-height~ size)))))
+  
   
   ;;;
-  ;;;; Layout
+  ;;;; Editable
   ;;;
-
   
-  (method override (layout)
-    (let ((size (get-size)))
-      (set-size~ (locate 'border) size @wait (- size {Dimension 24 0}))
-      @wait (set-position~ (locate 'action) (new Point (- (get-width~ size) 22) 0))))
-    
+  
+  (method override (set-editable? flag)
+    (set-border-type~ (locate 'border) (if flag 'edge 'none))
+    (set-editable?~ (locate 'text) flag)
+    (set-background~ (locate 'text) (if flag {Color name: White} {Color name: Medium})))
+  
   
   ;;;
-  ;;;; Events
+  ;;;; Enabled
   ;;;
-
   
-  (method (on-choose-date evt)
-    (set-value (get-modal Calendar-Dialog initial-date: (get-value)))
-    (set-modified? #t))))
+  
+  (method override (set-enabled? flag)
+    (set-enabled?~ (locate 'text) flag))))

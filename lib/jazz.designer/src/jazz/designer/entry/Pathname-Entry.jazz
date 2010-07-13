@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Name Entry
+;;;; Pathname Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,38 +35,48 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.entry.Name-Entry jazz
+(module protected jazz.designer.entry.Pathname-Entry jazz
 
 
 (import (jazz.designer)
+        (jazz.graphic)
+        (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.tie))
+        (jazz.tie)
+        (jazz.ui))
 
 
-(class Name-Entry extends String-Entry
+(class Pathname-Entry extends Property-Entry
+  
+  
+  (form
+    (<install>
+      (<Border-View>       name: border border-type: edge style: entry
+        (<Moniker-Widget>  name: moniker selectable?: #t moniker-update-handler: {Event-Handler :form on-moniker-update}
+          (<!>             name: body   left-padding: 0 top-padding: 0 default-style: {Text-Style name: Default font: {Font name: Label}})))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest))
   
   
   ;;;
-  ;;;; Validation
+  ;;;; Tab
   ;;;
   
   
-  (method override (validate domain)
-    (let ((content (get-string-content~ (locate 'text)))
-          (limit (get-limit~ domain))
-          (predicate? (get-predicate?~ domain)))
-      (cond ((empty-string? content)
-             (if (get-nullable?~ domain)
-                 {}
-               (new Property-Violation message: {Locales english: "This field is mandatory" french: "Ce champ est obligatoire"})))
-            ((and limit
-                  (> (string-length content) limit))
-             (new Property-Violation message: (new Locales english: (tie "This field can't contain more than {limit} characters") french: (format "Ce champ ne peut contenir plus de {a} caractère{a}" limit (format-plural limit)))))
-            (predicate?
-             (predicate? content))
-            (else
-             {}))))
+  (method override (tab-view)
+    (locate '(moniker body)))
+  
+  
+  ;;;
+  ;;;; Event
+  ;;;
+  
+  
+  (method (on-moniker-update evt)
+    (set-modified? #t))
   
   
   ;;;
@@ -75,14 +85,26 @@
   
   
   (method override (get-value)
-    (let ((content (get-string-content~ (locate 'text))))
-      (if (empty-string? content)
-          nil
-        content)))
+    (get-moniker~ (locate 'moniker)))
   
   
-  (method override (set-value value)
-    (set-string-content~ (locate 'text)
-      (if (nil? value)
-          ""
-        value)))))
+  (method override (set-value pathname)
+    (set-moniker~ (locate 'moniker) pathname generate-event?: #f))
+  
+  
+  (method override (get-modified?)
+    (get-modified?~ (locate 'moniker)))
+  
+  
+  (method override (set-modified? value)
+    (set-modified?~ (locate 'moniker) value))
+  
+  
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method override (set-editable? value)
+    (set-border-type~ (locate 'border) (if value 'edge 'none))
+    (set-editable?~ (locate 'combo) value))))

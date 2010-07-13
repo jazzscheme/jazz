@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Number Entry
+;;;; Point Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,15 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.entry.Number-Entry jazz
+(module protected jazz.designer.entry.Point-Entry jazz
 
 
 (import (jazz.designer)
-        (jazz.library)
-        (jazz.locale))
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.ui))
 
 
-(class Number-Entry extends String-Entry
+(class Point-Entry extends Property-Entry
+  
+  
+  (form
+    (<install>
+      (<Border-View>           name: border   border-type: edge style: entry
+        (<Scroller-View>       name: scroller hscroll?: #f vscroll?: #f
+          (<!>                 name: content  layout-type: fill
+            (<Entry-Text-View> name: text left-padding: 0 top-padding: 0))))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'text) self))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method override (tab-view)
+    (locate 'text))
   
   
   ;;;
@@ -52,12 +75,11 @@
   
   
   (method override (validate domain)
-    (or (nextmethod domain)
-        (let ((content (get-string-content~ (locate 'text))))
-          (if (or (empty-string? content)
-                  (numeric? content))
-              {}
-            (new Property-Violation message: {Locales english: "This field is numeric" french: "Ce champ est numérique"})))))
+    (let ((content (get-string-content~ (locate-component 'text))))
+      (if (and (empty-string? content)
+               (not (get-nullable?~ domain)))
+          (new Property-Violation message: "This field is mandatory")
+        {})))
   
   
   ;;;
@@ -65,15 +87,48 @@
   ;;;
   
   
+  (method override (get-modified?)
+    (get-modified?~ (locate 'text)))
+  
+  
+  (method override (set-modified? value)
+    (set-modified?~ (locate 'text) value))  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
   (method override (get-value)
-    (let ((content (get-string-content~ (locate 'text))))
-      (if (empty-string? content)
-          nil
-        (string->number content))))
+    (let ((list (read-delimited-string (get-string-content~ (locate 'text)) #\comma)))
+      (bind ((h) (v)) list
+        (new Point h v))))
   
   
-  (method override (set-value value)
+  (method override (set-value point)
     (set-string-content~ (locate 'text)
-      (if (nil? value)
+      (if (nil? point)
           ""
-        (number->string value))))))
+        (format "{a}, {a}"
+                (get-h~ point)
+                (get-v~ point)))))
+  
+  
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method override (set-editable? flag)
+    (set-border-type~ (locate 'border) (if flag 'edge 'none))
+    (set-editable?~ (locate 'text) flag)
+    (set-background~ (locate 'text) (if flag {Color name: White} {Color name: Medium})))
+  
+  
+  ;;;
+  ;;;; Enabled
+  ;;;
+  
+  
+  (method override (set-enabled? flag)
+    (set-enabled?~ (locate 'text) flag))))

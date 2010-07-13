@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Architecture
+;;;; Directory Group Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,64 +35,46 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.validate.support.Test-Table jazz
+(module jazz.designer.domain.Directory-Group-Domain jazz
 
 
 (import (jazz.designer)
         (jazz.library))
 
 
-(class Test-Table extends Component
+(class Directory-Group-Domain extends Domain
   
   
-  (property description initialize {} accessors generate)
-  (property no          initialize 5  accessors generate)
+  (attributes (nullable?)
+    (width  initialize 100)
+    (height initialize 17))
   
   
   ;;;
-  ;;;; Descriptor
+  ;;;; Validation
   ;;;
   
   
-  (method meta override (get-class-descriptor)
-    (new Test-Table-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer))
-
-
-(class Test-Table-Descriptor extends Component-Descriptor
+  (method override (validate-value property value component root client context manager)
+    (when (not (string? value))
+      (add-violation~ manager (new Integrity-Violation message: (format "Value must be a string: {t}" value) property: property) component root client)))
   
   
-  (method override (class-image class)
-    {Image-Resource "DesignTable"})
+  ;;;
+  ;;;; Presentation
+  ;;;
   
   
-  (method override (class-presentation class)
-    "Table")
-
-  
-  (method override (class-property-presentation class property)
-    (case (field-name property)
-      ((description) "Description")
-      ((no) "No")
-      (else (nextmethod class property))))
+  (method override (present value)
+    value)
   
   
-  (method override (component-get-categorized-properties component)
-    '(class-info name-info description no))
-    
+  ;;;
+  ;;;; Entry
+  ;;;
   
-  (method override (class-get-domain class property)
-    (case (field-name property)
-      ((description) (new String-Domain nullable?: #t))
-      ((no) (new Integer-Domain))
-      (else (nextmethod class property)))))))
+  
+  (method override (setup-entry view client)
+    (let ((entry (new Pathname-Entry parent: view size: (new Dimension width height) domain: self)))
+      (set-protocol~ (locate~ entry 'moniker) 'dir)
+      entry))))

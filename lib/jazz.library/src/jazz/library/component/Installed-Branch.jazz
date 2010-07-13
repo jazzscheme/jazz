@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Component Branches
+;;;; Installed Branch
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,32 +35,25 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.component.Branch jazz
+(module protected jazz.library.component.Installed-Branch jazz
 
 
 (import (jazz.library))
 
 
-(class Branch extends Component
+(class Installed-Branch extends Object
   
   
-  (property client-form initialize {} accessors generate)
-  
-  
-  (slot client       initialize {} accessors generate)
-  (slot restore-form initialize {} getter generate)
-  (slot restoreable? initialize #t accessors generate)
+  (slot client           initialize {} accessors generate)
+  (slot branch           initialize {} accessors generate)
+  (slot installed-branch initialize {} accessors generate)
+  (slot restore-form     initialize {} getter generate)
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set! client (default-client)))
-
-
-  (method (default-client)
-    (if (is? parent Branch)
-        (get-client~ parent)
-      parent))
+  (method override (initialize client branch)
+    (nextmethod)
+    (set! client~self client)
+    (set! branch~self branch))
   
   
   ;;;
@@ -68,42 +61,30 @@
   ;;;
   
   
-  (method override (install-branch br)
-    (install-branch~ parent self)
-    (nextmethod br))
-  
-  
-  @w
-  (method override (install-branch2 client)
-    (define (iii installed-branch branch)
-      (when (is? branch Branch)
-        (let ((installed-branch (new Installed-Branch client branch)))
-          (install-branch2~ branch client)
-      )))
-    
-    (let ((installed-branch (new Installed-Branch client self)))
-      
-    (install-branch2~ client br)
-      (set-branch2~ client installed-branch)))
+  (method (install-branch2)
+    )
 
 
   (method protected (configure-client)
-    ;(debug 'configure name)
+    @w
     (when restoreable?
       (set! restore-form (new Restore-Form context: self action: 'install)))
-    (let ((configured (configure-inherited)))
+    (let ((client-form (get-client-form~ branch))
+          (configured (configure-inherited)))
       (when (neq? client-form configured)
-        (install-form~ client client-form creator self restore-form)))
-    (set-branch~ parent self))
+        (install-form~ client client-form (get-creator~ client) self restore-form)))
+    @w (set-branch~ parent self))
   
   
   ;; quicky to test
   (method (configure-inherited)
+    #f
+    @w
     (let ((form (get-class-form)))
       (when form
         (let ((client-form (get-property~ form client-form:)))
           (when client-form
-            (install-form~ client client-form creator self restore-form)
+            (install-form~ client client-form (get-creator~ client) self restore-form)
             client-form)))))
   
   
@@ -132,51 +113,6 @@
   (method protected (restore-client)
     (when branch
       (restore-client~ branch))
-    ;(debug 'restore name)
-    (set-branch~ parent {})
+    @w (set-branch~ parent {})
     (install-form~ client restore-form client {} {})
-    (set! restore-form {}))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor)
-    (new Branch-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer))
-
-
-(class Branch-Descriptor extends Component-Descriptor
-  
-  
-  (method override (class-image class)
-    {Image-Resource "Branch"})
-  
-  
-  (method override (class-name-mandatory? class)
-    #t)
-  
-  
-  (method override (class-name-unicity? class)
-    #t)
-  
-  
-  (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (string->symbol presentation) branch: {}))
-  
-  
-  (method override (component-display-property? component property)
-    (and (nextmethod component property)
-         (not (memq? (field-name property) '(client-form))))))))
+    (set! restore-form {}))))

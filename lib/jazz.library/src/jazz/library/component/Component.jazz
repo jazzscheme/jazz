@@ -68,6 +68,7 @@
   (slot name                         initialize {})
   (slot parent                       initialize {})
   (slot branch                       initialize {})   ;; the immediatly installed branch
+  (slot branch2                      initialize {})   ;; the immediatly installed branch
   (slot creation-form                initialize {})   ;; the form that created the component
   (slot creator                      initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize {})   ;; the branch that created the component ({} if none)
@@ -135,8 +136,16 @@
     branch)
   
   
+  (method public inline (get-branch2)
+    branch2)
+  
+  
   (method public inline (set-branch value)
     (set! branch value))
+  
+  
+  (method public inline (set-branch2 value)
+    (set! branch2 value))
 
 
   (method public inline (get-form)
@@ -1030,20 +1039,38 @@
         (get-presentation-property~ branch))))
   
   
-  (method public (set-active-branch active-branch)
-    (if (or (not active-branch) (eq? active-branch self))
+  (method public (set-active-branch br)
+    (if (or (not br) (eq? br self))
         (when branch
           (restore-client~ branch))
-      (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
+      (let ((branch (if (is? br Branch) br (locate br))))
         (install-branch~ branch {}))))
   
   
   (method protected virtual (install-branch br)
     (when (neq? br branch)
       (when branch
+        ;; should restore all branches non-recursively
         (restore-client~ branch))
       (when br
         (configure-client~ br))))
+  
+  
+  (method public (set-active-branch2 br)
+    (if (or (not br) (eq? br self))
+        (when branch2
+          (restore-client~ branch2))
+      (let ((branch (if (is? br Branch) br (locate br))))
+        (install-branch2~ branch self))))
+  
+  
+  (method protected (install-branch2 br)
+    (when (neq? br branch2)
+      (when branch2
+        (restore-client~ branch2))
+      (when br
+        (configure-client~ br)
+        (set! branch2 br))))
   
   
   (method public (for-each-branch proc)

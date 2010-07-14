@@ -40,6 +40,9 @@
 
 (import (jazz.designer)
         (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -66,12 +69,20 @@
   
   
   (method override (present value)
-    ;; quicky
-    (->string value))
+    (present~ domain value))
   
   
   (method (get-entry)
     (first-child~ editor))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method override (draw-data surface context value column row data width height)
+    (draw-data~ domain surface context value column row data width height))
   
   
   ;;;
@@ -101,6 +112,20 @@
     (set-modified?~ (get-entry) value))
   
   
+  (method override (focus-editor . rest)
+    (let ((view (tab-view~ (get-entry))))
+      (when view
+        (set-arrow-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-arrow))
+        (acquire-focus~ view)
+        (select-all~ view))))
+  
+  
+  (method (on-editor-arrow evt)
+    (case (get-property~ evt direction:)
+      ((up) (up-arrow-press~ (get-tree) NoModifiers))
+      ((down) (down-arrow-press~ (get-tree) NoModifiers))))
+  
+  
   (method override (show-cursor)
     @w
     (show-text-cursor~ (locate~ editor 'body)))
@@ -118,6 +143,10 @@
 
 
 (class Domain-Editor extends Layout-View
+  
+  
+  (form
+    (<install> layout-type: fill))
   
   
   (property value-row initialize {} accessors generate)))

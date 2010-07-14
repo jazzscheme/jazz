@@ -39,24 +39,12 @@
 
 
 (import (jazz.designer)
+        (jazz.geometry)
+        (jazz.graphic)
         (jazz.library))
 
 
 (class Color-Domain extends Domain
-  
-  
-  (attributes (nullable?)
-    (width  initialize 100)
-    (height initialize 17))
-  
-  ;;;
-  ;;;; Validation
-  ;;;
-  
-  
-  (method override (validate-value property value component root client context manager)
-    (when (not (string? value))
-      (add-violation~ manager (new Integrity-Violation message: (format "Value must be a string: {t}" value) property: property) component root client)))
   
   
   ;;;
@@ -64,8 +52,27 @@
   ;;;
   
   
-  (method override (present value)
-    value)
+  (method override (present color)
+    (if (not color)
+        "{}"
+      (present~ color)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method override (draw-data surface context value column row data width height)
+    (draw-at~ column surface context row data 15 0 width height)
+    (let* ((outer (new Rect 2 3 13 (- height 3)))
+           (inner (inflate-rect outer -1 -1)))
+      (frame-rect~ surface outer {Color name: Black})
+      (if value
+          (fill-rect~ surface inner value)
+        (set-color~ surface {Color name: Black})
+        (set-line-width~ surface 1)
+        (line~ surface (- (get-right~ outer) 1) (+ (get-top~ outer) 1) (+ (get-left~ outer) 1) (- (get-bottom~ outer) 1)))))
   
   
   ;;;
@@ -74,4 +81,4 @@
   
   
   (method override (setup-entry view client)
-    (new Color-Entry parent: view size: (new Dimension width height) domain: self))))
+    (new Color-Entry parent: view size: (get-size~ view) domain: self))))

@@ -45,27 +45,29 @@
 (class Range-Domain extends Domain
   
   
-  (attributes (nullable?)
-    (width  initialize 100)
-    (height initialize 17))
-  
-  ;;;
-  ;;;; Validation
-  ;;;
-  
-  
-  (method override (validate-value property value component root client context manager)
-    (when (not (string? value))
-      (add-violation~ manager (new Integrity-Violation message: (format "Value must be a string: {t}" value) property: property) component root client)))
-  
-  
   ;;;
   ;;;; Presentation
   ;;;
   
   
   (method override (present range)
-    range)
+    (if (not range)
+        "{}"
+      (format "{a}, {a}"
+              (get-start~ range)
+              (get-end~ range))))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  @convert
+  (method override (get-edited-value)
+    (let ((list (read-delimited-string (get-string-content~ editor) #\comma)))
+      (bind ((start) (end)) list
+        (new Range start end))))
   
   
   ;;;
@@ -74,5 +76,5 @@
   
   
   (method override (setup-entry view client)
-    (new Range-Entry parent: view size: (new Dimension width height) domain: self))))
+    (new Range-Entry parent: view size: (get-size~ view) domain: self))))
 

@@ -233,10 +233,9 @@
                 properties))
     
     (define (insert-property client any editor designer father property state position)
-      (let* ((class (get-row-class~ any property))
-             (instance (get-row-instance~ any property))
-             (row (either instance (new class)))
-             (image (get-filter-image~ class))
+      (let* ((domain (get-domain~ (class-of any) property))
+             (row (new Domain-Row domain: domain))
+             (image (get-filter-image~ domain))
              (values (map (lambda (component) (read-property component property)) client))
              (presented (map (lambda (value) (present~ row value)) values))
              (creator (get-creator~ any))
@@ -246,7 +245,7 @@
              (uniform? (or (<= (length values) 1) (apply string=? presented)))
              (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} {}) {Color name: Dark-Gray})))
              (label (new Tree-Label))
-             (owner (new Tree-Image image: (owner-image designer client class property))))
+             (owner (new Tree-Image image: (owner-image designer client domain property))))
         (set-parent~ row self)
         (set-row-height~ row 17)
         (set-children~ row (list node label owner))
@@ -284,18 +283,8 @@
             (insert-properties client any editor designer {} properties))))))
   
   
-  (method public (update-property clt property)
-    (let* ((client (get-client))
-           (any (car client)))
-      (when (eq? clt any)
-        (let ((rank (find-property-index property)))
-          (when rank
-            (let ((row (get-row rank)))
-              (update-property-row~ any property row)))))))
-  
-  
-  (method (owner-image designer client class property)
-    (when (and designer (= 1 (length client)) (neq? class Info-Row))
+  (method (owner-image designer client domain property)
+    (when (and designer (= 1 (length client)) (/= (get-filter-rank~ domain) 0))
       (let* ((component (car client))
              (owner (find-owner~ designer component property)))
         (cond ((is? owner Branch) (branch-owner-image))
@@ -457,7 +446,7 @@
           (update~ row value)
           (let* ((cell (new Cell rank 2))
                  (data (get-cell-data cell)))
-            (set-image~ data (owner-image (get-designer) (get-client) (class-of row) property))
+            (set-image~ data (owner-image (get-designer) (get-client) (get-domain~ row) property))
             (invalidate-cell cell)))))))
 
 

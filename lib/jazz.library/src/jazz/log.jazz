@@ -52,19 +52,19 @@
 (class Log extends Object
   
   
-  (slot name           initialize {} getter generate)
-  (slot file           initialize {} getter generate)
-  (slot last-mark      initialize {})
+  (slot name           initialize #f getter generate)
+  (slot file           initialize #f getter generate)
+  (slot last-mark      initialize #f)
   (slot read-error?    initialize #f)
-  (slot current-node   initialize {} getter generate)
+  (slot current-node   initialize #f getter generate)
   (slot toplevel-nodes initialize '())
   
   
-  (method override (initialize (name: name {}) (file: file {}) (load?: load? #f))
+  (method override (initialize (name: name #f) (file: file #f) (load?: load? #f))
     (nextmethod)
     (set! name~self name)
     (set! file~self file)
-    (set! current-node~self {})
+    (set! current-node~self #f)
     (set! toplevel-nodes~self (new List-Factory))
     (when load?
       (load-toplevel-nodes)))
@@ -194,7 +194,7 @@
   
   
   (method public (new-entry tag name message data)
-    (let ((entry (new JML-Element {} (either tag 'entry))))
+    (let ((entry (new JML-Element #f (either tag 'entry))))
       (set-property~ entry 'name name)
       (set-property~ entry 'message message)
       (set-property~ entry 'data data)
@@ -247,10 +247,10 @@
 
 
 (definition public current-log
-  (make-parameter {}))
+  (make-parameter #f))
 
 
-(definition public (with-log log proc (name: name {}) (file: file {}))
+(definition public (with-log log proc (name: name #f) (file: file #f))
   (parameterize ((current-log log))
     (proc))
   (let ((name (get-name~ log)))
@@ -258,7 +258,7 @@
       (add-log log))))
 
 
-(definition public (with-node proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
+(definition public (with-node proc (node: node #f) (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
   (let ((node (either node (new-entry~ log tag name message data))))
     (with-node~ log node proc)))
 
@@ -267,11 +267,11 @@
   (log-node~ log node))
 
 
-(definition public (log-entry (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
+(definition public (log-entry (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
   (log-entry~ log tag name message data))
 
 
-(definition public (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
+(definition public (log-properties properties (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
   (let ((printer (open-output-string))
         (first? #t))
     (for-each-property (lambda (property value)
@@ -284,7 +284,7 @@
       (log-entry tag: tag name: name message: message data: data log: log))))
 
 
-(definition public (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
+(definition public (new-log-node (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
   (new-entry~ log tag name message data))
 
 
@@ -294,10 +294,10 @@
 
 
 @wait
-(definition public (with-profile proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (effective-log)))
+(definition public (with-profile proc (node: node #f) (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
   (with-node
     (lambda (node)
-      (let ((result {}))
+      (let ((result #f))
         (log-profile name: 'before log: log)
         ;; this is ugly but necessary not to change stack depth
         (set! result (proc node))
@@ -307,12 +307,12 @@
 
 
 @wait
-(definition public (log-profile (name: name {}) (log: log (effective-log)))
+(definition public (log-profile (name: name #f) (log: log (effective-log)))
   (gc)
   (log-node (resources-snapshot name: name) log: log))
 
 
 @wait
-(definition public (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (effective-log)))
+(definition public (log-stack (tag: tag #f) (name: name #f) (message: message #f) (log: log (effective-log)))
   (let ((data (new Stack-Snapshot)))
     (log-entry tag: tag name: name message: message data: data log: log))))

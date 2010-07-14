@@ -79,10 +79,10 @@
 
   
   (definition delayed-autorow
-    {})
+    #f)
 
   
-  (property protected portfolio                 initialize {}   accessors explicit)
+  (property protected portfolio                 initialize #f   accessors explicit)
   (property protected show-header?              initialize #t   accessors generate)
   ;; row cell node
   (property protected selection-mode            initialize 'row accessors explicit)
@@ -91,27 +91,27 @@
   (property protected show-unfocused-selection? initialize #t   accessors explicit)
   (property protected focused-on-descendants?   initialize #f   accessors explicit)
   (property protected auto-expand/collapse?     initialize #f   accessors generate)
-  (property protected cell-background           initialize {}   accessors explicit)
-  (property protected empty-background          initialize {}   accessors explicit)
+  (property protected cell-background           initialize #f   accessors explicit)
+  (property protected empty-background          initialize #f   accessors explicit)
   (property protected filled-column             initialize #t   accessors generate)
   (property protected column-spacing            initialize 0    accessors explicit)
   (property protected reorderable?              initialize #f   accessors generate)
-  (property protected content                   initialize {}   accessors explicit)
+  (property protected content                   initialize #f   accessors explicit)
   
   
   (slot protected columns                       initialize '()  getter generate)
-  (slot protected node-column                   initialize {}   getter generate)
-  (slot protected sorted-column                 initialize {}   getter generate)
+  (slot protected node-column                   initialize #f   getter generate)
+  (slot protected sorted-column                 initialize #f   getter generate)
   (slot protected sort-ascending?               initialize #t   getter generate)
-  (slot protected selection-pivot               initialize {})
+  (slot protected selection-pivot               initialize #f)
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
   (slot protected columns-borders               initialize '()  getter generate)
   (slot protected columns-right            <fx> initialize 0    getter generate)
-  (slot protected edited-cell                   initialize {}   getter generate)
-  (slot protected cell-editor                   initialize {}   getter generate)
+  (slot protected edited-cell                   initialize #f   getter generate)
+  (slot protected cell-editor                   initialize #f   getter generate)
   (slot protected close-cell-editor?            initialize #t)
-  (slot protected auto-expanded-row             initialize {}   setter generate)
+  (slot protected auto-expanded-row             initialize #f   setter generate)
   (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
   (slot protected merge-cell-list               initialize '()  getter generate)
@@ -369,7 +369,7 @@
                                   (when (in-rect? pos rect)
                                     (continuation-return return (find-drawing~ data (acquire~ data self pos))))))))
                           merge-cell-list)
-                {}))
+                #f))
             (nextmethod pos ignore)))
 
 
@@ -646,9 +646,9 @@
   
   (method override (remove-every-row)
     (close-auto-expanded-row)
-    (set-sorted {} #t)
+    (set-sorted #f #t)
     (set! highlighted '())
-    (set! selection-pivot {})
+    (set! selection-pivot #f)
     (set! merge-cell-list '())
     (empty-table merge-cell-table)
     (nextmethod))
@@ -1042,7 +1042,7 @@
   
   
   (method protected virtual (get-column-tooltip column)
-    {})
+    #f)
 
 
   ;;;
@@ -1102,7 +1102,7 @@
              (maskdc (new Memory-Surface cdc (new Dimension width height) keep-bitmap?: #t)))
         (fill-rect~ memdc (new Rect 0 0 width height) {Color name: White})
         (fill-rect~ maskdc (new Rect 0 0 width height) {Color name: White})
-        (draw-image~ portfolio memdc {} image 0 0)
+        (draw-image~ portfolio memdc #f image 0 0)
         (draw-mask~ portfolio maskdc image 0 0)
         (set-font~ memdc font)
         (set-text-color~ memdc {Color name: Black})
@@ -1189,11 +1189,11 @@
   
   
   (method protected virtual (get-row-target drag-drop row)
-    {})
+    #f)
   
   
   (method protected virtual (get-cell-target drag-drop row col)
-    {})
+    #f)
     
   
   (method override (highlight-drop drag-drop pos)
@@ -1205,7 +1205,7 @@
                (part (get-part~ target))
                (insert
                 (case part
-                  ((row) {})
+                  ((row) #f)
                   ((before) 'before)
                   ((after) 'after)))
                (highlight (new Tree-Highlight row col insert: insert outer-color: Highlighted-Outer-Color inner-color: Highlighted-Inner-Color)))
@@ -1418,13 +1418,13 @@
     (let* ((row (get-row line))
            (top (get-top~ row))
            (bottom (get-bottom~ row))
-           (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) {})))
+           (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) #f)))
       (= (get-v~ needed) 0)))
   
   
   (method (cell-displayed? cell)
     (let* ((rect (cell-rect cell))
-           (needed (scroll-needed (new Point (get-left~ rect) (get-top~ rect)) (new Point (get-right~ rect) (get-bottom~ rect)) {})))
+           (needed (scroll-needed (new Point (get-left~ rect) (get-top~ rect)) (new Point (get-right~ rect) (get-bottom~ rect)) #f)))
       (and (= (get-h~ needed) 0)
            (= (get-v~ needed) 0))))
   
@@ -1475,7 +1475,7 @@
 
   
   (method public (add-column . rest)
-    (bind-keywords ((class Tree-Column) (title {}) (width {}) . others) rest
+    (bind-keywords ((class Tree-Column) (title #f) (width #f) . others) rest
       (let ((column (apply new class parent: self others)))
         (when (is? column Tree-Node-Column)
           (set! node-column column))
@@ -1491,7 +1491,7 @@
   (method public (remove-column column)
     (set! columns (remove! column columns))
     (when (eq? column node-column)
-      (set! node-column {}))
+      (set! node-column #f))
     (invalidate-columns)
     (fill-column)
     (invalidate-header))
@@ -1513,7 +1513,7 @@
       (set! columns '())
       (set! columns-borders '())
       (set! columns-right 0)
-      (set! node-column {})
+      (set! node-column #f)
       (invalidate-header))
     
     (if (or preserve-node-column? preserve)
@@ -1584,7 +1584,7 @@
           (invalidate-rect (image-rect~ node-column father top))))))
   
   
-  (method override (add-empty-row (father: father {}))
+  (method override (add-empty-row (father: father #f))
     (let ((father (either father root-row)))
       (add-row father: father children: (map (lambda (column)
                                                (new-empty-cell~ column))
@@ -1684,13 +1684,13 @@
 
   
   (method public (get-merge-cell site)
-    (table-ref merge-cell-table site {}))
+    (table-ref merge-cell-table site #f))
   
   
   (method public (safe-get-merge-cell site)
     (case selection-mode
       ((cell) (get-merge-cell site))
-      (else {})))
+      (else #f)))
   
   
   (method public (set-merge-cell! site merge-cell)
@@ -1761,7 +1761,7 @@
                       (when (eq? data view)
                         (continuation-return return merge-cell))))
                   merge-cell-list)
-        {})))
+        #f)))
   
 
   ;;;
@@ -1776,7 +1776,7 @@
           (lambda (row line)
             (when (eq? row target)
               (continuation-return return line))))
-        {})))
+        #f)))
 
 
   (method public (user-data-row data (test: test eqv?) (visible?: visible? #t))
@@ -1786,7 +1786,7 @@
          (lambda (row line)
            (when (test (get-user-data~ row) data)
              (continuation-return return row))))
-        {})))
+        #f)))
 
 
   (method public (user-data-rows data-list (test: test eqv?) (visible?: visible? #t))
@@ -1807,7 +1807,7 @@
           (lambda (row line)
             (when (test (get-user-data~ row) data)
               (continuation-return return line))))
-        {})))
+        #f)))
 
 
   ;; Because it returns the line, this method only makes sense on visible rows
@@ -1935,7 +1935,7 @@
       (if (expanded?~ row)
           (when auto-toggle?
             (auto-collapse~ row)
-            (set! auto-expanded-row {}))
+            (set! auto-expanded-row #f))
         (auto-expand~ row)
         (set! auto-expanded-row row)))
     
@@ -1944,7 +1944,7 @@
              (when (and close-auto-expanded? auto-expanded-row (neq? auto-expanded-row row))
                (close-auto-expanded new-spine: (essay row (get-spine~ row)) force?: #f)
                (set! delayed-autorow auto-expanded-row)
-               (set! auto-expanded-row {}))
+               (set! auto-expanded-row #f))
              (when (and row (auto-in-place?~ row))
                (auto-toggle row auto-toggle?)))
             ((mouse-up?~ selection-manager)
@@ -1954,7 +1954,7 @@
                  (auto-collapse~ (if (expanded?~ delayed-autorow)
                                      delayed-autorow
                                    (get-father~ delayed-autorow)))
-                 (set! delayed-autorow {})))
+                 (set! delayed-autorow #f)))
              (when (and row (not (auto-in-place?~ row)))
                (auto-toggle row auto-toggle?)))
             (else
@@ -1965,11 +1965,11 @@
       (set! selection (rows->selection selected-rows))))
   
   
-  (method public (close-delayed-row (new-spine: new-spine {}))
+  (method public (close-delayed-row (new-spine: new-spine #f))
     (when delayed-autorow
       (let ((old-spine (get-spine~ delayed-autorow))
             (done? #f))
-        (set! delayed-autorow {})
+        (set! delayed-autorow #f)
         (for-each-reversed (lambda (row)
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
@@ -1978,11 +1978,11 @@
                            old-spine))))
   
   
-  (method public (close-auto-expanded (new-spine: new-spine {}) (force?: force? #t))
+  (method public (close-auto-expanded (new-spine: new-spine #f) (force?: force? #t))
     (when auto-expanded-row
       (let ((old-spine (get-spine~ auto-expanded-row))
             (done? #f))
-        (set! auto-expanded-row {})
+        (set! auto-expanded-row #f)
         (for-each-reversed (lambda (row)
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
@@ -1997,7 +1997,7 @@
   (method (close-auto-expanded-row)
     (when auto-expanded-row
       (auto-collapse~ auto-expanded-row)
-      (set! auto-expanded-row {})))
+      (set! auto-expanded-row #f)))
   
   
   (method public (set-dynamic row)
@@ -2069,7 +2069,7 @@
                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin?: #t)
                    (set-selection (cons element selection) set-pivot?: #f user-origin?: #t))
                  (when (and selection-pivot (= element selection-pivot))
-                   (cond ((null? selection) (set! selection-pivot {}))
+                   (cond ((null? selection) (set! selection-pivot #f))
                          ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
                          ((> selection-pivot (last selection)) (set! selection-pivot (last selection)))))))
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
@@ -2108,7 +2108,7 @@
         (let ((old-selection selection))
           (set! selection sel)
           (when set-pivot?
-            (set! selection-pivot (if (null? selection) {} (car selection))))
+            (set! selection-pivot (if (null? selection) #f (car selection))))
           (inval-selection old-selection)
           (inval-selection selection)
           (when generate-event?
@@ -2174,7 +2174,7 @@
       (when saved-pivot
         (let ((pivot (restore-selection saved-pivot)))
           (set! selection-pivot (cond ((not-null? pivot) (car pivot))
-                                      ((null? selection) {})
+                                      ((null? selection) #f)
                                       (else (car selection))))))
       (when saved-edited
         (let ((edited (restore-cell saved-edited)))
@@ -2189,7 +2189,7 @@
   
   (method public (get-single-selection)
     (if (null? selection)
-        {}
+        #f
       (car selection)))
   
   
@@ -2492,9 +2492,9 @@
                   (let ((cell (new Cell line col)))
                     (if (cell-visible? cell)
                         (proc cell v height)
-                      (proc {} {} {})))
-                (proc {} {} {})))
-          (proc {} {} {})))))
+                      (proc #f #f #f)))
+                (proc #f #f #f)))
+          (proc #f #f #f)))))
 
 
   (method public (tree->view cell)
@@ -2511,7 +2511,7 @@
               (bind (left . right) borders
                 (when (and (>= h left) (<= h right) (/= left right))
                   (continuation-return return col))))
-        {})))
+        #f)))
 
 
   (method (col->h col)
@@ -2527,7 +2527,7 @@
                       (right (get-right~ rect)))
                   (when (and (>= h left) (<= h right) (/= left right))
                     (continuation-return return (get-first-col~ merge-cell))))))
-        {})))
+        #f)))
 
 
   (method public (v->merged-cells-line v)
@@ -2540,7 +2540,7 @@
                         (bottom (get-bottom~ rect)))
                     (when (and (>= v top) (<= v bottom) (/= top bottom))
                       (continuation-return return (get-first-line~ merge-cell)))))))
-        {})))
+        #f)))
   
   
   ;;;
@@ -2552,7 +2552,7 @@
     edited-cell)
   
   
-  (method public (edit-cell cell (editor: editor {}) (cover-spacing?: cover-spacing? #f) (close-editor?: close-editor? #t) (before-end: before-end {}) (after-end: after-end {}))
+  (method public (edit-cell cell (editor: editor #f) (cover-spacing?: cover-spacing? #f) (close-editor?: close-editor? #t) (before-end: before-end #f) (after-end: after-end #f))
     (assert (not update-locked?))
     (assert (< (get-col~ cell) (get-columns-count)))
     (end-edition)
@@ -2581,8 +2581,8 @@
             (after-end (get-after-end~ cell-editor)))
         (when before-end
           (before-end cell))
-        (set! edited-cell {})
-        (set! cell-editor {})
+        (set! edited-cell #f)
+        (set! cell-editor #f)
         (let ((preserved-data (get-preserved-data~ editor))
               (merge-cell (safe-get-merge-cell (cell->site cell))))
           (if merge-cell
@@ -2590,7 +2590,7 @@
             (replace-cell cell preserved-data)))
         (if close-cell-editor?
             (close~ editor)
-          (set-parent~ editor {}))
+          (set-parent~ editor #f))
         (when after-end
           (after-end cell))
         (invalidate-rect bounds))))
@@ -2600,11 +2600,11 @@
     (when edited-cell
       (let ((cell edited-cell)
             (editor cell-editor))
-        (set! edited-cell {})
-        (set! cell-editor {})
+        (set! edited-cell #f)
+        (set! cell-editor #f)
         (if close-cell-editor?
             (close~ editor)
-          (set-parent~ editor {})))))
+          (set-parent~ editor #f)))))
   
   
   (method public (replace-cell cell child)
@@ -2720,7 +2720,7 @@
   
   
   (slot tree)
-  (slot column initialize {})
+  (slot column initialize #f)
   
   
   (method override (initialize tree . rest)
@@ -2764,10 +2764,10 @@
 (class Merge-Cell extends Object
   
   
-  (slot master-cell    initialize {}  accessors generate)
+  (slot master-cell    initialize #f  accessors generate)
   (slot merged-rows    initialize '() accessors generate)
   (slot merged-columns initialize '() accessors generate)
-  (slot tree           initialize {}  accessors generate)
+  (slot tree           initialize #f  accessors generate)
   
   
   (method override (initialize cell rows-list columns-list cells-tree)
@@ -2873,7 +2873,7 @@
           (first-col (get-first-col)))
       (if (and first-line first-col)
           (new Cell first-line first-col)
-        {})))
+        #f)))
 
 
   (method public (get-last-cell)

@@ -56,8 +56,8 @@
 (class Designer extends Object
   
   
-  (slot form      initialize {} accessors generate)
-  (slot reference initialize {} getter generate)
+  (slot form      initialize #f accessors generate)
+  (slot reference initialize #f getter generate)
   (slot listeners initialize '())
   (slot modified? initialize #f accessors generate)
 
@@ -67,7 +67,7 @@
   ;;;
   
   
-  (method override (initialize (form: form {}) (reference: reference {}))
+  (method override (initialize (form: form #f) (reference: reference #f))
     (define (setup-form frm)
       (if (not frm)
           (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model-name: 'install))
@@ -104,7 +104,7 @@
   ;;;
   
   
-  (method public virtual (save (default-extension: default-extension {}) (extensions: extensions '()))
+  (method public virtual (save (default-extension: default-extension #f) (extensions: extensions '()))
     (with-cursor :wait
       (lambda ()
         (let ((origin (get-origin~ form)))
@@ -128,7 +128,7 @@
     '(("JMF Files" . "jmf")))
   
   
-  (method (save-as (default-extension: default-extension {}) (extensions: extensions '()))
+  (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
     (set-origin~ form (choose-new-file default-extension: (either default-extension Default-Extension) extensions: (either extensions Default-Extensions)))
     (save-content))
   
@@ -154,7 +154,7 @@
       ;; the new definition that did not already exist in the class...
       @convert
       (when (eq? where :new-form)
-        (evaluate~ Interpreter (list '(form (<install>))) {} class (list Language)))
+        (evaluate~ Interpreter (list '(form (<install>))) #f class (list Language)))
       @convert
       (set-class-form~ class form)
       (receive (frame text range) (find-location~ code-location)
@@ -233,7 +233,7 @@
   
   
   (method public virtual (set-tag-unit component parent tag-unit)
-    (let ((form (find-form component {})))
+    (let ((form (find-form component #f)))
       (set-tag-unit~ form tag-unit)
       (set-modified? #t)))
   
@@ -242,7 +242,7 @@
     (let ((branch (target-branch branch)))
       ;; Quick fix for the special case of setting a property of the active branch
       (if (eq? component/path branch)
-          (set-property component/path property value branch: {} design-events?: design-events? undoable?: undoable?)
+          (set-property component/path property value branch: #f design-events?: design-events? undoable?: undoable?)
         (let ((installed? (or (not branch) (installed?~ branch)))
               (path? (is? component/path Path)))
           (if (and path? (not installed?))
@@ -304,7 +304,7 @@
             (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (branch: branch #t) (name: name {}) (properties: properties '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+  (method public virtual (add-child child parent (branch: branch #t) (name: name #f) (properties: properties '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let ((branch (target-branch branch)))
       (set-parent~ child parent)
       (receive (form restore) (find-form parent branch restore?: #t)
@@ -416,7 +416,7 @@
   
   
   (method public (bring-to-front child (branch: branch #t))
-    (send-before child {} branch: branch))
+    (send-before child #f branch: branch))
   
   
   ;; This is not a 100% complete solution as this for instance will
@@ -426,7 +426,7 @@
            (parent (get-parent~ component))
            (parent-form (find-form parent branch)))
       (receive (form restore-form) (find-form component branch restore?: #t)
-        (install-form~ component restore-form component {} {})
+        (install-form~ component restore-form component #f #f)
         (remove-child~ parent-form form))))
   
   
@@ -447,7 +447,7 @@
         (set-clipboard-text text format: 'jazz-parcels))))
   
   
-  (method public (copy-components-text components (branch: branch {}))
+  (method public (copy-components-text components (branch: branch #f))
     (let ((output (open-output-string))
           (parcels (package-components components branch: branch)))
       (format output "(")
@@ -471,7 +471,7 @@
       (paste-parcels parcels parent branch: branch design-events?: design-events?)))
   
   
-  (method public virtual (paste-parcels parcels parent (branch: branch #t) (design-events?: design-events? #t) (reporter: reporter {}))
+  (method public virtual (paste-parcels parcels parent (branch: branch #t) (design-events?: design-events? #t) (reporter: reporter #f))
     (let* ((parent (determine-paster~ parent))
            (name-resolution (verify-name-conflicts parcels parent)))
       (prog1 (instantiate-parcels parcels parent branch: branch name-resolution: name-resolution design-events?: design-events? descendant?: #f reporter: reporter)
@@ -523,8 +523,8 @@
   ;;;
   
   
-  (method (package-components components (branch: branch {}))
-    (define (package-component component (branch: branch {}))
+  (method (package-components components (branch: branch #f))
+    (define (package-component component (branch: branch #f))
       (let ((ancestry (component-ancestry component))
             (forms '()))
         (iterate-branch-spine~ reference
@@ -547,7 +547,7 @@
   ;;;
   
   
-  (method public virtual (instantiate-parcels parcels parent (branch: branch #t) (name-resolution: name-resolution {}) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter {}))
+  (method public virtual (instantiate-parcels parcels parent (branch: branch #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter #f))
     (map (lambda (parcel)
            (when reporter
              (user-message~ reporter "Pasting {a}..." (get-master-name~ parcel)))
@@ -557,7 +557,7 @@
          parcels))
   
   
-  (method public virtual (instantiate-parcel parcel parent (branch: branch #t) (name-resolution: name-resolution {}) (design-events?: design-events? #t) (descendant?: descendant? #f))
+  (method public virtual (instantiate-parcel parcel parent (branch: branch #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let* ((forms (get-content~ parcel))
            (master (car forms))
            (name (get-name~ master)))
@@ -575,7 +575,7 @@
                           (delete-components conflicts branch: branch))))))
       (let ((component (instantiate-form name name-resolution master parent branch design-events? descendant?)))
         (for-each (lambda (form)
-                    (instantiate-form name {} form parent branch design-events? descendant?))
+                    (instantiate-form name #f form parent branch design-events? descendant?))
                   (cdr forms))
         component)))
   
@@ -610,7 +610,7 @@
   
   (method public virtual (instantiate-children component children branch design-events?)
     (for-each (lambda (form)
-                (instantiate-form (get-name~ form) {} form component branch design-events? #t))
+                (instantiate-form (get-name~ form) #f form component branch design-events? #t))
               children))
   
   
@@ -689,7 +689,7 @@
   
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
-  (method public virtual (add-view child parent (name: name {}) (position: position {}) (centered?: centered? #f) (visible?: visible? #t) . others)
+  (method public virtual (add-view child parent (name: name #f) (position: position #f) (centered?: centered? #f) (visible?: visible? #t) . others)
     (apply add-child child parent name: name others)
     (when position
       (set-property child 'position position))
@@ -713,7 +713,7 @@
                   (let ((children (get-children~ form))
                         (cpn-form (get-form~ cpn)))
                     (if (not cpn-form)
-                        (embed-new-form form {})
+                        (embed-new-form form #f)
                       (if (memq? cpn-form children)
                           (set! form cpn-form)
                         (let ((restore-form (find-in children cpn key: (lambda (form) (essay (is? form Restore-Form) (get-component~ form))))))
@@ -768,7 +768,7 @@
   ;;;
   
   
-  (method public (find-owner component (property {}))
+  (method public (find-owner component (property #f))
     (let ((ancestry (component-ancestry component)))
       (continuation-capture
         (lambda (return)
@@ -780,12 +780,12 @@
                              (or (and (not property) (eq? (get-action~ form) 'new))
                                  (and property (has-property?~ form property))))
                     (continuation-return return owner))))))
-          {}))))
+          #f))))
   
   
   (method (find-next-branch branch component property)
     (if (and branch (not (installed?~ branch)))
-        (values {} {})
+        (values #f #f)
       (let ((lower (get-installed-branches~ (either branch reference)))
             (ancestry (component-ancestry component)))
         (continuation-capture
@@ -797,7 +797,7 @@
                               (when (and form (has-property?~ form property))
                                 (continuation-return return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
                       lower)
-            (values {} {}))))))
+            (values #f #f))))))
   
   
   (definition (owned-form form ancestry)
@@ -807,15 +807,15 @@
                     (let ((children (get-children~ form))
                           (cpn-form (get-form~ cpn)))
                       (if (not cpn-form)
-                          (continuation-return return {})
+                          (continuation-return return #f)
                         (if (memq? cpn-form children)
                             (set! form cpn-form)
                           (let ((name (get-name~ cpn)))
                             (if (not name)
-                                (continuation-return return {})
+                                (continuation-return return #f)
                               (let ((subform (find-in children name key: get-name~ test: equal?)))
                                 (if (not subform)
-                                    (continuation-return return {})
+                                    (continuation-return return #f)
                                   (set! form subform)))))))))
                   ancestry)
         form)))

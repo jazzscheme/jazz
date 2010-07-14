@@ -436,6 +436,11 @@
   (/= n 0))
 
 
+;;;
+;;;; Truth
+;;;
+
+
 (definition public false
   (list 'false))
 
@@ -1061,7 +1066,7 @@
       (nu* n (numeric-inverse~ r)))))
 
 
-(definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
+(definition public (minimum lst <pair> (key: key #f) (compare: compare compare))
   (let ((min (car lst)))
     (for-each (lambda (object)
                 (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
@@ -1070,7 +1075,7 @@
     min))
 
 
-(definition public (maximum lst <pair> (key: key {}) (compare: compare compare))
+(definition public (maximum lst <pair> (key: key #f) (compare: compare compare))
   (let ((max (car lst)))
     (for-each (lambda (object)
                 (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
@@ -1115,7 +1120,7 @@
           (for-each (lambda (n)
                       (if (= n (+ second 1))
                           (set! second n)
-                        (continuation-return return {})))
+                        (continuation-return return #f)))
                     (cdr lst))
           (cons first second))))))
 
@@ -1318,7 +1323,7 @@
 
 
   (method public virtual (get-state)
-    {})
+    #f)
 
 
   (method public virtual (reset-state old)
@@ -1578,14 +1583,14 @@
   (sequence-butlast~ seq))
 
 
-(definition public (skip-whitespace seq <Sequence> (start: start {}))
+(definition public (skip-whitespace seq <Sequence> (start: start #f))
   (let (iter (i <fx> (either start 0)))
     (cond ((= i (cardinality seq)) i)
           ((eq? (element seq i) #\space) (iter (+ i 1)))
           (else i))))
 
 
-(definition public (subseq seq start (end {}) (type {}))
+(definition public (subseq seq start (end #f) (type #f))
   (let* ((len (- (either end (cardinality seq)) start))
          (cls <Sequence-Class> (either type (class-of seq)))
          (sub (allocate-sequence~ cls len))
@@ -1606,7 +1611,7 @@
   (sequence-subseq!~ seq start end))
 
 
-(definition public (sort test seq (key: key {}))
+(definition public (sort test seq (key: key #f))
   (define (sort-list l smaller key)
     (define (merge-sort l)
       (define (merge l1 l2)
@@ -1696,7 +1701,7 @@
           type))
 
 
-(definition public (collect proc <procedure> seq <Object> (key: key {}) (type: type #f))
+(definition public (collect proc <procedure> seq <Object> (key: key #f) (type: type #f))
   (coerce (loop (for obj in-sequence seq)
                 (with val (proc (apply-key key obj)))
                 (when val
@@ -1704,21 +1709,21 @@
           (either type (class-of seq))))
 
 
-(definition public (collect-if predicate <procedure> seq <Object> (key: key {}))
+(definition public (collect-if predicate <procedure> seq <Object> (key: key #f))
   (coerce (loop (for obj in-sequence seq)
                 (when (predicate (apply-key key obj))
                   (collect obj)))
           (class-of seq)))
 
 
-(definition public (collect-type type seq <Object> (key: key {}))
+(definition public (collect-type type seq <Object> (key: key #f))
   (coerce (loop (for obj in-sequence seq)
                 (when (is? (apply-key key obj) type)
                   (collect obj)))
           (class-of seq)))
 
 
-(definition public (collect-sections lst (separator: separator {}) (test: test {}))
+(definition public (collect-sections lst (separator: separator #f) (test: test #f))
   (let ((sections (new List-Factory))
         (section (new List-Factory)))
     (for-each (lambda (value)
@@ -1732,7 +1737,7 @@
     (get-output~ sections)))
 
 
-(definition public (count target <Object> seq <Object> (key: key {}) (test: test {}))
+(definition public (count target <Object> seq <Object> (key: key #f) (test: test #f))
   (let ((total 0))
     (loop (for object in-sequence seq)
           (when (apply-test test target (apply-key key object))
@@ -1740,7 +1745,7 @@
     total))
 
 
-(definition public (count-if predicate <procedure> seq (key: key {}))
+(definition public (count-if predicate <procedure> seq (key: key #f))
   (let ((total 0))
     (loop (for object in-sequence seq)
           (when (predicate (apply-key key object))
@@ -1748,7 +1753,7 @@
     total))
 
 
-(definition public (count-type type seq <Object> (key: key {}))
+(definition public (count-type type seq <Object> (key: key #f))
   (let ((total 0))
     (loop (for object in-sequence seq)
           (when (is? (apply-key key object) type)
@@ -1756,7 +1761,7 @@
     total))
 
 
-(definition public (find seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'position))
+(definition public (find seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
       (list-find seq target key test (either start 0) return)
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
@@ -1771,14 +1776,14 @@
                                                    ((item) object)
                                                    ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
                                                    (else (error "Unknown return type: {t}" return)))))))
-          {})))))
+          #f)))))
 
 
 (definition (list-find list target key test start return)
   (let ((key (if (not key) (lambda (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iter (rest (tail list start)) (rank <fx> start))
-       (cond ((null? rest) {})
+       (cond ((null? rest) #f)
              ((test target (key (car rest)))
               (case return
                 ((item) (car rest))
@@ -1787,22 +1792,22 @@
               (iter (cdr rest) (+ rank 1)))))))
 
 
-(definition public (find-object proc <procedure> seq <Object> (key: key {}))
+(definition public (find-object proc <procedure> seq <Object> (key: key #f))
   (loop (for obj in-sequence seq)
         (with val (proc (apply-key key obj)))
         (when val
           (return val))
-        (finally {})))
+        (finally #f)))
 
 
-(definition public (find-in seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+(definition public (find-in seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
   (define (find-in-list)
     (let ((list seq)
           (key (if (not key) (lambda (x) x) key))
           (test (if (not test) eqv? test))
           (start (either start 0)))
       (let (iter (rest (tail list start)) (rank <fx> start))
-        (cond ((null? rest) {})
+        (cond ((null? rest) #f)
               ((test target (key (car rest)))
                (car rest))
               (else
@@ -1819,10 +1824,10 @@
                    (lambda (object)
                      (when (apply-test test target (apply-key key object))
                        (continuation-return exit object))))
-          {})))))
+          #f)))))
 
 
-(definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+(definition public (find-balanced open close seq (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'item))
   (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq)))
         (count 0))
     (when start
@@ -1840,10 +1845,10 @@
                               ((item) (continuation-return exit object))
                               ((position) (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
                               (else (error "Unknown return type: {t}" return))))))))
-        {}))))
+        #f))))
 
 
-(definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+(definition public (find-if predicate <procedure> seq <Object> (key: key #f) (start: start #f) (reversed?: reversed? #f) (return: return 'item))
   (if (and (null/pair? seq) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
     (continuation-capture
@@ -1858,10 +1863,10 @@
                                                    ((item) object)
                                                    ((position) (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1)))
                                                    (else (error "Unknown return type: {t}" return))))))))
-        {}))))
+        #f))))
 
 
-(definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+(definition public (get-rank target <Object> seq <Object> (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
   (if (and (null/pair? seq) (not reversed?))
       (list-find seq target key test (either start 0) #f)
     (if (and (string? seq) (not start))
@@ -1875,10 +1880,10 @@
                      (lambda (object)
                        (when (apply-test test target (apply-key key object))
                          (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
-            {}))))))
+            #f))))))
 
 
-(definition public (skip predicate <procedure> seq <Object> (key: key {}) (start: start 0))
+(definition public (skip predicate <procedure> seq <Object> (key: key #f) (start: start 0))
   (continuation-capture
     (lambda (return)
       (let ((iterator (iterate-sequence seq)))
@@ -1890,7 +1895,7 @@
         (get-position~ iterator)))))
 
 
-(definition public (some? predicate <procedure> seq <Object> (key: key {}))
+(definition public (some? predicate <procedure> seq <Object> (key: key #f))
   (continuation-capture
     (lambda (return)
       (iterate (iterate-sequence seq)
@@ -1900,7 +1905,7 @@
       #f)))
 
 
-(definition public (every? predicate <procedure> seq <Object> (key: key {}))
+(definition public (every? predicate <procedure> seq <Object> (key: key #f))
   (continuation-capture
     (lambda (return)
       (iterate (iterate-sequence seq)
@@ -1940,7 +1945,7 @@
   (apply-union rest))
 
 
-(definition public (apply-union lst (test: test {}))
+(definition public (apply-union lst (test: test #f))
   (if (null? lst)
       '()
     (let ((first (car lst))
@@ -1959,7 +1964,7 @@
   (apply-intersection (cons first rest)))
 
 
-(definition public (apply-intersection lst (test: test {}))
+(definition public (apply-intersection lst (test: test #f))
   (if (null? lst)
       '()
     (let ((first (car lst))
@@ -2041,7 +2046,7 @@
     (subseq seq head tail)))
 
 
-(definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
+(definition public (remove-duplicates seq <Object> (key: key #f) (test: test eqv?))
   (let ((dst (new List-Factory)))
     (iterate (iterate-sequence seq)
              (lambda (object)
@@ -2065,7 +2070,7 @@
 
 
 (definition public (trim-whitespace seq)
-  (remove-enclosing {} seq
+  (remove-enclosing #f seq
     test: (lambda (c ignore)
             (whitespace? c))))
 
@@ -2081,7 +2086,7 @@
             (continuation-return return pos))
           (increase! pos))
         (if (done?~ targ)
-            {}
+            #f
           pos)))))
 
 
@@ -2089,7 +2094,7 @@
   (if (null? sequences)
       '()
     (let ((ref (car sequences))
-          (min <Object> {}))
+          (min <Object> #f))
       (for-each (lambda (object)
                   (let ((n (mismatch object ref test: test)))
                     (when (and n (or (not min) (< n min)))
@@ -2143,7 +2148,7 @@
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
-                     (constituent-test: constituent-test {})
+                     (constituent-test: constituent-test #f)
                      (user-data: user-data #f))
   (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data))
 
@@ -2208,15 +2213,15 @@
               (else (lp to best)))))))))
 
 (definition public (multisearch seq <Sequence> contexts <any>
-                     (constituent-test: constituent-test {})
-                     (start: start {})
+                     (constituent-test: constituent-test #f)
+                     (start: start #f)
                      (reversed?: reversed? #f))
   (multisearch-impl seq contexts constituent-test start reversed?))
 
 
 (definition public (multisearch-all seq <Sequence> contexts <any>
-                     (constituent-test: constituent-test {})
-                     (start: start {})
+                     (constituent-test: constituent-test #f)
+                     (start: start #f)
                      (reversed?: reversed? #f))
   (let ((len (cardinality seq))
         (queue (new-queue))
@@ -2231,25 +2236,25 @@
 
 
 (definition public (search seq <Sequence> target <Object>
-                     (start: start {})
+                     (start: start #f)
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
-                     (constituent-test: constituent-test {})) <int+>
-  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? regexp? {} #f)) constituent-test start reversed?)))
+                     (constituent-test: constituent-test #f)) <int+>
+  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? regexp? #f #f)) constituent-test start reversed?)))
     (if found
         (car found)
       #f)))
 
 
 (definition public (search-all seq <Sequence> target <Object>
-                     (start: start {})
+                     (start: start #f)
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
-                     (constituent-test: constituent-test {})) <list>
+                     (constituent-test: constituent-test #f)) <list>
   (map car (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? regexp? constituent-test #f))
              start: start
              reversed?: reversed?)))
@@ -2332,7 +2337,7 @@
     (get-output~ fact)))
 
 
-(definition public (substitute old-value <Object> new-value <Object> seq <Object> (key: key {}) (test: test {}) (sequence?: sequence? #f))
+(definition public (substitute old-value <Object> new-value <Object> seq <Object> (key: key #f) (test: test #f) (sequence?: sequence? #f))
   (let ((src (iterate-sequence seq))
         (dst (new List-Factory)))
     (while (not (done?~ src))
@@ -2345,7 +2350,7 @@
     (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (substitute-alist replacements <Object> seq <Object> (key: key {}) (test: test {}))
+(definition public (substitute-alist replacements <Object> seq <Object> (key: key #f) (test: test #f))
   (let ((src (iterate-sequence seq))
         (dst (new List-Factory)))
     (while (not (done?~ src))
@@ -2363,7 +2368,7 @@
     (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (fill! seq object (start: start {}))
+(definition public (fill! seq object (start: start #f))
   (let ((src (iterate-sequence seq)))
     (when start
       (set-position~ src start))
@@ -2373,7 +2378,7 @@
   seq)
 
 
-(definition public (replace! seq replacement (start: start {}))
+(definition public (replace! seq replacement (start: start #f))
   (let ((src (iterate-sequence seq))
         (rep (iterate-sequence replacement)))
     (when start
@@ -2384,16 +2389,16 @@
   seq)
 
 
-(definition public (ordered-position object seq (key: key {}) (test: test <=))
+(definition public (ordered-position object seq (key: key #f) (test: test <=))
   (find seq object key: key test: test))
 
 
-(definition public (insert-ordered! object seq (key: key {}) (test: test <=))
+(definition public (insert-ordered! object seq (key: key #f) (test: test <=))
   (let ((n (ordered-position (apply-key key object) seq key: key test: test)))
     (insert! seq (either n (cardinality seq)) object)))
 
 
-(definition public (merge-ordered proc x y (key: key {}) (left-key: left-key key) (right-key: right-key key) (test: test {}) (case-insensitive?: case-insensitive? #f))
+(definition public (merge-ordered proc x y (key: key #f) (left-key: left-key key) (right-key: right-key key) (test: test #f) (case-insensitive?: case-insensitive? #f))
   (let ((ix (iterate-sequence x))
         (iy (iterate-sequence y))
         (compare-proc (either test (if case-insensitive? ci-compare compare))))
@@ -2406,20 +2411,20 @@
           ((:equal)   (proc :same kx ex ey)
            (next~ ix)
            (next~ iy))
-          ((:less)    (proc :left kx ex {})
+          ((:less)    (proc :left kx ex #f)
            (next~ ix))
-          ((:greater) (proc :right ky {} ey)
+          ((:greater) (proc :right ky #f ey)
            (next~ iy))
           (else       (error "Unable to compare {t} and {t}" kx ky)))))
     (while (not (done?~ ix))
       (let ((expr (get-next~ ix)))
-        (proc :left (apply-key left-key expr) expr {})))
+        (proc :left (apply-key left-key expr) expr #f)))
     (while (not (done?~ iy))
       (let ((expr (get-next~ iy)))
-        (proc :right (apply-key right-key expr) {} expr)))))
+        (proc :right (apply-key right-key expr) #f expr)))))
 
 
-(definition public (merge proc lists (key: key {}) (compare: compare compare))
+(definition public (merge proc lists (key: key #f) (compare: compare compare))
   (let ((scan (copy lists)))
     (while (some? identity scan)
       (let* ((min (minimum (map car (remove-nils scan)) key: key :compare compare))
@@ -2430,7 +2435,7 @@
                                 (object (car list)))
                            (if (or (not object)
                                    (neq? (compare (apply-key key object) min-key) :equal))
-                               (put~ res {})
+                               (put~ res #f)
                              (put~ res object)
                              (set-car! pair (cdr list)))))
                        scan)
@@ -2441,7 +2446,7 @@
   (element seq (random (cardinality seq))))
 
 
-(definition public (partition sequence (key: key identity) (test: test {}))
+(definition public (partition sequence (key: key identity) (test: test #f))
   (let ((result '()))
     (for-each (lambda (element)
                 (let* ((category (key element))
@@ -2467,7 +2472,7 @@
     (values yes no)))
 
 
-(definition public (starts-with? seq target (test: test {}) (ignore-case?: ignore-case? #f)) <bool>
+(definition public (starts-with? seq target (test: test #f) (ignore-case?: ignore-case? #f)) <bool>
   (let ((sl (cardinality seq))
         (tl (cardinality target))
         (test (either test (if ignore-case? string-ci=? string=?))))
@@ -2477,7 +2482,7 @@
          (test (subseq seq 0 tl) target))))
 
 
-(definition public (ends-with? seq target (test: test {}) (ignore-case?: ignore-case? #f)) <bool>
+(definition public (ends-with? seq target (test: test #f) (ignore-case?: ignore-case? #f)) <bool>
   (let ((sl (cardinality seq))
         (tl (cardinality target))
         (test (either test (if ignore-case? string-ci=? string=?))))
@@ -2497,7 +2502,7 @@
 (definition (find-if-list predicate list key start returned)
   (let ((key (if (not key) (lambda (x) x) key)))
     (let (iter (rest (tail list start)) (rank <fx> start))
-       (cond ((null? rest) {})
+       (cond ((null? rest) #f)
              ((predicate (key (car rest)))
               (cond ((eq? returned 'position) rank)
                     ((eq? returned 'item) (car rest))
@@ -2523,7 +2528,7 @@
   (slot current              <fx>)
 
 
-  (method override (initialize seq (direction: direction 'forward) (start: start {}))
+  (method override (initialize seq (direction: direction 'forward) (start: start #f))
     (nextmethod)
     (set! sequence seq)
     (set! sequence-cardinality (cardinality sequence))
@@ -2794,7 +2799,7 @@
 (definition public (position-of obj lst)
   (let (iter (rst lst) (i <fx> 0))
     (if (null? rst)
-        {}
+        #f
       (if (eq? obj (car rst))
           i
         (iter (cdr rst) (+ i 1))))))
@@ -2876,7 +2881,7 @@
   (boolean (memv target list)))
 
 
-(definition public (member? target <Object> list <Object> (key: key {}) (test: test equal?))
+(definition public (member? target <Object> list <Object> (key: key #f) (test: test equal?))
   (let (iter (scan list))
     (cond ((null? scan)
            #f)
@@ -2907,7 +2912,7 @@
       default-value)))
 
 
-(definition public (associate target <Object> list <Object> (key: key {}) (test: test equal?))
+(definition public (associate target <Object> list <Object> (key: key #f) (test: test equal?))
   (let (iter (scan list))
     (if (null? scan)
         #f
@@ -2917,7 +2922,7 @@
           (iter (cdr scan)))))))
 
 
-(definition public (rassociate target <Object> list <Object> (key: key {}) (test: test equal?))
+(definition public (rassociate target <Object> list <Object> (key: key #f) (test: test equal?))
   (let (iter (scan list))
     (if (null? scan)
         #f
@@ -2948,7 +2953,7 @@
     res))
 
 
-(definition public (remove! target <Object> list <Object> (key: key {}) (test: test eqv?))
+(definition public (remove! target <Object> list <Object> (key: key #f) (test: test eqv?))
   (while (and (not-null? list) (test target (apply-key key (car list))))
     (set! list (cdr list)))
   (if (null? list)
@@ -2965,7 +2970,7 @@
     list))
 
 
-(definition public (getprop plist <Object> target <Object> (key: key {}))
+(definition public (getprop plist <Object> target <Object> (key: key #f))
   (let (iter (scan plist))
     (cond ((null? scan)
            #f)
@@ -2975,7 +2980,7 @@
            (iter (cddr scan))))))
 
 
-(definition public (getf plist <Object> target <Object> (key: key {}) (not-found: not-found {}))
+(definition public (getf plist <Object> target <Object> (key: key #f) (not-found: not-found #f))
   (let ((pair (getprop plist target key: key)))
     (if (not pair)
         not-found
@@ -3018,7 +3023,7 @@
   (apply append llist))
 
 
-(definition public (uniform lst (key: key {}) (test: test {}))
+(definition public (uniform lst (key: key #f) (test: test #f))
   (if (null? lst)
       lst
     (continuation-capture
@@ -3027,7 +3032,7 @@
           (for-each (lambda (object)
                       (let ((value (apply-key key object)))
                         (unless (apply-test test first value)
-                          (continuation-return return {}))))
+                          (continuation-return return #f))))
                     (cdr lst))
           first)))))
 
@@ -3125,8 +3130,8 @@
 
 
   (slot list            initialize '() getter generate)
-  (slot last-list       initialize {})
-  (slot last-anchor     initialize {})
+  (slot last-list       initialize #f)
+  (slot last-anchor     initialize #f)
   (slot current         initialize '())
   (slot size       <fx> initialize 0   getter generate)
 
@@ -3181,8 +3186,8 @@
 
   (method public (reset)
     (set! list '())
-    (set! last-list {})
-    (set! last-anchor {})
+    (set! last-list #f)
+    (set! last-anchor #f)
     (set! current '())
     (set! size 0))
 
@@ -3194,8 +3199,8 @@
           (else
            (set-cdr! last-anchor (copy last-list))
            (set! current (last-tail last-anchor))))
-    (set! last-list {})
-    (set! last-anchor {})))
+    (set! last-list #f)
+    (set! last-anchor #f)))
 
 
 ;;;
@@ -3532,7 +3537,7 @@
         (and d1? d2?)))))
 
 
-(definition public (unique-domain-name name domain (separator: separator {}))
+(definition public (unique-domain-name name domain (separator: separator #f))
   (if (not (member? name domain))
       name
     (let* ((common-prefix (if (not separator) name (concatenate name separator)))
@@ -3542,7 +3547,7 @@
                                   (subseq string common-length)))
                               domain))
            (n 1)
-           (suffix {}))
+           (suffix #f))
       ;; not 100% sure about the while converted code
       (let (iterate)
         (set! suffix (->string n))
@@ -3672,7 +3677,7 @@
     (get-output-string port)))
 
 
-(definition public (present-object object (max-width {}))
+(definition public (present-object object (max-width #f))
   (with-exception-catcher
     (lambda (exc)
       ;; add the exception reason somehow!?
@@ -3906,7 +3911,7 @@
   
   (method override (initialize s <fx>)
     (set! size s)
-    (set! content (make-vector s {})))
+    (set! content (make-vector s #f)))
   
   
   (method override (print output detail)
@@ -3981,7 +3986,7 @@
                       (dst (+ end delta)))
              (when (> n 0)
                (set-element! axis dst (element axis src))
-               (set-element! axis src {})
+               (set-element! axis src #f)
                (iter (- n 1) (+ src 1) (+ dst 1))))
            (axis-grow axis new-size))
           ((> after before)
@@ -4012,12 +4017,12 @@
          (set-size~ axis n))
         ((= (get-size~ axis) 0)
          (set-size~ axis n)
-         (set-content~ axis (make-vector AXIS_MIN_SIZE {})))
+         (set-content~ axis (make-vector AXIS_MIN_SIZE #f)))
         (else
          (let ((old-real-size (cardinality (get-content~ axis)))
                (old-content (get-content~ axis)))
            (set-size~ axis n)
-           (set-content~ axis (make-vector (fxround (* n AXIS_GOLDEN_RATIO)) {}))
+           (set-content~ axis (make-vector (fxround (* n AXIS_GOLDEN_RATIO)) #f))
            (let (iter (i 0))
              (when (< i old-real-size)
                (begin
@@ -4032,7 +4037,7 @@
 
 
 (definition public inline (new-axis size)
-  (construct Axis size (make-vector size {})))
+  (construct Axis size (make-vector size #f)))
 
 (specialize inline (new class <category<Axis>> size <fx>) <Axis>
   (new-axis size))
@@ -4219,7 +4224,7 @@
           (proc (if (> n 0)
                     (substring buffer 0 n)
                   ;; eof
-                  {}))
+                  #f))
           (iterate))))))
 
 
@@ -4391,7 +4396,7 @@
         (proc printer)
         (get-output-string printer))
     (proc
-      (let ((printer-proc (table-ref *printers* printer {})))
+      (let ((printer-proc (table-ref *printers* printer #f)))
         (if printer-proc
             (printer-proc)
           printer)))))

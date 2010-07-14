@@ -48,7 +48,7 @@
 (class undocumented Details-Tree extends Components-Tree
 
 
-  (property base    initialize {}  accessors generate)
+  (property base    initialize #f  accessors generate)
   (property details initialize '() accessors generate)
 
 
@@ -74,7 +74,7 @@
     
     (unless (or (not origin) (eq? origin self))
       (if (null? selection)
-          (set-client {})
+          (set-client #f)
         (let ((component (car selection)))
           (receive (client parent?) (determine-client component force-parent?)
             (set-client client)
@@ -109,14 +109,14 @@
     (let ((header (get-header)))
       (set! base (essay client (get-addable-base~ client)))
       (set! details (essay client (get-addable-details~ client)))
-      (set-filled-column {})
+      (set-filled-column #f)
       (remove-columns preserve-node-column?: #t)
       (if (or (not base) (null? details))
           (set-filled-column (get-name~ node-column))
         (let ((first? #t))
           (for-each (lambda (detail)
                       (bind (path width filled?) detail
-                        (receive (base ignore name title) (split-detail-path base {} path)
+                        (receive (base ignore name title) (split-detail-path base #f path)
                           (let ((property (category-field base name)))
                             (if (not property)
                                 (error "Addable child {a} of {a} has no property {a}" base client name)
@@ -138,7 +138,7 @@
     (remove-every-row)
     (when client
       (let ((recursive? (get-recursive-details?~ client)))
-        (insert-components client {} recursive?)
+        (insert-components client #f recursive?)
         (update-selection expand-state selected-components))))
   
   
@@ -153,7 +153,7 @@
     
   
   (method protected virtual (insert-component component father recursive?)
-    (let ((row {}))
+    (let ((row #f))
       (when (and base details)
         (bind (first . rest) details
           (let ((based? (is? component base)))
@@ -183,9 +183,9 @@
   
   (method (split-detail-path base component path)
     (if (symbol? path)
-        (values base component path {})
+        (values base component path #f)
       (let ((reversed (reverse path)))
-        (bind (title name . subpath) (if (string? (car reversed)) reversed (cons {} reversed))
+        (bind (title name . subpath) (if (string? (car reversed)) reversed (cons #f reversed))
           (let ((subpath (reverse! subpath)))
             (values (follow-submodels base subpath) (essay component (child~ component subpath)) name title))))))
   
@@ -222,7 +222,7 @@
     (unless (or (is? child Group) (neq? parent client))
       (with-update-locked
         (lambda ()
-          (insert-component child {} #f)))))
+          (insert-component child #f #f)))))
   
   
   (method (child-remove child)

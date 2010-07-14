@@ -62,12 +62,12 @@
   (property protected row-spacing        <fx>   initialize 0  accessors explicit)
   (property protected left-padding       <fx>   initialize 0  accessors explicit)
   (property protected top-padding        <fx>   initialize 0  accessors explicit)
-  (property protected background-filler         initialize {} accessors explicit)
+  (property protected background-filler         initialize #f accessors explicit)
   (property protected fit-in-scroller?          initialize #t accessors explicit)
   
   
-  (slot protected root-row                      initialize {} getter generate)
-  (slot protected outline                       initialize {} getter generate)
+  (slot protected root-row                      initialize #f getter generate)
+  (slot protected outline                       initialize #f getter generate)
   (slot protected visible-count          <fx>   initialize 0  getter generate)
   (slot protected visible-height         <fx>   initialize 0  getter generate)
   (slot protected visible-width          <fx>   initialize 0  getter generate)
@@ -104,7 +104,7 @@
     (set! root-row (new (row-class)))
     (set! outline (new Display-Outline row-spacing root-row))
     (set-parent~ root-row self)
-    (set-father~ root-row {})
+    (set-father~ root-row #f)
     (set-level~ root-row -1)
     (set-state~ root-row 'expanded))
 
@@ -384,7 +384,7 @@
   ;; this memory optimization should work because as drawing always
   ;; occurs in the primary thread, it is implicitly synchronized...
   (definition optimized-context
-    (list selected?: {} line: 0))
+    (list selected?: #f line: 0))
   
   
   (definition (optimize-context selected? line context)
@@ -436,7 +436,7 @@
 
   
   (method public (add-row . rest)
-    (bind-keywords ((class (row-class)) (row {}) (father {}) (position {}) . others) rest
+    (bind-keywords ((class (row-class)) (row #f) (father #f) (position #f) . others) rest
       (let* ((father (either father root-row))
              (level (+ (get-level~ father) 1))
              (row (either row (apply new class parent: self others))))
@@ -500,7 +500,7 @@
         (update-father-control father))))
   
   
-  (method public (move-row row father (position: position {}))
+  (method public (move-row row father (position: position #f))
     (remove-row row)
     (let ((position (if (procedure? position) (position) position)))
       (add-row row: row father: father position: position)))
@@ -563,7 +563,7 @@
           (lambda (row line)
             (when (= line l)
               (continuation-return return row))))
-        {})))
+        #f)))
   
   
   ;; for debugging...
@@ -582,7 +582,7 @@
           (lambda (row line)
             (when (eq? row target)
               (continuation-return return line))))
-        {})))
+        #f)))
   
   
   (method public (rows->lines targets)
@@ -616,7 +616,7 @@
       (add-empty-row)))
   
   
-  (method public virtual (add-empty-row (father: father {}))
+  (method public virtual (add-empty-row (father: father #f))
     (let ((father (either father root-row)))
       (add-row father: father)))
   
@@ -744,7 +744,7 @@
       (recurse-sons root-row #t)))
   
   
-  (method public (for-each-visible-row proc (start: start {}) (end: end {}) (wrap?: wrap? #f))
+  (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
     (let ((row (either start (get-next~ root-row)))
           (line (if start (row->line start) 0)))
       (when line
@@ -799,7 +799,7 @@
              (count 0)
              (height 0)
              (level (+ (get-level~ row) 1))
-             (previous {})
+             (previous #f)
              (rows (map (lambda (info)
                           (let ((subrow (proc info)))
                             (set-father~ subrow row)
@@ -908,8 +908,8 @@
     (let ((previous (get-previous~ first))
           (next (get-next~ last)))
       (link-rows previous next)
-      (set-previous~ first {})
-      (set-next~ last {})))
+      (set-previous~ first #f)
+      (set-next~ last #f)))
   
   
   (method public (ensure-expanded row)

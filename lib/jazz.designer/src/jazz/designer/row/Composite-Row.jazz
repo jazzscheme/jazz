@@ -66,8 +66,8 @@
   
   (method override (get-edited-value)
     (let ((string (get-string-content~ editor)))
-      (if (or (empty-string? string) (= string "{}"))
-          {}
+      (if (or (empty-string? string) (= string "#f"))
+          #f
         (parse-entries (current-entries)))))
   
   
@@ -88,7 +88,7 @@
     )
   
   
-  (method (parse-error (message: message {}) (start: start {}) (end: end {}) (part: part {}))
+  (method (parse-error (message: message #f) (start: start #f) (end: end #f) (part: part #f))
     (let ((message (either message (syntax-message)))
           (start (either start (essay part (get-start~ part))))
           (end (either end (essay part (get-end~ part)))))
@@ -106,7 +106,7 @@
   
   (method override (present value)
     (if (not value)
-        "{}"
+        "#f"
       (format "{l detail: :human separator: \", \"}"
               (present-value value))))
   
@@ -171,7 +171,7 @@
           (lambda (part)
             (when (and (>= pos (get-start~ part)) (<= pos (get-end~ part)))
               (continuation-return return part))))
-        {})))
+        #f)))
   
   
   (method (pos->position entries pos)
@@ -193,7 +193,7 @@
               (let ((c (element string pos)))
                 (cond ((and (accepts-spaces?) (eqv? c #\space)) (decrease! pos))
                       ((eqv? c #\comma) (continuation-return return 0))
-                      (else (continuation-return return {}))))))))))
+                      (else (continuation-return return #f))))))))))
   
   
   (method (find-entry-end string n)
@@ -206,7 +206,7 @@
               (let ((c (element string n)))
                 (cond ((and (accepts-spaces?) (eqv? c #\space)) (increase! n))
                       ((eqv? c #\comma) (continuation-return return n))
-                      (else (continuation-return return {}))))))))))
+                      (else (continuation-return return #f))))))))))
   
   
   (definition (for-each-part entries proc)
@@ -227,7 +227,7 @@
         (if (not part)
             (let ((position (current-position entries)))
               (when position
-                (values position {} (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
+                (values position #f (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
           (values (get-position~ part) (get-text~ part) (get-start~ part) (get-end~ part)))))
     
     (let ((info (find-to-complete)))
@@ -280,16 +280,16 @@
     (define (determine-entry string rank offset)
       (let* ((parts (new List-Factory))
              (position 0)
-             (start {})
-             (end {})
+             (start #f)
+             (end #f)
              (end-part
                (lambda ()
                  (when start
                    (put~ parts (new Part rank position (subseq string start (+ end 1)) (+ offset start) (+ offset end 1)))
                    (increase! rank)
                    (increase! position)
-                   (set! start {})
-                   (set! end {})))))
+                   (set! start #f)
+                   (set! end #f)))))
         (loop (for c in-sequence string)
               (for n from 0)
               (if (and (accepts-spaces?) (eqv? c #\space))
@@ -320,7 +320,7 @@
   
   
   (method protected virtual (part-domain position)
-    {})
+    #f)
   
   
   (method (select-part part)
@@ -451,10 +451,10 @@
       (<Tree-Node-Column> width: 200 toplevel-controls?: #f)))
 
 
-  (property value-row initialize {} accessors generate)
-  (property selected  initialize {} accessors generate)
-  (property start     initialize {} accessors generate)
-  (property end       initialize {} accessors generate)
+  (property value-row initialize #f accessors generate)
+  (property selected  initialize #f accessors generate)
+  (property start     initialize #f accessors generate)
+  (property end       initialize #f accessors generate)
   
   
   (method override (return-press key)

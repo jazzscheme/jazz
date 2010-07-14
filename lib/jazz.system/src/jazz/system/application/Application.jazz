@@ -73,16 +73,16 @@
 (class Application extends Process implements (Context-Provider History-Provider Event-Consumer Save-Environment-Listener)
 
 
-  (slot toplevel                 initialize {})
-  (slot profile-name             initialize {})
-  (slot profile-unit             initialize {})
-  (slot profile-class            initialize {})
-  (slot profile-bindings         initialize {})
-  (slot profile                  initialize {}                        getter generate)
+  (slot toplevel                 initialize #f)
+  (slot profile-name             initialize #f)
+  (slot profile-unit             initialize #f)
+  (slot profile-class            initialize #f)
+  (slot profile-bindings         initialize #f)
+  (slot profile                  initialize #f                        getter generate)
   (slot focus-listeners          initialize '())
   (slot application-listeners    initialize (make-table test: eq?))
-  (slot selected-owner           initialize {}                        getter generate)
-  (slot selected                 initialize {})
+  (slot selected-owner           initialize #f                        getter generate)
+  (slot selected                 initialize #f)
   (slot selected-listeners       initialize '())
   (slot event-consumer           initialize self)
   (slot history-manager          initialize (new History-Manager self))
@@ -91,9 +91,9 @@
   (slot profile-actions          initialize '()                       getter generate)
   (slot guest-actions            initialize '()                       getter generate)
   (slot focus-actions            initialize '()                       getter generate)
-  (slot bindings-designer        initialize {}                        getter generate)
-  (slot shortcut-table           initialize {})
-  (slot shortcut-hook            initialize {}                        accessors generate)
+  (slot bindings-designer        initialize #f                        getter generate)
+  (slot shortcut-table           initialize #f)
+  (slot shortcut-hook            initialize #f                        accessors generate)
   
   
   (method meta override (external-name . rest)
@@ -214,12 +214,12 @@
     (reset-toolbars)
     (when toplevel
       (close~ toplevel)
-      (set! toplevel {})
-      (set! profile-name {})
-      (set! profile-unit {})
-      (set! profile-class {})
-      (set! profile-bindings {})
-      (set! profile {})))
+      (set! toplevel #f)
+      (set! profile-name #f)
+      (set! profile-unit #f)
+      (set! profile-class #f)
+      (set! profile-bindings #f)
+      (set! profile #f)))
 
 
   ;;;
@@ -405,7 +405,7 @@
   
   
   (method public virtual (get-recorder)
-    {})
+    #f)
   
   
   (method package (macro-recording?)
@@ -480,7 +480,7 @@
           (load (parse~ file)))))
     
     (define (profile-parameter)
-      (let ((profile (string-parameter "profile" 'profile {})))
+      (let ((profile (string-parameter "profile" 'profile #f)))
         (when profile
           (capitalize (->string profile)))))
     
@@ -548,17 +548,17 @@
   
   
   (definition Splash-Screen
-    {})
+    #f)
   
   (definition Splash-End
-    {})
+    #f)
   
   
   (method protected virtual (splash-screen)
     )
   
   
-  (method (show-splash-screen (duration: duration {}))
+  (method (show-splash-screen (duration: duration #f))
     (set! Splash-Screen (show-splash))
     (set! Splash-End (essay duration (+ (time->seconds (current-time)) duration))))
   
@@ -717,8 +717,8 @@
     (define (save-application)
       (when preferences-root
         @convert/wait
-        (set-property~ preferences-designer preferences-root active-context: context branch: {})
-        (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) branch: {})))
+        (set-property~ preferences-designer preferences-root active-context: context branch: #f)
+        (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) branch: #f)))
     
     (define (save-all-guest)
       @wait
@@ -854,8 +854,8 @@
   
   (method public (close-selected owner)
     (when (eq? owner selected-owner)
-      (set! selected-owner {})
-      (process-selected-change {} selected {} #f)))
+      (set! selected-owner #f)
+      (process-selected-change #f selected #f #f)))
 
   
   (method (process-selected-change owner old-selected new-selected force?)
@@ -903,7 +903,7 @@
   
   
   (method public virtual (default-frame-class)
-    {})
+    #f)
 
 
   (method public virtual (file-frame-class file)
@@ -924,14 +924,14 @@
 
 
   (method public virtual (known-extension-frame-class ext)
-    {})
+    #f)
   
   
   (method public virtual (unknown-extension-frame-class)
-    {})
+    #f)
 
 
-  (method public virtual (frame-class (file: file {}))
+  (method public virtual (frame-class (file: file #f))
     (if (not file)
         (default-frame-class)
       (file-frame-class file)))
@@ -1030,7 +1030,7 @@
           (when (not-null? action-items)
             (let ((action (car action-items)))
               (when (action-allowed? action)
-                (invoke~ action self {})
+                (invoke~ action self #f)
                 #t))))
       #t))
   
@@ -1163,14 +1163,14 @@
   
   
   (definition Undisplayed-Message
-    {})
+    #f)
 
 
   (method public (set-status-message msg action-handler update?)
     (let ((message (get-message-view)))
       (if (not message)
           (set! Undisplayed-Message msg)
-        (set! Undisplayed-Message {})
+        (set! Undisplayed-Message #f)
         (post-event
           (lambda ()
             (set-title~ message (cond ((not msg) "")
@@ -1195,8 +1195,8 @@
   
   (method public (show-undisplayed-message)
     (when Undisplayed-Message
-      (set-status-message Undisplayed-Message {} #f)
-      (set! Undisplayed-Message {})))
+      (set-status-message Undisplayed-Message #f #f)
+      (set! Undisplayed-Message #f)))
 
   
   ;;;
@@ -1244,7 +1244,7 @@
   
   
   (method public virtual (get-output-log)
-    {})
+    #f)
   
   
   ;;;
@@ -1253,10 +1253,10 @@
   
   
   (definition All-Results
-    {})
+    #f)
   
   (definition Active-Results
-    {})
+    #f)
   
   
   (method public virtual (navigable-results)
@@ -1330,7 +1330,7 @@
                                       (selected? (eq? name active)))
                                   (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
                                   (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'layout-separator group: 'workspace selected?: selected? action: (new Action 'application action-name '()))
-                                  (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace background: (if (eq? name 'debugger) {} {Color name: Medium}) resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
+                                  (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace background: (if (eq? name 'debugger) #f {Color name: Medium}) resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
                                   (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator))))
                             (get-children~ preferences))
                   (layout-menu~ menu)
@@ -1450,7 +1450,7 @@
   
   
   (method package (on-full-screen evt)
-    (let ((pref (get-preferences {})))
+    (let ((pref (get-preferences #f)))
       (when (not (get-fullscreen-warned?~ pref))
         (message-box "Warning: There is currently only one way of exiting the fullscreen mode which is by using the Alt-Shift Backspace shortcut for Full Screen toggle")
         (set-property~ preferences-designer pref 'fullscreen-warned? #t)))
@@ -1473,7 +1473,7 @@
       (if (not fullscreen?)
           (let ((preserved (get-preserved-insets~ splitter)))
             (when preserved
-              (set-preserved-insets~ splitter {})
+              (set-preserved-insets~ splitter #f)
               (set-insets~ splitter preserved)))
         (set-preserved-insets~ splitter (get-insets~ splitter))
         (set-insets~ splitter {Rect 0 0 0 0})))
@@ -1545,7 +1545,7 @@
   
   
   (method override (get-context-text)
-    {})
+    #f)
    
   
   ;;;
@@ -1579,7 +1579,7 @@
   
   
   (definition Images-Portfolio
-    {})
+    #f)
   
   
   (method public (get-images-portfolio)
@@ -1594,11 +1594,11 @@
 
 
   (method public virtual (get-cataloguer)
-    {})
+    #f)
 
 
   (method public virtual (get-catalog-context)
-    {})
+    #f)
 
 
   ;;;
@@ -1623,7 +1623,7 @@
   ;;;
 
 
-  (method public (fresh-prompt (text: text {}))
+  (method public (fresh-prompt (text: text #f))
     (let ((text (either text (get-console-text))))
       (when text
         (fresh-prompt~ text))))
@@ -1713,11 +1713,11 @@
   
   
   (method public virtual undocumented (get-search-manager)
-    {})
+    #f)
   
   
   (method public virtual undocumented (get-search-results)
-    (get-guest~ (singleton-docked Search-Results {})))
+    (get-guest~ (singleton-docked Search-Results #f)))
   
   
   (method public (active-search)
@@ -1757,21 +1757,21 @@
   
   
   (method package (on-find-in-text evt)
-    (update-search 'text {}))
+    (update-search 'text #f))
   
   
   (method package (on-find-in-directories evt)
-    (update-search 'directories {}))
+    (update-search 'directories #f))
   
   
   (method package (on-find-in-projects evt)
-    (update-search 'projects {}))
+    (update-search 'projects #f))
   
   
   (method (update-search tab domain)
     (let* ((focus (get-focus))
            (internal? (is? focus Tree-Embedded-Search-Text-View))
-           (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) {}))
+           (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) #f))
            (palette (get-search-manager))
            (player (get-player~ palette))
            (manager (get-guest~ palette))
@@ -1922,7 +1922,7 @@
   
   
   (method public (select-command-search direction text)
-    (select-search~ (require-unzoomed-command-text) direction {} text #t #t))
+    (select-search~ (require-unzoomed-command-text) direction #f text #t #t))
   
   
   (method public (select-command-search-current direction range text)
@@ -2023,7 +2023,7 @@
     (open-files))
   
   
-  (method public (open-files (directory: directory {}))
+  (method public (open-files (directory: directory #f))
     (let ((files (choose-file directory: directory extensions: (open-extensions) multiple-selection?: #t)))
       (for-each edit-file
                 (sort string>? files key: get-name~))))
@@ -2036,7 +2036,7 @@
           (user-message "Current directory set to {a}" (parse~ dir)))
       (let ((class (cond ((alt-down?) (autoload-class 'Jazz-Plain-Text-View))
                          ((shift-down?) (autoload-class 'Jazz-Text-View))
-                         (else {}))))
+                         (else #f))))
         (for-each (lambda (pathname)
                     (when (file? pathname)
                       (if class
@@ -2051,10 +2051,10 @@
   
   ;; a quicky... this should really be up to the current workspace
   (method public virtual (open-extensions)
-    {})
+    #f)
 
 
-  (method public (find-document moniker (class: class {}))
+  (method public (find-document moniker (class: class #f))
     (find-if (lambda (frame)
                (and (is? frame Frame-Host)
                     (let ((guest (get-guest~ frame)))
@@ -2067,11 +2067,11 @@
   
   
   (method public (edit-document moniker
-                                (class: class {})
-                                (kind: kind {})
-                                (workspace: workspace {})
-                                (selection: selection {})
-                                (char-encoding: char-encoding {})
+                                (class: class #f)
+                                (kind: kind #f)
+                                (workspace: workspace #f)
+                                (selection: selection #f)
+                                (char-encoding: char-encoding #f)
                                 (wrap?: wrap? #f)
                                 (force-new?: force-new? #f)
                                 (activate-focus?: activate-focus? #t)
@@ -2081,7 +2081,7 @@
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
-          (let* ((frame (if force-new? {} (find-document file class: class)))
+          (let* ((frame (if force-new? #f (find-document file class: class)))
                  (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
             (if (not frame)
                 (let ((class (either class (file-frame-class file))))
@@ -2225,7 +2225,7 @@
     (define (modify-profile)
       (when profile
         (close~ profile))
-      (let ((pref (find-preferences {})))
+      (let ((pref (find-preferences #f)))
         (when pref
           (let ((class (either (get-profile-class~ pref) Profile)))
             (when class
@@ -2269,10 +2269,10 @@
   
   
   (definition Default-Page-Setup
-    {})
+    #f)
   
   (definition Default-Page-Setup-Designer
-    {})
+    #f)
   
   (definition Default-Page-Setup-Form
     (form>>
@@ -2319,7 +2319,7 @@
   
   
   (method public virtual (get-documentation-cataloguer)
-    {})
+    #f)
   
   
   ;;;

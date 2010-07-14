@@ -46,7 +46,7 @@
 (class undocumented Datatype-Row extends Combo-Row
 
 
-  (property datatype-class          initialize {} accessors generate)
+  (property datatype-class          initialize #f accessors generate)
   (property allow-partial-datatype? initialize #f accessors generate)
   
   
@@ -59,7 +59,7 @@
 
 
   (method override (initialize . rest)
-    (bind-keywords ((datatype-class {}) (unavailable-systypes-message {}) (allow-partial-datatype? #f) . others) rest
+    (bind-keywords ((datatype-class #f) (unavailable-systypes-message #f) (allow-partial-datatype? #f) . others) rest
       (apply nextmethod others)
       (set! datatype-class~self datatype-class)
       (set! allow-partial-datatype?~self allow-partial-datatype?)
@@ -84,7 +84,7 @@
   
   (method override (present type)
     (if (null? type)
-        "{}"
+        "#f"
       (present~ type)))
   
   
@@ -121,16 +121,16 @@
         (if (and (not allow-partial-datatype?) systype
               (or (get-sizeable?~ systype) (get-precisionable?~ systype)))
             (parse-error (present-format systype name))
-          (values name {} {} {}))))
+          (values name #f #f #f))))
     
     (define (parse-variable list)
       (bind (name precision) list
         (let ((systype (parse-systype name)))
           (cond
             ((get-sizeable?~ systype)
-             (values name (parse-integer precision) {} {}))
+             (values name (parse-integer precision) #f #f))
             ((and (get-precisionable?~ systype) allow-partial-datatype?)
-             (values name {} (parse-integer precision) {}))
+             (values name #f (parse-integer precision) #f))
             (else
              (parse-error (present-format systype name)))))))
     
@@ -138,7 +138,7 @@
       (bind (name precision scale) list
         (let ((systype (parse-systype name)))
           (if (and systype (get-precisionable?~ systype) (get-scalable?~ systype))
-              (values name {} (parse-integer precision) (parse-integer scale))
+              (values name #f (parse-integer precision) (parse-integer scale))
             (parse-error (present-format systype name))))))
     
     (define (parse-systype name)
@@ -151,7 +151,7 @@
     
     (let ((content (read-content string)))
       (case (length content)
-        ((0) {})
+        ((0) #f)
         ((1) (parse-fixed (car content)))
         ((2) (parse-variable content))
         ((3) (parse-decimal content))

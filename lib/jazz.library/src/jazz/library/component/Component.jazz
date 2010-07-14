@@ -65,21 +65,21 @@
   (definition Layout-Valid-Flag #x00000100)
   
   
-  (slot name                         initialize {})
-  (slot parent                       initialize {})
-  (slot branch                       initialize {})   ;; the immediatly installed branch
-  (slot branch2                      initialize {})   ;; the immediatly installed branch
-  (slot creation-form                initialize {})   ;; the form that created the component
-  (slot creator                      initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
-  (slot creator-branch               initialize {})   ;; the branch that created the component ({} if none)
+  (slot name                         initialize #f)
+  (slot parent                       initialize #f)
+  (slot branch                       initialize #f)   ;; the immediatly installed branch
+  (slot branch2                      initialize #f)   ;; the immediatly installed branch
+  (slot creation-form                initialize #f)   ;; the form that created the component
+  (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
+  (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
   (slot event-consumer               initialize self)
   (slot designers                    initialize '())
-  (slot surrogate                    initialize {} accessors generate)
-  (slot index                        initialize {})
+  (slot surrogate                    initialize #f accessors generate)
+  (slot index                        initialize #f)
   (slot flags                 <fx>   initialize Visible-Flag)
   
   
-  (property before                   initialize {}  accessors explicit)
+  (property before                   initialize #f  accessors explicit)
   (property children                 initialize '() accessors explicit)
   (property visible?          <void>                accessors explicit)
   (property class-info        <void>                getter get-class-info)
@@ -186,7 +186,7 @@
   
   (method (get-name-info)
     (if (not name)
-        "{}"
+        "#f"
       (->string name)))
   
   
@@ -296,11 +296,11 @@
 
 
   (method protected virtual (default-name)
-    {})
+    #f)
 
 
   (method protected virtual (default-parent)
-    {})
+    #f)
   
   
   (method protected virtual (setup-parent)
@@ -309,7 +309,7 @@
 
   (method protected chained (prepare initargs <Object>)
     (define (prepare-parent)
-      (let ((arg (getf initargs parent: not-found: {})))
+      (let ((arg (getf initargs parent: not-found: #f)))
         (set! parent (if (not arg) (default-parent) arg))
         (setup-parent)))
     
@@ -330,7 +330,7 @@
     (define (install-inherited forms)
       (when (not-null? forms)
         (install-inherited (cdr forms))
-        (install-form (car forms) self {} {})))
+        (install-form (car forms) self #f #f)))
     
     (install-component))
   
@@ -396,12 +396,12 @@
 
 
   (method protected chained (finish initargs <Object>)
-    (bind-keywords ((form {}) (creator {}) . others) initargs
+    (bind-keywords ((form #f) (creator #f) . others) initargs
       (when form
         ;; setting the creator to #t is a service for Form instantiate
         (if (neq? creator #t)
-            (install-form form creator {} {})
-          (install-form form self {} {})
+            (install-form form creator #f #f)
+          (install-form form self #f #f)
           (set! creator~self self)))
       (write-properties initargs)))
   
@@ -634,7 +634,7 @@
   (method public virtual (replace-child rank <fx> replacement <Object>)
     (let ((child (element children rank)))
       (set-parent~ replacement self)
-      (set-parent~ child {})
+      (set-parent~ child #f)
       (set! children (insert! (remove! replacement children) rank replacement))))
   
   
@@ -692,13 +692,13 @@
     (child~ parent name))
   
   
-  (method public (next-brother (type: type {}))
+  (method public (next-brother (type: type #f))
     (if (not parent)
         self
       (next-child~ parent self type: type)))
   
   
-  (method public (previous-brother (type: type {}))
+  (method public (previous-brother (type: type #f))
     (if (not parent)
         self
       (previous-child~ parent self type: type)))
@@ -756,10 +756,10 @@
           (lambda (component level)
             (when (predicate component)
               (continuation-return return component))))
-        {})))
+        #f)))
   
   
-  (method public (collect-ascendants (type {}))
+  (method public (collect-ascendants (type #f))
     (let ((ascendants '())
           (parent (get-parent)))
       (while (and parent (or (not type) (is-not? parent type)))
@@ -831,7 +831,7 @@
     (for-each-parent proc))
   
   
-  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t) (stop-test: stop-test {}))
+  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t) (stop-test: stop-test #f))
     (when include-self?
       (proc self 0))
     (let (iter (component self)
@@ -970,13 +970,13 @@
     (last children))
   
   
-  (method public (next-child child (type: type {}))
+  (method public (next-child child (type: type #f))
     (let ((children (if type (collect-type type children) children)))
       (let ((rank (find children child)))
         (element children (modulo (+ rank 1) (length children))))))
   
   
-  (method public (previous-child child (type: type {}))
+  (method public (previous-child child (type: type #f))
     (let ((children (if type (collect-type type children) children)))
       (let ((rank (find children child)))
         (element children (modulo (- rank 1) (length children))))))
@@ -1044,7 +1044,7 @@
         (when branch
           (restore-client~ branch))
       (let ((branch (if (is? br Branch) br (locate br))))
-        (install-branch~ branch {}))))
+        (install-branch~ branch #f))))
   
   
   (method protected virtual (install-branch br)
@@ -1095,7 +1095,7 @@
       (cons branch (get-installed-branches~ branch))))
   
   
-  (method public (iterate-branch-spine proc (branch: branch {}))
+  (method public (iterate-branch-spine proc (branch: branch #f))
     (let ((branch (either branch (get-active-branch))))
       (while (is? branch Branch)
         (proc branch (get-client-form~ branch))
@@ -1128,7 +1128,7 @@
   
   
   (method public virtual (get-integrity-manager)
-    {})
+    #f)
   
   
   (method public virtual (validate-component root client context manager)
@@ -1219,7 +1219,7 @@
   
   (method public virtual (present-path root)
     (let ((path '())
-          (pres {})
+          (pres #f)
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
@@ -1260,7 +1260,7 @@
                    client)))))
       (if (eq? branches #t)
           (if include-root?
-              (cons (instantiate {}) (map instantiate all-branch-names))
+              (cons (instantiate #f) (map instantiate all-branch-names))
             (map instantiate all-branch-names))
         (map instantiate branches))))
 

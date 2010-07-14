@@ -51,21 +51,21 @@
   ;; case, then having a memory leak trace of 3 5 at the end should be normal...
   
   
-  (slot server       initialize {})
-  (slot database     initialize {})
+  (slot server       initialize #f)
+  (slot database     initialize #f)
   (slot system-types initialize '())
   
   
-  (method (initialize connection servername username password (databasename {}))
+  (method (initialize connection servername username password (databasename #f))
     (nextmethod connection)
     (set! server (com-create SQLDMO.SQLServer error?: #f))
     (when (null? server)
       (error "Unable to locate SQLServer"))
     (Connect~ server servername username password)
-    (validate-version "SQLServer" 'sqlserver {} (get-version) register: :sqlserver-version cleanup: destroy-inventory)
+    (validate-version "SQLServer" 'sqlserver #f (get-version) register: :sqlserver-version cleanup: destroy-inventory)
     (when databasename
       (with ((databases (get-Databases~ server)))
-        (set! database (Item~ databases databasename {}))))
+        (set! database (Item~ databases databasename #f))))
     (destroy-mandatory))
   
   
@@ -82,13 +82,13 @@
       @debug-memory-leaks
       (debug '*** (com-interface-refcount server) (com-interface-refcount database))
       (com-release database)
-      (set! database {}))
+      (set! database #f))
     (when server
       (DisConnect~ server)
       @debug-memory-leaks
       (debug '*** (com-interface-refcount server))
       (com-release server)
-      (set! server {})))
+      (set! server #f)))
   
   
   ;;;
@@ -140,7 +140,7 @@
     (with ((tables (get-Tables~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ tables))
-              (let ((table (Item~ tables n {})))
+              (let ((table (Item~ tables n #f)))
                 (if (get-SystemObject~ table)
                     (com-release table)
                   (put~ fact (new SQLServer-Inventory-Table self self table)))))
@@ -149,7 +149,7 @@
   
   (method (get-table name)
     (with ((tables (get-Tables~ database)))
-      (new SQLServer-Inventory-Table self self (Item~ tables name {}))))
+      (new SQLServer-Inventory-Table self self (Item~ tables name #f))))
   
   
   (method (create-table name)
@@ -165,7 +165,7 @@
   
   (method (remove-table name)
     (with ((tables (get-Tables~ database)))
-      (Remove~ tables name {})))
+      (Remove~ tables name #f)))
   
   
   (method (columns-ordinal-position-consecutive?)
@@ -181,7 +181,7 @@
     (with ((views (get-Views~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ views))
-              (let ((view (Item~ views n {})))
+              (let ((view (Item~ views n #f)))
                 (if (not (get-SystemObject~ view))
                     (put~ fact (new SQLServer-Inventory-View self self view))
                   (com-release view))))
@@ -192,11 +192,11 @@
     (with ((views (get-Views~ database)))
       (let* ((action
                (lambda ()
-                 (Item~ views name {})))
+                 (Item~ views name #f)))
              (view
                (if error?
                    (action)
-                 (cotry (action) (Object-Not-Existant {})))))
+                 (cotry (action) (Object-Not-Existant #f)))))
         (when view
           (new SQLServer-Inventory-View self self view)))))
   
@@ -214,7 +214,7 @@
   
   (method (remove-view name)
     (with ((views (get-Views~ database)))
-      (Remove~ views name {})))
+      (Remove~ views name #f)))
   
   
   ;;;
@@ -248,7 +248,7 @@
                     (Add~ columns field))
                   primary-fields))
       (with ((tables (get-Tables~ database))
-             (foreign-table (Item~ tables foreign-table {}))
+             (foreign-table (Item~ tables foreign-table #f))
              (foreign-keys (get-Keys~ foreign-table)))
         (Add~ foreign-keys new-key))
       (new SQLServer-Inventory-Relation self self new-key)))
@@ -256,7 +256,7 @@
   
   (method (remove-relation relation-name table-name)
     (with ((tables (get-Tables~ database))
-           (table (Item~ tables table-name {}))
+           (table (Item~ tables table-name #f))
            (keys (get-Keys~ table)))
       (Remove~ keys relation-name)))
   
@@ -278,7 +278,7 @@
     (with ((procedures (get-StoredProcedures~ database)))
       (let ((fact (new List-Factory)))
         (loop (for n from 1 to (get-Count~ procedures))
-              (let ((procedure (Item~ procedures n {})))
+              (let ((procedure (Item~ procedures n #f)))
                 (if (not (get-SystemObject~ procedure))
                     (put~ fact (new SQLServer-Inventory-Procedure self self procedure))
                   (com-release procedure))))
@@ -293,11 +293,11 @@
     (with ((procedures (get-StoredProcedures~ database)))
       (let* ((action
                (lambda ()
-                 (Item~ procedures name {})))
+                 (Item~ procedures name #f)))
              (procedure
                (if error?
                    (action)
-                 (cotry (action) (Object-Not-Existant {})))))
+                 (cotry (action) (Object-Not-Existant #f)))))
         (when procedure
           (new SQLServer-Inventory-Procedure self self procedure)))))
 
@@ -315,7 +315,7 @@
   
   (method (remove-procedure name)
     (with ((procedures (get-StoredProcedures~ database)))
-      (Remove~ procedures name {})))
+      (Remove~ procedures name #f)))
   
   
   ;;;

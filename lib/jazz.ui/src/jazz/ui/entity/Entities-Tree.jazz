@@ -63,8 +63,8 @@
 (class undocumented Entities-Tree extends Tree-View
   
   
-  (slot client     initialize {} accessors generate)
-  (slot controller initialize {} accessors generate)
+  (slot client     initialize #f accessors generate)
+  (slot controller initialize #f accessors generate)
 
   
   ;;;
@@ -131,7 +131,7 @@
     '())
   
   
-  (method public virtual (add-entity factory (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? #t))
+  (method public virtual (add-entity factory (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
     (let* ((class (get-class~ factory))
            (selected (selected-entity))
            (parent (either parent (relocation-parent selected class) selected client))
@@ -155,9 +155,9 @@
             (entity-properties-request factory)))
   
   
-  (method protected virtual (entity-presentation-request factory brothers (initial-value: initial-value {}))
+  (method protected virtual (entity-presentation-request factory brothers (initial-value: initial-value #f))
     (if (get-name-prohibited?~ factory)
-        {}
+        #f
       (let* ((name-mandatory? (get-name-mandatory?~ factory))
              (name-unicity? (get-name-unicity?~ factory))
              (unicity-domain (essay name-unicity? (map get-presentation~ brothers)))
@@ -168,11 +168,11 @@
   
   
   (method protected virtual (entity-properties-request factory)
-    {})
+    #f)
   
   
   (method protected virtual (entity-name-validator)
-    {})
+    #f)
   
   
   (method protected virtual (install-new-entity controller child parent presentation properties)
@@ -213,7 +213,7 @@
       (let ((row (find-row entity)))
         (move-entity-row row (get-father~ row))))
     
-    (define (move-entity-row row father (position: position {}))
+    (define (move-entity-row row father (position: position #f))
       (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
         (let* ((source (get-user-data~ row))
                (destination (either (get-user-data~ father) client))
@@ -221,7 +221,7 @@
           (move-row row father
             position: (either position (lambda ()
                                          (if (not sort?)
-                                             {}
+                                             #f
                                            (find-entity-position source row father))))))))
     
     (with-update-locked
@@ -257,7 +257,7 @@
                    (sons (get-sons~ father))
                    (rank (son-rank~ father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
-                   (target (if (< position (cardinality sons)) (element sons position) {}))
+                   (target (if (< position (cardinality sons)) (element sons position) #f))
                    (target-data (essay target (get-user-data~ target))))
               (for-each (lambda (entity)
                           (send-before~ controller entity (essay target (send-entity-before entity target-data))))
@@ -308,14 +308,14 @@
            (dst-parent (parent-relocation (get-parent~ dst)))
            (before? (eq? src-parent dst-parent))
            (before-last (row->line (last (get-sons~ dst-father))))
-           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) {} (+ dst-line 1)))))
-           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) {})))
+           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
+           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
            (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
            (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
-                       (else {}))))
+                       (else #f))))
       (when part
         (new Tree-Drop-Target view: self row: row part: part))))
   
@@ -324,7 +324,7 @@
   (method (get-row-target drag-drop row)
     (let* ((source (get-source~ drag-drop))
            (view (get-view~ source)))
-      {}))
+      #f))
   
   
   @to-convert
@@ -388,7 +388,7 @@
   (method override (can-paste?)
     (let* ((entities (selected-entities))
            (parents (map determine-paster~ entities)))
-      (and (not (memq? {} parents))
+      (and (not (memq? #f parents))
            (= 1 (length (remove-duplicates parents))))))
   
   
@@ -499,7 +499,7 @@
           (lambda (row rank)
             (when (eq? (get-user-data~ row) entity)
               (continuation-return return row))))
-        {})))
+        #f)))
   
   
   (method (entity-visible-row entity)
@@ -508,14 +508,14 @@
   
   (method public (select-entity entity)
     (let ((row (entity-visible-row entity)))
-      ;; if row is {}, then the row must be collapsed and I should expand it...
+      ;; if row is #f, then the row must be collapsed and I should expand it...
       (when row
         (set-single-selection row))))
   
   
   (method public (select-entities entities)
     (let ((rows (remove-nils (map entity-visible-row entities))))
-      ;; if a row is {}, then the row must be collapsed and I should expand it...
+      ;; if a row is #f, then the row must be collapsed and I should expand it...
       (set-selection rows)))
   
   
@@ -614,4 +614,4 @@
   
   
   (method public (show-properties)
-    (select-docked Properties-Manager workspace: {} focus?: #t))))
+    (select-docked Properties-Manager workspace: #f focus?: #t))))

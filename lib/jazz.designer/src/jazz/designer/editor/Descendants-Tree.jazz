@@ -136,14 +136,14 @@
   
   
   (method protected virtual (insert-toplevel rights)
-    (insert-component {} client rights #t 0))
+    (insert-component #f client rights #t 0))
   
   
   (method protected virtual (insert-component? component)
     #t)
   
   
-  (method protected virtual (insert-component row component rights update? level (image: image {}) (state: state {}))
+  (method protected virtual (insert-component row component rights update? level (image: image #f) (state: state #f))
     (when (insert-component? component)
       (let* ((components (get-components~ component))
              (title      (component-presentation component))
@@ -187,7 +187,7 @@
     (define (refresh-component component)
       (let* ((row (component-row component))
              (line (row->line row)))
-        ;; rank will be {} if row is not visible for instance inside a collapsed row
+        ;; rank will be #f if row is not visible for instance inside a collapsed row
         (when line
           (let ((cell (new Cell line 0))
                 (title (get-presentation-property~ component)))
@@ -202,7 +202,7 @@
               (let ((state (get-state~ row))
                     (level (+ (get-level~ row) 1)))
                 (remove-every-son~ row)
-                (insert-components row component {} #t level)
+                (insert-components row component #f #t level)
                 (when (eq? state 'expanded)
                   (expand row))))))))
     
@@ -224,10 +224,10 @@
   
   (definition (access-rights rights child)
     (if (not rights)
-        (values #t {})
+        (values #t #f)
       (let ((child-rights (find-child-rights~ rights child)))
         (if (not child-rights)
-            (values #f {})
+            (values #f #f)
           (values (can-access?~ child-rights) child-rights)))))
   
   
@@ -309,7 +309,7 @@
              (state (if (not descendant?) 'expanded 'collapsed)))
         (with-update-locked
           (lambda ()
-            (insert-component row child {} #f level state: state)
+            (insert-component row child #f #f level state: state)
             (when (not descendant?)
               (reorder-component child)
               (expand row)))))))

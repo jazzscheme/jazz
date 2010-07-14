@@ -54,11 +54,11 @@
 (class Command-Text-View extends IDE-Text-View
   
   
-  (slot mode             initialize {} accessors generate)
-  (slot client           initialize {} getter generate)
-  (slot client-selection initialize {} getter generate)
-  (slot client-position  initialize {} getter generate)
-  (slot client-restore   initialize {} accessors generate)
+  (slot mode             initialize #f accessors generate)
+  (slot client           initialize #f getter generate)
+  (slot client-selection initialize #f getter generate)
+  (slot client-position  initialize #f getter generate)
+  (slot client-restore   initialize #f accessors generate)
   
   
   (form
@@ -90,7 +90,7 @@
   
   (method (setup-client)
     (set! client (get-focus))
-    (set! client-selection {}))
+    (set! client-selection #f))
   
   
   (method (setup-search-client)
@@ -105,14 +105,14 @@
   
   
   (method (cleanup-client)
-    (set! client {})
-    (set! client-selection {}))
+    (set! client #f)
+    (set! client-selection #f))
   
   
   (method (restore-client)
     (when client-restore
       (client-restore)
-      (set! client-restore {})))
+      (set! client-restore #f)))
   
   
   ;;;
@@ -307,11 +307,11 @@
 
 
   (method virtual (completion-name pos)
-    {})
+    #f)
   
   
   (method virtual (symbol-completions name)
-    {})
+    #f)
   
   
   (method virtual (finish)
@@ -339,11 +339,11 @@
 (class Search-Mode extends Command-Mode
   
   
-  (slot direction       initialize {})
+  (slot direction       initialize #f)
   (slot context         initialize (make-search-context "" ignore-case?: #t))
   (slot ranges          initialize '())
-  (slot found-style     initialize {})
-  (slot highlight-style initialize {})
+  (slot found-style     initialize #f)
+  (slot highlight-style initialize #f)
   
   
   (method override (initialize text direction)
@@ -357,8 +357,8 @@
           (client-selection (get-client-selection)))
       (let ((text? (and client (is? client Text-View))))
         (set! ranges (if text? (list (or range client-selection)) '()))
-        (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color name: Found}) {}))
-        (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color name: Highlight}) {})))))
+        (set! found-style (if text? (new Text-Style name: 'Found base: 'Default domain: (get-styles-domain~ client) highlight: {Color name: Found}) #f))
+        (set! highlight-style (if text? (new Text-Style name: 'Highlight base: 'Default domain: (get-styles-domain~ client) highlight: {Color name: Highlight}) #f)))))
   
   
   (method override (mode-actions)
@@ -520,7 +520,7 @@
                            (lambda (key)
                              (search-key client key #f)))
                   (when again?
-                    (search-key client {} whole-words?))))
+                    (search-key client #f whole-words?))))
               (highlight-target client (last ranges))))))))
   
   
@@ -770,7 +770,7 @@
     (define (split-filename filename)
       (let ((pos (find filename #\/ reversed?: #t)))
         (if (not pos)
-            (values {} filename)
+            (values #f filename)
           (values (substring filename 0 (+ pos 1))
                   (substring filename (+ pos 1) (string-length filename))))))
     
@@ -848,7 +848,7 @@
                                            (and (eqv? (string-ref remaining 0) #\.)
                                                 (not (find remaining #\. start: 1))))
                                    (continuation-return return file)))))))
-          {})))
+          #f)))
     
     (let ((filename (first-line~ text)))
       (let ((file (find-file filename)))

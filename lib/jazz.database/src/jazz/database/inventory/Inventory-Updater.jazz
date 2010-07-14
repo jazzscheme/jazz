@@ -52,7 +52,7 @@
   (slot pending-properties       initialize '())
   (slot pending-deletes          initialize '())
   (slot pending-triggers/indexes initialize '())
-  (slot ugly-patch               initialize {})
+  (slot ugly-patch               initialize #f)
   
   
   (method (initialize connection)
@@ -87,7 +87,7 @@
         (process-pending-deletes)
         (for-each close~ ugly-patch)
         ;; pas necessaire quand ugly-patch devient une slot
-        (set! ugly-patch {}))
+        (set! ugly-patch #f))
       title: "Update database"
       reporter: reporter))
   
@@ -185,7 +185,7 @@
   (method (set-table-tempo-name object)
     (let ((table-name (get-name~ object))
            (suffix -1)
-           (table-tempo-name {})
+           (table-tempo-name #f)
            (looking #t))
       (with ((tables (get-Tables~ (get-database~ inventory))))
         (while looking
@@ -266,7 +266,7 @@
                 (when identity-column?
                   (execute-sql-commit-preserve (generate-sql-identity-start table-current-name)))
                 (process-copy-data table table-tempo-name table-name))
-              (set! temp-table-created {}))
+              (set! temp-table-created #f))
           (when temp-table-created
             (undo-create-table table-current-name)))
         (when (not new-table?)
@@ -365,9 +365,9 @@
                                      (default-value (get-native-with-value~ datatype (object-new-property column default-value:) indirect?: #t))
                                      (read-only? (= default-value 'read-only)))
                                 (cond (read-only?
-                                       "{}")
+                                       "#f")
                                       (new-column?
-                                       (if nullable? "{}" default-value))
+                                       (if nullable? "#f" default-value))
                                       (else
                                        (let ((safe-name (encapsulate-name (get-name~ column)))
                                              (must-convert? (eq? (action-for-property column datatype:) 'modify))
@@ -514,7 +514,7 @@
   
   (method (find-constraint-name table-name column-name)
     (with ((tables (get-Tables~ (get-database~ inventory)))
-           (table (Item~ tables table-name {}))
+           (table (Item~ tables table-name #f))
            (columns (get-Columns~ table))
            (column (Item~ columns column-name))
            (default (get-DRIDefault~ column)))
@@ -662,11 +662,11 @@
                        "UNIQUE"
                      ""))
            (clustered (if (third (get-property~ index clustered?:)) "CLUSTERED" "NONCLUSTERED"))
-           (pad-index (if (third (get-property~ index pad-index?:)) "PAD_INDEX" {}))
+           (pad-index (if (third (get-property~ index pad-index?:)) "PAD_INDEX" #f))
            (fill-factor (third (get-property~ index fill-factor:)))
-           (fill-factor-text (if (> fill-factor 0) (tie "FILLFACTOR = {fill-factor}") {}))
-           (ignore-dup-key (if (third (get-property~ index ignore-duplicates?:)) "IGNORE_DUP_KEY" {}))
-           (statistics-norecompute (if (third (get-property~ index recompute-statistics?:)) {} "STATISTICS_NORECOMPUTE"))
+           (fill-factor-text (if (> fill-factor 0) (tie "FILLFACTOR = {fill-factor}") #f))
+           (ignore-dup-key (if (third (get-property~ index ignore-duplicates?:)) "IGNORE_DUP_KEY" #f))
+           (statistics-norecompute (if (third (get-property~ index recompute-statistics?:)) #f "STATISTICS_NORECOMPUTE"))
            (options-list (remove-nils (list pad-index fill-factor-text ignore-dup-key statistics-norecompute)))
            (options (if options-list
                         (tie "WITH {options-list l detail: :human separator: \", \"}")
@@ -900,7 +900,7 @@
   (method (process-delete object parent-proxy kind name reporter)
     (with-execution-node
       (lambda ()
-        (process-proxy object parent-proxy {} reporter))
+        (process-proxy object parent-proxy #f reporter))
       title: (format "Delete {a} {a}" kind name)))
   
   
@@ -1080,7 +1080,7 @@
                                           (begin
                                             (set-size~ physical (get-size~ value))
                                             (set-nullable?~ physical nullable?))
-                                        {}
+                                        #f
                                         @wait
                                         (create-field-by-sql physical value)))))))
         ((nullable?)             (set-nullable?~ physical value))

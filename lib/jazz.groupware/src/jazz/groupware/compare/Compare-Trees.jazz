@@ -62,7 +62,7 @@
   (property ignored-nodes      initialize '()            accessors generate)
   (property ignored-leaves     initialize '()            accessors generate)
   (property ignored-extensions initialize '()            accessors generate)
-  (property check-algorithm    initialize {}             accessors explicit)
+  (property check-algorithm    initialize #f             accessors explicit)
   
   
   (slot left-root)
@@ -70,7 +70,7 @@
   (slot right-root)
   (slot right-base)
   (slot root-entry)
-  (slot installed-configuration initialize {})
+  (slot installed-configuration initialize #f)
 
 
   (form
@@ -246,7 +246,7 @@
           (for-each (lambda (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
                         (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
-                          (set-action~ entry {})
+                          (set-action~ entry #f)
                           (let ((cell (new Cell n $Action-Column)))
                             (invalidate-cell~ tree cell)))))
                     (get-selection~ tree))))))
@@ -330,7 +330,7 @@
                         ((copy-left)
                          (let ((cell (new Cell n $Right-Column)))
                            (invalidate-cell~ tree cell))))
-                      (set-action~ entry {})
+                      (set-action~ entry #f)
                       (let ((cell (new Cell n $Action-Column)))
                         (invalidate-cell~ tree cell)))
                   (remove-row~ tree row)
@@ -522,7 +522,7 @@
     @convert-date
     (let ((text (get-string-content~ (locate 'base-date))))
       (if (empty-string? text)
-          {}
+          #f
         (parse-string~ Date text))))
   
   
@@ -597,7 +597,7 @@
         (remove-every-row~ tree)
         (with-update-locked~ tree
           (lambda ()
-            (display-entry mode date tree {} entry 0)
+            (display-entry mode date tree #f entry 0)
             (set-selection~ tree '())))))
     
     (define (display-entry mode date tree father entry level)
@@ -630,7 +630,7 @@
       (set! right-base (tree-base right-tree))
       (let ((comparer (new-comparer)))
         (receive (entry has-differences? scanned-values)
-            (compare-nodes~ comparer {} left-tree right-tree
+            (compare-nodes~ comparer #f left-tree right-tree
              left-content: left-content
              right-content: right-content
              ignored-nodes: ignored-nodes
@@ -694,7 +694,7 @@
   
   
   (method protected virtual (merge-action base-date left left-value right right-value)
-    {})
+    #f)
   
   
   (method protected virtual (get-merge-date mode)
@@ -734,23 +734,23 @@
         (goto-next-comparable n))))
   
   
-  (method protected (goto-next-comparable (rank {}))
+  (method protected (goto-next-comparable (rank #f))
     (goto-next comparable? rank))
   
   
-  (method protected (goto-previous-comparable (rank {}))
+  (method protected (goto-previous-comparable (rank #f))
     (goto-previous comparable? rank))
   
   
-  (method protected (goto-next-uncomparable (rank {}))
+  (method protected (goto-next-uncomparable (rank #f))
     (goto-next uncomparable? rank))
   
   
-  (method protected (goto-previous-uncomparable (rank {}))
+  (method protected (goto-previous-uncomparable (rank #f))
     (goto-previous uncomparable? rank))
   
   
-  (method protected (goto-next predicate (rank {}))
+  (method protected (goto-next predicate (rank #f))
     (define (find-next tree rank predicate)
       (continuation-capture
         (lambda (return)
@@ -759,7 +759,7 @@
                            (entry (get-user-data~ row)))
                       (when (predicate entry)
                         (continuation-return return n)))))
-          {})))
+          #f)))
     
     (let* ((tree (locate 'results))
            (selection (get-selection~ tree))
@@ -770,7 +770,7 @@
         next)))
   
   
-  (method protected (goto-previous predicate (rank {}))
+  (method protected (goto-previous predicate (rank #f))
     (define (find-previous tree rank predicate)
       (continuation-capture
         (lambda (return)
@@ -779,7 +779,7 @@
                            (entry (get-user-data~ row)))
                       (when (predicate entry)
                         (continuation-return return n)))))
-          {})))
+          #f)))
     
     (let* ((tree (locate 'results))
            (selection (get-selection~ tree))
@@ -808,7 +808,7 @@
   
   
   (method protected virtual (tree-base tree)
-    {})
+    #f)
   
   
   (method protected virtual (trim-left item)

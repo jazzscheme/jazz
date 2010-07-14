@@ -3787,7 +3787,7 @@
     (let ((headers (get-headers)))
       (if (not headers)
           '()
-        (let ((occurences (text-multisearch-all (map make-search-context headers)))
+        (let ((occurences (text-contextual-search-all (map make-search-context headers)))
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
@@ -4443,8 +4443,8 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((multi-search-context (get-find-targets~ appl)))
-              (unless (select-next multi-search-context)
+            (let ((search-set (get-find-targets~ appl)))
+              (unless (select-next search-set)
                 (bell)))
           (on-find-forward~ search evt)))))
 
@@ -4453,8 +4453,8 @@
     (let ((appl (get-application)))
       (let ((search (active-search~ appl)))
         (if (not search)
-            (let ((multi-search-context (get-find-targets~ appl)))
-              (unless (select-previous multi-search-context)
+            (let ((search-set (get-find-targets~ appl)))
+              (unless (select-previous search-set)
                 (bell)))
           (on-find-backward~ search evt)))))
   
@@ -4491,7 +4491,7 @@
   
   
   (method public virtual (select-next search-context)
-    (let ((found (text-multisearch search-context start: (get-end) reversed?: #f)))
+    (let ((found (text-contextual-search search-context start: (get-end) reversed?: #f)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4501,7 +4501,7 @@
   
   
   (method public virtual (select-previous search-context)
-    (let ((found (text-multisearch search-context start: (get-start) reversed?: #t)))
+    (let ((found (text-contextual-search search-context start: (get-start) reversed?: #t)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4525,15 +4525,15 @@
   ;;;
   
   
-  (method public (text-multisearch search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
+  (method public (text-contextual-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test))
-          (multi-search-context (maybe-make-multi-search-context search-context)))
+          (search-set (->search-set search-context)))
       ;; Quick solution to multi-line string search
       (if (some? (lambda (context)
                    (search (get-target~ context) "\n"))
-                 (get-contexts~ multi-search-context))
+                 (get-contexts~ search-set))
           (let ((content (get-string-content)))
-            (let ((found (multisearch content multi-search-context constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
+            (let ((found (contextual-search content search-set constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
@@ -4544,7 +4544,7 @@
             (let (iter (n line) (start col))
               (if (if reversed? (>= n 0) (<= n end))
                   (let ((string (paragraph-string n)))
-                    (let ((found (multisearch string multi-search-context constituent-test: constituent-test start: start reversed?: reversed?)))
+                    (let ((found (contextual-search string search-set constituent-test: constituent-test start: start reversed?: reversed?)))
                       (if found
                           (bind (from . to) found
                             (cons (new Cell n from) (new Cell n to)))
@@ -4552,31 +4552,31 @@
                 #f)))))))
 
   
-  (method public (text-multisearch-all search-context (start: start #f) (end: end #f))
+  (method public (text-contextual-search-all search-context (start: start #f) (end: end #f))
     (let ((queue (new-queue))
           (constituent-test (get-constituent-test))
-          (multi-search-context (maybe-make-multi-search-context search-context)))
+          (search-set (->search-set search-context)))
       (for-each-paragraph
         (lambda (line <fx> paragraph <Paragraph>)
           (let ((str (get-string~ paragraph)))
             (for-each (lambda (found)
                         (bind (from . to) found
                           (enqueue queue (cons (new Cell line from) (new Cell line to)))))
-                      (multisearch-all str multi-search-context constituent-test: constituent-test))))
+                      (contextual-search-all str search-set constituent-test: constituent-test))))
         start: start
         end: end)
       (queue-list queue)))
   
   
   (method public (text-search context . rest)
-    (let ((found (apply text-multisearch (standardize-search-contexts context) rest)))
+    (let ((found (apply text-contextual-search context rest)))
       (if found
           (car found)
         #f)))
   
   
   (method public (text-search-all context . rest)
-    (map car (apply text-multisearch-all (standardize-search-contexts context) rest)))
+    (map car (apply text-contextual-search-all context rest)))
 
   
   (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))

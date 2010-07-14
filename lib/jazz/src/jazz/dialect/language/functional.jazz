@@ -2135,14 +2135,17 @@
   (slot user-data        <any>        accessors generate))
 
 
-(class package Multi-Search-Context extends Object
+(class package Search-Set extends Object
+  
+  
   (slot regexp           <any>        accessors generate)
   (slot contexts         <list>       accessors generate))
 
 
-(definition inline (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? regexp? constituent-test #f user-data))
-
+(definition public (->search-context obj)
+  (cond ((is? obj Search-Context) obj)
+        ((string? obj) (make-search-context obj))
+        (else (error "Unable to make a search context out of {s}" obj))))
 
 (definition public (make-search-context target
                      (whole-words?: whole-words? #f)
@@ -2152,26 +2155,23 @@
                      (user-data: user-data #f))
   (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data))
 
-(definition public (make-multi-search-context contexts <list>)
-  (construct Multi-Search-Context
-             (if (one-element? contexts)
-                 (search-context-regexp (car contexts))
-               (sre->irregex (cons 'or (map search-context->sre contexts))))
-             contexts))
+(definition inline (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data)
+  (construct Search-Context target whole-words? ignore-case? regexp? constituent-test #f user-data))
 
-(definition public (maybe-make-multi-search-context contexts <any>)
-  (cond ((null/pair? contexts) (make-multi-search-context contexts))
-        (else contexts)))
 
-(definition public (standardize-search-contexts obj)
-  (define (standardize-context obj)
-    (cond ((is? obj Search-Context) obj)
-          ((string? obj) (make-search-context obj))
-          (else (error "Unable to standardize into a search context: {s}" obj))))
-  
-  (if (null/pair? obj)
-      (map standardize-context obj)
-    (list (standardize-context obj))))
+(definition public (->search-set obj)
+  (cond ((is? obj Search-Set) obj)
+        ((is? obj Search-Context) (make-search-set (search-context-regexp obj) (list obj)))
+        ((string? obj) (->search-set (->search-context obj)))
+        ((list? obj) (let ((contexts (map ->search-context obj)))
+                       (make-search-set
+                         (sre->irregex (cons 'or (map search-context->sre contexts)))
+                         contexts)))
+        (else (error "Unable to make a search set out of {s}" obj))))
+
+(definition public (make-search-set regexp contexts)
+  (construct Search-Set regexp contexts))
+
 
 (definition (search-context->sre context <Search-Context>)
   (list (if (get-ignore-case?~ context) 'w/nocase 'seq)
@@ -2186,13 +2186,13 @@
         rx)))
 
 
-(definition (multisearch-impl seq <Sequence> contexts <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
-  (let* ((multi-search-context (maybe-make-multi-search-context contexts))
-         (rx (get-regexp~ multi-search-context))
-         (constituent-test (or (get-constituent-test~ (car (get-contexts~ multi-search-context)))
+(definition (contextual-search-impl seq <Sequence> target <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
+  (let* ((search-set (->search-set target))
+         (rx (get-regexp~ search-set))
+         (constituent-test (or (get-constituent-test~ (car (get-contexts~ search-set)))
                                constituent-test
                                word-constituent?))
-         (whole-words? (get-whole-words?~ (car (get-contexts~ multi-search-context))))
+         (whole-words? (get-whole-words?~ (car (get-contexts~ search-set))))
          (end (or (and reversed? start) (cardinality seq))))
     (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
       (let ((m (irregex-search rx seq i)))
@@ -2212,22 +2212,23 @@
                  (if reversed? (lp (+ to 1) res) res)))
               (else (lp to best)))))))))
 
-(definition public (multisearch seq <Sequence> contexts <any>
+
+(definition public (contextual-search seq <Sequence> target <any>
                      (constituent-test: constituent-test #f)
                      (start: start #f)
                      (reversed?: reversed? #f))
-  (multisearch-impl seq contexts constituent-test start reversed?))
+  (contextual-search-impl seq target constituent-test start reversed?))
 
 
-(definition public (multisearch-all seq <Sequence> contexts <any>
+(definition public (contextual-search-all seq <Sequence> target <any>
                      (constituent-test: constituent-test #f)
                      (start: start #f)
                      (reversed?: reversed? #f))
   (let ((len (cardinality seq))
         (queue (new-queue))
-        (multi-search-context (maybe-make-multi-search-context contexts)))
+        (search-set (->search-set target)))
     (let (iter (pos <fx> (either start (if reversed? len 0))))
-      (let ((found (multisearch-impl seq multi-search-context constituent-test pos reversed?)))
+      (let ((found (contextual-search-impl seq search-set constituent-test pos reversed?)))
         (if found
             (begin
               (enqueue queue found)
@@ -2242,10 +2243,13 @@
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
                      (constituent-test: constituent-test #f)) <int+>
-  (let ((found (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? regexp? #f #f)) constituent-test start reversed?)))
-    (if found
-        (car found)
-      #f)))
+  (let ((search-set (->search-set (if (string? target)
+                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f)
+                                    target))))
+    (let ((found (contextual-search-impl seq search-set constituent-test start reversed?)))
+      (if found
+          (car found)
+        #f))))
 
 
 (definition public (search-all seq <Sequence> target <Object>
@@ -2255,9 +2259,12 @@
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
                      (constituent-test: constituent-test #f)) <list>
-  (map car (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? regexp? constituent-test #f))
-             start: start
-             reversed?: reversed?)))
+  (let ((search-set (->search-set (if (string? target)
+                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f)
+                                    target))))
+    (map car (contextual-search-all seq search-set
+               start: start
+               reversed?: reversed?))))
 
 
 (definition public (split seq <Object> separator <Object>) <list>

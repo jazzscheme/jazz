@@ -322,7 +322,7 @@
   
   @convert
   (method (paste-clipboard)
-    (let ((parent (either (selected-component) client))
+    (let ((parent (or (selected-component) client))
           (parcels (get-jazz-parcels)))
       ;; Note: the MetaModeler makes sure that all parcels have the same model
       ;; Todo: the override confirm should be done all at once and before the progress bar!
@@ -405,7 +405,7 @@
     (define (create-new-component class parent creation-info extra-properties)
       (receive (presentation added-properties) creation-info
         (let ((child (new class parent: parent))
-              (name (essay presentation (presentation->name~ class presentation)))
+              (name (and presentation (presentation->name~ class presentation)))
               (designer (get-designer)))
           (when name
             (set-name~ child name))
@@ -416,7 +416,7 @@
           child)))
     
     (let* ((selected (selected-component))
-           (parent (either parent (relocation-parent selected class) selected client))
+           (parent (or parent (relocation-parent selected class) selected client))
            (extra-properties properties))
       ;; To support the new feature that it is now possible to
       ;; insert a parent's child directly from the child itself
@@ -516,9 +516,9 @@
                    (rank (son-rank~ father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (cardinality sons)) (element sons position) #f))
-                   (target-data (essay target (get-user-data~ target))))
+                   (target-data (and target (get-user-data~ target))))
               (for-each (lambda (component)
-                          (send-before~ designer component (essay target (send-component-before component target-data))))
+                          (send-before~ designer component (and target (send-component-before component target-data))))
                         components))
             (select-components components))))))
   
@@ -526,13 +526,13 @@
   (method (move-component-row row father (position: position #f))
     (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
       (let* ((source (get-user-data~ row))
-             (destination (either (get-user-data~ father) client))
+             (destination (or (get-user-data~ father) client))
              (sort? (sort-components?~ destination)))
         (move-row row father
-          position: (either position (lambda ()
-                                       (if (not sort?)
-                                           #f
-                                         (find-component-position source row father))))))))
+          position: (or position (lambda ()
+                                   (if (not sort?)
+                                       #f
+                                     (find-component-position source row father))))))))
   
   
   (method public (reorder-component component)
@@ -570,10 +570,10 @@
            (dst-parent (parent-relocation (get-parent~ dst)))
            (before? (eq? src-parent dst-parent))
            (before-last (row->line (last (get-sons~ dst-father))))
-           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
-           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
+           (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
+           (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
            (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
-           (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
+           (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)

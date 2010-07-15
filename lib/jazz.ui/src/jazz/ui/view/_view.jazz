@@ -112,7 +112,7 @@
 
 
 (definition public (mouse-view)
-  (either Captured-View mouse-in))
+  (or Captured-View mouse-in))
 
 
 ;; This covers the special case where a mouse-down event triggers
@@ -232,10 +232,10 @@
   (bind-keywords ((host-title #f) (host-sizable? #f) (host-closable? #t) (host-visible? #t) (guest #f) (initialize #f) . others) rest
     (let* ((player (new (dialog-class~ guest-class) sizable?: host-sizable? closable?: host-closable? visible?: #f))
            (host (get-root~ player))
-           (guest (either guest (new-guest guest-class others)))
-           (size (either (host-size~ guest-class) (get-size~ guest)))
-           (pos (either (host-position~ guest-class) (center-dialog size))))
-      (set-title~ player (either host-title (host-title~ guest-class) "Dialog"))
+           (guest (or guest (new-guest guest-class others)))
+           (size (or (host-size~ guest-class) (get-size~ guest)))
+           (pos (or (host-position~ guest-class) (center-dialog size))))
+      (set-title~ player (or host-title (host-title~ guest-class) "Dialog"))
       (set-size~ player size)
       (set-position~ player pos)
       (set-guest~ host guest)
@@ -268,29 +268,29 @@
 
 
 (definition public (singleton-palette guest-class name . rest)
-  (let ((ref (either name (category-identifier guest-class))))
-    (either (table-ref Palettes ref #f)
-            (let ((palette
-                    ;; quick solution until we decide on the right approach
-                    (if (procedure? guest-class)
-                        (guest-class)
-                      (apply new-palette guest-class host-visible?: #f rest))))
-              (table-set! Palettes ref palette)
-              palette))))
+  (let ((ref (or name (category-identifier guest-class))))
+    (or (table-ref Palettes ref #f)
+        (let ((palette
+                ;; quick solution until we decide on the right approach
+                (if (procedure? guest-class)
+                    (guest-class)
+                  (apply new-palette guest-class host-visible?: #f rest))))
+          (table-set! Palettes ref palette)
+          palette))))
 
 
 (definition public (new-palette guest-class . rest)
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest #f) (initialize #f) . others) rest
     (let* ((player (new (palette-class~ guest-class) visible?: #f))
            (host (get-root~ player)))
-      (set-title~ player (either host-title (host-title~ guest-class) "Palette"))
+      (set-title~ player (or host-title (host-title~ guest-class) "Palette"))
       (when host-position
         (set-position~ player host-position))
       (when host-size
         (set-size~ player host-size))
       ;; It is important to set the palette's size before installing the guest
       ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (either guest (new-guest guest-class others))))
+      (let ((guest (or guest (new-guest guest-class others))))
         (set-guest~ host guest)
         ;; Should initialisations done here generate errors, at least
         ;; parent install is still not done at this point
@@ -339,17 +339,17 @@
 
 
 (definition public (singleton-docked guest-class name . rest)
-  (let ((ref (either name (external-name guest-class))))
-    (either (table-ref Dockeds ref #f)
-            (let ((palette (new-docked guest-class name: name)))
-              (table-set! Dockeds ref palette)
-              palette))))
+  (let ((ref (or name (external-name guest-class))))
+    (or (table-ref Dockeds ref #f)
+        (let ((palette (new-docked guest-class name: name)))
+          (table-set! Dockeds ref palette)
+          palette))))
 
 
 (definition public (new-docked guest-class . rest)
   (bind-keywords ((host-title #f) (host-location #f) . others) rest
     (let ((host (new Docked-Host visible?: #f)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Docked"))
+      (set-title~ host (or host-title (host-title~ guest-class) "Docked"))
       (when host-location
         (set-location~ host host-location))
       (set-guest~ host (new-guest guest-class others))
@@ -633,7 +633,7 @@
 
 (definition public (new-frame guest-class . rest)
   (bind-keywords ((kind #f) . others) rest
-    (case (either kind 'internal)
+    (case (or kind 'internal)
       ((internal) (apply new-internal-frame guest-class others))
       ((external) (apply new-external-frame guest-class others)))))
 
@@ -645,11 +645,11 @@
 
 (definition public (new-internal-frame guest-class . rest)
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
-    (let ((guest (either guest (new-guest guest-class others))))
+    (let ((guest (or guest (new-guest guest-class others))))
       (let ((host (new Internal-Frame-Host parent: (current-stage) visible?: #f)))
-        (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
-        (set-position~ host (either host-position (cascade-position host guest)))
-        (set-size~ host (either host-size (nu+ (get-size~ guest) {Dimension 8 28})))
+        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+        (set-position~ host (or host-position (cascade-position host guest)))
+        (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
         (when host-workspace
           (set-workspace~ host host-workspace))
         (set-guest~ host guest)
@@ -705,14 +705,14 @@
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
     (let* ((player (new External-Frame visible?: #f))
            (host (get-root~ player)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
+      (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
       (when host-position
         (set-position~ player host-position))
       (when host-size
         (set-size~ player host-size))
       ;; It is important to set the frame's size before installing the guest
       ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (either guest (new-guest guest-class others))))
+      (let ((guest (or guest (new-guest guest-class others))))
         (set-guest~ host guest)
         ;; Should initialisations done here generate errors, at least
         ;; parent install is still not done at this point
@@ -741,17 +741,17 @@
 
 
 (definition public (singleton-toolbar guest-class name . rest)
-  (let ((ref (either name (category-identifier guest-class))))
-    (either (table-ref Toolbars ref #f)
-            (let ((palette (new-toolbar guest-class name: name)))
-              (table-set! Toolbars ref palette)
-              palette))))
+  (let ((ref (or name (category-identifier guest-class))))
+    (or (table-ref Toolbars ref #f)
+        (let ((palette (new-toolbar guest-class name: name)))
+          (table-set! Toolbars ref palette)
+          palette))))
 
 
 (definition public (new-toolbar guest-class . rest)
   (bind-keywords ((host-title #f) (host-location #f) . others) rest
     (let ((host (new Toolbar-Host visible?: #f)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Toolbar"))
+      (set-title~ host (or host-title (host-title~ guest-class) "Toolbar"))
       (when host-location
         (set-location~ host host-location))
       (set-guest~ host (new-guest guest-class others))
@@ -842,7 +842,7 @@
                                 (default-button: default-button #f)
                                 (process-keys?: process-keys? #t)
                                 (sizable?: sizable? #f))
-  (receive (process? dialog) (new-dialog (either class Message-Box) host-visible?: #f host-sizable?: sizable?)
+  (receive (process? dialog) (new-dialog (or class Message-Box) host-visible?: #f host-sizable?: sizable?)
     (let ((guest (get-guest~ dialog)))
       (process-box~ guest text
         type: type
@@ -870,7 +870,7 @@
     (let ((text (format "The following error occured while {a}:{%}{%}{a}{%}{%}Press Continue {a}, Exit to exit immediately"
                         context
                         (exception-reason err)
-                        (either continue-text "to bypass this problem"))))
+                        (or continue-text "to bypass this problem"))))
       (let ((result (message-box text type: 'confirmation yes: "Continue" no: "Debug Now" cancel: "Exit")))
         (case result
           ((yes)
@@ -953,11 +953,11 @@
   (receive (process? host) (new-dialog class)
     (let* ((view (get-guest~ host))
            (text (locate~ view 'text)))
-      (set-title~ (get-player~ host) (either title "Enter String"))
+      (set-title~ (get-player~ host) (or title "Enter String"))
       (set-accepts-empty?~ view accepts-empty?)
       (set-unicity-domain~ view unicity-domain)
       (set-validator~ view validator)
-      (set-prefix~ view (either prefix "String:"))
+      (set-prefix~ view (or prefix "String:"))
       (set-string-content~ text (if initial-value (->string initial-value) ""))
       (select-all~ text)
       (acquire-focus~ text)
@@ -969,8 +969,8 @@
 
 (definition public (request-name . rest)
   (bind-keywords ((title #f) (prefix #f) . others) rest
-    (let* ((title (either title "Enter Name"))
-           (prefix (either prefix "Name:"))
+    (let* ((title (or title "Enter Name"))
+           (prefix (or prefix "Name:"))
            (string (apply request-string title: title prefix: prefix others)))
       (if (not string)
           #f
@@ -983,8 +983,8 @@
   (receive (process? dialog) (new-dialog class)
     (let* ((view (get-guest~ dialog))
            (text (locate~ view 'text)))
-      (set-title~ dialog (either title "Enter Text"))
-      (set-string-content~ text (either initial-text ""))
+      (set-title~ dialog (or title "Enter Text"))
+      (set-string-content~ text (or initial-text ""))
       (select-all~ text)
       (acquire-focus~ text)
       (let ((string (process-modal~ dialog)))
@@ -999,8 +999,8 @@
   (receive (process? dialog) (new-dialog class)
     (let* ((view (get-guest~ dialog))
            (text (locate~ view 'text)))
-      (set-title~ dialog (either title "Enter Date"))
-      (set-prefix~ view (either prefix "Date:"))
+      (set-title~ dialog (or title "Enter Date"))
+      (set-prefix~ view (or prefix "Date:"))
       (set-string-content~ text (if initial-date (present~ initial-date) ""))
       (select-all~ text)
       (acquire-focus~ text)

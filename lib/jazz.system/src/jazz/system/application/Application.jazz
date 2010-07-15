@@ -443,7 +443,7 @@
       (let ((associations (list (cons 'profile profile-name)
                                 (cons 'profile-lowercase (downcase (symbol->string profile-name)))
                                 (cons 'profile-unit profile-unit)
-                                (cons 'profile-bindings (either profile-bindings 'jazz)))))
+                                (cons 'profile-bindings (or profile-bindings 'jazz)))))
         (copy-template {Directory Jazz "lib" "jedi" "templates" "profile"}
                        {Directory Home}
                        associations
@@ -560,7 +560,7 @@
   
   (method (show-splash-screen (duration: duration #f))
     (set! Splash-Screen (show-splash))
-    (set! Splash-End (essay duration (+ (time->seconds (current-time)) duration))))
+    (set! Splash-End (and duration (+ (time->seconds (current-time)) duration))))
   
   
   (method (remove-splash-screen)
@@ -908,14 +908,14 @@
 
   (method public virtual (file-frame-class file)
     (let ((extension (get-extension~ file)))
-      (either (extension-frame-class extension)
-              (error "Unknown file extension: {a}" extension))))
+      (or (extension-frame-class extension)
+          (error "Unknown file extension: {a}" extension))))
 
 
   (method public virtual (extension-frame-class ext)
-    (either (profile-extension-frame-class ext)
-            (known-extension-frame-class ext)
-            (unknown-extension-frame-class)))
+    (or (profile-extension-frame-class ext)
+        (known-extension-frame-class ext)
+        (unknown-extension-frame-class)))
   
   
   (method (profile-extension-frame-class ext)
@@ -1090,7 +1090,7 @@
       (lambda ()
         (let ((bindings (load-bindings)))
           (set-bindings/designer bindings)
-          (let ((active (either (get-active-bindings~ (get-preferences #f)) 'jazz)))
+          (let ((active (or (get-active-bindings~ (get-preferences #f)) 'jazz)))
             (let ((branch (locate-component~ bindings active)))
               (when (is? branch Branch)
                 (set-active-branch~ bindings branch))))))
@@ -1534,9 +1534,9 @@
         (when (and host (in-player?~ host))
           (get-guest~ host))))
     
-    (either (try :command)
-            (try :minibuffer)
-            (try :toolbar)))
+    (or (try :command)
+        (try :minibuffer)
+        (try :toolbar)))
 
 
   ;;;
@@ -1624,7 +1624,7 @@
 
 
   (method public (fresh-prompt (text: text #f))
-    (let ((text (either text (get-console-text))))
+    (let ((text (or text (get-console-text))))
       (when text
         (fresh-prompt~ text))))
   
@@ -1896,10 +1896,10 @@
   
   
   (method public (require-command-text)
-    (either (get-command-text)
-            (begin
-              (message-box "This workspace doesn't contain a command text")
-              (throw-cancel))))
+    (or (get-command-text)
+        (begin
+          (message-box "This workspace doesn't contain a command text")
+          (throw-cancel))))
   
   
   (method (require-unzoomed-command-text)
@@ -2084,7 +2084,7 @@
           (let* ((frame (if force-new? #f (find-document file class: class)))
                  (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
             (if (not frame)
-                (let ((class (either class (file-frame-class file))))
+                (let ((class (or class (file-frame-class file))))
                   (with-cursor :wait
                     (lambda ()
                       (result (new-frame class
@@ -2122,7 +2122,7 @@
   
   (method public (edit-filename filename)
     (let* ((workbench (get-service 'workbench))
-           (project-file (essay workbench (find-filename~ workbench filename))))
+           (project-file (and workbench (find-filename~ workbench filename))))
       (if (not project-file)
           (error "Unable to locate filename: {t}" filename)
         (let* ((frame (edit-document (get-source~ project-file)))
@@ -2227,7 +2227,7 @@
         (close~ profile))
       (let ((pref (find-preferences #f)))
         (when pref
-          (let ((class (either (get-profile-class~ pref) Profile)))
+          (let ((class (or (get-profile-class~ pref) Profile)))
             (when class
               (set! profile (new (autoload class)))))))
       (when profile

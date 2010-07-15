@@ -437,9 +437,9 @@
   
   (method public (add-row . rest)
     (bind-keywords ((class (row-class)) (row #f) (father #f) (position #f) . others) rest
-      (let* ((father (either father root-row))
+      (let* ((father (or father root-row))
              (level (+ (get-level~ father) 1))
-             (row (either row (apply new class parent: self others))))
+             (row (or row (apply new class parent: self others))))
         (set-height-noevent~ row default-row-height)
         (set-descendants-level~ row level)
         (add-son~ father row position)
@@ -476,7 +476,7 @@
              (visible? (row-visible?~ row))
              (height (node-height~ row))
              (line (row->line row))
-             (top (essay line (row-top line))))
+             (top (and line (row-top line))))
         (when visible?
           (decrease! visible-count (+ 1 (count-visible~ row)))
           (decrease! visible-height height))
@@ -617,7 +617,7 @@
   
   
   (method public virtual (add-empty-row (father: father #f))
-    (let ((father (either father root-row)))
+    (let ((father (or father root-row)))
       (add-row father: father)))
   
   
@@ -731,7 +731,7 @@
       (define (recurse row visible?)
         (let* ((visible? (and visible? (get-visible-flag~ row)))
                (son-visible? (and visible? (expanded?~ row))))
-          (proc row (essay visible? line))
+          (proc row (and visible? line))
           (when visible?
             (increase! line))
           (recurse-sons row son-visible?)))
@@ -745,7 +745,7 @@
   
   
   (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
-    (let ((row (either start (get-next~ root-row)))
+    (let ((row (or start (get-next~ root-row)))
           (line (if start (row->line start) 0)))
       (when line
         (while (and row (neq? row end))
@@ -753,13 +753,13 @@
           (set! row (get-next~ row))
           (increase! line))
         (when (and wrap? start (not row))
-          (for-each-visible-row proc end: (either end start))))))
+          (for-each-visible-row proc end: (or end start))))))
   
   
   (method public (for-each-visible-descendant parent-row proc)
     (let* ((first-son (first-visible-son~ parent-row))
            (last-son (last-visible-descendant~ parent-row))
-           (end-row (essay last-son (get-next~ last-son))))
+           (end-row (and last-son (get-next~ last-son))))
       (when first-son
         (for-each-visible-row proc start: first-son end: end-row))))
   
@@ -795,7 +795,7 @@
   
   (method public (set-subrows row seq proc)
     (unless (empty? seq)
-      (let* ((row (either row root-row))
+      (let* ((row (or row root-row))
              (count 0)
              (height 0)
              (level (+ (get-level~ row) 1))
@@ -812,7 +812,7 @@
                             (increase! height (get-row-height~ subrow))
                             subrow))
                         seq)))
-        (set-sons~ row (essay rows (coerce rows Axis)))
+        (set-sons~ row (and rows (coerce rows Axis)))
         (when (eq? (get-state~ row) 'expanded)
           (let ((old-next (get-next~ row))
                 (first-son (first rows)))
@@ -950,8 +950,8 @@
         (update-visible-width-incremental (get-level~ previous) width)
         (update-displayed)
         (update-visible)
-        (let* ((line (either (row->line previous) -1))
-               (top (either (get-v~ (get-position~ previous)) 0))
+        (let* ((line (or (row->line previous) -1))
+               (top (or (get-v~ (get-position~ previous)) 0))
                (opens (+ top (get-height~ previous)))
                (display (get-display))
                (display-size (get-size~ display))
@@ -981,8 +981,8 @@
         (when (and (not update-locked?) visible?)
           (update-displayed)
           (update-visible)
-          (let* ((line (either (row->line previous) -1))
-                 (top (either (get-v~ (get-position~ previous)) 0))
+          (let* ((line (or (row->line previous) -1))
+                 (top (or (get-v~ (get-position~ previous)) 0))
                  (opens (+ top (get-height~ first)))
                  (removed (removed-update-selection (+ line 1) count))
                  (display (get-display))
@@ -1000,8 +1000,8 @@
   
   
   (method public (count-visible-size first last visible?)
-    (let ((scan (essay visible? first))
-          (stop (essay last (get-next~ last)))
+    (let ((scan (and visible? first))
+          (stop (and last (get-next~ last)))
           (count 0)
           (height 0)
           (width 0))

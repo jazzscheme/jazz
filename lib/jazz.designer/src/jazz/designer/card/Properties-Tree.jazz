@@ -213,7 +213,7 @@
       (let ((selected (selected-property))
             (default (get-client-default-property)))
         (update)
-        (let ((index (if selected (either (find-property-index selected) (find-property-index default)) (find-property-index default))))
+        (let ((index (if selected (or (find-property-index selected) (find-property-index default)) (find-property-index default))))
           (when index
             (set-single-selection index auto-expand?: #f))))))
 
@@ -239,7 +239,7 @@
              (values (map (lambda (component) (read-property component property)) client))
              (presented (map (lambda (value) (present~ row value)) values))
              (creator (get-creator~ any))
-             (branch (essay creator (get-active-branch~ creator)))
+             (branch (and creator (get-active-branch~ creator)))
              ;; temp patch because the root object doesn't have a creator...
              (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor branch any property)))
              (uniform? (or (<= (length values) 1) (apply string=? presented)))
@@ -320,7 +320,7 @@
   
   
   (definition (filter-by-rights component editor properties)
-    (let ((rights (essay editor (get-rights~ editor))))
+    (let ((rights (and editor (get-rights~ editor))))
       (if (not rights)
           properties
         (let* ((reference (get-client~ editor))
@@ -542,7 +542,7 @@
   (method override (complete-mouse-down cell pos shift? control?)
     (let* ((auto? (get-auto-expand/collapse?~ parent))
            ;; get row before super complete-mouse-down changes anything...
-           (row (essay auto? (get-row~ parent (get-line~ cell)))))
+           (row (and auto? (get-row~ parent (get-line~ cell)))))
       (nextmethod cell pos shift? control?)
       (when auto?
         (auto-expand/collapse~ parent row))))

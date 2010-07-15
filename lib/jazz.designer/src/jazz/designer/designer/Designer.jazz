@@ -129,7 +129,7 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (set-origin~ form (choose-new-file default-extension: (either default-extension Default-Extension) extensions: (either extensions Default-Extensions)))
+    (set-origin~ form (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions)))
     (save-content))
   
   
@@ -213,7 +213,7 @@
            (form (find-form component branch))
            (old-name (get-name~ component))
            (old-presentation (get-presentation-property~ component)))
-      (for-each-branch~ (either branch reference)
+      (for-each-branch~ (or branch reference)
         (lambda (branch)
           (let ((form (get-client-form~ branch)))
             (when form
@@ -265,8 +265,8 @@
                         (let ((old-value (read-property component property)))
                           (when (and restore (not (has-property?~ restore property)))
                             (set-property~ restore property old-value))
-                          (let* ((fire-presentation? (essay design-events? (presentation-property?~ component property)))
-                                 (old-presentation (essay fire-presentation? (get-presentation-property~ component))))
+                          (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))
+                                 (old-presentation (and fire-presentation? (get-presentation-property~ component))))
                             (write-property component property value)
                             (when design-events?
                               (when fire-presentation?
@@ -334,7 +334,7 @@
     (let ((branch (target-branch branch)))
       (if (eq? child reference)
           (designer-error "The reference component cannot be removed")
-        (let ((effective (either branch reference))
+        (let ((effective (or branch reference))
               (owner (find-owner child)))
           ;; the (and owner) part is a try
           (if (and owner (neq? owner effective))
@@ -404,7 +404,7 @@
            (parent (get-parent~ child))
            (parent-form (find-form parent branch))
            (child-form (find-form child branch))
-           (target-form (essay target (find-form target branch))))
+           (target-form (and target (find-form target branch))))
       (send-before~ child target)
       (send-child-before~ parent-form child-form target-form)
       (fire-send-before child parent target)
@@ -716,7 +716,7 @@
                         (embed-new-form form #f)
                       (if (memq? cpn-form children)
                           (set! form cpn-form)
-                        (let ((restore-form (find-in children cpn key: (lambda (form) (essay (is? form Restore-Form) (get-component~ form))))))
+                        (let ((restore-form (find-in children cpn key: (lambda (form) (and (is? form Restore-Form) (get-component~ form))))))
                           (if restore-form
                               (set! form restore-form)
                             (let ((name (get-name~ cpn)))
@@ -736,9 +736,9 @@
     
     (let* ((ancestry (component-ancestry component))
            (branch-form (if branch (get-client-form~ branch) form))
-           (restore-form (essay restore? branch (get-restore-form~ branch)))
+           (restore-form (and restore? branch (get-restore-form~ branch)))
            (form (embed-form branch-form ancestry))
-           (restore (essay restore-form (embed-form restore-form ancestry))))
+           (restore (and restore-form (embed-form restore-form ancestry))))
       (if (and error? (not form))
           (designer-error "Unable to locate target form")
         (if restore?
@@ -786,7 +786,7 @@
   (method (find-next-branch branch component property)
     (if (and branch (not (installed?~ branch)))
         (values #f #f)
-      (let ((lower (get-installed-branches~ (either branch reference)))
+      (let ((lower (get-installed-branches~ (or branch reference)))
             (ancestry (component-ancestry component)))
         (continuation-capture
           (lambda (return)

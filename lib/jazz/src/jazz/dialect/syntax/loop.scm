@@ -39,7 +39,6 @@
 
 
 (import (jazz.dialect.kernel)
-        (jazz.dialect.syntax.either (phase syntax))
         (jazz.dialect.syntax.increase (phase syntax))
         (jazz.dialect.syntax.bind (phase syntax))
         (jazz.dialect.syntax.macros (phase syntax)))
@@ -309,7 +308,7 @@
          (bind (lst . rest) rest
            (let ((for (unique "for")))
              (add-binding for '<Object> lst)
-             (add-binding variable (either type '<Object>))
+             (add-binding variable (or type '<Object>))
              (add-test (list 'not (list 'null? for)))
              (add-before (list 'set! variable (list 'car for)))
              (add-before (list 'set! for (list 'cdr for)))
@@ -328,7 +327,7 @@
              (add-binding vec '<vector> vector)
              (add-binding for '<fx> 0)
              (add-binding len '<fx> (list 'length vec))
-             (add-binding variable (either type '<Object>))
+             (add-binding variable (or type '<Object>))
              (add-test (list '< for len))
              (add-before (list 'set! variable (list 'element vec for)))
              (add-before (list 'set! for (list '+ for 1))))))

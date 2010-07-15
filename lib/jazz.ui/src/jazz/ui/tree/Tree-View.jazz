@@ -360,17 +360,17 @@
   
   
   (method override (find-subdrawing pos <Point> ignore)
-    (either (continuation-capture
-              (lambda (return)
-                (for-each (lambda (merge-cell)
-                            (let ((data (get-cell-data (get-master-cell~ merge-cell))))
-                              (when (is? data View)
-                                (let ((rect (merge-cell-rect merge-cell)))
-                                  (when (in-rect? pos rect)
-                                    (continuation-return return (find-drawing~ data (acquire~ data self pos))))))))
-                          merge-cell-list)
-                #f))
-            (nextmethod pos ignore)))
+    (or (continuation-capture
+          (lambda (return)
+            (for-each (lambda (merge-cell)
+                        (let ((data (get-cell-data (get-master-cell~ merge-cell))))
+                          (when (is? data View)
+                            (let ((rect (merge-cell-rect merge-cell)))
+                              (when (in-rect? pos rect)
+                                (continuation-return return (find-drawing~ data (acquire~ data self pos))))))))
+                      merge-cell-list)
+            #f))
+        (nextmethod pos ignore)))
 
 
   ;;;
@@ -441,7 +441,7 @@
             (for-each-visible-row
               (lambda (row line)
                 (let* ((highlight-border 3)
-                       (nw (+ (either (get-node-width~ row) 0) highlight-border))
+                       (nw (+ (or (get-node-width~ row) 0) highlight-border))
                        (w (+ (text-h~ node-column (get-level~ row)) nw)))
                   (when (> w width)
                     (set! width w)))))
@@ -509,8 +509,8 @@
   (method protected virtual (draw-highlighted-cell surface row col highlight)
     (let* ((inner-rect (highlighted-target-rect row col))
            (outer-rect (inflate-rect inner-rect 1 1)))
-      (let ((outer-color (either (get-outer-color~ highlight) (highlighted-outer-color)))
-            (inner-color (either (get-inner-color~ highlight) (highlighted-inner-color))))
+      (let ((outer-color (or (get-outer-color~ highlight) (highlighted-outer-color)))
+            (inner-color (or (get-inner-color~ highlight) (highlighted-inner-color))))
         (frame-rect~ surface outer-rect outer-color)
         (when (highlight-inner?)
           (frame-rect~ surface inner-rect inner-color)))))
@@ -677,8 +677,8 @@
   
   (method override (mouse-down view)
     (let* ((cell (view->tree view))
-           (pos (essay cell (cell-coordinates cell view)))
-           (part (essay cell (find-part~ (get-column (get-col~ cell)) cell pos))))
+           (pos (and cell (cell-coordinates cell view)))
+           (part (and cell (find-part~ (get-column (get-col~ cell)) cell pos))))
       (mouse-down~ selection-manager view part (shift-down?) (control-down?) (alt-down?) (get-multiple-selection?)))
     (acquire-focus)
     (acquire-capture)
@@ -703,7 +703,7 @@
   
   (method override (drag-up view (dragging? #f))
     (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
-    (let ((cell (view->tree (either (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
+    (let ((cell (view->tree (or (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
           (shift? (shift-down?))
           (control? (control-down?)))
       (unless (or dragging? cell)
@@ -850,7 +850,7 @@
             (get-node
               (lambda (row children n)
                 (let ((data (element children n)))
-                  (either (sort-value~ (get-column n) row data) "")))))
+                  (or (sort-value~ (get-column n) row data) "")))))
         (sort (lambda (rx ry)
                 (let* ((cx (get-children~ rx))
                        (cy (get-children~ ry))
@@ -1442,7 +1442,7 @@
   (method public (fill-column)
     (define (find-filled-column name)
       (cond ((integer? name) (element columns name))
-            ((eq? name #t) (essay (not-null? columns) (last columns)))
+            ((eq? name #t) (and (not-null? columns) (last columns)))
             (else (find-if (lambda (column)
                              (eq? (get-name~ column) name))
                            columns))))
@@ -1585,7 +1585,7 @@
   
   
   (method override (add-empty-row (father: father #f))
-    (let ((father (either father root-row)))
+    (let ((father (or father root-row)))
       (add-row father: father children: (map (lambda (column)
                                                (new-empty-cell~ column))
                                              columns))))
@@ -1942,7 +1942,7 @@
     (let ((selected-rows (selection->rows selection)))
       (cond ((mouse-down?~ selection-manager)
              (when (and close-auto-expanded? auto-expanded-row (neq? auto-expanded-row row))
-               (close-auto-expanded new-spine: (essay row (get-spine~ row)) force?: #f)
+               (close-auto-expanded new-spine: (and row (get-spine~ row)) force?: #f)
                (set! delayed-autorow auto-expanded-row)
                (set! auto-expanded-row #f))
              (when (and row (auto-in-place?~ row))
@@ -1959,7 +1959,7 @@
                (auto-toggle row auto-toggle?)))
             (else
              (when close-auto-expanded?
-               (close-auto-expanded new-spine: (essay row (get-spine~ row))))
+               (close-auto-expanded new-spine: (and row (get-spine~ row))))
              (when row
                (auto-toggle row auto-toggle?))))
       (set! selection (rows->selection selected-rows))))
@@ -2060,7 +2060,7 @@
                    (set-selection (list element) set-pivot?: #f user-origin?: #t)))
                 (shift?
                  (unless (eq? selection-mode 'cell) ; unimplemented
-                   (let ((pivot (either selection-pivot 0)))
+                   (let ((pivot (or selection-pivot 0)))
                      (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin?: #t))
                            ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin?: #t))
                            ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin?: #t))))))
@@ -2096,7 +2096,7 @@
     (define (inval-selection selection)
       (when (not-null? selection)
         (for-each (lambda (cell)
-                    (let ((merge-cell (essay (is? cell Cell) (get-merge-cell (cell->site cell)))))
+                    (let ((merge-cell (and (is? cell Cell) (get-merge-cell (cell->site cell)))))
                       (if merge-cell
                           (invalidate-merge-cell merge-cell)
                         (invalidate-selection (list cell)))))
@@ -2113,7 +2113,7 @@
           (inval-selection selection)
           (when generate-event?
             (selection-change old-selection force? user-origin?))))
-      (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))
+      (let ((auto-row (and (not-null? sel) (get-row (selection-row (car sel))))))
         (when (and auto-expand/collapse? auto-expand?)
           (unless multiple-selection?
             (when (or (not auto-row) (collapsed?~ auto-row))
@@ -2168,8 +2168,8 @@
     
     (let ((saved-selection (save-selection (get-selection)))
           (saved-position (nu+ (get-scrolled-position) (selection-position (get-selection))))
-          (saved-pivot (essay selection-pivot (save-selection (list selection-pivot))))
-          (saved-edited (essay edited-cell (save-cell edited-cell))))
+          (saved-pivot (and selection-pivot (save-selection (list selection-pivot))))
+          (saved-edited (and edited-cell (save-cell edited-cell))))
       (thunk)
       (when saved-pivot
         (let ((pivot (restore-selection saved-pivot)))
@@ -2240,10 +2240,10 @@
   
   
   (method public (with-deleted-selection selection proc (can-survive?: can-survive? #f))
-    (let ((data (essay can-survive? (get-selection-data selection)))
+    (let ((data (and can-survive? (get-selection-data selection)))
           (smallest (apply min selection)))
       (proc)
-      (let ((sel (essay can-survive? (remove-nils (map user-data-index data)))))
+      (let ((sel (and can-survive? (remove-nils (map user-data-index data)))))
         (if (and can-survive? (= (length selection) (length sel)))
             (set-selection sel)
           (when (and smallest (> smallest 0))
@@ -2734,10 +2734,10 @@
         (case (get-selection-mode~ tree)
           ((cell)
            (set! column (if sel (get-col~ sel) 0))
-           (cons (essay sel (get-row~ tree (get-line~ sel)))
+           (cons (and sel (get-row~ tree (get-line~ sel)))
                  (lambda (row) (element (get-children~ row) column))))
           (else
-           (cons (essay sel (get-row~ tree sel))
+           (cons (and sel (get-row~ tree sel))
                  (lambda (row) (car (get-children~ row))))))))
     
     (bind (row . proc2) (prepare-iterate)

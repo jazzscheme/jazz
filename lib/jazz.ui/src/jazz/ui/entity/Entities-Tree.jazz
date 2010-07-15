@@ -134,7 +134,7 @@
   (method public virtual (add-entity factory (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
     (let* ((class (get-class~ factory))
            (selected (selected-entity))
-           (parent (either parent (relocation-parent selected class) selected client))
+           (parent (or parent (relocation-parent selected class) selected client))
            (extra-properties properties))
       (receive (presentation added-properties) (if presentation (values presentation '()) (add-entity-request factory parent))
         (let ((child (new class parent: parent))
@@ -160,7 +160,7 @@
         #f
       (let* ((name-mandatory? (get-name-mandatory?~ factory))
              (name-unicity? (get-name-unicity?~ factory))
-             (unicity-domain (essay name-unicity? (map get-presentation~ brothers)))
+             (unicity-domain (and name-unicity? (map get-presentation~ brothers)))
              (name-validator (entity-name-validator))
              (pres (localize (get-factory-presentation~ factory)))
              (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
@@ -216,13 +216,13 @@
     (define (move-entity-row row father (position: position #f))
       (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
         (let* ((source (get-user-data~ row))
-               (destination (either (get-user-data~ father) client))
+               (destination (or (get-user-data~ father) client))
                (sort? (sort-entities?~ destination)))
           (move-row row father
-            position: (either position (lambda ()
-                                         (if (not sort?)
-                                             #f
-                                           (find-entity-position source row father))))))))
+            position: (or position (lambda ()
+                                     (if (not sort?)
+                                         #f
+                                       (find-entity-position source row father))))))))
     
     (with-update-locked
       (lambda ()
@@ -258,9 +258,9 @@
                    (rank (son-rank~ father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (cardinality sons)) (element sons position) #f))
-                   (target-data (essay target (get-user-data~ target))))
+                   (target-data (and target (get-user-data~ target))))
               (for-each (lambda (entity)
-                          (send-before~ controller entity (essay target (send-entity-before entity target-data))))
+                          (send-before~ controller entity (and target (send-entity-before entity target-data))))
                         entities)))
           (select-entities entities)))))
   
@@ -308,10 +308,10 @@
            (dst-parent (parent-relocation (get-parent~ dst)))
            (before? (eq? src-parent dst-parent))
            (before-last (row->line (last (get-sons~ dst-father))))
-           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
-           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
+           (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
+           (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
            (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
-           (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
+           (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
@@ -432,7 +432,7 @@
   
   
   (method override (paste-clipboard)
-    (let ((parent (either (selected-entity) client))
+    (let ((parent (or (selected-entity) client))
           (parcels (get-jazz-parcels)))
       (with-update-locked
         (lambda ()

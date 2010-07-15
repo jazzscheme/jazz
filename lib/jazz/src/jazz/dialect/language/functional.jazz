@@ -1584,15 +1584,15 @@
 
 
 (definition public (skip-whitespace seq <Sequence> (start: start #f))
-  (let (iter (i <fx> (either start 0)))
+  (let (iter (i <fx> (or start 0)))
     (cond ((= i (cardinality seq)) i)
           ((eq? (element seq i) #\space) (iter (+ i 1)))
           (else i))))
 
 
 (definition public (subseq seq start (end #f) (type #f))
-  (let* ((len (- (either end (cardinality seq)) start))
-         (cls <Sequence-Class> (either type (class-of seq)))
+  (let* ((len (- (or end (cardinality seq)) start))
+         (cls <Sequence-Class> (or type (class-of seq)))
          (sub (allocate-sequence~ cls len))
          (i 0)
          (j start))
@@ -1706,7 +1706,7 @@
                 (with val (proc (apply-key key obj)))
                 (when val
                   (collect val)))
-          (either type (class-of seq))))
+          (or type (class-of seq))))
 
 
 (definition public (collect-if predicate <procedure> seq <Object> (key: key #f))
@@ -1763,7 +1763,7 @@
 
 (definition public (find seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
-      (list-find seq target key test (either start 0) return)
+      (list-find seq target key test (or start 0) return)
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
       (when start
         (set-position~ iterator start))
@@ -1805,7 +1805,7 @@
     (let ((list seq)
           (key (if (not key) (lambda (x) x) key))
           (test (if (not test) eqv? test))
-          (start (either start 0)))
+          (start (or start 0)))
       (let (iter (rest (tail list start)) (rank <fx> start))
         (cond ((null? rest) #f)
               ((test target (key (car rest)))
@@ -1850,7 +1850,7 @@
 
 (definition public (find-if predicate <procedure> seq <Object> (key: key #f) (start: start #f) (reversed?: reversed? #f) (return: return 'item))
   (if (and (null/pair? seq) (not reversed?))
-      (find-if-list predicate seq key (either start 0) return)
+      (find-if-list predicate seq key (or start 0) return)
     (continuation-capture
       (lambda (exit)
         (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
@@ -1868,7 +1868,7 @@
 
 (definition public (get-rank target <Object> seq <Object> (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f))
   (if (and (null/pair? seq) (not reversed?))
-      (list-find seq target key test (either start 0) #f)
+      (list-find seq target key test (or start 0) #f)
     (if (and (string? seq) (not start))
         (string-find seq target reversed?)
       (continuation-capture
@@ -2227,7 +2227,7 @@
   (let ((len (cardinality seq))
         (queue (new-queue))
         (search-set (->search-set target)))
-    (let (iter (pos <fx> (either start (if reversed? len 0))))
+    (let (iter (pos <fx> (or start (if reversed? len 0))))
       (let ((found (contextual-search-impl seq search-set constituent-test pos reversed?)))
         (if found
             (begin
@@ -2402,13 +2402,13 @@
 
 (definition public (insert-ordered! object seq (key: key #f) (test: test <=))
   (let ((n (ordered-position (apply-key key object) seq key: key test: test)))
-    (insert! seq (either n (cardinality seq)) object)))
+    (insert! seq (or n (cardinality seq)) object)))
 
 
 (definition public (merge-ordered proc x y (key: key #f) (left-key: left-key key) (right-key: right-key key) (test: test #f) (case-insensitive?: case-insensitive? #f))
   (let ((ix (iterate-sequence x))
         (iy (iterate-sequence y))
-        (compare-proc (either test (if case-insensitive? ci-compare compare))))
+        (compare-proc (or test (if case-insensitive? ci-compare compare))))
     (while (and (not (done?~ ix)) (not (done?~ iy)))
       (let* ((ex (peek~ ix))
              (ey (peek~ iy))
@@ -2482,7 +2482,7 @@
 (definition public (starts-with? seq target (test: test #f) (ignore-case?: ignore-case? #f)) <bool>
   (let ((sl (cardinality seq))
         (tl (cardinality target))
-        (test (either test (if ignore-case? string-ci=? string=?))))
+        (test (or test (if ignore-case? string-ci=? string=?))))
     (and (>= sl tl)
          ;; put nu=?
          ;; put subseq! (not sure)
@@ -2492,7 +2492,7 @@
 (definition public (ends-with? seq target (test: test #f) (ignore-case?: ignore-case? #f)) <bool>
   (let ((sl (cardinality seq))
         (tl (cardinality target))
-        (test (either test (if ignore-case? string-ci=? string=?))))
+        (test (or test (if ignore-case? string-ci=? string=?))))
     (and (>= sl tl)
          ;; put nu=?
          ;; put subseq! (not sure)
@@ -2729,7 +2729,7 @@
 
 
 (definition public (insert! seq pos obj)
-  (insert-sequence! seq (either pos (cardinality seq)) (coerce (list obj) (class-of seq))))
+  (insert-sequence! seq (or pos (cardinality seq)) (coerce (list obj) (class-of seq))))
 
 
 (definition public (atom? value)
@@ -3732,10 +3732,10 @@
 
 (definition (get-thread-port thread)
   (mutex-lock! thread-ports-mutex)
-  (prog1 (either (table-ref thread-ports thread #f)
-                 (let ((port (open-vector)))
-                   (table-set! thread-ports thread port)
-                   port))
+  (prog1 (or (table-ref thread-ports thread #f)
+             (let ((port (open-vector)))
+               (table-set! thread-ports thread port)
+               port))
     (mutex-unlock! thread-ports-mutex)))
 
 
@@ -4124,13 +4124,13 @@
 
 
   (method (name->member name)
-    (either (find-in members name key: get-name~ test: eq?)
-            (error "Unknown enumeration name: {t} in {t}" name self)))
+    (or (find-in members name key: get-name~ test: eq?)
+        (error "Unknown enumeration name: {t} in {t}" name self)))
 
 
   (method (value->member value)
-    (either (find-in members value key: get-value~ test: eqv?)
-            (error "Unknown enumeration value: {t} in {t}" value self)))
+    (or (find-in members value key: get-value~ test: eqv?)
+        (error "Unknown enumeration value: {t} in {t}" value self)))
 
 
   (method public (name->value name)

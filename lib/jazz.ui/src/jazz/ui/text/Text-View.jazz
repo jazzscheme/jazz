@@ -467,7 +467,7 @@
     (let* ((caret (get-caret))
            (par (get-paragraph (get-line~ caret)))
            (run (get-run~ par (get-col~ caret)))
-           (current (essay run (get-font~ (get-style~ run))))
+           (current (and run (get-font~ (get-style~ run))))
            (font (get-modal Font-Request initial-font: current)))
       (close-popups)
       (set-text-font (get-selection) font)))
@@ -478,7 +478,7 @@
           (combo (popup-initiator~ (get-sender~ evt))))
       (close-popups)
       (when combo
-        (set-color~ (get-body~ combo) (either color {Color name: Black})))
+        (set-color~ (get-body~ combo) (or color {Color name: Black})))
       (set-text-color (get-selection) color)))
   
   
@@ -491,7 +491,7 @@
           (combo (popup-initiator~ (get-sender~ evt))))
       (close-popups)
       (when combo
-        (set-color~ (get-body~ combo) (either color {Color name: White})))
+        (set-color~ (get-body~ combo) (or color {Color name: White})))
       (set-highlight-color (get-selection) color)))
   
   
@@ -665,7 +665,7 @@
   
   
   (method (set-unformatted-content lst)
-    (let* ((lst (either lst (empty-content)))
+    (let* ((lst (or lst (empty-content)))
            (lst (if (null/pair? lst) lst (get-paragraphs~ lst)))
            (count <fx> 0)
            (height <fx> 0)
@@ -705,7 +705,7 @@
   (method (make-paragraph format string <string> runs)
     (let ((paragraph (new Paragraph)))
       (set-parent~ paragraph self)
-      (set-format~ paragraph (either format (get-default-format)))
+      (set-format~ paragraph (or format (get-default-format)))
       (set-string~ paragraph string)
       (set-runs~ paragraph runs)
       (set-father~ paragraph root-row)
@@ -1084,7 +1084,7 @@
            (selection-range-from-anchor)
          (let* ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
                 (kind (outer-expr~ expl explore-whitespace?: #f))
-                (range (essay kind (get-range~ expl))))
+                (range (and kind (get-range~ expl))))
            (cond ((not range)
                   (selection-range-from-anchor))
                  ((before?~ selection-anchor pos)
@@ -1553,8 +1553,8 @@
     (for-each-logical-range range
       (lambda (paragraph start end)
         (proc paragraph
-              (either start 0)
-              (either end (get-length~ paragraph))))))
+              (or start 0)
+              (or end (get-length~ paragraph))))))
   
   
   ;;;
@@ -1783,7 +1783,7 @@
            (s (when (> start ending) ending))
            (e (when (> end ending) ending)))
       (when (or s e)
-        (new Range$Cell$ (either s start) (either e end)))))
+        (new Range$Cell$ (or s start) (or e end)))))
   
   
   (method (fit-selection)
@@ -2072,9 +2072,9 @@
   
   (method override (scrollee-width)
     (if wrap?
-        (either wrap-width (if (and scroller fit-in-scroller?)
-                               (max (get-display-width) visible-width)
-                             visible-width))
+        (or wrap-width (if (and scroller fit-in-scroller?)
+                           (max (get-display-width) visible-width)
+                         visible-width))
       (let ((width (if (dynamic-scrollee-width?)
                        (+ left-padding (calculate-scrollee-width) left-padding)
                      4000)))
@@ -2173,7 +2173,7 @@
                    (bot (+ bottom height)))
               (if (<= bot (+ top page-height))
                   (set! bottom bot)
-                (let ((effective-bottom (either together bottom)))
+                (let ((effective-bottom (or together bottom)))
                   (put~ pages (new Rect 0 top page-width effective-bottom))
                   (set! top effective-bottom))
                 (set! bottom bot))
@@ -2360,7 +2360,7 @@
   
   (method public (next-word pos (constituent-test: constituent-test #f))
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (either constituent-test alphanumeric?)))
+          (test (or constituent-test alphanumeric?)))
       (forward-until~ expl (lambda (c) (test c)))
       (forward-until~ expl (lambda (c) (not (test c))))
       (get-end~ expl)))
@@ -2368,7 +2368,7 @@
   
   (method public (previous-word pos (constituent-test: constituent-test #f))
     (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (either constituent-test alphanumeric?)))
+          (test (or constituent-test alphanumeric?)))
       (backward-until~ expl (lambda (c) (test c)))
       (backward-until~ expl (lambda (c) (not (test c))))
       (get-start~ expl)))
@@ -2438,7 +2438,7 @@
   
   
   (method public (insert-hyperlink string (font: font #f) (anchor: anchor #f) (action: action #f))
-    (let* ((font (either font {Font name: Hyperlink}))
+    (let* ((font (or font {Font name: Hyperlink}))
            (style (new Hyperlink-Style font: font color: {Color name: Hyperlink} anchor: anchor action: action)))
       (insert-styled string style)))
   
@@ -3192,7 +3192,7 @@
                 (rows (accumulate paragraphs
                                   (lambda (info)
                                     (bind (format . runs) info
-                                      (let* ((format (essay format (reference-format formats format)))
+                                      (let* ((format (and format (reference-format formats format)))
                                              (string (run-infos->string runs))
                                              (runs (make-runs string styles runs))
                                              (paragraph (make-paragraph format string runs)))
@@ -3512,8 +3512,8 @@
   
   
   (method public (for-each-paragraph proc (start: start 0) (end: end (get-limit)))
-    (let ((start (either start 0))
-          (end (either end (get-limit)))
+    (let ((start (or start 0))
+          (end (or end (get-limit)))
           (paragraphs (get-paragraphs)))
       (loop (for line from start to end)
             (proc line (element paragraphs line)))))
@@ -3555,7 +3555,7 @@
   
   (method (setup-format format) <Format>
     (let* ((name (get-name~ format))
-           (actual (essay name (locate~ formats name error?: #f))))
+           (actual (and name (locate~ formats name error?: #f))))
       (if (not actual)
           (intern-format format)
         (modify-from~ actual format)
@@ -3564,7 +3564,7 @@
   
   (method public (add-format format) <Format>
     (let* ((name (get-name~ format))
-           (actual (essay name (locate~ formats name error?: #f))))
+           (actual (and name (locate~ formats name error?: #f))))
       (if (not actual)
           (let ((format (copy format)))
             (set-domain~ format formats)
@@ -3579,16 +3579,16 @@
   
   
   (method public (intern-format format) <Format>
-    (either (similar~ formats format)
-            (begin
-              (set-domain~ format formats)
-              (register~ format)
-              format)))
+    (or (similar~ formats format)
+        (begin
+          (set-domain~ format formats)
+          (register~ format)
+          format)))
   
   
   (definition (format-reference format formats)
-    (either (get-rank format formats)
-            (get-name~ format)))
+    (or (get-rank format formats)
+        (get-name~ format)))
   
   
   (method (reference-format formats reference)
@@ -3643,7 +3643,7 @@
   
   (method (setup-style style) <Style>
     (let* ((name (get-name~ style))
-           (actual (essay name (locate~ styles name error?: #f))))
+           (actual (and name (locate~ styles name error?: #f))))
       (if (not actual)
           (intern-style style)
         (modify-from~ actual style)
@@ -3652,7 +3652,7 @@
   
   (method public (add-style style) <Style>
     (let* ((name (get-name~ style))
-           (actual (essay name (locate~ styles name error?: #f))))
+           (actual (and name (locate~ styles name error?: #f))))
       (if (not actual)
           (let ((style (copy style)))
             (set-domain~ style styles)
@@ -3675,16 +3675,16 @@
   
   
   (method public (intern-style style) <Style>
-    (either (similar~ styles style)
-            (begin
-              (set-domain~ style styles)
-              (register~ style)
-              style)))
+    (or (similar~ styles style)
+        (begin
+          (set-domain~ style styles)
+          (register~ style)
+          style)))
   
   
   (definition (style-reference style styles)
-    (either (get-rank style styles)
-            (get-name~ style)))
+    (or (get-rank style styles)
+        (get-name~ style)))
   
   
   (method (reference-style styles reference)
@@ -3875,8 +3875,8 @@
     (let ((start (get-start))
           (end (get-end)))
       (when (nu=? start end)
-        (let ((prev (essay (/= start (text-beginning)) (get-char (previous-cell start))))
-              (next (essay (/= end (text-ending)) (get-char end))))
+        (let ((prev (and (/= start (text-beginning)) (get-char (previous-cell start))))
+              (next (and (/= end (text-ending)) (get-char end))))
           (when (and prev (separate? prev (element copy 0)))
             (set! copy (string-append " " copy)))
           (when (and next (separate? (last copy) next))
@@ -4300,7 +4300,7 @@
     (let ((name (skip-prefix (completion-name pos))))
       (when name
         (let ((size (string-length name))
-              (favorite (essay (favorite-completions?) (either (get-user-completion name) (favorite-completion name))))
+              (favorite (and (favorite-completions?) (or (get-user-completion name) (favorite-completion name))))
               (feedback? (not (macro-playing?~ (get-application)))))
           (if favorite
               (begin
@@ -4356,15 +4356,15 @@
       (lambda ()
         (get-style-at (get-start))
         (let* ((end (get-end))
-               (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
+               (last (and (> (get-col~ end) 0) (get-char (- end 1))))
                (class (class-of self)))
           (if (not (auto-complete-char? key last))
               (begin
                 (insert-char key)
                 (complete-at (get-start)))
             (let* ((completion (join-lines (selection-lines)))
-                   (offset (essay completion (find completion key)))
-                   (replacement (essay offset (subseq completion 0 offset))))
+                   (offset (and completion (find completion key)))
+                   (replacement (and offset (subseq completion 0 offset))))
               (when (and completion-active? replacement)
                 (replace-selection (list replacement)))
               (end-completion)
@@ -4412,12 +4412,12 @@
   
   (method (on-search-forward-mode evt)
     (select-command-search~ (get-application) 'forward
-      (essay (has-selection?) (get-string (get-selection)))))
+      (and (has-selection?) (get-string (get-selection)))))
   
   
   (method (on-search-backward-mode evt)
     (select-command-search~ (get-application) 'backward
-      (essay (has-selection?) (get-string (get-selection)))))
+      (and (has-selection?) (get-string (get-selection)))))
   
   
   (method (on-search-current evt)
@@ -4460,7 +4460,7 @@
   
   
   (method (find-context)
-    (let ((string (either (get-selected-string) (current-expr-string))))
+    (let ((string (or (get-selected-string) (current-expr-string))))
       (if (not string)
           #f
         (application-search-context string))))
@@ -4537,8 +4537,8 @@
               (when found
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
-        (let ((pos (either start (if reversed? (text-ending) (text-beginning))))
-              (end (either end (get-limit))))
+        (let ((pos (or start (if reversed? (text-ending) (text-beginning))))
+              (end (or end (get-limit))))
           (let ((line (get-line~ pos))
                 (col (get-col~ pos)))
             (let (iter (n line) (start col))

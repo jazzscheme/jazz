@@ -113,7 +113,7 @@
 
 
 (definition package (setup-debuggee (debugger: debugger #f))
-  (let ((debugger-arg (either debugger (command-argument "debugger")))
+  (let ((debugger-arg (or debugger (command-argument "debugger")))
         (interactive-arg (command-argument "debugger-interactive")))
     (when debugger-arg
       (receive (host port) (parse-host/service debugger-arg)
@@ -121,7 +121,7 @@
             (error "Ill-formed debugger argument: {a}" debugger-arg)
           (load-debuggee-units)
           (start-remote-listener)
-          (attach-to-controller (new-remote-register (either host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
+          (attach-to-controller (new-remote-register (or host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
           (current-input-port (console-input-port))
           (current-output-port (console-output-port)))))))
 
@@ -267,10 +267,10 @@
       #f
     (with-consoles-mutex
       (lambda ()
-        (either (table-ref *consoles* thread #f)
-                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
-                  (table-set! *consoles* thread console)
-                  console))))))
+        (or (table-ref *consoles* thread #f)
+            (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
+              (table-set! *consoles* thread console)
+              console))))))
 
 
 (definition package (thread-console-pump-port thread)
@@ -423,7 +423,7 @@
   (define (read-eval-print thread resume port level)
     (let ((console (thread-console thread)))
       (let ((expr (parameterize ((walk-for 'eval))
-                    (with-readtable (either (essay console (get-readtable~ console)) scheme-readtable)
+                    (with-readtable (or (and console (get-readtable~ console)) scheme-readtable)
                       (lambda ()
                         (with-exception-filter
                           (lambda (exc)
@@ -483,8 +483,8 @@
                        (new Me)
                      #f))
                   ((eq? context :default)
-                   (either (process-alias~ process :profile)
-                           (process-alias~ process :process)))
+                   (or (process-alias~ process :profile)
+                       (process-alias~ process :process)))
                   ((eq? context :me)
                    (context-alias :profile))
                   (else
@@ -526,7 +526,7 @@
               (if (null? arguments)
                   context
                 (let ((ctx (car arguments)))
-                  (let ((new-context (either (context-alias ctx) (evaluate ctx))))
+                  (let ((new-context (or (context-alias ctx) (evaluate ctx))))
                     (when (symbol? new-context)
                       (load-unit new-context))
                     (when console
@@ -565,7 +565,7 @@
       (let ((local-variables (if frame (get-variables~ frame :lexical) '())))
         (let ((local-names (local-names local-variables))
               (local-self (local-self local-variables)))
-          (let ((effective-context (either local-self context)))
+          (let ((effective-context (or local-self context)))
             (cond ((not effective-context)
                    (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
                                   (generate-symbol-counter 0))

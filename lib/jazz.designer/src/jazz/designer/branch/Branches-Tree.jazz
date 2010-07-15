@@ -81,7 +81,7 @@
       (lambda ()
         (let* ((menu (new Branch-Menu))
                (item (locate~ menu 'add))
-               (classes (essay client (get-addable-branches~ client)))
+               (classes (and client (get-addable-branches~ client)))
                (branch (selected-branch)))
           (when branch
             (with-update-locked~ menu
@@ -113,7 +113,7 @@
   
   
   (method (on-add-branch evt)
-    (let ((class (either (get-property~ evt class:) (get-addable-default-branch~ client)))
+    (let ((class (or (get-property~ evt class:) (get-addable-default-branch~ client)))
           (parent (selected-branch)))
       (add-branch class parent)))
   
@@ -122,8 +122,8 @@
     (when client
       (let* ((class (get-addable-default-branch~ client))
              (add-here? (get-addable-branches~ client))
-             (parent (either (when add-here? (selected-branch))
-                             client)))
+             (parent (or (when add-here? (selected-branch))
+                         client)))
         (add-branch class parent))))
   
   
@@ -143,7 +143,7 @@
   (method protected virtual (branch-presentation-request class brothers (initial-value: initial-value #f))
     (let* ((name-mandatory? (get-name-mandatory?~ class))
            (name-unicity? (get-name-unicity?~ class))
-           (unicity-domain (essay name-unicity? (map get-presentation-property~ brothers)))
+           (unicity-domain (and name-unicity? (map get-presentation-property~ brothers)))
            (name-validator (branch-name-validator))
            (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation~ class)) initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
       presentation))
@@ -340,7 +340,7 @@
     (if (not client)
         (set-selection '() generate-event?: #f)
       (let* ((branch (get-active-branch~ client))
-             (index (user-data-index (either branch client))))
+             (index (user-data-index (or branch client))))
         (if (not index)
             (set-selection '() generate-event?: #f)
           (set-single-selection index generate-event?: #f)))))
@@ -394,7 +394,7 @@
   
   
   (method (on-selection-change evt)
-    (select-branch (either (selected-branch) client))
+    (select-branch (or (selected-branch) client))
     (maybe-show-properties)
     (update-focus-actions~ (get-application)))
   
@@ -406,7 +406,7 @@
   
   
   (method (select-branch branch)
-    (when (and branch (neq? branch (either (get-active-branch~ client) client)))
+    (when (and branch (neq? branch (or (get-active-branch~ client) client)))
       (process-branch-changing~ editor branch)))
   
   

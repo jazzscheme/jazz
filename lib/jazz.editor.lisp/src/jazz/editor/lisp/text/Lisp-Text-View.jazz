@@ -131,12 +131,12 @@
     (with-safe-explore
       (lambda ()
         (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (essay (not recoloring?) (new-colorizer self))))
+              (colorizer (and (not recoloring?) (new-colorizer self))))
           (colorize-declarations expl colorizer)
           (when colorizer
             (finish-current~ colorizer)))
         (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (essay (not recoloring?) (new-colorizer self))))
+              (colorizer (and (not recoloring?) (new-colorizer self))))
           (colorize-comments expl colorizer)
           (when colorizer
             (finish-current~ colorizer))))))
@@ -457,7 +457,7 @@
           (set! col (+ (get-col~ opening) 1))
         (let* ((first (car expressions))
                (first-string (get-string (get-range~ first)))
-               (first-symbol (essay (eq? (get-kind~ first) 'symbol) (effective-symbol first-string)))
+               (first-symbol (and (eq? (get-kind~ first) 'symbol) (effective-symbol first-string)))
                (first-tag? (tag? first-symbol))
                (first-call-with? (and first-symbol (starts-with? first-string "call-with-")))
                (first-with? (and first-symbol (or (starts-with? first-string "with-") (starts-with? first-string "jazz.with-"))))
@@ -467,10 +467,10 @@
           (if (or (not first-symbol) first-tag?)
               (set! col (+ (get-col~ (get-start~ (get-range~ first))) first-indent))
             (let ((info (let ((form (get-lisp-form first-symbol)))
-                          (essay form
-                                 (let ((modifiers (get-modifiers~ form))
-                                       (tabulate (get-tabulate~ form)))
-                                   (essay tabulate (list modifiers tabulate)))))))
+                          (and form
+                               (let ((modifiers (get-modifiers~ form))
+                                     (tabulate (get-tabulate~ form)))
+                                 (and tabulate (list modifiers tabulate)))))))
               (if (not info)
                   (let ((first-last (first-on-last-line expressions count))
                         (first-line (get-line~ (get-start~ (get-range~ first)))))
@@ -665,7 +665,7 @@
   
   (method override (info-message)
     (define (collect-names)
-      (let ((expl (new (explorer-class) self range: (either (current-declaration-range) (get-selection)))))
+      (let ((expl (new (explorer-class) self range: (or (current-declaration-range) (get-selection)))))
         (let (iter (names '()))
           (let ((names (if (declaration-expr?~ expl)
                            (cons (declaration-name~ expl) names)

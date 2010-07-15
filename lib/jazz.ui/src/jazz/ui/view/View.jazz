@@ -246,7 +246,7 @@
   
   (method public virtual (get-guest)
     (let ((host (get-host)))
-      (essay host (get-guest~ host))))
+      (and host (get-guest~ host))))
   
   
   (method public virtual (install-in-host host)
@@ -359,8 +359,8 @@
            (associations (get-associations~ pref))
            (external (external-name error?: #f)))
       (filter-inexistant-workspaces pref
-        (either (essay external (assq external associations))
-                (host-workspaces)))))
+                                    (or (and external (assq external associations))
+                                        (host-workspaces)))))
   
   
   (method public (for-each-view-docked proc)
@@ -553,7 +553,7 @@
   (method override (set-parent parent)
     (let ((invalidater (view-invalidater)))
       (nextmethod parent)
-      (set-player (essay parent (get-player~ parent)))
+      (set-player (and parent (get-player~ parent)))
       (when invalidater
         (invalidater))
       (when parent
@@ -777,8 +777,8 @@
     (when (/= pos position)
       ;; todo: it is possible to invalidate more precisely
       (let ((inval? (and player (is? parent View))))
-        (let* ((bounds (essay inval? (get-bounds)))
-               (old (essay inval? (acquire~ parent self bounds))))
+        (let* ((bounds (and inval? (get-bounds)))
+               (old (and inval? (acquire~ parent self bounds))))
           (set! position pos)
           (when player
             (let ((new (get-bounds)))
@@ -1148,7 +1148,7 @@
     (with ((surface (new Memory-Surface #f (get-size))))
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
       (paint-drawing surface context 0 0 0 0 1.0 #f)
-      (export-to-png~ surface (either destination (choose-new-file default-extension: "png")))))
+      (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
 
 
   @convert
@@ -1176,7 +1176,7 @@
               (delete-metafile~ Picture metafile)
               (catch (Cancel-Signal
                        (delete-file~ file))
-                (let ((dest (either destination (choose-new-file default-extension: "emf" extensions: '(("Enhanced metafiles" . "emf"))))))
+                (let ((dest (or destination (choose-new-file default-extension: "emf" extensions: '(("Enhanced metafiles" . "emf"))))))
                   (when (exists?~ dest)
                     (delete-file~ dest))
                   (move-pathname~ file dest)))))))))
@@ -1345,7 +1345,7 @@
           (display (get-display)))
       (when (and player (view-visible?))
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (either clip-rect (get-clipper)))))
+              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
           (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
             (scroll-window~ player (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
   
@@ -1356,7 +1356,7 @@
           (root (get-root)))
       (when player
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (either clip-rect (get-clipper)))))
+              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
           (scroll-offscreen~ root dh dv acquired clip-rect)))))
   
   
@@ -1602,8 +1602,8 @@
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed (get-h~ start) (get-h~ end) (essay context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal #f)
-        (needed (get-v~ start) (get-v~ end) (essay context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical center?))))
+        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal #f)
+        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical center?))))
   
   
   (method public (horizontal-scroll-needed target direction) <fx>
@@ -1653,7 +1653,7 @@
   
   
   (method public virtual (effective-font)
-    (either font (registered-font default-font)))
+    (or font (registered-font default-font)))
 
   
   ;;;
@@ -1699,8 +1699,8 @@
   
   
   (method public (find-mouse-view pos)
-    (either (get-captured-view)
-            (find-drawing pos)))
+    (or (get-captured-view)
+        (find-drawing pos)))
 
 
   ;;;
@@ -1805,8 +1805,8 @@
   
   
   (method public virtual (size-change size <Dimension>)
-    (let ((pw (essay previous-size (get-width~ previous-size)))
-          (ph (essay previous-size (get-height~ previous-size)))
+    (let ((pw (and previous-size (get-width~ previous-size)))
+          (ph (and previous-size (get-height~ previous-size)))
           (width (get-width~ size))
           (height (get-height~ size)))
       (set! previous-size size)
@@ -1924,7 +1924,7 @@
   
   (method public (notify-action sender properties)
     (if action-handler
-        (let ((properties (either properties (get-properties~ action-handler))))
+        (let ((properties (or properties (get-properties~ action-handler))))
           (let ((event (apply new Action-Event :action sender properties)))
             (invoke~ action-handler self event)))
       (when action
@@ -2293,7 +2293,7 @@
 
 
   (method public (mouse-view)
-    (either (get-captured-view) (get-mouse-in)))
+    (or (get-captured-view) (get-mouse-in)))
 
 
   ;;;
@@ -2414,8 +2414,8 @@
         (when font
           (set-font~ view font))
         (set-preferred-size~ view)
-        (let ((padding (either padding (new Dimension 0 (get-cursor-height))))
-              (position (either position pos)))
+        (let ((padding (or padding (new Dimension 0 (get-cursor-height))))
+              (position (or position pos)))
           (popup view position padding: padding class: Tooltip border: border))))
     
     (define (get-cursor-height)
@@ -2580,11 +2580,11 @@
     (let* ((toplevel (get-toplevel))
            (player (get-player))
            (max (rect-size (get-work-area)))
-           (alternate (essay alternate-position (to-desktop alternate-position)))
+           (alternate (and alternate-position (to-desktop alternate-position)))
            (position (to-desktop position))
            (size (+ (get-size~ view) {Dimension 4 4}))
-           (padding (either padding {Dimension 0 0}))
-           (border (either border (new Border-View name: 'border border-type: 'raised)))
+           (padding (or padding {Dimension 0 0}))
+           (border (or border (new Border-View name: 'border border-type: 'raised)))
            (popup (popup~ player class position: (fit-point position alternate size max padding) size: size close-behavior: close-behavior)))
       (set-initiator~ popup initiator)
       (set-parent~ border (get-root~ popup))
@@ -2767,7 +2767,7 @@
   (method public virtual (drop drag-drop pos)
     (let* ((src (get-view~ (get-source~ drag-drop)))
            (trg (get-target~ drag-drop))
-           (dst (either (get-handler~ trg) (get-view~ trg))))
+           (dst (or (get-handler~ trg) (get-view~ trg))))
       (when dst
         (call-receive-drop~ dst self (acquire~ dst src pos) drag-drop))))
   

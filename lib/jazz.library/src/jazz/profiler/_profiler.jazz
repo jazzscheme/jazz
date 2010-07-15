@@ -40,6 +40,7 @@
 
 (export (jazz.profiler.syntax))
 
+
 (import (jazz.jml)
         (jazz.system))
 
@@ -48,177 +49,38 @@
   (make-parameter #f))
 
 
-(definition *profiles*
-  (make-table test: eq?))
+(define *profiles* (make-table test: eq?))
 
 
 (definition public (get-profiles)
   *profiles*)
 
+
 (definition public (reset-profiles)
   (empty-table *profiles*))
 
 
-;;;
-;;;; Overhead
-;;;
+(define time-spent-in-children (make-parameter 0))
 
 
-(definition (compute-overhead)
-  )
-
-
-(definition (get-overhead)
-  0)
-
-
-;;;
-;;;; Profile-Frame
-;;;
-
-
-(definition active-profile-frame
-  (make-parameter #f))
-
-
-(class Profile-Frame extends Object
-  
-  
-  (slot back-link  getter generate)
-  (slot name       getter generate)
-  (slot parent     getter generate)
-  (slot profile    getter generate)
-  (slot recursive? getter generate)
-  (slot start      getter generate)
-  
-  
-  (method override (initialize n c)
-    (define (init p)
-      (set! back-link (active-profile-frame))
-      (set! name n)
-      (set! parent p)
-      (set! recursive? (boolean (find-profile n)))
-      (let ((object (table-ref *profiles* name #f)))
-        (if object
-            (set! profile object)
-          (set! profile (new Profile-Info name parent))
-          (table-set! *profiles* name profile)))
-      (set! start (get-performance-counter))
-      (active-profile-frame self))
-    
-    (when (profiler-on?)
-      (init (and c (find-profile c)))))
-  
-  
-  (method override (destroy)
-    (when (eq? (active-profile-frame) self)
-      (let ((end (get-performance-counter)))
-        (let ((duration (if (not recursive?)
-                            (- end start (get-overhead))
-                          0)))
-          (record-times~ profile 0 duration)
-          (active-profile-frame back-link))))))
-
-
-(definition (find-profile name)
-  (let (iterate (frame (active-profile-frame)))
-    (cond ((not frame)
-           #f)
-          ((eq? (get-name~ frame) name)
-           (get-profile~ frame))
-          (else
-           (iterate (get-back-link~ frame))))))
-
-
-;;;
-;;;; Profile-Time
-;;;
-
-
-(class Profile-Time extends Object
-  
-  
-  (slot count initialize 0 accessors generate)
-  (slot total initialize 0 accessors generate))
-
-
-;;;
-;;;; Profile-Info
-;;;
-
-
-(class Profile-Info extends Object
-  
-  
-  (slot name             getter generate)
-  (slot parent           getter generate)
-  (slot previous-brother getter generate)
-  (slot last-child       accessors generate)
-  (slot time             getter generate)
-  
-  
-  (method override (initialize n p)
-    (set! name n)
-    (set! parent p)
-    (set! last-child #f)
-    (if (not p)
-        (set! previous-brother #f)
-      (set! previous-brother (get-last-child~ p))
-      (set-last-child~ p self))
-    (set! time (new Profile-Time)))
-  
-  
-  (method (record-times rank duration)
-    (set-count~ time (+ (get-count~ time) 1))
-    (set-total~ time (+ (get-total~ time) duration)))
-  
-  
-  (method (get-count)
-    (get-count~ time))
-  
-  
-  (method (get-total)
-    (get-total~ time)))
-
-
-(definition public (profile-code name condition thunk)
-  (with ((frame (new Profile-Frame name condition)))
-    (thunk)))
-
-
-;;;
-;;;; JML
-;;;
-
+(definition public (profile-code name func)
+  (if (profiler-on?)
+      (let* ((start-time (get-performance-counter))
+             (total-elapsed-time 0)
+             (profile-record (or (table-ref *profiles* name #f)
+                                 (let ((profile-record (cons 0 0)))
+                                   (table-set! *profiles* name profile-record)
+                                   profile-record)))
+             (result (parameterize ((time-spent-in-children 0))
+                       (prog1 (func)
+                              (set! total-elapsed-time (- (get-performance-counter) start-time))
+                              (set-car! profile-record (+ 1 (car profile-record)))
+                              (set-cdr! profile-record (+ (cdr profile-record) (- total-elapsed-time (time-spent-in-children))))))))
+        (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time))
+        result)
+      (func)))
 
 (definition public (profiles->jml profiles)
-  (define (profile->jml parent profile)
-    (let ((node (profile-content parent profile)))
-      (insert-profile-children node profile)
-      node))
-  
-  (define (profile-content parent profile)
-    (let ((name (get-name~ profile))
-          (count (get-count~ profile))
-          (total (get-total~ profile)))
-      (new JML-Element parent 'profile properties: (list 'name name 'count count 'total total))))
-  
-  (define (insert-profile-children parent profile)
-    (map (lambda (child)
-           (profile->jml parent child))
-         (collect-profile-children profile)))
-  
-  (define (collect-profile-children profile)
-    (let ((children '())
-          (child (get-last-child~ profile)))
-      (while child
-        (set! children (cons child children))
-        (set! child (get-previous-brother~ child)))
-      children))
-  
-  (let ((nodes '()))
-    (iterate-table (get-profiles)
-      (lambda (name profile)
-        (when (not (get-parent~ profile))
-          (set! nodes (cons (profile->jml #f profile) nodes)))))
-    (sort nu<? nodes key: (lambda (node) (symbol->string (get-property~ node 'name)))))))
+  (map (lambda (profile)
+         (new JML-Element {} 'profile properties: (list 'name (car profile) 'count (cadr profile) 'total (cddr profile))))
+       (sort > (table->list profiles) key: cddr))))

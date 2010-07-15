@@ -573,9 +573,9 @@
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
          (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
-         (core? (jazz.core-class? (%%get-lexical-binding-name (%%get-declaration-parent declaration))))
-         (initialize? (and allocate? (%%not core?)))
+         (core? (jazz.core-class? (%%get-lexical-binding-name class-declaration)))
          (initialize (%%get-slot-declaration-initialize declaration))
+         (initialize? (and allocate? (%%not core?) initialize))
          (initialize-locator (and initialize? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset)))
@@ -648,8 +648,10 @@
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
          (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
+         (core? (jazz.core-class? (%%get-lexical-binding-name class-declaration)))
          (initialize (%%get-slot-declaration-initialize declaration))
-         (initialize-locator (and allocate? (jazz.compose-helper locator 'initialize)))
+         (initialize? (and allocate? (%%not core?) initialize))
+         (initialize-locator (and initialize? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset))
          (getter (%%get-property-declaration-getter declaration))
@@ -659,7 +661,7 @@
       (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr))))
     (jazz.sourcify-if
       `(begin
-         ,@(if allocate?
+         ,@(if initialize?
                `((define (,initialize-locator self)
                    ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment))))
              '())
@@ -2000,28 +2002,27 @@
   (let ((form (%%desourcify form-src)))
     (jazz.bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
       (%%assertion (%%class-is? declaration jazz.Class-Declaration) (jazz.walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
-        (let ((initialize (if (jazz.unspecified? initialize) #f initialize)))
-          (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
-            (%%set-slot-declaration-initialize new-declaration
-              (jazz.walk walker resume declaration environment initialize))
-            (%%when (%%class-is? new-declaration jazz.Property-Declaration)
-              (%%set-property-declaration-getter new-declaration
+        (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
+          (%%set-slot-declaration-initialize new-declaration
+            (and (%%specified? initialize) (jazz.walk walker resume declaration environment initialize)))
+          (%%when (%%class-is? new-declaration jazz.Property-Declaration)
+            (%%set-property-declaration-getter new-declaration
+              (jazz.walk walker resume declaration environment
+                `(lambda (self)
+                   (with-self
+                     ,(if getter-name
+                          `(,getter-name)
+                        name)))))
+            (%%set-property-declaration-setter new-declaration
+              (let ((value (jazz.generate-symbol "val")))
                 (jazz.walk walker resume declaration environment
-                  `(lambda (self)
+                  `(lambda (self ,value)
                      (with-self
-                       ,(if getter-name
-                            `(,getter-name)
-                          name)))))
-              (%%set-property-declaration-setter new-declaration
-                (let ((value (jazz.generate-symbol "val")))
-                  (jazz.walk walker resume declaration environment
-                    `(lambda (self ,value)
-                       (with-self
-                         ,(if setter-name
-                              `(,setter-name ,value)
-                            `(set! ,name ,value))))))))
-            (%%set-declaration-source new-declaration form-src)
-            new-declaration))))))
+                       ,(if setter-name
+                            `(,setter-name ,value)
+                          `(set! ,name ,value))))))))
+          (%%set-declaration-source new-declaration form-src)
+          new-declaration)))))
 
 
 ;;;

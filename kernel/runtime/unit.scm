@@ -183,19 +183,22 @@
   (chicken
     (require 'lolevel)
 
-    (define (jazz.global-variable? symbol)
+    (define (jazz.global-bound? symbol)
       (global-bound? symbol))
     
-    (define (jazz.global-value symbol)
+    (define (jazz.global-ref symbol)
       (global-ref symbol)))
   
   (gambit
-    (define (jazz.global-variable? symbol)
+    (define (jazz.global-bound? symbol)
       (and (%%global-var? symbol)
            (%%not (%%unbound? (%%global-var-ref symbol)))))
     
-    (define (jazz.global-value symbol)
-      (%%global-var-ref symbol)))
+    (define (jazz.global-ref symbol)
+      (%%global-var-ref symbol))
+    
+    (define (jazz.global-set! symbol value)
+      (%%global-var-set! symbol value)))
   
   (else))
 
@@ -1987,7 +1990,7 @@
     `(jazz.register-literal-constructor ',name ',contructor-name
        (lambda (arguments)
          (jazz.load-unit ',contructor-module)
-         (%%apply (jazz.global-value ',contructor-name) arguments)))))
+         (%%apply (jazz.global-ref ',contructor-name) arguments)))))
 
 
 (define (jazz.construct-literal name arguments)

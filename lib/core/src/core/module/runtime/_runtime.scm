@@ -103,10 +103,10 @@
     (let ((info (%%table-ref (%%get-module-exports module) name #f)))
       (if info
           (if (%%symbol? info)
-              (jazz.global-value info)
+              (jazz.global-ref info)
             (jazz.bind (unit-name . locator) info
               (jazz.load-unit unit-name)
-              (jazz.global-value locator)))
+              (jazz.global-ref locator)))
         not-found))))
 
 
@@ -117,6 +117,18 @@
         (if (%%eq? obj not-found)
             (jazz.error "Unable to find '{s} in: {s}" name module-name)
           obj)))))
+
+
+(define (jazz.module-set! module-name name value)
+  (let ((module (jazz.require-module module-name)))
+    (let ((info (%%table-ref (%%get-module-exports module) name #f)))
+      (if info
+          (if (%%symbol? info)
+              (jazz.global-set! info value)
+            (jazz.bind (unit-name . locator) info
+              (jazz.load-unit unit-name)
+              (jazz.global-set! locator value)))
+        (jazz.error "Unable to find '{s} in: {s}" name module-name)))))
 
 
 ;;;

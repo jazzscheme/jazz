@@ -381,8 +381,8 @@
                          (interface-accesses (map (lambda (declaration) (jazz.sourcified-form (jazz.emit-binding-reference declaration declaration environment))) interface-declarations)))
                      `((define ,locator
                          ;; this is a quicky that needs to be well tought out
-                         (if (jazz.global-variable? ',locator)
-                             (jazz.global-value ',locator)
+                         (if (jazz.global-bound? ',locator)
+                             (jazz.global-ref ',locator)
                            (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
                        (define ,level-locator (%%get-class-level ,locator)))))))
            ,@(jazz.emit-namespace-statements body declaration environment))

@@ -126,8 +126,8 @@
                    ,@body)))
            (define ,generic-locator
              ;; we do not reprocess generic - aka you must restart to change its signature
-             (if (jazz.global-variable? ',generic-locator)
-                 (let ((,gensym-generic (jazz.global-value ',generic-locator)))
+             (if (jazz.global-bound? ',generic-locator)
+                 (let ((,gensym-generic (jazz.global-ref ',generic-locator)))
                    (jazz.generic-reset ,gensym-generic ,specific-implementation-locator)
                    ,gensym-generic)
                (jazz.new-generic ',generic-method-locator (lambda () (%%list ,@dynamic-signature)) ,specific-implementation-locator)))

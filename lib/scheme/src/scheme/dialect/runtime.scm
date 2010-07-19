@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Scheme Dialect
+;;;; Scheme Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,23 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.dialect core
+(unit protected scheme.dialect.runtime
 
 
-(require (core.module)
-         (scheme.dialect.classes (phase syntax))
-         (scheme.dialect.dialect)
-         (scheme.dialect.runtime-classes (phase syntax))
-         (scheme.dialect.runtime))
+;;;
+;;;; Define
+;;;
 
 
-(export (scheme.dialect.kernel)))
+(jazz.define-class-runtime jazz.Define)
+
+
+(define (jazz.new-define name locator)
+  (jazz.allocate-define jazz.Define name locator))
+
+
+(jazz.encapsulate-class jazz.Define)
+
+
+(define (jazz.register-define module-name name locator)
+  (jazz.register-module-entry module-name name (jazz.new-define name locator))))

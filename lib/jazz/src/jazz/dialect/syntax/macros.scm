@@ -198,7 +198,7 @@
       (with-uniqueness object
         (lambda (obj)
           `(lambda rest
-             (apply (dispatch ,obj ',name) ,obj rest))))
+             (apply (dispatch (class-of ,obj) ',name) ,obj rest))))
       form-src)))
 
 

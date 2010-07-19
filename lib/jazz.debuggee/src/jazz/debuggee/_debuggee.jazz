@@ -695,6 +695,133 @@
 
 
 ;;;
+;;;; Advice
+;;;
+
+
+(definition advice-originals
+  (make-table test: eq?))
+
+(definition public (gap)
+  advice-originals)
+
+
+;; a.b.c/d/e (a.b.c d e)
+(definition protected (advice-internal what proc)
+  (define (advice-all)
+    (iterate-table (get-modules)
+      (lambda (module-name module)
+        (advice-module module))))
+  
+  (define (advice-symbol symbol)
+    (advice-path (map string->symbol (split (symbol->string symbol) "/"))))
+  
+  (define (advice-path path)
+    (bind (module-name . rest) path
+      (let ((module (require-module module-name)))
+        (if (null? rest)
+            (advice-module module)
+          (bind (name . rest) rest
+            (let ((entry (table-ref (get-entries~ module) name)))
+              (if (null? rest)
+                  (advice-entry module entry)
+                (assert (category? entry)
+                  (advice-class-field module entry (category-field entry (car rest)))))))))))
+  
+  (define (advice-module module)
+    (iterate-table (get-entries~ module)
+      (lambda (name entry)
+        (advice-entry module entry))))
+  
+  (define (advice-entry module entry)
+    (typecase entry
+      ((Field)
+       (advice-field entry))
+      ((Class)
+       (advice-class module entry))))
+
+  (define (advice-field field)
+    (let ((locator (field-locator~ field)))
+      (call-proc field
+                 locator
+                 (lambda () (field-ref~ field))
+                 (lambda (value) (field-set!~ field value)))))
+  
+  (define (advice-class module class)
+    (iterate-table (get-fields~ class)
+      (lambda (name field)
+        (advice-class-field module class field)))
+    (iterate-class-overrides class
+      (lambda (method)
+        (advice-method module class method))))
+  
+  (define (advice-class-field module class field)
+    (typecase field
+      ((Slot))
+      ((Method)
+       (advice-method module class field))
+      ((Field)
+       (advice-field field))))
+  
+  (define (advice-method module class method)
+    (let ((name (get-name~ method)))
+      (let ((locator (compose-name (get-name~ module) (get-name~ class) name)))
+        (call-proc method
+                   locator
+                   (lambda () (find-dispatch class name))
+                   (lambda (value) (update-method class name value))))))
+  
+  (define (call-proc field locator ref set)
+    (define (original)
+      (or (table-ref advice-originals locator #f)
+          (ref)))
+    
+    (proc field
+          locator
+          original
+          (lambda (value)
+            (let ((original (original)))
+              (let ((value (or value original)))
+                (if (eq? value original)
+                    (table-clear advice-originals locator)
+                  (table-set! advice-originals locator original))
+                (set value))))))
+  
+  (cond @wait-recursive-problems
+        ((not what)
+         (advice-all))
+        ((symbol? what)
+         (advice-symbol what))
+        ((null/pair? what)
+         (advice-path what))))
+
+
+(definition protected (unadvice-internal what)
+  (advice what
+          (lambda (field locator original set)
+            (set #f))))
+
+
+;;;
+;;;; Trace
+;;;
+
+
+(definition protected (trace-internal what)
+  (advice what
+          (lambda (field locator original set)
+            (let ((obj (original)))
+              (when (procedure? obj)
+                (set (lambda rest
+                       (terminal (get-name~ field))
+                       (apply obj rest))))))))
+
+
+(definition protected (untrace-internal what)
+  (unadvice what))
+
+
+;;;
 ;;;; Debugger
 ;;;
 

@@ -585,6 +585,7 @@
 (native jazz.get-load-mutex)
 (native jazz.get-load-thread)
 (native jazz.get-load-stack)
+(native jazz.get-modules)
 (native jazz.get-module)
 (native jazz.require-module)
 (native jazz.module-get)
@@ -678,6 +679,8 @@
 (native jazz.subtype?)
 (native jazz.subcategory?)
 (native jazz.subclass?)
+(native jazz.iterate-class-overrides)
+(native jazz.update-method)
 
 
 ;;;

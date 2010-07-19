@@ -85,7 +85,7 @@
 
   (method public (register-undo action)
     (cond (atomic?
-           (set! atomic-actions (cons action atomic-actions)))
+           (register-atomic-action action))
           (undoing?
            (set! redo-list (cons action redo-list))
            (decrease! save-depth))
@@ -96,17 +96,6 @@
              (set! redo-list '()))))
     (when (and (= 0 save-depth) (not atomic?))
       (set-modified?~ (get-controller~ client) #f)))
-  
-  
-  (method (register-atomic-actions actions)
-    (when (not-null? actions)
-      (register-undo
-        (lambda ()
-          (with-atomic-undo
-            (lambda ()
-              (for-each (lambda (action)
-                          (play-action action))
-                        actions)))))))
   
   
   (method public (can-undo?)
@@ -156,18 +145,34 @@
   
   
   (method public (with-atomic-undo proc)
+    (define (register-atomic-actions actions)
+      (when (not-null? actions)
+        (register-undo
+          (lambda ()
+            (with-atomic-undo
+              (lambda ()
+                (for-each (lambda (action)
+                            (play-action action))
+                          actions)))))))
+    
     (let ((preserved atomic?)
           (completed? #f))
       (unwind-protect
           (begin
+            (unless atomic?
+              (set! atomic-actions '()))
             (set! atomic? #t)
-            (set! atomic-actions '())
             (proc)
             (set! completed? #t))
-        (let ((actions atomic-actions))
-          (set! atomic? preserved)
-          (set! atomic-actions '())
-          (when (and completed? (not atomic?))
-            (register-atomic-actions actions)
-            (let ((appl (get-application)))
-              (update-focus-actions~ appl)))))))))
+        (set! atomic? preserved)
+        (unless atomic?
+          (let ((actions atomic-actions))
+            (set! atomic-actions '())
+            (when (and completed? (not atomic?))
+              (register-atomic-actions actions)
+              (let ((appl (get-application)))
+                (update-focus-actions~ appl))))))))
+  
+  
+  (method (register-atomic-action action)
+    (set! atomic-actions (cons action atomic-actions)))))

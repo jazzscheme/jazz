@@ -50,10 +50,10 @@
 (class Exception-View extends Layout-View
   
   
-  (property thread initialize {})
+  (property thread initialize #f)
   
   
-  (slot stop initialize {})
+  (slot stop initialize #f)
   
 
   (form
@@ -108,13 +108,13 @@
   
   (method public (set-thread value)
     (set! thread value)
-    (set! stop (essay thread (get-active-stop~ thread)))
+    (set! stop (and thread (get-active-stop~ thread)))
     (update))
   
   
   (method public (thread-changed new-thread)
     (set! thread new-thread)
-    (set! stop (essay thread (get-active-stop~ thread)))
+    (set! stop (and thread (get-active-stop~ thread)))
     (update)
     (edit-stop/detail))
 
@@ -125,7 +125,7 @@
   
 
   (definition *indicators*
-    {})
+    #f)
 
 
   (method (edit-stop/detail)
@@ -151,7 +151,7 @@
     (define (uninstall-active-indicators)
       (when *indicators*
         (uninstall-indicators *indicators*)
-        (set! *indicators* {})))
+        (set! *indicators* #f)))
     
     (define (find-location location)
       (bind (filename line col) location
@@ -243,13 +243,13 @@
         (else {Image-Resource "BreakStop"})))
     
     (define (stop-reason-lines stop)
-      (let ((reason (either (get-reason~ stop) "Break")))
+      (let ((reason (or (get-reason~ stop) "Break")))
         (split reason "\n")))
     
     (define (insert-detail tree father detail)
       (let ((title (get-title~ detail))
             (icon (get-icon~ detail)))
-        (let ((image (if icon (new Image-Resource icon) {})))
+        (let ((image (if icon (new Image-Resource icon) #f)))
           (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
             (for-each (lambda (subdetail)
                         (insert-detail tree row subdetail))
@@ -266,7 +266,7 @@
                       (image (stop-image stop))
                       (detail (get-detail~ stop)))
                   (if detail
-                      (insert-detail tree {} detail)
+                      (insert-detail tree #f detail)
                     (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
                       (for-each (lambda (line)
                                   (when (not (empty-string? line))
@@ -284,8 +284,8 @@
   (method (selected-data)
     (define (row-data row)
       (when row
-        (either (get-user-data~ row)
-                (row-data (get-father~ row)))))
+        (or (get-user-data~ row)
+            (row-data (get-father~ row)))))
     
     (row-data (selected-row)))
   

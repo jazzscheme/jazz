@@ -68,12 +68,12 @@
 (class IDE extends Application
 
 
-  (slot local-debugger    initialize {})
-  (slot snapshot-debugger initialize {})
+  (slot local-debugger    initialize #f)
+  (slot snapshot-debugger initialize #f)
   (slot cataloguer        initialize (new Cataloguer))
-  (slot catalog-context   initialize {})
-  (slot catalog-file      initialize {})
-  (slot search            initialize {})
+  (slot catalog-context   initialize #f)
+  (slot catalog-file      initialize #f)
+  (slot search            initialize #f)
   (slot recorder          initialize (new Macro-Recorder))
   
   
@@ -101,7 +101,7 @@
     (define (toplevel-title)
       (if profile
           (toplevel-title~ profile)
-        (get-toplevel-title~ (get-preferences {}))))
+        (get-toplevel-title~ (get-preferences #f))))
     
     (set-debugger-manager (new Debugger-Manager)) ;; hack!!!!!
     (nextmethod)
@@ -127,7 +127,7 @@
     ;; will be handled by the IDE itself which must thus be fully functional
     (when (not (get-controller-debugger))
       (attach-to-controller (get-local-register) #t)
-      (ready-to-controller {})
+      (ready-to-controller #f)
       (current-input-port (console-input-port))
       (current-output-port (console-output-port))))
 
@@ -321,7 +321,7 @@
     @convert-to-session
     (for-each (lambda (info)
                 (bind (class . properties) info
-                  (bind-keywords ((file {}) . others) properties
+                  (bind-keywords ((file #f) . others) properties
                     (when (or (not file) (exists?~ file))
                       (reload-component class properties)))))
               (get-opened-windows~ (get-preferences '(application session)))))
@@ -383,7 +383,7 @@
   
   
   (method override (get-output-log)
-    (get-guest~ (singleton-docked Output-Log {})))
+    (get-guest~ (singleton-docked Output-Log #f)))
     
   
   ;;;
@@ -392,7 +392,7 @@
   
   
   (method public (get-profiling-results)
-    (get-guest~ (singleton-docked Profile-Results {})))
+    (get-guest~ (singleton-docked Profile-Results #f)))
 
   
   ;;;
@@ -473,7 +473,7 @@
   ;;;
 
   
-  (method override (edit-definitions object (class: class {}) (context: context catalog-context) (workspace: workspace {}) (history-item: history-item {}))
+  (method override (edit-definitions object (class: class #f) (context: context catalog-context) (workspace: workspace #f) (history-item: history-item #f))
     ;; todo: show only entries belonging to class
     (define (filter-entries entries class)
       entries)
@@ -487,7 +487,7 @@
           (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
 
   
-  (method override (edit-references object (constituent-test: constituent-test {}) (context: context catalog-context) (history-item: history-item {}))
+  (method override (edit-references object (constituent-test: constituent-test #f) (context: context catalog-context) (history-item: history-item #f))
     (let ((definitions (get-references~ (get-cataloguer) object context: context)))
       (if (null? definitions)
           (bell)
@@ -663,7 +663,7 @@
   
   (method (on-class-browser evt)
     (let* ((focus (get-focus))
-           (text (if (is? focus Text-View) (get-selected-string~ focus) {})))
+           (text (if (is? focus Text-View) (get-selected-string~ focus) #f)))
       (show-palette Class-Browser initialize: (lambda (palette view)
                                                 (when text
                                                   (set-text~ view text))))))
@@ -671,7 +671,7 @@
   
   (method (on-references-analyser evt)
     (let* ((focus (get-focus))
-           (text (if (is? focus Text-View) (get-selected-string~ focus) {})))
+           (text (if (is? focus Text-View) (get-selected-string~ focus) #f)))
       (show-palette References-Analyser initialize: (lambda (palette view)
                                                       (when text
                                                         (set-text~ view text))))))
@@ -685,7 +685,7 @@
   
   
   (method public (get-workbench-manager)
-    (get-guest~ (singleton-docked Workbench-Manager {})))
+    (get-guest~ (singleton-docked Workbench-Manager #f)))
   
   
   (method package (on-select-project evt)

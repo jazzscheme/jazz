@@ -45,13 +45,13 @@
 
 ;; run the message loop
 (define (run-loop)
-  (let ((get-process (jazz.global-value 'jazz.system.access.get-process))
-        (run-loop (jazz.global-value 'jazz.system.process.Process.Process.run-loop)))
+  (let ((get-process (jazz.global-ref 'jazz.system.access.get-process))
+        (run-loop (jazz.global-ref 'jazz.system.process.Process.Process.run-loop)))
     (run-loop (get-process))))
 
 
 ;; resume the message loop
 (define (resume)
-  (let ((get-process (jazz.global-value 'jazz.system.access.get-process))
-        (resume-loop (jazz.global-value 'jazz.system.process.Process.Process.resume-loop)))
+  (let ((get-process (jazz.global-ref 'jazz.system.access.get-process))
+        (resume-loop (jazz.global-ref 'jazz.system.process.Process.Process.resume-loop)))
     (resume-loop (get-process)))))

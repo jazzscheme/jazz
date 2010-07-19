@@ -61,4 +61,4 @@
   (lambda ()
     (jazz.load-unit 'core.module)
     (jazz.load-unit 'jazz.dialect)
-    (jazz.global-value 'jazz.jazz-readtable))))
+    (jazz.global-ref 'jazz.jazz-readtable))))

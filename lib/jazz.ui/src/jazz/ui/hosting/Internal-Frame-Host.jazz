@@ -59,9 +59,9 @@
   (slot start-mouse)
   (slot start-position)
   (slot start-size)
-  (slot preserved-position initialize {}  getter generate)
-  (slot preserved-size     initialize {}  getter generate)
-  (slot workspace          initialize {}  accessors generate)
+  (slot preserved-position initialize #f  getter generate)
+  (slot preserved-size     initialize #f  getter generate)
+  (slot workspace          initialize #f  accessors generate)
   (slot workspace-stages   initialize '() accessors generate)
   (slot maximized?         initialize #f)
 
@@ -117,7 +117,7 @@
   
   (method override (activate-frame)
     (nextmethod)
-    (set-caption~ (get-toplevel) (essay (get-maximized?~ (get-stage)) (get-title))))
+    (set-caption~ (get-toplevel) (and (get-maximized?~ (get-stage)) (get-title))))
 
   
   (method override (deactivate-frame)
@@ -151,7 +151,7 @@
           frame)))
     
     (let ((was-active? (eq? self (active-frame))))
-      (let ((new-active (essay was-active? (determine-new-active))))
+      (let ((new-active (and was-active? (determine-new-active))))
         (nextmethod)
         (when was-active?
           (deactivate-frame)
@@ -210,7 +210,7 @@
             (when (and (not-null? workspaces) (not (memq? current workspaces)))
               (let ((pref (get-preferences (list 'workspaces (car workspaces)) error?: #f)))
                 (when pref
-                  (apply-preferences~ pref restore-focus?: {})))))))))
+                  (apply-preferences~ pref restore-focus?: #f)))))))))
 
   
   (method public (ensure-displayed)
@@ -424,7 +424,7 @@
   (method override (cursor-update pos)
     (if (not (resizeable?))
         (set-cursor :arrow)
-      (let ((part (essay (not maximized?) (find-resize-part pos (get-size) full?: #t))))
+      (let ((part (and (not maximized?) (find-resize-part pos (get-size) full?: #t))))
         (if (not part)
             (set-cursor :arrow)
           (set-cursor (get-resize-cursor part))))))
@@ -451,7 +451,7 @@
           (let ((part (find-resize-part pos (get-size) full?: #t)))
             (when (or part in-caption?)
               (set! dragging? #t)
-              (set! current-part (essay (resizeable?) part))
+              (set! current-part (and (resizeable?) part))
               (set! start-mouse (to-desktop pos))
               (set! start-position (get-position))
               (set! start-size (get-size))

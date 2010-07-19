@@ -74,7 +74,7 @@
       (PRINTDLG-free rec))))
 
 
-(definition public (page-setup-dialog (margins: margins '()) (orientation: orientation {}) (paper-size: paper-size {}) (paper-source: paper-source {}))
+(definition public (page-setup-dialog (margins: margins '()) (orientation: orientation #f) (paper-size: paper-size #f) (paper-source: paper-source #f))
   (close-all-popups)
   (let ((rec (PAGESETUPDLG-make))
         (devmode (DEVMODE-make)))
@@ -118,12 +118,12 @@
 ;;;
 
 
-(definition public (choose-file (title: title {})
-                                (directory: directory {})
-                                (filenames: filenames {})
-                                (extensions: extensions {})
+(definition public (choose-file (title: title #f)
+                                (directory: directory #f)
+                                (filenames: filenames #f)
+                                (extensions: extensions #f)
                                 (multiple-selection?: multiple-selection? #f)
-                                (anchors: anchors {})
+                                (anchors: anchors #f)
                                 (text?: text? #f))
   (if (use-generic-dialogs?)
       (get-modal (if text? Text-File-Request File-Request)
@@ -146,7 +146,7 @@
           (OPENFILENAME-lpstrFile-set! r       buffer)
           (OPENFILENAME-nMaxFile-set! r        size)
           (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory))
-          (OPENFILENAME-lpstrTitle-set! r      NULL @buggy (either title NULL))
+          (OPENFILENAME-lpstrTitle-set! r      NULL @buggy (or title NULL))
           (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER (if multiple-selection? OFN_ALLOWMULTISELECT 0) OFN_HIDEREADONLY OFN_ENABLEHOOK OFN_FILEMUSTEXIST OFN_ENABLESIZING))
           (OPENFILENAME-lpstrDefExt-set! r     NULL)
           (OPENFILENAME-lCustData-set! r       0)
@@ -188,13 +188,13 @@
        (naturals 0 size)))
 
 
-(definition public (choose-new-file (title: title {})
-                                    (directory: directory {})
-                                    (filenames: filenames {})
-                                    (extensions: extensions {})
-                                    (initial-filename: initial-filename {})
-                                    (default-extension: default-extension {})
-                                    (anchors: anchors {}))
+(definition public (choose-new-file (title: title #f)
+                                    (directory: directory #f)
+                                    (filenames: filenames #f)
+                                    (extensions: extensions #f)
+                                    (initial-filename: initial-filename #f)
+                                    (default-extension: default-extension #f)
+                                    (anchors: anchors #f))
   (if (use-generic-dialogs?)
       (get-modal NewFile-Request
                  host-title: title
@@ -221,7 +221,7 @@
         (OPENFILENAME-nMaxFile-set! r        MAX_PATH)
         (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory @w (get-current-directory)))
         (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER OFN_ENABLEHOOK @w OFN_FILEMUSTEXIST OFN_ENABLESIZING OFN_OVERWRITEPROMPT))
-        (OPENFILENAME-lpstrDefExt-set! r     (either default-extension NULL))
+        (OPENFILENAME-lpstrDefExt-set! r     (or default-extension NULL))
         (OPENFILENAME-lCustData-set! r       0)
         (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc @w (get-dialog-proc)))
       @debug-bug
@@ -244,9 +244,9 @@
 ;;;
 
 
-(definition public (choose-directory (title: title {})
-                                     (directory: directory {})
-                                     (anchors: anchors {}))
+(definition public (choose-directory (title: title #f)
+                                     (directory: directory #f)
+                                     (anchors: anchors #f))
   (if (use-generic-dialogs?)
       (get-modal Directory-Request
                  host-title: title
@@ -262,7 +262,7 @@
         (BROWSEINFO-hwndOwner-set! r (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
         (BROWSEINFO-pidlRoot-set! r NULL)
         (BROWSEINFO-pszDisplayName-set! r buffer)
-        (BROWSEINFO-lpszTitle-set! r NULL @buggy (either title NULL))
+        (BROWSEINFO-lpszTitle-set! r NULL @buggy (or title NULL))
         (BROWSEINFO-ulFlags-set! r 0)
         (BROWSEINFO-lpfn-set! r NULL @fake (get-browse-callback))
         (BROWSEINFO-lParam-set! r 0)

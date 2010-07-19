@@ -199,7 +199,7 @@
     (let ((whole-words? (get-whole-words?))
           (ignore-case? (get-ignore-case?))
           (regexp? (get-regexp?)))
-      (make-multi-search-context
+      (->search-set
         (map (lambda (target)
                (make-search-context (first target)
                  whole-words?: whole-words?
@@ -289,7 +289,7 @@
   
   
   (method public virtual (get-active-window-domain)
-    {})
+    #f)
 
 
   ;;;
@@ -301,10 +301,10 @@
     (hide~ (get-player))
     (let ((targets (locate 'targets)))
       (end-edition~ targets)
-      (let ((multi-search-context (get-find-targets)))
-        (if (null? (get-contexts~ multi-search-context))
+      (let ((search-set (get-find-targets)))
+        (if (null? (get-contexts~ search-set))
             (bell)
-          (search-targets multi-search-context)))))
+          (search-targets search-set)))))
   
   
   (method protected virtual (search-targets targets)
@@ -337,20 +337,20 @@
   
   
   (method package (on-find-forward evt)
-    (let ((multi-search-context (get-find-targets)))
-      (unless (null? (get-contexts~ multi-search-context))
+    (let ((search-set (get-find-targets)))
+      (unless (null? (get-contexts~ search-set))
         (let ((target (get-target-text))
               (domain (get-search-domain)))
-          (unless (and target (find-forward target multi-search-context (follow-search-results? domain)))
+          (unless (and target (find-forward target search-set (follow-search-results? domain)))
             (bell))))))
   
   
   (method package (on-find-backward evt)
-    (let ((multi-search-context (get-find-targets)))
-      (unless (null? (get-contexts~ multi-search-context))
+    (let ((search-set (get-find-targets)))
+      (unless (null? (get-contexts~ search-set))
         (let ((target (get-target-text))
               (domain (get-search-domain)))
-          (unless (and target (find-backward target multi-search-context (follow-search-results? domain)))
+          (unless (and target (find-backward target search-set (follow-search-results? domain)))
             (bell))))))
   
   
@@ -530,14 +530,14 @@
       (replace target find repl ignore-case? case? play? expression?)))
   
   
-  (method protected (find-forward target multi-search-context (next? #t))
-    (either (select-next~ target multi-search-context)
-            (essay next? (edit-next~ (get-results)))))
+  (method protected (find-forward target search-set (next? #t))
+    (or (select-next~ target search-set)
+        (and next? (edit-next~ (get-results)))))
   
   
-  (method protected (find-backward target multi-search-context (previous? #t))
-    (either (select-previous~ target multi-search-context)
-            (essay previous? (edit-previous~ (get-results)))))
+  (method protected (find-backward target search-set (previous? #t))
+    (or (select-previous~ target search-set)
+        (and previous? (edit-previous~ (get-results)))))
 
 
   ;;;
@@ -545,36 +545,36 @@
   ;;;
 
 
-  (method (search-in-file multi-search-context file expression? factory reporter)
+  (method (search-in-file search-set file expression? factory reporter)
     (unless (and reporter (cancel-requested?~ reporter))
       (when reporter
         (user-feedback~ reporter "Searching {a}" (get-name~ file))
         (step-it~ reporter))
-      (let ((info (search-file file multi-search-context expression?)))
+      (let ((info (search-file file search-set expression?)))
         (when info
-          (put~ factory (list file info multi-search-context))))))
+          (put~ factory (list file info search-set))))))
   
   
-  (method protected (search-in-directories multi-search-context directories extensions expression? factory reporter)
+  (method protected (search-in-directories search-set directories extensions expression? factory reporter)
     (for-each (lambda (directory)
-                (search-in-directory multi-search-context directory extensions expression? factory reporter))
+                (search-in-directory search-set directory extensions expression? factory reporter))
               directories))
     
 
-  (method protected (search-in-directory multi-search-context directory extensions expression? factory reporter)
+  (method protected (search-in-directory search-set directory extensions expression? factory reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
       (iterate-directory~ directory
         (lambda (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
               ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
-               (search-in-file multi-search-context file expression? factory reporter))
+               (search-in-file search-set file expression? factory reporter))
               ((member? ext extensions test: ci=?)
-               (search-in-file multi-search-context file expression? factory reporter)))))
+               (search-in-file search-set file expression? factory reporter)))))
         ignored-directories: '(".git" ".hg" "bin" "build"))))
 
 
-  (method (search-file file multi-search-context expression?)
+  (method (search-file file search-set expression?)
     (when (exists?~ file)
       (let ((ext (get-extension~ file)))
         (if (not expression?)
@@ -582,13 +582,13 @@
               (lambda (reader)
                 (let ((content (read-content-string reader))
                       (constituent-test (extension-constituent-test ext)))
-                  (multisearch content multi-search-context constituent-test: constituent-test))))
+                  (contextual-search content search-set constituent-test: constituent-test))))
           (let ((text (new Jazz-Text-View)))
             (set-moniker~ text file)
             (let* ((beginning (text-beginning~ text))
                    (expl (new Jazz-Explorer text start: beginning end: beginning))
                    (mode (if (ci=? ext "jazz") 'code 'quotation)))
-              (search-expressions~ expl mode multi-search-context beginning)))))))
+              (search-expressions~ expl mode search-set beginning)))))))
 
 
   ;;;
@@ -654,8 +654,8 @@
     (select-cell {Cell 0 0}))
   
   
-  (method override (add-empty-row (father: father {}))
-    (let ((father (either father root-row))
+  (method override (add-empty-row (father: father #f))
+    (let ((father (or father root-row))
           (children (map new-empty-cell~ columns)))
       (add-row father: father children: children)))
   

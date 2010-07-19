@@ -63,8 +63,14 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     (jazz.sourcify-if
-      `(define ,locator
-         ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+      `(begin
+         (define ,locator
+           ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+         ,(let ((name (%%get-lexical-binding-name declaration))
+                (parent (%%get-declaration-parent declaration)))
+            (if (%%is? parent jazz.Module-Declaration)
+                `(jazz.register-define ',(%%get-lexical-binding-name parent) ',name ',locator)
+              `(jazz.add-field ,(%%get-declaration-locator parent) (jazz.new-define ',name ',locator)))))
       (%%get-declaration-source declaration))))
 
 

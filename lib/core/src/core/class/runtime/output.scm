@@ -165,7 +165,7 @@
   (if (jazz.use-print?)
       (if jazz.dialect.language.object.Object.print
           ;; the rank of print is known to be 2 as it is the third method of Object
-          ((%%class-dispatch object 0 2) object output detail)
+          ((%%class-dispatch (%%class-of object) 0 2) object output detail)
         (jazz.print-object object output detail))
     (jazz.print-serial object output)))
 

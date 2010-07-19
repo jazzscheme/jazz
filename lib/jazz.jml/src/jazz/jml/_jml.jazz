@@ -115,9 +115,9 @@
 
 
 (definition public (autoload-class name)
-  (either (get-autoclass name)
-          (when (get-autoload name)
-            (autoload name))))
+  (or (get-autoclass name)
+      (when (get-autoload name)
+        (autoload name))))
 
 
 ;;;
@@ -125,9 +125,9 @@
 ;;;
 
 
-(definition public (parse-jml jml (preferences-class: preferences-class {}) (parser-class: parser-class {}))
-  (let* ((pref (new (either preferences-class JML-Preferences)))
-         (parser (new (either parser-class JML-Parser) preferences: pref)))
+(definition public (parse-jml jml (preferences-class: preferences-class #f) (parser-class: parser-class #f))
+  (let* ((pref (new (or preferences-class JML-Preferences)))
+         (parser (new (or parser-class JML-Parser) preferences: pref)))
     (parse~ parser jml)))
 
 
@@ -145,9 +145,9 @@
 ;;;
 
 
-(definition public (render-jml node printer (preferences-class: preferences-class {}) (renderer-class: renderer-class {}))
-  (let* ((pref (new (either preferences-class JML-Preferences)))
-         (renderer (new (either renderer-class JML-Renderer) pref)))
+(definition public (render-jml node printer (preferences-class: preferences-class #f) (renderer-class: renderer-class #f))
+  (let* ((pref (new (or preferences-class JML-Preferences)))
+         (renderer (new (or renderer-class JML-Renderer) pref)))
     (render~ renderer node printer)))
 
 
@@ -157,8 +157,8 @@
 
 
 (definition public (parse-jml-properties/children list)
-  (let ((properties {})
-        (content {}))
+  (let ((properties #f)
+        (content #f))
     (let (iterate (scan list))
       (if (null? scan)
           (values (if properties (queue-list properties) '())
@@ -230,7 +230,7 @@
                         (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
                                       ((or (eq? tag '~) tag-symbolic?) 'locate)
                                       (else 'new)))
-                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) {} tag))
+                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
                         (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
                         (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
                         (children (map (lambda (node)
@@ -247,7 +247,7 @@
                          (set-children~ form (cdr children)))
                      (set-children~ form children))
                    form)))))
-    (node->form node {})))
+    (node->form node #f)))
 
 
 (definition public (form->node form)
@@ -294,7 +294,7 @@
                    (set-properties~ element properties)
                    (set-children~ element (if (branch-model? model-name) (add-client-form form children) children))
                    element)))))
-    (form->node form {})))
+    (form->node form #f)))
 
 
 (definition (branch-model? model-name)

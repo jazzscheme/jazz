@@ -93,7 +93,7 @@
             (format output "{a}{%}" (get-name~ branch))
             (let ((form (get-restore-form~ branch)))
               (if (not form)
-                  (format output " ~{}{%}")
+                  (format output " ~#f{%}")
                 (pretty-print~ (form->node form) output form?: #t)
                 (newline output)))))))))
 
@@ -121,8 +121,8 @@
 
 
 @convert
-(definition public (cc (color-or-name {}))
-  (let ((color (if (or (not color-or-name) (is? color-or-name Color)) color-or-name (dispatch Color color-or-name))))
+(definition public (cc (color-or-name #f))
+  (let ((color (if (or (not color-or-name) (is? color-or-name Color)) color-or-name (dispatch (class-of Color) color-or-name))))
     (get-modal Color-Request initial-color: color)))
 
 
@@ -146,7 +146,7 @@
   (let ((path (format "{l}" (get-list~ (cd)))))
     (set-clipboard-text path)
     (user-message "Clipboard set to {a}" path)
-    {}))
+    #f))
 
 
 ;;;
@@ -191,8 +191,8 @@
 (class Receiver-View extends View
   
   
-  (property invite   initialize {} accessors explicit)
-  (property receiver initialize {} accessors generate)
+  (property invite   initialize #f accessors explicit)
+  (property receiver initialize #f accessors generate)
   
   
   (form
@@ -218,7 +218,7 @@
   
   (method override (draw surface context lh lv)
     (set-font~ surface Background-Font)
-    (let* ((title (localize (either invite "Drop Files Here")))
+    (let* ((title (localize (or invite "Drop Files Here")))
            (extent (get-text-extent~ surface title))
            (pos (center extent (get-display-size))))
       ;; shadow
@@ -229,11 +229,11 @@
       (draw-text~ surface (get-h~ pos) (get-v~ pos) title #t))))
 
 
-(definition public (setup-receiver receiver (title: title {}) (position: position {}) (size: size {}) (invite: invite {}))
+(definition public (setup-receiver receiver (title: title #f) (position: position #f) (size: size #f) (invite: invite #f))
   (new-palette Receiver-View
-               host-title: (either title "Receive Files")
-               host-position: (either position {Point 219 169})
-               host-size: (either size {Dimension 434 224})
+               host-title: (or title "Receive Files")
+               host-position: (or position {Point 219 169})
+               host-size: (or size {Dimension 434 224})
                invite: invite
                receiver: receiver))
 
@@ -252,7 +252,7 @@
 ;;;
 
 
-(definition public (debug-table table (name: name {}) (max-display: max-display 250))
+(definition public (debug-table table (name: name #f) (max-display: max-display 250))
   (let ((text (get-sql-console-text)))
     @convert (set-current-request~ text name)
     (display-table~ text table max-display 0)

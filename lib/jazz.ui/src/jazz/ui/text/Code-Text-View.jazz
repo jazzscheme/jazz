@@ -56,7 +56,7 @@
   
   
   (slot matching-highlights initialize '())
-  (slot flashing-thread     initialize {})
+  (slot flashing-thread     initialize #f)
   
   
   (form
@@ -74,12 +74,12 @@
         ;; default style
         (let ((default-style-preference (get-default-style~ pref)))
           (when default-style-preference
-            (let ((style (add-style-preference 'Default {} default-style-preference)))
+            (let ((style (add-style-preference 'Default #f default-style-preference)))
               (set-default-style style))))
         ;; base styles
         (let ((base-styles-preferences (get-base-styles~ pref)))
           (for-each (lambda (base-style-preference)
-                      (add-style-preference {} 'Default base-style-preference))
+                      (add-style-preference #f 'Default base-style-preference))
                     base-styles-preferences))
         (let ((default (get-name~ default-style)))
           (add-style-preference 'Match default (get-match-style~ pref))))))
@@ -262,7 +262,7 @@
   
   
   (method protected virtual (edition-workspace)
-    {})
+    #f)
 
   
   (method (on-edit-definitions evt)
@@ -427,11 +427,11 @@
   
   
   (method protected virtual (syntax-targets)
-    {})
+    #f)
   
   
   (method protected virtual (syntax-automata)
-    {})
+    #f)
   
   
   (method protected virtual (compute-syntax-targets)
@@ -449,7 +449,7 @@
       (let ((automata (syntax-automata)))
         (when automata
           (let ((found (automata-search automata (new TextTape (get-paragraphs) (get-limit) 0 0)))
-                (colorizer (essay (not recoloring?) (new-colorizer self))))
+                (colorizer (and (not recoloring?) (new-colorizer self))))
             (while (not-null? found)
               (let ((info (car found)))
                 (bind ((target type) line col) info
@@ -492,7 +492,7 @@
     (cdr found)
     @irregex-to-convert
     (when recolorize?
-      (let ((found (text-multisearch (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
+      (let ((found (text-contextual-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
         (when found
           (bind (pos . (target type)) found
             (when (eq? type 'open)
@@ -535,7 +535,7 @@
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
-        (let ((opening (text-multisearch (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
+        (let ((opening (text-contextual-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
           (when opening
             (bind (start . (target type)) opening
               (when (eq? type 'open)
@@ -609,14 +609,14 @@
     (current-readtable))
   
   
-  (method (read-text-form range (string: string {}) (readtable: readtable (get-readtable)))
-    (let ((string (either string (get-string range))))
+  (method (read-text-form range (string: string #f) (readtable: readtable (get-readtable)))
+    (let ((string (or string (get-string range))))
       (call-with-input-string (list init: string readtable: readtable)
         read)))
   
   
-  (method (read-text-forms range (string: string {}) (readtable: readtable (get-readtable)))
-    (let ((string (either string (get-string range))))
+  (method (read-text-forms range (string: string #f) (readtable: readtable (get-readtable)))
+    (let ((string (or string (get-string range))))
       (call-with-input-string (list init: string readtable: readtable)
         (lambda (port)
           (read-until eof-object? port)))))
@@ -828,7 +828,7 @@
                         (execute-event
                           (lambda ()
                             (remove-matching-highlights)
-                            (set! flashing-thread {})))))))
+                            (set! flashing-thread #f)))))))
           (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))
@@ -838,7 +838,7 @@
       (when flashing-thread
         (thread-interrupt! flashing-thread
           thread-exit)
-        (set! flashing-thread {})))
+        (set! flashing-thread #f)))
     
     (let ((pref (preferences)))
       (when (and pref (eq? (get-match-action~ pref) 'flash))
@@ -895,8 +895,8 @@
     (unless (macro-playing?~ (get-application))
       (when (empty-selection?)
         (let ((pos (get-caret)))
-          (either (find-backward pos)
-                  (and forward? (find-forward pos)))))))
+          (or (find-backward pos)
+              (and forward? (find-forward pos)))))))
   
   
   (method (add-matching-highlight highlight)

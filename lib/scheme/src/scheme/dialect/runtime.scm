@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Range Row
+;;;; Scheme Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,54 +35,23 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.row.Range-Row jazz
+(unit protected scheme.dialect.runtime
 
 
-(import (jazz.designer))
+;;;
+;;;; Define
+;;;
 
 
-(class undocumented Range-Row extends Value-Row
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present range)
-    (if (not range)
-        "{}"
-      (format "{a}, {a}"
-              (get-start~ range)
-              (get-end~ range))))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method override (get-edited-value)
-    (let ((list (read-delimited-string (get-string-content~ editor) #\comma)))
-      (bind ((start) (end)) list
-        (new Range start end))))
-  
-  
-  @wait
-  (method override (edit)
-    (edit-in-cell)
-    (add-row self "start" (get-start~ value) Cell-Row)
-    (add-row self "end" (get-end~ value) Cell-Row)
-    (expand/collapse~ (get-tree) self))
-  
-  
-  @wait
-  (method override (close-editor)
-    (nextmethod)
-    (remove-every-son))
-  
-  
-  @wait
-  (method override (in-edition?)
-    (or (nextmethod)
-        (> (cardinality (get-sons)) 0)))))
+(jazz.define-class-runtime jazz.Define)
+
+
+(define (jazz.new-define name locator)
+  (jazz.allocate-define jazz.Define name locator))
+
+
+(jazz.encapsulate-class jazz.Define)
+
+
+(define (jazz.register-define module-name name locator)
+  (jazz.register-module-entry module-name name (jazz.new-define name locator))))

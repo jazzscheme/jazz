@@ -49,7 +49,7 @@
 (class Paragraph extends Outline-Row
 
 
-  (slot protected format <Format> initialize {} accessors generate)
+  (slot protected format <Format> initialize #f accessors generate)
   (slot protected string <string>               accessors generate)
   (slot protected runs   <list>                 accessors generate)
   (slot protected lines  <list>                 accessors generate)
@@ -104,8 +104,8 @@
 
   ;; All these special cases need major cleanup!
   (method protected (range-region left-padding <fx> start end dh dv sc)
-    (let ((rs <fx> (either start 0))
-          (re <fx> (either end (cardinality string)))
+    (let ((rs <fx> (or start 0))
+          (re <fx> (or end (cardinality string)))
           (left <fx> (paragraph-left))
           (top <fx>  (paragraph-top))
           (width <fx> (get-width~ size)))
@@ -134,7 +134,7 @@
                (keep-rectangles~ region)
                (for-each-logical-range s e 0
                  (lambda (line <Line> beginning limit)
-                   (with ((sub (range-region~ line left top w beginning (if (not end) {} limit) self dh dv sc)))
+                   (with ((sub (range-region~ line left top w beginning (if (not end) #f limit) self dh dv sc)))
                      (combine!~ region sub 'or))))
                region)))))
   
@@ -148,9 +148,9 @@
           (loop (for n from beginning to limit)
                 (let* ((line (get-line n))
                        (len (get-length~ line)))
-                  (cond ((= n beginning) (proc line (get-col~ start) {}))
-                        ((= n limit) (proc line {} (get-col~ end)))
-                        (else (proc line {} {})))))))))
+                  (cond ((= n beginning) (proc line (get-col~ start) #f))
+                        ((= n limit) (proc line #f (get-col~ end)))
+                        (else (proc line #f #f)))))))))
 
 
   ;;;
@@ -178,7 +178,7 @@
           (lambda (run <Run> offset <fx> limit <fx>)
             (when (and (> col offset) (<= col limit))
               (continuation-return return run))))
-        {})))
+        #f)))
   
   
   (method public (first-run) <Run+>
@@ -334,8 +334,8 @@
   
   (method (modify-style start <fx> end <fx> proc)
     (let* ((text <Text-View> parent)
-           (start <fx> (either start 0))
-           (end <fx> (either end (cardinality string)))
+           (start <fx> (or start 0))
+           (end <fx> (or end (cardinality string)))
            (fact (new List-Factory))
            (split
             (lambda (run <Run> s <fx> e <fx>)
@@ -343,7 +343,7 @@
            (make
             (lambda (run <Run> s <fx> e <fx>)
               (let* ((style (get-style~ run))
-                     (new-style (either (proc style) style)))
+                     (new-style (or (proc style) style)))
                 (new Run (subseq! string s e) (intern-style~ text new-style))))))
       (for-each-range-run start end
         (lambda (where run offset limit)
@@ -456,8 +456,8 @@
     (define (draw-bullet h <fx> v <fx> left <fx>) <void>
       (let* ((height (get-height~ (car lines)))
              (size (fxround (percent 40 height)))
-             (outside (either (get-bullet-outside~ format) Bullet-Outside))
-             (inside (either (get-bullet-inside~ format) Bullet-Inside))
+             (outside (or (get-bullet-outside~ format) Bullet-Outside))
+             (inside (or (get-bullet-inside~ format) Bullet-Inside))
              (vert (+ (fxround/ (- height size) 2) 1)))
         ;; Can you believe that drawing an ellipse of size 8 is buggy under Windows!!!
         (when (= size 8)
@@ -495,7 +495,7 @@
     
     (let* ((text <Text-View> parent)
            (inserted <fx> (cardinality str))
-           (end <fx> (either end (cardinality string)))
+           (end <fx> (or end (cardinality string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
@@ -526,7 +526,7 @@
     
     (let* ((str (runs->str replacement))
            (inserted <fx> (cardinality str))
-           (end <fx> (either end (cardinality string)))
+           (end <fx> (or end (cardinality string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
@@ -599,7 +599,7 @@
   
   
   (method protected (col->text col <fx>) <Cell>
-    (let ((last {}))
+    (let ((last #f))
       (continuation-capture
         (lambda (return)
           (for-each (lambda (line <Line>)

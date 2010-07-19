@@ -856,7 +856,11 @@
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Export-Declaration declaration) environment)
-  `(begin))
+  (let ((name (%%get-lexical-binding-name declaration))
+        (symbol (%%get-export-declaration-symbol declaration))
+        (parent (%%get-declaration-parent declaration)))
+    (%%assert (%%is? parent jazz.Module-Declaration))
+    `(jazz.register-native ',(%%get-lexical-binding-name parent) ',name ',symbol)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Export-Declaration declaration) source-declaration environment)
@@ -4056,7 +4060,8 @@
           ((or (%%box? form)
                (%%eq? form #!optional)
                (%%eq? form #!key)
-               (%%eq? form #!rest))
+               (%%eq? form #!rest)
+               (%%eq? form #!void))
            (jazz.new-constant `(quote ,form-src) jazz.Any))
           ((jazz.scheme-pair-literal? form)
            (jazz.new-constant `(quote ,form-src) jazz.Pair))

@@ -66,7 +66,7 @@
   (method public virtual (get identifier))
   
   
-  (method public (save connection (user: user {}))
+  (method public (save connection (user: user #f))
     (define (save-statement)
       (case state
         ((update) (update-statement user))
@@ -81,7 +81,7 @@
 
 
   (method virtual (insert-statement user)
-    (let* ((columns (collect (lambda (column) (essay (not (auto-generate?~ column)) (get-name~ column))) (get-columns~ table)))
+    (let* ((columns (collect (lambda (column) (and (not (auto-generate?~ column)) (get-name~ column))) (get-columns~ table)))
            (values (map (lambda (name) (format-value (get name))) columns)))
       (let ((name (get-name~ table))
             (columns (join (map format-column columns) ", "))
@@ -95,9 +95,9 @@
            (primary-value (format-value (get primary-key)))
            (columns (collect (lambda (column)
                                (let ((name (get-name~ column)))
-                                 (essay (not (auto-generate?~ column))
-                                        (not (equal? name primary-key))
-                                        name)))
+                                 (and (not (auto-generate?~ column))
+                                      (not (equal? name primary-key))
+                                      name)))
                              (get-columns~ table)))
            (values (map (lambda (name) (get name)) columns)))
       (let ((name (get-name~ table))
@@ -120,9 +120,9 @@
   
   
   (definition (format-value value)
-    (cond ((nil? value) "NULL")
+    (cond ((not value) "NULL")
           ((string? value) (string-append "'" (sql-sanitize-string value) "'"))
-          ((boolean? value) (if value "1" "0"))
+          ((truth? value) (if (true? value) "1" "0"))
           ((date? value) (string-append "'" (present-date-day value) "'"))
           ((number? value) (number->string value))
           (else (error "Unsupported type"))))))

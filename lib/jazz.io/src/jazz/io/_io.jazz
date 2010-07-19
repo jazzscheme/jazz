@@ -81,16 +81,16 @@
 
 
 (definition public (get-alias name (error?: error? #t))
-  (either (find-alias name)
-          (when error?
-            (error "Unknown alias: {t}" name))))
+  (or (find-alias name)
+      (when error?
+        (error "Unknown alias: {t}" name))))
 
 
 (definition public (find-alias name)
-  (either (table-ref (get-aliases) name #f)
-          (let ((process (get-process)))
-            (when process
-              (resolve-alias~ process name)))))
+  (or (table-ref (get-aliases) name #f)
+      (let ((process (get-process)))
+        (when process
+          (resolve-alias~ process name)))))
 
 
 (definition public (register-alias name path)
@@ -106,7 +106,7 @@
         (process-up (expand-up path))
       path))
   
-  (let ((actual (table-ref (get-aliases) name {}))
+  (let ((actual (table-ref (get-aliases) name #f))
         (new (process-up path)))
     (if (or (not actual) (equal? new actual))
         (set-alias name new)
@@ -656,17 +656,17 @@
                 ((< rank base-length)
                  (if error?
                      (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
-                   (continuation-return return {})))
+                   (continuation-return return #f)))
                 (else
                  (set! result-list (append base-list (subseq expd base-length (length expd))))))
           (new (class-of self) result-list)))))
   
   
-  (method public (anchorize (anchors: anchors {}) (ignored-anchors: ignored-anchors {}))
+  (method public (anchorize (anchors: anchors #f) (ignored-anchors: ignored-anchors #f))
     (define (default-anchors)
       (application-anchors~ (get-application)))
     
-    (let* ((anchors (difference (either anchors (default-anchors)) (either ignored-anchors '())))
+    (let* ((anchors (difference (or anchors (default-anchors)) (or ignored-anchors '())))
            (anchored (collect (lambda (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
            (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)
@@ -706,10 +706,10 @@
     'file))
 
 
-(definition public (create-temporary-file (directory: directory {}) (prefix: prefix "JZZ"))
+(definition public (create-temporary-file (directory: directory #f) (prefix: prefix "JZZ"))
   (unimplemented 'create-temporary-file)
   @windows-specific
-  (let* ((directory (either directory (get-tmp-directory)))
+  (let* ((directory (or directory (get-tmp-directory)))
          (dir (parse~ directory)))
     (if (empty-string? dir)
         (error "Unable to use {t} as a temporary directory" directory)
@@ -845,13 +845,13 @@
   ;;;
 
 
-  (method override (load-lines (char-encoding: char-encoding {}) (char-encoding-errors: char-encoding-errors #t))
-    (call-with-input-file (list path: (parse) char-encoding: (either char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
+  (method override (load-lines (char-encoding: char-encoding #f) (char-encoding-errors: char-encoding-errors #t))
+    (call-with-input-file (list path: (parse) char-encoding: (or char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
       read-lines))
 
 
-  (method override (save-lines lines (char-encoding: char-encoding {}) (eol-encoding: eol-encoding {}))
-    (call-with-output-file (list path: (parse) char-encoding: (either char-encoding 'UTF-8) eol-encoding: (either eol-encoding (get-eol-encoding)))
+  (method override (save-lines lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
+    (call-with-output-file (list path: (parse) char-encoding: (or char-encoding 'UTF-8) eol-encoding: (or eol-encoding (get-eol-encoding)))
       (lambda (printer)
         (write-lines printer lines)))))
 
@@ -916,7 +916,7 @@
 
 
   (method override (get-modification-time)
-    {})
+    #f)
   
   
   ;; ... give us this day our windows drives ...
@@ -950,12 +950,12 @@
               (ext (extract-extension name))
               (suffix 1))
           (while (exists?~ file)
-            (set! file (new-file (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (either separator "") suffix ext)))
+            (set! file (new-file (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (or separator "") suffix ext)))
             (increase! suffix))
           file))))
 
 
-  (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? #f) (copy?: copy? #t))
+  (method public (copy-directory dst (copier: copier #f) (feedback: feedback #f) (touch-files?: touch-files? #f) (copy?: copy? #t))
     (when feedback
       (feedback self))
     (create-directories~ dst)
@@ -979,12 +979,12 @@
         recursive?: #f)))
   
   
-  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
+  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
     (empty-directory overwrite-read-only?: overwrite-read-only? feedback: feedback)
     (remove-directory))
   
   
-  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
+  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))
     (iterate-directory
       (lambda (path)
         (if (is? path File)
@@ -1085,7 +1085,7 @@
                           (proc name))))))
                 (directory-content-patch base)))
     
-    (let ((directory (if full? (get-list) {})))
+    (let ((directory (if full? (get-list) #f)))
       (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
         (lambda (list kind)
           (case kind
@@ -1104,7 +1104,7 @@
         (directory-content (list path: path ignore-hidden: 'dot-and-dot-dot)))))
   
   
-  (method public (count-files (filter: filter {}) (max-count: max-count #f))
+  (method public (count-files (filter: filter #f) (max-count: max-count #f))
     (let ((count 0))
       (continuation-capture
         (lambda (return)

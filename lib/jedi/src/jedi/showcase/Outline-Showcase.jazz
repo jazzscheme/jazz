@@ -115,9 +115,9 @@
   (method (setup-outline)
     @wait
     (let ((outline (locate 'outline)))
-      (add-row outline {})
-      (add-row outline {})
-      (let ((node (add-row outline {})))
+      (add-row outline #f)
+      (add-row outline #f)
+      (let ((node (add-row outline #f)))
         (for-each (lambda (n)
                     (let ((node (add-row outline node)))
                       (when (= n 5)
@@ -125,7 +125,7 @@
                                     (add-row outline node))
                                   (naturals 0 5)))))
                   (naturals 0 10)))
-      (add-row outline {})))
+      (add-row outline #f)))
   
   
   (method (add-row outline father)
@@ -180,14 +180,14 @@
   
   
   (definition Mark
-    {})
+    #f)
   
   
   (method (on-add-row evt)
     (let* ((outline (locate 'outline))
            (sel (get-selection~ outline))
            (use-mark? (get-shift?~ evt))
-           (row (if use-mark? Mark (essay sel (get-row~ outline sel)))))
+           (row (if use-mark? Mark (and sel (get-row~ outline sel)))))
       (add-row~ outline father: row state: 'collapsed row-height: (random-height) background: (random-color)))
     (update-information))
   
@@ -196,7 +196,7 @@
     (let* ((outline (locate 'outline))
            (sel (get-selection~ outline))
            (use-mark? (get-shift?~ evt))
-           (row (if use-mark? Mark (essay sel (get-row~ outline sel)))))
+           (row (if use-mark? Mark (and sel (get-row~ outline sel)))))
       (remove-row~ outline row))
     (update-information))
     
@@ -237,15 +237,15 @@
         (lambda ()
           (iterate (get-sons~ (get-root-row~ outline))
                    (lambda (row)
-                     (proc row {})))))))
+                     (proc row #f)))))))
   
   
   (method (display-row outline row)
     (let* ((node (car (get-children~ row)))
-           (line (lambda (row) (essay row (row->line outline row))))
+           (line (lambda (row) (and row (row->line outline row))))
            (visible? (get-visible?~ row))
            (color (if visible? {Color name: Dark-Red} {Color name: Dark-Blue}))
-           (c0 (new Tree-Node color: (get-background~ row) title: (essay node (get-title~ node)) image: (essay node (get-image~ node))))
+           (c0 (new Tree-Node color: (get-background~ row) title: (and node (get-title~ node)) image: (and node (get-image~ node))))
            (c1 (new Tree-Label title: (get-level~ row)))
            (c2 (new Tree-Label title: (get-state~ row)))
            (c3 (new Tree-Label title: (line row) color: color))
@@ -276,7 +276,7 @@
   (class Color-Row extends Outline-Row
 
 
-    (property background initialize {} accessors generate)
+    (property background initialize #f accessors generate)
   
   
     (method (draw-background surface context)

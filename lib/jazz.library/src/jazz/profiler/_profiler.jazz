@@ -78,7 +78,7 @@
 
 
 (definition active-profile-frame
-  (make-parameter {}))
+  (make-parameter #f))
 
 
 (class Profile-Frame extends Object
@@ -98,7 +98,7 @@
       (set! name n)
       (set! parent p)
       (set! recursive? (boolean (find-profile n)))
-      (let ((object (table-ref *profiles* name {})))
+      (let ((object (table-ref *profiles* name #f)))
         (if object
             (set! profile object)
           (set! profile (new Profile-Info name parent))
@@ -107,7 +107,7 @@
       (active-profile-frame self))
     
     (when (profiler-on?)
-      (init (essay c (find-profile c)))))
+      (init (and c (find-profile c)))))
   
   
   (method override (destroy)
@@ -123,7 +123,7 @@
 (definition (find-profile name)
   (let (iterate (frame (active-profile-frame)))
     (cond ((not frame)
-           {})
+           #f)
           ((eq? (get-name~ frame) name)
            (get-profile~ frame))
           (else
@@ -160,9 +160,9 @@
   (method override (initialize n p)
     (set! name n)
     (set! parent p)
-    (set! last-child {})
+    (set! last-child #f)
     (if (not p)
-        (set! previous-brother {})
+        (set! previous-brother #f)
       (set! previous-brother (get-last-child~ p))
       (set-last-child~ p self))
     (set! time (new Profile-Time)))
@@ -220,5 +220,5 @@
     (iterate-table (get-profiles)
       (lambda (name profile)
         (when (not (get-parent~ profile))
-          (set! nodes (cons (profile->jml {} profile) nodes)))))
+          (set! nodes (cons (profile->jml #f profile) nodes)))))
     (sort nu<? nodes key: (lambda (node) (symbol->string (get-property~ node 'name)))))))

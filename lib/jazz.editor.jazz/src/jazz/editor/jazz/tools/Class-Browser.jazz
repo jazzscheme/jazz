@@ -49,7 +49,7 @@
 (class Class-Browser extends View
   
   
-  (property text initialize {})
+  (property text initialize #f)
 
 
   (form
@@ -107,7 +107,7 @@
   
   
   (method public (set-text value)
-    (set-string-content~ (locate 'name) (either value "")))
+    (set-string-content~ (locate 'name) (or value "")))
   
   
   ;;;
@@ -140,12 +140,12 @@
           (let ((name (string->symbol text)))
             (if (get-autoload name)
                 (autoload name)
-              (if (global-variable? name)
-                  (let ((value (global-value name)))
+              (if (global-bound? name)
+                  (let ((value (global-ref name)))
                     (if (category? value)
                         value
-                      {}))
-                {}))))))
+                      #f))
+                #f))))))
     
     (let ((root (get-root-class)))
       (cond ((not root)
@@ -183,7 +183,7 @@
         (let* ((state 'expanded)
                (title (->string (category-identifier type)))
                (ascendant (class-ascendant type))
-               (father (essay ascendant (upward ascendant))))
+               (father (and ascendant (upward ascendant))))
           (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Image-Resource "Class"})) user-data: type)))
       
       (define (downward type father)
@@ -199,7 +199,7 @@
       (with-update-locked~ tree
         (lambda ()
           (let ((ascendant (class-ascendant root)))
-            (downward root (essay ascendant (upward ascendant))))))))
+            (downward root (and ascendant (upward ascendant))))))))
 
   
   ;;;

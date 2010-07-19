@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Integer Row
+;;;; Rect Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,14 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.row.Integer-Row jazz
+(module jazz.designer.domain.Rect-Domain jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.library))
 
 
-(class undocumented Integer-Row extends Value-Row
+(class Rect-Domain extends Domain
   
   
   ;;;
@@ -49,8 +50,14 @@
   ;;;
   
   
-  (method override (present value)
-    (->string value))
+  (method override (present rect)
+    (if (not rect)
+        "{}"
+      (format "{a}, {a}, {a}, {a}"
+              (get-left~ rect)
+              (get-top~ rect)
+              (get-right~ rect)
+              (get-bottom~ rect))))
   
   
   ;;;
@@ -60,6 +67,21 @@
   
   (method override (get-edited-value)
     (let ((string (get-string-content~ editor)))
-      (if (and nullable? (or (empty-string? string) (= string "{}")))
-          {}
-        (parse-integer string))))))
+      (if (equal? string "{}")
+          #f
+        (let ((list (read-delimited-string string #\comma)))
+          (bind (left top right bottom) list
+            (new Rect
+              (car left)
+              (car top)
+              (car right)
+              (car bottom)))))))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (new Rect-Entry parent: view size: (get-size~ view) domain: self))))

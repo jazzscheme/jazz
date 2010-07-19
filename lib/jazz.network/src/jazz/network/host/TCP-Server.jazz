@@ -49,7 +49,7 @@
   (slot host                                  getter generate)
   (slot service                               getter generate)
   (slot socket-info                           getter generate)
-  (slot server-port       initialize {}       accessors generate)
+  (slot server-port       initialize #f       accessors generate)
   (slot server-thread)
   (slot started-condition)
   (slot state             initialize 'stopped)
@@ -59,13 +59,13 @@
   
   
   (method override (initialize . rest)
-    (bind-keywords ((name {}) (host {}) (service {}) (debug? #f) (reuse-address? #t)) rest
+    (bind-keywords ((name #f) (host #f) (service #f) (debug? #f) (reuse-address? #t)) rest
       (nextmethod)
       (set! name~self name)
       (set! host~self host)
       (set! service~self service)
-      (set! socket-info~self {})
-      (set! server-thread~self {})
+      (set! socket-info~self #f)
+      (set! server-thread~self #f)
       (set! started-condition~self (make-condition))
       (set! debug?~self debug?)
       (set! reuse-address?~self reuse-address?)))
@@ -108,7 +108,7 @@
     (when server-thread
       (thread-interrupt! server-thread
         thread-exit)
-      (set! server-thread {})))
+      (set! server-thread #f)))
   
   
   (method (restart)
@@ -137,8 +137,8 @@
   
   
   (method protected virtual (server-name)
-    (either (get-name)
-            'tcp-server))
+    (or (get-name)
+        'tcp-server))
   
   
   (method protected virtual (server-version)
@@ -171,7 +171,7 @@
           (when server-port
             (close-port server-port))
           (set-state 'stopped)
-          (set! socket-info {})
+          (set! socket-info #f)
           (throw exc))
         (lambda ()
           (set! server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf reuse-address: reuse-address?)))
@@ -197,11 +197,11 @@
   
   
   (method (listening-host)
-    (essay socket-info (socket-info-address socket-info)))
+    (and socket-info (socket-info-address socket-info)))
   
   
   (method (listening-port)
-    (essay socket-info (socket-info-port-number socket-info)))
+    (and socket-info (socket-info-port-number socket-info)))
   
   
   ;;;

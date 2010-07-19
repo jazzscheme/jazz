@@ -249,24 +249,16 @@
   `(%%object-set! ,object ,jazz.object-class ,class))
 
 
-(jazz.define-macro (%%final-dispatch object implementation)
+(jazz.define-macro (%%final-dispatch class implementation)
   implementation)
 
 
-(jazz.define-macro (%%class-dispatch object class-level implementation-rank)
-  `(%%vector-ref (%%vector-ref (%%get-class-class-table (%%class-of ,object)) ,class-level) ,implementation-rank))
+(jazz.define-macro (%%class-dispatch class class-level implementation-rank)
+  `(%%vector-ref (%%vector-ref (%%get-class-class-table ,class) ,class-level) ,implementation-rank))
 
 
-(jazz.define-macro (%%interface-dispatch object interface-rank implementation-rank)
-  `(%%vector-ref (%%vector-ref (%%get-class-interface-table (%%class-of ,object)) ,interface-rank) ,implementation-rank))
-
-
-(jazz.define-macro (%%class-native-dispatch object class-level implementation-rank)
-  `(%%vector-ref (%%vector-ref (%%get-class-class-table (%%get-object-class ,object)) ,class-level) ,implementation-rank))
-
-
-(jazz.define-macro (%%interface-native-dispatch object interface-rank implementation-rank)
-  `(%%vector-ref (%%vector-ref (%%get-class-interface-table (%%get-object-class ,object)) ,interface-rank) ,implementation-rank))
+(jazz.define-macro (%%interface-dispatch class interface-rank implementation-rank)
+  `(%%vector-ref (%%vector-ref (%%get-class-interface-table ,class) ,interface-rank) ,implementation-rank))
 
 
 (cond-expand

@@ -48,11 +48,11 @@
 (class Label-Item extends Item
   
   
-  (property icon          initialize {} accessors explicit)
-  (property disabled-icon initialize {} accessors explicit)
-  (property shortcut      initialize {} accessors explicit)
+  (property icon          initialize #f accessors explicit)
+  (property disabled-icon initialize #f accessors explicit)
+  (property shortcut      initialize #f accessors explicit)
   (property default?      initialize #f accessors generate)
-  (property content       initialize {} accessors explicit)
+  (property content       initialize #f accessors explicit)
   
   
   (method override (mouse-activate?)
@@ -76,8 +76,8 @@
   
   
   (method override (shortcut-update action-item)
-    (set-shortcut (either (get-shortcut~ action-item)
-                          (get-alternate-shortcut~ action-item))))
+    (set-shortcut (or (get-shortcut~ action-item)
+                      (get-alternate-shortcut~ action-item))))
   
   
   ;;;
@@ -104,9 +104,9 @@
   
   
   (method override (get-title)
-    (either title
-            (when content
-              (get-title~ content))))
+    (or title
+        (when content
+          (get-title~ content))))
 
 
   (method public (get-icon)
@@ -190,7 +190,7 @@
     {Font name: Label})
   
   (definition Default-Label-Font
-    {})
+    #f)
   
   
   (definition (get-label-font)
@@ -219,7 +219,7 @@
     (when (item-selected?)
       (let ((bounds (get-bounds)))
         (if (menubar-label?)
-            (draw-edge~ surface bounds inner: (if (highlight-flag) {} 'raised) outer: (if (highlight-flag) 'sunken {}) edges: 'rectangle)
+            (draw-edge~ surface bounds inner: (if (highlight-flag) #f 'raised) outer: (if (highlight-flag) 'sunken #f) edges: 'rectangle)
           (fill-rect~ surface bounds {Color name: Focused-Selection})))))
   
   
@@ -233,7 +233,7 @@
              (left (+ prefix-width 9))
              (portfolio (get-images-portfolio~ appl)))
         (if (not enabled?)
-            (let ((disabled-icon (either disabled-icon (default-disabled-resource icon))))
+            (let ((disabled-icon (or disabled-icon (default-disabled-resource icon))))
               (draw-image~ portfolio surface context disabled-icon left 0))
           (draw-image~ portfolio surface context icon left 0)))))
   
@@ -343,7 +343,7 @@
   (method override (mouse-down pos)
     (let ((poped (get-poped~ parent))
           (menubar? (menubar-label?)))
-      (close-popups exclude: (if poped (list poped) {}))
+      (close-popups exclude: (if poped (list poped) #f))
       (when (and content (or (not poped) (neq? poped content)))
         (popup-content))))
   
@@ -374,14 +374,14 @@
           (popup-menu content position)))))
   
   
-  (method override (close-popups (event: event {}) (all?: all? #f) (exclude: exclude {}))
+  (method override (close-popups (event: event #f) (all?: all? #f) (exclude: exclude #f))
     (unless (memq? event '(mouse-down double-click))
       (nextmethod event: event all?: all? exclude: exclude)
       (invalidate-view)))
   
   
   (method override (popup-destroy popup)
-    (set-poped~ parent {}))
+    (set-poped~ parent #f))
   
   
   ;;;

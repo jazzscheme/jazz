@@ -51,25 +51,25 @@
 ;;;
 
 
-(definition package (request-component-presentation class brothers (initial-value: initial-value {}) (validator: validator {}))
+(definition package (request-component-presentation class brothers (initial-value: initial-value #f) (validator: validator #f))
   (if (get-name-prohibited?~ class)
-      {}
+      #f
     (let* ((name-mandatory? (get-name-mandatory?~ class))
            (name-unicity? (get-name-unicity?~ class))
-           (unicity-domain (essay name-unicity? (remove "{}" (map get-presentation-property~ brothers) test: equal?)))
+           (unicity-domain (and name-unicity? (remove "{}" (map get-presentation-property~ brothers) test: equal?)))
            (pres (localize (get-class-presentation~ class)))
            (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") prefix: "Name:" initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: validator)))
       presentation)))
 
 
 (definition package (component-addable-classes component parent)
-  (let ((parent-classes (essay parent (get-addable-classes~ parent)))
+  (let ((parent-classes (and parent (get-addable-classes~ parent)))
         (classes (get-addable-classes~ component))
         (model (class-of component)))
     (when (and parent-classes
                (memq? model parent-classes)
                (not (memq? model classes)))
-      (set! classes (cons model (cons {} classes))))
+      (set! classes (cons model (cons #f classes))))
     classes))
 
 
@@ -82,7 +82,7 @@
   (make-table test: eq?))
 
 (definition package (get-view-editor view)
-  (table-ref *view-editors* view {}))
+  (table-ref *view-editors* view #f))
 
 (definition package (set-view-editor view editor)
   (table-set! *view-editors* view editor))
@@ -128,7 +128,7 @@
         (if (not editor)
             (set-view-editor client (get-guest~ (new-frame View-Editor host-visible?: #f client: client)))
           (close~ editor)
-          (set-view-editor client {}))))))
+          (set-view-editor client #f))))))
 
 
 (definition public (save-mouse-client)

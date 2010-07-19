@@ -66,7 +66,7 @@
 
 
 (definition remote-listener
-  {})
+  #f)
 
 
 (definition public (get-remote-listener)
@@ -82,10 +82,10 @@
     remote-listener))
 
 
-(definition public (start-remote-listener (default-host: default-host {}) (default-service: default-service {}))
+(definition public (start-remote-listener (default-host: default-host #f) (default-service: default-service #f))
   (unless remote-listener
     (receive (host service) (command-host/service "listen")
-      (let ((server (new Remote-Listener host: (either host default-host Remote-Listener-Host) service: (either service default-service Remote-Listener-Service))))
+      (let ((server (new Remote-Listener host: (or host default-host Remote-Listener-Host) service: (or service default-service Remote-Listener-Service))))
         (start~ server)
         (if (wait-started~ server error?: #f)
             (set! remote-listener server)
@@ -95,7 +95,7 @@
 (definition public (stop-remote-listener)
   (when remote-listener
     (stop~ remote-listener)
-    (set! remote-listener {})))
+    (set! remote-listener #f)))
 
 
 ;;;
@@ -246,7 +246,7 @@
     (let ((method-name (unmarshall method-name))
           (local-proxy (unmarshall proxy-ior))
           (arguments (unmarshall arguments)))
-      (apply (dispatch local-proxy method-name) local-proxy arguments)))
+      (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
   
   (define (receive-remote-message port)
     (let ((timeout (receive-timeout)))
@@ -371,7 +371,7 @@
 
 
 (definition local-register
-  {})
+  #f)
 
 
 (definition public (get-local-register)

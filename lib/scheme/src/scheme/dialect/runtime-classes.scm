@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Rect Row
+;;;; Scheme Runtime Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,66 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.row.Rect-Row jazz
+(unit protected scheme.dialect.runtime-classes
 
 
-(import (jazz.designer))
+;;;
+;;;; Define
+;;;
 
 
-(class undocumented Rect-Row extends Value-Row
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present rect)
-    (if (not rect)
-        "{}"
-      (format "{a}, {a}, {a}, {a}"
-              (get-left~ rect)
-              (get-top~ rect)
-              (get-right~ rect)
-              (get-bottom~ rect))))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method override (get-edited-value)
-    (let ((string (get-string-content~ editor)))
-      (if (equal? string "{}")
-          {}
-        (let ((list (read-delimited-string string #\comma)))
-          (bind (left top right bottom) list
-            (new Rect
-              (car left)
-              (car top)
-              (car right)
-              (car bottom)))))))
-  
-  
-  @wait
-  (method override (edit)
-    (edit-in-cell)
-    (when value
-      (add-row self "left"   (get-left~ value))
-      (add-row self "top"    (get-top~ value))
-      (add-row self "right"  (get-right~ value))
-      (add-row self "bottom" (get-bottom~ value))
-      (expand/collapse~ (get-tree) self)))
-  
-  
-  @wait
-  (method override (close-editor)
-    (nextmethod)
-    (remove-every-son))
-  
-  
-  @wait
-  (method override (in-edition?)
-    (or (nextmethod)
-        (> (cardinality (get-sons)) 0)))))
+(jazz.define-class jazz.Define jazz.Field (name) jazz.Object-Class jazz.allocate-define
+  ((locator %%get-define-locator ()))))

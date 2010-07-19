@@ -79,7 +79,7 @@
     (let ((moniker (get-moniker)))
       (if moniker
           (parse~ moniker)
-        {})))
+        #f)))
   
   
   ;;;
@@ -131,22 +131,22 @@
     (with-safe-explore
       (lambda ()
         (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (essay (not recoloring?) (new-colorizer self))))
+              (colorizer (and (not recoloring?) (new-colorizer self))))
           (colorize-declarations expl colorizer)
           (when colorizer
             (finish-current~ colorizer)))
         (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (essay (not recoloring?) (new-colorizer self))))
+              (colorizer (and (not recoloring?) (new-colorizer self))))
           (colorize-comments expl colorizer)
           (when colorizer
             (finish-current~ colorizer))))))
   
   
   (definition Syntax-Targets
-    {})
+    #f)
   
   (definition Syntax-Automata
-    {})
+    #f)
   
   
   (method override (syntax-targets)
@@ -177,7 +177,7 @@
   
   (method override (colorize-declarations expl colorizer)
     (walk-declarations~ expl
-      {}
+      #f
       ;; declaration
       (lambda (context kind symbol start end marked documented?)
         (when (and marked (neq? symbol 'getter) (neq? symbol 'setter))
@@ -191,7 +191,7 @@
           ((symbol)
            @wait-no-easy-way-to-recolorize-when-on-multiple-lines
            (when (memq? mode '(quote quasiquote))
-             (apply-coloring {} start end 'Quotation)))
+             (apply-coloring #f start end 'Quotation)))
           ((keyword)
            ;; This test doesn't work because of our use of a Colorizer
            @wait-fix
@@ -238,7 +238,7 @@
     )
   
   
-  (method override (colorize-comments expl colorizer (start: start {}) (end: end {}))
+  (method override (colorize-comments expl colorizer (start: start #f) (end: end #f))
     (for-each-comment~ expl
       (lambda (start <Cell> end <Cell> title?)
         (let* ((line (get-line~ start))
@@ -389,7 +389,7 @@
   
   (method override (tabulate-lines start end)
     (let ((modified? #f)
-          (last-delta {}))
+          (last-delta #f))
       (loop (for line from start to end)
             (with delta (tabulate-line line))
             (when (/= delta 0)
@@ -452,12 +452,12 @@
            (opening (- (get-start~ expl) 1))
            (count (length expressions))
            (rank (- count 1))
-           (col {}))
+           (col #f))
       (if (null? expressions)
           (set! col (+ (get-col~ opening) 1))
         (let* ((first (car expressions))
                (first-string (get-string (get-range~ first)))
-               (first-symbol (essay (eq? (get-kind~ first) 'symbol) (effective-symbol first-string)))
+               (first-symbol (and (eq? (get-kind~ first) 'symbol) (effective-symbol first-string)))
                (first-tag? (tag? first-symbol))
                (first-call-with? (and first-symbol (starts-with? first-string "call-with-")))
                (first-with? (and first-symbol (or (starts-with? first-string "with-") (starts-with? first-string "jazz.with-"))))
@@ -467,10 +467,10 @@
           (if (or (not first-symbol) first-tag?)
               (set! col (+ (get-col~ (get-start~ (get-range~ first))) first-indent))
             (let ((info (let ((form (get-lisp-form first-symbol)))
-                          (essay form
-                                 (let ((modifiers (get-modifiers~ form))
-                                       (tabulate (get-tabulate~ form)))
-                                   (essay tabulate (list modifiers tabulate)))))))
+                          (and form
+                               (let ((modifiers (get-modifiers~ form))
+                                     (tabulate (get-tabulate~ form)))
+                                 (and tabulate (list modifiers tabulate)))))))
               (if (not info)
                   (let ((first-last (first-on-last-line expressions count))
                         (first-line (get-line~ (get-start~ (get-range~ first)))))
@@ -643,7 +643,7 @@
   
   (method public (declaration-range pos)
     (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
-      (let (iterate (range {}))
+      (let (iterate (range #f))
         (if (not (outer-expr~ expl))
             range
           (let ((new-range (get-range~ expl))
@@ -665,7 +665,7 @@
   
   (method override (info-message)
     (define (collect-names)
-      (let ((expl (new (explorer-class) self range: (either (current-declaration-range) (get-selection)))))
+      (let ((expl (new (explorer-class) self range: (or (current-declaration-range) (get-selection)))))
         (let (iter (names '()))
           (let ((names (if (declaration-expr?~ expl)
                            (cons (declaration-name~ expl) names)
@@ -732,7 +732,7 @@
         (iterate-expression-target range target
           (lambda (found)
             (continuation-return return found)))
-        {})))
+        #f)))
   
   
   (method public (highlight-expression range target)
@@ -764,7 +764,7 @@
       (iterate-expression~ expl
         (lambda (mode)
           (when (constant?~ expl)
-            (let ((found (multisearch (get-marked~ expl) target)))
+            (let ((found (contextual-search (get-marked~ expl) target)))
               (when found
                 (let ((start (nu+ (get-start~ expl) (car found))))
                   (let ((end (nu+ start (- (cdr found) (car found)))))

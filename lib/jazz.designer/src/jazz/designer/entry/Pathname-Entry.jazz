@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Either
+;;;; Pathname Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,76 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.syntax.either scheme
+(module protected jazz.designer.entry.Pathname-Entry jazz
 
 
-(import (jazz.dialect.kernel)
-        (jazz.dialect.syntax.bind)
-        (jazz.dialect.syntax.macros))
+(import (jazz.designer)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.locale)
+        (jazz.tie)
+        (jazz.ui))
 
 
-(native private jazz.error)
-
-
-;; @syntax (either code result) @expansion (if code code result)
-;; @syntax (either (f) (g) (h)) @expansion (let ((sym15 (f))) (if sym15 sym15 (let ((sym16 (g))) (if sym16 sym16 (h)))))
-
-(syntax public (either form-src)
-  (let ((expressions (cdr (source-code form-src))))
-    (if (null? expressions)
-        (error "Not enough arguments for either")
-      (sourcify-if
-        (let ((scan expressions)
-              (complex? #f))
-          (while (not (null? (cdr scan)))
-            (when (not (symbol? (source-code (car scan))))
-                  (set! complex? #t))
-            (set! scan (cdr scan)))
-          (if (not complex?)
-              (letrec ((proc
-                         (lambda (pair)
-                           (bind (expr . rest) pair
-                             (if (null? rest)
-                                 expr
-                               (list 'if expr expr (proc rest)))))))
-                (proc expressions))
-            (letrec ((proc
-                       (lambda (pair)
-                         (bind (expr . rest) pair
-                           (if (null? rest)
-                               expr
-                             (let ((symbol (generate-symbol)))
-                               (list 'let (list (list symbol expr)) (list 'if symbol symbol (proc rest)))))))))
-              (proc expressions))))
-        form-src)))))
+(class Pathname-Entry extends Property-Entry
+  
+  
+  (form
+    (<install>
+      (<Border-View>       name: border border-type: edge style: entry
+        (<Moniker-Widget>  name: moniker selectable?: #t moniker-update-handler: {Event-Handler :form on-moniker-update}
+          (<!>             name: body   left-padding: 0 top-padding: 0 default-style: {Text-Style name: Default font: {Font name: Label}})))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method override (tab-view)
+    (locate '(moniker body)))
+  
+  
+  ;;;
+  ;;;; Event
+  ;;;
+  
+  
+  (method (on-moniker-update evt)
+    (set-modified? #t))
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method override (get-value)
+    (get-moniker~ (locate 'moniker)))
+  
+  
+  (method override (set-value pathname)
+    (set-moniker~ (locate 'moniker) pathname generate-event?: #f))
+  
+  
+  (method override (get-modified?)
+    (get-modified?~ (locate 'moniker)))
+  
+  
+  (method override (set-modified? value)
+    (set-modified?~ (locate 'moniker) value))
+  
+  
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method override (set-editable? value)
+    (set-border-type~ (locate 'border) (if value 'edge 'none))
+    (set-editable?~ (locate 'combo) value))))

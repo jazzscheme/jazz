@@ -52,7 +52,7 @@
   (make-table test: eqv?))
 
 (definition public Active-Recording
-  {})
+  #f)
 
 
 (class Macro-Recorder extends Object
@@ -80,7 +80,7 @@
       (set! recording? #f)
       @buggy-with-translate-key
       (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
-      (set! Active-Recording {})))
+      (set! Active-Recording #f)))
 
   
   (method (on-resume-recording evt)
@@ -127,7 +127,7 @@
     (let ((name (request-string title: "Enter Recording Name")))
       (if (not name)
           (begin
-            (set! Active-Recording {})
+            (set! Active-Recording #f)
             (user-message "Active recording reset to default"))
         (let ((no (read-string-element name)))
           (get-recording no)
@@ -138,14 +138,14 @@
   @buggy-with-translate-key
   (method (coalesce-actions actions)
     (let* ((fact (new List-Factory))
-           (result {})
+           (result #f)
            (coalesce
             (lambda ()
               (when result
                 (let ((handler {Event-Handler :focus on-insert})
                       (event (new Event :string self content: result)))
                   (put~ fact (cons handler event))
-                  (set! result {}))))))
+                  (set! result #f))))))
       (for-each (lambda (action)
                   (bind (action/handler . event) action
                     (if (and (eq? (get-target-name action/handler) :focus)
@@ -242,10 +242,10 @@
   
   
   (method public (get-recording name)
-    (either (table-ref Registered-Recordings name #f)
-            (begin
-              (message-box (format "No recording {a} registered" name))
-              (throw-cancel))))
+    (or (table-ref Registered-Recordings name #f)
+        (begin
+          (message-box (format "No recording {a} registered" name))
+          (throw-cancel))))
     
   
   ;;;
@@ -279,7 +279,7 @@
     (bind (action/handler . event) action
       (typecase action/handler
         ((Action)
-         (call-action action/handler {} '() event: event))
+         (call-action action/handler #f '() event: event))
         (else
          (let ((target (get-focus)))
            (invoke~ action/handler target event))))))

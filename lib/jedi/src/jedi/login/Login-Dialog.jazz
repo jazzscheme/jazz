@@ -161,7 +161,7 @@
          (let* ((tree (locate 'profiles))
                 (rank (get-single-selection~ tree)))
            (if (not rank)
-               (values {} {} #f)
+               (values #f #f #f)
              (let ((profile (get-user-data~ (get-row~ tree rank))))
                (values (profile-name profile) (profile-unit profile) bindings always-use?))))))))
   
@@ -247,7 +247,7 @@
   (method (install-existing profiles rank)
     (set-active-branch (locate 'existing))
     (let ((tree (locate 'profiles))
-          (rank (either rank (essay (not-null? profiles) 0))))
+          (rank (or rank (and (not-null? profiles) 0))))
       (remove-every-row~ tree)
       (for-each (lambda (profile)
                   (let ((title (profile-title profile)))
@@ -276,8 +276,8 @@
                                                              (downcase (profile-title profile)))))))))
     
     (let ((profiles (collect-existing-profiles))
-          (default-profile (string-parameter "default-profile" 'profile {})))
-      (let ((rank (essay default-profile (find profiles default-profile key: profile-title test: ci=?))))
+          (default-profile (string-parameter "default-profile" 'profile #f)))
+      (let ((rank (and default-profile (find profiles default-profile key: profile-title test: ci=?))))
         (values profiles rank))))
   
   
@@ -314,7 +314,7 @@
        (let ((profile-name (get-string-content~ (locate 'new-profile))))
          (validate-new-profile profile-name)))
       (else
-       {})))
+       #f)))
   
   
   (method (validate-new-profile profile-name)
@@ -332,7 +332,7 @@
             ((exists?~ (new Directory (list 'User "lib" unit-name)))
              (format "Profile directory already exists: ~~/jazz_user/lib/{a}" unit-name))
             (else
-             {}))))
+             #f))))
   
 
   ;;;

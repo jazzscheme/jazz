@@ -68,8 +68,8 @@
   
   ;; simple cache to speed up getting many times
   ;; in a row the comment column for the same row
-  (slot find-comment-last-row <fx+> initialize {})
-  (slot find-comment-last-col <fx+> initialize {})
+  (slot find-comment-last-row <fx+> initialize #f)
+  (slot find-comment-last-col <fx+> initialize #f)
   
   
   (constant Composites
@@ -92,8 +92,8 @@
   
   (method (explore-error message start end)
     (let ((source (get-moniker~ text))
-          (start (either start (text-beginning~ text)))
-          (end (either end (text-ending~ text))))
+          (start (or start (text-beginning~ text)))
+          (end (or end (text-ending~ text))))
       (signal (new Explore-Error source start: start end: end message: message))))
   
   
@@ -201,7 +201,7 @@
   
   (method override (forward-constituent)
     (let ((keyword? (eqv? (char-forward 0) #\colon))
-          (last {}))
+          (last #f))
       (let (iterate)
         (let ((c (char-forward 0)))
           (cond ((eqv? c #\backslash)
@@ -220,7 +220,7 @@
   
   (method override (backward-constituent)
     (let ((keyword? (eqv? (char-backward 0) #\colon))
-          (last {}))
+          (last #f))
       (let (iterate)
         (let ((c (char-backward 0)))
           (cond ((eqv? (char-backward 1) #\backslash)
@@ -534,7 +534,7 @@
   
   (method public (forward-modifiers modifiers)
     (let ((old (copy end))
-          (symbol {})
+          (symbol #f)
           (result '()))
       (let (iterate)
         (when (and (forward-expr) (eq? kind 'symbol))
@@ -914,8 +914,8 @@
   ;;;
   
   
-  (method public (for-each-comment proc <procedure> (start-line: start-line {}) (end-line: end-line {}))
-    (let* ((previous-line {})
+  (method public (for-each-comment proc <procedure> (start-line: start-line #f) (end-line: end-line #f))
+    (let* ((previous-line #f)
            (title-comment (title-comment-string~ (get-syntax~ text)))
            (title-comment-size (string-length title-comment)))
       (for-each (lambda (pos <Cell>)
@@ -965,7 +965,7 @@
   
   
   (method protected virtual (walk-named-declaration context symbol form declaration keyword expression doc)
-    (let ((walk (essay form (get-walk~ form))))
+    (let ((walk (and form (get-walk~ form))))
       (if (procedure? walk)
           (walk self context symbol form declaration keyword expression doc)
         (let ((proc-walk (find-named-walker walk)))
@@ -1139,7 +1139,7 @@
                               (continuation-return return (list (get-range) target-string)))))
                         all))
             mode: mode)
-          {}))))
+          #f))))
   
   
   (method (match? expl-mode target)
@@ -1154,7 +1154,7 @@
     (define (parse-expression expression)
       (if (and (pair? expression) (eq? (car expression) 'quote))
           (values 'quotation (cadr expression))
-        (values {} expression)))
+        (values #f expression)))
     
     (define (pattern-variable? expression)
       (and (symbol? expression)
@@ -1163,9 +1163,9 @@
     (define (parse-pattern-variable variable)
       (let ((elements (parse-strings (subseq (symbol->string variable) 1) separator: ":")))
         (bind-optionals ((name "") (kind "") (mode "")) elements
-          (values (if (empty-string? name) {} (string->symbol name))
-                  (if (empty-string? kind) {} (string->symbol kind))
-                  (if (empty-string? mode) {} (string->symbol mode))))))
+          (values (if (empty-string? name) #f (string->symbol name))
+                  (if (empty-string? kind) #f (string->symbol kind))
+                  (if (empty-string? mode) #f (string->symbol mode))))))
     
     (receive (mode expression) (parse-expression target)
       (let ((expl-kind (get-kind)))

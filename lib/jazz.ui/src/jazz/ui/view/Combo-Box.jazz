@@ -55,7 +55,7 @@
   ;;;
   
   
-  ;; choice  : {} or (value presented1 presented2 ...)
+  ;; choice  : #f or (value presented1 presented2 ...)
   ;; value   : any valid object
   ;; content : the string content of the combo text
   ;; entry   : the effective entry used by the combo box (as an example, the datatype-row class
@@ -66,8 +66,8 @@
   (property condensed?      initialize #f  accessors generate)
   (property choices         initialize '() accessors explicit)
   (property nullable?       initialize #f  accessors generate)
-  (property choices-updater initialize {}  accessors explicit)
-  (property entry-test      initialize {}  accessors generate)
+  (property choices-updater initialize #f  accessors explicit)
+  (property entry-test      initialize #f  accessors generate)
 
   
   ;;;
@@ -139,7 +139,7 @@
       (when choices
         (let ((current (get-entry))
               (menu (new Context-Menu))
-              (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
+              (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
           (for-each (lambda (choice)
                       (if (not choice)
                           (new Separator-Item parent: menu)
@@ -152,7 +152,7 @@
       (when choices
         (let ((current (get-entry))
               (menu (new Context-Menu))
-              (handler (either action-handler (new Event-Handler target: self method-name: 'on-action))))
+              (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
           (let ((create-leaf (lambda (value string parent)
                                (new Check-Item parent: parent title: string checked?: (equal? string current) user-data: (cons value string) action-handler: handler)))
                 (get-string (lambda (value) (present-choice value))))
@@ -237,7 +237,7 @@
   
   
   (method (entry->choice entry)
-    (let ((test (either entry-test nu=?)))
+    (let ((test (or entry-test nu=?)))
       (continuation-capture
         (lambda (return)
           (for-each (lambda (choice)
@@ -252,7 +252,7 @@
                                 (tryout (value->presented value))
                               (for-each tryout presented))))))
                     choices)
-          {}))))
+          #f))))
   
   
   ;;;
@@ -282,7 +282,7 @@
   (method public (set-value value (generate-event?: generate-event? #f))
     (set-entry (present-value value))
     (when generate-event?
-      (call-content-change {})))
+      (call-content-change #f)))
   
   
   ;;;
@@ -292,10 +292,10 @@
   
   (method override (validate-content)
     (let* ((unique? (= 1 (length choices)))
-           (unique (essay unique? (car choices)))
-           (unique-entry (essay unique? (present-choice unique)))
+           (unique (and unique? (car choices)))
+           (unique-entry (and unique? (present-choice unique)))
            (type (if unique? 'question 'message))
-           (no (if unique? (format "Accept Unique Item: {a}" unique-entry) {})))
+           (no (if unique? (format "Accept Unique Item: {a}" unique-entry) #f)))
       (catch (Parse-Error err
                (case (message-box (exception-reason err) type: type yes: "Change It" no: no)
                  ((yes)

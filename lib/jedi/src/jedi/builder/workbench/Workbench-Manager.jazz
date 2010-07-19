@@ -363,7 +363,7 @@
   
   
   (method protected (add-project)
-    (add-project-to (either (selected-object) (get-workbench))))
+    (add-project-to (or (selected-object) (get-workbench))))
   
   
   (method protected (add-project-to parent)
@@ -416,10 +416,10 @@
   
   
   (method protected (add-file)
-    (let ((parent (either (selected-object) (get-workbench))))
+    (let ((parent (or (selected-object) (get-workbench))))
       (when (or (is? parent Project-Group)
                 (is? parent Project))
-        (let ((default-directory (either (default-import-directory parent must-exist?: #f) {Directory Profile} @not-sure-this-is-best (get-current-directory))))
+        (let ((default-directory (or (default-import-directory parent must-exist?: #f) {Directory Profile} @not-sure-this-is-best (get-current-directory))))
           (when (or (exists?~ default-directory)
                     (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
             (create-directories~ default-directory)
@@ -435,7 +435,7 @@
   
   
   (method protected (add-group)
-    (let ((parent (either (selected-object) (get-workbench))))
+    (let ((parent (or (selected-object) (get-workbench))))
       (when (or (is? parent Project-Group)
                 (is? parent Project))
         (add-component-class~ (get-tree) Project-Group parent: parent))))
@@ -538,11 +538,11 @@
       (define (extract-jazz-file-toplevel file)
         (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
           (lambda (reader)
-            (catch (Read-Error err {})
+            (catch (Read-Error err #f)
               (let ((in/toplevel (read reader)))
                 (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
                     (values in/toplevel (read reader))
-                  (values {} in/toplevel)))))))
+                  (values #f in/toplevel)))))))
       
       (define (extract-package in)
         (when (pair? (cdr in))
@@ -561,7 +561,7 @@
                       (if (or (and (eq? type 'class) (eq? name 'Object))
                               (and (eq? type 'interface) (eq? name 'Unknown))
                               (and (eq? type 'package) (eq? name 'Common)))
-                          (values type name {})
+                          (values type name #f)
                         (let ((scan (cdr scan)))
                           (when (and (pair? scan) (eq? (car scan) 'extends))
                             (let ((scan (cdr scan)))
@@ -615,7 +615,7 @@
   
   (method (import-file file parent descendant?)
     (let* ((model (extension-model (get-extension~ file)))
-           (name (if (eq? model Jazz-File) (string->symbol (get-base~ file)) {}))
+           (name (if (eq? model Jazz-File) (string->symbol (get-base~ file)) #f))
            (project-file (new model name: name source: file))
            (workbench (get-workbench)))
       (add-child~ designer project-file parent design-events?: (not descendant?) descendant?: descendant?)
@@ -631,23 +631,23 @@
                (lambda (object)
                  (typecase object
                    ((Project)
-                    {})
+                    #f)
                    ((Project-Directory)
                     (get-directory~ object))
                    (else
-                    {})))))
+                    #f)))))
       (let ((dir (default object)))
         (when dir
           (anchorize~ dir)))))
   
   
   (method (with-import-directory current-directory? object proc)
-    (let ((default-directory (essay (not current-directory?) (default-import-directory object))))
+    (let ((default-directory (and (not current-directory?) (default-import-directory object))))
       (if (and default-directory (exists?~ default-directory))
           (with-preserved-current-directory
             (lambda ()
               (proc default-directory)))
-        (proc {}))))
+        (proc #f))))
   
   
   (definition (extension-model ext)
@@ -712,7 +712,7 @@
                        (add
                         (lambda (what path)
                           (let ((c0 (new Tree-Node title: (join path "/") image: {Image-Resource "OpenedFolder"})))
-                            (add-row~ tree children: (list c0 {} {} {}))))))
+                            (add-row~ tree children: (list c0 #f #f #f))))))
                   (for-each (lambda (info)
                               (bind (what path) info
                                 (add what (reverse path))))
@@ -808,7 +808,7 @@
                          (concrete?~ descendant))
                 (continuation-return return descendant)))
             include-self?: #f)
-          {})))
+          #f)))
     
     (if (is? object Project)
         (if (concrete?~ object)
@@ -895,7 +895,7 @@
   ;;;
   
   
-  (method public (debug-current (executable: executable {}))
+  (method public (debug-current (executable: executable #f))
     (debug-project (current-project) executable: executable))
   
   
@@ -904,7 +904,7 @@
       (debug-project project)))
       
   
-  (method (debug-project project (executable: executable {}))
+  (method (debug-project project (executable: executable #f))
     (debug-project~ (get-application) project executable: executable debugger-interactive?: #t))
 
   
@@ -996,9 +996,9 @@
                     (clear-results~ output)
                     (select-results~ output)
                     (select-docked Output-Log)
-                    (preprocess~ file project {} {} output force?: #t)
+                    (preprocess~ file project #f #f output force?: #t)
                     (user-message "Preprocessing done in {a}" (cpu-duration~ timer)))))))
-        (proc {})))
+        (proc #f)))
     
     (let ((guest (current-document)))
       (when (and guest (is? guest Document))
@@ -1025,7 +1025,7 @@
   (method (clean-project project)
     (if (concrete?~ project)
         ;; to complete
-        {}
+        #f
       (bell)))
 
   
@@ -1108,7 +1108,7 @@
     (let ((tree (get-tree)))
       (define (new-group-menu object)
         (let ((menu (new Group-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() {})
+          (update-component-menu menu (selected-components~ tree) '() #f)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
@@ -1116,7 +1116,7 @@
       
       (define (new-workbench-menu object)
         (let ((menu (new Workbench-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() {})
+          (update-component-menu menu (selected-components~ tree) '() #f)
           (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
@@ -1125,7 +1125,7 @@
       
       (define (new-concrete-project-menu object)
         (let ((menu (new Concrete-Project-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() {})
+          (update-component-menu menu (selected-components~ tree) '() #f)
           (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
@@ -1134,7 +1134,7 @@
       
       (define (new-project-menu object)
         (let ((menu (new Project-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() {})
+          (update-component-menu menu (selected-components~ tree) '() #f)
           (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
@@ -1143,7 +1143,7 @@
       
       (define (new-element-menu object)
         (let ((menu (new Element-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() {})
+          (update-component-menu menu (selected-components~ tree) '() #f)
           menu))
       
       (define (update-group/project-menu menu)

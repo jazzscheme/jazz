@@ -63,11 +63,11 @@
   
   
   (method override (initialize . rest)
-    (bind-keywords ((domain {}) (base {}) . others) rest
+    (bind-keywords ((domain #f) (base #f) . others) rest
       (apply nextmethod others)
       (set! domain~self domain)
       (set! base~self base)
-      (set! ascendant~self {})
+      (set! ascendant~self #f)
       (set! inited?~self #f)
       (set! persistent?~self #t)
       (when domain
@@ -99,7 +99,7 @@
 
   
   (method override (print printer readably)
-    (format printer "~{{a}{k empty-value: {}}{k}}"
+    (format printer "~{{a}{k empty-value: #f}{k}}"
             (identifier-name (category-name (class-of self)))
             (list
              name: name
@@ -125,7 +125,7 @@
     
     (unless inited?
       (if (not base)
-          (set! ascendant {})
+          (set! ascendant #f)
         (set! ascendant (locate~ domain base))
         (setup-inherited))
       (set! inited? #t)))
@@ -214,7 +214,7 @@
   (method (reset)
     (define (reset-property property <Object>)
       (unless (memq? property owned)
-        (set-value property {})))
+        (set-value property #f)))
     
     (when inited?
       @should-not-reset-to-nil-but-to-slot-initalize--we-skip-since-init-also-*set-value*
@@ -309,9 +309,9 @@
   
   (method public (locate name (error?: error? #t))
     ;; (assert name)
-    (either (find-in content name key: get-name~)
-            (when error?
-              (error "Unable to locate {t}" name))))
+    (or (find-in content name key: get-name~)
+        (when error?
+          (error "Unable to locate {t}" name))))
   
   
   (method public (similar exemplar)

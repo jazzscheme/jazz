@@ -123,7 +123,7 @@
                      #f)
                     ;; empty literal
                     ((%%null? lst)
-                     #f)
+                     (%%unspecified))
                     ;; walk
                     ((jazz.walk-for)
                      (jazz.new-literal (%%car lst) (%%cdr lst)))

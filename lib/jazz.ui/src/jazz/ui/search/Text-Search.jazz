@@ -94,21 +94,21 @@
   ;;;
   
   
-  (method override (search-targets multi-search-context)
+  (method override (search-targets search-set)
     (case (get-search-domain)
       ((active-window)
-       (search-active-window multi-search-context))
+       (search-active-window search-set))
       (else
        (thread-start!
          (new-thread
            (lambda ()
-             (search-threaded multi-search-context))
+             (search-threaded search-set))
            'search)))))
   
   
-  (method synchronized (search-threaded multi-search-context)
+  (method synchronized (search-threaded search-set)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
-           (found (search multi-search-context reporter)))
+           (found (search search-set reporter)))
       (post-event
         (lambda ()
           (let ((results (get-results)))
@@ -123,10 +123,10 @@
           (close-manager~ manager)))))
 
 
-  (method (search multi-search-context reporter)
+  (method (search search-set reporter)
     (case (get-search-domain)
-      ((jazz-files) (search-jazz-files multi-search-context reporter))
-      ((user-files) (search-user-files multi-search-context reporter))))
+      ((jazz-files) (search-jazz-files search-set reporter))
+      ((user-files) (search-user-files search-set reporter))))
 
 
   ;;;
@@ -145,7 +145,7 @@
   
   
   (definition Jazz-Count
-    {})
+    #f)
   
   
   (method (count-jazz-files)
@@ -157,8 +157,8 @@
   (method (count-jazz-directories)
     (let ((pref (preferences)))
       (let ((count 0)
-            (directories (filter-existing (either (get-jazz-directories~ pref) (default-search-directories))))
-            (extensions (either (get-jazz-extensions~ pref) (default-search-extensions))))
+            (directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (or (get-jazz-extensions~ pref) (default-search-extensions))))
         (for-each (lambda (directory)
                     (iterate-directory~ directory
                       (lambda (file)
@@ -170,13 +170,13 @@
   
   
   (definition User-Count
-    {})
+    #f)
   
   
   (method (count-user-files)
     (let ((pref (preferences)))
-      (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
-            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
+      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
+            (extensions (or (get-user-extensions~ pref) (default-search-extensions))))
         (let ((count
                 (lambda ()
                   (let ((count 0))
@@ -220,7 +220,7 @@
   ;;;
   
   
-  (method (search-active-window multi-search-context)
+  (method (search-active-window search-set)
     (let ((frames (all-frames)))
       (when (>= (length frames) 1)
         (let ((frame (car frames)))
@@ -228,24 +228,24 @@
             (let ((guest (get-guest~ frame)))
               (when (is? guest Text-View)
                 (set-caret~ guest (get-start~ guest))
-                (find-forward guest multi-search-context #f)
+                (find-forward guest search-set #f)
                 (bring-to-front~ frame)
                 (acquire-focus~ guest))))))))
   
   
-  (method (search-jazz-files multi-search-context reporter)
+  (method (search-jazz-files search-set reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
-      (let ((directories (filter-existing (either (get-jazz-directories~ pref) (default-search-directories))))
-            (extensions (either (get-jazz-extensions~ pref) (default-search-extensions))))
-        (search-in-directories multi-search-context directories extensions (get-expression?) factory reporter)
+      (let ((directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (or (get-jazz-extensions~ pref) (default-search-extensions))))
+        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
         (get-output~ factory))))
   
   
-  (method (search-user-files multi-search-context reporter)
+  (method (search-user-files search-set reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
-      (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
-            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
-        (search-in-directories multi-search-context directories extensions (get-expression?) factory reporter)
+      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
+            (extensions (or (get-user-extensions~ pref) (default-search-extensions))))
+        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
         (get-output~ factory))))))

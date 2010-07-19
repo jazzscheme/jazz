@@ -64,7 +64,7 @@
   (slot waiting)
 
 
-  (method (initialize (library: library {}) (name: name (default-name library)) (com-classes?: com-classes? #f) (pure-dispatch?: pure-dispatch? #f))
+  (method (initialize (library: library #f) (name: name (default-name library)) (com-classes?: com-classes? #f) (pure-dispatch?: pure-dispatch? #f))
     (nextmethod)
     (set! library~self library)
     (set! name~self name)
@@ -76,7 +76,7 @@
     (get-name~ lib))
 
 
-  (method public (extract file (activity: activity {}))
+  (method public (extract file (activity: activity #f))
     (call-with-output-file (list path: (parse~ file) eol-encoding: (get-eol-encoding))
       (lambda (printer)
         (output-header name printer)
@@ -109,8 +109,8 @@
   (method (emit-library-types printer activity)
     (let ((types (get-types~ library)))
       (set! to-emit (map info-name types))
-      (set! emited {})
-      (set! waiting {})
+      (set! emited #f)
+      (set! waiting #f)
       (when activity
         (set-range~ activity (new Range 0 (length types))))
       (for-each (lambda (info)
@@ -221,8 +221,8 @@
                          (typedesc (get desc '(elemdescVar tdesc)))
                          (type (get typedesc 'vt))
                          (pointer? (= type VT_PTR))
-                         (ptr-typedesc (essay pointer? (coerce (get typedesc 'desc) TYPEDESC)))
-                         (final-typedesc (either ptr-typedesc typedesc))
+                         (ptr-typedesc (and pointer? (coerce (get typedesc 'desc) TYPEDESC)))
+                         (final-typedesc (or ptr-typedesc typedesc))
                          (type-name (intern-type info final-typedesc #f)))
                     (format printer "{%}")
                     (format printer "    (com-external public virtual abstract {a} (get-{a}))" type-name name)))
@@ -256,7 +256,7 @@
                 (for-each-pair (lambda (pair)
                                  (bind (interface . tail) pair
                                    (let ((functions (get-functions~ interface)))
-                                     (set! names (emit-functions interface names functions 'com-method "" printer (essay (null? tail) ")")))))
+                                     (set! names (emit-functions interface names functions 'com-method "" printer (and (null? tail) ")")))))
                                  interfaces)))))
         (format printer ")"))))
 
@@ -299,7 +299,7 @@
                          (let* ((name (get-member-name~ info desc))
                                 (effective (effective-name (get desc 'invkind) name)))
                            (when (not (memq? effective names))
-                             (emit-function info effective desc header modifiers printer (essay (null? tail) trailer))
+                             (emit-function info effective desc header modifiers printer (and (null? tail) trailer))
                              (set! names (cons effective names))))))
                      functions))
     names)
@@ -312,8 +312,8 @@
            (return-typedesc (get desc '(elemdescFunc tdesc)))
            (return-type (get return-typedesc 'vt))
            (return-pointer? (= return-type VT_PTR))
-           (ptr-return-typedesc (essay return-pointer? (coerce (get return-typedesc 'desc) TYPEDESC)))
-           (final-return-typedesc (either ptr-return-typedesc return-typedesc))
+           (ptr-return-typedesc (and return-pointer? (coerce (get return-typedesc 'desc) TYPEDESC)))
+           (final-return-typedesc (or ptr-return-typedesc return-typedesc))
            (return-type-name (intern-type info final-return-typedesc return-pointer?)))
       (format printer "{%}")
       (format printer "    ({a}{a} {a} ({a}"
@@ -329,14 +329,14 @@
                            (typedesc (get param 'tdesc))
                            (type (get typedesc 'vt))
                            (pointer? (= type VT_PTR))
-                           (ptr-typedesc (essay pointer? (coerce (get typedesc 'desc) TYPEDESC)))
-                           (ptr-type (essay pointer? (get ptr-typedesc 'vt)))
-                           (ptr-pointer? (essay pointer? (= ptr-type VT_PTR)))
-                           (ptr-ptr-typedesc (essay ptr-pointer? (coerce (get ptr-typedesc 'desc) TYPEDESC)))
-                           (ptr-ptr-type (essay ptr-pointer? (get ptr-ptr-typedesc 'vt)))
-                           (param-type (either ptr-ptr-type ptr-type type))
-                           (param-typedesc (either ptr-ptr-typedesc ptr-typedesc typedesc))
-                           (param-referenced (essay (= param-type VT_USERDEFINED) (get-referenced-type~ info (get param-typedesc 'desc))))
+                           (ptr-typedesc (and pointer? (coerce (get typedesc 'desc) TYPEDESC)))
+                           (ptr-type (and pointer? (get ptr-typedesc 'vt)))
+                           (ptr-pointer? (and pointer? (= ptr-type VT_PTR)))
+                           (ptr-ptr-typedesc (and ptr-pointer? (coerce (get ptr-typedesc 'desc) TYPEDESC)))
+                           (ptr-ptr-type (and ptr-pointer? (get ptr-ptr-typedesc 'vt)))
+                           (param-type (or ptr-ptr-type ptr-type type))
+                           (param-typedesc (or ptr-ptr-typedesc ptr-typedesc typedesc))
+                           (param-referenced (and (= param-type VT_USERDEFINED) (get-referenced-type~ info (get param-typedesc 'desc))))
                            (param-pointer? (if (interface-kind? param-referenced) ptr-pointer? pointer?))
                            (param-type-name (intern-type info param-typedesc param-pointer?))
                            (param-direction (parameter-direction param)))
@@ -403,7 +403,7 @@
           (format printer "{a}" trailer))
       (for-each-pair (lambda (pair)
                        (bind (desc . tail) pair
-                         (emit-variable info desc printer (essay (null? tail) trailer))))
+                         (emit-variable info desc printer (and (null? tail) trailer))))
                      variables)))
 
 

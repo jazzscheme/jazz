@@ -93,7 +93,7 @@
 
 
 ;; So that the window<->hwnd association can be made on the very first windows message
-(definition in-creation {})
+(definition in-creation #f)
 
 
 (definition (set-in-creation in)
@@ -148,7 +148,7 @@
 
 
 (definition package (load-product-icon cx cy)
-  (let ((product (either (jazz-product) 'jazz)))
+  (let ((product (or (jazz-product) 'jazz)))
     (let ((file (string-append kernel-install (format "build/products/{a}/{a}.ico" product product))))
       (if (file-exists? file)
           (LoadImage NULL file IMAGE_ICON cx cy LR_LOADFROMFILE)
@@ -261,7 +261,7 @@
 
 
 (definition package (prepare-handle window rest)
-  (bind-keywords ((hwnd {}) . others) rest
+  (bind-keywords ((hwnd #f) . others) rest
     (set-in-creation window)
     (let ((hwnd (create-handle window rest)))
       (if (not hwnd)
@@ -431,7 +431,7 @@
         (set! window (get-in-creation))
         (set-handle~ window hwnd)
         (set-window hwnd window)
-        (set-in-creation {}))
+        (set-in-creation #f))
       (if (not window)
           (DefWindowProc hwnd msg wparam lparam)
         (dispatch-message window msg wparam lparam))))
@@ -614,7 +614,7 @@
     ((WM_ACTIVATEAPP)     (if (/= wparam 0)
                               (activate-application~ window)
                             (deactivate-application~ window)))
-    ((WM_CLOSE)           (on-close~ window {}))
+    ((WM_CLOSE)           (on-close~ window #f))
     ((WM_SETFOCUS)        (focus-gain~ window))
     ((WM_KILLFOCUS)       (focus-lose~ window))
     ((WM_DROPFILES)       (drop-files~ window wparam))
@@ -1025,7 +1025,7 @@
 ;;; We need a platform independant interface for this.
 
 (definition public Current-Cursor
-  {})
+  #f)
 
 (definition public Cursor-Cache
   (make-table test: eqv?))
@@ -1066,10 +1066,10 @@
         (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
   
   (let ((name (cursor-name cursor)))
-    (either (table-ref Cursor-Cache name {})
-            (let ((cursor (load name)))
-              (table-set! Cursor-Cache name cursor)
-              cursor))))
+    (or (table-ref Cursor-Cache name #f)
+        (let ((cursor (load name)))
+          (table-set! Cursor-Cache name cursor)
+          cursor))))
 
 
 (definition (get-named-cursor name)

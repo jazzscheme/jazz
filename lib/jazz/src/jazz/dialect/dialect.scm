@@ -100,8 +100,14 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
     (jazz.sourcify-if
-      `(define ,locator
-         ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+      `(begin
+         (define ,locator
+           ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))
+         ,(let ((name (%%get-lexical-binding-name declaration))
+                (parent (%%get-declaration-parent declaration)))
+            (if (%%is? parent jazz.Module-Declaration)
+                `(jazz.register-definition ',(%%get-lexical-binding-name parent) ',name ',locator)
+              `(jazz.add-field ,(%%get-declaration-locator parent) (jazz.new-definition ',name ',locator)))))
       (%%get-declaration-source declaration))))
 
 
@@ -381,10 +387,12 @@
                          (interface-accesses (map (lambda (declaration) (jazz.sourcified-form (jazz.emit-binding-reference declaration declaration environment))) interface-declarations)))
                      `((define ,locator
                          ;; this is a quicky that needs to be well tought out
-                         (if (jazz.global-variable? ',locator)
-                             (jazz.global-value ',locator)
+                         (if (jazz.global-bound? ',locator)
+                             (jazz.global-ref ',locator)
                            (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
                        (define ,level-locator (%%get-class-level ,locator)))))))
+           ,(let ((toplevel-declaration (%%get-declaration-toplevel declaration)))
+              `(jazz.register-module-entry ',(%%get-lexical-binding-name toplevel-declaration) ',name ,locator))
            ,@(jazz.emit-namespace-statements body declaration environment))
         (%%get-declaration-source declaration)))))
 
@@ -531,6 +539,8 @@
            (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
          (define ,rank-locator
            (%%get-interface-rank ,locator))
+         ,(let ((toplevel-declaration (%%get-declaration-toplevel declaration)))
+            `(jazz.register-module-entry ',(%%get-lexical-binding-name toplevel-declaration) ',name ,locator))
          ,@(jazz.emit-namespace-statements body declaration environment))
       (%%get-declaration-source declaration))))
 
@@ -573,9 +583,9 @@
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
          (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
-         (core? (jazz.core-class? (%%get-lexical-binding-name (%%get-declaration-parent declaration))))
-         (initialize? (and allocate? (%%not core?)))
+         (core? (jazz.core-class? (%%get-lexical-binding-name class-declaration)))
          (initialize (%%get-slot-declaration-initialize declaration))
+         (initialize? (and allocate? (%%not core?) initialize))
          (initialize-locator (and initialize? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset)))
@@ -648,8 +658,10 @@
          (class-declaration (%%get-declaration-parent declaration))
          (class-locator (%%get-declaration-locator class-declaration))
          (allocate? (%%neq? (%%get-lexical-binding-type declaration) jazz.Void))
+         (core? (jazz.core-class? (%%get-lexical-binding-name class-declaration)))
          (initialize (%%get-slot-declaration-initialize declaration))
-         (initialize-locator (and allocate? (jazz.compose-helper locator 'initialize)))
+         (initialize? (and allocate? (%%not core?) initialize))
+         (initialize-locator (and initialize? (jazz.compose-helper locator 'initialize)))
          (slot-locator (jazz.compose-helper locator 'slot))
          (offset-locator (jazz.compose-helper locator 'offset))
          (getter (%%get-property-declaration-getter declaration))
@@ -659,7 +671,7 @@
       (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr))))
     (jazz.sourcify-if
       `(begin
-         ,@(if allocate?
+         ,@(if initialize?
                `((define (,initialize-locator self)
                    ,(jazz.sourcified-form (jazz.emit-expression initialize declaration environment))))
              '())
@@ -719,19 +731,19 @@
             (case dispatch-type
               ((final)
                (let ((implementation-locator (%%get-declaration-locator method-declaration)))
-                 `(%%final-dispatch ,object-cast ,implementation-locator)))
+                 `(%%final-dispatch (%%class-of ,object-cast) ,implementation-locator)))
               ((class)
                (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
                      (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz.native-category? category-declaration)
-                     `(%%class-native-dispatch ,object-cast ,class-level-locator ,method-rank-locator)
-                   `(%%class-dispatch ,object-cast ,class-level-locator ,method-rank-locator))))
+                     `(%%class-dispatch (%%get-object-class ,object-cast) ,class-level-locator ,method-rank-locator)
+                   `(%%class-dispatch (%%class-of ,object-cast) ,class-level-locator ,method-rank-locator))))
               ((interface)
                (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
                      (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz.native-category? category-declaration)
-                     `(%%interface-native-dispatch ,object-cast ,interface-rank-locator ,method-rank-locator)
-                   `(%%interface-dispatch ,object-cast ,interface-rank-locator ,method-rank-locator)))))
+                     `(%%interface-dispatch (%%get-object-class ,object-cast) ,interface-rank-locator ,method-rank-locator)
+                   `(%%interface-dispatch (%%class-of ,object-cast) ,interface-rank-locator ,method-rank-locator)))))
             (jazz.call-return-type (%%get-lexical-binding-type method-declaration))
             #f))))))
 
@@ -1283,7 +1295,7 @@
 (define (jazz.final-dispatch field type)
   (lambda (object)
     (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-      (%%final-dispatch object (%%get-method-implementation field)))))
+      (%%final-dispatch (%%class-of object) (%%get-method-implementation field)))))
 
 
 (define (jazz.class-dispatch field type)
@@ -1291,7 +1303,7 @@
         (implementation-rank (%%get-method-implementation-rank field)))
     (lambda (object)
       (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-        (%%class-dispatch object class-level implementation-rank)))))
+        (%%class-dispatch (%%class-of object) class-level implementation-rank)))))
 
 
 (define (jazz.interface-dispatch field type)
@@ -1299,29 +1311,28 @@
         (implementation-rank (%%get-method-implementation-rank field)))
     (lambda (object)
       (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-        (%%interface-dispatch object interface-rank implementation-rank)))))
+        (%%interface-dispatch (%%class-of object) interface-rank implementation-rank)))))
 
 
-(define (jazz.dispatch object name)
-  (or (jazz.find-dispatch object name)
-      (jazz.error "Unable to find method {s} in: {s}" name object)))
+(define (jazz.dispatch class name)
+  (or (jazz.find-dispatch class name)
+      (jazz.error "Unable to find method {s} in: {s}" name class)))
 
 
-(define (jazz.find-dispatch object name)
-  (let ((class (%%class-of object)))
-    (let ((category (jazz.locate-method-owner class name)))
-      (if (%%not category)
-          #f
-        (let ((field (%%get-category-field category name)))
-          (if (not (%%class-is? field jazz.Method))
-              (jazz.error "Field {s} is not a method of {s}" name object))
-          (case (%%get-method-dispatch-type field)
-            ((final)
-             (%%final-dispatch object (%%get-method-implementation field)))
-            ((class)
-             (%%class-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
-            ((interface)
-             (%%interface-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))))))
+(define (jazz.find-dispatch class name)
+  (let ((category (jazz.locate-method-owner class name)))
+    (if (%%not category)
+        #f
+      (let ((field (%%get-category-field category name)))
+        (if (not (%%class-is? field jazz.Method))
+            (jazz.error "Field {s} is not a method of {s}" name class))
+        (case (%%get-method-dispatch-type field)
+          ((final)
+           (%%final-dispatch class (%%get-method-implementation field)))
+          ((class)
+           (%%class-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
+          ((interface)
+           (%%interface-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field))))))))
 
 
 (jazz.define-class-runtime jazz.Dispatch)
@@ -2000,28 +2011,27 @@
   (let ((form (%%desourcify form-src)))
     (jazz.bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
       (%%assertion (%%class-is? declaration jazz.Class-Declaration) (jazz.walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
-        (let ((initialize (if (jazz.unspecified? initialize) #f initialize)))
-          (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
-            (%%set-slot-declaration-initialize new-declaration
-              (jazz.walk walker resume declaration environment initialize))
-            (%%when (%%class-is? new-declaration jazz.Property-Declaration)
-              (%%set-property-declaration-getter new-declaration
+        (let ((new-declaration (jazz.require-declaration declaration (%%cadr form))))
+          (%%set-slot-declaration-initialize new-declaration
+            (and (%%specified? initialize) (jazz.walk walker resume declaration environment initialize)))
+          (%%when (%%class-is? new-declaration jazz.Property-Declaration)
+            (%%set-property-declaration-getter new-declaration
+              (jazz.walk walker resume declaration environment
+                `(lambda (self)
+                   (with-self
+                     ,(if getter-name
+                          `(,getter-name)
+                        name)))))
+            (%%set-property-declaration-setter new-declaration
+              (let ((value (jazz.generate-symbol "val")))
                 (jazz.walk walker resume declaration environment
-                  `(lambda (self)
+                  `(lambda (self ,value)
                      (with-self
-                       ,(if getter-name
-                            `(,getter-name)
-                          name)))))
-              (%%set-property-declaration-setter new-declaration
-                (let ((value (jazz.generate-symbol "val")))
-                  (jazz.walk walker resume declaration environment
-                    `(lambda (self ,value)
-                       (with-self
-                         ,(if setter-name
-                              `(,setter-name ,value)
-                            `(set! ,name ,value))))))))
-            (%%set-declaration-source new-declaration form-src)
-            new-declaration))))))
+                       ,(if setter-name
+                            `(,setter-name ,value)
+                          `(set! ,name ,value))))))))
+          (%%set-declaration-source new-declaration form-src)
+          new-declaration)))))
 
 
 ;;;

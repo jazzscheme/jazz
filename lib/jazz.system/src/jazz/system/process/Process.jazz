@@ -56,11 +56,11 @@
 (class Process extends Object
 
 
-  (slot settings             initialize {} getter generate)
-  (slot preferences-root     initialize {} getter generate)
-  (slot preferences-designer initialize {} getter generate)
-  (slot context              initialize {})
-  (slot exit-continuation    initialize {})
+  (slot settings             initialize #f getter generate)
+  (slot preferences-root     initialize #f getter generate)
+  (slot preferences-designer initialize #f getter generate)
+  (slot context              initialize #f)
+  (slot exit-continuation    initialize #f)
 
   
   ;;;
@@ -73,15 +73,15 @@
   
   
   (method public virtual (process-owner)
-    {})
+    #f)
   
   
   (method public virtual (process-copyright)
-    {})
+    #f)
   
   
   (method public virtual (process-licensee)
-    {})
+    #f)
   
   
   (method public virtual (process-icon)
@@ -93,7 +93,7 @@
   
   
   (method public virtual (process-email)
-    {})
+    #f)
   
   
   (method public virtual (process-actions)
@@ -101,8 +101,8 @@
   
   
   (method public virtual (process-event-source)
-    (either (string-parameter "event-source" 'EventSource {})
-            (process-name)))
+    (or (string-parameter "event-source" 'EventSource #f)
+        (process-name)))
   
   
   ;;;
@@ -112,7 +112,7 @@
   
   (method public virtual (boot-environment)
     (catch (Cancel-Signal signal
-             {})
+             #f)
       (update-debuggee)
       (initialize-aliases)
       (initialize-settings)
@@ -129,7 +129,7 @@
         (when (and (eq? (current-thread) (get-load-thread)) (not-null? (get-load-stack)))
           (system-message (format "Internal error: Load stack not empty.{%}{%}This is probably caused by a product run unit doing its initialisations at the toplevel instead of registering them using register-product-run.{%}{%}Please report this problem to the JazzScheme team if this is not the case.")))
         (run-loop))
-      {}))
+      #f))
   
   
   (method (update-debuggee)
@@ -145,7 +145,7 @@
   
   (method (register-versions)
     @unimplemented
-    (register-crash-info windows-version: {} (present~ (get-windows-version))))
+    (register-crash-info windows-version: #f (present~ (get-windows-version))))
   
   
   (method (prepare-phase)
@@ -228,7 +228,7 @@
   (method public virtual (conclude-process)
     (when (get-controller-debugger)
       (select-console)
-      (start-repl-thread (current-thread) {} (get-console-port))))
+      (start-repl-thread (current-thread) #f (get-console-port))))
   
   
   ;;;
@@ -267,7 +267,7 @@
   
   
   (method public virtual (get-toplevel)
-    {})
+    #f)
   
   
   ;;;
@@ -295,7 +295,7 @@
       (preserve-environment)
       (close-environment)
       (terminate-process)
-      (set-process {})))
+      (set-process #f)))
   
 
   ;;;
@@ -314,7 +314,7 @@
                  (if (null? next)
                      sub
                    (find-component~ sub next)))))
-         {}))))
+         #f))))
   
   
   ;;;
@@ -338,7 +338,7 @@
   ;; for designer events that could be sent when the context is changed.
   (method protected virtual (context-update)
     (define (modify-preferences)
-      (let* ((pref (get-preferences {}))
+      (let* ((pref (get-preferences #f))
              (designer (get-preferences-designer))
              (branch (find-component~ pref context)))
         (set-active-branch~ pref branch)))
@@ -346,18 +346,18 @@
     (define (modify-connections)
       @wait
       (when (in-manifest? 'SQL-Connections-Manager)
-        (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
+        (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager #f)))))
     
     (define (modify-toolbox)
       @wait
       (when (in-manifest? 'Toolbox-Manager)
-        (modify-editor (get-guest~ (singleton-docked Toolbox-Manager {})))))
+        (modify-editor (get-guest~ (singleton-docked Toolbox-Manager #f)))))
     
     (define (modify-editor editor)
       (let* ((client (get-client~ editor))
              (branch (find-component~ client context)))
         (set-active-branch~ client branch)
-        (set-client~ editor {})
+        (set-client~ editor #f)
         (set-client~ editor client)))
     
     (modify-preferences)
@@ -394,7 +394,7 @@
       (let ((arg (command-argument "context")))
         (cond (arg (string->symbol arg))
               (preferences-root (get-active-context~ preferences-root))
-              (else {}))))
+              (else #f))))
     
     (set-preferences/designer (load-preferences))
     (set! context (preferences-context))
@@ -421,11 +421,11 @@
     (new Process-Preferences))
   
   
-  (method public (apply-preferences preferences (client {}))
+  (method public (apply-preferences preferences (client #f))
     (apply-preferences~ preferences client))
   
   
-  (method public (save-preferences preferences (client {}))
+  (method public (save-preferences preferences (client #f))
     (save-preferences~ preferences (get-preferences-designer) client))
 
   
@@ -434,7 +434,7 @@
   
   
   (method public virtual (get-preferences-rights)
-    {})
+    #f)
   
   
   ;;;
@@ -456,7 +456,7 @@
   
   
   (method public virtual (mandatory-version what)
-    {})
+    #f)
 
   
   ;;;
@@ -501,7 +501,7 @@
   (method public virtual (start-loop)
     (declare (proper-tail-calls))
     (let (loop)
-      (with-restart-catcher 'resume-loop (present-current-loop-restart) {}
+      (with-restart-catcher 'resume-loop (present-current-loop-restart) #f
         (lambda ()
           (let ((thunk (thread-read)))
             (with-exception-debugger (get-exception-debugger)
@@ -549,7 +549,7 @@
   
   
   (method public virtual (resolve-alias name)
-    {})
+    #f)
 
 
   ;;;
@@ -591,11 +591,11 @@
   
   
   (method protected virtual (default-listener-host)
-    {})
+    #f)
   
   
   (method protected virtual (default-listener-service)
-    {})
+    #f)
   
   
   (method protected virtual (stop-servers)
@@ -634,11 +634,11 @@
   
   
   (method public virtual (get-local-debugger)
-    {})
+    #f)
   
   
   (method public virtual (get-snapshot-debugger)
-    {})
+    #f)
   
   
   ;;;

@@ -53,8 +53,8 @@
 (class Jazz-Project extends Project
   
   
-  (property product      initialize {}  accessors generate)
-  (property destination  initialize {}  accessors generate)
+  (property product      initialize #f  accessors generate)
+  (property destination  initialize #f  accessors generate)
   (property repositories initialize '() accessors generate)
 
 
@@ -72,7 +72,7 @@
   ;;;
   
   
-  (method override (project-test (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-test (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (define (determine-executable)
       (let ((executable (project-executable)))
         (if (exists?~ executable)
@@ -97,7 +97,7 @@
   ;;;
   
   
-  (method override (project-run (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-run (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (define (determine-executable)
       (let ((executable (project-executable)))
         (if (exists?~ executable)
@@ -121,7 +121,7 @@
   ;;;
   
   
-  (method override (project-debug (executable: executable {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (project-debug (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if product
         (launch
           executable: executable
@@ -140,7 +140,7 @@
   ;;;
   
   
-  (method override (launch (executable: executable {}) (directory: directory {}) (kernel-arguments: kernel-arguments {}) (action: action {}) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie {}) (debugger-interactive?: debugger-interactive? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+  (method override (launch (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (define (determine-kernel)
       (cond ((eq? executable :choose) (choose-kernel))
             (executable executable)
@@ -157,12 +157,12 @@
         (start-debuggers~ ide))
       (let* ((executable               (determine-kernel))
              (runtime-arg              (list @wait "-:m250000,h1000000"))
-             (product-arg              (list (either action "-run") (->string product)))
+             (product-arg              (list (or action "-run") (->string product)))
              (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
              (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-             (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string (either debugger-cookie (register-debugger-cookie (lambda (cookie) (clear-user-message)))))) '()))
+             (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string (or debugger-cookie (register-debugger-cookie (lambda (cookie) (clear-user-message)))))) '()))
              (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
-             (profile                  (either profile (project-profile)))
+             (profile                  (or profile (project-profile)))
              (profile-arg              (if profile (list "-profile" (->string profile)) '()))
              (action-arg               (if command-action (list command-action) '()))
              (arguments-arg            (if command-arguments command-arguments '()))
@@ -177,7 +177,7 @@
   
   
   (method protected virtual (project-profile)
-    {})
+    #f)
   
   
   (method public (project-kernel)
@@ -267,7 +267,7 @@
   
   (method override (class-get-domain class property)
     (case (field-name property)
-      ((destination) (new String-Row nullable?: #t))
+      ((destination) (new String-Domain nullable?: #t))
       ((repositories) (new Repositories-Row))
       (else (nextmethod class property)))))
 

@@ -58,7 +58,7 @@
   (property filter           initialize 'categorized accessors explicit)
   (property filter-locked?   initialize #f           accessors generate)
   (property filter-visible?  initialize #t           accessors generate)
-  (property property-handler initialize {}           accessors generate)
+  (property property-handler initialize #f           accessors generate)
   
 
   (form
@@ -186,7 +186,7 @@
                           (eq? (field-name property) target)
                         (eq? property target))
                   (continuation-return return rank))))))
-        {})))
+        #f)))
 
   
   ;;;
@@ -213,7 +213,7 @@
       (let ((selected (selected-property))
             (default (get-client-default-property)))
         (update)
-        (let ((index (if selected (either (find-property-index selected) (find-property-index default)) (find-property-index default))))
+        (let ((index (if selected (or (find-property-index selected) (find-property-index default)) (find-property-index default))))
           (when index
             (set-single-selection index auto-expand?: #f))))))
 
@@ -223,37 +223,36 @@
       (for-each (lambda (property)
                   (if (pair? property)
                       (for-each (lambda (property)
-                                  (insert-property client any editor designer father property 'collapsed {}))
+                                  (insert-property client any editor designer father property 'collapsed #f))
                                 property)
                     @wait-completed
                     (bind (title . properties) property
                       (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "Info"}) (new Tree-Label) (new Tree-Image)))))
                         (insert-properties client any editor designer row properties)))
-                    (insert-property client any editor designer father property 'collapsed {})))
+                    (insert-property client any editor designer father property 'collapsed #f)))
                 properties))
     
     (define (insert-property client any editor designer father property state position)
-      (let* ((class (get-row-class~ any property))
-             (instance (get-row-instance~ any property))
-             (row (either instance (new class)))
-             (image (get-filter-image~ class))
+      (let* ((domain (get-domain~ (class-of any) property))
+             (row (new Domain-Row domain: domain))
+             (image (get-filter-image~ domain))
              (values (map (lambda (component) (read-property component property)) client))
              (presented (map (lambda (value) (present~ row value)) values))
              (creator (get-creator~ any))
-             (branch (essay creator (get-active-branch~ creator)))
+             (branch (and creator (get-active-branch~ creator)))
              ;; temp patch because the root object doesn't have a creator...
              (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor branch any property)))
              (uniform? (or (<= (length values) 1) (apply string=? presented)))
-             (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} {}) {Color name: Dark-Gray})))
+             (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} #f) {Color name: Dark-Gray})))
              (label (new Tree-Label))
-             (owner (new Tree-Image image: (owner-image designer client class property))))
+             (owner (new Tree-Image image: (owner-image designer client domain property))))
         (set-parent~ row self)
         (set-row-height~ row 17)
         (set-children~ row (list node label owner))
         (set-property~ row property)
         (set-value~ row (car values))
         (set-title~ label (car presented))
-        (set-color~ label (if uniform? {} {Color name: Dark-Gray}))
+        (set-color~ label (if uniform? #f {Color name: Dark-Gray}))
         (add-row father: father state: state row: row position: position)
         row))
     
@@ -271,8 +270,8 @@
     (let* ((client (get-client))
            ;; temp fix. need to investigate. if i remember correctly
            ;; client is actually a list of clients and so the problem
-           ;; would be a wrong default value of {} instead of '()
-           (any (if (or (not client) (null? client)) {} (car client)))
+           ;; would be a wrong default value of #f instead of '()
+           (any (if (or (not client) (null? client)) #f (car client)))
            (editor (get-editor))
            (designer (get-designer))
            (properties (get-client-properties client editor)))
@@ -281,21 +280,11 @@
         (lambda ()
           ;; see above comment for this test too
           (when properties
-            (insert-properties client any editor designer {} properties))))))
+            (insert-properties client any editor designer #f properties))))))
   
   
-  (method public (update-property clt property)
-    (let* ((client (get-client))
-           (any (car client)))
-      (when (eq? clt any)
-        (let ((rank (find-property-index property)))
-          (when rank
-            (let ((row (get-row rank)))
-              (update-property-row~ any property row)))))))
-  
-  
-  (method (owner-image designer client class property)
-    (when (and designer (= 1 (length client)) (neq? class Info-Row))
+  (method (owner-image designer client domain property)
+    (when (and designer (= 1 (length client)) (/= (get-filter-rank~ domain) 0))
       (let* ((component (car client))
              (owner (find-owner~ designer component property)))
         (cond ((is? owner Branch) (branch-owner-image))
@@ -304,7 +293,7 @@
   
   
   (method protected virtual (default-owner-image)
-    {})
+    #f)
   
   
   (method protected virtual (root-owner-image)
@@ -321,7 +310,7 @@
         (when (is? row Value-Row)
           (let ((node (car (get-children~ row))))
             (when (get-color~ node)
-              (set-color~ node {})
+              (set-color~ node #f)
               (invalidate-cell (new Cell rank 0))))))))
   
   
@@ -331,7 +320,7 @@
   
   
   (definition (filter-by-rights component editor properties)
-    (let ((rights (essay editor (get-rights~ editor))))
+    (let ((rights (and editor (get-rights~ editor))))
       (if (not rights)
           properties
         (let* ((reference (get-client~ editor))
@@ -382,8 +371,8 @@
                               (value (read-property component property)))
                           (for-each-branch~ creator
                             (lambda (branch)
-                              (remove-property~ designer component property {} branch: branch)))
-                          (set-property~ designer component property value branch: {})))
+                              (remove-property~ designer component property #f branch: branch)))
+                          (set-property~ designer component property value branch: #f)))
                       client))
           (set-edited-modified?~ row #f)))))
   
@@ -457,7 +446,7 @@
           (update~ row value)
           (let* ((cell (new Cell rank 2))
                  (data (get-cell-data cell)))
-            (set-image~ data (owner-image (get-designer) (get-client) (class-of row) property))
+            (set-image~ data (owner-image (get-designer) (get-client) (get-domain~ row) property))
             (invalidate-cell cell)))))))
 
 
@@ -475,7 +464,7 @@
   (method override (draw-header surface context lh lv h v width height sorted spaced? flat? enabled?)
     (if (not (get-filter-visible?~ parent))
         (nextmethod surface context lh lv h v width height sorted spaced? flat? enabled?)
-      (draw-header-at surface lh lv h v Filter-Width height "" filter-down? {} spaced? flat? enabled?)
+      (draw-header-at surface lh lv h v Filter-Width height "" filter-down? #f spaced? flat? enabled?)
       (draw-image-at surface context (+ h 1) v (get-filter-image))
       (draw-header-at surface lh lv (+ h Filter-Width) v (- width Filter-Width) height (localize (get-column-title)) down? sorted spaced? flat? enabled?)))
   
@@ -553,7 +542,7 @@
   (method override (complete-mouse-down cell pos shift? control?)
     (let* ((auto? (get-auto-expand/collapse?~ parent))
            ;; get row before super complete-mouse-down changes anything...
-           (row (essay auto? (get-row~ parent (get-line~ cell)))))
+           (row (and auto? (get-row~ parent (get-line~ cell)))))
       (nextmethod cell pos shift? control?)
       (when auto?
         (auto-expand/collapse~ parent row))))

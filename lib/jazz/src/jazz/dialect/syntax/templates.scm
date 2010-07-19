@@ -56,7 +56,7 @@
      (subseq seq 0 (- (cardinality seq) 1))))
 
 
-;; #f should be {} when this is moved into a jazz dialect file
+;; #f should be #f when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
 (macro public (instantiate-find name T)
   `(specialize as ,name (find seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f)) <int+>
@@ -75,7 +75,7 @@
              #f))))))
 
 
-;; #f should be {} when this is moved into a jazz dialect file
+;; #f should be #f when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
 (macro public (instantiate-find-in name T)
   `(specialize as ,name (find-in seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f))

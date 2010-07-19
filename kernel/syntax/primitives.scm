@@ -906,7 +906,12 @@
    (jazz.define-macro (%%global-var-ref symbol)
      (%%force-uniqueness (symbol)
        `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
-          (##global-var-ref ,symbol)))))
+          (##global-var-ref ,symbol))))
+   
+   (jazz.define-macro (%%global-var-set! symbol value)
+     (%%force-uniqueness (symbol)
+       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+          (##global-var-set! ,symbol ,value)))))
 
   (else))
 

@@ -58,11 +58,11 @@
   
   (slot protected resizing?          initialize #f)
   (slot protected autofiting?        initialize #f)
-  (slot protected resized-column     initialize {})
+  (slot protected resized-column     initialize #f)
   (slot protected resized-column-ref initialize 0)
-  (slot protected resize-start-width initialize {})
-  (slot protected resize-start-h     initialize {})
-  (slot protected initial-row        initialize {})
+  (slot protected resize-start-width initialize #f)
+  (slot protected resize-start-h     initialize #f)
+  (slot protected initial-row        initialize #f)
 
   
   (method override (finish rest)
@@ -239,7 +239,7 @@
                (inner (expand-rect outer 1 1 thick thick)))
           (let ((smaller (expand-rect outer 0 0 0 -1)))
             (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
-          (fill-rect~ surface inner (either background (header-color~ client)))
+          (fill-rect~ surface inner (or background (header-color~ client)))
           (set-text-color~ surface {Color name: Black}))))
     
     (let ((client (get-client)))
@@ -247,8 +247,8 @@
             (right (get-columns-right~ client))
             (width (get-width))
             (height (get-header-height))
-            (background (if (get-enabled?~ client) (either background {Color name: Dark}) {Color name: Dark}))
-            (empty-background (if (get-enabled?~ client) (either empty-background {Color name: Dark}) {Color name: Medium})))
+            (background (if (get-enabled?~ client) (or background {Color name: Dark}) {Color name: Dark}))
+            (empty-background (if (get-enabled?~ client) (or empty-background {Color name: Dark}) {Color name: Medium})))
         (when (< (get-top~ clipper) height)
           (fill-rect~ surface (new Rect 0 0 right height) background)
           (fill-rect~ surface (new Rect right 0 width height) empty-background)
@@ -259,14 +259,14 @@
                    (sort-ascending? (get-sort-ascending?~ client))
                    (spaced? (> cs 0))
                    (columns (get-columns))
-                   (last-column (essay (not-null? columns) (last columns)))
+                   (last-column (and (not-null? columns) (last columns)))
                    (flat? (flat-look?))
                    (enabled? (get-enabled?~ client))
                    (rank 0))
               (for-each (lambda (column)
                           (when (get-visible?~ column)
                             (let ((width (get-width~ column))
-                                  (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {})))
+                                  (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) #f)))
                               (draw-header~ column surface context lh lv h 0 width height sorted spaced? flat? enabled?)
                               (when (eq? column last-column)
                                 (set-color~ surface background)
@@ -400,8 +400,8 @@
                   (let ((row (get-row~ tree initial-row)))
                     (selector-up~ row)))))
           (set! resizing? #f)
-          (set! resized-column {})
-          (set! initial-row {}))
+          (set! resized-column #f)
+          (set! initial-row #f))
         (release-capture))))
   
   
@@ -424,7 +424,7 @@
     (when (>= width 0)
       (let ((delta (- width (get-width~ column)))
             (left (+ (borders-right (get-borders (column->col~ (get-client) column))) (get-hscroll-amount))))
-        (set-filled-column~ client {})
+        (set-filled-column~ client #f)
         (set-width~ column width)
         (invalidate-columns)
         (invalidate-borders)
@@ -467,7 +467,7 @@
               (bind (left . right) borders
                 (when (near? h right 4)
                   (continuation-return return col))))
-        {})))
+        #f)))
     
   
   ;;;
@@ -503,4 +503,4 @@
               (bind (left . right) borders
                 (when (and (>= h left) (<= h right))
                   (continuation-return return n))))
-        {})))))
+        #f)))))

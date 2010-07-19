@@ -65,7 +65,7 @@
       (<Border-View>             name: border   position: {Point 56 12} size: {Dimension 100 100} border-type: () border-color: {Color name: Dark}
         (<Scroller-View>         name: scroller hscroll?: #f vscroll?: #t flat?: #t
           (<!>                   name: content  layout-type: fill
-            (<Message-Text-View> name: text     background: {} left-padding: 2 top-padding: 0 selectable?: #f editable?: #f))))))
+            (<Message-Text-View> name: text     background: #f left-padding: 2 top-padding: 0 selectable?: #f editable?: #f))))))
   
   
   (method override (finish initargs)
@@ -89,12 +89,12 @@
   
   (definition Type-Infos
     (list
-      (list 'message      "Message"      :information :asterisk    "OK"  {}   {}       #t 'yes)
-      (list 'question     "Question"     :exclamation :exclamation "Yes" "No" {}       #t 'no)
+      (list 'message      "Message"      :information :asterisk    "OK"  #f   #f       #t 'yes)
+      (list 'question     "Question"     :exclamation :exclamation "Yes" "No" #f       #t 'no)
       (list 'confirmation "Confirmation" :exclamation :exclamation "Yes" "No" "Cancel" #t 'cancel)
-      (list 'problem      "Problem"      :error       :hand        "OK"  {}   {}       #t 'yes)
-      (list 'error        "Error"        :error       :hand        "OK"  {}   "Cancel" #t 'cancel)
-      (list 'custom       "Message"      :information :asterisk    {}    {}   {}       #t {})))
+      (list 'problem      "Problem"      :error       :hand        "OK"  #f   #f       #t 'yes)
+      (list 'error        "Error"        :error       :hand        "OK"  #f   "Cancel" #t 'cancel)
+      (list 'custom       "Message"      :information :asterisk    #f    #f   #f       #t #f)))
   
   
   (definition (type-info type)
@@ -143,10 +143,10 @@
                    (lambda (button)
                      (when (get-visible?~ button)
                        (bind (title name . optional) (get-user-data~ button)
-                         (let ((shortcut-key (if (null? optional) {} (car optional))))
+                         (let ((shortcut-key (if (null? optional) #f (car optional))))
                            (let* ((result (get-name~ button))
                                   (title (localize (get-title~ button)))
-                                  (first (either shortcut-key (element title 0))))
+                                  (first (or shortcut-key (element title 0))))
                              (when (ci=? first key)
                                (end-modal-dialog result)
                                (continuation-return return)))))))))
@@ -165,17 +165,17 @@
   
   (method public (process-box text
                               (type: type 'message)
-                              (title: title {})
-                              (size: size {})
-                              (icon: icon {})
-                              (content: content {})
+                              (title: title #f)
+                              (size: size #f)
+                              (icon: icon #f)
+                              (content: content #f)
                               (sound: sound 'default)
-                              (selection: selection {})
-                              (yes: yes {})
-                              (no: no {})
-                              (cancel: cancel {})
+                              (selection: selection #f)
+                              (yes: yes #f)
+                              (no: no #f)
+                              (cancel: cancel #f)
                               (actions: actions '())
-                              (default-button: default-button {})
+                              (default-button: default-button #f)
                               (process-keys?: process-keys? #t))
     (define (layout-dialog dialog title size)
       (let* ((desktop (get-desktop))
@@ -190,19 +190,19 @@
       (set! user-content~self content)
       (let ((dialog (get-player))
             (host (get-host))
-            (title (either title default-title))
-            (icon (either icon default-icon))
+            (title (or title default-title))
+            (icon (or icon default-icon))
             (sound (if (eq? sound 'default) default-sound sound))
-            (yes (either yes default-yes))
-            (no (either no default-no))
-            (cancel (either cancel default-cancel)))
+            (yes (or yes default-yes))
+            (no (or no default-no))
+            (cancel (or cancel default-cancel)))
         (when (and cancel (not (member? 'cancel actions key: second)))
           (set! actions (cons (list cancel 'cancel) actions)))
         (when (and no (not (member? 'no actions key: second)))
           (set! actions (cons (list no 'no) actions)))
         (when (and yes (not (member? 'yes actions key: second)))
           (set! actions (cons (list yes 'yes) actions)))
-        (let* ((default-button (either default-button (second (first actions))))
+        (let* ((default-button (or default-button (second (first actions))))
                (dialog-size (layout-box text selection title size icon content actions default-button)))
           (layout-dialog dialog title dialog-size)
           (play-sound sound)
@@ -235,7 +235,7 @@
              (fact (new List-Factory))
              (setup-button
                (lambda (action)
-                 (bind (title button-name @w (shortcut-key {})) action
+                 (bind (title button-name @w (shortcut-key #f)) action
                    (increase! count)
                    (let* ((handler (new Event-Handler target-name: :guest method-name: 'on-select properties: (list button: button-name)))
                           (button (new Push-Button name: button-name parent: self position: (new Point (* count 75) 72) size: size user-data: action action-handler: handler default?: (eq? button-name default))))

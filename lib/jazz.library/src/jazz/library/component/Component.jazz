@@ -65,20 +65,21 @@
   (definition Layout-Valid-Flag #x00000100)
   
   
-  (slot name                         initialize {})
-  (slot parent                       initialize {})
-  (slot branch                       initialize {})   ;; the immediatly installed branch
-  (slot creation-form                initialize {})   ;; the form that created the component
-  (slot creator                      initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
-  (slot creator-branch               initialize {})   ;; the branch that created the component ({} if none)
+  (slot name                         initialize #f)
+  (slot parent                       initialize #f)
+  (slot branch                       initialize #f)   ;; the immediatly installed branch
+  (slot branch2                      initialize #f)   ;; the immediatly installed branch
+  (slot creation-form                initialize #f)   ;; the form that created the component
+  (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
+  (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
   (slot event-consumer               initialize self)
   (slot designers                    initialize '())
-  (slot surrogate                    initialize {} accessors generate)
-  (slot index                        initialize {})
+  (slot surrogate                    initialize #f accessors generate)
+  (slot index                        initialize #f)
   (slot flags                 <fx>   initialize Visible-Flag)
   
   
-  (property before                   initialize {}  accessors explicit)
+  (property before                   initialize #f  accessors explicit)
   (property children                 initialize '() accessors explicit)
   (property visible?          <void>                accessors explicit)
   (property class-info        <void>                getter get-class-info)
@@ -135,8 +136,16 @@
     branch)
   
   
+  (method public inline (get-branch2)
+    branch2)
+  
+  
   (method public inline (set-branch value)
     (set! branch value))
+  
+  
+  (method public inline (set-branch2 value)
+    (set! branch2 value))
 
 
   (method public inline (get-form)
@@ -287,11 +296,11 @@
 
 
   (method protected virtual (default-name)
-    {})
+    #f)
 
 
   (method protected virtual (default-parent)
-    {})
+    #f)
   
   
   (method protected virtual (setup-parent)
@@ -300,13 +309,13 @@
 
   (method protected chained (prepare initargs <Object>)
     (define (prepare-parent)
-      (let ((arg (getf initargs parent: not-found: {})))
+      (let ((arg (getf initargs parent: not-found: #f)))
         (set! parent (if (not arg) (default-parent) arg))
         (setup-parent)))
     
     (define (prepare-component)
-      (set-name (either (getf initargs name:) (default-name)))
-      (set-form (either (getf initargs form:) (get-class-form)))
+      (set-name (or (getf initargs name:) (default-name)))
+      (set-form (or (getf initargs form:) (get-class-form)))
       (set-creator (getf initargs creator:))
       (set-creator-branch (getf initargs creator-branch:)))
     
@@ -321,7 +330,7 @@
     (define (install-inherited forms)
       (when (not-null? forms)
         (install-inherited (cdr forms))
-        (install-form (car forms) self {} {})))
+        (install-form (car forms) self #f #f)))
     
     (install-component))
   
@@ -343,7 +352,7 @@
       (case action
         ((new)
          (let* ((unit (get-tag-unit~ form))
-                (model (if unit (module-ref unit (get-model-name~ form)) (form-model~ (either creator self) form))))
+                (model (if unit (module-ref unit (get-model-name~ form)) (form-model~ (or creator self) form))))
            (if (not model)
                (error "Unable to find autoload {s} in {s}" (get-model-name~ form) unit)
              (let ((component (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)))
@@ -376,8 +385,8 @@
   
   
   (method public virtual (find-to-modify name <Object> test <procedure>)
-    (either (find-component-with name test)
-            (locate name)))
+    (or (find-component-with name test)
+        (locate name)))
   
   
   ;; This is a very poor version of automatically being able to override subform classes.
@@ -387,12 +396,12 @@
 
 
   (method protected chained (finish initargs <Object>)
-    (bind-keywords ((form {}) (creator {}) . others) initargs
+    (bind-keywords ((form #f) (creator #f) . others) initargs
       (when form
         ;; setting the creator to #t is a service for Form instantiate
         (if (neq? creator #t)
-            (install-form form creator {} {})
-          (install-form form self {} {})
+            (install-form form creator #f #f)
+          (install-form form self #f #f)
           (set! creator~self self)))
       (write-properties initargs)))
   
@@ -554,8 +563,8 @@
   (method public (get-filtered-properties (filter: filter 'categorized))
     (define (get-all-properties filter)
       (sort (lambda (x y)
-              (let ((xr (get-filter-rank~ (get-row-class x)))
-                    (yr (get-filter-rank~ (get-row-class y))))
+              (let ((xr (get-filter-rank~ (get-domain~ (class-of self) x)))
+                    (yr (get-filter-rank~ (get-domain~ (class-of self) y))))
                 (or (< xr yr)
                     (and (= xr yr)
                          (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))))
@@ -567,7 +576,7 @@
       (and (property? property)
            (property-getter property)
            (or (memq? filter '(all categorized))
-               (let ((name (get-filter-name~ (get-row-class property))))
+               (let ((name (get-filter-name~ (get-domain~ (class-of self) property))))
                  (if (symbol? filter)
                      (eq? name filter)
                    (memq? name filter))))
@@ -583,8 +592,8 @@
                            (cond ((string? object)
                                   object)
                                  ((symbol? object)
-                                  (either (category-field class object)
-                                          (error "Field {t} is undefined in {t}" object class)))
+                                  (or (category-field class object)
+                                      (error "Field {t} is undefined in {t}" object class)))
                                  (else
                                   (map standardize object))))))
                 (standardize properties)))))
@@ -604,7 +613,7 @@
 
 
   (method public virtual (add-child child <Object>)
-    (let ((before (essay (is? child Component) (get-before~ child))))
+    (let ((before (and (is? child Component) (get-before~ child))))
       (if (not before)
           (set! children (append! children (list child)))
         (send-child-before child (find-component before)))))
@@ -625,7 +634,7 @@
   (method public virtual (replace-child rank <fx> replacement <Object>)
     (let ((child (element children rank)))
       (set-parent~ replacement self)
-      (set-parent~ child {})
+      (set-parent~ child #f)
       (set! children (insert! (remove! replacement children) rank replacement))))
   
   
@@ -647,13 +656,13 @@
   
   (method public (send-child-before child <Object> target)
     (let* ((removed (remove! child children))
-           (rank (essay target (either (find removed target) (error "Unable to find: {t}" target)))))
+           (rank (and target (or (find removed target) (error "Unable to find: {t}" target)))))
       (set! children (insert! removed rank child))))
   
   
   (method public (child name <Object>)
-    (either (find-component name)
-            (error "Could not find child {t}" name)))
+    (or (find-component name)
+        (error "Could not find child {t}" name)))
   
   
   (method public (find-component name <Object>)
@@ -675,21 +684,21 @@
                      sub
                    (find-component~ sub next))))))
           (else
-           (either (component-alias name)
-                   (find-child-with name test)))))
+           (or (component-alias name)
+               (find-child-with name test)))))
   
   
   (method public (brother name <Object>)
     (child~ parent name))
   
   
-  (method public (next-brother (type: type {}))
+  (method public (next-brother (type: type #f))
     (if (not parent)
         self
       (next-child~ parent self type: type)))
   
   
-  (method public (previous-brother (type: type {}))
+  (method public (previous-brother (type: type #f))
     (if (not parent)
         self
       (previous-child~ parent self type: type)))
@@ -747,10 +756,10 @@
           (lambda (component level)
             (when (predicate component)
               (continuation-return return component))))
-        {})))
+        #f)))
   
   
-  (method public (collect-ascendants (type {}))
+  (method public (collect-ascendants (type #f))
     (let ((ascendants '())
           (parent (get-parent)))
       (while (and parent (or (not type) (is-not? parent type)))
@@ -822,7 +831,7 @@
     (for-each-parent proc))
   
   
-  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t) (stop-test: stop-test {}))
+  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t) (stop-test: stop-test #f))
     (when include-self?
       (proc self 0))
     (let (iter (component self)
@@ -917,7 +926,7 @@
                      sub
                    (locate-component~ sub next))))))
           (else
-           (essay index (table-ref index name #f)))))
+           (and index (table-ref index name #f)))))
 
 
   ;;;
@@ -961,13 +970,13 @@
     (last children))
   
   
-  (method public (next-child child (type: type {}))
+  (method public (next-child child (type: type #f))
     (let ((children (if type (collect-type type children) children)))
       (let ((rank (find children child)))
         (element children (modulo (+ rank 1) (length children))))))
   
   
-  (method public (previous-child child (type: type {}))
+  (method public (previous-child child (type: type #f))
     (let ((children (if type (collect-type type children) children)))
       (let ((rank (find children child)))
         (element children (modulo (- rank 1) (length children))))))
@@ -1013,7 +1022,7 @@
   
   (method public (get-active-branch)
     (if (not branch)
-        (essay (is? self Branch) self)
+        (and (is? self Branch) self)
       (get-active-branch~ branch)))
   
   
@@ -1030,20 +1039,38 @@
         (get-presentation-property~ branch))))
   
   
-  (method public (set-active-branch active-branch)
-    (if (or (not active-branch) (eq? active-branch self))
+  (method public (set-active-branch br)
+    (if (or (not br) (eq? br self))
         (when branch
           (restore-client~ branch))
-      (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
-        (install-branch~ branch {}))))
+      (let ((branch (if (is? br Branch) br (locate br))))
+        (install-branch~ branch #f))))
   
   
   (method protected virtual (install-branch br)
     (when (neq? br branch)
       (when branch
+        ;; should restore all branches non-recursively
         (restore-client~ branch))
       (when br
         (configure-client~ br))))
+  
+  
+  (method public (set-active-branch2 br)
+    (if (or (not br) (eq? br self))
+        (when branch2
+          (restore-client~ branch2))
+      (let ((branch (if (is? br Branch) br (locate br))))
+        (install-branch2~ branch self))))
+  
+  
+  (method protected (install-branch2 br)
+    (when (neq? br branch2)
+      (when branch2
+        (restore-client~ branch2))
+      (when br
+        (configure-client~ br)
+        (set! branch2 br))))
   
   
   (method public (for-each-branch proc)
@@ -1068,8 +1095,8 @@
       (cons branch (get-installed-branches~ branch))))
   
   
-  (method public (iterate-branch-spine proc (branch: branch {}))
-    (let ((branch (either branch (get-active-branch))))
+  (method public (iterate-branch-spine proc (branch: branch #f))
+    (let ((branch (or branch (get-active-branch))))
       (while (is? branch Branch)
         (proc branch (get-client-form~ branch))
         (set! branch (get-parent~ branch)))
@@ -1101,7 +1128,7 @@
   
   
   (method public virtual (get-integrity-manager)
-    {})
+    #f)
   
   
   (method public virtual (validate-component root client context manager)
@@ -1192,7 +1219,7 @@
   
   (method public virtual (present-path root)
     (let ((path '())
-          (pres {})
+          (pres #f)
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
@@ -1219,7 +1246,7 @@
   (method public (unfold-branches (branches: branches #t) (properties: properties '()) (include-root?: include-root? #t))
     (let* ((form (get-form~ (get-creator)))
            (active-branch (get-branch))
-           (active-branch-name (essay active-branch (get-name~ active-branch)))
+           (active-branch-name (and active-branch (get-name~ active-branch)))
            (all-branch-names (map get-name~ (get-branches)))
            (instantiate
              (lambda (branch-name)
@@ -1233,7 +1260,7 @@
                    client)))))
       (if (eq? branches #t)
           (if include-root?
-              (cons (instantiate {}) (map instantiate all-branch-names))
+              (cons (instantiate #f) (map instantiate all-branch-names))
             (map instantiate all-branch-names))
         (map instantiate branches))))
 
@@ -1260,6 +1287,10 @@
   
   (method meta public virtual (get-domain property)
     (class-get-domain~ (get-descriptor self) self property))
+  
+  
+  (method meta public virtual (get-domain-class property)
+    (class-get-domain-class~ (get-descriptor self) self property))
   
   
   (method meta public (get-class-presentation)
@@ -1432,18 +1463,6 @@
   
   (method public (property-domain property)
     (component-property-domain~ (get-descriptor (class-of self)) self property))
-  
-  
-  (method public (get-row-class property)
-    (component-get-row-class~ (get-descriptor (class-of self)) self property))
-  
-  
-  (method public (get-row-instance property)
-    (component-get-row-instance~ (get-descriptor (class-of self)) self property))
-  
-  
-  (method public (update-property-row row)
-    (component-update-property-row~ (get-descriptor (class-of self)) self row))
   
   
   (method public (get-addable-default)

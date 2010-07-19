@@ -54,7 +54,7 @@
 
 
 (definition local-process
-  {})
+  #f)
 
 
 (definition public (get-local-process)
@@ -72,10 +72,10 @@
 
 
 (definition controller-debugger
-  {})
+  #f)
 
 (definition controller-debugger-cookie
-  {})
+  #f)
 
 
 (definition public (get-controller-debugger)
@@ -101,19 +101,19 @@
 (definition public (detach-from-controller)
   (when controller-debugger
     (detach-from-debugger)
-    (set! local-process {})))
+    (set! local-process #f)))
 
 
 (definition public (detach-from-debugger)
   (when controller-debugger
     (when (live?~ controller-debugger)
       (detach-process~ controller-debugger local-process))
-    (set! controller-debugger {})
+    (set! controller-debugger #f)
     (detach-consoles)))
 
 
-(definition package (setup-debuggee (debugger: debugger {}))
-  (let ((debugger-arg (either debugger (command-argument "debugger")))
+(definition package (setup-debuggee (debugger: debugger #f))
+  (let ((debugger-arg (or debugger (command-argument "debugger")))
         (interactive-arg (command-argument "debugger-interactive")))
     (when debugger-arg
       (receive (host port) (parse-host/service debugger-arg)
@@ -121,7 +121,7 @@
             (error "Ill-formed debugger argument: {a}" debugger-arg)
           (load-debuggee-units)
           (start-remote-listener)
-          (attach-to-controller (new-remote-register (either host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
+          (attach-to-controller (new-remote-register (or host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
           (current-input-port (console-input-port))
           (current-output-port (console-output-port)))))))
 
@@ -213,7 +213,7 @@
 
 
 (definition public current-loop
-  (make-parameter {}))
+  (make-parameter #f))
 
 
 (definition public (with-current-loop thunk)
@@ -245,9 +245,9 @@
     (set! pump~self pump)
     (set! tail~self tail)
     (set! head~self head)
-    (set! readtable~self {})
+    (set! readtable~self #f)
     (set! context~self (unspecified))
-    (set! history~self {})))
+    (set! history~self #f)))
 
 
 (definition *consoles*
@@ -264,13 +264,13 @@
 
 (definition (thread-console thread (select? #f))
   (if (not controller-debugger)
-      {}
+      #f
     (with-consoles-mutex
       (lambda ()
-        (either (table-ref *consoles* thread #f)
-                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
-                  (table-set! *consoles* thread console)
-                  console))))))
+        (or (table-ref *consoles* thread #f)
+            (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
+              (table-set! *consoles* thread console)
+              console))))))
 
 
 (definition package (thread-console-pump-port thread)
@@ -284,7 +284,7 @@
   (thread-console (current-thread)))
 
 (definition current-console-context
-  (make-parameter {}))
+  (make-parameter #f))
 
 
 (definition (make-debuggee-console thread-proxy select?)
@@ -359,7 +359,7 @@
   (make-parameter 0))
 
 (definition package current-repl-frame
-  (make-parameter {}))
+  (make-parameter #f))
 
 
 (definition (with-repl-thread thread reason port level thunk (step?: step? #f))
@@ -423,7 +423,7 @@
   (define (read-eval-print thread resume port level)
     (let ((console (thread-console thread)))
       (let ((expr (parameterize ((walk-for 'eval))
-                    (with-readtable (either (essay console (get-readtable~ console)) scheme-readtable)
+                    (with-readtable (or (and console (get-readtable~ console)) scheme-readtable)
                       (lambda ()
                         (with-exception-filter
                           (lambda (exc)
@@ -432,7 +432,7 @@
                             (thread-post thread 'exception
                               (lambda ()
                                 (throw exc)))
-                            (continuation-return resume {}))
+                            (continuation-return resume #f))
                           (lambda ()
                             (read port))))))))
         (if (eof-object? expr)
@@ -481,10 +481,10 @@
             (cond ((not process)
                    (if (eq? context :default)
                        (new Me)
-                     {}))
+                     #f))
                   ((eq? context :default)
-                   (either (process-alias~ process :profile)
-                           (process-alias~ process :process)))
+                   (or (process-alias~ process :profile)
+                       (process-alias~ process :process)))
                   ((eq? context :me)
                    (context-alias :profile))
                   (else
@@ -500,14 +500,14 @@
                   ((pair? unquoted)
                    (values (car unquoted) (cdr unquoted)))
                   (else
-                   (values {} {}))))
-        (values {} {})))
+                   (values #f #f))))
+        (values #f #f)))
     
     (define (current-frame)
       (let ((frame-box (current-repl-frame)))
         (if frame-box
             (unbox frame-box)
-          {})))
+          #f)))
     
     (define (frame-evaluator frame)
       (if frame
@@ -520,18 +520,18 @@
               (eval expr))))))
     
     (let ((console (current-console)))
-      (let ((context (if (not console) {} (context-init console))))
+      (let ((context (if (not console) #f (context-init console))))
         (receive (command arguments) (parse-unquote-command expr)
           (if (eq? command 'in)
               (if (null? arguments)
                   context
                 (let ((ctx (car arguments)))
-                  (let ((new-context (either (context-alias ctx) (evaluate ctx))))
+                  (let ((new-context (or (context-alias ctx) (evaluate ctx))))
                     (when (symbol? new-context)
                       (load-unit new-context))
                     (when console
                       (set-context~ console new-context)
-                      (set-readtable~ console (if (not new-context) {} jazz-readtable)))
+                      (set-readtable~ console (if (not new-context) #f jazz-readtable)))
                     new-context)))
             (let ((frame (current-frame)))
               (let ((evaluator (frame-evaluator frame)))
@@ -565,7 +565,7 @@
       (let ((local-variables (if frame (get-variables~ frame :lexical) '())))
         (let ((local-names (local-names local-variables))
               (local-self (local-self local-variables)))
-          (let ((effective-context (either local-self context)))
+          (let ((effective-context (or local-self context)))
             (cond ((not effective-context)
                    (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
                                   (generate-symbol-counter 0))
@@ -651,18 +651,18 @@
     (thunk)))
 
 
-(definition protected (break-internal (reason: reason {}))
+(definition protected (break-internal (reason: reason #f))
   (continuation-capture
     (lambda (continuation)
-      (invoke-debugger 'break reason {} {} continuation))))
+      (invoke-debugger 'break reason #f #f continuation))))
 
 
-(definition protected (start-repl-internal (reason: reason {}) (select?: select? #t))
+(definition protected (start-repl-internal (reason: reason #f) (select?: select? #t))
   (continuation-capture
     (lambda (continuation)
       (when select?
         (select-console))
-      (invoke-repl reason {} continuation))))
+      (invoke-repl reason #f continuation))))
 
 
 ;;;
@@ -676,7 +676,7 @@
     (lambda (locat executer)
       (continuation-capture
         (lambda (cont)
-          (invoke-debugger 'break {} {} {} cont
+          (invoke-debugger 'break #f #f #f cont
             locat: locat
             stepper: (lambda (cmd)
                        (continuation-graft cont
@@ -695,6 +695,133 @@
 
 
 ;;;
+;;;; Advice
+;;;
+
+
+(definition advice-originals
+  (make-table test: eq?))
+
+(definition public (gap)
+  advice-originals)
+
+
+;; a.b.c/d/e (a.b.c d e)
+(definition protected (advice-internal what proc)
+  (define (advice-all)
+    (iterate-table (get-modules)
+      (lambda (module-name module)
+        (advice-module module))))
+  
+  (define (advice-symbol symbol)
+    (advice-path (map string->symbol (split (symbol->string symbol) "/"))))
+  
+  (define (advice-path path)
+    (bind (module-name . rest) path
+      (let ((module (require-module module-name)))
+        (if (null? rest)
+            (advice-module module)
+          (bind (name . rest) rest
+            (let ((entry (table-ref (get-entries~ module) name)))
+              (if (null? rest)
+                  (advice-entry module entry)
+                (assert (category? entry)
+                  (advice-class-field module entry (category-field entry (car rest)))))))))))
+  
+  (define (advice-module module)
+    (iterate-table (get-entries~ module)
+      (lambda (name entry)
+        (advice-entry module entry))))
+  
+  (define (advice-entry module entry)
+    (typecase entry
+      ((Field)
+       (advice-field entry))
+      ((Class)
+       (advice-class module entry))))
+
+  (define (advice-field field)
+    (let ((locator (field-locator~ field)))
+      (call-proc field
+                 locator
+                 (lambda () (field-ref~ field))
+                 (lambda (value) (field-set!~ field value)))))
+  
+  (define (advice-class module class)
+    (iterate-table (get-fields~ class)
+      (lambda (name field)
+        (advice-class-field module class field)))
+    (iterate-class-overrides class
+      (lambda (method)
+        (advice-method module class method))))
+  
+  (define (advice-class-field module class field)
+    (typecase field
+      ((Slot))
+      ((Method)
+       (advice-method module class field))
+      ((Field)
+       (advice-field field))))
+  
+  (define (advice-method module class method)
+    (let ((name (get-name~ method)))
+      (let ((locator (compose-name (get-name~ module) (get-name~ class) name)))
+        (call-proc method
+                   locator
+                   (lambda () (find-dispatch class name))
+                   (lambda (value) (update-method class name value))))))
+  
+  (define (call-proc field locator ref set)
+    (define (original)
+      (or (table-ref advice-originals locator #f)
+          (ref)))
+    
+    (proc field
+          locator
+          original
+          (lambda (value)
+            (let ((original (original)))
+              (let ((value (or value original)))
+                (if (eq? value original)
+                    (table-clear advice-originals locator)
+                  (table-set! advice-originals locator original))
+                (set value))))))
+  
+  (cond @wait-recursive-problems
+        ((not what)
+         (advice-all))
+        ((symbol? what)
+         (advice-symbol what))
+        ((null/pair? what)
+         (advice-path what))))
+
+
+(definition protected (unadvice-internal what)
+  (advice what
+          (lambda (field locator original set)
+            (set #f))))
+
+
+;;;
+;;;; Trace
+;;;
+
+
+(definition protected (trace-internal what)
+  (advice what
+          (lambda (field locator original set)
+            (let ((obj (original)))
+              (when (procedure? obj)
+                (set (lambda rest
+                       (terminal (get-name~ field))
+                       (apply obj rest))))))))
+
+
+(definition protected (untrace-internal what)
+  (unadvice what))
+
+
+;;;
 ;;;; Debugger
 ;;;
 
@@ -705,7 +832,7 @@
         (level (if (not (current-loop)) 0 (+ (current-repl-level) 1))))
     (with-repl-thread thread reason port level
       (lambda ()
-        (parameterize ((current-repl-frame (box {})))
+        (parameterize ((current-repl-frame (box #f)))
           (with-current-loop
             (lambda ()
               (let ((process (get-process)))
@@ -714,7 +841,7 @@
                   (process-debuggee-loop~ process))))))))))
 
 
-(definition public (invoke-debugger kind reason detail exc continuation (locat: locat {}) (stepper: stepper {}))
+(definition public (invoke-debugger kind reason detail exc continuation (locat: locat #f) (stepper: stepper #f))
   ;; this is a temporary solution to threads keeping the load-mutex locked
   ;; see the todo file for details on what needs to be done for a clean solution
   (define (release-load-mutex!)
@@ -737,7 +864,7 @@
         (level (+ (current-repl-level) 1)))
     (with-repl-thread thread reason port level
       (lambda ()
-        (parameterize ((current-repl-frame (box {})))
+        (parameterize ((current-repl-frame (box #f)))
           (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
             (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
@@ -761,7 +888,7 @@
 
 (definition package (debuggee-loop)
   (let (loop)
-    (with-restart-catcher 'resume-loop (present-current-loop-restart) {}
+    (with-restart-catcher 'resume-loop (present-current-loop-restart) #f
       (lambda ()
         (let ((thunk (thread-read)))
           (with-jazz-exception-debugger

@@ -77,13 +77,13 @@
 
 
   (method override (initialize (textual?: textual? #t)
-                      (origin: origin {})
-                      (context: context {})
-                      (action: action {})
-                      (model-name: model-name {})
-                      (name: name {})
+                      (origin: origin #f)
+                      (context: context #f)
+                      (action: action #f)
+                      (model-name: model-name #f)
+                      (name: name #f)
                       (tag-symbolic?: tag-symbolic? #f)
-                      (tag-unit: tag-unit {})
+                      (tag-unit: tag-unit #f)
                       (properties: properties '())
                       (children: children '()))
     (define (canonicalize-properties lst)
@@ -91,7 +91,7 @@
         (set-car! lst (keyword->symbol (car lst)))
         (set! lst (cddr lst))))
     
-    (nextmethod {} {})
+    (nextmethod #f #f)
     (set! origin~self origin)
     (set! context~self context)
     (set! action~self action)
@@ -176,8 +176,8 @@
   
   
   (method public (child name)
-    (either (find-child name)
-            (error "Could not find child {t}" name)))
+    (or (find-child name)
+        (error "Could not find child {t}" name)))
 
 
   (method public (find-child name)
@@ -209,7 +209,7 @@
   
   (method public (send-child-before child target)
     (let* ((removed (remove! child children))
-           (rank (essay target (either (find removed target) (error "Unable to find: {t}" target)))))
+           (rank (and target (or (find removed target) (error "Unable to find: {t}" target)))))
       (set! children (insert! removed rank child))))
   
   
@@ -224,8 +224,8 @@
   
   ;; This is a bit of a heuristic...
   (method public (get-presentation)
-    (either (get-property 'title)
-            (get-class-presentation~ (get-model))))
+    (or (get-property 'title)
+        (get-class-presentation~ (get-model))))
 
   
   ;;;
@@ -238,7 +238,7 @@
 
 
   (method public (remember-reference unused name)
-    (let ((form (new Restore-Form context: self action: 'modify model-name: {} name: name properties: '() children: '())))
+    (let ((form (new Restore-Form context: self action: 'modify model-name: #f name: name properties: '() children: '())))
       (set! children (cons form children))
       form))
 

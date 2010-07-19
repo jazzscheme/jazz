@@ -42,13 +42,13 @@
 
 
 (class Branch extends Component
-    
-  
-  (property client-form initialize {} accessors generate)
   
   
-  (slot client       initialize {} accessors generate)
-  (slot restore-form initialize {} getter generate)
+  (property client-form initialize #f accessors generate)
+  
+  
+  (slot client       initialize #f accessors generate)
+  (slot restore-form initialize #f getter generate)
   (slot restoreable? initialize #t accessors generate)
 
   
@@ -71,9 +71,24 @@
   (method override (install-branch br)
     (install-branch~ parent self)
     (nextmethod br))
+  
+  
+  @w
+  (method override (install-branch2 client)
+    (define (iii installed-branch branch)
+      (when (is? branch Branch)
+        (let ((installed-branch (new Installed-Branch client branch)))
+          (install-branch2~ branch client)
+      )))
+    
+    (let ((installed-branch (new Installed-Branch client self)))
+      
+    (install-branch2~ client br)
+      (set-branch2~ client installed-branch)))
 
 
   (method protected (configure-client)
+    ;(debug 'configure name)
     (when restoreable?
       (set! restore-form (new Restore-Form context: self action: 'install)))
     (let ((configured (configure-inherited)))
@@ -117,9 +132,10 @@
   (method protected (restore-client)
     (when branch
       (restore-client~ branch))
-    (set-branch~ parent {})
-    (install-form~ client restore-form client {} {})
-    (set! restore-form {}))
+    ;(debug 'restore name)
+    (set-branch~ parent #f)
+    (install-form~ client restore-form client #f #f)
+    (set! restore-form #f))
   
   
   ;;;
@@ -158,7 +174,7 @@
   
   
   (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (string->symbol presentation) branch: {}))
+    (set-name~ designer component (string->symbol presentation) branch: #f))
   
   
   (method override (component-display-property? component property)

@@ -1,0 +1,118 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Installed Branch
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.library.component.Installed-Branch jazz
+
+
+(import (jazz.library))
+
+
+(class Installed-Branch extends Object
+  
+  
+  (slot client           initialize #f accessors generate)
+  (slot branch           initialize #f accessors generate)
+  (slot installed-branch initialize #f accessors generate)
+  (slot restore-form     initialize #f getter generate)
+
+  
+  (method override (initialize client branch)
+    (nextmethod)
+    (set! client~self client)
+    (set! branch~self branch))
+  
+  
+  ;;;
+  ;;;; Install
+  ;;;
+  
+  
+  (method (install-branch2)
+    )
+
+
+  (method protected (configure-client)
+    @w
+    (when restoreable?
+      (set! restore-form (new Restore-Form context: self action: 'install)))
+    (let ((client-form (get-client-form~ branch))
+          (configured (configure-inherited)))
+      (when (neq? client-form configured)
+        (install-form~ client client-form (get-creator~ client) self restore-form)))
+    @w (set-branch~ parent self))
+  
+  
+  ;; quicky to test
+  (method (configure-inherited)
+    #f
+    @w
+    (let ((form (get-class-form)))
+      (when form
+        (let ((client-form (get-property~ form client-form:)))
+          (when client-form
+            (install-form~ client client-form (get-creator~ client) self restore-form)
+            client-form)))))
+  
+  
+  @convert
+  (method (configure-inherited model)
+    (when (subtype? model Branch)
+      (let ((configured (configure-inherited (class-ascendant model)))
+            (form (get-class-form~ model)))
+        (when form
+          (let ((client-form (get-property~ form client-form:)))
+            (when client-form
+              (when (neq? client-form configured)
+                (install-form~ client client-form creator self restore-form))
+              client-form))))))
+  
+  
+  (method public (installed?)
+    restore-form)
+  
+  
+  ;;;
+  ;;;; Uninstall
+  ;;;
+  
+  
+  (method protected (restore-client)
+    (when branch
+      (restore-client~ branch))
+    @w (set-branch~ parent #f)
+    (install-form~ client restore-form client #f #f)
+    (set! restore-form #f))))

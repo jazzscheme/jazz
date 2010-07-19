@@ -625,7 +625,7 @@
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.create-class-tables class)
     (jazz.initialize-slots class)
-    ((%%class-dispatch class 0 0) class)
+    ((%%class-dispatch class-of-class 0 0) class)
     class))
 
 
@@ -704,7 +704,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz.initialize-slots object)
-      (apply (%%class-dispatch object 0 0) object rest)
+      (apply (%%class-dispatch class 0 0) object rest)
       object)))
 
 
@@ -712,7 +712,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz.initialize-slots object)
-      ((%%class-dispatch object 0 0) object)
+      ((%%class-dispatch class 0 0) object)
       object)))
 
 
@@ -720,7 +720,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz.initialize-slots object)
-      ((%%class-dispatch object 0 0) object arg1)
+      ((%%class-dispatch class 0 0) object arg1)
       object)))
 
 
@@ -728,7 +728,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz.initialize-slots object)
-      ((%%class-dispatch object 0 0) object arg1 arg2)
+      ((%%class-dispatch class 0 0) object arg1 arg2)
       object)))
 
 
@@ -2253,6 +2253,35 @@
 (jazz.encapsulate-class jazz.Method)
 
 
+(define (jazz.iterate-class-overrides class proc)
+  (let ((ascendant (%%get-class-ascendant class)))
+    (let iter ((ancestor ascendant))
+         (if ancestor
+             (begin
+               (%%iterate-table (%%get-category-fields ancestor)
+                 (lambda (name field)
+                   (if (and (%%is? field jazz.Method)
+                            (let ((dispatch-type (%%get-method-dispatch-type field)))
+                              (or (%%eq? dispatch-type 'class)
+                                  (%%eq? dispatch-type 'interface)))
+                            (let ((category-rank (%%get-method-category-rank field))
+                                  (implementation-rank (%%get-method-implementation-rank field)))
+                              (%%neq? (%%class-dispatch class category-rank implementation-rank)
+                                      (%%class-dispatch ascendant category-rank implementation-rank))))
+                       (proc field))))
+               (iter (%%get-class-ascendant ancestor)))))))
+
+
+(define (jazz.update-method class method-name method-implementation)
+  (let ((owner (jazz.locate-method-owner class method-name)))
+    (let ((field (%%get-category-field owner method-name)))
+      (if (%%eq? owner class)
+          (case (%%get-method-dispatch-type field)
+            ((class interface) (jazz.add-virtual-method class method-name method-implementation))
+            ((final) (jazz.add-final-method class method-name method-implementation)))
+        (jazz.add-method-node class method-name method-implementation)))))
+
+  
 ;;;
 ;;;; Final Method
 ;;;

@@ -151,7 +151,7 @@
                               (when (and designer (eq? form (get-form~ designer)))
                                 (continuation-return return frame)))))))
                     (all-frames include-invisibles?: #t))
-          {})))
+          #f)))
     
     (unimplemented 'on-design-form)
     @convert
@@ -160,7 +160,7 @@
       (if (not (subtype? class Component))
           (error "Only Component classes can be designed")
         (let* ((form (get-self-form~ class))
-               (frame (essay form (find-editor form))))
+               (frame (and form (find-editor form))))
             (if frame
                 (focus-host~ frame)
               (let* ((component (new class))
@@ -181,18 +181,18 @@
   
 
   (method override (get-tooltip-context view)
-    {}
+    #f
     @convert-manifest
     (when (and (in-manifest? 'Debugger) (debugging?~ Debugger))
       (let* ((pos (view->text view))
              (expl (new Jazz-Explorer self start: pos end: pos)))
-        (catch (Explore-Error err {})
+        (catch (Explore-Error err #f)
           (when (outer-expr~ expl atomic?: #t explore-whitespace?: #f)
             (let ((kind (get-kind~ expl)))
               (when (eq? kind 'symbol)
                 (let* ((range (get-range~ expl))
                        (location (range-location range))
-                       (text (essay location (present-location location))))
+                       (text (and location (present-location location))))
                   (when text
                     (let ((bounds (line-range-rect (get-line~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
                       (when (in-rect? view bounds)
@@ -390,7 +390,7 @@
   (method (location-class loc (load?: load? #f))
     @convert
     (let* ((class-name (car loc))
-           (class (global-value~ class-name load?)))
+           (class (global-ref~ class-name load?)))
       (if (not class)
           (error "Unable to find class: {t}" class-name)
         (let ((meta? #f))
@@ -414,9 +414,9 @@
            (let ((value (definition-value object)))
              (cond ((procedure? value) (values (+ 1 (field-modifiers-count object)) #t))
                    ((external? value) (values (+ 2 (field-modifiers-count object) 1) #t))
-                   (else {}))))
+                   (else #f))))
           (else
-           {})))
+           #f)))
   
   
   (method (declaration-name-location? object internal-location)
@@ -429,7 +429,7 @@
 
   (method (range-location range)
     (let ((expl (new Jazz-Explorer self start: (get-start~ range) end: (get-end~ range)))
-          (location {})
+          (location #f)
           (previous-def? #f)
           (done? #f))
       (while (not done?)
@@ -448,7 +448,7 @@
       location))
 
 
-  (method public (location-range location (toplevel-location: toplevel-location {}))
+  (method public (location-range location (toplevel-location: toplevel-location #f))
     (let ((expl (new Jazz-Explorer self end: (text-beginning))))
       (forward-location~ expl location toplevel-location: toplevel-location)
       (get-range~ expl)))
@@ -594,7 +594,7 @@
   
   (method (toplevel-expr pos)
     (let ((expl (new Jazz-Explorer self start: pos end: pos))
-          (range {}))
+          (range #f))
       (while (outer-expr~ expl)
         (set! range (get-range~ expl)))
       range))

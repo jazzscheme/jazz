@@ -112,7 +112,7 @@
       (jazz.with-uniqueness class
         (lambda (cls)
           (let ((obj (jazz.generate-symbol "obj")))
-            `(let ((,obj (##subtype-set! (%%make-vector ,size) (%%subtype-jazz))))
+            `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
                (%%set-object-class ,obj ,cls)
                (%%register-instance ,cls ,obj)
                ,obj)))))
@@ -166,7 +166,7 @@
    
    (jazz.define-macro (%%make-object size)
      (let ((object (jazz.generate-symbol "object")))
-       `(let ((,object (%%make-vector ,size)))
+       `(let ((,object (%%make-vector ,size (%%unspecified))))
           (%%object-set! ,object 0 %%object-marker)
           ,object)))
    

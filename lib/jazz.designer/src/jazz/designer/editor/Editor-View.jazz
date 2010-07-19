@@ -53,15 +53,15 @@
 (class undocumented Editor-View extends Layout-View implements Document
 
   
-  (property client initialize {} accessors explicit)
+  (property client initialize #f accessors explicit)
   
   
-  (slot designer   initialize {} getter generate)
+  (slot designer   initialize #f getter generate)
   (slot listeners  initialize '())
-  (slot undoer     initialize {})
+  (slot undoer     initialize #f)
   (slot selection  initialize '())
-  (slot controller initialize {})
-  (slot rights     initialize {} accessors generate)
+  (slot controller initialize #f)
+  (slot rights     initialize #f accessors generate)
   
   
   (method override (get-editor-view)
@@ -221,7 +221,7 @@
   
   
   (method override (destroy)
-    (set-client {})
+    (set-client #f)
     (close~ controller)
     (remove-editor-listener self)
     (close-application-selected)
@@ -262,7 +262,7 @@
   
   
   (method public (select-branch branch)
-    (when (neq? branch (either (get-active-branch~ client) client))
+    (when (neq? branch (or (get-active-branch~ client) client))
       (with-cursor :wait
         (lambda ()
           (process-branch-changing branch)))))
@@ -293,9 +293,9 @@
   
   (method protected (property-change branch component property value undoable?)
     (when undoable?
-      (let ((row-class (get-row-class~ component property))
+      (let ((domain (get-domain~ (class-of component) property))
             (property (symbolize-property property)))
-        (unless (or (subtype? row-class Info-Row) (find-changed-property branch component property))
+        (unless (or (= (get-filter-rank~ domain) 0) (find-changed-property branch component property))
           (register-undo~ undoer (list branch component property))))))
   
   
@@ -315,7 +315,7 @@
   
   
   (method public virtual (show-properties)
-    (select-docked Properties-Manager workspace: {} focus?: #t))
+    (select-docked Properties-Manager workspace: #f focus?: #t))
   
   
   ;;;
@@ -327,7 +327,7 @@
     selection)
 
 
-  (method public (set-selection new (origin: origin {}) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
+  (method public (set-selection new (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
     (let ((appl (get-application))
           (old selection))
       (process-selection-changing old new origin force-parent? force? focus?)
@@ -408,7 +408,7 @@
     (let ((parents (remove-duplicates (map get-parent~ components))))
       (if (= (length parents) 1)
           (car parents)
-        {})))
+        #f)))
   
   
   ;; I am not sure this is the simplest solution to branches modifying components that where selected...
@@ -427,7 +427,7 @@
   (method override (save-content moniker)
     (process-saving)
     (save-to~ designer moniker)
-    (set-name~ designer (get-client) (get-base~ moniker) branch: {})
+    (set-name~ designer (get-client) (get-base~ moniker) branch: #f)
     (update-moniker-time moniker)
     (if (not (get-modified?))
         (update-status)
@@ -500,7 +500,7 @@
         (when old
           (remove-surrogate~ old))
         (set! client clt)
-        (set! undoer (essay client (new Editor-Undoer self)))
+        (set! undoer (and client (new Editor-Undoer self)))
         (client-update)
         (process-client-change old client)
         (edit-component client)
@@ -529,10 +529,10 @@
   
   
   (method public (get-reference)
-    (essay designer (get-reference~ designer)))
+    (and designer (get-reference~ designer)))
   
   
-  (method public (edit-component component (form: form {}))
+  (method public (edit-component component (form: form #f))
     (define (get-edited-form component)
       (when component
         (let ((component-form (get-form~ component)))
@@ -544,7 +544,7 @@
     
     (when (neq? component (get-reference))
       (let ((old designer)
-            (form (either form (get-edited-form component))))
+            (form (or form (get-edited-form component))))
         (uninstall-current-designer)
         (when component
           (install-current-designer component form))
@@ -563,7 +563,7 @@
       (remove-designer-listener~ designer self)
       (when client
         (uninstall-designer~ client designer))
-      (set! designer {})))
+      (set! designer #f)))
   
   
   (method protected virtual (on-designer evt)

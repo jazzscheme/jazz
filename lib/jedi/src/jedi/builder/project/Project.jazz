@@ -50,24 +50,24 @@
 (class Project extends Project-File
   
   
-  (property title              initialize {}  accessors generate)
-  (property icon               initialize {}  accessors generate)
-  (property owner              initialize {}  accessors generate)
-  (property copyright          initialize {}  accessors generate)
-  (property version            initialize {}  accessors generate)
-  (property include-extensions initialize {}  accessors generate)
-  (property documentation      initialize {}  accessors generate)
-  (property editable?          initialize nil accessors generate)
-  (property active?            initialize #t  accessors generate)
-  (property catalog?           initialize #f  accessors generate)
-  (property catalog-extensions initialize {}  accessors generate)
-  (property catalog-heuristics initialize {}  accessors generate)
-  (property unit-name          initialize {}  accessors generate)
+  (property title              initialize #f accessors generate)
+  (property icon               initialize #f accessors generate)
+  (property owner              initialize #f accessors generate)
+  (property copyright          initialize #f accessors generate)
+  (property version            initialize #f accessors generate)
+  (property include-extensions initialize #f accessors generate)
+  (property documentation      initialize #f accessors generate)
+  (property editable?                        accessors generate)
+  (property active?            initialize #t accessors generate)
+  (property catalog?           initialize #f accessors generate)
+  (property catalog-extensions initialize #f accessors generate)
+  (property catalog-heuristics initialize #f accessors generate)
+  (property unit-name          initialize #f accessors generate)
 
 
   (slot workbench                    accessors generate)
-  (slot parent-project initialize {} accessors generate)
-  (slot catalog        initialize {} accessors generate)
+  (slot parent-project initialize #f accessors generate)
+  (slot catalog        initialize #f accessors generate)
   
   
   (form
@@ -103,7 +103,7 @@
 
 
   (method public virtual (project-title)
-    (either title (->string (category-identifier (class-of self)))))
+    (or title (->string (category-identifier (class-of self)))))
 
 
   ;;;
@@ -142,7 +142,7 @@
   
   
   (method (create-catalog)
-    (new Project-Catalog self (catalog-name) (catalog-output) {} {} {} {} #t))
+    (new Project-Catalog self (catalog-name) (catalog-output) #f #f #f #f #t))
   
   
   (method protected virtual (catalog-name)
@@ -161,7 +161,7 @@
   
   
   (method public virtual (get-effective-editable?)
-    (if (nil? editable?)
+    (if (unspecified? editable?)
         (get-effective-editable?~ parent-project)
       editable?))
 
@@ -194,7 +194,7 @@
                                (f x s)
                              s)))
                    (if (eq? ps :skip)
-                       {}
+                       #f
                      (for-each (lambda (c)
                                  (fold c f ps))
                                (get-children~ x))
@@ -217,7 +217,7 @@
   
   
   (method protected virtual (find-workbench)
-    (let ((project (either creator workbench)))
+    (let ((project (or creator workbench)))
       (if (is? project Workbench)
           project
         (find-ascendant Workbench))))
@@ -251,7 +251,7 @@
   
   
   (method public virtual (run-arguments)
-    {})
+    #f)
 
 
   ;;;
@@ -264,7 +264,7 @@
   
   
   (method public virtual (debug-arguments)
-    {})
+    #f)
 
 
   ;;;
@@ -334,7 +334,7 @@
   
   
   (method override (component-get-presentation component)
-    (either (get-title~ component) (->string (category-name (class-of component)))))
+    (or (get-title~ component) (->string (category-name (class-of component)))))
   
   
   (method override (component-set-presentation component designer presentation)
@@ -349,7 +349,7 @@
   (method override (component-get-addable-classes component)
     (list
       Project-Group
-      ;{}
+      ;#f
       ;Jazz-File
       ;C-File
       ))
@@ -357,9 +357,9 @@
   
   (method override (component-property-domain component property)
     (case (field-name property)
-      ((title) (new String-Row nullable?: #t))
-      ((include-extensions catalog-extensions catalog-heuristics) (new Value-Row))
-      ((documentation) (new File-Row))
+      ((title) (new String-Domain nullable?: #t))
+      ((include-extensions catalog-extensions catalog-heuristics) (new Value-Domain))
+      ((documentation) (new File-Domain))
       ((catalog? active?) (new Boolean-Domain))
       (else (nextmethod component property))))
   

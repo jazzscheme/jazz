@@ -49,17 +49,41 @@
 (jazz.define-class jazz.Module jazz.Object () jazz.Object-Class jazz.allocate-module
   ((name    %%get-module-name    ())
    (access  %%get-module-access  ())
-   (exports %%get-module-exports ())))
+   (exports %%get-module-exports ())
+   (entries %%get-module-entries ())))
 
 
 (jazz.define-class-runtime jazz.Module)
 
 
 (define (jazz.new-module name access)
-  (jazz.allocate-module jazz.Module name access (%%make-table test: eq?)))
+  (jazz.allocate-module jazz.Module name access (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz.encapsulate-class jazz.Module)
+
+
+;;;
+;;;; Native
+;;;
+
+
+(jazz.define-class jazz.Native jazz.Field (name) jazz.Object-Class jazz.allocate-native
+  ((symbol %%get-native-symbol ())))
+
+
+(jazz.define-class-runtime jazz.Native)
+
+
+(define (jazz.new-native name symbol)
+  (jazz.allocate-native jazz.Native name symbol))
+
+
+(jazz.encapsulate-class jazz.Native)
+
+
+(define (jazz.register-native module-name name symbol)
+  (jazz.register-module-entry module-name name (jazz.new-native name symbol)))
 
 
 ;;;
@@ -71,11 +95,15 @@
   (%%make-table test: eq?))
 
 
+(define (jazz.get-modules)
+  jazz.Modules)
+
+
 (define (jazz.register-module name access exported-modules exported-symbols)
-  (let ((module (jazz.new-module name access)))
+  (let ((module (or (jazz.get-module name) (jazz.new-module name access))))
     (let ((exports (%%get-module-exports module)))
       (for-each (lambda (module-name)
-                  (%%iterate-table (%%get-module-exports (jazz.get-module module-name))
+                  (%%iterate-table (%%get-module-exports (jazz.require-module module-name))
                     (lambda (name info)
                       (%%table-set! exports name info))))
                 exported-modules)
@@ -89,13 +117,23 @@
 
 
 (define (jazz.get-module name)
-  (jazz.load-unit name)
   (%%table-ref jazz.Modules name #f))
 
 
 (define (jazz.require-module name)
+  (jazz.load-unit name)
   (or (jazz.get-module name)
-      (jazz.error "Unknown public module: {s}" name)))
+      (jazz.error "Unknown module: {s}" name)))
+
+
+(define (jazz.get-module-entry module-name entry-name)
+  (%%table-ref (%%get-module-entries (jazz.get-module module-name)) entry-name #f))
+
+(define (jazz.set-module-entry module-name entry-name entry)
+  (%%table-set! (%%get-module-entries (jazz.get-module module-name)) entry-name entry))
+
+(define (jazz.register-module-entry module-name entry-name entry)
+  (jazz.set-module-entry module-name entry-name entry))
 
 
 (define (jazz.module-get module-name name #!key (not-found #f))
@@ -103,10 +141,10 @@
     (let ((info (%%table-ref (%%get-module-exports module) name #f)))
       (if info
           (if (%%symbol? info)
-              (jazz.global-value info)
+              (jazz.global-ref info)
             (jazz.bind (unit-name . locator) info
               (jazz.load-unit unit-name)
-              (jazz.global-value locator)))
+              (jazz.global-ref locator)))
         not-found))))
 
 
@@ -117,6 +155,18 @@
         (if (%%eq? obj not-found)
             (jazz.error "Unable to find '{s} in: {s}" name module-name)
           obj)))))
+
+
+(define (jazz.module-set! module-name name value)
+  (let ((module (jazz.require-module module-name)))
+    (let ((info (%%table-ref (%%get-module-exports module) name #f)))
+      (if info
+          (if (%%symbol? info)
+              (jazz.global-set! info value)
+            (jazz.bind (unit-name . locator) info
+              (jazz.load-unit unit-name)
+              (jazz.global-set! locator value)))
+        (jazz.error "Unable to find '{s} in: {s}" name module-name)))))
 
 
 ;;;

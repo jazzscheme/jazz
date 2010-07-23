@@ -49,7 +49,8 @@
   (make-parameter #f))
 
 
-(define *profiles* (make-table test: eq?))
+(define *profiles*
+  (make-table test: eq?))
 
 
 (definition public (get-profiles)
@@ -60,10 +61,11 @@
   (empty-table *profiles*))
 
 
-(define time-spent-in-children (make-parameter 0))
+(define time-spent-in-children
+  (make-parameter 0))
 
 
-(definition public (profile-code name func)
+(definition public (profile-code name proc)
   (if (profiler-on?)
       (let* ((start-time (get-performance-counter))
              (total-elapsed-time 0)
@@ -72,13 +74,14 @@
                                    (table-set! *profiles* name profile-record)
                                    profile-record)))
              (result (parameterize ((time-spent-in-children 0))
-                       (prog1 (func)
-                              (set! total-elapsed-time (- (get-performance-counter) start-time))
-                              (set-car! profile-record (+ 1 (car profile-record)))
-                              (set-cdr! profile-record (+ (cdr profile-record) (- total-elapsed-time (time-spent-in-children))))))))
+                       (prog1 (proc)
+                         (set! total-elapsed-time (- (get-performance-counter) start-time))
+                         (set-car! profile-record (+ 1 (car profile-record)))
+                         (set-cdr! profile-record (+ (cdr profile-record) (- total-elapsed-time (time-spent-in-children))))))))
         (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time))
         result)
-      (func)))
+    (proc)))
+
 
 (definition public (profiles->jml profiles)
   (map (lambda (profile)

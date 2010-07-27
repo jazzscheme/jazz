@@ -79,13 +79,13 @@
       (<Check-Box>                  name: always-use        title: "Always use this profile" position: {Point 10 185} size: {Dimension 144 18})
       (<Push-Button>                name: login             title: "Login" position: {Point 225 182} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
       (<Push-Button>                name: cancel            title: "Cancel" position: {Point 311 182} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
-      (<Branch>                     name: new
+      (<Trait>                      name: new
         (<install>
           (<!>                      name: new-label         visible?: #t)
           (<!>                      name: new-border        visible?: #t)
           (<!>                      name: bindings-label    visible?: #t)
           (<!>                      name: bindings-border   visible?: #t)))
-      (<Branch>                     name: existing
+      (<Trait>                      name: existing
         (<install>
           (<!>                      name: existing-border   visible?: #t)))))
   
@@ -106,7 +106,7 @@
   
   
   (method override (focus-default)
-    (case (get-active-branch-name)
+    (case (get-active-trait-name)
       ((new) (focus-new))
       ((existing) (focus-existing))))
   
@@ -151,7 +151,7 @@
   (method override (get-modal-result)
     (let ((bindings (get-value~ (locate 'bindings)))
           (always-use? (get-checked?~ (locate 'always-use))))
-      (case (get-name~ branch)
+      (case (get-active-trait-name)
         ((new)
          (let ((content (get-string-content~ (locate 'new-profile))))
            (let ((name (string->symbol (capitalize content)))
@@ -176,7 +176,7 @@
   
   
   (method override (get-tab-stops)
-    (case (get-name~ branch)
+    (case (get-active-trait-name)
       ((new)
        '())
       ((existing)
@@ -232,7 +232,7 @@
   
   
   (method (install-new)
-    (set-active-branch (locate 'new))
+    (set-active-trait (locate 'new))
     (when player
       (focus-new))
     (update-login))
@@ -245,7 +245,7 @@
   
   
   (method (install-existing profiles rank)
-    (set-active-branch (locate 'existing))
+    (set-active-trait (locate 'existing))
     (let ((tree (locate 'profiles))
           (rank (or rank (and (not-null? profiles) 0))))
       (remove-every-row~ tree)
@@ -295,12 +295,11 @@
   
   
   (method (update-login)
-    (when branch
-      (case (get-name~ branch)
-        ((new)
-         (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-profile))))))
-        ((existing)
-         (set-enabled?~ (locate 'login) (not-null? (get-selection~ (locate 'profiles))))))))
+    (case (get-active-trait-name)
+      ((new)
+       (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-profile))))))
+      ((existing)
+       (set-enabled?~ (locate 'login) (not-null? (get-selection~ (locate 'profiles)))))))
   
 
   ;;;
@@ -309,7 +308,7 @@
   
   
   (method (validate-profile)
-    (case (get-name~ branch)
+    (case (get-active-trait-name)
       ((new)
        (let ((profile-name (get-string-content~ (locate 'new-profile))))
          (validate-new-profile profile-name)))

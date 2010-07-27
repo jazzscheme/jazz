@@ -257,20 +257,20 @@
   
   
   ;;;
-  ;;;; Branches
+  ;;;; Traits
   ;;;
   
   
-  (method public (select-branch branch)
-    (when (neq? branch (or (get-active-branch~ client) client))
+  (method public (select-trait trait)
+    (when (neq? trait (or (get-active-trait~ client) client))
       (with-cursor :wait
         (lambda ()
-          (process-branch-changing branch)))))
+          (process-branch-changing trait)))))
   
   
-  (method (change-branch branch)
-    (set-active-branch~ (get-client) branch)
-    (process-branch-changed branch))
+  (method (change-trait trait)
+    (set-active-trait~ (get-client) trait)
+    (process-branch-changed trait))
   
   
   ;;;
@@ -291,20 +291,20 @@
   ;;;
   
   
-  (method protected (property-change branch component property value undoable?)
+  (method protected (property-change trait component property value undoable?)
     (when undoable?
       (let ((domain (get-domain~ (class-of component) property))
             (property (symbolize-property property)))
-        (unless (or (= (get-filter-rank~ domain) 0) (find-changed-property branch component property))
-          (register-undo~ undoer (list branch component property))))))
+        (unless (or (= (get-filter-rank~ domain) 0) (find-changed-property trait component property))
+          (register-undo~ undoer (list trait component property))))))
   
   
-  (method protected (find-changed-property branch component property)
+  (method protected (find-changed-property trait component property)
     (let ((property (symbolize-property property))
           (undo-list (get-undo-list~ undoer)))
       (find-if (lambda (action)
-                 (bind (br cpn prop) action
-                   (and (eq? br branch)
+                 (bind (tr cpn prop) action
+                   (and (eq? tr trait)
                         (eq? cpn component)
                         (eq? prop property))))
                undo-list)))
@@ -427,7 +427,7 @@
   (method override (save-content moniker)
     (process-saving)
     (save-to~ designer moniker)
-    (set-name~ designer (get-client) (get-base~ moniker) branch: #f)
+    (set-name~ designer (get-client) (get-base~ moniker) trait: #f)
     (update-moniker-time moniker)
     (if (not (get-modified?))
         (update-status)
@@ -468,7 +468,7 @@
   (method protected virtual (on-editor evt)
     (case (get-kind~ evt)
       ((:branch-changing)
-       (change-branch (get-property~ evt branch:)))
+       (change-trait (get-property~ evt trait:)))
       ((:branch-changed)
        (cleanup-selection))
       ((:selection-changing :saving)
@@ -570,7 +570,7 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (property-change (get-property~ evt branch:) (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:) (get-property~ evt undoable?:))
+         (property-change (get-property~ evt trait:) (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:) (get-property~ evt undoable?:))
          (set-controller-modified? #t))
         ((:child-add :child-remove :send-before)
          (set-controller-modified? #t)))))
@@ -605,17 +605,17 @@
                   listeners))))
 
   
-  (method public (process-branch-changing branch)
+  (method public (process-branch-changing trait)
     (when listeners
-      (let ((evt (new Editor-Event :branch-changing self branch: branch)))
+      (let ((evt (new Editor-Event :branch-changing self trait: trait)))
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))
 
   
-  (method public (process-branch-changed branch)
+  (method public (process-branch-changed trait)
     (when listeners
-      (let ((evt (new Editor-Event :branch-changed self branch: branch)))
+      (let ((evt (new Editor-Event :branch-changed self trait: trait)))
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))

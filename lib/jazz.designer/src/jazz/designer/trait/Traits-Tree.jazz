@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Branches Tree
+;;;; Traits Tree
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.branch.Branches-Tree jazz
+(module protected jazz.designer.trait.Traits-Tree jazz
 
 
 (import (jazz.designer)
@@ -48,7 +48,7 @@
         (jazz.ui.view))
 
 
-(class undocumented Branches-Tree extends Tree-View
+(class undocumented Traits-Tree extends Tree-View
 
 
   (slot editor   initialize #f)
@@ -57,8 +57,8 @@
 
 
   (form
-    (<install>                         multiple-selection?: #f portfolio: :images selection-handler: {Event-Handler :form on-selection-change}
-      (<Tree-Node-Column> name: branch title: "Branch" width: 157)))
+    (<install>                        multiple-selection?: #f portfolio: :images selection-handler: {Event-Handler :form on-selection-change}
+      (<Tree-Node-Column> name: trait title: "Trait" width: 157)))
 
   
   ;;;
@@ -67,7 +67,7 @@
   
 
   (method override (focus-actions)
-    (cons (find-actions 'branches-tree)
+    (cons (find-actions 'traits-tree)
           (nextmethod)))
   
 
@@ -79,22 +79,22 @@
   (method override (context-menu pos)
     (with-context-click pos
       (lambda ()
-        (let* ((menu (new Branch-Menu))
+        (let* ((menu (new Trait-Menu))
                (item (locate~ menu 'add))
-               (classes (and client (get-addable-branches~ client)))
-               (branch (selected-branch)))
-          (when branch
+               (classes (and client (get-addable-traits~ client)))
+               (trait (selected-trait)))
+          (when trait
             (with-update-locked~ menu
               (lambda ()
                 (when (null? classes)
                   (set-visible?~ (locate~ menu 'add) #f)
                   (set-visible?~ (locate~ menu 'separator) #f))
-                (when (is-not? branch Branch)
+                (when (is-not? trait Trait)
                   (set-visible?~ (locate~ menu 'separator) #f)
                   (set-visible?~ (locate~ menu 'close) #f)
                   (set-visible?~ (locate~ menu 'rename) #f))))
             (if (eqv? classes #t)
-                (let ((default (get-addable-default-branch~ client)))
+                (let ((default (get-addable-default-trait~ client)))
                   (set-title~ item (format "Add {a}..." (get-class-presentation~ default))))
               (set-title~ item "Add")
               (let ((submenu (new Context-Menu parent: item)))
@@ -105,71 +105,71 @@
                                     (new Separator-Item parent: submenu)
                                   (let ((icon (get-class-image~ class))
                                         (title (format "{a}..." (get-class-presentation~ class)))
-                                        (handler (new Event-Handler target: self method-name: 'on-add-branch properties: (list class: class))))
+                                        (handler (new Event-Handler target: self method-name: 'on-add-trait properties: (list class: class))))
                                     (new Label-Item parent: submenu icon: icon title: title action-handler: handler))))
                               classes)))))
             (layout-menu~ menu)
             (track-popup-menu menu pos))))))
   
   
-  (method (on-add-branch evt)
-    (let ((class (or (get-property~ evt class:) (get-addable-default-branch~ client)))
-          (parent (selected-branch)))
-      (add-branch class parent)))
+  (method (on-add-trait evt)
+    (let ((class (or (get-property~ evt class:) (get-addable-default-trait~ client)))
+          (parent (selected-trait)))
+      (add-trait class parent)))
   
   
-  (method public (new-default-branch)
+  (method public (new-default-trait)
     (when client
-      (let* ((class (get-addable-default-branch~ client))
-             (add-here? (get-addable-branches~ client))
-             (parent (or (when add-here? (selected-branch))
+      (let* ((class (get-addable-default-trait~ client))
+             (add-here? (get-addable-traits~ client))
+             (parent (or (when add-here? (selected-trait))
                          client)))
-        (add-branch class parent))))
+        (add-trait class parent))))
   
   
-  (method public (add-branch class parent)
-    (let ((presentation (branch-presentation-request class (get-branches~ parent)))
-          (branch (new class parent: parent))
+  (method public (add-trait class parent)
+    (let ((presentation (trait-presentation-request class (get-traits~ parent)))
+          (trait (new class parent: parent))
           (designer (get-designer~ editor)))
-      (add-child~ designer branch parent branch: #f)
-      (set-property~ designer branch client-form: (new Form textual?: #f action: 'install) branch: #f)
+      (add-child~ designer trait parent trait: #f)
+      (set-property~ designer trait client-form: (new Form textual?: #f action: 'install) trait: #f)
       ;; Problem: at that point this update causes some node titles to be #f
-      ;; because the branch doesn't yet have a name...
+      ;; because the trait doesn't yet have a name...
       (update-tree)
-      (set-single-selection (branch-index branch))
-      (rename-branch branch presentation)))
+      (set-single-selection (trait-index trait))
+      (rename-trait trait presentation)))
   
   
-  (method protected virtual (branch-presentation-request class brothers (initial-value: initial-value #f))
+  (method protected virtual (trait-presentation-request class brothers (initial-value: initial-value #f))
     (let* ((name-mandatory? (get-name-mandatory?~ class))
            (name-unicity? (get-name-unicity?~ class))
            (unicity-domain (and name-unicity? (map get-presentation-property~ brothers)))
-           (name-validator (branch-name-validator))
+           (name-validator (trait-name-validator))
            (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation~ class)) initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
       presentation))
   
   
-  (method protected virtual (branch-name-validator)
+  (method protected virtual (trait-name-validator)
     #f)
   
   
-  (method (on-close-branch evt)
+  (method (on-close-trait evt)
     (delete-selection))
   
   
   (method override (delete-selection)
-    (let ((branch (selected-branch)))
-      (if (is-not? branch Branch)
+    (let ((trait (selected-trait)))
+      (if (is-not? trait Trait)
           (bell)
         (when (confirm-close)
           (with-deleted-selection selection
             (lambda ()
-              (remove-branch branch))
+              (remove-trait trait))
               can-survive?: #t)))))
   
   
   (method override (confirm-close)
-    (confirm-action "Delete selected branch?"))
+    (confirm-action "Delete selected trait?"))
   
   
   (method protected (confirm-action text)
@@ -180,52 +180,50 @@
         ((cancel) (throw-cancel)))))
   
   
-  (method protected virtual (remove-branch branch)
-    (let ((client (get-client~ branch))
-          (designer (get-designer~ editor)))
-      (select-branch client)
-      (remove-child~ designer branch)
+  (method protected virtual (remove-trait trait)
+    (let ((designer (get-designer~ editor)))
+      (select-trait #f)
+      (remove-child~ designer trait)
       (update-tree)))
   
   
-  (method (on-rename-branch evt)
-    (rename-selected-branch))
+  (method (on-rename-trait evt)
+    (rename-selected-trait))
   
   
-  (method (rename-selected-branch)
-    (let* ((branch (selected-branch))
-           (presentation (branch-presentation-request (class-of branch) (get-brothers~ branch) initial-value: (get-presentation-property~ branch))))
-      (rename-branch branch presentation)))
+  (method (rename-selected-trait)
+    (let* ((trait (selected-trait))
+           (presentation (trait-presentation-request (class-of trait) (get-brothers~ trait) initial-value: (get-presentation-property~ trait))))
+      (rename-trait trait presentation)))
   
   
-  (method (rename-branch branch presentation)
-    (let ((client (if (is? branch Branch) (get-client~ branch) branch))
-          (designer (get-designer~ editor)))
-      (set-presentation-property~ branch designer presentation)
+  (method (rename-trait trait presentation)
+    (let ((designer (get-designer~ editor)))
+      (set-presentation-property~ trait designer presentation)
       (update-tree)
-      (set-single-selection (branch-index branch))))
+      (set-single-selection (trait-index trait))))
   
   
-  (method (on-branch-properties evt)
+  (method (on-trait-properties evt)
     (show-properties select-palette?: #t))
   
   
   (method (show-properties (select-palette?: select-palette? #f))
-    (let ((branch (selected-branch)))
-      (set-selection~ editor (if branch (list branch) '()) origin: self force?: #t focus?: #f)
+    (let ((trait (selected-trait)))
+      (set-selection~ editor (if trait (list trait) '()) origin: self force?: #t focus?: #f)
       (when select-palette?
         (select-docked Properties-Manager workspace: #f focus?: #t))))
   
   
   (method (maybe-show-properties)
     (when editor
-      (let ((branch (selected-branch))
+      (let ((trait (selected-trait))
             (selection (get-selection~ editor)))
         (when (or (null? selection)
                   (and (= (length selection) 1)
                        (let ((selection (car selection)))
                          (or (eq? selection (get-client~ editor))
-                             (is? selection Branch)))))
+                             (is? selection Trait)))))
           (show-properties)))))
   
   
@@ -251,11 +249,11 @@
     (case (get-kind~ evt)
       ((:client-change) (set-client (get-property~ evt client:)))
       ((:designer-change) (set-designer (get-property~ evt designer:)))
-      ((:branch-changed) (branch-changed (get-property~ evt branch:)))))
+      ((:branch-changed) (branch-changed (get-property~ evt trait:)))))
   
   
-  (method (branch-changed branch)
-    (set-single-selection (branch-index branch)))
+  (method (branch-changed trait)
+    (set-single-selection (trait-index trait)))
 
   
   ;;;
@@ -327,20 +325,20 @@
     (remove-every-row)
     (when client
       (let ((node (insert-client)))
-        (for-each (lambda (branch)
-                    (insert-branch node branch))
-                  (sort-branches (get-branches~ client))))))
+        (for-each (lambda (trait)
+                    (insert-trait node trait))
+                  (sort-traits (get-traits~ client))))))
   
   
-  (method protected virtual (sort-branches branches)
-    branches)
+  (method protected virtual (sort-traits traits)
+    traits)
   
   
   (method (update-selection)
     (if (not client)
         (set-selection '() generate-event?: #f)
-      (let* ((branch (get-active-branch~ client))
-             (index (user-data-index (or branch client))))
+      (let* ((trait (get-active-trait~ client))
+             (index (user-data-index (or trait client))))
         (if (not index)
             (set-selection '() generate-event?: #f)
           (set-single-selection index generate-event?: #f)))))
@@ -349,17 +347,17 @@
   (method (insert-client)
     (let ((title (get-presentation-property~ client))
           (image (component-image client)))
-      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: client)))
+      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: #f)))
   
   
-  (method (insert-branch node branch)
-    (let ((children (get-children~ branch))
-          (title    (component-presentation branch))
-          (image    (component-image branch)))
-      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: branch)))
+  (method (insert-trait node trait)
+    (let ((children (get-children~ trait))
+          (title    (component-presentation trait))
+          (image    (component-image trait)))
+      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: trait)))
         (for-each (lambda (child)
-                    (insert-branch handle child))
-                  (sort-branches children)))))
+                    (insert-trait handle child))
+                  (sort-traits children)))))
   
   
   (method protected virtual (component-presentation component)
@@ -384,8 +382,8 @@
   
   
   (method override (can-delete?)
-    (let ((branch (selected-branch)))
-      (is? branch Branch)))
+    (let ((trait (selected-trait)))
+      (is? trait Trait)))
   
   
   ;;;
@@ -394,39 +392,39 @@
   
   
   (method (on-selection-change evt)
-    (select-branch (or (selected-branch) client))
+    (select-trait (selected-trait))
     (maybe-show-properties)
     (update-focus-actions~ (get-application)))
   
   
-  (method public (selected-branch)
+  (method public (selected-trait)
     (let ((selection (get-single-selection)))
       (when selection
         (get-user-data~ (get-row selection)))))
   
   
-  (method (select-branch branch)
-    (when (and branch (neq? branch (or (get-active-branch~ client) client)))
-      (process-branch-changing~ editor branch)))
+  (method (select-trait trait)
+    (when (neq? trait (get-active-trait~ client))
+      (process-branch-changing~ editor trait)))
   
   
-  (method (branch-index branch)
-    (user-data-index branch)))
+  (method (trait-index trait)
+    (user-data-index trait)))
 
 
 ;;;
-;;;; Branch-Menu
+;;;; Trait-Menu
 ;;;
 
 
-(class Branch-Menu extends Context-Menu
+(class Trait-Menu extends Context-Menu
   
   
   (form
     (<install>
-      (<Label-Item>     name: add        title: "Add Branch" icon: {Image-Resource "Add"} action: {Action branches-tree add})
+      (<Label-Item>     name: add        title: "Add Trait" icon: {Image-Resource "Add"} action: {Action traits-tree add})
       (<Separator-Item> name: separator)
-      (<Label-Item>     name: close      title: "Delete" icon: {Image-Resource "Remove"} action: {Action branches-tree close})
-      (<Label-Item>     name: rename     title: "Rename" action: {Action branches-tree rename})
+      (<Label-Item>     name: close      title: "Delete" icon: {Image-Resource "Remove"} action: {Action traits-tree close})
+      (<Label-Item>     name: rename     title: "Rename" action: {Action traits-tree rename})
       (<Separator-Item>)
-      (<Label-Item>     name: properties title: "Properties" action: {Action branches-tree properties})))))
+      (<Label-Item>     name: properties title: "Properties" action: {Action traits-tree properties})))))

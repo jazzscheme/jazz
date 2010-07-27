@@ -669,6 +669,7 @@
 
 
 (native jazz.new)
+(native jazz.nascent-new)
 (native jazz.class-of)
 (native jazz.object?)
 (native jazz.type?)

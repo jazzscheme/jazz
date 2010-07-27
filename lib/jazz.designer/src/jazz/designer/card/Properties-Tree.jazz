@@ -239,9 +239,9 @@
              (values (map (lambda (component) (read-property component property)) client))
              (presented (map (lambda (value) (present~ row value)) values))
              (creator (get-creator~ any))
-             (branch (and creator (get-active-branch~ creator)))
+             (trait (and creator (get-active-trait~ creator)))
              ;; temp patch because the root object doesn't have a creator...
-             (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor branch any property)))
+             (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor trait any property)))
              (uniform? (or (<= (length values) 1) (apply string=? presented)))
              (node (new Tree-Node title: (property-presentation~ (class-of any) property) image: image color: (if uniform? (if changed? {Color name: Dark-Red} #f) {Color name: Dark-Gray})))
              (label (new Tree-Label))
@@ -287,7 +287,7 @@
     (when (and designer (= 1 (length client)) (/= (get-filter-rank~ domain) 0))
       (let* ((component (car client))
              (owner (find-owner~ designer component property)))
-        (cond ((is? owner Branch) (branch-owner-image))
+        (cond ((is? owner Trait) (trait-owner-image))
               ((eq? owner (get-reference~ designer)) (root-owner-image))
               (else (default-owner-image))))))
   
@@ -300,8 +300,8 @@
     {Image-Resource "OwnerRoot"})
   
   
-  (method protected virtual (branch-owner-image)
-    {Image-Resource "OwnerBranch"})
+  (method protected virtual (trait-owner-image)
+    {Image-Resource "OwnerTrait"})
   
   
   (method protected (reset-modified-properties)
@@ -360,7 +360,7 @@
   
   (method (consolidate-property)
     (let* ((client (get-client))
-           (code (message-box (format "Consolidate value{a} to root and lose values in other branches?" (format-plural (length client))) type: 'confirmation)))
+           (code (message-box (format "Consolidate value{a} to root and lose values in other traits?" (format-plural (length client))) type: 'confirmation)))
       (when (eq? code 'yes)
         (let ((row (selected-row)))
           (save-edition~ row)
@@ -369,17 +369,17 @@
             (for-each (lambda (component)
                         (let ((creator (get-creator~ component))
                               (value (read-property component property)))
-                          (for-each-branch~ creator
-                            (lambda (branch)
-                              (remove-property~ designer component property #f branch: branch)))
-                          (set-property~ designer component property value branch: #f)))
+                          (for-each-trait~ creator
+                            (lambda (trait)
+                              (remove-property~ designer component property #f trait: trait)))
+                          (set-property~ designer component property value trait: #f)))
                       client))
           (set-edited-modified?~ row #f)))))
   
   
   (method (distribute-property)
     (let* ((client (get-client))
-           (code (message-box (format "Distribute value{a} onto branches and lose their current values?" (format-plural (length client))) type: 'confirmation)))
+           (code (message-box (format "Distribute value{a} onto traits and lose their current values?" (format-plural (length client))) type: 'confirmation)))
       (when (eq? code 'yes)
         (let ((row (selected-row)))
           (save-edition~ row)
@@ -388,9 +388,9 @@
             (for-each (lambda (component)
                         (let ((creator (get-creator~ component))
                               (value (read-property component property)))
-                          (for-each-branch~ creator
-                            (lambda (branch)
-                              (set-property~ designer component property value branch: branch)))))
+                          (for-each-trait~ creator
+                            (lambda (trait)
+                              (set-property~ designer component property value trait: trait)))))
                       client))
           (set-edited-modified?~ row #f)))))
   
@@ -598,7 +598,7 @@
     (<install>
       (<Radio-Item>     name: consolidate           title: "Consolidate To Root" icon: {Image-Resource "ConsolidateProperty"} action-handler: {Event-Handler :form on-consolidate})
       (<Separator-Item> name: end-consolidate-group)
-      (<Radio-Item>     name: distribute            title: "Distribute Onto Branches" icon: {Image-Resource "DistributeProperty"} action-handler: {Event-Handler :form on-distribute})))
+      (<Radio-Item>     name: distribute            title: "Distribute Onto Traits" icon: {Image-Resource "DistributeProperty"} action-handler: {Event-Handler :form on-distribute})))
   
   
   (method (on-consolidate evt)

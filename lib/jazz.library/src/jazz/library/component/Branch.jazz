@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Component Branches
+;;;; Branch
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -41,87 +41,36 @@
 (import (jazz.library))
 
 
-(class Branch extends Component
-  
-  
-  (property client-form initialize #f accessors generate)
+(class Branch extends Object
   
   
   (slot client       initialize #f accessors generate)
-  (slot restore-form initialize #f getter generate)
-  (slot restoreable? initialize #t accessors generate)
+  (slot trait        initialize #f accessors generate)
+  (slot branch       initialize #f accessors generate)
+  (slot restore-form initialize #f accessors generate)
 
   
-  (method override (install rest)
-    (nextmethod rest)
-    (set! client (default-client)))
+  (method override (initialize client trait)
+    (nextmethod)
+    (set! client~self client)
+    (set! trait~self trait))
 
-
-  (method (default-client)
-    (if (is? parent Branch)
-        (get-client~ parent)
-      parent))
+  
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{a}" (get-name~ trait)))))
   
   
   ;;;
-  ;;;; Install
+  ;;;; Access
   ;;;
   
   
-  (method override (install-branch br)
-    (install-branch~ parent self)
-    (nextmethod br))
-  
-  
-  @w
-  (method override (install-branch2 client)
-    (define (iii installed-branch branch)
-      (when (is? branch Branch)
-        (let ((installed-branch (new Installed-Branch client branch)))
-          (install-branch2~ branch client)
-      )))
-    
-    (let ((installed-branch (new Installed-Branch client self)))
-      
-    (install-branch2~ client br)
-      (set-branch2~ client installed-branch)))
-
-
-  (method protected (configure-client)
-    ;(debug 'configure name)
-    (when restoreable?
-      (set! restore-form (new Restore-Form context: self action: 'install)))
-    (let ((configured (configure-inherited)))
-      (when (neq? client-form configured)
-        (install-form~ client client-form creator self restore-form)))
-    (set-branch~ parent self))
-  
-  
-  ;; quicky to test
-  (method (configure-inherited)
-    (let ((form (get-class-form)))
-      (when form
-        (let ((client-form (get-property~ form client-form:)))
-          (when client-form
-            (install-form~ client client-form creator self restore-form)
-            client-form)))))
-  
-  
-  @convert
-  (method (configure-inherited model)
-    (when (subtype? model Branch)
-      (let ((configured (configure-inherited (class-ascendant model)))
-            (form (get-class-form~ model)))
-        (when form
-          (let ((client-form (get-property~ form client-form:)))
-            (when client-form
-              (when (neq? client-form configured)
-                (install-form~ client client-form creator self restore-form))
-              client-form))))))
-  
-  
-  (method public (installed?)
-    restore-form)
+  (method protected (get-branches)
+    (if (not branch)
+        '()
+      (cons branch (get-branches~ branch))))
   
   
   ;;;
@@ -132,51 +81,4 @@
   (method protected (restore-client)
     (when branch
       (restore-client~ branch))
-    ;(debug 'restore name)
-    (set-branch~ parent #f)
-    (install-form~ client restore-form client #f #f)
-    (set! restore-form #f))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor)
-    (new Branch-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer))
-
-
-(class Branch-Descriptor extends Component-Descriptor
-  
-  
-  (method override (class-image class)
-    {Image-Resource "Branch"})
-  
-  
-  (method override (class-name-mandatory? class)
-    #t)
-  
-  
-  (method override (class-name-unicity? class)
-    #t)
-  
-  
-  (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (string->symbol presentation) branch: #f))
-  
-  
-  (method override (component-display-property? component property)
-    (and (nextmethod component property)
-         (not (memq? (field-name property) '(client-form))))))))
+    (install-form~ client restore-form client #f #f))))

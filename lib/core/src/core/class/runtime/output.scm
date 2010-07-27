@@ -155,16 +155,16 @@
 ;;;
 
 
-(define jazz.dialect.language.object.Object.print
+(define jazz.dialect.language.object.Object.call-print
   #f)
 
-(set! jazz.dialect.language.object.Object.print #f)
+(set! jazz.dialect.language.object.Object.call-print #f)
 
 
 (define (jazz.print-jazz object output detail)
   (if (jazz.use-print?)
-      (if jazz.dialect.language.object.Object.print
-          ;; the rank of print is known to be 2 as it is the third method of Object
+      (if jazz.dialect.language.object.Object.call-print
+          ;; the rank of call-print is known to be 2 as it is the third method of Object
           ((%%class-dispatch (%%class-of object) 0 2) object output detail)
         (jazz.print-object object output detail))
     (jazz.print-serial object output)))

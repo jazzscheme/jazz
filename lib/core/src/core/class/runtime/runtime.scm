@@ -732,6 +732,13 @@
       object)))
 
 
+(define (jazz.nascent-new class . rest)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz.initialize-slots object)
+      object)))
+
+
 (define (jazz.iterate-descendants-tree class proc)
   (let iter ((class class))
     (proc class)

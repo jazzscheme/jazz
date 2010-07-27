@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Installed Branch
+;;;; Component Traits
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,56 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.component.Installed-Branch jazz
+(module protected jazz.library.component.Trait jazz
 
 
 (import (jazz.library))
 
 
-(class Installed-Branch extends Object
+(class Trait extends Component
   
   
-  (slot client           initialize #f accessors generate)
-  (slot branch           initialize #f accessors generate)
-  (slot installed-branch initialize #f accessors generate)
-  (slot restore-form     initialize #f getter generate)
-
+  (property client-form initialize #f accessors generate)
   
-  (method override (initialize client branch)
-    (nextmethod)
-    (set! client~self client)
-    (set! branch~self branch))
+  
+  (slot restoreable? initialize #t accessors generate)
   
   
   ;;;
   ;;;; Install
   ;;;
-  
-  
-  (method (install-branch2)
-    )
 
 
-  (method protected (configure-client)
-    @w
-    (when restoreable?
-      (set! restore-form (new Restore-Form context: self action: 'install)))
-    (let ((client-form (get-client-form~ branch))
-          (configured (configure-inherited)))
-      (when (neq? client-form configured)
-        (install-form~ client client-form (get-creator~ client) self restore-form)))
-    @w (set-branch~ parent self))
+  (method protected (configure-client client)
+    (let ((branch (new Branch client self)))
+      (let ((restore-form (and restoreable? (new Restore-Form context: client action: 'install))))
+        (when restore-form
+          (set-restore-form~ branch restore-form))
+        (install-form~ client client-form creator branch restore-form)
+        branch)))
   
   
-  ;; quicky to test
+  @convert
   (method (configure-inherited)
-    #f
-    @w
     (let ((form (get-class-form)))
       (when form
         (let ((client-form (get-property~ form client-form:)))
           (when client-form
-            (install-form~ client client-form (get-creator~ client) self restore-form)
+            (install-form~ client client-form creator self restore-form)
             client-form)))))
   
   
@@ -101,18 +87,50 @@
               client-form))))))
   
   
+  ;; convert-trait quick hack
   (method public (installed?)
-    restore-form)
+    #t)
   
   
   ;;;
-  ;;;; Uninstall
+  ;;;; Descriptor
   ;;;
   
   
-  (method protected (restore-client)
-    (when branch
-      (restore-client~ branch))
-    @w (set-branch~ parent #f)
-    (install-form~ client restore-form client #f #f)
-    (set! restore-form #f))))
+  (method meta override (get-class-descriptor)
+    (new Trait-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Trait-Descriptor extends Component-Descriptor
+  
+  
+  (method override (class-image class)
+    {Image-Resource "Trait"})
+  
+  
+  (method override (class-name-mandatory? class)
+    #t)
+  
+  
+  (method override (class-name-unicity? class)
+    #t)
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-name~ designer component (string->symbol presentation) trait: #f))
+  
+  
+  (method override (component-display-property? component property)
+    (and (nextmethod component property)
+         (not (memq? (field-name property) '(client-form))))))))

@@ -68,7 +68,6 @@
   (slot name                         initialize #f)
   (slot parent                       initialize #f)
   (slot branch                       initialize #f)   ;; the immediatly installed branch
-  (slot branch2                      initialize #f)   ;; the immediatly installed branch
   (slot creation-form                initialize #f)   ;; the form that created the component
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
@@ -136,16 +135,8 @@
     branch)
   
   
-  (method public inline (get-branch2)
-    branch2)
-  
-  
   (method public inline (set-branch value)
     (set! branch value))
-  
-  
-  (method public inline (set-branch2 value)
-    (set! branch2 value))
 
 
   (method public inline (get-form)
@@ -258,6 +249,14 @@
   ;;;
   ;;;; Print
   ;;;
+  
+  
+  (method override (call-print output detail)
+    (if (get-initialized?)
+        (print output detail)
+      (print-unreadable self output
+        (lambda (output)
+          ))))
 
   
   (method override (print printer readably)
@@ -1006,14 +1005,17 @@
 
 
   ;;;
-  ;;;; Branches
+  ;;;; Traits
   ;;;
   
   
-  (method public (get-branches)
-    (collect-if (lambda (child)
-                  (is? child Branch))
-                children))
+  (method public (get-traits)
+    (collect-type Trait children))
+
+
+  ;;;
+  ;;;; Branches
+  ;;;
   
   
   (method public (branch-installed?)
@@ -1022,80 +1024,92 @@
   
   (method public (get-active-branch)
     (if (not branch)
-        (and (is? self Branch) self)
-      (get-active-branch~ branch)))
+        #f
+      (let (iterate (branch branch))
+        (if (get-branch~ branch)
+            (iterate (get-branch~ branch))
+          branch))))
   
   
-  (method public (get-active-branch-name)
-    (let ((branch (get-active-branch)))
-      (when branch
-        (get-name~ branch))))
+  (method public (get-active-trait-name)
+    (let ((trait (get-active-trait)))
+      (when trait
+        (get-name~ trait))))
   
   
-  (method public (get-active-branch-presentation)
-    (let ((branch (get-active-branch)))
-      (if (not branch)
+  (method public (get-active-trait-presentation)
+    (let ((trait (get-active-trait)))
+      (if (not trait)
           (get-presentation-property)
-        (get-presentation-property~ branch))))
+        (get-presentation-property~ trait))))
   
   
-  (method public (set-active-branch br)
-    (if (or (not br) (eq? br self))
-        (when branch
-          (restore-client~ branch))
-      (let ((branch (if (is? br Branch) br (locate br))))
-        (install-branch~ branch #f))))
-  
-  
-  (method protected virtual (install-branch br)
-    (when (neq? br branch)
+  (method public (get-active-trait)
+    (let ((branch (get-active-branch)))
       (when branch
-        ;; should restore all branches non-recursively
-        (restore-client~ branch))
-      (when br
-        (configure-client~ br))))
+        (get-trait~ branch))))
   
   
-  (method public (set-active-branch2 br)
-    (if (or (not br) (eq? br self))
-        (when branch2
-          (restore-client~ branch2))
-      (let ((branch (if (is? br Branch) br (locate br))))
-        (install-branch2~ branch self))))
+  (method public (set-active-trait trait)
+    (define (install-branch trait get set)
+      (unless (and (get) (eq? trait (get-trait~ (get))))
+        (when (get)
+          (restore-client~ (get))
+          (set #f))
+        (when trait
+          (set (configure-client~ trait self))))
+      (get))
+    
+    (let ((new-branch
+            (let (iterate (trait trait))
+              (let ((parent (and trait (get-parent~ trait))))
+                (if (is-not? parent Trait)
+                    (install-branch trait
+                                    (lambda () branch)
+                                    (lambda (br) (set! branch br)))
+                  (let ((branch (iterate parent)))
+                    (install-branch trait
+                                    (lambda () (get-branch~ branch))
+                                    (lambda (br) (set-branch~ branch br)))))))))
+      (if (not new-branch)
+          (when branch
+            (restore-client~ branch)
+            (set! branch #f))
+        (when (get-branch~ new-branch)
+          (restore-client~ (get-branch~ new-branch))
+          (set-branch~ new-branch #f)))))
   
   
-  (method protected (install-branch2 br)
-    (when (neq? br branch2)
-      (when branch2
-        (restore-client~ branch2))
-      (when br
-        (configure-client~ br)
-        (set! branch2 br))))
+  (method public (for-each-trait proc)
+    (for-each (lambda (trait)
+                (proc trait)
+                (for-each-trait~ trait proc))
+              (get-traits)))
   
   
-  (method public (for-each-branch proc)
-    (for-each (lambda (branch)
-                (proc branch)
-                (for-each-branch~ branch proc))
-              (get-branches)))
-  
-  
-  (method public (with-each-branch proc)
+  (method public (with-each-trait proc)
     (let ((active-branch (get-branch)))
-      (for-each-branch
-        (lambda (branch)
-          (set-active-branch branch)
+      (for-each-trait
+        (lambda (trait)
+          (set-active-trait trait)
           (proc)))
-      (set-active-branch active-branch)))
+      (set-active-trait (get-trait~ active-branch))))
   
   
-  (method public (get-installed-branches)
+  (method public (get-branches)
     (if (not branch)
         '()
-      (cons branch (get-installed-branches~ branch))))
+      (cons branch (get-branches~ branch))))
+  
+  
+  (method public (find-trait-branch trait)
+    (find-if (lambda (branch)
+               (eq? (get-trait~ branch) trait))
+             (get-branches)))
   
   
   (method public (iterate-branch-spine proc (branch: branch #f))
+    @convert-trait
     (let ((branch (or branch (get-active-branch))))
       (while (is? branch Branch)
         (proc branch (get-client-form~ branch))
@@ -1247,7 +1261,7 @@
     (let* ((form (get-form~ (get-creator)))
            (active-branch (get-branch))
            (active-branch-name (and active-branch (get-name~ active-branch)))
-           (all-branch-names (map get-name~ (get-branches)))
+           (all-branch-names (map get-name~ (get-traits)))
            (instantiate
              (lambda (branch-name)
                (if (eq? branch-name active-branch-name)
@@ -1481,12 +1495,12 @@
     (component-get-classes~ (get-descriptor (class-of self)) self))
   
   
-  (method public (get-addable-branches)
-    (component-get-addable-branches~ (get-descriptor (class-of self)) self))
+  (method public (get-addable-traits)
+    (component-get-addable-traits~ (get-descriptor (class-of self)) self))
   
   
-  (method public (get-addable-default-branch)
-    (component-get-addable-default-branch~ (get-descriptor (class-of self)) self))
+  (method public (get-addable-default-trait)
+    (component-get-addable-default-trait~ (get-descriptor (class-of self)) self))
   
   
   (method public (get-addable-base)

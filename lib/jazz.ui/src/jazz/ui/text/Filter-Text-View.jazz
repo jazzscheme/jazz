@@ -83,12 +83,20 @@
     (filter-target))
   
   
-  (method (filter-target)
+  (method public (filter-target)
     (define (determine-visible? row filter)
       (some? (lambda (cell)
                (when (get-title~ cell)
                  (search (get-title~ cell) filter ignore-case?: #t)))
              (get-children~ row)))
+    
+    (define (make-row-visible row visible?)
+      (set-visible?~ row visible?)
+      (when visible?
+        (let loop ((node (get-father~ row)))
+             (when node
+               (set-visible?~ node #t)
+               (loop (get-father~ node))))))
     
     (let ((target (find-target))
           (filter (get-string-content)))
@@ -97,13 +105,11 @@
           (lambda ()
             ;; quicky
             (set-selection~ target '())
-            @w
-            (set-string-content~ (locate~ (get-guest) 'diff-text) "")
             (with-update-locked~ target
               (lambda ()
                 (for-each-row~ target
                   (lambda (row rank)
-                    (set-visible?~ row (determine-visible? row filter))))))))))))
+                    (make-row-visible row (determine-visible? row filter))))))))))))
 
 
 (register-autoclass Filter-Text-View))

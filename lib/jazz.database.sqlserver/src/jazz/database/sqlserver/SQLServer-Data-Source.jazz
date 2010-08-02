@@ -40,6 +40,7 @@
 
 (import (jazz.database.ado)
         (jazz.database.sqlserver)
+        (jazz.jml)
         (jazz.schema))
 
 
@@ -132,26 +133,14 @@
 (class SQLServer-Data-Source-Descriptor extends Data-Source-Descriptor
   
   
-  (method override (class-presentation class)
-    "SQLServer Connection")
-
-  
-  (method override (class-property-presentation class property)
-    (case (field-name property)
-      ((server)   "Server")
-      ((database) "Database")
-      ((dsn)      "DSN")
-      (else (nextmethod class property))))
-  
-    
-  @wait
-  (method override (class-get-domain class property)
-    (case (field-name property)
-      ((server) (new SQLServer-Server-Row nullable?: #t limit-to-list?: #f))
-      ((database) (new SQLServer-Database-Row nullable?: #t condensed?: #t))
-      ((dsn) (new String-Domain nullable?: #t))
-      (else (nextmethod class property))))
-  
-  
-  (method override (component-get-categorized-properties component)
-    '(class-info dsn (server username password) database)))))
+  (form
+    (<install>                                        title: "SQLServer Connection"
+      (<properties~>                                  categorized: (class-info dsn (server username password) database)
+        (<Property-Descriptor>         name: server   title: "Server"
+          @convert
+          (<SQLServer-Server-Domain>   name: domain   nullable?: #t limit-to-list?: #f))
+        (<Property-Descriptor>         name: database title: "Database"
+          @convert
+          (<SQLServer-Database-Domain> name: domain   nullable?: #t condensed?: #t))
+        (<Property-Descriptor>         name: dsn      title: "DSN"
+          (<String-Domain>             name: domain   nullable?: #t))))))))

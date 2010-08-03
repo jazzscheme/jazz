@@ -64,6 +64,16 @@
         (<Border-View>                                               size: {Dimension 140 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
           (<Border-View>                                             border-color: {Color red: 200 green: 188 blue: 166}
             (<Traits-Combo>                 name: traits)))
+        (<Separator>                                                 size: {Dimension 16 0})
+        (<Label-View>                       name: filter-label       justification: (head -3) title: "Filter:" size: {Dimension 37 20} font: {Font name: Label})
+        (<Separator>                                                 size: {Dimension 4 0})
+        (<Border-View>                                               size: {Dimension 170 20} border-type: fill border-insets: {Rect 0 1 0 0}
+          (<Border-View>                                             border-type: edge style: entry
+            (<Scroller-View>                                         hscroll?: #f vscroll?: #f
+              (<!>                          name: content            layout-type: fill
+                (<Filter-Text-View>         name: filter-text        target-name: actions)))))
+        (<Separator>                                                 size: {Dimension 4 0})
+        (<Push-Tool>                        name: filter             size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
         @waiting
         (<Separator>                                                 size: {Dimension 16 0})
         @waiting
@@ -118,7 +128,7 @@
   
   
   (method meta override (host-size)
-    {Dimension 515 635})
+    {Dimension 595 635})
   
   
   (method override (host-workspaces)
@@ -126,7 +136,7 @@
   
   
   (method override (focus-default)
-    (acquire-focus~ (get-tree)))
+    (acquire-focus~ (locate 'filter-text)))
   
   
   ;;;
@@ -140,6 +150,10 @@
       (locate 'actions)))
   
   
+  (method (get-filter-text)
+    (locate 'filter-text))
+  
+  
   ;;;
   ;;;; Events
   ;;;
@@ -147,17 +161,20 @@
   
   (method (on-shortcuts evt)
     (set! shortcuts? (not shortcuts?))
+    (set-target-name~ (get-filter-text) (get-name~ (get-tree)))
     (set-visible?~ (locate 'actions-border) (not shortcuts?))
     (set-visible?~ (locate 'shortcuts-border) shortcuts?)
     (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
     (layout-view)
-    (view-bindings))
+    (view-bindings)
+    (filter-target~ (get-filter-text)))
   
   
   (method (on-categorize evt)
     (set! categorized? (not categorized?))
     (set-toplevel-controls?~ (get-node-column~ (get-tree)) categorized?)
-    (view-bindings))
+    (view-bindings)
+    (filter-target~ (get-filter-text)))
   
   
   (method (on-show-all evt)
@@ -205,7 +222,12 @@
             (set-active-trait~ bindings trait)
             (set-preferences-property~ appl (get-preferences #f) 'active-bindings (get-name~ trait))
             (view-bindings)
+            (filter-target~ (get-filter-text))
             (update-buttons))))))
+  
+  
+  (method (on-filter evt)
+    (filter-target~ (get-filter-text)))
   
   
   ;;;

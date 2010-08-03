@@ -984,6 +984,7 @@
 
 (native table?)
 (native make-table)
+(native make-will)
 (native table-ref)
 (native table-set!)
 (native table->list)

@@ -119,12 +119,26 @@
 
 
   (method public virtual (close)
-    (destroy))
+    (destroy)
+    (table-set! *destroy-mandatory-objects* self))
 
 
   (method protected virtual (destroy-mandatory)
-    ;; todo
-    )
+    (continuation-capture
+      (lambda (k)
+        (let ((v #t
+                 @w
+                 (case (get-name~ (class-of self))
+                   ((jazz.graphic.platform.windows.Region.Region)
+                    (identify-stack k 5))
+                   (else
+                    #t))))
+          (table-set! *destroy-mandatory-objects* self v))))
+    (make-will self
+               (lambda (obj)
+                 (let ((k (table-ref *destroy-mandatory-objects* obj #f)))
+                   (when k
+                     (leaked-object obj k))))))
 
 
   (method public virtual (destroying?)
@@ -239,4 +253,27 @@
 
 
 (definition public (hash obj <Object>)
-  (hash-object~ obj)))
+  (hash-object~ obj))
+
+
+;;;
+;;;; Memory leak detection
+;;;
+
+
+(definition public *destroy-mandatory-objects*
+  (make-table weak-keys: #t test: eq?))
+
+(definition *leaked-objects-mutex*
+  (make-mutex))
+
+(definition *leaked-objects*
+  '())
+
+(definition public (get-leaked-objects)
+  *leaked-objects*)
+
+(definition (leaked-object obj k)
+  (mutex-lock! *leaked-objects-mutex*)
+  (set! *leaked-objects* (cons (cons obj k) *leaked-objects*))
+  (mutex-unlock! *leaked-objects-mutex*)))

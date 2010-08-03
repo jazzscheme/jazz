@@ -46,7 +46,7 @@
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view))
-        
+
 
 ;;;
 ;;;; Git-Explorer
@@ -95,7 +95,7 @@
   ;;;
   ;;;; Host
   ;;;
-    
+  
   
   (method meta override (host-icon)
     {Image-Resource "Script"})
@@ -136,6 +136,10 @@
   
   (method (on-selection-change evt)
     (update-diff))
+  
+  
+  (method (on-filter evt)
+    (filter-target~ (locate 'filter-text)))
   
   
   ;;;
@@ -186,14 +190,14 @@
   (method (update-diff)
     (let ((commit (get-single-selected-data~ (locate 'history-tree))))
       (when commit
-        (with-cursor :wait
-          (lambda ()
-            (let ((digest (first commit)))
-              (receive (input output) (open-string-pipe)
-                (git-show~ depot digest output)
-                (input-port-timeout-set! input 0)
-                (let ((content (read-content-string input)))
-                  (set-string-content~ (locate 'diff-text) content))))))))))
+          (with-cursor :wait
+            (lambda ()
+              (let ((digest (first commit)))
+                (receive (input output) (open-string-pipe)
+                  (git-show~ depot digest output)
+                  (input-port-timeout-set! input 0)
+                  (let ((content (read-content-string input)))
+                    (set-string-content~ (locate 'diff-text) content))))))))))
 
 
 ;;;
@@ -212,62 +216,4 @@
       (<Tree-Label-Column> name: message title: "Message" width: 300))))
 
 
-(register-autoclass Git-History-Tree)
-
-
-;;;
-;;;; Filter-Text-View
-;;;
-
-
-(class Filter-Text-View extends Plain-Text-View
-  
-  
-  (property target-name initialize #f accessors generate)
-  
-  
-  (form
-    (<install> default-style: {Text-Style name: Default font: {Font name: Label}} left-padding: 2 top-padding: 2 accepts-returns?: #f focus-selects-all?: #t show-unfocused-selection?: #f))
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method (find-target)
-    (when target-name
-      (locate~ (find-ascendant Git-Explorer) target-name)))
-    
-  
-  ;;;
-  ;;;; Events
-  ;;;
-
-  
-  (method override (return-press key)
-    (filter-target))
-  
-  
-  (method (filter-target)
-    (define (determine-visible? row filter)
-      (some? (lambda (cell)
-               (search (get-title~ cell) filter ignore-case?: #t))
-             (get-children~ row)))
-    
-    (let ((target (find-target))
-          (filter (->search-set (get-string-content))))
-      (when target
-        (with-cursor :wait
-          (lambda ()
-            ;; quicky
-            (set-selection~ target '())
-            (set-string-content~ (locate~ (find-ascendant Git-Explorer) 'diff-text) "")
-            (with-update-locked~ target
-              (lambda ()
-                (for-each-row~ target
-                  (lambda (row rank)
-                    (set-visible?~ row (determine-visible? row filter))))))))))))
-
-
-(register-autoclass Filter-Text-View))
+(register-autoclass Git-History-Tree))

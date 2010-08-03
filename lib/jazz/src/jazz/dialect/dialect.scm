@@ -2442,10 +2442,9 @@
 
 
 ;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
-(define (jazz.expand-com-external walker resume declaration environment offset result-type signature . rest)
+(define (jazz.expand-com-external walker resume declaration environment result-type signature com-interface offset)
   (let* ((name (%%car signature))
          (param-types (map cadr (%%cdr signature)))
-         (refiid (if (%%null? rest) #f (%%car rest)))
          (resolve-declaration (lambda (type) (if (%%symbol? type)
                                                  (jazz.resolve-c-type-reference walker resume declaration environment type)
                                                (jazz.walk-error walker resume declaration #f "Illegal parameter type in com-external {s}: {s}" name type)))))
@@ -2457,7 +2456,7 @@
         (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (%%cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(jazz.emit-com-function offset result-type resolved-result param-types resolved-params))
-               (definition public ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
+               (definition public ,name ,(jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface))))))))
 
 
 (define (jazz.emit-com-function offset result-type resolved-result param-types resolved-params)
@@ -2491,7 +2490,7 @@
                   ");}")))
 
 
-(define (jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions refiid)
+(define (jazz.emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface)
   (define (generate-in resolved-param resolved-direction order)
     (if (%%eq? resolved-direction 'out)
         #f
@@ -2548,8 +2547,8 @@
                (let (,@(generate-cotype-transform generate-encode/enref))
                  (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
                    ,(if hresult?
-                        (if refiid
-                            `(validate-hresult2 result coptr ,refiid)
+                        (if com-interface
+                            `(validate-hresult2 result coptr ,com-interface)
                           `(validate-hresult result))
                       '(begin))
                    (let (,@(generate-cotype-transform generate-ref))

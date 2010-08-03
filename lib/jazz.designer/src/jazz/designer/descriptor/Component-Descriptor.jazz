@@ -68,8 +68,18 @@
   
   (form
     (<install>
-      (<Properties-Descriptor> name: properties)
-      (<Children-Descriptor>   name: children)))
+      (<Properties-Descriptor>   name: properties
+        (<Property-Descriptor>   name: before            title: "Before")
+        (<Property-Descriptor>   name: children          title: "Children")
+        (<Property-Descriptor>   name: visible?          title: "Visible"
+          (<Boolean-Domain>      name: domain))
+        (<Property-Descriptor>   name: class-info        title: "class" category: info
+          (<Presentation-Domain> name: domain))
+        (<Property-Descriptor>   name: name-info         title: "name" category: info
+          (<Name-Domain>         name: domain))
+        (<Property-Descriptor>   name: presentation-info title: "label" category: info
+          (<Presentation-Domain> name: domain)))
+      (<Children-Descriptor>     name: children)))
 
 
   ;;;
@@ -87,20 +97,18 @@
   
   
   (method public virtual (class-get-domain class property)
-    (case (field-name property)
-      ((class-info) (new Presentation-Domain))
-      ((name-info) (new Name-Domain))
-      ((presentation-info) (new Presentation-Domain))
-      ((visible?) (new Boolean-Domain))
-      (else (new Value-Domain))))
+    (or (let ((property-descriptor (get-property-descriptor class (field-name property))))
+          (and property-descriptor
+               (get-domain~ property-descriptor)))
+        (new Value-Domain)))
   
   
-  (method public virtual (class-get-domain-class class property)
-    (case (field-name property)
-      ((class-info) Presentation-Domain)
-      ((name-info) Name-Domain)
-      ((presentation-info) Presentation-Domain)
-      (else Value-Domain)))
+  (method public virtual (class-get-category class property)
+    (get-domain-category
+      (or (let ((property-descriptor (get-property-descriptor class (field-name property))))
+            (and property-descriptor
+                 (get-category~ property-descriptor)))
+          'property)))
 
   
   (method public virtual (component-property-domain component property)
@@ -145,18 +153,10 @@
   
   
   (method public virtual (class-property-presentation class property)
-    (let ((name (field-name property)))
-      (case name
-        ((class-info) "class")
-        ((name-info) "name")
-        ((presentation-info) "label")
-        ((before) "Before")
-        ((children) "Children")
-        ((visible?) "Visible")
-        (else (let ((property-descriptor (get-property-descriptor class name)))
-                (if property-descriptor
-                    (get-title~ property-descriptor)
-                  (->string name)))))))
+    (or (let ((property-descriptor (get-property-descriptor class (field-name property))))
+          (and property-descriptor
+               (get-title~ property-descriptor)))
+        (->string (field-name property))))
   
   
   (method public virtual (class-detail-presentation class property)
@@ -211,39 +211,39 @@
   
   
   (method public virtual (component-can-cut-component? component)
-    (can-delete-component?~ component))
+    (either can-cut? (can-delete-component?~ component)))
   
   
   (method public virtual (component-can-copy-component? component)
-    #t)
+    (either can-copy? #t))
   
   
   (method public virtual (component-can-paste-component? component)
-    #t)
+    (either can-paste? #t))
   
   
   (method public virtual (component-can-paste-properties-component? component)
-    #f)
+    (either can-paste-properties? #f))
   
   
   (method public virtual (component-can-rename-component? component)
-    (not (get-name-prohibited?~ (class-of component))))
+    (either can-rename? (not (get-name-prohibited?~ (class-of component)))))
   
   
   (method public virtual (component-can-select-all-component? component)
-    #f)
+    (either can-select-all? #f))
   
   
   (method public virtual (component-can-delete-component? component)
-    #t)
+    (either can-delete? #t))
   
   
   (method public virtual (component-can-move-component? component)
-    #t)
+    (either can-move? #t))
   
   
   (method public virtual (component-can-view-properties? component)
-    #t)
+    (either can-view-properties? #t))
   
   
   (method public (component-determine-can-paste component (try-parent? #t))
@@ -273,7 +273,7 @@
   
   
   (method public virtual (component-sort-components? component)
-    #f)
+    (either sort-components? #f))
   
   
   (method public virtual (component-sort-components component predicate components)
@@ -281,7 +281,7 @@
   
   
   (method public virtual (component-indexable? component)
-    #t)
+    (either indexable? #t))
   
   
   (method public virtual (component-surrogate-class component)
@@ -311,14 +311,6 @@
       (when surrogate
         (remove-handlers~ surrogate)
         (set-surrogate~ component #f))))
-  
-  
-  (method public virtual (component-get-default-property component)
-    #f)
-  
-  
-  (method public virtual (component-get-categorized-properties component)
-    #t)
   
   
   (method public virtual (component-display-property? component property)

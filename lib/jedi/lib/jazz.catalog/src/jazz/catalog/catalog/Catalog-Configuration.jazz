@@ -99,7 +99,8 @@
   (form
     (<install>                                        title: "Catalog"
       (<properties~>                                  categorized: (type output-file directories extensions recursive? active? references?)
-        (<Property-Descriptor>      name: type        title: "Type")
+        (<Property-Descriptor>      name: type        title: "Type"
+          (<Catalog-Types-Domain>   name: domain))
         (<Property-Descriptor>      name: output-file title: "Output File"
           (<File-Domain>            name: domain      mode: save))
         (<Property-Descriptor>      name: directories title: "Directories"
@@ -122,10 +123,18 @@
   
   
   (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (presentation->name~ (class-of component) presentation)))
+    (set-name~ designer component (presentation->name~ (class-of component) presentation))))
+
+
+;;;
+;;;; Catalog-Types-Domain
+;;;
+
+
+(class Catalog-Types-Domain extends Enumeration-Domain
   
   
-  (method override (class-get-domain class property)
+  (method override (finish rest)
     (define (collect-catalog-types)
       (let ((pref (get-preferences #f)))
         (map (lambda (info)
@@ -133,6 +142,8 @@
                  (list type (->string type))))
              (get-catalog-types~ pref))))
     
-    (case (field-name property)
-      ((type) (new Enumeration-Domain choices: (collect-catalog-types)))
-      (else (nextmethod class property)))))))
+    (nextmethod rest)
+    (set-choices (collect-catalog-types))))
+
+
+(register-autoclass Catalog-Types-Domain)))

@@ -57,19 +57,15 @@
 
   (slot library)
   (slot name)
-  (slot com-classes?)
-  (slot pure-dispatch?)
   (slot to-emit)
   (slot emited)
   (slot waiting)
 
 
-  (method (initialize (library: library #f) (name: name (default-name library)) (com-classes?: com-classes? #f) (pure-dispatch?: pure-dispatch? #f))
+  (method (initialize (library: library #f) (name: name (default-name library)))
     (nextmethod)
     (set! library~self library)
-    (set! name~self name)
-    (set! com-classes?~self com-classes?)
-    (set! pure-dispatch?~self pure-dispatch?))
+    (set! name~self name))
   
   
   (method (default-name lib)
@@ -92,7 +88,13 @@
 
 
   (method (emit-package-header printer)
-    (format printer "(package {a} extends Common" name))
+    (format printer "(module {a} jazz{%}{%}{%}" name) ; must fix to full module locator
+    (format printer "(import (jazz.platform.types){%}")
+    (format printer "        (jazz.platform.windows){%}")
+    (format printer "        (jazz.platform.windows.com)){%}{%}{%}")
+    (format printer ";; patch - need a direct ref to ole32{%}")
+    (format printer "(definition (patch-link class aggregate context interface coptr*){%}")
+    (format printer "  (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT \"CoCreateInstance\"))"))
 
 
   (method (emit-package-footer printer)
@@ -101,9 +103,9 @@
 
   (method (emit-section-header section-name printer)
     (format printer "{%}{%}{%}")
-    (format printer "  ;;;{%}")
-    (format printer "  ;;;; {a}{%}" section-name)
-    (format printer "  ;;;{%}{%}{%}"))
+    (format printer ";;;{%}")
+    (format printer ";;;; {a}{%}" section-name)
+    (format printer ";;;{%}{%}{%}"))
 
 
   (method (emit-library-types printer activity)
@@ -180,7 +182,7 @@
     (let ((name (get-name~ info))
           (variables (get-variables~ info)))
       (emit-section-header name printer)
-      (format printer "  (c-enumeration public {a}" name)
+      (format printer "(c-enumeration public {a}" name)
       (if (null? variables)
           (format printer ")")
         (format printer "{%}{%}")
@@ -191,7 +193,7 @@
     (let ((name (get-name~ info))
           (variables (get-variables~ info)))
       (emit-section-header name printer)
-      (format printer "  (structure public {a}" name)
+      (format printer "(structure public {a}" name)
       (if (null? variables)
           (format printer ")")
         (format printer "{%}{%}")
@@ -205,15 +207,18 @@
 
 
   (method (emit-interface info printer)
-    (let* ((name (get-name~ info))
+    (let* ((interface-name (get-name~ info))
            (guid (get-guid~ info))
            (variables (get-variables~ info))
            (functions (get-functions~ info))
            (interfaces (get-implemented-types~ info))
            (ascendant (car interfaces)))
-      (emit-section-header name printer)
-      (format printer "  (interface public {a} extends {a}{%}{%}{%}" name (get-name~ ascendant))
-      (format printer "    (properties{a} guid: {s})" (if pure-dispatch? " :pure-dispatch? #t" "") guid)
+      ;; hack import collision
+      (when (member? interface-name '("Field" "Error" "Property"))
+        (set! interface-name (append interface-name "_")))
+      (emit-section-header interface-name printer)
+      (format printer "(definition {a}{%}" interface-name)
+      (format printer "  (com-interface {s}))" (->string guid))
       (when (or variables functions)
         (format printer "{%}{%}"))
       (for-each (lambda (desc)
@@ -225,9 +230,9 @@
                          (final-typedesc (or ptr-typedesc typedesc))
                          (type-name (intern-type info final-typedesc #f)))
                     (format printer "{%}")
-                    (format printer "    (com-external public virtual abstract {a} (get-{a}))" type-name name)))
+                    (format printer "(com-external {a} ({a}$get-{a}))" type-name interface-name name)))
                 variables)
-      (emit-functions info '() functions 'com-external " public virtual abstract" printer ")")))
+      (emit-functions info '() functions 'com-external "" interface-name printer '())))
 
 
   (method (emit-dispatch info printer)
@@ -240,25 +245,8 @@
            (interfaces (get-implemented-types~ info))
            (interface-names (map info-name interfaces)))
       (emit-section-header name printer)
-      (format printer "  (class public{a} {a} extends CoObject" (if com-classes? "" " abstract") name)
-      (case (length interfaces)
-        ((0))
-        ((1) (format printer " implements {a}" (car interface-names)))
-        (else (format printer " implements {a}" interface-names)))
-      (format printer "{%}{%}{%}")
-      (format printer "    (properties guid: {s}{a})" guid (if com-classes? "" " external?: #t"))
-      (if (and com-classes? interfaces)
-          (begin
-            (format printer "{%}{%}")
-            (let ((names '()))
-              (if (null? interfaces)
-                  (format printer ")")
-                (for-each-pair (lambda (pair)
-                                 (bind (interface . tail) pair
-                                   (let ((functions (get-functions~ interface)))
-                                     (set! names (emit-functions interface names functions 'com-method "" printer (and (null? tail) ")")))))
-                                 interfaces)))))
-        (format printer ")"))))
+      (format printer "(definition public {a}-class{%}" name)
+      (format printer "  (com-class {s} {a}))" (->string guid) (car interface-names))))
 
 
   (method (emit-alias info printer)
@@ -271,7 +259,7 @@
   
   (method (emit-alias-code name aliased printer)
     (emit-section-header name printer)
-    (format printer "  (constant {a} {a})" name aliased))
+    (format printer ";(constant {a} {a})" name aliased))
 
 
   ;; This is a temporary kludge that will only work
@@ -279,18 +267,18 @@
   (method (emit-union info printer)
     (let ((name (get-name~ info)))
       (emit-section-header name printer)
-      (format printer "  ;; warning: this will only work if sizeof({a}) equals sizeof(long){%}" name)
-      (format printer "  (structure public {a}{%}" name)
-      (format printer "    (long union))")))
+      (format printer ";; warning: this will only work if sizeof({a}) equals sizeof(long){%}" name)
+      (format printer "(structure public {a}{%}" name)
+      (format printer "  (long union))")))
 
 
   (method (emit-max info printer)
     (let ((name (get-name~ info)))
       (emit-section-header name printer)
-      (format printer "  ;; unimplemented kind: max")))
+      (format printer ";; unimplemented kind: max")))
 
 
-  (method (emit-functions info names functions header modifiers printer trailer)
+  (method (emit-functions info names functions header modifiers namespace printer trailer)
     (if (null? functions)
         (when trailer
           (format printer "{a}" trailer))
@@ -299,16 +287,17 @@
                          (let* ((name (get-member-name~ info desc))
                                 (effective (effective-name (get desc 'invkind) name)))
                            (when (not (memq? effective names))
-                             (emit-function info effective desc header modifiers printer (and (null? tail) trailer))
+                             (emit-function info effective desc header modifiers namespace printer (essay (nil? tail) trailer))
                              (set! names (cons effective names))))))
                      functions))
     names)
 
 
-  (method (emit-function info effective desc header modifiers printer trailer)
+  (method (emit-function info effective desc header modifiers namespace printer trailer)
     ;; a serious patch
     (unless (member? effective '("QueryInterface" "AddRef" "Release" "GetTypeInfoCount" "GetTypeInfo" "GetIDsOfNames" "Invoke") test: equal?)
     (let* ((unimplemented '())
+           (virtual-offset (get desc 'oVft))
            (return-typedesc (get desc '(elemdescFunc tdesc)))
            (return-type (get return-typedesc 'vt))
            (return-pointer? (= return-type VT_PTR))
@@ -316,10 +305,11 @@
            (final-return-typedesc (or ptr-return-typedesc return-typedesc))
            (return-type-name (intern-type info final-return-typedesc return-pointer?)))
       (format printer "{%}")
-      (format printer "    ({a}{a} {a} ({a}"
+      (format printer "({a}{a} {a} ({a}${a}"
               header
               modifiers
               return-type-name
+              namespace
               effective)
       (when (eq? return-type-name 'unpl)
         (set! unimplemented (cons return-type unimplemented)))
@@ -342,13 +332,13 @@
                            (param-direction (parameter-direction param)))
                       ;; patch - runtime does not AddRef interface passed as <in-out> parameters
                       (if (and (eq? '<in-out> param-direction)
-                               (or (= "IUnknown" param-type-name) (= "IDispatch" param-type-name)))
-                          (format printer " {a} unpl @wait {a}" param-direction param-type-name)
-                        (format printer " {a} {a}" param-direction param-type-name))
+                               (or (= "IUnknown*" param-type-name) (= "IDispatch" param-type-name)))
+                          (format printer " ({a} unpl @wait {a})" param-direction param-type-name)
+                        (format printer " ({a} {a})" param-direction param-type-name))
                       (when (eq? param-type-name 'unpl)
                         (set! unimplemented (cons param-type unimplemented)))))
                   (naturals 0 (get desc 'cParams)))
-        (format printer "))")
+        (format printer ") {a} {a})" namespace (quotient virtual-offset 4))
         (when trailer
           (format printer "{a}" trailer))
         (when unimplemented
@@ -391,9 +381,9 @@
            (in?   (mask-bit-set? flags IDLFLAG_FIN))
            (out?  (mask-bit-set? flags IDLFLAG_FOUT))
            (unspecified? (and (not in?) (not out?))))
-      (cond ((and in? out?) '<in-out>)
-            ((or in? unspecified?) '<in>)
-            (out? '<out>)
+      (cond ((and in? out?) 'in-out)
+            ((or in? unspecified?) 'in)
+            (out? 'out)
             (else (error "Bad parameter direction")))))
 
 
@@ -416,8 +406,8 @@
            (variable-type-name (intern-type info typedesc #f)))
       (format printer "{%}")
       (ecase kind
-        ((TKIND_ENUM)   (format printer "    ({a} {a})" name (read-variant value)))
-        ((TKIND_RECORD) (format printer "    ({a} {a})" variable-type-name name)))
+        ((TKIND_ENUM)   (format printer "  ({a} {a})" name (read-variant value)))
+        ((TKIND_RECORD) (format printer "  ({a} {a})" variable-type-name name)))
       (when trailer
         (format printer "{a}" trailer))
       (when (and (= kind TKIND_RECORD) (= variable-type-name 'unpl))
@@ -434,11 +424,18 @@
   
 
   (method (intern-type info desc pointer?)
-    (let ((debug? #t)
-          (type (get desc 'vt)))
+    (let ((type (get desc 'vt)))
       (if (= type VT_USERDEFINED)
           (let ((referenced (get-referenced-type~ info (get desc 'desc))))
-            (add-modifier (get-name~ referenced) pointer?))
+            (ecase (get-kind~ referenced)
+              ((TKIND_ENUM)
+               (format :string "{a} @user enum {a}" (add-modifier "int" pointer?) (get-name~ referenced)))
+              ((TKIND_DISPATCH)
+               (format :string "{a} {a}" (add-modifier "IUnknown*" pointer?) (get-name~ referenced)))
+              ((TKIND_ALIAS)
+               (format :string "{a} @user alias {a}" (add-modifier "int" pointer?) (get-name~ referenced)))
+              (else
+               (format :string "void* @user{a} {a}" (get-kind~ referenced) (get-name~ referenced)))))
         (let* ((info (idl-type-info type))
                (name (if (pair? info) (car info) info))
                (type (add-modifier name pointer?)))
@@ -450,28 +447,28 @@
   (method (idl-type-info type)
     (ecase type
       ((VT_VOID)        "void")
-      ((VT_UI1)         "byte")
-      ((VT_UI2)         "short")
-      ((VT_UI4)         "int")
-      ((VT_UINT)        "int")
-      ((VT_I1)          "byte")
-      ((VT_I2)          "short")
-      ((VT_I4)          "int")
+      ((VT_UI1)         "BYTE")
+      ((VT_UI2)         "WORD")
+      ((VT_UI4)         "DWORD")
+      ((VT_UINT)        "UINT")
+      ((VT_I1)          "CHAR")
+      ((VT_I2)          "SHORT")
+      ((VT_I4)          "LONG")
       ((VT_R4)          "float")
       ((VT_R8)          "double")
-      ((VT_INT)         "int")
-      ((VT_BOOL)        "vtbool")
-      ((VT_HRESULT)     "hresult")
+      ((VT_INT)         "INT")
+      ((VT_BOOL)        "VARIANT_BOOL")
+      ((VT_HRESULT)     "HRESULT")
       ((VT_PTR)         (cons "unpl" "Ptr"))
       ((VT_CARRAY)      (cons "unpl" "CArray"))
-      ((VT_BSTR)        "string")
-      ((VT_VARIANT)     "variant")
-      ((VT_DATE)        "vtdate")
+      ((VT_BSTR)        "BSTR")
+      ((VT_VARIANT)     "VARIANT")
+      ((VT_DATE)        "VT_DATE")
       ((VT_USERDEFINED) (cons "unpl" "UserDefined"))
-      ((VT_UNKNOWN)     "IUnknown")
-      ((VT_DISPATCH)    "IDispatch")
+      ((VT_UNKNOWN)     "IUnknown*")
+      ((VT_DISPATCH)    "IDispatch*")
       ((VT_SAFEARRAY)   (cons "unpl" "SafeArray"))
-      ((VT_CY)          (cons "unpl" "VT_CY"))
+      ((VT_CY)          "VT_CY")
       ((VT_LPSTR)       (cons "unpl" "LPSTR"))
       ((VT_LPWSTR)      (cons "unpl" "LPWSTR"))
       (else (error "Unknown idl type: {t}" (value->name~ VARENUM type)))))
@@ -479,5 +476,5 @@
   
   (method (add-modifier name pointer?)
     (if pointer?
-        (format "{a}&" name)
+        (format :string "{a}*" name)
       name))))

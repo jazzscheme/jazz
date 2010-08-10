@@ -548,7 +548,8 @@
     (let ((error (lambda ()
                    (reply connection
                           "400 Bad Request"
-                          "400 Bad Request")))
+                          "400 Bad Request"
+                          '())))
           (req (permissive-read-line connection)))
       (if (string? req)
           (let* ((first-space

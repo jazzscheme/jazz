@@ -77,23 +77,6 @@
   
   
   ;;;
-  ;;;; Filter
-  ;;;
-  
-  
-  (method meta public virtual (get-filter-name)
-    'properties)
-  
-  
-  (method meta public virtual (get-filter-rank)
-    1)
-  
-  
-  (method meta public virtual (get-filter-image)
-    {Image-Resource "Property"})
-  
-  
-  ;;;
   ;;;; Access
   ;;;
 
@@ -301,14 +284,6 @@
       duration: .150))
   
   
-  (method public (editor-focus-validate view)
-    (if limit-to-list?
-        (if (get-edited-modified?)
-            (validate-value)
-          #t)
-      #t))
-  
-  
   (method public (editor-focus-delegate)
     (when (and (auto-in-place?) (not (in-edition?)))
       (auto-expand/collapse~ (get-tree) self))
@@ -322,7 +297,7 @@
   
   
   ;;;
-  ;;;; Cell Edition
+  ;;;; Cell
   ;;;
   
   
@@ -340,7 +315,15 @@
       (edit-cell~ tree cell editor: border close-editor?: (close-editor?))
       ;; the focusing has to be done after the edit-cell that will install the editor in a player
       (focus-editor)
-      (set-client~ scroller editor)))
+      (set-client~ scroller editor)))-
+  
+  
+  (method protected virtual (new-editor)
+    )
+  
+  
+  (method protected virtual (editor-class)
+    )
   
   
   (method public (close-in-cell-editor)
@@ -361,121 +344,6 @@
   
   (method public virtual (focused-editor)
     editor)
-  
-  
-  ;;;
-  ;;;; Row Edition
-  ;;;
-  
-  
-  (method public (edit-in-row)
-    (let* ((tree (get-tree))
-           (subrow (add-row~ tree class: Editor-Row father: self row-height: (editor-height)))
-           (border (new Border-View parent: subrow border-type: 'solid border-color: {Color name: Dark-Red}))
-           (scroller (new Scroller-View parent: border vscroll?: #t hscroll?: #f)))
-      (unless editor
-        (set! editor (new-editor)))
-      (set-parent~ editor (get-content~ scroller))
-      (set-editor~ subrow border)
-      (set-client~ scroller editor)
-      (expand/collapse~ tree self)))
-  
-  
-  (method protected virtual (install-container)
-    )
-  
-  
-  (method public (close-in-row-editor)
-    (let ((tree (get-tree))
-          (editor-row (first (get-sons))))
-      (when editor-row
-        (expand/collapse~ tree self)
-        (remove-row~ tree editor-row)
-        (let ((editor (get-editor~ editor-row)))
-          (if (close-editor?)
-              (close~ editor)
-            (set-parent~ editor #f))))))
-  
-  
-  (method protected virtual (editor-height)
-    21)
-  
-  
-  (method protected virtual (new-editor)
-    (new (editor-class)
-      value-row: self
-      left-padding: 1
-      top-padding: 1))
-  
-  
-  (method protected virtual (editor-class)
-    Value-Text-View)
-  
-  
-  ;;;
-  ;;;; List Edition
-  ;;;
-  
-  
-  (method (edit-in-list)
-    (let ((tree (get-tree)))
-      (for-each (lambda (subvalue)
-                  (add-value subvalue (get-subrow-class)))
-                (get-list-value))
-      (expand/collapse~ tree self)))
-  
-  
-  (method protected virtual (get-subrow-class)
-    Value-Row)
-  
-  
-  (method protected (close-in-list-editor)
-    (let ((tree (get-tree)))
-      (expand/collapse~ tree self))
-    (remove-every-son))
-  
-  
-  (method (get-list-edited-value)
-    (accumulate (get-sons) get-subvalue~))
-  
-  
-  (method protected (get-list-edited-modified?)
-    (or modified?
-        (some? (lambda (subrow)
-                 (get-modified?~ subrow))
-               (get-sons))))
-  
-  
-  (method protected (set-list-edited-modified? flag)
-    (set! modified? flag)
-    (iterate (get-sons)
-             (lambda (subrow)
-               (set-modified?~ subrow flag))))
-  
-  
-  (method public virtual (get-subvalue)
-    (get-value))
-  
-  
-  (method protected virtual (get-list-value)
-    value)
-  
-  
-  (method protected virtual (add-value value class)
-    )
-
-  
-  (method public (add-row father title value (class: class Value-Row) (user-data: user-data #f))
-    (let* ((tree (get-tree))
-           (node (new Tree-Node title: title image: {Image-Resource "Item"}))
-           (label (new Tree-Label))
-           (owner (new Tree-Image))
-           (row (new class parent: tree row-height: 17 children: (list node label owner) user-data: user-data))
-           (value (if (eq? value 'unspecified) (default-value~ row) value))
-           (presented (present~ row value)))
-      (set-value~ row value)
-      (set-title~ label presented)
-      (add-row~ tree father: father row: row)))
 
   
   ;;;
@@ -535,40 +403,6 @@
   (method override (double-click pos)
     (let ((tree (get-tree)))
       (auto-expand/collapse~ tree self)))
-  
-  
-  (method override (context-menu pos)
-    (let ((tree (get-tree))
-          (pos (nu+ position pos)))
-      (with-context-click~ tree pos
-        (lambda ()
-          (let ((class (get-menu-class)))
-            (if (not class)
-                (bell)
-              (let ((menu (new class value-row: self)))
-                (update-menu menu)
-                (track-popup-menu~ tree menu pos))))))))
-  
-  
-  (method protected virtual (get-menu-class)
-    Value-Menu)
-  
-  
-  (method (update-menu menu)
-    (when (is? father List-Row)
-      (new Label-Item parent: menu before: 'revert title: "Remove Item" icon: {Image-Resource "Remove"} action-handler: (new Event-Handler target: self method-name: 'on-remove-item))
-      (unless (auto-number?~ father)
-        (new Label-Item parent: menu before: 'revert title: "Rename Item" action-handler: (new Event-Handler target: self method-name: 'on-rename-item) shortcut: '(F2)))
-      (new Separator-Item parent: menu before: 'revert)
-      (layout-menu~ menu)))
-  
-  
-  (method package (on-remove-item evt)
-    (remove-item~ father self))
-  
-  
-  (method package (on-rename-item evt)
-    (rename-item~ father self))
   
   
   (method public (show-property)

@@ -42,7 +42,7 @@
         (jazz.library))
 
 
-(class Range-Domain extends Domain
+(class Range-Domain extends Text-Domain
   
   
   ;;;
@@ -53,28 +53,25 @@
   (method override (present range)
     (if (not range)
         "{}"
-      (format "{a}, {a}"
-              (get-start~ range)
-              (get-end~ range))))
+      (let ((start (get-start~ range))
+            (end (get-end~ range)))
+        (format "{a}, {a}, {a}, {a}"
+                (get-line~ start)
+                (get-col~ start)
+                (get-line~ end)
+                (get-col~ end)))))
   
   
   ;;;
-  ;;;; Edition
+  ;;;; Parse
   ;;;
   
   
-  @convert-domain
-  (method override (get-edited-value)
-    (let ((list (read-delimited-string (get-string-content~ editor) #\comma)))
-      (bind ((start) (end)) list
-        (new Range start end))))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method override (setup-entry view client)
-    (new Range-Entry parent: view size: (get-size~ view) domain: self))))
-
+  (method override (parse text)
+    (if (equal? text "{}")
+        #f
+      (let ((lst (read-delimited-string text #\comma)))
+        (bind ((start-line) (start-col) (end-line) (end-col)) lst
+          (new Range
+            (new Cell start-line start-col)
+            (new Cell end-line end-col))))))))

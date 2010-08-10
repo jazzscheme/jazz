@@ -2442,14 +2442,16 @@ JazzScheme Build System v2.0.0
             (<a> href: "#faq.jazz.reader" "Why can't I use a @foo variable in my code?")
             (<a> href: "#faq.jazz.repositorypackagealiases" "Is there an easy way to refer to files inside repositories and packages?")
             (<a> href: "#faq.jazz.todo" "Is there a TODO file for Jazz developers somewhere?")
-            (<a> href: "#faq.jazz.webframework" "Does Jazz include a web framework?")))
+            (<a> href: "#faq.jazz.webframework" "Does Jazz include a web framework?")
+            (<a> href: "#faq.jazz.crash" "What options do I have to solve a crash?")))
         (<division> title: "Jedi IDE"
           (<node>
             (<a> href: "#faq.jedi.console" "Can I evaluate pure Scheme code at the console?")
             (<a> href: "#faq.jedi.gambitrepl" "Does the console support the same set of command as the Gambit REPL?")
             (<a> href: "#faq.jedi.gettingstarted" "What are the code introspection tools available in Jedi to help me get started?")
             (<a> href: "#faq.jedi.profileproblems" "Why doesn't my profile load anymore?")
-            (<a> href: "#faq.jedi.customfonts" "Can I customize text styles?")
+            (<a> href: "#faq.jedi.customfonts" "Can I customize fonts?")
+            (<a> href: "#faq.jedi.customstyles" "Can I customize text styles?")
             (<a> href: "#faq.jedi.customworkspaces" "Can I customize my workspaces?")))))
     
     (<article> title: "Build System"
@@ -2675,8 +2677,37 @@ JazzScheme Build System v2.0.0
           (<p> (<ordered> "From inside the IDE, select the 'View / Servers' palette and from there double-click the server to start or stop it. "
                           "Launch the Game Server project with 'Project / Debug'. The launched process will start the webserver and the webserver's control panel becomes accessible in the Console's 'Game Server primordial' tab. "
                           "Or as you would do in production: double-click the 'bin/gameserver.exe' binary that building the project generated. The webserver's control-panel will use the OS console since the process is not connected to the Jedi remote debugger. "))
-          (<p> "Please note that this webserver is a naive implementation not meant for production. It will need more work before being used to serve high volumes. "))))
+          (<p> "Please note that this webserver is a naive implementation not meant for production. It will need more work before being able to serve high volumes although it was rebuilt on the Gambit webserver which offers decent performance. "))
         
+        (<division> name: faq.jazz.crash title: "What options do I have to solve a crash?"
+          (<p> "Here are a few options: ")
+          (<p>)
+          (<node>
+            (<span>
+              "Crash handler"
+              (<p>)
+              "The Jazz kernel which is the part present in every Jazz application, installs OS code that automatically handles crashes and tries to dump a stack backtrace of all the active threads. "
+              (<p>)
+              "It does so by handling signals on Unix and by using the SetUnhandledExceptionFilter API on Windows. "
+              (<p>)
+              "If the system has just begun booting up, the backtrace will be outputted to the standard error, else a file like Jedi_2010-07-05_16-19-42.snapshot will be created in ~/.jazz/crashes. "
+              "This file can be viewed by a regular text editor but should ideally be viewed by opening it in Jedi where it will be presented in the debugger the same as if the error had just occurred live. "
+              "Note that because generating a snapshot is a touchy process because the crash may be because of a corrupted state, sometimes the snapshot will only contain partial data up to a point where the snapshot generation crashed again. "))
+          (<p>)
+          (<node>
+            (<span>
+              "Using a debug build"
+              (<p>)
+              "If the crash is due to high-level code crashing (i.e. not a problem crashing inside an FFI call, more something like passing a wrong type like in (car 2) or (append #f '(1 2))), using a debug build is the way to go. "
+              "By default, the build system when you do 'configure' uses safety: release where many checks are turned off for performance reason (for instance, release mode inserts the following Gambit (declare (not safe)) declaration in every module). "
+              "To build a debug build, start the build system and do: configure name: debug safety: debug destination: \"jazz:debug\". "
+              "Then build that configuration with: make jedi@d. "
+              "The newly built kernel and jedi executables can be found in build/debug. "))
+          (<p> "If those two don't solve the problem, then it pretty much boils down to being able to reproduce the problem to be able to track the exact cause.")
+          (<p>)
+          (<p> "PS: We recently added complete runtime advising to Jazz similar to CommonLisp's advice function where the new advice function can be used to advice any function or method, a complete module or even the whole runtime. "
+            "We plan to use this new functionality to add a precise profiler and code coverage tool to Jazz but maybe it could also be used to automatically track every call being made so we know exactly the last calls made before any crash! "))))
+    
     (<article> title: "Jedi IDE"
       (<description>
         (<division> name: faq.jedi.console title: "Can I evaluate pure Scheme code at the console?"
@@ -2723,7 +2754,26 @@ JazzScheme Build System v2.0.0
                "If not, one solution that will always work is to create a new profile and then compare the new profile's directory content with the broken one. You can use Jedi's Compare Directories tool for this. "
                "This should help you discover what change is creating problems. "))
         
-        (<division> name: faq.jedi.customfonts title: "Can I customize text styles?"
+        (<division> name: faq.jedi.customfonts title: "Can I customize fonts?"
+          (<p> "Here is an example for your Preferences.jml file inside your profile directory that will customize the Code and Label fonts: ")
+          (<p> (<pre> class: "code"
+                 "(" (<span> class: "purple" "&lt;Jedi-Preferences&gt;") "\n"
+                 "  ..." "\n"
+                 "  (" (<span> class: "purple" "&lt;fonts~&gt;") "\n"
+                 "    (" (<span> class: "purple" "&lt;Font-Preferences&gt;") " name: Code  font-name: \"Courier New\" point-size: 12.5)" "\n"
+                 "    (" (<span> class: "purple" "&lt;Font-Preferences&gt;") " name: Label font-name: \"Tahoma\" point-size: 10)" "\n"
+                 "  )" "\n"
+                 "  ..." "\n"
+                 ")"))
+          (<p> "Properties available for Font-Preferences are: ")
+          (<p> (<node> " font-name - The name of the font"
+                       " point-size - The point size of the font"
+                       " bold? - Is the text bold"
+                       " italic? - Is the text italic"
+                       " underline? - Is the text underlined"))
+          (<p> "Note that Jedi catalogs fonts so that pressing F12 on the Label symbol for instance will edit its definition. "))
+        
+        (<division> name: faq.jedi.customstyles title: "Can I customize text styles?"
           (<p> "Here is an example for your Preferences.jml file inside your profile directory: ")
           (<p> (<pre> class: "code"
                  "(" (<span> class: "purple" "&lt;Jedi-Preferences&gt;") "\n"
@@ -2749,6 +2799,7 @@ JazzScheme Build System v2.0.0
           (<p> "Yes, Jedi workspaces are fully configurable. ")
           (<p> "Locate the &lt;workspaces~&gt; section in your profile's Preferences.jml. ")
           (<p> "You can remove any unwanted workspaces, change the one active on startup, or make any changes you want to those already there. ")
+          (<p> "If the only changes you want to do are splitting a workspace vertically or horizontally, this can be done using the Workspace menu items: Split Vertically and Split Horizontally. ")
           ))))
   ;; (<section> name: forums title: "Forums")
   ;; (<section> name: blogs title: "Blogs")

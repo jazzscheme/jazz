@@ -75,4 +75,18 @@
                      (%%cadr arguments))
                     (else
                      (iter (%%cddr arguments))))))))
+    #f))
+
+
+(define (jazz.command-argument? name)
+  (if (eq? jazz.image 'executable)
+      (let ((all (%%cdr (command-line))))
+        (let iter ((arguments all))
+          (if (%%null? arguments)
+              #f
+            (let ((arg (%%car arguments)))
+              (if (and (jazz.switch? arg)
+                       (%%equal? name (jazz.switch-name arg)))
+                  #t
+                (iter (%%cdr arguments)))))))
     #f)))

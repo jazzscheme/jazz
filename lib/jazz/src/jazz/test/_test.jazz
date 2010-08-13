@@ -106,18 +106,6 @@
 
 
 ;;;
-;;;; Walk
-;;;
-
-
-@walk (
-(import (jazz.runtime))
-
-
-(walk-all feedback: debug))
-
-
-;;;
 ;;;; REPL
 ;;;
 
@@ -332,72 +320,6 @@
 
 (definition public (run)
   (boot-environment~ (new My-App))))
-
-
-;;;
-;;;; Problems
-;;;
-
-
-@problems (
-(import (jazz.io)
-        (jazz.runtime))
-
-
-(call-with-output-file (list path: "~/problems.jazz" eol-encoding: (get-eol-encoding))
-  (lambda (port)
-    (let ((count 0))
-      (define (walk-with-catch unit-name)
-        (catch (Walk-Problems exc
-                 (format port ";;;{%}")
-                 (format port ";;;; {a}{%}" unit-name)
-                 (format port ";;;{%}")
-                 (format port "{%}{%}")
-                 (display-exception exc port)
-                 (format port "{%}{%}")
-                 (increase! count))
-          (walk-unit unit-name)))
-      
-      (iterate-units walk-with-catch feedback:
-        (lambda (unit-name)
-          (if unit-name
-              (terminal 'walking unit-name)
-            (terminal 'done))))
-      (terminal 'found count (string->symbol (format "problem{a}" (format-plural count))))))))
-
-
-;;;
-;;;; Unresolved
-;;;
-
-
-@unresolved (
-(import (jazz.io)
-        (jazz.runtime)
-        (jedi)
-        (statprof))
-
-
-(let ((unresolved (make-table test: eq?)))
-  (define (walk unit-name)
-    (catch (Walk-Problems exc
-             (let ((problems (append (get-warnings~ exc) (get-errors~ exc))))
-               (for-each (lambda (problem)
-                           (when (is? problem Unresolved-Error)
-                             (table-add unresolved (get-symbol~ problem) unit-name)))
-                         problems)))
-      (walk-unit unit-name)))
-  
-  (iterate-units walk feedback:
-    (lambda (unit-name)
-      (if unit-name
-          (terminal 'walking unit-name)
-        (terminal 'done))))
-  
-  (call-with-output-file (list path: "~/unresolved.jazz" eol-encoding: (get-eol-encoding))
-    (lambda (port)
-      (pp (table-keys unresolved) port)
-      (pp (remove-duplicates (apply append (table-values unresolved))) port)))))
 
 
 ;;;

@@ -14,6 +14,11 @@
 (declare (proper-tail-calls))
 
 
+;; Note that because statprof duration is a fixed quantum, keeping both
+;; call count and call duration only makes sense because of FFI calls that
+;; can span more than one statprof quantum beeing uninterruptible.
+
+
 ;;;
 ;;;; Settings
 ;;;
@@ -29,7 +34,7 @@
 
 
 (define (make-profile depth)
-  (%%vector 'profile depth #f 0 0 (%%make-table test: equal?) 0))
+  (%%vector 'profile depth #f 0 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-depth profile)
@@ -47,20 +52,26 @@
 (define (profile-total-set! profile total)
   (%%vector-set! profile 3 total))
 
-(define (profile-unknown profile)
+(define (profile-unknown-count profile)
   (%%vector-ref profile 4))
 
-(define (profile-unknown-set! profile unknown)
+(define (profile-unknown-count-set! profile unknown)
   (%%vector-set! profile 4 unknown))
 
-(define (profile-calls profile)
+(define (profile-unknown-total profile)
   (%%vector-ref profile 5))
 
-(define (profile-last-counter profile)
+(define (profile-unknown-total-set! profile unknown)
+  (%%vector-set! profile 5 unknown))
+
+(define (profile-calls profile)
   (%%vector-ref profile 6))
 
+(define (profile-last-counter profile)
+  (%%vector-ref profile 7))
+
 (define (profile-last-counter-set! profile counter)
-  (%%vector-set! profile 6 counter))
+  (%%vector-set! profile 7 counter))
 
 
 ;;;
@@ -180,12 +191,18 @@
   
   (let ((duration (max 1 (duration)))
         (stack (identify-stack cont (profile-depth *profile*))))
+    (profile-total-set! *profile* (+ (profile-total *profile*) duration))
     (if (%%not stack)
-        (profile-unknown-set! *profile* (+ (profile-unknown *profile*) duration))
+        (begin
+          (profile-unknown-count-set! *profile* (+ (profile-unknown-count *profile*) 1))
+          (profile-unknown-total-set! *profile* (+ (profile-unknown-total *profile*) duration)))
       (begin
-        (profile-total-set! *profile* (+ (profile-total *profile*) duration))
-        (let ((actual (%%table-ref (profile-calls *profile*) stack 0)))
-          (%%table-set! (profile-calls *profile*) stack (+ actual duration)))))))
+        (let ((actual (or (%%table-ref (profile-calls *profile*) stack #f)
+                          (let ((record (cons 0 0)))
+                            (%%table-set! (profile-calls *profile*) stack record)
+                            record))))
+          (set-car! actual (+ (car actual) 1))
+          (set-cdr! actual (+ (cdr actual) duration)))))))
 
 
 ;;;

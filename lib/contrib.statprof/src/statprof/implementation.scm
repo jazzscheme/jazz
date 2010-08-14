@@ -34,7 +34,7 @@
 
 
 (define (make-profile depth)
-  (%%vector 'profile depth #f 0 0 0 (%%make-table test: equal?) 0))
+  (%%vector 'profile depth #f 0 0 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-depth profile)
@@ -46,32 +46,38 @@
 (define (profile-frame-count-set! profile count)
   (%%vector-set! profile 2 count))
 
-(define (profile-total profile)
+(define (profile-total-count profile)
   (%%vector-ref profile 3))
 
-(define (profile-total-set! profile total)
+(define (profile-total-count-set! profile total)
   (%%vector-set! profile 3 total))
 
-(define (profile-unknown-count profile)
+(define (profile-total-duration profile)
   (%%vector-ref profile 4))
 
-(define (profile-unknown-count-set! profile unknown)
-  (%%vector-set! profile 4 unknown))
+(define (profile-total-duration-set! profile total)
+  (%%vector-set! profile 4 total))
 
-(define (profile-unknown-total profile)
+(define (profile-unknown-count profile)
   (%%vector-ref profile 5))
 
-(define (profile-unknown-total-set! profile unknown)
+(define (profile-unknown-count-set! profile unknown)
   (%%vector-set! profile 5 unknown))
 
-(define (profile-calls profile)
+(define (profile-unknown-duration profile)
   (%%vector-ref profile 6))
 
-(define (profile-last-counter profile)
+(define (profile-unknown-duration-set! profile unknown)
+  (%%vector-set! profile 6 unknown))
+
+(define (profile-calls profile)
   (%%vector-ref profile 7))
 
-(define (profile-last-counter-set! profile counter)
-  (%%vector-set! profile 7 counter))
+(define (profile-user-data profile)
+  (%%vector-ref profile 8))
+
+(define (profile-user-data-set! profile user-data)
+  (%%vector-set! profile 8 user-data))
 
 
 ;;;
@@ -145,6 +151,13 @@
   (profile-frame-count-set! *profile* (+ (or (profile-frame-count *profile*) 0) 1)))
 
 
+(define profile-last-counter
+  profile-user-data)
+
+(define profile-last-counter-set!
+  profile-user-data-set!)
+
+
 (define (start-profile)
   (profile-last-counter-set! *profile* (profiler-performance-counter))
   (set! *profile-running?* #t)
@@ -156,7 +169,7 @@
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
   (set! *profile-running?* #f)
   (if (%%fx= (profile-depth *profile*) 0)
-      (profile-total-set! *profile* (+ (profile-total *profile*) (- (profiler-performance-counter) (profile-last-counter *profile*))))))
+      (profile-total-duration-set! *profile* (+ (profile-total-duration *profile*) (- (profiler-performance-counter) (profile-last-counter *profile*))))))
 
 
 (define (profile-running?)
@@ -191,11 +204,12 @@
   
   (let ((duration (max 1 (duration)))
         (stack (identify-stack cont (profile-depth *profile*))))
-    (profile-total-set! *profile* (+ (profile-total *profile*) duration))
+    (profile-total-count-set! *profile* (+ (profile-total-count *profile*) 1))
+    (profile-total-duration-set! *profile* (+ (profile-total-duration *profile*) duration))
     (if (%%not stack)
         (begin
           (profile-unknown-count-set! *profile* (+ (profile-unknown-count *profile*) 1))
-          (profile-unknown-total-set! *profile* (+ (profile-unknown-total *profile*) duration)))
+          (profile-unknown-duration-set! *profile* (+ (profile-unknown-duration *profile*) duration)))
       (begin
         (let ((actual (or (%%table-ref (profile-calls *profile*) stack #f)
                           (let ((record (cons 0 0)))

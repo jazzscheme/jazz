@@ -699,11 +699,12 @@
 ;;;
 
 
-(definition advice-originals
+(definition *advices*
   (make-table test: eq?))
 
-(definition public (gap)
-  advice-originals)
+
+(definition public (get-advices)
+  *advices*)
 
 
 ;; a.b.c/d/e (a.b.c d e)
@@ -773,7 +774,7 @@
   
   (define (call-proc field locator ref set)
     (define (original)
-      (or (table-ref advice-originals locator #f)
+      (or (table-ref *advices* locator #f)
           (ref)))
     
     (proc field
@@ -783,8 +784,8 @@
             (let ((original (original)))
               (let ((value (or value original)))
                 (if (eq? value original)
-                    (table-clear advice-originals locator)
-                  (table-set! advice-originals locator original))
+                    (table-clear *advices* locator)
+                  (table-set! *advices* locator original))
                 (set value))))))
   
   (cond @wait-recursive-problems
@@ -803,18 +804,37 @@
 
 
 ;;;
+;;;; Debug
+;;;
+
+
+(definition protected (debug-advice-internal field locator original set)
+  (debug locator))
+
+
+;;;
 ;;;; Trace
 ;;;
 
 
+(define trace-depth
+  (make-parameter 0))
+
+
+(definition protected (trace-advice-internal field locator original set)
+  (let ((obj (original)))
+    (when (procedure? obj)
+      (set (lambda rest
+             (let ((column (* (trace-depth) 2)))
+               (format :terminal "{$}{_ :v}({a}{?: {l}~})" column (present-identifier locator) (not-null? rest) rest)
+               (let ((result (parameterize ((trace-depth (+ (trace-depth) 1)))
+                               (apply obj rest))))
+                 (format :terminal "{$}{_ :v}{s}" column result)
+                 result)))))))
+
+
 (definition protected (trace-internal what)
-  (advice what
-          (lambda (field locator original set)
-            (let ((obj (original)))
-              (when (procedure? obj)
-                (set (lambda rest
-                       (terminal (get-name~ field))
-                       (apply obj rest))))))))
+  (advice what trace-advice))
 
 
 (definition protected (untrace-internal what)

@@ -129,8 +129,34 @@
 
 
 ;;;
+;;;; Profile Call
+;;;
+
+
+(define (make-profile-call)
+  (%%cons 0 0))
+
+
+(define (profile-call-count call)
+  (%%car call))
+
+(define (profile-call-count-set! call count)
+  (%%set-car! call count))
+
+(define (profile-call-duration call)
+  (%%cdr call))
+
+(define (profile-call-duration-set! call duration)
+  (%%set-cdr! call duration))
+
+
+;;;
 ;;;; Active
 ;;;
+
+
+(define profiler-on?
+  (make-parameter #f))
 
 
 (define (active-profile)

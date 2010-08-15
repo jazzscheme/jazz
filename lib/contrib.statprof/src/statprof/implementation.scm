@@ -88,12 +88,12 @@
           (profile-unknown-count-set! profile (+ (profile-unknown-count profile) 1))
           (profile-unknown-duration-set! profile (+ (profile-unknown-duration profile) duration)))
       (begin
-        (let ((actual (or (%%table-ref (profile-calls profile) stack #f)
-                          (let ((record (cons 0 0)))
-                            (%%table-set! (profile-calls profile) stack record)
-                            record))))
-          (set-car! actual (+ (car actual) 1))
-          (set-cdr! actual (+ (cdr actual) duration)))))))
+        (let ((call (or (%%table-ref (profile-calls profile) stack #f)
+                          (let ((call (make-profile-call)))
+                            (%%table-set! (profile-calls profile) stack call)
+                            call))))
+          (profile-call-count-set! call (+ (profile-call-count call) 1))
+          (profile-call-duration-set! call (+ (profile-call-duration call) duration)))))))
 
 
 ;;;

@@ -38,12 +38,13 @@
 (module protected jazz.debuggee.view.Profiler-View jazz
 
 
-(import (jazz.jml)
+(import (jazz.detprof)
+        (jazz.jml)
         (jazz.library)
         (jazz.log)
-        (jazz.profiler)
         (jazz.system)
-        (jazz.ui))
+        (jazz.ui)
+        (profiler))
 
 
 (class Profiler-View extends Layout-View
@@ -55,7 +56,7 @@
         (<!>                         name: content             layout-type: fill
           (<Tree-Header>             name: header              style: document flat?: #t
             (<!>                     name: content
-              (<Tree-View>           name: profiles            filled-column: name portfolio: :images selection-mode: row double-click-handler: {Event-Handler :form on-double-click}
+              (<Tree-View>           name: profile             filled-column: name portfolio: :images selection-mode: row double-click-handler: {Event-Handler :form on-double-click}
                 (<Tree-Node-Column>  name: name                title: "Name" width: 279)
                 (<Tree-Label-Column> name: count               title: "Count" width: 100)
                 (<Tree-Label-Column> name: average             title: "Average" width: 100)
@@ -69,80 +70,80 @@
   ;;;
   
   
-  (method public (update-profiles)
-    (view-profiles (profiles->jml (get-profiles))))
+  (method public (update-profile)
+    (view-profile (profile->jml (get-profile))))
   
   
-  (method public (view-profiles profiles)
-    (define (insert-profile tree father profile)
-      (let ((row (insert-content tree father profile)))
-        (insert-children tree row profile)))
+  (method public (view-profile profile)
+    (define (insert-call tree father call)
+      (let ((row (insert-content tree father call)))
+        (insert-children tree row call)))
     
-    (define (insert-content tree father profile)
-      (let* ((name (profile-name profile))
-             (count (profile-count profile))
-             (total (calculate-time (profile-total profile)))
+    (define (insert-content tree father call)
+      (let* ((name (call-name call))
+             (count (call-count call))
+             (total (calculate-time (call-total call)))
              (average (/ total count))
-             (parent-percentage (profile-parent-percentage profile))
-             (toplevel-percentage (profile-toplevel-percentage profile)))
-        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node image: {Image-Resource "Link"} title: name) (new Tree-Label title: count) (new Tree-Label title: average) (new Tree-Label title: total) (new Tree-Label title: (if parent-percentage (format "{r precision: 2}" parent-percentage) "")) (new Tree-Label title: (if toplevel-percentage (format "{r precision: 2}" toplevel-percentage) ""))) user-data: profile)))
+             (parent-percentage (call-parent-percentage call))
+             (toplevel-percentage (call-toplevel-percentage call)))
+        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node image: {Image-Resource "Link"} title: name) (new Tree-Label title: count) (new Tree-Label title: average) (new Tree-Label title: total) (new Tree-Label title: (if parent-percentage (format "{r precision: 2}" parent-percentage) "")) (new Tree-Label title: (if toplevel-percentage (format "{r precision: 2}" toplevel-percentage) ""))) user-data: call)))
     
-    (define (profile-parent-percentage profile)
-      (let ((parent (profile-parent profile)))
-        (when (and parent (eq? (get-tag~ parent) 'profile))
-          (percentage (profile-total profile)
-                      (profile-total parent)))))
+    (define (call-parent-percentage call)
+      (let ((parent (call-parent call)))
+        (when (and parent (eq? (get-tag~ parent) 'call))
+          (percentage (call-total call)
+                      (call-total parent)))))
     
-    (define (profile-toplevel-percentage profile)
-      (let ((toplevel (profile-toplevel profile)))
-        (if (eq? toplevel profile)
+    (define (call-toplevel-percentage call)
+      (let ((toplevel (call-toplevel call)))
+        (if (eq? toplevel call)
             100
-          (percentage (profile-total profile)
-                      (profile-total toplevel)))))
+          (percentage (call-total call)
+                      (call-total toplevel)))))
     
-    (define (profile-toplevel profile)
-      (let ((parent (profile-parent profile)))
-        (if (or (not parent) (neq? (get-tag~ parent) 'profile))
-            profile
-          (profile-toplevel parent))))
+    (define (call-toplevel call)
+      (let ((parent (call-parent call)))
+        (if (or (not parent) (neq? (get-tag~ parent) 'call))
+            call
+          (call-toplevel parent))))
     
-    (define (insert-children tree father profile)
-      (insert-profiles tree father (get-children~ profile)))
+    (define (insert-children tree father call)
+      (insert-calls tree father (get-children~ call)))
     
-    (define (insert-profiles tree father profiles)
+    (define (insert-calls tree father calls)
       (for-each (lambda (child)
-                  (insert-profile tree father child))
-                profiles))
+                  (insert-call tree father child))
+                calls))
     
     (define (calculate-time count)
       (seconds->microseconds (/ count (get-performance-frequency))))
     
-    (let ((tree (locate 'profiles)))
+    (let ((tree (locate 'profile)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (insert-profiles tree #f profiles)))))
+          (insert-calls tree #f profile)))))
   
   
   ;;;
-  ;;;; Profile
+  ;;;; Call
   ;;;
   
   
-  (definition (profile-parent profile)
-    (get-parent~ profile))
+  (definition (call-parent call)
+    (get-parent~ call))
   
   
-  (definition (profile-name profile)
-    (get-property~ profile 'name))
+  (definition (call-name call)
+    (get-property~ call 'name))
   
   
-  (definition (profile-count profile)
-    (get-property~ profile 'count))
+  (definition (call-count call)
+    (get-property~ call 'count))
   
   
-  (definition (profile-total profile)
-    (get-property~ profile 'total))
+  (definition (call-total call)
+    (get-property~ call 'total))
   
   
   ;;;
@@ -150,11 +151,11 @@
   ;;;
   
   
-  (method public (edit-profile)
-    (let* ((tree (locate 'profiles))
+  (method public (edit-call)
+    (let* ((tree (locate 'profile))
            (selection (get-single-selection~ tree)))
       (if (null? selection)
           (bell)
-        (let ((profile (get-user-data~ (get-row~ tree selection)))
+        (let ((call (get-user-data~ (get-row~ tree selection)))
               (appl (get-application)))
-          (edit-definitions~ appl (profile-name profile))))))))
+          (edit-definitions~ appl (call-name call))))))))

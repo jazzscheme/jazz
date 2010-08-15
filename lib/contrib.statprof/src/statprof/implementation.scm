@@ -80,20 +80,8 @@
       (- counter last-counter)))
   
   (let ((duration (max 1 (duration)))
-        (stack (identify-stack cont (profile-depth profile))))
-    (profile-total-count-set! profile (+ (profile-total-count profile) 1))
-    (profile-total-duration-set! profile (+ (profile-total-duration profile) duration))
-    (if (%%not stack)
-        (begin
-          (profile-unknown-count-set! profile (+ (profile-unknown-count profile) 1))
-          (profile-unknown-duration-set! profile (+ (profile-unknown-duration profile) duration)))
-      (begin
-        (let ((call (or (%%table-ref (profile-calls profile) stack #f)
-                          (let ((call (make-profile-call)))
-                            (%%table-set! (profile-calls profile) stack call)
-                            call))))
-          (profile-call-count-set! call (+ (profile-call-count call) 1))
-          (profile-call-duration-set! call (+ (profile-call-duration call) duration)))))))
+        (stack (identify-call cont (profile-depth profile) '())))
+    (profile-register-call profile stack duration)))
 
 
 ;;;
@@ -102,7 +90,7 @@
 
 
 (define statprof
-  (make-profiler start-statprof stop-statprof))
+  (make-profiler 'statprof start-statprof stop-statprof))
 
 
 (default-profiler statprof))

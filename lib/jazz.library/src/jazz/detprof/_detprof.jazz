@@ -46,38 +46,63 @@
         (profiler))
 
 
-(define *profile*
-  (make-table test: eq?))
+;;;
+;;;; Advice
+;;;
 
 
-(definition public (get-profile)
-  *profile*)
+(definition public (profile-advice field locator original set)
+  (let ((original (original)))
+    (when (procedure? original)
+      (set (lambda rest
+             (profile-code
+               (lambda ()
+                 (apply original rest))))))))
+
+
+;;;
+;;;; Profile
+;;;
 
 
 (define time-spent-in-children
   (make-parameter 0))
 
 
-(definition public (profile-code name proc)
-  (if (profiler-on?)
-      (let* ((start-time (get-performance-counter))
-             (total-elapsed-time 0)
-             (call (or (table-ref *profile* name #f)
-                       (let ((call (make-profile-call)))
-                         (table-set! *profile* name call)
-                         call)))
-             (result (parameterize ((time-spent-in-children 0))
-                       (prog1 (proc)
-                         (set! total-elapsed-time (- (get-performance-counter) start-time))
-                         (profile-call-count-set! call (+ (profile-call-count call) 1))
-                         (profile-call-duration-set! call (+ (profile-call-duration call) (- total-elapsed-time (time-spent-in-children))))))))
-        (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time))
-        result)
-    (proc)))
+(definition public (profile-code proc)
+  (let ((profile (active-profile)))
+    (if profile
+        (continuation-capture
+          (lambda (cont)
+            (let* ((start-time (profiler-performance-counter))
+                   (total-elapsed-time 0)
+                   (stack (identify-call cont (profile-depth profile) '(jazz.detprof.profile-code)))
+                   (result (parameterize ((time-spent-in-children 0))
+                             (prog1 (proc)
+                               (set! total-elapsed-time (- (profiler-performance-counter) start-time))
+                               (let ((duration (- total-elapsed-time (time-spent-in-children))))
+                                 (profile-register-call profile stack duration))))))
+              (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time))
+              result)))
+      (proc))))
+
+
+;;;
+;;;; JML
+;;;
 
 
 (definition public (profile->jml profile)
   (map (lambda (profile)
          (bind (name count . duration) profile
            (new JML-Element #f 'profile properties: (list 'name name 'count count 'duration duration))))
-       (sort > (table->list profile) key: cddr))))
+       (sort > (table->list profile) key: cddr)))
+
+
+;;;
+;;;; Detprof
+;;;
+
+
+(definition public detprof
+  (make-profiler 'detprof #f #f)))

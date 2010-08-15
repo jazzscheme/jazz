@@ -58,15 +58,18 @@
 ;;;
 
 
-(define (make-profiler start stop)
-  (%%vector 'profiler start stop))
+(define (make-profiler name start stop)
+  (%%vector 'profiler name start stop))
 
 
-(define (profiler-start profiler)
+(define (profiler-name profiler)
   (%%vector-ref profiler 1))
 
-(define (profiler-stop profiler)
+(define (profiler-start profiler)
   (%%vector-ref profiler 2))
+
+(define (profiler-stop profiler)
+  (%%vector-ref profiler 3))
 
 
 ;;;
@@ -125,7 +128,7 @@
 
 
 (define (new-profile #!key (profiler #f) (depth #f))
-  (make-profile (or profiler default-profiler) (or depth default-profiler-depth)))
+  (make-profile (or profiler (default-profiler)) (or depth (default-profiler-depth))))
 
 
 ;;;
@@ -159,7 +162,7 @@
   (make-parameter #f))
 
 
-(define (active-profile)
+(define active-profile
   (make-parameter #f))
 
 
@@ -179,6 +182,31 @@
 
 (define (profile-frames profile)
   (or (profile-frame-count profile) 1))
+
+
+;;;
+;;;; Calls
+;;;
+
+
+(define (profile-call profile name)
+  (let ((calls (profile-calls profile)))
+    (or (%%table-ref calls name #f)
+        (let ((call (make-profile-call)))
+          (%%table-set! calls name call)
+          call))))
+
+
+(define (profile-register-call profile stack duration)
+  (profile-total-count-set! profile (+ (profile-total-count profile) 1))
+  (profile-total-duration-set! profile (+ (profile-total-duration profile) duration))
+  (if (%%not stack)
+      (begin
+        (profile-unknown-count-set! profile (+ (profile-unknown-count profile) 1))
+        (profile-unknown-duration-set! profile (+ (profile-unknown-duration profile) duration)))
+    (let ((call (profile-call profile stack)))
+      (profile-call-count-set! call (+ (profile-call-count call) 1))
+      (profile-call-duration-set! call (+ (profile-call-duration call) duration)))))
 
 
 ;;;
@@ -228,12 +256,14 @@
 
 (define (start-profiler profile)
   (let ((start (profiler-start (profile-profiler *profile*))))
-    (start profile)))
+    (if start
+        (start profile))))
 
 
 (define (stop-profiler profile)
   (let ((stop (profiler-stop (profile-profiler *profile*))))
-    (stop profile)))
+    (if stop
+        (stop profile))))
 
 
 ;;;
@@ -241,7 +271,15 @@
 ;;;
 
 
-(define (identify-stack cont depth)
+(define (identify-call cont depth ignore)
+  (define (continuation-next-interesting cont)
+    (let loop ((current-cont cont))
+         (if current-cont
+             (if (%%memq (%%procedure-name (%%continuation-creator current-cont)) ignore)
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
+  
   (define (continuation-next-distinct cont creator)
     (let ((creator-name (%%procedure-name creator)))
       (let loop ((current-cont (%%continuation-next cont)))
@@ -263,13 +301,16 @@
             #f))
       #f))
   
-  (define (identify cont stack count)
-    (if (or (%%not cont) (and depth (%%fx>= count depth)))
+  (define (identify cont stack d)
+    (if (or (%%not cont) (and depth (%%fx>= d depth)))
         stack
-      (let ((creator (%%continuation-creator cont))
-            (location (identify-location (%%continuation-locat cont))))
-        (identify (continuation-next-distinct cont creator)
-                  (%%cons (%%list creator location) stack)
-                  (%%fx+ count 1)))))
+      (let ((cont (continuation-next-interesting cont)))
+        (if (%%not cont)
+            stack
+          (let ((creator (%%continuation-creator cont))
+                (location (identify-location (%%continuation-locat cont))))
+            (identify (continuation-next-distinct cont creator)
+                      (%%cons (%%list creator location) stack)
+                      (%%fx+ d 1)))))))
   
   (identify cont '() 0)))

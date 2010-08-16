@@ -273,19 +273,23 @@
 
 (define (identify-call cont depth ignore)
   (define (continuation-next-interesting cont)
+    cont
+    #;
     (let loop ((current-cont cont))
          (if current-cont
-             (if (%%memq (%%procedure-name (%%continuation-creator current-cont)) ignore)
+             (if (%%memq (jazz.procedure-name (%%continuation-creator current-cont)) ignore)
                  (loop (%%continuation-next current-cont))
                current-cont)
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (let ((creator-name (%%procedure-name creator)))
+    (%%continuation-next cont)
+    #;
+    (let ((creator-name (jazz.procedure-name creator)))
       (let loop ((current-cont (%%continuation-next cont)))
            (if current-cont
                (let ((current-creator (%%continuation-creator current-cont)))
-                 (if (%%eq? creator-name (%%procedure-name current-creator))
+                 (if (%%eq? creator-name (jazz.procedure-name current-creator))
                      (loop (%%continuation-next current-cont))
                    current-cont))
              #f))))

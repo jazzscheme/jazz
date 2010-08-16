@@ -48,6 +48,9 @@
     (define (jazz.procedure-name procedure)
       (%%procedure-name procedure))
     
+    (define (jazz.procedure-name-set! proc)
+      (set! jazz.procedure-name proc))
+    
     
     (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))

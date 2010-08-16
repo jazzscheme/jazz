@@ -777,7 +777,7 @@
   
   (define (advice-method module class method)
     (let ((name (get-name~ method)))
-      (let ((locator (compose-name (get-name~ module) (get-name~ class) name)))
+      (let ((locator (compose-name (get-name~ class) name)))
         (call-proc method
                    locator
                    (lambda () (find-dispatch class name))
@@ -812,6 +812,19 @@
   (advice what
           (lambda (field locator original set)
             (set #f))))
+
+
+(let ((original-procedure-name procedure-name))
+  (procedure-name-set!
+    (lambda (procedure)
+      (or (original-procedure-name procedure)
+          (continuation-capture
+            (lambda (return)
+              (iterate-table *advices*
+                (lambda (locator proc)
+                  (when (eq? proc procedure)
+                    (continuation-return return locator))))
+              #f))))))
 
 
 ;;;

@@ -719,20 +719,31 @@
   
   (define (advice-path path)
     (bind (module-name . rest) path
-      (let ((module (require-module module-name)))
-        (if (null? rest)
-            (advice-module module)
-          (bind (name . rest) rest
-            (let ((entry (table-ref (get-entries~ module) name)))
-              (if (null? rest)
-                  (advice-entry module entry)
-                (assert (category? entry)
-                  (advice-class-field module entry (category-field entry (car rest)))))))))))
+      (if (ends-with? (symbol->string module-name) ".*")
+          (assert (null? rest)
+            (let ((name (symbol->string module-name)))
+              (let ((prefix (substring name 0 (- (cardinality name) 2))))
+                (advice-prefixed prefix))))
+        (let ((module (require-module module-name)))
+          (if (null? rest)
+              (advice-module module)
+            (bind (name . rest) rest
+              (let ((entry (table-ref (get-entries~ module) name)))
+                (if (null? rest)
+                    (advice-entry module entry)
+                  (assert (category? entry)
+                    (advice-class-field module entry (category-field entry (car rest))))))))))))
   
   (define (advice-module module)
     (iterate-table (get-entries~ module)
       (lambda (name entry)
         (advice-entry module entry))))
+  
+  (define (advice-prefixed prefix)
+    (iterate-table (get-modules)
+      (lambda (module-name module)
+        (when (starts-with? (symbol->string module-name) prefix)
+          (advice-module module)))))
   
   (define (advice-entry module entry)
     (typecase entry

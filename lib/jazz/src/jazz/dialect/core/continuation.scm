@@ -56,6 +56,10 @@
     
     
     (define jazz.continuation-return
-      continuation-return))
+      continuation-return)
+    
+    
+    (define (jazz.continuation-creator cont)
+      (%%continuation-creator cont)))
   
   (else)))

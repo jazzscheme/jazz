@@ -304,13 +304,10 @@
   (define (identify cont stack d)
     (if (or (%%not cont) (and depth (%%fx>= d depth)))
         stack
-      (let ((cont (continuation-next-interesting cont)))
-        (if (%%not cont)
-            stack
-          (let ((creator (%%continuation-creator cont))
-                (location (identify-location (%%continuation-locat cont))))
-            (identify (continuation-next-interesting (continuation-next-distinct cont creator))
-                      (%%cons (%%list creator location) stack)
-                      (%%fx+ d 1)))))))
+      (let ((creator (%%continuation-creator cont))
+            (location (identify-location (%%continuation-locat cont))))
+        (identify (continuation-next-interesting (continuation-next-distinct cont creator))
+                  (%%cons (%%list creator location) stack)
+                  (%%fx+ d 1)))))
   
-  (identify cont '() 0)))
+  (identify (continuation-next-interesting cont) '() 0)))

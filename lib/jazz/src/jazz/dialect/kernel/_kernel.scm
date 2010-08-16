@@ -107,6 +107,7 @@
 (native jazz.continuation-capture)
 (native jazz.continuation-graft)
 (native jazz.continuation-return)
+(native jazz.continuation-creator)
 
 
 ;;;
@@ -763,6 +764,14 @@
 
 
 ;;;
+;;;; Procedure
+;;;
+
+
+(native jazz.procedure-name)
+
+
+;;;
 ;;;; Property
 ;;;
 
@@ -895,9 +904,7 @@
 ;;;
 
 
-(native jazz.get-procedure-name)
 (native jazz.get-continuation-stack)
-(native jazz.get-continuation-name)
 (native jazz.get-continuation-dynamic-environment)
 (native jazz.get-continuation-lexical-environment)
 (native jazz.get-continuation-location)

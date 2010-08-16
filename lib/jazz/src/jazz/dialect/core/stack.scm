@@ -45,10 +45,8 @@
 
 (cond-expand
   (gambit
-    (define (jazz.get-procedure-name procedure)
-      (if procedure
-          (%%procedure-name procedure)
-        "(interaction)"))
+    (define (jazz.procedure-name procedure)
+      (%%procedure-name procedure))
     
     
     (define (jazz.get-continuation-stack cont depth)
@@ -62,10 +60,6 @@
                      (iter (%%fx+ d 1)
                            (%%continuation-next-frame cont #f))))))
         (jazz.queue-list queue)))
-    
-    
-    (define (jazz.get-continuation-name cont)
-      (jazz.get-procedure-name (%%continuation-creator cont)))
     
     
     (define (jazz.collect-var-val var val-or-box cte queue)

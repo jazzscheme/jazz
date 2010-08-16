@@ -50,21 +50,30 @@
 
 
 (class Game-Server-Process extends Process
-  
+
+       
+  (slot port   initialize 8080)
+  (slot server initialize #f)
+       
+
+  (method override (initialize (port: port 8080))
+    (nextmethod)
+    (set! port~self port))
+       
   
   (method override (start-process)
-    (let ((server (new Web-Server))
-          (directory-handler 
-            (new Directory-Handler
-              root-directory: {Directory Jazz "lib" "jazz.sample.gameserver" "content"})))
+    (set! server (new Web-Server port: port))
+    
+    (add-handler~ (get-dispatcher~ server) (new Games-Pages))
+    (add-handler~ (get-dispatcher~ server) (new C4-Pages))
+    (add-handler~ (get-dispatcher~ server) (new Gomoku-Pages))
+    
+    (add-handler~ (get-dispatcher~ server) (new Directory-Handler
+                                                root-directory: {Directory Jazz "lib" "jazz.sample.gameserver" "content"}))
       
-      (add-handler~ (get-dispatcher~ server) (new Games-Pages))
-      (add-handler~ (get-dispatcher~ server) (new C4-Pages))
-      (add-handler~ (get-dispatcher~ server) (new Gomoku-Pages))
-      
-      (add-handler~ (get-dispatcher~ server) directory-handler)
-      
-      (start~ server)))
-  
-  )
-)
+    (start~ server))
+
+
+  (method public (stop)
+    (when server
+      (stop~ server)))))

@@ -50,10 +50,16 @@
 (class Web-Server extends Object
   
   
-  (slot dispatcher initialize (new HTTP-Dispatcher) accessors generate)
+  (slot dispatcher        initialize (new HTTP-Dispatcher) accessors generate)
   ;;(slot session-manager initialize (new Session-Manager) accessors generate)
-  (slot port-number initialize 8080 accessors generate)
-  (slot gambit-webserver accessors generate)
+  (slot port-number       initialize 8080                  accessors generate)
+  (slot gambit-webserver                                   accessors generate)
+  (slot server-thread                                      accessors generate)
+
+
+  (method override (initialize (port: port 8080))
+    (nextmethod)
+    (set! port-number port))
   
   
   ;; gambit webserver dispatcher: (lambda (connection method uri parameters headers content)
@@ -74,14 +80,16 @@
                   )))
           (dispatch~ dispatcher request connection self))))    
     
-    (set! gambit-webserver 
-          (make-http-server port-number: port-number
-                            dispatcher: gambit-webserver-dispatch-hook))
-    (thread-start!
-      (new-thread
-        (lambda ()
-          (http-server-start! gambit-webserver))
-        'web-server-thread)))
-      
-  )
-)
+    (set! gambit-webserver (make-http-server port-number: port-number
+                                             dispatcher: gambit-webserver-dispatch-hook))
+    (set! server-thread (new-thread (lambda () 
+                                      (http-server-start! gambit-webserver))
+                                    'web-server-thread))
+    (thread-start! server-thread))
+
+  
+  (method public (stop)
+    (when server-thread
+      (thread-interrupt! server-thread
+        thread-exit)
+      (set! server-thread #f)))))

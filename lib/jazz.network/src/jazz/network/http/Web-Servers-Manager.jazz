@@ -74,7 +74,6 @@
               (<Tree-View>           name: servers        filled-column: description portfolio: :images selection-mode: row multiple-selection?: #f selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} context-menu-handler: {Event-Handler :form on-context-menu}
                 (<Tree-Node-Column>  name: name           title: "Name" width: 200 toplevel-controls?: #f)
                 (<Tree-Label-Column> name: state          title: "State" width: 150)
-                (<Tree-Label-Column> name: host           title: "Host" width: 100)
                 (<Tree-Label-Column> name: port           title: "Port" width: 75)
                 (<Tree-Label-Column> name: description    title: "Description" width: 250)
                 (<Tree-Label-Column> name: hits           title: "Hits" width: 100)
@@ -108,8 +107,7 @@
   
   
   (method override (focus-default)
-    (let ((tree (get-tree)))
-      (acquire-focus~ tree)))
+    (acquire-focus~ (get-tree)))
   
   
   ;;;
@@ -188,9 +186,9 @@
     (let* ((config (selected-configuration))
            (server (and config (find-server (get-name~ config)))))
       (set-enabled?~ (locate 'edit) config)
-      (set-enabled?~ (locate 'start) (and config (or (not server) (eq? (get-state~ server) 'stopped))))
-      (set-enabled?~ (locate 'stop) (and server (eq? (get-state~ server) 'started)))
-      (set-enabled?~ (locate 'restart) (and server (eq? (get-state~ server) 'started)))
+      (set-enabled?~ (locate 'start) (and config (not server)))
+      (set-enabled?~ (locate 'stop) server)
+      (set-enabled?~ (locate 'restart) server)
       (set-enabled?~ (locate 'debug) server)
       (set-selected?~ (locate 'debug) (and config (get-debug?~ config)))))
   
@@ -209,9 +207,9 @@
              (name (get-name~ config))
              (server (find-server name))
              (appl (get-application)))
-        (set-visible?~ (locate~ menu 'start) (or (not server) (eq? (get-state~ server) 'stopped)))
-        (set-visible?~ (locate~ menu 'stop) (and server (eq? (get-state~ server) 'started)))
-        (set-visible?~ (locate~ menu 'restart) (and server (eq? (get-state~ server) 'started)))
+        (set-visible?~ (locate~ menu 'start) (not server))
+        (set-visible?~ (locate~ menu 'stop) server)
+        (set-visible?~ (locate~ menu 'restart) server)
         (set-visible?~ (locate~ menu 'debug) server)
         (cleanup-separators~ menu)
         (layout-menu~ menu)
@@ -267,16 +265,15 @@
             (for-each (lambda (config)
                         (let* ((name (get-name~ config))
                                (server (find-server name))
-                               (state (if (not server) 'stopped (get-state~ server)))
-                               (host (get-host~ config))
-                               (service (get-service~ config))
-                               (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((starting) {Image-Resource "ServerStarting"}) ((started) {Image-Resource "ServerRunning"}) ((stopping) {Image-Resource "ServerClosing"})))
+                               (state (if (not server) 'stopped 'started))
+                               (port (get-port~ config))
+                               (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((started) {Image-Resource "ServerRunning"})))
                                (title (->string name))
-                               (state-text (case state ((stopped) "Stopped") ((starting) "Starting") ((started) "Started") ((stopping) "Stopping")))
+                               (state-text (case state ((stopped) "Stopped") ((started) "Started")))
                                (description (get-description~ config))
                                (hits (if (not server) 0 (get-hits~ server)))
                                (debug? (get-debug?~ config)))
-                          (add-row~ tree state: 'dynamic children: (list (new Tree-Node title: title image: image) (new Tree-Label title: state-text) (new Tree-Label title: (or host "localhost")) (new Tree-Label title: (->string service)) (new Tree-Label title: description) (new Tree-Label title: (->string hits)) (new Tree-Label title: (if debug? "True" "False"))) user-data: config)))
+                          (add-row~ tree state: 'dynamic children: (list (new Tree-Node title: title image: image) (new Tree-Label title: state-text) (new Tree-Label title: (->string port)) (new Tree-Label title: description) (new Tree-Label title: (->string hits)) (new Tree-Label title: (if debug? "True" "False"))) user-data: config)))
                       (get-children~ configurations)))))))
   
   
@@ -286,20 +283,20 @@
        (lambda (row rank)
          (let* ((c0 (new Cell rank 0))
                 (c1 (new Cell rank 1))
-                (c6 (new Cell rank 6))
+                (c5 (new Cell rank 5))
                 (config (get-user-data~ row))
                 (name (get-name~ config))
                 (server (find-server name))
-                (state (if (not server) 'stopped (get-state~ server)))
-                (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((starting) {Image-Resource "ServerStarting"}) ((started) {Image-Resource "ServerRunning"}) ((stopping) {Image-Resource "ServerClosing"}) (else "Document")))
-                (state-text (case state ((stopped) "Stopped") ((starting) "Starting") ((started) "Started") ((stopping) "Stopping")))
+                (state (if server 'started 'stopped))
+                (image (case state ((stopped) {Image-Resource "ServerStopped"}) ((started) {Image-Resource "ServerRunning"}) (else "Document")))
+                (state-text (case state ((stopped) "Stopped") ((started) "Started")))
                 (debug? (get-debug?~ config)))
            (set-image~ (get-cell-data~ tree c0) image)
            (set-title~ (get-cell-data~ tree c1) state-text)
-           (set-title~ (get-cell-data~ tree c6) (if debug? "True" "False"))
+           (set-title~ (get-cell-data~ tree c5) (if debug? "True" "False"))
            (invalidate-cell~ tree c0)
            (invalidate-cell~ tree c1)
-           (invalidate-cell~ tree c6))))))
+           (invalidate-cell~ tree c5))))))
 
   
   ;;;
@@ -312,17 +309,11 @@
     (let* ((name (get-name~ config))
            (unit (get-unit~ config))
            (class (get-class~ config))
-           (host (get-host~ config))
-           (service (get-service~ config))
-           (root-directory (get-root-directory~ config))
-           (default-resource (get-default-resource~ config))
-           (unauthentified-resource (get-unauthentified-resource~ config))
+           (port (get-port~ config))
            (debug? (get-debug?~ config))
-           (server (new (module-ref unit class) host: host service: service root-directory: root-directory default-resource: default-resource unauthentified-resource: unauthentified-resource debug?: debug?)))
-      (start~ server)
-      (if (not (wait-started~ server error?: #f))
-          (error "Unable to start server")
-        (table-set! servers name server))))
+           (server (new (module-ref unit class) port: port)))
+      (start-process~ server)
+      (table-set! servers name server)))
   
   
   (method (stop-server config)
@@ -330,9 +321,7 @@
            (server (find-server name)))
       (when server
         (stop~ server)
-        (if (not (wait-stopped~ server error?: #f))
-            (error "Unable to stop server")
-          (table-set! servers name #f)))))
+        (table-set! servers name #f))))
   
   
   (method (restart-server config)
@@ -343,7 +332,7 @@
   (method (start/stop-server config)
     (let* ((name (get-name~ config))
            (server (find-server name))
-           (state (if (not server) 'stopped (get-state~ server))))
+           (state (if (not server) 'stopped 'started)))
       (case state
         ((stopped) (start-server config))
         ((started) (stop-server config)))))

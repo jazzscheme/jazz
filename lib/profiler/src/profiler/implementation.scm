@@ -271,20 +271,18 @@
 ;;;
 
 
-(define (identify-call cont depth ignore)
+(define (identify-call cont depth ignore-names ignore-locations)
   (define (continuation-next-interesting cont)
-    cont
-    #;
     (let loop ((current-cont cont))
          (if current-cont
-             (if (%%memq (jazz.procedure-name (%%continuation-creator current-cont)) ignore)
+             (if (or (%%memq (jazz.procedure-name (%%continuation-creator current-cont)) ignore-names)
+                             (let ((current-location (%%continuation-locat current-cont)))
+                               (and current-location (%%memq (%%locat-container current-location) ignore-locations))))
                  (loop (%%continuation-next current-cont))
                current-cont)
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (%%continuation-next cont)
-    #;
     (let ((creator-name (jazz.procedure-name creator)))
       (let loop ((current-cont (%%continuation-next cont)))
            (if current-cont
@@ -295,23 +293,22 @@
              #f))))
   
   (define (identify-location locat)
-    (if locat
-        (let ((container (%%locat-container locat)))
-          (if container
-              (let ((filepos (%%position->filepos (%%locat-position locat))))
-                (let ((line (%%filepos-line filepos))
-                      (col (%%filepos-col filepos)))
-                  (%%list container line col)))
-            #f))
-      #f))
+    ;; copy of jazz.locat->file/line/col
+    (let ((container (and locat (%%locat-container locat))))
+      (if container
+          (let ((filepos (%%position->filepos (%%locat-position locat))))
+            (let ((line (%%filepos-line filepos))
+                  (col (%%filepos-col filepos)))
+              (%%list container line col)))
+        #f)))
   
-  (define (identify cont stack d)
+  (define (identify cont d)
     (if (or (%%not cont) (and depth (%%fx>= d depth)))
-        stack
+        '()
       (let ((creator (%%continuation-creator cont))
             (location (identify-location (%%continuation-locat cont))))
-        (identify (continuation-next-interesting (continuation-next-distinct cont creator))
-                  (%%cons (%%list creator location) stack)
-                  (%%fx+ d 1)))))
+        (%%cons (%%list creator location)
+                (identify (continuation-next-interesting (continuation-next-distinct cont creator))
+                          (%%fx+ d 1))))))
   
-  (identify (continuation-next-interesting cont) '() 0)))
+  (identify (continuation-next-interesting cont) 0)))

@@ -80,7 +80,7 @@
       (- counter last-counter)))
   
   (let ((duration (max 1 (duration)))
-        (stack (identify-call cont (profile-depth profile) '())))
+        (stack (identify-call cont (profile-depth profile) '() '())))
     (profile-register-call profile stack duration)))
 
 

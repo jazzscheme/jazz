@@ -52,6 +52,10 @@
       (set! jazz.procedure-name proc))
     
     
+    (define (jazz.procedure-locat procedure)
+      (%%procedure-locat procedure))
+    
+    
     (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)

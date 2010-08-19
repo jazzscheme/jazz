@@ -63,6 +63,10 @@
       (%%continuation-creator cont))
     
     
+    (define (jazz.continuation-locat cont)
+      (%%continuation-locat cont))
+    
+    
     (define (jazz.continuation-next cont)
       (%%continuation-next cont)))
   

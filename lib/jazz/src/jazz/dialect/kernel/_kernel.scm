@@ -108,6 +108,7 @@
 (native jazz.continuation-graft)
 (native jazz.continuation-return)
 (native jazz.continuation-creator)
+(native jazz.continuation-locat)
 (native jazz.continuation-next)
 
 
@@ -771,6 +772,7 @@
 
 (native jazz.procedure-name)
 (native jazz.procedure-name-set!)
+(native jazz.procedure-locat)
 
 
 ;;;

@@ -74,9 +74,11 @@
     (define (profile-duration duration)
       (continuation-capture
         (lambda (cont)
-          (let ((stack (cons (list original (jazz.locat->file/line/col (jazz.procedure-locat original)))
-                             (identify-call cont (profile-depth profile) '(jazz.detprof.profile-advice jazz.detprof.profile-code ##dynamic-env-bind ##call-with-values) '(jazz.detprof)))))
-            (profile-register-call profile stack duration)))))
+          (let ((call-stack (identify-call cont (profile-depth profile) '(jazz.detprof.profile-advice jazz.detprof.profile-code ##dynamic-env-bind ##call-with-values) '(jazz.detprof))))
+            (let ((stack (if original
+                             (cons (list original (jazz.locat->file/line/col (jazz.procedure-locat original))) call-stack)
+                           call-stack)))
+            (profile-register-call profile stack duration))))))
     
     (if profile
         (receive (result total-elapsed-time)

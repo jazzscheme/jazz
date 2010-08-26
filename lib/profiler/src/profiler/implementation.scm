@@ -177,7 +177,7 @@
 
 
 (define (frame-profile)
-  (profile-frame-count-set! *profile* (+ (or (profile-frame-count *profile*) 0) 1)))
+  (profile-frame-count-set! (active-profile) (+ (or (profile-frame-count *profile*) 0) 1)))
 
 
 (define (profile-frames profile)
@@ -255,13 +255,13 @@
 
 
 (define (start-profiler profile)
-  (let ((start (profiler-start (profile-profiler *profile*))))
+  (let ((start (profiler-start (profile-profiler profile))))
     (if start
         (start profile))))
 
 
 (define (stop-profiler profile)
-  (let ((stop (profiler-stop (profile-profiler *profile*))))
+  (let ((stop (profiler-stop (profile-profiler profile))))
     (if stop
         (stop profile))))
 

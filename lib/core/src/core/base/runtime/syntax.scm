@@ -125,15 +125,13 @@
 
 
 (define (jazz.locat->file/line/col locat)
-  (if locat
-      (let ((file (%%container->path (%%locat-container locat))))
-        (if file
-            (let ((filepos (%%position->filepos (%%locat-position locat))))
-              (let ((line (%%filepos-line filepos))
-                    (col (%%filepos-col filepos)))
-                (%%list file line col)))
-          #f))
-    #f))
+  (let ((file (and locat (%%container->path (%%locat-container locat)))))
+    (if file
+        (let ((filepos (%%position->filepos (%%locat-position locat))))
+          (let ((line (%%filepos-line filepos))
+                (col (%%filepos-col filepos)))
+            (%%list file line col)))
+      #f)))
 
 
 (define (jazz.container->path container)

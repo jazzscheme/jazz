@@ -694,7 +694,12 @@
     (jazz.define-macro (%%procedure-name procedure)
       (%%force-uniqueness (procedure)
         `(%%check-procedure ,procedure 1 (%%procedure-name ,procedure)
-           (##procedure-name ,procedure)))))
+           (##procedure-name ,procedure))))
+    
+    (jazz.define-macro (%%procedure-locat procedure)
+      (%%force-uniqueness (procedure)
+        `(%%check-procedure ,procedure 1 (%%procedure-locat ,procedure)
+           (##procedure-locat ,procedure)))))
   
   (else))
 

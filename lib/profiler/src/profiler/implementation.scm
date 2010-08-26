@@ -271,13 +271,13 @@
 ;;;
 
 
-(define (identify-call cont depth ignore-names ignore-locations)
+(define (identify-call cont depth ignore-names ignore-modules)
   (define (continuation-next-interesting cont)
     (let loop ((current-cont cont))
          (if current-cont
              (if (or (%%memq (jazz.procedure-name (%%continuation-creator current-cont)) ignore-names)
                              (let ((current-location (%%continuation-locat current-cont)))
-                               (and current-location (%%memq (%%locat-container current-location) ignore-locations))))
+                               (and current-location (%%memq (%%locat-container current-location) ignore-modules))))
                  (loop (%%continuation-next current-cont))
                current-cont)
            #f)))

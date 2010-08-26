@@ -51,9 +51,15 @@
     (define (jazz.procedure-name-set! proc)
       (set! jazz.procedure-name proc))
     
-    
     (define (jazz.procedure-locat procedure)
       (%%procedure-locat procedure))
+    
+    
+    (define (jazz.closure? obj)
+      (%%closure? obj))
+    
+    (define (jazz.closure-code closure)
+      (%%closure-code closure))
     
     
     (define (jazz.get-continuation-stack cont depth)

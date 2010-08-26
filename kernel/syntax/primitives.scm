@@ -110,6 +110,26 @@
 
 
 ;;;
+;;;; Closure
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz.define-syntax %%closure?
+      (lambda (src)
+        (let ((obj (##cadr (##source-code src))))
+          `(##closure? ,obj))))
+    
+    (jazz.define-macro (%%closure-code closure)
+      (%%force-uniqueness (closure)
+        `(%%check-closure ,closure 1 (%%closure-code ,closure)
+           (##closure-code ,closure)))))
+  
+  (else))
+
+
+;;;
 ;;;; Complex
 ;;;
 

@@ -99,6 +99,15 @@
 
 
 ;;;
+;;;; Closure
+;;;
+
+
+(native jazz.closure?)
+(native jazz.closure-code)
+
+
+;;;
 ;;;; Continuation
 ;;;
 

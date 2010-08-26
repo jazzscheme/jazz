@@ -103,6 +103,10 @@
        code)))
 
 
+(jazz.define-check-macro %%check-closure
+  ##closure?
+  "CLOSURE")
+
 (jazz.define-check-macro %%check-continuation
   ##continuation?
   "CONTINUATION")

@@ -272,10 +272,16 @@
 
 
 (define (identify-call cont depth ignore-names ignore-modules)
+  (define (continuation-creator cont)
+    (let ((proc (%%continuation-creator cont)))
+      (if (%%closure? proc)
+          (%%closure-code proc)
+        proc)))
+  
   (define (continuation-next-interesting cont)
     (let loop ((current-cont cont))
          (if current-cont
-             (if (or (%%memq (jazz.procedure-name (%%continuation-creator current-cont)) ignore-names)
+             (if (or (%%memq (jazz.procedure-name (continuation-creator current-cont)) ignore-names)
                              (let ((current-location (%%continuation-locat current-cont)))
                                (and current-location (%%memq (%%locat-container current-location) ignore-modules))))
                  (loop (%%continuation-next current-cont))
@@ -286,7 +292,7 @@
     (let ((creator-name (jazz.procedure-name creator)))
       (let loop ((current-cont (%%continuation-next cont)))
            (if current-cont
-               (let ((current-creator (%%continuation-creator current-cont)))
+               (let ((current-creator (continuation-creator current-cont)))
                  (if (%%eq? creator-name (jazz.procedure-name current-creator))
                      (loop (%%continuation-next current-cont))
                    current-cont))
@@ -305,7 +311,7 @@
   (define (identify cont d)
     (if (or (%%not cont) (and depth (%%fx>= d depth)))
         '()
-      (let ((creator (%%continuation-creator cont))
+      (let ((creator (continuation-creator cont))
             (location (identify-location (%%continuation-locat cont))))
         (%%cons (%%list creator location)
                 (identify (continuation-next-interesting (continuation-next-distinct cont creator))

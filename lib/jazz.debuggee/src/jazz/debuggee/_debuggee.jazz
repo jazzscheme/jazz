@@ -709,73 +709,73 @@
 
 ;; a.b.c/d/e (a.b.c d e)
 (definition protected (advise-internal what proc)
-  (define (advice-all)
+  (define (advise-all)
     (iterate-table (get-modules)
       (lambda (module-name module)
-        (advice-module module))))
+        (advise-module module))))
   
-  (define (advice-symbol symbol)
-    (advice-path (map string->symbol (split (symbol->string symbol) "/"))))
+  (define (advise-symbol symbol)
+    (advise-path (map string->symbol (split (symbol->string symbol) "/"))))
   
-  (define (advice-path path)
+  (define (advise-path path)
     (bind (module-name . rest) path
       (if (ends-with? (symbol->string module-name) ".*")
           (assert (null? rest)
             (let ((name (symbol->string module-name)))
               (let ((prefix (substring name 0 (- (cardinality name) 2))))
-                (advice-prefixed prefix))))
+                (advise-prefixed prefix))))
         (let ((module (require-module module-name)))
           (if (null? rest)
-              (advice-module module)
+              (advise-module module)
             (bind (name . rest) rest
               (let ((entry (table-ref (get-entries~ module) name)))
                 (if (null? rest)
-                    (advice-entry module entry)
+                    (advise-entry module entry)
                   (assert (category? entry)
-                    (advice-class-field module entry (category-field entry (car rest))))))))))))
+                    (advise-class-field module entry (category-field entry (car rest))))))))))))
   
-  (define (advice-module module)
+  (define (advise-module module)
     (iterate-table (get-entries~ module)
       (lambda (name entry)
-        (advice-entry module entry))))
+        (advise-entry module entry))))
   
-  (define (advice-prefixed prefix)
+  (define (advise-prefixed prefix)
     (iterate-table (get-modules)
       (lambda (module-name module)
         (when (starts-with? (symbol->string module-name) prefix)
-          (advice-module module)))))
+          (advise-module module)))))
   
-  (define (advice-entry module entry)
+  (define (advise-entry module entry)
     (typecase entry
       ((Field)
-       (advice-field entry))
+       (advise-field entry))
       ((Class)
-       (advice-class module entry))))
+       (advise-class module entry))))
 
-  (define (advice-field field)
+  (define (advise-field field)
     (let ((locator (field-locator~ field)))
       (call-proc field
                  locator
                  (lambda () (field-ref~ field))
                  (lambda (value) (field-set!~ field value)))))
   
-  (define (advice-class module class)
+  (define (advise-class module class)
     (iterate-table (get-fields~ class)
       (lambda (name field)
-        (advice-class-field module class field)))
+        (advise-class-field module class field)))
     (iterate-class-overrides class
       (lambda (method)
-        (advice-method module class method))))
+        (advise-method module class method))))
   
-  (define (advice-class-field module class field)
+  (define (advise-class-field module class field)
     (typecase field
       ((Slot))
       ((Method)
-       (advice-method module class field))
+       (advise-method module class field))
       ((Field)
-       (advice-field field))))
+       (advise-field field))))
   
-  (define (advice-method module class method)
+  (define (advise-method module class method)
     (let ((name (get-name~ method)))
       (let ((locator (compose-name (get-name~ class) name)))
         (call-proc method
@@ -801,11 +801,11 @@
   
   (cond @wait-recursive-problems
         ((not what)
-         (advice-all))
+         (advise-all))
         ((symbol? what)
-         (advice-symbol what))
+         (advise-symbol what))
         ((null/pair? what)
-         (advice-path what))))
+         (advise-path what))))
 
 
 (definition protected (unadvise-internal what)

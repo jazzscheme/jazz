@@ -177,7 +177,7 @@
 
 
 (define (frame-profile)
-  (profile-frame-count-set! (active-profile) (+ (or (profile-frame-count *profile*) 0) 1)))
+  (profile-frame-count-set! (active-profile) (+ (or (profile-frame-count (active-profile)) 0) 1)))
 
 
 (define (profile-frames profile)
@@ -271,7 +271,13 @@
 ;;;
 
 
-(define (identify-call cont depth ignore-names ignore-modules)
+(define *ignore-procedures*
+  (%%list
+    ##dynamic-env-bind
+    ##call-with-values))
+
+
+(define (identify-call cont depth ignore-procedures ignore-modules)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
       (if (%%closure? proc)
@@ -281,9 +287,9 @@
   (define (continuation-next-interesting cont)
     (let loop ((current-cont cont))
          (if current-cont
-             (if (or (%%memq (jazz.procedure-name (continuation-creator current-cont)) ignore-names)
-                             (let ((current-location (%%continuation-locat current-cont)))
-                               (and current-location (%%memq (%%locat-container current-location) ignore-modules))))
+             (if (or (%%memq (continuation-creator current-cont) (or ignore-procedures *ignore-procedures*))
+                     (let ((current-location (%%continuation-locat current-cont)))
+                       (and current-location (%%memq (%%locat-container current-location) ignore-modules))))
                  (loop (%%continuation-next current-cont))
                current-cont)
            #f)))
@@ -309,12 +315,13 @@
         #f)))
   
   (define (identify cont d)
-    (if (or (%%not cont) (and depth (%%fx>= d depth)))
-        '()
-      (let ((creator (continuation-creator cont))
-            (location (identify-location (%%continuation-locat cont))))
-        (%%cons (%%list creator location)
-                (identify (continuation-next-interesting (continuation-next-distinct cont creator))
-                          (%%fx+ d 1))))))
+    (let ((cont (and cont (%%fx< d depth) (continuation-next-interesting cont))))
+      (if (%%not cont)
+          '()
+        (let ((creator (continuation-creator cont))
+              (location (identify-location (%%continuation-locat cont))))
+          (%%cons (%%list creator location)
+                  (identify (continuation-next-distinct cont creator)
+                            (%%fx+ d 1)))))))
   
-  (identify (continuation-next-interesting cont) 0)))
+  (identify cont 0)))

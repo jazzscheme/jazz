@@ -61,6 +61,18 @@
 
 
 ;;;
+;;;; Ignore
+;;;
+
+
+(define *ignore-procedures*
+  #f)
+
+(define *ignored-modules*
+  '(jazz.detprof))
+
+
+;;;
 ;;;; Profile
 ;;;
 
@@ -70,15 +82,16 @@
 
 
 (definition public (profile-code original proc)
-  (let ((profile (active-profile)))
+  (let ((profile (active-profile))
+        (original-call (and original (list original (jazz.locat->file/line/col (jazz.procedure-locat original))))))
     (define (profile-duration duration)
       (continuation-capture
         (lambda (cont)
-          (let ((call-stack (identify-call cont (- (profile-depth profile) (if original 1 0)) '(##dynamic-env-bind ##call-with-values) '(jazz.detprof))))
-            (let ((stack (if original
-                             (cons (list original (jazz.locat->file/line/col (jazz.procedure-locat original))) call-stack)
+          (let ((call-stack (identify-call cont (- (profile-depth profile) (if original 1 0)) *ignore-procedures* *ignored-modules*)))
+            (let ((stack (if original-call
+                             (cons original-call call-stack)
                            call-stack)))
-            (profile-register-call profile stack duration))))))
+              (profile-register-call profile stack duration))))))
     
     (if profile
         (receive (result total-elapsed-time)

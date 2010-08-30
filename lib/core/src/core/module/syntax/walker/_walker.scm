@@ -3454,6 +3454,20 @@
 (define (jazz.add-declaration-child walker resume namespace-declaration child)
   (let ((name (%%get-lexical-binding-name child)))
     ;; not 100% sure about this change
+    ;; tests to try and implement redefine error
+    #;
+    (let ((decl (jazz.find-child-declaration namespace-declaration name)))
+      (%%when (eq? (%%get-declaration-locator child) 'jazz.test.advise.abc)
+        (continuation-capture
+          (lambda (cont)
+            (jazz.debug jazz.Load-Stack)
+            (display-continuation-backtrace cont)
+            (newline)
+            (jazz.testing (append (or (jazz.testing) '()) (list cont)))))))
+    #;
+    (let ((decl (jazz.find-child-declaration namespace-declaration name)))
+      (%%when decl
+        (jazz.debug (%%get-declaration-locator decl))))
     (%%when (%%not (jazz.find-child-declaration namespace-declaration name))
       (jazz.enqueue (%%get-namespace-declaration-children namespace-declaration) child))
     (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)

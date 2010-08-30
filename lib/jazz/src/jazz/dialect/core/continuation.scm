@@ -59,6 +59,10 @@
       continuation-return)
     
     
+    (define (jazz.continuation-parent cont)
+      (%%continuation-parent cont))
+    
+    
     (define (jazz.continuation-creator cont)
       (%%continuation-creator cont))
     

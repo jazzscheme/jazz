@@ -116,6 +116,7 @@
 (native jazz.continuation-capture)
 (native jazz.continuation-graft)
 (native jazz.continuation-return)
+(native jazz.continuation-parent)
 (native jazz.continuation-creator)
 (native jazz.continuation-locat)
 (native jazz.continuation-next)
@@ -917,6 +918,8 @@
 ;;;
 
 
+(native jazz.hidden-frame?)
+(native jazz.hidden-frame?-set!)
 (native jazz.get-continuation-stack)
 (native jazz.get-continuation-dynamic-environment)
 (native jazz.get-continuation-lexical-environment)

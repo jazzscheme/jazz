@@ -191,6 +191,11 @@
        `(%%check-continuation ,cont 1 (%%continuation-return-no-winding ,cont ,values)
           (##continuation-return-no-winding ,cont ,values))))
    
+   (jazz.define-macro (%%continuation-parent cont)
+     (%%force-uniqueness (cont)
+       `(%%check-continuation ,cont 1 (%%continuation-parent ,cont)
+          (##continuation-parent ,cont))))
+   
    (jazz.define-macro (%%continuation-creator cont)
      (%%force-uniqueness (cont)
        `(%%check-continuation ,cont 1 (%%continuation-creator ,cont)

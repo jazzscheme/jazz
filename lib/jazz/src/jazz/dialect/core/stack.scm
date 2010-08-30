@@ -62,6 +62,18 @@
       (%%closure-code closure))
     
     
+    (define jazz.hidden-frames
+      (%%list
+        ##dynamic-env-bind
+        ##thread-start-action!))
+    
+    (define (jazz.hidden-frame? frame)
+      (%%memq frame jazz.hidden-frames))
+    
+    (define (jazz.hidden-frame?-set! predicate)
+      (set! jazz.hidden-frame? predicate))
+    
+    
     (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)

@@ -52,6 +52,16 @@
 (jazz.define-setting default-profiler-depth
   2)
 
+(jazz.define-setting default-profiler-ignored-procedures
+  (%%list
+    ##dynamic-env-bind
+    ##call-with-values
+    ##thread-start-action!
+    ##primordial-exception-handler-hook))
+
+(jazz.define-setting default-profiler-ignored-modules
+  '())
+
 
 ;;;
 ;;;; Profiler
@@ -59,7 +69,7 @@
 
 
 (define (make-profiler name start stop)
-  (%%vector 'profiler name start stop))
+  (%%vector 'profiler name start stop default-profiler-ignored-procedures default-profiler-ignored-modules))
 
 
 (define (profiler-name profiler)
@@ -70,6 +80,33 @@
 
 (define (profiler-stop profiler)
   (%%vector-ref profiler 3))
+
+(define (profiler-ignored-procedures profiler)
+  (%%vector-ref profiler 4))
+
+(define (profiler-ignored-procedures-set! profiler ignored-procedures)
+  (%%vector-set! profiler 4 ignored-procedures))
+
+(define (profiler-ignored-modules profiler)
+  (%%vector-ref profiler 5))
+
+(define (profiler-ignored-modules-set! profiler ignored-modules)
+  (%%vector-set! profiler 5 ignored-modules))
+
+
+(define (profiler-ignore-procedure? profiler procedure)
+  (%%memq procedure (profiler-ignored-procedures profiler)))
+
+(define (profiler-ignore-module? profiler module)
+  (%%memq module (profiler-ignored-modules profiler)))
+
+(define (profiler-ignore-procedure profiler procedure)
+  (if (%%not (profiler-ignore-procedure? profiler procedure))
+      (profiler-ignored-procedures-set! profiler (%%cons procedure (profiler-ignored-procedures profiler)))))
+
+(define (profiler-ignore-module profiler module)
+  (if (%%not (profiler-ignore-module? profiler module))
+      (profiler-ignored-modules-set! profiler (%%cons module (profiler-ignored-modules profiler)))))
 
 
 ;;;
@@ -271,13 +308,7 @@
 ;;;
 
 
-(define *ignore-procedures*
-  (%%list
-    ##dynamic-env-bind
-    ##call-with-values))
-
-
-(define (identify-call cont depth ignore-procedures ignore-modules)
+(define (identify-call cont depth profiler)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
       (if (%%closure? proc)
@@ -287,9 +318,9 @@
   (define (continuation-next-interesting cont)
     (let loop ((current-cont cont))
          (if current-cont
-             (if (or (%%memq (continuation-creator current-cont) (or ignore-procedures *ignore-procedures*))
+             (if (or (profiler-ignore-procedure? profiler (continuation-creator current-cont))
                      (let ((current-location (%%continuation-locat current-cont)))
-                       (and current-location (%%memq (%%locat-container current-location) ignore-modules))))
+                       (and current-location (profiler-ignore-module? profiler (%%locat-container current-location)))))
                  (loop (%%continuation-next current-cont))
                current-cont)
            #f)))

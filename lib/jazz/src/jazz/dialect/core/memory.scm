@@ -46,6 +46,10 @@
   (gc-report-set! flag))
 
 
+(define (jazz.gc-count)
+  (inexact->exact (f64vector-ref (##process-statistics) 6)))
+
+
 ;;;
 ;;;; Memory
 ;;;

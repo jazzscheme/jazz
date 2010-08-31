@@ -217,7 +217,7 @@
                   products))))
   
   ; register all the libraries found
-  (table-for-each
+  (%%iterate-table libraries
     (lambda (product-name library-filename)
       (let* ((pathname (path-normalize library-filename))
              (lib (##load-object-file pathname #t)))
@@ -226,8 +226,7 @@
             (begin
               (set! jazz.currently-loading-library-procs (%%vector-ref lib 0))
               ((%%vector-ref (%%vector-ref (%%vector-ref lib 0) 0) 1)))
-          (jazz.feedback "WARNING: failed to load library {a}" pathname))))
-    libraries))
+          (jazz.feedback "WARNING: failed to load library {a}" pathname))))))
 
 
 ; this function is called from the library header when loading

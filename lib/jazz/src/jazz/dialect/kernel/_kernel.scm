@@ -1010,7 +1010,6 @@
 
 (native table?)
 (native make-table)
-(native make-will)
 (native table-ref)
 (native table-set!)
 (native table->list)
@@ -1023,6 +1022,7 @@
 (native jazz.eq?-hash)
 (native jazz.eqv?-hash)
 (native jazz.equal?-hash)
+(native make-will)
 
 
 ;;;

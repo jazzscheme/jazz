@@ -127,6 +127,7 @@
           (debug-environments? jazz.kernel-debug-environments?)
           (debug-location? jazz.kernel-debug-location?)
           (debug-source? jazz.kernel-debug-source?)
+          (mutable-bindings? jazz.kernel-mutable-bindings?)
           (include-compiler? #f)
           (interpret-kernel? #f)
           (source jazz.kernel-source)
@@ -286,7 +287,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)))
+                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)))
                 #t)
             #f)))
       
@@ -553,7 +554,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
-                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination output)))))))
+                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination output)))))))
       
       ;;;
       ;;;; Gambcini
@@ -574,7 +575,7 @@
                     (print ";;;" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)
+                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
                     (newline output)
                     (jazz.print-variable 'jazz.product #f output)
                     (newline output)
@@ -856,7 +857,7 @@
      #f)))
 
 
-(define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? destination output)
+(define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-platform platform output)
@@ -872,6 +873,8 @@
   (jazz.print-variable 'jazz.kernel-debug-location? debug-location? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-debug-source? debug-source? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-mutable-bindings? mutable-bindings? output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-destination destination output)
   (newline output)

@@ -509,6 +509,7 @@
 (native jazz.kernel-debug-environments?)
 (native jazz.kernel-debug-location?)
 (native jazz.kernel-debug-source?)
+(native jazz.kernel-mutable-bindings?)
 (native jazz.kernel-destination)
 (native jazz.kernel-built)
 (native jazz.kernel-install)

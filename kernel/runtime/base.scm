@@ -194,7 +194,7 @@
 ;;;
 
 
-(define (jazz.print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination output)
+(define (jazz.print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination output)
   (define first?
     #t)
   
@@ -222,6 +222,8 @@
       (print-property debug-location?: debug-location?))
   (if debug-source?
       (print-property debug-source?: debug-source?))
+  (if mutable-bindings?
+      (print-property mutable-bindings?: mutable-bindings?))
   (if interpret-kernel?
       (print-property interpret-kernel?: interpret-kernel?))
   (if (not (eqv? source-access? #t))

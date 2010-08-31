@@ -41,12 +41,14 @@
 (cond-expand
   (gambit
     (jazz.define-macro (jazz.kernel-declares)
-      `(declare ,@(if jazz.debug-core?
+      `(declare ,@(if (or jazz.debug-core? jazz.kernel-mutable-bindings?)
                       '()
                     '((block)))
                 
-                (standard-bindings)
-                (extended-bindings)
+                ,@(if jazz.kernel-mutable-bindings?
+                      '()
+                    '((standard-bindings)
+                      (extended-bindings)))
                 
                 (not inline)
                 
@@ -68,12 +70,15 @@
       `((declare ;; block is only really usefull for units coded in a
                  ;; style where control remains mostly inside the unit
                  ,@(if (and (eq? kind 'unit)
-                            (eq? jazz.kernel-safety 'release))
+                            (eq? jazz.kernel-safety 'release)
+                            (not jazz.kernel-mutable-bindings?))
                        '((block))
                      '())
                  
-                 (standard-bindings)
-                 (extended-bindings)
+                 ,@(if jazz.kernel-mutable-bindings?
+                       '()
+                     '((standard-bindings)
+                       (extended-bindings)))
                  
                  ;; inlining can have a huge impact on compilation time
                  ;; and really bloat the size of the generated .o1 file

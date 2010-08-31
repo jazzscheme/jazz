@@ -586,7 +586,7 @@
   
   (define (find-actual-conflicts)
     (let ((lst '()))
-      (jazz.iterate-table add
+      (%%iterate-table add
         (lambda (key value)
           (let ((actual (%%table-ref table key #f)))
             (let ((value-locator (effective-declaration-locator value))
@@ -635,7 +635,7 @@
            (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-name)))))
   
   (let ((partition (%%make-table test: eq?)))
-    (jazz.iterate-table (%%get-module-declaration-walker-references module-declaration)
+    (%%iterate-table (%%get-module-declaration-walker-references module-declaration)
       (lambda (locator declaration)
         (let ((resolved-declaration (jazz.resolve-binding declaration)))
           (let ((module (%%get-declaration-toplevel resolved-declaration)))
@@ -3360,7 +3360,7 @@
           (jazz.sort (jazz.queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
       ',(let ((walker (%%get-module-declaration-walker declaration))
               (queue (jazz.new-queue)))
-          (jazz.iterate-table (%%get-access-lookup declaration jazz.public-access)
+          (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
             (lambda (name decl)
               (%%when (or (%%eq? (%%get-declaration-toplevel decl) declaration)
                           ;; quick hack
@@ -4941,7 +4941,7 @@
 
 
 (define (jazz.release-catalog-entries)
-  (jazz.iterate-table jazz.Catalog
+  (%%iterate-table jazz.Catalog
     (lambda (unit-name entry)
       (if (%%pair? entry)
           (jazz.set-catalog-entry unit-name (%%cdr entry))))))

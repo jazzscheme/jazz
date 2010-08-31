@@ -107,7 +107,7 @@
                                               (jazz.vector-size (%%get-class-core-vtable class))
                                               (jazz.vector-vector-size (%%get-class-class-table class))
                                               (jazz.vector-vector-size (%%get-class-interface-table class)))))
-      (jazz.iterate-table (%%get-category-fields class)
+      (%%iterate-table (%%get-category-fields class)
         (lambda (name field)
           (cond ((jazz.is? field jazz.Slot) (process-slot field))
                 ((jazz.is? field jazz.Method) (process-method field)))))

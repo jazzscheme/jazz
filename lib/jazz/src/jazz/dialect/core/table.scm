@@ -53,15 +53,15 @@
     (%%table-length table)))
 
 
-(define (jazz.table-for-each table proc)
+(define (jazz.iterate-table table proc)
   (%%debug-assert (%%table? table)
-    (%%table-for-each table proc)))
+    (%%iterate-table table proc)))
 
 
-(define (jazz.table-map table proc)
+(define (jazz.map-table table proc)
   (%%debug-assert (%%table? table)
     (let ((queue (jazz.new-queue)))
-      (jazz.iterate-table table
+      (%%iterate-table table
         (lambda (key value)
           (jazz.enqueue queue (proc key value))))
       (jazz.queue-list queue))))

@@ -460,7 +460,7 @@
 
 (define (jazz.setup-repository repository)
   (let ((table (jazz.repository-packages-table repository)))
-    (jazz.iterate-table table
+    (%%iterate-table table
       (lambda (name package)
         (jazz.setup-package package)))))
 
@@ -468,7 +468,7 @@
 (define (jazz.repository-packages repository)
   (let ((table (jazz.repository-packages-table repository))
         (packages '()))
-    (jazz.iterate-table table
+    (%%iterate-table table
       (lambda (name package)
         (set! packages (%%cons package packages))))
     packages))

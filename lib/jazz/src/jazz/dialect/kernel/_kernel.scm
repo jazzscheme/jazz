@@ -1010,6 +1010,7 @@
 
 (native table?)
 (native make-table)
+(native make-will)
 (native table-ref)
 (native table-set!)
 (native table->list)
@@ -1017,13 +1018,11 @@
 (native jazz.table-clear)
 (native jazz.table-length)
 (native jazz.iterate-table)
-(native jazz.table-for-each)
-(native jazz.table-map)
+(native jazz.map-table)
 (native jazz.table-entries)
 (native jazz.eq?-hash)
 (native jazz.eqv?-hash)
 (native jazz.equal?-hash)
-(native make-will)
 
 
 ;;;

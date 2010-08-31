@@ -1041,7 +1041,7 @@
     (jazz.define-macro (%%table-length table)
       `(table-length ,table))
     
-    (jazz.define-macro (%%iterate-table table proc)
+    (jazz.define-macro (%%table-for-each proc table)
       `(table-for-each ,proc ,table))
     
     (jazz.define-macro (%%table-merge! table additions #!optional (additions-takes-precedence? #f))

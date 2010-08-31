@@ -66,8 +66,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination)
-  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? interpret-kernel? source-access? destination))
+(define (jazz.make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination)
+  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -96,14 +96,17 @@
 (define (jazz.configuration-debug-source? configuration)
   (vector-ref configuration 9))
 
-(define (jazz.configuration-interpret-kernel? configuration)
+(define (jazz.configuration-mutable-bindings? configuration)
   (vector-ref configuration 10))
 
-(define (jazz.configuration-source-access? configuration)
+(define (jazz.configuration-interpret-kernel? configuration)
   (vector-ref configuration 11))
 
-(define (jazz.configuration-destination configuration)
+(define (jazz.configuration-source-access? configuration)
   (vector-ref configuration 12))
+
+(define (jazz.configuration-destination configuration)
+  (vector-ref configuration 13))
 
 
 (define (jazz.new-configuration
@@ -117,6 +120,7 @@
           (debug-environments? #t)
           (debug-location? #t)
           (debug-source? #f)
+          (mutable-bindings? #f)
           (interpret-kernel? #f)
           (source-access? #t)
           (destination #f))
@@ -130,6 +134,7 @@
     (jazz.validate-debug-environments? debug-environments?)
     (jazz.validate-debug-location? debug-location?)
     (jazz.validate-debug-source? debug-source?)
+    (jazz.validate-mutable-bindings? mutable-bindings?)
     (jazz.validate-interpret-kernel? interpret-kernel?)
     (jazz.validate-source-access? source-access?)
     (jazz.validate-destination destination)))
@@ -262,6 +267,7 @@
       (jazz.configuration-debug-environments? configuration)
       (jazz.configuration-debug-location? configuration)
       (jazz.configuration-debug-source? configuration)
+      (jazz.configuration-mutable-bindings? configuration)
       (jazz.configuration-interpret-kernel? configuration)
       (jazz.configuration-source-access? configuration)
       (jazz.configuration-destination configuration)
@@ -295,6 +301,7 @@
         (debug-environments? (jazz.configuration-debug-environments? configuration))
         (debug-location? (jazz.configuration-debug-location? configuration))
         (debug-source? (jazz.configuration-debug-source? configuration))
+        (mutable-bindings? (jazz.configuration-mutable-bindings? configuration))
         (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
         (source-access? (jazz.configuration-source-access? configuration))
         (destination (jazz.configuration-destination configuration)))
@@ -312,6 +319,8 @@
         (jazz.feedback "  debug-location?: {s}" debug-location?))
     (if debug-source?
         (jazz.feedback "  debug-source?: {s}" debug-source?))
+    (if mutable-bindings?
+        (jazz.feedback "  mutable-bindings??: {s}" mutable-bindings?))
     (if interpret-kernel?
         (jazz.feedback "  interpret-kernel?: {s}" interpret-kernel?))
     (if (not (eqv? source-access? #t))
@@ -336,6 +345,7 @@
           (debug-environments? #t)
           (debug-location? #t)
           (debug-source? #f)
+          (mutable-bindings? #f)
           (interpret-kernel? #f)
           (source-access? #t)
           (destination #f))
@@ -348,6 +358,7 @@
          (debug-environments? (jazz.require-debug-environments? debug-environments?))
          (debug-location? (jazz.require-debug-location? debug-location?))
          (debug-source? (jazz.require-debug-source? debug-source?))
+         (mutable-bindings? (jazz.require-mutable-bindings? mutable-bindings?))
          (interpret-kernel? (jazz.require-interpret-kernel? interpret-kernel?))
          (source-access? (jazz.require-source-access? source-access?))
          (destination (jazz.require-destination destination)))
@@ -362,6 +373,7 @@
               debug-environments?: debug-environments?
               debug-location?: debug-location?
               debug-source?: debug-source?
+              mutable-bindings?: mutable-bindings?
               interpret-kernel?: interpret-kernel?
               source-access?: source-access?
               destination: destination)))
@@ -569,6 +581,26 @@
   (if (memq debug-source jazz.valid-debug-source)
       debug-source
     (jazz.error "Invalid debug-source?: {s}" debug-source)))
+
+
+;;;
+;;;; Mutable-Bindings
+;;;
+
+
+(define jazz.valid-mutable-bindings
+  '(#f
+    #t))
+
+
+(define (jazz.require-mutable-bindings? mutable-bindings)
+  mutable-bindings)
+
+
+(define (jazz.validate-mutable-bindings? mutable-bindings)
+  (if (memq mutable-bindings jazz.valid-mutable-bindings)
+      mutable-bindings
+    (jazz.error "Invalid mutable-bindings?: {s}" mutable-bindings)))
 
 
 ;;;
@@ -921,6 +953,7 @@
             (debug-environments? (jazz.configuration-debug-environments? configuration))
             (debug-location? (jazz.configuration-debug-location? configuration))
             (debug-source? (jazz.configuration-debug-source? configuration))
+            (mutable-bindings? (jazz.configuration-mutable-bindings? configuration))
             (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
             (source "./")
             (source-access? (jazz.configuration-source-access? configuration))
@@ -935,6 +968,7 @@
                           debug-environments?:   debug-environments?
                           debug-location?:       debug-location?
                           debug-source?:         debug-source?
+                          mutable-bindings?:     mutable-bindings?
                           include-compiler?:     #t
                           interpret-kernel?:     interpret-kernel?
                           source:                source
@@ -1234,7 +1268,7 @@
   
   (define (help-command arguments output)
     (jazz.print "Commands:" output)
-    (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [interpret-kernel?:] [destination:]" output)
+    (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [mutable-bindings?:] [interpret-kernel?:] [destination:]" output)
     (jazz.print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz.print "  list" output)
     (jazz.print "  delete [configuration]" output)
@@ -1346,7 +1380,7 @@
                              (debug-source (boolean-option "debug-source" options #f))
                              (interpret-kernel (boolean-option "interpret-kernel" options #f))
                              (destination (string-option "destination" options)))
-                         (jazz.configure name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source interpret-kernel?: interpret-kernel destination: destination)
+                         (jazz.configure name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source mutable-bindings?: mutable-bindings interpret-kernel?: interpret-kernel destination: destination)
                          (exit))
                      (unknown-option (car remaining))))))
               ((equal? action "make")
@@ -1398,6 +1432,9 @@
   #f)
 
 (define jazz.kernel-debug-source?
+  #f)
+
+(define jazz.kernel-mutable-bindings?
   #f)
 
 (define jazz.kernel-destination

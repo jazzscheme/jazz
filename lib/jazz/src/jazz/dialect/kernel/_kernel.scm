@@ -653,6 +653,7 @@
 
 (native jazz.gc)
 (native jazz.gc-report-set!)
+(native jazz.gc-count)
 (native jazz.process-memory)
 (native jazz.symbols-memory)
 (native jazz.classes-statistics)

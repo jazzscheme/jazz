@@ -3360,7 +3360,7 @@
           (jazz.sort (jazz.queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
       ',(let ((walker (%%get-module-declaration-walker declaration))
               (queue (jazz.new-queue)))
-          (%%iterate-table (%%get-access-lookup declaration jazz.public-access)
+          (jazz.iterate-table-safe (%%get-access-lookup declaration jazz.public-access)
             (lambda (name decl)
               (%%when (or (%%eq? (%%get-declaration-toplevel decl) declaration)
                           ;; quick hack

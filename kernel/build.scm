@@ -1457,6 +1457,7 @@
   (load "kernel/runtime/common")
   (load "kernel/runtime/digest")
   (load "kernel/runtime/settings")
+  (load "kernel/runtime/advise")
   (load "kernel/runtime/build"))
 
 

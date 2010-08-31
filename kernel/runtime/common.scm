@@ -287,6 +287,17 @@
 
 
 ;;;
+;;;; Table
+;;;
+
+
+(define (jazz.iterate-table-safe table proc)
+  (for-each (lambda (pair)
+              (proc (%%car pair) (%%cdr pair)))
+            (%%table->list table)))
+
+
+;;;
 ;;;; Pathname
 ;;;
 

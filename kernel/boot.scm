@@ -49,6 +49,7 @@
     "kernel/runtime/base"
     "kernel/runtime/common"
     "kernel/runtime/settings"
+    "kernel/runtime/advise"
     "kernel/runtime/build"
     "kernel/runtime/digest"
     "kernel/runtime/unit"

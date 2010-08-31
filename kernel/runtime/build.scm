@@ -273,6 +273,7 @@
           (compile-source-file "runtime/" "crash")
           (compile-source-file "runtime/" "common")
           (compile-source-file "runtime/" "settings")
+          (compile-source-file "runtime/" "advise")
           (if include-compiler?
               (compile-source-file "runtime/" "build"))
           (compile-source-file "runtime/" "install")
@@ -340,6 +341,7 @@
                                ,(kernel-file "runtime/crash")
                                ,(kernel-file "runtime/common")
                                ,(kernel-file "runtime/settings")
+                               ,(kernel-file "runtime/advise")
                                ,@(if include-compiler?
                                      `(,(kernel-file "runtime/build"))
                                    '())
@@ -517,6 +519,7 @@
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/crash.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/common.c") platform)
             ,(jazz.quote-gcc-pathname (kernel-file "runtime/settings.c") platform)
+            ,(jazz.quote-gcc-pathname (kernel-file "runtime/advise.c") platform)
             ,@(if include-compiler?
                   `(,(jazz.quote-gcc-pathname (kernel-file "runtime/build.c") platform))
                 '())

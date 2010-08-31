@@ -870,17 +870,17 @@
                         (,method-call ,class-locator ',name ,method-locator))
                       ,@(jazz.declaration-result))))
                 ((jazz.add-virtual-method)
-                 (if (%%eq? abstraction 'abstract)
-                     `(define ,method-rank-locator
-                        (,method-call ,class-locator ',name (lambda rest (jazz.call-into-abstract ',class-locator ',name))))
-                   `(begin
-                      (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
-                        ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                        (let ()
-                          ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
-                      (define ,method-rank-locator
-                        (,method-call ,class-locator ',name ,method-locator))
-                      ,@(jazz.declaration-result))))
+                 `(begin
+                    ,(if (%%eq? abstraction 'abstract)
+                         `(define (,method-locator . rest)
+                            (jazz.call-into-abstract ',class-locator ',name))
+                       `(define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                          ,@(jazz.emit-signature-casts signature declaration augmented-environment)
+                          (let ()
+                            ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))))
+                    (define ,method-rank-locator
+                      (,method-call ,class-locator ',name ,method-locator))
+                    ,@(jazz.declaration-result)))
                 ((jazz.add-final-method)
                  `(begin
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))

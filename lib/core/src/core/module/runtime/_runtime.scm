@@ -103,7 +103,7 @@
   (let ((module (or (jazz.get-module name) (jazz.new-module name access))))
     (let ((exports (%%get-module-exports module)))
       (for-each (lambda (module-name)
-                  (%%iterate-table (%%get-module-exports (jazz.require-module module-name))
+                  (jazz.iterate-table (%%get-module-exports (jazz.require-module module-name))
                     (lambda (name info)
                       (%%table-set! exports name info))))
                 exported-modules)

@@ -114,8 +114,8 @@
 ;;;
 
 
-(define (make-profile profiler lable depth)
-  (%%vector 'profile profiler lable depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
+(define (make-profile profiler label depth)
+  (%%vector 'profile profiler label depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-profiler profile)
@@ -173,8 +173,8 @@
   (%%vector-set! profile 11 user-data))
 
 
-(define (new-profile #!key (profiler #f) (lable #f) (depth #f))
-  (make-profile (or profiler (default-profiler)) lable (or depth (default-profiler-depth))))
+(define (new-profile #!key (profiler #f) (label #f) (depth #f))
+  (make-profile (or profiler (default-profiler)) label (or depth (default-profiler-depth))))
 
 
 ;;;

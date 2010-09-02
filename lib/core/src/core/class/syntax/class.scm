@@ -263,8 +263,20 @@
 
 (cond-expand
   (gambit
-    (jazz.define-macro (%%c-class-of obj)
-      `(or (##c-code #<<end-of-c-code
+    ;; This macro enables jazz to bootstrap fully interpreted
+    ;; Note that we need in the pure scheme version to implement every type that can potentially be used by
+    ;; Jazz code so that really means every type if we want to be a superset of the underlying scheme system
+    (jazz.define-macro (%%class-of-impl obj)
+      (case (jazz.walk-for)
+        ((compile)
+         `(%%c-class-of-impl ,obj))
+        (else
+         `(%%scheme-class-of-impl ,obj))))
+    
+    (jazz.define-macro (%%c-class-of-impl obj)
+      `(or (let ()
+             (declare (extended-bindings))
+             (##c-code #<<end-of-c-code
 {
     ___SCMOBJ obj = ___ARG1;
     if (___MEM_ALLOCATED(obj))
@@ -290,40 +302,49 @@ end-of-c-code
     jazz.Fixnum             ;; ___ARG3
     jazz.Char               ;; ___ARG4
     jazz.specialtypes       ;; ___ARG5
-    )
+    ))
            (jazz.structure-type ,obj)))
     
-    (jazz.define-macro (%%class-of obj)
-      (jazz.with-uniqueness obj
-        (lambda (symbol)
-          (case (jazz.walk-for)
-            ((compile)
-             `(%%c-class-of ,symbol))
-            (else
-             `(if (%%object? ,symbol)
-                  (%%get-object-class ,symbol)
-                (jazz.i-class-of ,symbol)))))))
-    
-    (jazz.define-macro (%%i-class-of-impl var)
-      (case (jazz.walk-for)
-        ((compile)
-         `(%%c-class-of ,var))
-        (else
-         `(if (%%object? ,var)
-              (%%get-object-class ,var)
-            (jazz.class-of-native ,var)))))
-    
-    (jazz.define-macro (%%class-of-impl var)
-      (if jazz.debug-user?
-          `(or (%%class-of ,var)
-               (jazz.error "Unable to get class of {s}" ,var))
-        `(%%class-of ,var))))
+    (jazz.define-macro (%%scheme-class-of-impl obj)
+      `(cond ((%%object? ,obj)       (%%get-object-class ,obj))
+             ((%%boolean? ,obj)      jazz.Boolean)
+             ((%%char? ,obj)         jazz.Char)
+             ((%%fixnum? ,obj)       jazz.Fixnum)
+             ((%%flonum? ,obj)       jazz.Flonum)
+             ((%%integer? ,obj)      jazz.Integer)
+             ((%%rational? ,obj)     jazz.Rational)
+             ((%%real? ,obj)         jazz.Real)
+             ((%%complex? ,obj)      jazz.Complex)
+             ((%%number? ,obj)       jazz.Number)
+             ((%%null? ,obj)         jazz.Null)
+             ((%%pair? ,obj)         jazz.Pair)
+             ((%%string? ,obj)       jazz.String)
+             ((%%vector? ,obj)       jazz.Vector)
+             ((%%s8vector? ,obj)     jazz.S8Vector)
+             ((%%u8vector? ,obj)     jazz.U8Vector)
+             ((%%s16vector? ,obj)    jazz.S16Vector)
+             ((%%u16vector? ,obj)    jazz.U16Vector)
+             ((%%s32vector? ,obj)    jazz.S32Vector)
+             ((%%u32vector? ,obj)    jazz.U32Vector)
+             ((%%s64vector? ,obj)    jazz.S64Vector)
+             ((%%u64vector? ,obj)    jazz.U64Vector)
+             ((%%f32vector? ,obj)    jazz.F32Vector)
+             ((%%f64vector? ,obj)    jazz.F64Vector)
+             ((%%symbol? ,obj)       jazz.Symbol)
+             ((%%keyword? ,obj)      jazz.Keyword)
+             ((%%port? ,obj)         jazz.Port)
+             ((%%continuation? ,obj) jazz.Continuation)
+             ((%%procedure? ,obj)    jazz.Procedure)
+             ((%%foreign? ,obj)      jazz.Foreign)
+             ((%%values? ,obj)       jazz.Values)
+             ((%%eof-object? ,obj)   jazz.EOF)
+             ((%%unspecified? ,obj)  jazz.Unspecified)
+             ((jazz.marker? ,obj)    jazz.Marker)
+             (else
+              (or (jazz.structure-type ,obj)
+                  (jazz.error "Unable to get class of {s}" ,obj))))))
   
   (else
-    (jazz.define-macro (%%class-of obj)
-      (jazz.with-uniqueness obj
-        (lambda (symbol)
-          `(if (%%object? ,symbol)
-               (%%get-object-class ,symbol)
-             (jazz.class-of-native ,symbol))))))))
+    (jazz.define-macro (%%class-of-impl obj)
+      `(%%scheme-class-of-impl ,obj)))))
  

@@ -60,7 +60,7 @@
   (let ((dynamic-parameters (let iter ((signature (%%get-specific-dynamic-signature (%%get-generic-root-specific generic)))
                                        (rest rest))
                                  (if (and (%%pair? signature) (%%pair? rest))
-                                     (%%cons (%%class-of (%%car rest))
+                                     (%%cons (jazz.class-of (%%car rest))
                                              (iter (%%cdr signature) (%%cdr rest)))
                                    '()))))
     (jazz.generic-error generic dynamic-parameters)))

@@ -206,7 +206,7 @@
                                                          (%%when (%%is? field jazz.Method)
                                                            (%%vector-set! category-vtable
                                                                           (%%get-method-implementation-rank field)
-                                                                          (lambda (object . rest) (jazz.call-into-abstract (%%get-category-identifier (%%class-of object)) field-name))))))
+                                                                          (lambda (object . rest) (jazz.call-into-abstract (%%get-category-identifier (jazz.class-of object)) field-name))))))
                                       (%%vector-set! vtable rank category-vtable))))))
                             (%%get-category-ancestors class))
       (%%set-class-interface-table class vtable))))
@@ -435,7 +435,7 @@
 
 
 (jazz.define-method (jazz.of-type? (jazz.Type type) object)
-  (jazz.of-subtype? type (%%class-of object)))
+  (jazz.of-subtype? type (jazz.class-of object)))
 
 
 (jazz.define-virtual-runtime (jazz.of-subtype? (jazz.Type type) subtype))
@@ -633,54 +633,8 @@
   (%%class-is? object jazz.Class))
 
 
-(define (jazz.i-class-of expr)
-  (%%i-class-of-impl expr))
-
-
 (define (jazz.class-of expr)
   (%%class-of-impl expr))
-
-
-;; This function enables jazz to bootstrap fully interpreted
-;; Note that we need to implement every type that can potentially be used by Jazz code
-;; so that really means every type if we want to be a superset of the underlying scheme
-(define (jazz.class-of-native expr)
-  (cond ((%%boolean? expr)      jazz.Boolean)
-        ((%%char? expr)         jazz.Char)
-        ((%%fixnum? expr)       jazz.Fixnum)
-        ((%%flonum? expr)       jazz.Flonum)
-        ((%%integer? expr)      jazz.Integer)
-        ((%%rational? expr)     jazz.Rational)
-        ((%%real? expr)         jazz.Real)
-        ((%%complex? expr)      jazz.Complex)
-        ((%%number? expr)       jazz.Number)
-        ((%%null? expr)         jazz.Null)
-        ((%%pair? expr)         jazz.Pair)
-        ((%%string? expr)       jazz.String)
-        ((%%vector? expr)       jazz.Vector)
-        ((%%s8vector? expr)     jazz.S8Vector)
-        ((%%u8vector? expr)     jazz.U8Vector)
-        ((%%s16vector? expr)    jazz.S16Vector)
-        ((%%u16vector? expr)    jazz.U16Vector)
-        ((%%s32vector? expr)    jazz.S32Vector)
-        ((%%u32vector? expr)    jazz.U32Vector)
-        ((%%s64vector? expr)    jazz.S64Vector)
-        ((%%u64vector? expr)    jazz.U64Vector)
-        ((%%f32vector? expr)    jazz.F32Vector)
-        ((%%f64vector? expr)    jazz.F64Vector)
-        ((%%symbol? expr)       jazz.Symbol)
-        ((%%keyword? expr)      jazz.Keyword)
-        ((%%port? expr)         jazz.Port)
-        ((%%continuation? expr) jazz.Continuation)
-        ((%%procedure? expr)    jazz.Procedure)
-        ((%%foreign? expr)      jazz.Foreign)
-        ((%%values? expr)       jazz.Values)
-        ((%%eof-object? expr)   jazz.EOF)
-        ((%%unspecified? expr)  jazz.Unspecified)
-        ((jazz.marker? expr)    jazz.Marker)
-        (else
-         (or (jazz.structure-type expr)
-             (jazz.error "Unable to get class of {s}" expr)))))
 
 
 (define (jazz.class-subtype? target class)
@@ -688,7 +642,7 @@
 
 
 (jazz.define-method (jazz.of-type? (jazz.Class class) object)
-  (%%class-subtype? (%%class-of object) class))
+  (%%class-subtype? (jazz.class-of object) class))
 
 
 (jazz.define-method (jazz.update-category (jazz.Class class))
@@ -2035,7 +1989,7 @@
 ;;  return false;
 ;;}
 (jazz.define-method (jazz.of-type? (jazz.Interface interface) object)
-  (jazz.of-subtype? interface (%%class-of object)))
+  (jazz.of-subtype? interface (jazz.class-of object)))
 
 
 (jazz.define-method (jazz.update-category (jazz.Interface interface))

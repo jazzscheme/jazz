@@ -137,7 +137,7 @@
 
 
 (jazz.define-macro (%%class-is? object class)
-  `(%%class-subtype? (%%class-of ,object) ,class))
+  `(%%class-subtype? (jazz.class-of ,object) ,class))
 
 
 (jazz.define-macro (%%category-is? object category)

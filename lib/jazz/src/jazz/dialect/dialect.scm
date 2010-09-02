@@ -731,19 +731,19 @@
             (case dispatch-type
               ((final)
                (let ((implementation-locator (%%get-declaration-locator method-declaration)))
-                 `(%%final-dispatch (%%class-of ,object-cast) ,implementation-locator)))
+                 `(%%final-dispatch (jazz.class-of ,object-cast) ,implementation-locator)))
               ((class)
                (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
                      (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz.native-category? category-declaration)
                      `(%%class-dispatch (%%get-object-class ,object-cast) ,class-level-locator ,method-rank-locator)
-                   `(%%class-dispatch (%%class-of ,object-cast) ,class-level-locator ,method-rank-locator))))
+                   `(%%class-dispatch (jazz.class-of ,object-cast) ,class-level-locator ,method-rank-locator))))
               ((interface)
                (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
                      (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz.native-category? category-declaration)
                      `(%%interface-dispatch (%%get-object-class ,object-cast) ,interface-rank-locator ,method-rank-locator)
-                   `(%%interface-dispatch (%%class-of ,object-cast) ,interface-rank-locator ,method-rank-locator)))))
+                   `(%%interface-dispatch (jazz.class-of ,object-cast) ,interface-rank-locator ,method-rank-locator)))))
             (jazz.call-return-type (%%get-lexical-binding-type method-declaration))
             #f))))))
 
@@ -1022,9 +1022,7 @@
 
 (define (jazz.emit-specialized-class-of object environment)
   (jazz.new-code
-    (if jazz.debug-user?
-        `(jazz.class-of ,(jazz.sourcified-form object))
-      `(%%class-of ,(jazz.sourcified-form object)))
+    `(jazz.class-of ,(jazz.sourcified-form object))
     (let ((type (%%get-code-type object)))
       (if (%%class-is? type jazz.Class-Declaration)
           (%%get-category-declaration-metaclass type)
@@ -1275,7 +1273,7 @@
 
 (define (jazz.cache-dispatch name setter)
   (lambda (object)
-    (let ((class (%%class-of object)))
+    (let ((class (jazz.class-of object)))
       (let ((category (jazz.locate-method-owner class name)))
         (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
           (let ((field (%%get-category-field category name)))
@@ -1295,7 +1293,7 @@
 (define (jazz.final-dispatch field type)
   (lambda (object)
     (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-      (%%final-dispatch (%%class-of object) (%%get-method-implementation field)))))
+      (%%final-dispatch (jazz.class-of object) (%%get-method-implementation field)))))
 
 
 (define (jazz.class-dispatch field type)
@@ -1303,7 +1301,7 @@
         (implementation-rank (%%get-method-implementation-rank field)))
     (lambda (object)
       (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-        (%%class-dispatch (%%class-of object) class-level implementation-rank)))))
+        (%%class-dispatch (jazz.class-of object) class-level implementation-rank)))))
 
 
 (define (jazz.interface-dispatch field type)
@@ -1311,7 +1309,7 @@
         (implementation-rank (%%get-method-implementation-rank field)))
     (lambda (object)
       (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
-        (%%interface-dispatch (%%class-of object) interface-rank implementation-rank)))))
+        (%%interface-dispatch (jazz.class-of object) interface-rank implementation-rank)))))
 
 
 (define (jazz.dispatch class name)

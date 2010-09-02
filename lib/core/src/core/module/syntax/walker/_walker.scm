@@ -4131,7 +4131,7 @@
       ;; this way of getting a reference to the literal's class is a quick solution
       (let ((literal-type (if literal?
                               (%%desourcify (%%get-literal-name literal/constant))
-                            (jazz.identifier-name (%%get-category-identifier (%%class-of literal/constant))))))
+                            (jazz.identifier-name (%%get-category-identifier (jazz.class-of literal/constant))))))
         (jazz.new-constant locator (jazz.lookup-reference walker resume declaration environment literal-type))))))
 
 

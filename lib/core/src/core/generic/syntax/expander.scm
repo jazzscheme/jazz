@@ -135,7 +135,7 @@
              (lambda (,@mandatory-parameters . ,gensym-rest)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
                  (jazz.process-pending-specifics ,generic-locator))
-               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(%%class-of ,parameter))
+               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(jazz.class-of ,parameter))
                                                                                             (jazz.dynamic-parameter-names parameters))))))
                  ,(if (%%null? extra-parameters)
                       `(,gensym-specific ,@mandatory-parameters)

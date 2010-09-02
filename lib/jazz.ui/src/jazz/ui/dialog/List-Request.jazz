@@ -48,27 +48,21 @@
 (class undocumented List-Request extends View
 
 
-  (property content initialize '() accessors generate)
+  (property present initialize #f  accessors generate)
+  (property content initialize '() accessors explicit)
   
   
   (form
     (<install>                                    size: {Dimension 782 350}
-      (<Label-View>                               title: "Select an element from the list" position: {Point 10 9} size: {Dimension 191 16} font: {Font name: Label})
-      (<Border-View>              name: border    position: {Point 9 33} size: {Dimension 671 254} border-type: edge
+      (<Label-View>               name: invite    title: "Select an element from the list" position: {Point 10 9} size: {Dimension 191 16} font: {Font name: Label})
+      (<Border-View>              name: border    position: {Point 7 33} size: {Dimension 766 254} border-type: edge
         (<Scroller-View>                          hscroll?: #t vscroll?: #t
           (<!>                    name: content   layout-type: fill
-            (<Tree-View>          name: tree      filled-column: element top-padding: 2 portfolio: :images action-handler: {Event-Handler :form on-action} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+            (<Tree-View>          name: tree      filled-column: element top-padding: 2 portfolio: :images double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
               (<Tree-Node-Column> name: element   toplevel-controls?: #f display-images?: #f width: 400)))))
-      (<Horizontal-Line>                          position: {Point 6 300} size: {Dimension 770 8})
+      (<Horizontal-Line>          name: separator position: {Point 6 300} size: {Dimension 770 8})
       (<Push-Button>              name: ok        title: "OK" position: {Point 610 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
       (<Push-Button>              name: cancel    title: "Cancel" position: {Point 694 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
-
-  
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((tree (get-tree)))
-      (setup-content tree)
-      (setup-selection tree)))
   
   
   (method override (focus-default)
@@ -82,6 +76,26 @@
   
   (method (get-tree)
     (locate 'tree))
+  
+  
+  (method (get-content)
+    content)
+  
+  
+  (method (set-content value)
+    (set! content value)
+    (let ((tree (get-tree)))
+      (setup-content tree)
+      (setup-selection tree)))
+
+  
+  ;;;
+  ;;;; Invite
+  ;;;
+  
+  
+  (method public (set-invite value)
+    (set-title~ (locate 'invite) value))
 
   
   ;;;
@@ -90,7 +104,7 @@
   
   
   (method meta override (host-title)
-    "Choose List")
+    "Choose Element")
   
   
   (method meta override (host-position)
@@ -98,7 +112,7 @@
   
   
   (method meta override (host-size)
-    {Dimension 302 120})
+    {Dimension 300 500})
   
   
   ;;;
@@ -106,8 +120,18 @@
   ;;;
   
   
-  (method (on-action evt)
-    (debug 'yo))
+  (method (on-double-click evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  (method override (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'border) dh dv)
+    (move-figure~ (locate 'separator) 0 dv)
+    (size-figure~ (locate 'separator) dh 0)
+    (move-figure~ (locate 'ok) dh dv)
+    (move-figure~ (locate 'cancel) dh dv))
   
   
   ;; Should really be generic in the Dialog class
@@ -136,9 +160,8 @@
     (with-update-locked~ tree
       (lambda ()
         (for-each (lambda (element)
-                    (let ((image (getf element image:))
-                          (title (getf element title)))
-                      (add-row~ tree children: (list (new Tree-Node image: image title: title)) user-data: element)))
+                    (let ((title ((or present ->string) element)))
+                      (add-row~ tree children: (list (new Tree-Node title: title)) user-data: element)))
                   content))))
   
   

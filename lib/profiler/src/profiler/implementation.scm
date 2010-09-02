@@ -46,9 +46,6 @@
 ;;;
 
 
-(jazz.define-setting default-profiler
-  #f)
-
 (jazz.define-setting default-profiler-depth
   2)
 
@@ -115,7 +112,7 @@
 
 
 (define (make-profile profiler depth)
-  (%%vector 'profile profiler depth #f 0 0 0 0 (%%make-table test: equal?) 0))
+  (%%vector 'profile profiler depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-profiler profile)
@@ -130,42 +127,48 @@
 (define (profile-frame-count-set! profile count)
   (%%vector-set! profile 3 count))
 
-(define (profile-total-count profile)
+(define (profile-frame-duration profile)
   (%%vector-ref profile 4))
 
-(define (profile-total-count-set! profile total)
-  (%%vector-set! profile 4 total))
+(define (profile-frame-duration-set! profile count)
+  (%%vector-set! profile 4 count))
 
-(define (profile-total-duration profile)
+(define (profile-total-count profile)
   (%%vector-ref profile 5))
 
-(define (profile-total-duration-set! profile total)
+(define (profile-total-count-set! profile total)
   (%%vector-set! profile 5 total))
 
-(define (profile-unknown-count profile)
+(define (profile-total-duration profile)
   (%%vector-ref profile 6))
 
-(define (profile-unknown-count-set! profile unknown)
-  (%%vector-set! profile 6 unknown))
+(define (profile-total-duration-set! profile total)
+  (%%vector-set! profile 6 total))
 
-(define (profile-unknown-duration profile)
+(define (profile-unknown-count profile)
   (%%vector-ref profile 7))
 
-(define (profile-unknown-duration-set! profile unknown)
+(define (profile-unknown-count-set! profile unknown)
   (%%vector-set! profile 7 unknown))
 
-(define (profile-calls profile)
+(define (profile-unknown-duration profile)
   (%%vector-ref profile 8))
 
-(define (profile-user-data profile)
+(define (profile-unknown-duration-set! profile unknown)
+  (%%vector-set! profile 8 unknown))
+
+(define (profile-calls profile)
   (%%vector-ref profile 9))
 
+(define (profile-user-data profile)
+  (%%vector-ref profile 10))
+
 (define (profile-user-data-set! profile user-data)
-  (%%vector-set! profile 9 user-data))
+  (%%vector-set! profile 10 user-data))
 
 
-(define (new-profile #!key (profiler #f) (depth #f))
-  (make-profile (or profiler (default-profiler)) (or depth (default-profiler-depth))))
+(define (new-profile profiler #!key (depth #f))
+  (make-profile profiler (or depth (default-profiler-depth))))
 
 
 ;;;
@@ -211,10 +214,6 @@
 ;;;
 ;;;; Frames
 ;;;
-
-
-(define (frame-profile)
-  (profile-frame-count-set! (active-profile) (+ (or (profile-frame-count (active-profile)) 0) 1)))
 
 
 (define (profile-frames profile)
@@ -284,10 +283,14 @@
 ;;;
 
 
-(define (with-profile profile thunk)
+(define (with-profiling profile thunk)
   (start-profiler profile)
   (parameterize ((active-profile profile))
-    (thunk))
+    (let ((start (profiler-performance-counter)))
+      (thunk)
+      (let ((duration (- (profiler-performance-counter) start)))
+        (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1))
+        (profile-frame-duration-set! profile (+ (profile-frame-duration profile) duration)))))
   (stop-profiler profile))
 
 

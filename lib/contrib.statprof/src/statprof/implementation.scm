@@ -93,5 +93,5 @@
   (make-profiler 'statprof start-statprof stop-statprof))
 
 
-;; quick fix so it stays compatible with the old approach
-(active-profile (new-profile statprof)))
+(default-profiler statprof)
+(active-profile (new-profile)))

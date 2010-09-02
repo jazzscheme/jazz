@@ -46,6 +46,9 @@
 ;;;
 
 
+(jazz.define-setting default-profiler
+  #f)
+
 (jazz.define-setting default-profiler-depth
   2)
 
@@ -167,8 +170,8 @@
   (%%vector-set! profile 10 user-data))
 
 
-(define (new-profile profiler #!key (depth #f))
-  (make-profile profiler (or depth (default-profiler-depth))))
+(define (new-profile #!key (profiler #f) (depth #f))
+  (make-profile (or profiler (default-profiler)) (or depth (default-profiler-depth))))
 
 
 ;;;

@@ -940,7 +940,7 @@
    
    (jazz.define-macro (%%global-var-set! symbol value)
      (%%force-uniqueness (symbol)
-       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
           (##global-var-set! ,symbol ,value)))))
 
   (else))
@@ -1041,7 +1041,7 @@
     (jazz.define-macro (%%table-length table)
       `(table-length ,table))
     
-    (jazz.define-macro (%%iterate-table table proc)
+    (jazz.define-macro (%%table-for-each proc table)
       `(table-for-each ,proc ,table))
     
     (jazz.define-macro (%%table-merge! table additions #!optional (additions-takes-precedence? #f))

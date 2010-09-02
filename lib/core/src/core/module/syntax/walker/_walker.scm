@@ -586,7 +586,7 @@
   
   (define (find-actual-conflicts)
     (let ((lst '()))
-      (%%iterate-table add
+      (jazz.iterate-table add
         (lambda (key value)
           (let ((actual (%%table-ref table key #f)))
             (let ((value-locator (effective-declaration-locator value))
@@ -635,7 +635,7 @@
            (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-name)))))
   
   (let ((partition (%%make-table test: eq?)))
-    (%%iterate-table (%%get-module-declaration-walker-references module-declaration)
+    (jazz.iterate-table (%%get-module-declaration-walker-references module-declaration)
       (lambda (locator declaration)
         (let ((resolved-declaration (jazz.resolve-binding declaration)))
           (let ((module (%%get-declaration-toplevel resolved-declaration)))
@@ -4941,7 +4941,7 @@
 
 
 (define (jazz.release-catalog-entries)
-  (%%iterate-table jazz.Catalog
+  (jazz.iterate-table jazz.Catalog
     (lambda (unit-name entry)
       (if (%%pair? entry)
           (jazz.set-catalog-entry unit-name (%%cdr entry))))))

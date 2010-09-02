@@ -217,7 +217,7 @@
                   products))))
   
   ; register all the libraries found
-  (%%iterate-table libraries
+  (jazz.iterate-table libraries
     (lambda (product-name library-filename)
       (let* ((pathname (path-normalize library-filename))
              (lib (##load-object-file pathname #t)))

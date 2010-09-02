@@ -291,6 +291,10 @@
 ;;;
 
 
+(define (jazz.iterate-table table proc)
+  (%%table-for-each proc table))
+
+
 (define (jazz.iterate-table-safe table proc)
   (for-each (lambda (pair)
               (proc (%%car pair) (%%cdr pair)))

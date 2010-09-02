@@ -70,7 +70,7 @@
    (define (jazz.serial->object number . rest)
      (continuation-capture
        (lambda (return)
-         (%%iterate-table jazz.serialized-objects
+         (jazz.iterate-table jazz.serialized-objects
            (lambda (key value)
              (if (%%fx= value number)
                  (continuation-return return key))))

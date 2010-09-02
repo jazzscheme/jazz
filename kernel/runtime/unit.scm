@@ -468,7 +468,7 @@
 (define (jazz.repository-packages repository)
   (let ((table (jazz.repository-packages-table repository))
         (packages '()))
-    (%%iterate-table table
+    (jazz.iterate-table table
       (lambda (name package)
         (set! packages (%%cons package packages))))
     packages))

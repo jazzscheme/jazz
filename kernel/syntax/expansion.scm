@@ -153,4 +153,8 @@
 
 (jazz.define-check-macro %%check-symbol
   ##symbol?
-  "SYMBOL"))
+  "SYMBOL")
+
+(jazz.define-check-macro %%check-table
+  table?
+  "TABLE"))

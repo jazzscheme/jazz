@@ -1,0 +1,157 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; List Request
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.dialog.List-Request jazz
+
+
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.dialog))
+
+
+(class undocumented List-Request extends View
+
+
+  (property content initialize '() accessors generate)
+  
+  
+  (form
+    (<install>                                    size: {Dimension 782 350}
+      (<Label-View>                               title: "Select an element from the list" position: {Point 10 9} size: {Dimension 191 16} font: {Font name: Label})
+      (<Border-View>              name: border    position: {Point 9 33} size: {Dimension 671 254} border-type: edge
+        (<Scroller-View>                          hscroll?: #t vscroll?: #t
+          (<!>                    name: content   layout-type: fill
+            (<Tree-View>          name: tree      filled-column: element top-padding: 2 portfolio: :images action-handler: {Event-Handler :form on-action} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column> name: element   toplevel-controls?: #f display-images?: #f width: 400)))))
+      (<Horizontal-Line>                          position: {Point 6 300} size: {Dimension 770 8})
+      (<Push-Button>              name: ok        title: "OK" position: {Point 610 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>              name: cancel    title: "Cancel" position: {Point 694 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (let ((tree (get-tree)))
+      (setup-content tree)
+      (setup-selection tree)))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (get-tree)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'tree))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-title)
+    "Choose List")
+  
+  
+  (method meta override (host-position)
+    {Point 450 300})
+  
+  
+  (method meta override (host-size)
+    {Dimension 302 120})
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-action evt)
+    (debug 'yo))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (method (update)
+    (setup-content (get-tree)))
+
+  
+  (method (setup-content tree)
+    (remove-every-row~ tree)
+    (with-update-locked~ tree
+      (lambda ()
+        (for-each (lambda (element)
+                    (let ((image (getf element image:))
+                          (title (getf element title)))
+                      (add-row~ tree children: (list (new Tree-Node image: image title: title)) user-data: element)))
+                  content))))
+  
+  
+  (method (setup-selection tree)
+    (when (not-null? content)
+      (set-selection~ tree (list 0))))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method override (get-modal-result)
+    (let ((tree (get-tree)))
+      (get-single-selected-data~ tree)))))

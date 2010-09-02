@@ -55,7 +55,7 @@
   (form
     (<install>                                      size: {Dimension 412 612} layout-type: border
       (<Layout-View>          name: tools
-        (<Label-View>         name: fps             size: {Dimension 120 23} location: tail justification: tail)
+        (<Label-View>         name: fps             size: {Dimension 250 23} location: tail justification: tail)
         (<Separator>                                size: {Dimension 14 0})
         (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" resource: {Image-Resource "Run"} portfolio: :images action-handler: {Event-Handler :form on-start-profiler})
         (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" resource: {Image-Resource "Stop"} portfolio: :images action-handler: {Event-Handler :form on-stop-profiler})
@@ -232,18 +232,20 @@
     (when profile
       (with-update-locked
         (lambda ()
-          (bind (frames total-count total-duration unknown-count unknown-duration calls) profile
+          (bind (lable frame-duration frame-count total-count total-duration unknown-count unknown-duration calls) profile
             (let ((frequency (profiler-performance-frequency)))
               (let ((seconds (/ total-duration frequency)))
                 (define (calculate-time duration)
-                  (seconds->microseconds (/ duration frequency frames)))
+                  (seconds->microseconds (/ duration frequency frame-count)))
                 
                 (define (calculate-fps)
                   (if (= seconds 0)
                       ""
-                    (format "{a} ms, {r precision: 2} fps"
-                            (seconds->milliseconds (/ seconds frames))
-                            (/ frames seconds))))
+                    (format "{?{a}: ~}{a} frame{a} at {a} ms, {r precision: 2} fps"
+                            lable
+                            frame-count (format-plural frame-count)
+                            (seconds->milliseconds (/ seconds frame-count))
+                            (/ frame-count seconds))))
                 
                 (define (make-children frame count duration)
                   (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))

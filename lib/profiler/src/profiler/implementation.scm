@@ -114,64 +114,67 @@
 ;;;
 
 
-(define (make-profile profiler depth)
-  (%%vector 'profile profiler depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
+(define (make-profile profiler lable depth)
+  (%%vector 'profile profiler lable depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
 
 
 (define (profile-profiler profile)
   (%%vector-ref profile 1))
 
-(define (profile-depth profile)
+(define (profile-lable profile)
   (%%vector-ref profile 2))
 
-(define (profile-frame-count profile)
+(define (profile-depth profile)
   (%%vector-ref profile 3))
 
-(define (profile-frame-count-set! profile count)
-  (%%vector-set! profile 3 count))
-
-(define (profile-frame-duration profile)
+(define (profile-frame-count profile)
   (%%vector-ref profile 4))
 
-(define (profile-frame-duration-set! profile count)
+(define (profile-frame-count-set! profile count)
   (%%vector-set! profile 4 count))
 
-(define (profile-total-count profile)
+(define (profile-frame-duration profile)
   (%%vector-ref profile 5))
 
-(define (profile-total-count-set! profile total)
-  (%%vector-set! profile 5 total))
+(define (profile-frame-duration-set! profile count)
+  (%%vector-set! profile 5 count))
 
-(define (profile-total-duration profile)
+(define (profile-total-count profile)
   (%%vector-ref profile 6))
 
-(define (profile-total-duration-set! profile total)
+(define (profile-total-count-set! profile total)
   (%%vector-set! profile 6 total))
 
-(define (profile-unknown-count profile)
+(define (profile-total-duration profile)
   (%%vector-ref profile 7))
 
-(define (profile-unknown-count-set! profile unknown)
-  (%%vector-set! profile 7 unknown))
+(define (profile-total-duration-set! profile total)
+  (%%vector-set! profile 7 total))
 
-(define (profile-unknown-duration profile)
+(define (profile-unknown-count profile)
   (%%vector-ref profile 8))
 
-(define (profile-unknown-duration-set! profile unknown)
+(define (profile-unknown-count-set! profile unknown)
   (%%vector-set! profile 8 unknown))
 
-(define (profile-calls profile)
+(define (profile-unknown-duration profile)
   (%%vector-ref profile 9))
 
-(define (profile-user-data profile)
+(define (profile-unknown-duration-set! profile unknown)
+  (%%vector-set! profile 9 unknown))
+
+(define (profile-calls profile)
   (%%vector-ref profile 10))
 
+(define (profile-user-data profile)
+  (%%vector-ref profile 11))
+
 (define (profile-user-data-set! profile user-data)
-  (%%vector-set! profile 10 user-data))
+  (%%vector-set! profile 11 user-data))
 
 
-(define (new-profile #!key (profiler #f) (depth #f))
-  (make-profile (or profiler (default-profiler)) (or depth (default-profiler-depth))))
+(define (new-profile #!key (profiler #f) (lable #f) (depth #f))
+  (make-profile (or profiler (default-profiler)) lable (or depth (default-profiler-depth))))
 
 
 ;;;
@@ -211,7 +214,7 @@
 
 (define (reset-profile)
   (let ((active (active-profile)))
-    (active-profile (make-profile (profile-profiler active) (profile-depth active)))))
+    (active-profile (make-profile (profile-profiler active) (profile-lable active) (profile-depth active)))))
 
 
 ;;;

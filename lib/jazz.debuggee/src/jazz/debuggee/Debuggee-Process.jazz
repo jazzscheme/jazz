@@ -221,26 +221,16 @@
   
   
   (method public (profiler-start)
-    ;; quick fix
-    (load-unit 'statprof)
-    (start-profiler (active-profile)))
+    (when (active-profile)
+      (start-profiler (active-profile))))
   
   
   (method public (profiler-stop)
-    (stop-profiler (active-profile)))
+    (when (active-profile)
+      (stop-profiler (active-profile))))
   
   
-  (method public (profiler-reset depth)
-    (if (not depth)
-        (reset-profile)
-      (active-profile (new-profile (profile-profiler (active-profile)) depth: depth))))
-  
-  
-  (method public (profiler-depth)
-    (profile-depth (active-profile)))
-  
-  
-  (method public (profiler-result)
+  (method public (profiler-profile)
     (define (frame->symbol frame)
       (or (when frame
             (bind (creator locat) frame
@@ -253,7 +243,9 @@
     
     (let ((profile (active-profile)))
       (when profile
-        (list (profile-lable profile)
+        (list (profiler-name (profile-profiler profile))
+              (profile-label profile)
+              (profile-depth profile)
               (profile-frame-duration profile)
               (profile-frames profile)
               (profile-total-count profile)
@@ -266,6 +258,11 @@
                              (duration (profile-call-duration call)))
                          (cons (map frame->symbol stack) (cons count duration)))))
                    (table->list (profile-calls profile)))))))
+  
+  
+  (method public (profiler-reset profiler depth)
+    (when (active-profile)
+      (reset-profile (and profiler (get-profiler profiler)) depth)))
   
   
   ;;;

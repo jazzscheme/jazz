@@ -54,10 +54,11 @@
 (definition public (profile-advice field locator original set)
   (let ((original (original)))
     (when (procedure? original)
-      (set (lambda rest
-             (profile-code original
-               (lambda ()
-                 (apply original rest))))))))
+      (let ((original-call (list original (jazz.locat->file/line/col (jazz.procedure-locat original)))))
+        (set (lambda rest
+               (profile-code original-call
+                 (lambda ()
+                   (apply original rest)))))))))
 
 
 (definition public (profiling-advice profile)
@@ -79,19 +80,18 @@
   (make-parameter 0))
 
 
-(definition public (profile-code original proc)
-  (let ((profile (active-profile))
-        (original-call (and original (list original (jazz.locat->file/line/col (jazz.procedure-locat original))))))
+(definition public (profile-code original-call proc)
+  (let ((profile (active-profile)))
     (define (profile-duration duration)
       (continuation-capture
         (lambda (cont)
-          (let ((call-stack (identify-call cont (- (profile-depth profile) (if original 1 0)) (profile-profiler profile))))
+          (let ((call-stack (identify-call cont (- (profile-depth profile) (if original-call 1 0)) (profile-profiler profile))))
             (let ((stack (if original-call
                              (cons original-call call-stack)
                            call-stack)))
               (profile-register-call profile stack duration))))))
     
-    (if profile
+    (if (and profile (eq? (profile-profiler profile) detprof))
         (receive (result total-elapsed-time)
             (let ((start-time (profiler-performance-counter)))
               (parameterize ((time-spent-in-children 0))
@@ -125,4 +125,5 @@
   (make-profiler 'detprof #f #f))
 
 
+(register-profiler detprof)
 (profiler-ignore-module detprof 'jazz.detprof))

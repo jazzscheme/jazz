@@ -110,6 +110,29 @@
 
 
 ;;;
+;;;; Profilers
+;;;
+
+
+(define *profilers*
+  (%%make-table test: eq?))
+
+
+(define (get-profilers)
+  *profilers*)
+
+(define (get-profiler name)
+  (%%table-ref *profilers* name #f))
+
+
+(define (register-profiler profiler)
+  (%%table-set! *profilers* (profiler-name profiler) profiler))
+
+(define (unregister-profiler profiler)
+  (%%table-clear *profilers* (profiler-name profiler)))
+
+
+;;;
 ;;;; Profile
 ;;;
 
@@ -121,11 +144,17 @@
 (define (profile-profiler profile)
   (%%vector-ref profile 1))
 
-(define (profile-lable profile)
+(define (profile-profiler-set! profile profiler)
+  (%%vector-set! profile 1 profiler))
+
+(define (profile-label profile)
   (%%vector-ref profile 2))
 
 (define (profile-depth profile)
   (%%vector-ref profile 3))
+
+(define (profile-depth-set! profile depth)
+  (%%vector-set! profile 3 depth))
 
 (define (profile-frame-count profile)
   (%%vector-ref profile 4))
@@ -212,9 +241,12 @@
   (make-parameter #f))
 
 
-(define (reset-profile)
+(define (reset-profile profiler depth)
   (let ((active (active-profile)))
-    (active-profile (make-profile (profile-profiler active) (profile-lable active) (profile-depth active)))))
+    (if profiler
+        (profile-profiler-set! profile profiler))
+    (if depth
+        (profile-depth-set! profile depth))))
 
 
 ;;;

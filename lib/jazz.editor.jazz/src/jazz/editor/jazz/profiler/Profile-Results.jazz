@@ -39,6 +39,7 @@
 
 
 (import (jazz.debugger)
+        (jazz.detprof)
         (jazz.editor.jazz)
         (jazz.graphic)
         (jazz.jml)
@@ -46,30 +47,51 @@
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
-        (profiler))
+        (profiler)
+        (statprof))
 
 
 (class Profile-Results extends Layout-View
   
   
   (form
-    (<install>                                      size: {Dimension 412 612} layout-type: border
+    (<install>                               size: {Dimension 600 400} layout-type: border position: {Point 1 0}
       (<Layout-View>          name: tools
-        (<Label-View>         name: fps             size: {Dimension 250 23} location: tail justification: tail)
-        (<Separator>                                size: {Dimension 14 0})
-        (<Push-Tool>          name: start           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" resource: {Image-Resource "Run"} portfolio: :images action-handler: {Event-Handler :form on-start-profiler})
-        (<Push-Tool>          name: stop            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" resource: {Image-Resource "Stop"} portfolio: :images action-handler: {Event-Handler :form on-stop-profiler})
-        (<Separator>)
-        (<Push-Combo>         name: backward        action-handler: {Event-Handler :form on-reset-profile}
-          (<!>                name: body            resource: {Image-Resource "Clear"} tooltip-text: "Reset" action-handler: {Event-Handler :form on-reset-profile})
-          (<!>                name: pick            action-handler: {Event-Handler :form on-reset-menu}))
-        (<Separator>                                size: {Dimension 6 0})
-        (<Push-Tool>          name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh-profile}))
-      (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
-        (<content!>                                 layout-type: fill
-          (<Tree-Header>                            style: document
-            (<content!>
-              (<Calls-Tree>   name: calls           selection-handler: {Selection-Handler :form on-select-location} return-press-handler: {Event-Handler :form on-return-press})))))))
+        (<Push-Tool>          name: start    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Start Profile" resource: {Image-Resource "Run"} portfolio: :images action-handler: {Event-Handler :form on-start-profiler})
+        (<Push-Tool>          name: stop     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Stop Profile" resource: {Image-Resource "Stop"} portfolio: :images action-handler: {Event-Handler :form on-stop-profiler})
+        (<Separator>                         size: {Dimension 6 0})
+        (<Push-Tool>          name: refresh  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh Profile" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh-profile})
+        (<Separator>                         size: {Dimension 4 0})
+        (<Push-Tool>          name: reset    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reset Profile" resource: {Image-Resource "Clear"} portfolio: :images action-handler: {Event-Handler :form on-reset-profile}))
+      (<Layout-View>                         layout-type: border location: center background: {Color name: Medium}
+        (<Layout-View>                       size: {Dimension 100 22} location: north layout-type: flow
+          (<Push-Tool>        name: view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Profile..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-profile})
+          (<Separator>                       size: {Dimension 4 0})
+          (<Label-View>       name: profile  size: {Dimension 180 23} mouse-down-handler: {Event-Handler :form on-view-profile})
+          (<Label-View>                      title: "Type:" size: {Dimension 35 23} location: tail)
+          (<Layout-View>                     size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+            (<Border-View>                   border-color: {Color name: Dark}
+              (<Combo-Box>    name: type     content-change-handler: {Event-Handler :form on-change-type})))
+          (<Separator>                       size: {Dimension 12 0} location: tail)
+          (<Label-View>                      title: "Depth:" size: {Dimension 40 23} location: tail)
+          (<Layout-View>                     size: {Dimension 30 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+            (<Border-View>                   border-color: {Color name: Dark}
+              (<Combo-Box>    name: depth    content-change-handler: {Event-Handler :form on-change-depth}))))
+        (<Scroller-View>                     location: center style: document hscroll?: #t vscroll?: #t
+          (<content!>                        layout-type: fill
+            (<Tree-Header>                   style: document
+              (<content!>
+                (<Calls-Tree> name: calls    selection-handler: {Selection-Handler :form on-select-location} return-press-handler: {Event-Handler :form on-return-press}))))))))
+  
+  
+  (method override (finish initargs)
+    (nextmethod initargs)
+    (set-choices~ (locate 'type)
+      '((statprof "Statistical")
+        (detprof "Deterministic")))
+    (set-choices~ (locate 'depth)
+      (loop (for d from 0 to 8)
+            (collect (list d (->string d))))))
   
   
   ;;;
@@ -131,25 +153,23 @@
     (user-message "Profiler stopped"))
   
   
+  (method (on-choose-profile evt)
+    (debug 'choose))
+  
+  
+  (method (on-change-type evt)
+    (debug 'type))
+  
+  
+  (method (on-change-depth evt)
+    (debug 'depth))
+  
+  
   (method (on-reset-profile evt)
     (let ((depth (get-property~ evt depth:)))
       (profiler-reset~ (require-focused-process~ (get-debugger-manager)) depth)
       (view-profile)
       (user-message "Profile reset{? to depth {a}~}" depth)))
-  
-  
-  (method (on-reset-menu evt)
-    (let ((depth (profiler-depth~ (require-focused-process~ (get-debugger-manager))))
-          (sender (get-sender~ evt)))
-      (let ((initiator (get-combo~ sender))
-            (pos (new Point 0 (get-height~ (get-size~ sender)))))
-        (let ((menu (new Reset-Menu client: self)))
-          (for-each (lambda (child)
-                      (when (eqv? (get-name~ child) depth)
-                        (set-selected?~ child #t)))
-                    (get-children~ menu))
-          (layout-menu~ menu)
-          (track-popup-menu~ sender menu pos initiator: initiator)))))
   
   
   (definition public (track-history sender initiator)
@@ -203,7 +223,54 @@
   
   
   (method (view-profile)
-    (view-profile~ (get-tree) (profiler-result~ (require-focused-process~ (get-debugger-manager))))))
+    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
+          (tree (get-tree)))
+      (if (not profile)
+          (begin
+            (set-title~ (locate 'profile) "")
+            (set-value~ (locate 'type) #f)
+            (set-value~ (locate 'depth) #f)
+            (remove-every-row~ tree))
+        (bind (profiler label depth frame-duration frame-count total-count total-duration unknown-count unknown-duration calls) profile
+          (set-value~ (locate 'type) profiler)
+          (set-value~ (locate 'depth) depth)
+          (remove-every-row~ tree)
+          (with-update-locked~ tree
+            (lambda ()
+              (let ((frequency (profiler-performance-frequency)))
+                (let ((seconds (/ total-duration frequency)))
+                  (define (calculate-time duration)
+                    (seconds->microseconds (/ duration frequency frame-count)))
+                  
+                  (define (present-profile)
+                    (if (= seconds 0)
+                        ""
+                      (format "{?{a}: ~}{a} frame{a} at {a} ms, {r precision: 2} fps"
+                              label
+                              frame-count (format-plural frame-count)
+                              (seconds->milliseconds (/ seconds frame-count))
+                              (/ frame-count seconds))))
+                  
+                  (define (make-children frame count duration)
+                    (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
+                          (count (if count (->string count) ""))
+                          (time (if duration (->string (calculate-time duration)) ""))
+                          (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
+                      (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+                  
+                  (set-title~ (locate 'profile) (present-profile))
+                  (for-each (lambda (call)
+                              (bind (stack count . duration) call
+                                (if (null? stack)
+                                    (add-row~ tree children: (make-children "(interaction)" count duration) user-data: #f)
+                                  (bind (head-frame . frames) stack
+                                    (let ((row (add-row~ tree children: (make-children head-frame count duration) user-data: head-frame)))
+                                      (for-each (lambda (frame)
+                                                  (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
+                                                frames))))))
+                            (sort > calls key: cddr))
+                  (when (> unknown-count 0)
+                    (add-row~ tree children: (make-children "<unknown>" unknown-count unknown-duration) user-data: #f)))))))))))
 
 
 ;;;
@@ -219,75 +286,7 @@
       (<Tree-Node-Column>  name: procedure  title: "Procedure" width: 250)
       (<Tree-Label-Column> name: count      title: "Calls" width: 50)
       (<Tree-Label-Column> name: duration   title: "Microseconds" width: 75)
-      (<Tree-Label-Column> name: percentage title: "Percentage" width: 75)))
-  
-  
-  ;;;
-  ;;;; Update
-  ;;;
-  
-  
-  (method (view-profile profile)
-    (remove-every-row)
-    (when profile
-      (with-update-locked
-        (lambda ()
-          (bind (label frame-duration frame-count total-count total-duration unknown-count unknown-duration calls) profile
-            (let ((frequency (profiler-performance-frequency)))
-              (let ((seconds (/ total-duration frequency)))
-                (define (calculate-time duration)
-                  (seconds->microseconds (/ duration frequency frame-count)))
-                
-                (define (calculate-fps)
-                  (if (= seconds 0)
-                      ""
-                    (format "{?{a}: ~}{a} frame{a} at {a} ms, {r precision: 2} fps"
-                            label
-                            frame-count (format-plural frame-count)
-                            (seconds->milliseconds (/ seconds frame-count))
-                            (/ frame-count seconds))))
-                
-                (define (make-children frame count duration)
-                  (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
-                        (count (if count (->string count) ""))
-                        (time (if duration (->string (calculate-time duration)) ""))
-                        (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
-                    (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
-                
-                (set-title~ (locate~ creator 'fps) (calculate-fps))
-                (for-each (lambda (call)
-                            (bind (stack count . duration) call
-                              (if (null? stack)
-                                  (add-row children: (make-children "(interaction)" count duration) user-data: #f)
-                                (bind (head-frame . frames) stack
-                                  (let ((row (add-row children: (make-children head-frame count duration) user-data: head-frame)))
-                                    (for-each (lambda (frame)
-                                                (add-row father: row children: (make-children frame #f #f) user-data: frame))
-                                              frames))))))
-                          (sort > calls key: cddr))
-                (when (> unknown-count 0)
-                  (add-row children: (make-children "<unknown>" unknown-count unknown-duration) user-data: #f))))))))))
+      (<Tree-Label-Column> name: percentage title: "Percentage" width: 75))))
 
 
-(register-autoclass Calls-Tree)
-
-
-;;;
-;;;; Reset-Menu
-;;;
-
-
-(class Reset-Menu extends Context-Menu
-  
-  
-  (form
-    (<install>
-      (<Radio-Item> name: 0 title: "0" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 0})
-      (<Radio-Item> name: 1 title: "1" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 1})
-      (<Radio-Item> name: 2 title: "2" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 2})
-      (<Radio-Item> name: 3 title: "3" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 3})
-      (<Radio-Item> name: 4 title: "4" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 4})
-      (<Radio-Item> name: 5 title: "5" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 5})
-      (<Radio-Item> name: 6 title: "6" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 6})
-      (<Radio-Item> name: 7 title: "7" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 7})
-      (<Radio-Item> name: 8 title: "8" action-handler: {Event-Handler (:form :client) on-reset-profile depth: 8})))))
+(register-autoclass Calls-Tree))

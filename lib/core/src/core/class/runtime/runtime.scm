@@ -568,7 +568,7 @@
 
 (define (jazz.add-field category field)
   (%%set-category-field category (%%get-field-name field) field)
-  field)
+  (%%unspecified))
 
 
 (jazz.encapsulate-class jazz.Category)

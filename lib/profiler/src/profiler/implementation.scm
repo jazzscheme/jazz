@@ -137,18 +137,18 @@
 ;;;
 
 
-(define (make-profile profiler label depth)
-  (%%vector 'profile profiler label depth #f 0 0 0 0 0 #f #f (%%make-table test: equal?)))
+(define (make-profile label profiler depth)
+  (%%vector 'profile label profiler depth #f 0 0 0 0 0 #f #f (%%make-table test: equal?)))
 
-
-(define (profile-profiler profile)
-  (%%vector-ref profile 1))
-
-(define (profile-profiler-set! profile profiler)
-  (%%vector-set! profile 1 profiler))
 
 (define (profile-label profile)
+  (%%vector-ref profile 1))
+
+(define (profile-profiler profile)
   (%%vector-ref profile 2))
+
+(define (profile-profiler-set! profile profiler)
+  (%%vector-set! profile 2 profiler))
 
 (define (profile-depth profile)
   (%%vector-ref profile 3))
@@ -211,8 +211,8 @@
   (%%vector-set! profile 12 calls))
 
 
-(define (new-profile #!key (profiler #f) (label #f) (depth #f))
-  (make-profile (or profiler (default-profiler)) label (or depth (default-profiler-depth))))
+(define (new-profile #!key (label #f) (profiler #f) (depth #f))
+  (make-profile label (or profiler (default-profiler)) (or depth (default-profiler-depth))))
 
 
 ;;;
@@ -378,20 +378,18 @@
 
 (define (start-profiler profile)
   (let ((start (profiler-start (profile-profiler profile))))
+    (profile-start-counter-set! profile (profiler-performance-counter))
     (if start
-        (begin
-          (profile-start-counter-set! profile (profiler-performance-counter))
-          (start profile)))))
+        (start profile))))
 
 
 (define (stop-profiler profile)
   (let ((stop (profiler-stop (profile-profiler profile))))
     (if stop
-        (begin
-          (stop profile)
-          (let ((duration (- (profiler-performance-counter) (profile-start-counter profile))))
-            (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1))
-            (profile-frame-duration-set! profile (+ (profile-frame-duration profile) duration)))))))
+        (stop profile))
+    (let ((duration (- (profiler-performance-counter) (profile-start-counter profile))))
+      (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1))
+      (profile-frame-duration-set! profile (+ (profile-frame-duration profile) duration)))))
 
 
 ;;;

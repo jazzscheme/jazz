@@ -49,9 +49,6 @@
 (jazz.define-setting default-profiler
   #f)
 
-(jazz.define-setting default-profiler-depth
-  2)
-
 (jazz.define-setting default-profiler-ignored-procedures
   (%%list
     ##dynamic-env-bind
@@ -68,8 +65,8 @@
 ;;;
 
 
-(define (make-profiler name start stop)
-  (%%vector 'profiler name start stop default-profiler-ignored-procedures default-profiler-ignored-modules))
+(define (make-profiler name start stop default-depth)
+  (%%vector 'profiler name start stop default-depth default-profiler-ignored-procedures default-profiler-ignored-modules))
 
 
 (define (profiler-name profiler)
@@ -81,17 +78,23 @@
 (define (profiler-stop profiler)
   (%%vector-ref profiler 3))
 
-(define (profiler-ignored-procedures profiler)
+(define (profiler-default-depth profiler)
   (%%vector-ref profiler 4))
 
-(define (profiler-ignored-procedures-set! profiler ignored-procedures)
-  (%%vector-set! profiler 4 ignored-procedures))
+(define (profiler-default-depth-set! profiler default-depth)
+  (%%vector-set! profiler 4 default-depth))
 
-(define (profiler-ignored-modules profiler)
+(define (profiler-ignored-procedures profiler)
   (%%vector-ref profiler 5))
 
+(define (profiler-ignored-procedures-set! profiler ignored-procedures)
+  (%%vector-set! profiler 5 ignored-procedures))
+
+(define (profiler-ignored-modules profiler)
+  (%%vector-ref profiler 6))
+
 (define (profiler-ignored-modules-set! profiler ignored-modules)
-  (%%vector-set! profiler 5 ignored-modules))
+  (%%vector-set! profiler 6 ignored-modules))
 
 
 (define (profiler-ignore-procedure? profiler procedure)
@@ -212,7 +215,8 @@
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f))
-  (make-profile label (or profiler (default-profiler)) (or depth (default-profiler-depth))))
+  (let ((profiler (or profiler (default-profiler))))
+    (make-profile label profiler (or depth (profiler-default-depth profiler)))))
 
 
 ;;;

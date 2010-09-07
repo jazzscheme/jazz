@@ -83,7 +83,7 @@
 
 
 (define statprof
-  (make-profiler 'statprof start-statprof stop-statprof))
+  (make-profiler 'statprof start-statprof stop-statprof 2))
 
 
 (register-profiler statprof)

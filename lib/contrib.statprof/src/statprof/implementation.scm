@@ -32,13 +32,6 @@
   *statprof-running?*)
 
 
-(define profile-last-counter
-  profile-user-data)
-
-(define profile-last-counter-set!
-  profile-user-data-set!)
-
-
 (define (start-statprof profile)
   (profile-last-counter-set! profile (profiler-performance-counter))
   (set! *statprof-running?* #t)
@@ -94,4 +87,6 @@
 
 
 (register-profiler statprof)
-(default-profiler statprof))
+(default-profiler statprof)
+
+(register-profile (new-profile)))

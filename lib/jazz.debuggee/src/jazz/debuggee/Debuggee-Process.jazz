@@ -220,17 +220,25 @@
   ;;;
   
   
-  (method public (profiler-start)
-    (when (active-profile)
-      (start-profiler (active-profile))))
+  (method public (profiler-start name)
+    (let ((profile (get-profile name)))
+      (when profile
+        (active-profile profile)
+        (start-profiler profile))))
   
   
-  (method public (profiler-stop)
-    (when (active-profile)
-      (stop-profiler (active-profile))))
+  (method public (profiler-stop name)
+    (let ((profile (get-profile name)))
+      (when profile
+        (stop-profiler profile)
+        (active-profile #f))))
   
   
-  (method public (profiler-profile)
+  (method public (profiler-profiles)
+    (get-profile-names))
+  
+  
+  (method public (profiler-profile name)
     (define (frame->symbol frame)
       (or (when frame
             (bind (creator locat) frame
@@ -241,7 +249,7 @@
                     (list name locat))))))
           frame))
     
-    (let ((profile (active-profile)))
+    (let ((profile (get-profile name)))
       (when profile
         (list (profiler-name (profile-profiler profile))
               (profile-label profile)
@@ -260,9 +268,10 @@
                    (table->list (profile-calls profile)))))))
   
   
-  (method public (profiler-reset profiler depth)
-    (when (active-profile)
-      (reset-profile (and profiler (get-profiler profiler)) depth)))
+  (method public (profile-reset name profiler depth)
+    (let ((profile (get-profile name)))
+      (when profile
+        (reset-profile profile (and profiler (get-profiler profiler)) depth))))
   
   
   ;;;

@@ -138,7 +138,7 @@
 
 
 (define (make-profile profiler label depth)
-  (%%vector 'profile profiler label depth #f 0 0 0 0 0 (%%make-table test: equal?) 0))
+  (%%vector 'profile profiler label depth #f 0 0 0 0 0 #f #f (%%make-table test: equal?)))
 
 
 (define (profile-profiler profile)
@@ -192,18 +192,58 @@
 (define (profile-unknown-duration-set! profile unknown)
   (%%vector-set! profile 9 unknown))
 
-(define (profile-calls profile)
+(define (profile-start-counter profile)
   (%%vector-ref profile 10))
 
-(define (profile-user-data profile)
+(define (profile-start-counter-set! profile start-counter)
+  (%%vector-set! profile 10 start-counter))
+
+(define (profile-last-counter profile)
   (%%vector-ref profile 11))
 
-(define (profile-user-data-set! profile user-data)
-  (%%vector-set! profile 11 user-data))
+(define (profile-last-counter-set! profile last-counter)
+  (%%vector-set! profile 11 last-counter))
+
+(define (profile-calls profile)
+  (%%vector-ref profile 12))
+
+(define (profile-calls-set! profile calls)
+  (%%vector-set! profile 12 calls))
 
 
 (define (new-profile #!key (profiler #f) (label #f) (depth #f))
   (make-profile (or profiler (default-profiler)) label (or depth (default-profiler-depth))))
+
+
+;;;
+;;;; Profiles
+;;;
+
+
+(define *profiles*
+  (make-table test: equal?))
+
+
+(define (get-profiles)
+  *profiles*)
+
+(define (get-profile-names)
+  (let ((names '()))
+    (jazz.iterate-table *profiles*
+      (lambda (name profile)
+        (set! names (%%cons name names))))
+    names))
+
+
+(define (get-profile name)
+  (%%table-ref *profiles* name #f))
+
+
+(define (register-profile profile)
+  (%%table-set! *profiles* (profile-label profile) profile))
+
+(define (unregister-profile profile)
+  (%%table-clear *profiles* (profile-label profile)))
 
 
 ;;;
@@ -241,12 +281,20 @@
   (make-parameter #f))
 
 
-(define (reset-profile profiler depth)
-  (let ((active (active-profile)))
-    (if profiler
-        (profile-profiler-set! profile profiler))
-    (if depth
-        (profile-depth-set! profile depth))))
+(define (reset-profile profile profiler depth)
+  (if profiler
+      (profile-profiler-set! profile profiler))
+  (if depth
+      (profile-depth-set! profile depth))
+  (profile-frame-count-set! profile #f)
+  (profile-frame-duration-set! profile 0)
+  (profile-total-count-set! profile 0)
+  (profile-total-duration-set! profile 0)
+  (profile-unknown-count-set! profile 0)
+  (profile-unknown-duration-set! profile 0)
+  (profile-start-counter-set! profile #f)
+  (profile-last-counter-set! profile #f)
+  (profile-calls-set! profile (%%make-table test: equal?)))
 
 
 ;;;
@@ -324,24 +372,26 @@
 (define (with-profiling profile thunk)
   (start-profiler profile)
   (parameterize ((active-profile profile))
-    (let ((start (profiler-performance-counter)))
-      (thunk)
-      (let ((duration (- (profiler-performance-counter) start)))
-        (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1))
-        (profile-frame-duration-set! profile (+ (profile-frame-duration profile) duration)))))
+    (thunk))
   (stop-profiler profile))
 
 
 (define (start-profiler profile)
   (let ((start (profiler-start (profile-profiler profile))))
     (if start
-        (start profile))))
+        (begin
+          (profile-start-counter-set! profile (profiler-performance-counter))
+          (start profile)))))
 
 
 (define (stop-profiler profile)
   (let ((stop (profiler-stop (profile-profiler profile))))
     (if stop
-        (stop profile))))
+        (begin
+          (stop profile)
+          (let ((duration (- (profiler-performance-counter) (profile-start-counter profile))))
+            (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1))
+            (profile-frame-duration-set! profile (+ (profile-frame-duration profile) duration)))))))
 
 
 ;;;

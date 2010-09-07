@@ -54,6 +54,9 @@
 (class Profile-Results extends Layout-View
   
   
+  (slot profile initialize #f)
+  
+  
   (form
     (<install>                               size: {Dimension 600 400} layout-type: border position: {Point 1 0}
       (<Layout-View>          name: tools
@@ -68,10 +71,10 @@
           (<Push-Tool>        name: view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Profile..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-profile})
           (<Separator>                       size: {Dimension 4 0})
           (<Label-View>       name: profile  size: {Dimension 180 23} mouse-down-handler: {Event-Handler :form on-view-profile})
-          (<Label-View>                      title: "Type:" size: {Dimension 35 23} location: tail)
+          (<Label-View>                      title: "Kind:" size: {Dimension 31 23} location: tail)
           (<Layout-View>                     size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
             (<Border-View>                   border-color: {Color name: Dark}
-              (<Combo-Box>    name: type     content-change-handler: {Event-Handler :form on-change-type})))
+              (<Combo-Box>    name: profiler content-change-handler: {Event-Handler :form on-change-profiler})))
           (<Separator>                       size: {Dimension 12 0} location: tail)
           (<Label-View>                      title: "Depth:" size: {Dimension 40 23} location: tail)
           (<Layout-View>                     size: {Dimension 30 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
@@ -86,12 +89,14 @@
   
   (method override (finish initargs)
     (nextmethod initargs)
-    (set-choices~ (locate 'type)
+    (set-choices~ (locate 'profiler)
       '((statprof "Statistical")
         (detprof "Deterministic")))
+    (set-value~ (locate 'profiler) 'statprof)
     (set-choices~ (locate 'depth)
       (loop (for d from 0 to 8)
-            (collect (list d (->string d))))))
+            (collect (list d (->string d)))))
+    (set-value~ (locate 'depth) 2))
   
   
   ;;;
@@ -144,32 +149,39 @@
   
   (method (on-start-profiler evt)
     (user-feedback "Profiler started")
-    (profiler-start~ (require-focused-process~ (get-debugger-manager))))
+    (profiler-start~ (require-focused-process~ (get-debugger-manager)) profile))
   
   
   (method (on-stop-profiler evt)
-    (profiler-stop~ (require-focused-process~ (get-debugger-manager)))
+    (profiler-stop~ (require-focused-process~ (get-debugger-manager)) profile)
     (view-profile)
     (user-message "Profiler stopped"))
   
   
   (method (on-choose-profile evt)
-    (debug 'choose))
+    (define (present-profile profile)
+      (or profile "<default>"))
+    
+    (let ((profiles (profiler-profiles~ (require-focused-process~ (get-debugger-manager)))))
+      (set! profile (request-list (sort string<? profiles key: present-profile) title: "Choose Profile" invite: "Select a profile from the list" present: present-profile selected: profile))
+      (view-profile)))
   
   
-  (method (on-change-type evt)
-    (debug 'type))
+  (method (on-change-profiler evt)
+    (reset-profile (get-value~ (get-sender~ evt)) #f))
   
   
   (method (on-change-depth evt)
-    (debug 'depth))
+    (reset-profile #f (get-value~ (get-sender~ evt))))
   
   
   (method (on-reset-profile evt)
-    (let ((depth (get-property~ evt depth:)))
-      (profiler-reset~ (require-focused-process~ (get-debugger-manager)) depth)
-      (view-profile)
-      (user-message "Profile reset{? to depth {a}~}" depth)))
+    (reset-profile #f #f))
+  
+  
+  (method (reset-profile profiler depth)
+    (profile-reset~ (require-focused-process~ (get-debugger-manager)) profile profiler depth)
+    (view-profile))
   
   
   (definition public (track-history sender initiator)
@@ -223,42 +235,37 @@
   
   
   (method (view-profile)
-    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
+    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager)) profile))
           (tree (get-tree)))
-      (if (not profile)
-          (begin
-            (set-title~ (locate 'profile) "")
-            (set-value~ (locate 'type) #f)
-            (set-value~ (locate 'depth) #f)
-            (remove-every-row~ tree))
+      (when profile
         (bind (profiler label depth frame-duration frame-count total-count total-duration unknown-count unknown-duration calls) profile
-          (set-value~ (locate 'type) profiler)
-          (set-value~ (locate 'depth) depth)
-          (remove-every-row~ tree)
-          (with-update-locked~ tree
-            (lambda ()
-              (let ((frequency (profiler-performance-frequency)))
-                (let ((seconds (/ total-duration frequency)))
-                  (define (calculate-time duration)
-                    (seconds->microseconds (/ duration frequency frame-count)))
-                  
-                  (define (present-profile)
-                    (if (= seconds 0)
-                        ""
-                      (format "{?{a}: ~}{a} frame{a} at {a} ms, {r precision: 2} fps"
-                              label
-                              frame-count (format-plural frame-count)
-                              (seconds->milliseconds (/ seconds frame-count))
-                              (/ frame-count seconds))))
-                  
-                  (define (make-children frame count duration)
-                    (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
-                          (count (if count (->string count) ""))
-                          (time (if duration (->string (calculate-time duration)) ""))
-                          (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
-                      (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
-                  
-                  (set-title~ (locate 'profile) (present-profile))
+          (let ((frequency (profiler-performance-frequency)))
+            (let ((seconds (/ total-duration frequency)))
+              (define (present-profile)
+                (if (= seconds 0)
+                    (format "{?{a}~}" label)
+                  (format "{?{a}: ~}{a} frame{a}, average {a} ms, {r precision: 2} fps"
+                          label
+                          frame-count (format-plural frame-count)
+                          (seconds->milliseconds (/ seconds frame-count))
+                          (/ frame-count seconds))))
+              
+              (define (calculate-time duration)
+                (seconds->microseconds (/ duration frequency frame-count)))
+              
+              (define (make-children frame count duration)
+                (let ((procedure (if (string? frame) frame (or (when frame (car frame)) "(interaction)")))
+                      (count (if count (->string count) ""))
+                      (time (if duration (->string (calculate-time duration)) ""))
+                      (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
+                  (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+              
+              (set-title~ (locate 'profile) (present-profile))
+              (set-value~ (locate 'profiler) profiler)
+              (set-value~ (locate 'depth) depth)
+              (remove-every-row~ tree)
+              (with-update-locked~ tree
+                (lambda ()
                   (for-each (lambda (call)
                               (bind (stack count . duration) call
                                 (if (null? stack)

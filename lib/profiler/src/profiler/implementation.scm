@@ -239,15 +239,20 @@
     names))
 
 
-(define (get-profile name)
-  (%%table-ref *profiles* name #f))
+(define (find-profile name)
+  (or (%%table-ref *profiles* name #f)
+      (if (%%not name)
+          (let ((profile (new-profile)))
+            (%%table-set! *profiles* name profile)
+            profile)
+        #f)))
 
 
 (define (register-profile profile)
   (%%table-set! *profiles* (profile-label profile) profile))
 
-(define (unregister-profile profile)
-  (%%table-clear *profiles* (profile-label profile)))
+(define (unregister-profile name)
+  (%%table-clear *profiles* name))
 
 
 ;;;

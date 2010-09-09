@@ -238,7 +238,7 @@
     (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager)) profile))
           (tree (get-tree)))
       (when profile
-        (bind (label profiler depth frame-duration frame-count total-count total-duration unknown-count unknown-duration calls) profile
+        (bind (label profiler depth frame-count frame-duration total-count total-duration unknown-count unknown-duration calls) profile
           (let ((frequency (profiler-performance-frequency)))
             (let ((seconds (/ total-duration frequency)))
               (define (present-profile)
@@ -254,11 +254,19 @@
                 (seconds->microseconds (/ duration frequency frame-count)))
               
               (define (make-children frame count duration)
-                (let ((procedure (if (string? frame) frame (or (and frame (car frame)) "(interaction)")))
+                (let ((procedure (present-frame frame))
                       (count (if count (->string count) ""))
                       (time (if duration (->string (calculate-time duration)) ""))
                       (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
                   (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+              
+              (define (present-frame frame)
+                (if (string? frame)
+                    frame
+                  (let ((name (and frame (car frame))))
+                    (if name
+                        (present-identifier name)
+                      "(interaction)"))))
               
               (set-title~ (locate 'profile) (present-profile))
               (set-value~ (locate 'profiler) profiler)

@@ -87,6 +87,4 @@
 
 
 (register-profiler statprof)
-(default-profiler statprof)
-
-(register-profile (new-profile)))
+(default-profiler statprof))

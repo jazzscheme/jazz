@@ -1,0 +1,144 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Favorites Adder
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.library.favorite.Favorites-Adder jazz
+
+
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui))
+
+
+(class Favorites-Adder extends View
+  
+  
+  (property default-title initialize {} getter get-default-title setter set-default-title)
+  (property default-root  initialize {} getter get-default-root  setter set-default-root)
+
+
+  (form
+    (<install>                            size: {Dimension 382 218}
+      (<Label-View>                       title: "Title:" position: {Point 10 15} size: {Dimension 55 16} font: {Font name: Label})
+      (<Border-View>                      position: {Point 70 11} size: {Dimension 204 19} border-type: edge
+        (<Text-View>        name: title   font: {Font name: Label} accepts-returns?: #f left-padding: 2 top-padding: 2 return-press-handler: {Event-Handler :host on-ok} escape-press-handler: {Event-Handler :host on-cancel}))
+      (<Label-View>                       title: "Create In:" position: {Point 10 43} size: {Dimension 55 16} font: {Font name: Label})
+      (<Border-View>                      position: {Point 70 38} size: {Dimension 191 172} border-type: edge
+        (<Scroller-View>                  hscroll?: #t vscroll?: #t
+          (<!>              name: content layout-type: fill
+            (<Request-Tree> name: tree))))
+      (<Push-Button>        name: ok      title: "OK" position: {Point 290 9} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>        name: cancel  title: "Cancel" position: {Point 290 39} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+
+  (method override (finish rest)
+    (nextmethod rest)
+    (let ((tree (locate 'tree)))
+      (auto-select-first~ tree)))
+    
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Favorites-Adder-Dialog)
+  
+
+  @convert-dialog
+  (class meta Favorites-Adder-Dialog extends Dialog
+    
+    
+    (form
+      (<install> title: "Add To Favorites" position: {Point 450 300} size: {Dimension 382 218}))
+
+
+    (method (focus-gain)
+      (nextmethod)
+      (acquire-focus~ (locate~ guest 'title)))
+  
+  
+    (method (get-modal-result)
+      (let ((title (get-string-content~ (locate~ guest 'title)))
+            (favorite (selected-component~ (locate~ guest 'tree))))
+        (values (essay (/= title "") title)
+                favorite))))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-default-title)
+    default-title)
+  
+  
+  (method public (set-default-title title)
+    (when (/= title default-title)
+      (set! default-title title)
+      (set-string-content~ (locate 'title) default-title)))
+  
+  
+  (method public (get-default-root)
+    default-root)
+  
+  
+  (method public (set-default-root root)
+    (when (neq? root default-root)
+      (set! default-root root)
+      (let ((tree (locate 'tree)))
+        (set-client~ tree default-root)))))
+
+
+;;;
+;;;; Request-Tree
+;;;
+
+
+(class Request-Tree extends Favorites-Tree
+  
+  
+  (form
+    (<install> draggable?: #f reorderable?: #f double-click-handler: {Event-Handler :form on-double-click}))
+  
+  
+  (method (on-double-click evt)
+    (on-ok~ (get-host) evt))))

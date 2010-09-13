@@ -174,11 +174,17 @@
 
   
   (method private (backward-simple-expr)
+    (define (space-literal? c)
+      (and (eqv? (char-forward 0) #\space)
+           (eqv? (char-backward 0) #\backslash)
+           (eqv? (char-backward 1) #\sharp)))
+    
     (let ((c (char-backward 0)))
       (when c
         (cond ((string-delimiter? c)        (backward-string))
               ((eqv? c #\vertical-bar)      (backward-escaped-symbol))
               ((text-constituent? c)        (backward-constituent))
+              ((space-literal? c)           (backward) (backward))
               ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
               ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
               ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
@@ -223,7 +229,8 @@
           (last #f))
       (let (iterate)
         (let ((c (char-backward 0)))
-          (cond ((eqv? (char-backward 1) #\backslash)
+          (cond ((and (eqv? (char-backward 1) #\backslash)
+                      (eqv? (char-backward 2) #\sharp))
                  (backward)
                  (backward)
                  (set! last c)

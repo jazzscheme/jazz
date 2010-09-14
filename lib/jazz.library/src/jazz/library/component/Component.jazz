@@ -76,6 +76,7 @@
   (slot flags                 <fx>   initialize Visible-Flag)
   
   
+  (property traits                   initialize #f  accessors explicit)
   (property before                   initialize #f  accessors explicit)
   (property children                 initialize '() accessors explicit)
   (property visible?          <void>                accessors explicit)
@@ -997,6 +998,15 @@
   
   
   (method public (get-traits)
+    traits)
+  
+  
+  (method public (set-traits value)
+    (set! traits (listify value))
+    (set-active-traits traits))
+  
+  
+  (method public (child-traits)
     (collect-type Trait children))
 
 
@@ -1037,50 +1047,38 @@
         (get-trait~ branch))))
   
   
-  (method public (set-traits traits)
-    (when branch
-      (restore-client~ branch)
-      (set! branch #f))
+  (method public (set-active-traits traits)
+    (define (install-traits root-branch effective-traits)
+      (let ((parent-branch root-branch))
+        (for-each (lambda (trait)
+                    (let ((new-branch (configure-client~ trait self)))
+                      (set-branch~ parent-branch new-branch)
+                      (set! parent-branch new-branch)))
+                  effective-traits)))
+    
+    (define (change-installed? current-branch current-traits)
+      (let ((match? (and current-branch (pair? current-traits) (eq? (get-trait~ current-branch) (car current-traits)))))
+        (when (and match? (not (change-installed? (get-branch~ current-branch) (cdr current-traits))))
+          (let ((old-branch (get-branch~ current-branch)))
+            (when old-branch
+              (restore-client~ old-branch)
+              (set-branch~ current-branch #f)))
+          (install-traits current-branch (cdr current-traits)))
+        match?))
+    
     (let ((effective-traits (apply append! (map compute-effective-traits~ (map resolve-trait traits)))))
-      (when (not-null? effective-traits)
-        (let ((new-branch (configure-client~ (car effective-traits) self)))
-          (set! branch new-branch)
-          (let ((parent-branch new-branch))
-            (for-each (lambda (trait)
-                        (let ((new-branch (configure-client~ trait self)))
-                          (set-branch~ parent-branch new-branch)
-                          (set! parent-branch new-branch)))
-                      (cdr effective-traits)))))))
+      (when (not (change-installed? branch effective-traits))
+        (when branch
+          (restore-client~ branch)
+          (set! branch #f))
+        (when (not-null? effective-traits)
+          (let ((new-branch (configure-client~ (car effective-traits) self)))
+            (set! branch new-branch)
+            (install-traits new-branch (cdr effective-traits)))))))
   
   
   (method public (set-active-trait trait)
-    (define (install-branch trait get set)
-      (unless (and (get) (eq? trait (get-trait~ (get))))
-        (when (get)
-          (restore-client~ (get))
-          (set #f))
-        (when trait
-          (set (configure-client~ trait self))))
-      (get))
-    
-    (let ((new-branch
-            (let (iterate (trait trait))
-              (let ((parent (and trait (get-parent~ trait))))
-                (if (is-not? parent Trait)
-                    (install-branch trait
-                                    (lambda () branch)
-                                    (lambda (br) (set! branch br)))
-                  (let ((branch (iterate parent)))
-                    (install-branch trait
-                                    (lambda () (get-branch~ branch))
-                                    (lambda (br) (set-branch~ branch br)))))))))
-      (if (not new-branch)
-          (when branch
-            (restore-client~ branch)
-            (set! branch #f))
-        (when (get-branch~ new-branch)
-          (restore-client~ (get-branch~ new-branch))
-          (set-branch~ new-branch #f)))))
+    (set-active-traits (list trait)))
   
   
   (method public (activate-trait trait)
@@ -1095,7 +1093,7 @@
     (for-each (lambda (trait)
                 (proc trait)
                 (for-each-trait~ trait proc))
-              (get-traits)))
+              (child-traits)))
   
   
   (method public (with-each-trait proc)
@@ -1272,7 +1270,7 @@
     (let* ((form (get-form~ (get-creator)))
            (active-branch (get-branch))
            (active-branch-name (and active-branch (get-name~ active-branch)))
-           (all-branch-names (map get-name~ (get-traits)))
+           (all-branch-names (map get-name~ (child-traits)))
            (instantiate
              (lambda (branch-name)
                (if (eq? branch-name active-branch-name)

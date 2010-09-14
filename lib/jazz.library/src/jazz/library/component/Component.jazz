@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.trait)
         (jazz.locale))
 
 
@@ -1034,6 +1035,22 @@
     (let ((branch (get-active-branch)))
       (when branch
         (get-trait~ branch))))
+  
+  
+  (method public (set-traits traits)
+    (when branch
+      (restore-client~ branch)
+      (set! branch #f))
+    (let ((effective-traits (apply append! (map compute-effective-traits~ (map resolve-trait traits)))))
+      (when (not-null? effective-traits)
+        (let ((new-branch (configure-client~ (car effective-traits) self)))
+          (set! branch new-branch)
+          (let ((parent-branch new-branch))
+            (for-each (lambda (trait)
+                        (let ((new-branch (configure-client~ trait self)))
+                          (set-branch~ parent-branch new-branch)
+                          (set! parent-branch new-branch)))
+                      (cdr effective-traits)))))))
   
   
   (method public (set-active-trait trait)

@@ -39,16 +39,30 @@
 
 
 (import (jazz.jml)
-        (jazz.library))
+        (jazz.library)
+        (jazz.library.trait))
 
 
 (class Trait extends Component
   
   
-  (property client-form initialize #f accessors generate)
+  (property inherit     initialize '() accessors generate)
+  (property client-form initialize #f  accessors generate)
   
   
   (slot restoreable? initialize #t accessors generate)
+  
+  
+  ;;;
+  ;;;; Effective
+  ;;;
+  
+  
+  (method protected (compute-effective-traits)
+    (let ((parent-traits (if (is-not? parent Trait) '() (compute-effective-traits~ parent)))
+          (inherited-traits (map compute-effective-traits~ (map resolve-trait inherit)))
+          (self-traits (list self)))
+      (append parent-traits inherited-traits self-traits)))
   
   
   ;;;
@@ -63,29 +77,6 @@
           (set-restore-form~ branch restore-form))
         (install-form~ client client-form creator branch restore-form)
         branch)))
-  
-  
-  @convert
-  (method (configure-inherited)
-    (let ((form (get-class-form)))
-      (when form
-        (let ((client-form (get-property~ form client-form:)))
-          (when client-form
-            (install-form~ client client-form creator self restore-form)
-            client-form)))))
-  
-  
-  @convert
-  (method (configure-inherited model)
-    (when (subtype? model Branch)
-      (let ((configured (configure-inherited (class-ascendant model)))
-            (form (get-class-form~ model)))
-        (when form
-          (let ((client-form (get-property~ form client-form:)))
-            (when client-form
-              (when (neq? client-form configured)
-                (install-form~ client client-form creator self restore-form))
-              client-form))))))
   
   
   ;; convert-trait quick hack

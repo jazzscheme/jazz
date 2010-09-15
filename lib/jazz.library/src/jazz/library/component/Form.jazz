@@ -126,22 +126,20 @@
 
 
   (method public (setup-toplevel-context ctx)
+    (define (setup-context form level)
+      (for-each-property
+        (lambda (name value)
+          (cond
+            ((is? value Handler) (set-form-level~ value level))
+            ((is? value Form) (setup-toplevel-context~ value ctx))))
+        (get-properties~ form))
+      (for-each (lambda (child)
+                  (when (is? child Form)
+                    (setup-context child (+ level 1))))
+                (get-children~ form)))
+    
     (set! origin ctx)
-    (setup-context ctx 0))
-  
-  
-  (method (setup-context ctx level)
-    ;; jazz doesnt support inner classes
-    ;; (set! context ctx)
-    (for-each-property
-      (lambda (name value)
-        (cond
-          ((is? value Handler) (set-form-level~ value level))
-          ((is? value Form) (setup-toplevel-context~ value ctx)))) properties)
-    (for-each (lambda (child)
-                (when (is? child Form)
-                  (setup-context~ child ctx (+ level 1))))
-              children))
+    (setup-context self 0))
   
   
   ;;;

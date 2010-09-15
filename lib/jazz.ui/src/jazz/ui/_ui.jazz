@@ -106,7 +106,14 @@
 
 
 (definition public (set-bindings bindings)
-  (set! *bindings* bindings))
+  (set! *bindings* bindings)
+  (register-bindings bindings))
+
+
+(definition package (register-bindings bindings)
+  (for-each (lambda (actions)
+              (register-actions (get-name~ actions) actions))
+            (get-children~ bindings)))
 
 
 ;;;
@@ -114,12 +121,19 @@
 ;;;
 
 
+(definition *actions*
+  (make-table test: eq?))
+
+
+(definition package (get-actions)
+  *actions*)
+
+(definition package (register-actions context actions)
+  (table-set! *actions* context actions))
+
 (definition package (find-actions context)
-  (let ((bindings (get-bindings)))
-    (if (not bindings)
-        (error "No bindings registered")
-      (or (find-component~ bindings context)
-          (error "Unable to find bindings for: {s}" context)))))
+  (or (table-ref *actions* context #f)
+      (error "Unable to find actions: {s}" context)))
 
 
 (definition package (find-action-item context name)

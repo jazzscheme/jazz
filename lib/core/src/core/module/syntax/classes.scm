@@ -295,6 +295,15 @@
 
 
 ;;;
+;;;; Define-Local-Syntax
+;;;
+
+
+(jazz.define-class jazz.Define-Local-Syntax-Declaration jazz.Syntax-Declaration (name type hits access compatibility attributes toplevel parent locator source signature body) jazz.Object-Class jazz.allocate-define-local-syntax-declaration
+  ())
+
+
+;;;
 ;;;; Void
 ;;;
 
@@ -746,6 +755,15 @@
 
 (jazz.define-class jazz.Define-Syntax-Form jazz.Syntax-Form (name type hits expander) jazz.Object-Class jazz.allocate-define-syntax-form
   ((environment %%get-define-syntax-form-environment ())))
+
+
+;;;
+;;;; Define-Local-Syntax Form
+;;;
+
+
+(jazz.define-class jazz.Define-Local-Syntax-Form jazz.Syntax-Form (name type hits expander) jazz.Object-Class jazz.allocate-define-local-syntax-form
+  ((environment %%get-define-local-syntax-form-environment ())))
 
 
 ;;;

@@ -1886,6 +1886,37 @@
 
 
 ;;;
+;;;; Define-Local-Syntax
+;;;
+
+
+(jazz.define-class-runtime jazz.Define-Local-Syntax-Declaration)
+
+(define (jazz.new-define-local-syntax-declaration name type access compatibility attributes parent signature syntax-form)
+  (let ((new-declaration (jazz.allocate-define-local-syntax-declaration jazz.Define-Local-Syntax-Declaration name type #f access compatibility attributes #f parent #f #f signature #f)))
+    (jazz.setup-declaration new-declaration)
+    new-declaration))
+
+(jazz.define-method (jazz.walk-binding-expandable? (jazz.Define-Local-Syntax-Declaration declaration))
+  #t)
+
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Define-Local-Syntax-Declaration binding) walker resume declaration environment form-src)
+  (let ((locator (%%get-declaration-locator binding)))
+    (let* ((define-local-syntax-form (jazz.need-macro locator))
+           (expander (%%get-syntax-form-expander define-local-syntax-form))
+           (macro-environment (%%get-define-local-syntax-form-environment define-syntax-form)))
+      (expander form-src environment macro-environment))))
+
+(jazz.define-method (jazz.emit-declaration (jazz.Define-Local-Syntax-Declaration declaration) environment)
+  `(begin))
+
+(jazz.define-method (jazz.fold-declaration (jazz.Define-Local-Syntax-Declaration declaration) f k s)
+  (f declaration s))
+
+(jazz.encapsulate-class jazz.Define-Local-Syntax-Declaration)
+
+
+;;;
 ;;;; Walk Context
 ;;;
 
@@ -2570,6 +2601,27 @@
 
 
 (jazz.encapsulate-class jazz.Define-Syntax-Form)
+
+
+;;;
+;;;; Define-Local-Syntax Form
+;;;
+
+
+(jazz.define-class-runtime jazz.Define-Local-Syntax-Form)
+
+
+(define (jazz.new-define-local-syntax-form name expander environment)
+  (jazz.allocate-define-syntax-form jazz.Define-Local-Syntax-Form name #f #f expander environment))
+
+
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Define-Local-Syntax-Form binding) walker resume declaration environment form-src)
+  (let ((expander (%%get-syntax-form-expander binding))
+        (macro-environment (%%get-define-local-syntax-form-environment binding)))
+    (expander form-src environment macro-environment)))
+
+
+(jazz.encapsulate-class jazz.Define-Local-Syntax-Form)
 
 
 ;;;
@@ -3459,15 +3511,16 @@
   (if (%%pair? (jazz.source-code form-src))
       (let ((first (jazz.source-code (%%car (jazz.source-code form-src)))))
         (case first
-          ((require)       (jazz.walk-require-declaration       walker resume declaration environment form-src))
-          ((export)        (jazz.walk-export-declaration        walker resume declaration environment form-src))
-          ((import)        (jazz.walk-import-declaration        walker resume declaration environment form-src))
-          ((native)        (jazz.walk-native-declaration        walker resume declaration environment form-src))
-          ((native-syntax) (jazz.walk-native-syntax-declaration walker resume declaration environment form-src))
-          ((macro)         (jazz.walk-macro-declaration         walker resume declaration environment form-src))
-          ((local-macro)   (jazz.walk-local-macro-declaration   walker resume declaration environment form-src))
-          ((syntax)        (jazz.walk-syntax-declaration        walker resume declaration environment form-src))
-          ((define-syntax) (jazz.walk-define-syntax-declaration walker resume declaration environment form-src))
+          ((require)             (jazz.walk-require-declaration             walker resume declaration environment form-src))
+          ((export)              (jazz.walk-export-declaration              walker resume declaration environment form-src))
+          ((import)              (jazz.walk-import-declaration              walker resume declaration environment form-src))
+          ((native)              (jazz.walk-native-declaration              walker resume declaration environment form-src))
+          ((native-syntax)       (jazz.walk-native-syntax-declaration       walker resume declaration environment form-src))
+          ((macro)               (jazz.walk-macro-declaration               walker resume declaration environment form-src))
+          ((local-macro)         (jazz.walk-local-macro-declaration         walker resume declaration environment form-src))
+          ((syntax)              (jazz.walk-syntax-declaration              walker resume declaration environment form-src))
+          ((define-syntax)       (jazz.walk-define-syntax-declaration       walker resume declaration environment form-src))
+          ((define-local-syntax) (jazz.walk-define-local-syntax-declaration walker resume declaration environment form-src))
           (else            #f)))
     #f))
 
@@ -4782,6 +4835,51 @@
           (jazz.walk-body walker resume new-declaration augmented-environment body))
         (%%set-declaration-source new-declaration form-src)
         new-declaration))))
+
+
+;;;
+;;;; Define-Local-Syntax
+;;;
+
+(define (jazz.walk-define-local-syntax-declaration walker resume declaration environment form-src)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.syntax-modifiers (%%cdr (jazz.source-code form-src)))
+    (let ((name (jazz.source-code (%%car rest)))
+          (body (%%cdr rest)))
+      (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment '() #f #t)
+        (let* ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                    (jazz.new-define-local-syntax-declaration name jazz.Any access compatibility '() declaration signature #f)))
+               (walked-body (jazz.walk-body walker resume new-declaration augmented-environment body)))
+          (%%set-syntax-declaration-body new-declaration walked-body)
+          (%%set-declaration-source new-declaration form-src)
+          (jazz.register-local-macro declaration (%%get-declaration-locator new-declaration)
+            (jazz.with-annotated-frame (jazz.annotate-signature signature)
+              (lambda (frame)
+                (let ((augmented-environment (%%cons frame environment))
+                      (current-unit-name
+                        (%%get-declaration-locator
+                          (%%get-declaration-toplevel declaration))))
+                  (let* ((env
+                           (%%list
+                             (jazz.new-walk-frame
+                               (%%get-dialect-bindings (jazz.get-dialect 'scheme)))
+                             (jazz.new-walk-frame
+                               (%%get-dialect-bindings (jazz.get-dialect 'core)))))
+                         (env
+                           (cond
+                             ((jazz.get-dialect 'jazz)
+                              => (lambda (x)
+                                   (cons (jazz.new-walk-frame (%%get-dialect-bindings x)) env)))
+                             (else env))))
+                    (jazz.new-define-syntax-form
+                      (%%get-declaration-locator new-declaration)
+                      (car (jazz.sourcified-form (jazz.emit-expression walked-body declaration augmented-environment)))
+                      env))))))
+          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
+
+(define (jazz.walk-define-local-syntax walker resume declaration environment form-src)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.syntax-modifiers (%%cdr (jazz.source-code form-src)))
+    (jazz.require-declaration declaration (jazz.source-code (%%car rest)))))
 
 
 ;;;

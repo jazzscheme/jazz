@@ -502,7 +502,7 @@
 
 
 (define (jazz.new-module-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '())))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f #f access 'uptodate '() #f parent #f #f (jazz.make-access-lookups jazz.public-access) (jazz.new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1729,6 +1729,43 @@
 
 
 (jazz.encapsulate-class jazz.Macro-Declaration)
+
+
+;;;
+;;;; Local Macro
+;;;
+
+
+(jazz.define-class-runtime jazz.Local-Macro-Declaration)
+
+
+(define (jazz.new-local-macro-declaration name type access compatibility attributes parent signature)
+  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Local-Macro-Declaration name type #f access compatibility attributes #f parent #f #f signature #f)))
+    (jazz.setup-declaration new-declaration)
+    new-declaration))
+
+(define (jazz.need-local-macro module-declaration name)
+  (or (%%table-ref (%%get-module-declaration-local-macros module-declaration) name #f)
+      (jazz.error "Unable to find macro: {s}" name)))
+
+(jazz.define-method (jazz.walk-binding-expandable? (jazz.Local-Macro-Declaration declaration))
+  #t)
+
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Local-Macro-Declaration binding) walker resume declaration environment form-src)
+  (let ((form    (%%desourcify form-src))
+        (locator (%%get-declaration-locator binding)))
+    (let ((expander (jazz.need-local-macro declaration locator)))
+      (%%apply expander (%%cdr form)))))
+
+(jazz.define-method (jazz.emit-declaration (jazz.Local-Macro-Declaration declaration) environment)
+  `(begin))
+
+
+(jazz.define-method (jazz.fold-declaration (jazz.Local-Macro-Declaration declaration) f k s)
+  (f declaration s))
+
+
+(jazz.encapsulate-class jazz.Local-Macro-Declaration)
 
 
 ;;;
@@ -3428,6 +3465,7 @@
           ((native)        (jazz.walk-native-declaration        walker resume declaration environment form-src))
           ((native-syntax) (jazz.walk-native-syntax-declaration walker resume declaration environment form-src))
           ((macro)         (jazz.walk-macro-declaration         walker resume declaration environment form-src))
+          ((local-macro)   (jazz.walk-local-macro-declaration   walker resume declaration environment form-src))
           ((syntax)        (jazz.walk-syntax-declaration        walker resume declaration environment form-src))
           ((define-syntax) (jazz.walk-define-syntax-declaration walker resume declaration environment form-src))
           (else            #f)))
@@ -4644,6 +4682,36 @@
           (jazz.walk-body walker resume new-declaration augmented-environment body))
         (%%set-declaration-source new-declaration form-src)
         new-declaration))))
+
+
+;;;
+;;;; Local Macro
+;;;
+
+(define (jazz.register-local-macro module-declaration name macro)
+  (%%table-set! (%%get-module-declaration-local-macros module-declaration) name macro))
+
+(define (jazz.walk-local-macro-declaration walker resume declaration environment form-src)
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
+    (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
+      (let* ((new-declaration (or (jazz.find-child-declaration declaration name)
+                                  (jazz.new-local-macro-declaration name type access compatibility '() declaration signature)))
+             (walked-body (jazz.walk-body walker resume new-declaration augmented-environment body)))
+        (%%set-local-macro-declaration-signature new-declaration signature)
+        (%%set-local-macro-declaration-body new-declaration walked-body)
+        (%%set-declaration-source new-declaration form-src)
+        (jazz.register-local-macro declaration (%%get-declaration-locator new-declaration)
+          (jazz.with-annotated-frame (jazz.annotate-signature signature)
+            (lambda (frame)
+              (let ((augmented-environment (%%cons frame environment)))
+                (eval `(lambda ,(jazz.emit-signature signature declaration augmented-environment)
+                         ,@(jazz.sourcified-form (jazz.emit-expression walked-body declaration augmented-environment))))))))
+        (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration)))))
+
+(define (jazz.walk-local-macro walker resume declaration environment form-src)
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
+    (jazz.require-declaration declaration name)))
 
 
 ;;;

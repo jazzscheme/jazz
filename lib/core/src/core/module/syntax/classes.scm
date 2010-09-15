@@ -178,7 +178,8 @@
    (exports         %%get-module-declaration-exports         %%set-module-declaration-exports)
    (imports         %%get-module-declaration-imports         %%set-module-declaration-imports)
    (proclaims       %%get-module-declaration-proclaims       ())
-   (inclusions      %%get-module-declaration-inclusions      %%set-module-declaration-inclusions)))
+   (inclusions      %%get-module-declaration-inclusions      %%set-module-declaration-inclusions)
+   (local-macros    %%get-module-declaration-local-macros    ())))
 
 
 ;;;
@@ -262,6 +263,16 @@
 (jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-macro-declaration
   ((signature %%get-macro-declaration-signature %%set-macro-declaration-signature)
    (body      %%get-macro-declaration-body      %%set-macro-declaration-body)))
+
+
+;;;
+;;;; Local Macro
+;;;
+
+
+(jazz.define-class jazz.Local-Macro-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-local-macro-declaration
+  ((signature %%get-local-macro-declaration-signature %%set-local-macro-declaration-signature)
+   (body      %%get-local-macro-declaration-body      %%set-local-macro-declaration-body)))
 
 
 ;;;

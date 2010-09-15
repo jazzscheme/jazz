@@ -54,6 +54,7 @@
 (jazz.define-walker-special native        core jazz.walk-native)
 (jazz.define-walker-special native-syntax core jazz.walk-native-syntax)
 (jazz.define-walker-special macro         core jazz.walk-macro)
+(jazz.define-walker-special local-macro   core jazz.walk-local-macro)
 (jazz.define-walker-special syntax        core jazz.walk-syntax)
 (jazz.define-walker-special define-syntax core jazz.walk-define-syntax)
 (jazz.define-walker-special let-syntax    core jazz.walk-let-syntax)

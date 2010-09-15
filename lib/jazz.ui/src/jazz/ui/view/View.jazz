@@ -67,7 +67,6 @@
   (property draggable?                           initialize #f accessors explicit)
   (property drag-tolerance                       initialize 5  accessors generate)
   (property enabled?                             initialize #t accessors explicit)
-  (property action                               initialize #f accessors explicit)
   (property outline-view                         initialize #f accessors generate)
   (property offscreen?                 <bool>    initialize #f accessors explicit)
   ;; not implemented yet
@@ -646,22 +645,6 @@
 
   (method override (set-scaling value)
     (set! scaling (/ (round (* value 1000)) 1000)))
-
-  
-  ;;;
-  ;;;; Actions
-  ;;;
-  
-
-  (method public (get-action)
-    action)
-
-
-  (method public (set-action value)
-    (set! action value)
-    (let ((action-item (require-action-item action)))
-      (when action-item
-        (register-actionable~ action-item self))))
 
   
   ;;;
@@ -1917,8 +1900,12 @@
     action-handler)
   
   
-  (method public virtual (set-action-handler x)
-    (set! action-handler x))
+  (method public virtual (set-action-handler value)
+    (set! action-handler value)
+    (when (is? value Action)
+      (let ((action-item (require-action-item action-handler)))
+        (when action-item
+          (register-actionable~ action-item self)))))
 
 
   (method public virtual (process-action sender (properties (action-properties)))
@@ -1930,12 +1917,8 @@
   
   
   (method public (notify-action sender properties)
-    (if action-handler
-        (let ((properties (or properties (get-properties~ action-handler))))
-          (let ((event (apply new Action-Event :action sender properties)))
-            (invoke~ action-handler self event)))
-      (when action
-        (call-action action sender properties))))
+    (when action-handler
+      (notify-handler self action-handler sender properties)))
   
   
   ;;;
@@ -3154,9 +3137,9 @@
 
   (method public virtual (get-tooltip-text)
     (let ((text (localize tooltip-text)))
-      (if (or (not text) (not action))
-          text
-        (let ((shortcut (get-shortcut~ (require-action-item action))))
+      (if (not text)
+          #f
+        (let ((shortcut (and (is? action-handler Action) (get-shortcut~ (require-action-item action-handler)))))
           (if (not shortcut)
               text
             (format "{a} ({a})" text (present-shortcut~ shortcut)))))))

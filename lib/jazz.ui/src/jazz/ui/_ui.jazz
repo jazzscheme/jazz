@@ -40,7 +40,8 @@
 
 (export (jazz.ui.autoload))
 (import (jazz.ui.autoload)
-        (jazz.graphic))
+        (jazz.graphic)
+        (jazz.library))
 
 
 ;;;
@@ -171,6 +172,26 @@
                             (get-children~ action-list))))
               actions-list)
     (get-output~ fact)))
+
+
+;;;
+;;;; Handler
+;;;
+
+
+(definition public (notify-handler component handler sender properties)
+  (typecase handler
+    ((Handler)
+     (let ((properties (or properties (get-properties~ handler))))
+       (let ((event (apply new Event :action sender properties)))
+         (invoke~ handler component event))))
+    ((Action)
+     (call-action handler sender properties))
+    ((Procedure)
+     (let ((event (apply new Event :action sender (or properties '()))))
+       (handler event)))
+    (else
+     (error "Unknown handler type: {s}" handler))))
 
 
 ;;;

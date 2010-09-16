@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Debuggee View
+;;;; Component Forms
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,47 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.debuggee.view jazz
+(module jazz.library.form jazz
 
 
-(import (jazz.debuggee)
-        (jazz.designer)
-        (jazz.library)
-        (jazz.system)
-        (jazz.ui)
-        (jazz.ui.view))
+(import (jazz.jml)
+        (jazz.library))
 
 
-;;;
-;;;; Edit
-;;;
+(define *forms*
+  (make-table test: eq?))
 
 
-(definition public (edit object)
-  (edit-definitions~ (get-application) (category-name (class-of object)))
-  (unspecified))
+(define (get-form name)
+  (table-ref *forms* name #f))
 
 
-;;;
-;;;; Design
-;;;
+(definition public (register-form name form)
+  (table-set! *forms* name form))
+
+(definition public (unregister-form name)
+  (table-clear *forms* name))
 
 
-(definition public (design class/component)
-  (let ((component (parameterize ((designing? #t)) (new (if (class? class/component) class/component (class-of class/component))))))
-    (let ((editor (typecase component
-                    ((View) (autoload 'View-Editor))
-                    ((Component) (autoload 'Canvas-Manager))
-                    (else (error "Only components can be designed: {s}" component)))))
-      (new-frame editor client: component))))
+(definition public (load-form name)
+  (or (get-form name)
+      (error "Unable to load form: {s}" name)))
 
 
-(definition public (design-in-place view)
-  (new-frame (autoload 'View-Editor) client: view host-visible?: #f))
-
-
-(definition public (reprint class/component)
-  (let* ((class (if (class? class/component) class/component (class-of class/component)))
-         (form (get-metaclass-form~ class))
-         (designer (new Designer form: form)))
-    (save~ designer))))
+(definition public (resolve-form name/form)
+  (if (is? name/form Form)
+      name/form
+    (bind (form . path) (split-symbol name/form "/")
+      (let ((form (load-form form)))
+        (if (null? path)
+            form
+          (child~ form path)))))))

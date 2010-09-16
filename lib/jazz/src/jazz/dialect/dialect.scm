@@ -1740,13 +1740,25 @@
   (define (preprocess-meta body)
     (let ((metaclass (jazz.new-queue))
           (class (jazz.new-queue)))
-      (for-each (lambda (expr)
-                  (if (and (%%pair? (jazz.source-code expr))
-                           (%%pair? (%%cdr (jazz.source-code expr)))
-                           (%%eq? (jazz.source-code (%%cadr (jazz.source-code expr))) 'meta))
-                      (jazz.enqueue metaclass (jazz.sourcify-if (%%cons (%%car (jazz.source-code expr)) (%%cddr (jazz.source-code expr))) expr))
-                    (jazz.enqueue class expr)))
-                body)
+      (define (expand-form-hack expr)
+        (if (and (%%pair? (jazz.source-code expr))
+                 (%%eq? (jazz.source-code (%%car (jazz.source-code expr))) 'form))
+            (jazz.expand-macros walker resume declaration environment expr)
+          expr))
+      
+      (define (preprocess expr)
+        (let ((expr (expand-form-hack expr)))
+          (cond ((and (%%pair? (jazz.source-code expr))
+                      (%%eq? (jazz.source-code (%%car (jazz.source-code expr))) 'begin))
+                 (for-each preprocess (%%cdr (jazz.source-code expr))))
+                ((and (%%pair? (jazz.source-code expr))
+                      (%%pair? (%%cdr (jazz.source-code expr)))
+                      (%%eq? (jazz.source-code (%%cadr (jazz.source-code expr))) 'meta))
+                 (jazz.enqueue metaclass (jazz.sourcify-if (%%cons (%%car (jazz.source-code expr)) (%%cddr (jazz.source-code expr))) expr)))
+                (else
+                 (jazz.enqueue class expr)))))
+      
+      (for-each preprocess body)
       (values (jazz.queue-list metaclass)
               (jazz.queue-list class))))
   
@@ -3147,19 +3159,25 @@
 
 
 (define (jazz.expand-form walker resume declaration environment form)
-  (let* ((class-name (%%get-lexical-binding-name declaration))
-         (class-locator (%%get-declaration-locator declaration)))
-    `(begin
-       (definition class-form
-         (jml->form>> ',form ,class-name))
-       
-       (register-form ',class-locator class-form)
-
-       (method override (get-class-form)
-         class-form)
-       
-       (method override (get-class-forms)
-         (cons class-form (nextmethod))))))
+  `(begin
+     (definition meta class-form
+       (jml->form ',form))
+     
+     (method meta override (get-metaclass-form)
+       class-form)
+     
+     (method meta override (get-metaclass-forms)
+       (cons class-form (nextmethod)))
+     
+     (method meta override (initialize)
+       (nextmethod)
+       (setup-toplevel-context~ class-form self))
+     
+     (method override (get-class-form)
+       (get-metaclass-form~ (class-of self)))
+     
+     (method override (get-class-forms)
+       (get-metaclass-forms~ (class-of self)))))
 
 
 (jazz.encapsulate-class jazz.Jazz-Walker)

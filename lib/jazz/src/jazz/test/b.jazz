@@ -1,4 +1,29 @@
 (module jazz.test.b jazz
 
+#;
+(define-syntax public swap!
+  (syntax-rules ()
+    ((_ var1 var2)
+     (let ((value var1))
+       (set! var1 var2)
+       (set! var2 value)))))
 
-(class Version extends Object))
+(define-syntax public test!
+  (sc-macro-transformer
+    (lambda (form env)
+      (let ((form (strip-source-info form)))
+        (let ((func (make-syntactic-closure env '() (cadr form)))
+              (var1 (make-syntactic-closure env '() (caddr form)))
+              (var2 (make-syntactic-closure env '() (cadddr form))))
+          `(let ((value ,var1))
+             (,func value ,var2)))))))
+
+(define-syntax public swap!
+  (sc-macro-transformer
+    (lambda (form env)
+      (let ((form (strip-source-info form)))
+        (let ((var1 (make-syntactic-closure env '() (cadr form)))
+              (var2 (make-syntactic-closure env '() (caddr form))))
+          `(let ((value ,var1))
+             (set! ,var1 ,var2)
+             (set! ,var2 value))))))))

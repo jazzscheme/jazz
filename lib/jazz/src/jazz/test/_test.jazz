@@ -42,20 +42,50 @@
 ;;;; Local Syntax
 ;;;
 
+@local-syntax(
+
+(import jazz.test.b)
+
+@wait
 (define-local-syntax when2
   (sc-macro-transformer
     (lambda (form env)
-      `(if ,(make-syntactic-closure env '() (cadr form))
-           `(begin
-              ,@(map (lambda (form)
-                       (make-syntactic-closure env '() form))
-                     (cddr form)))
-         #f))))
+      (let ((form (strip-source-info form)))
+        `(if ,(make-syntactic-closure env '() (cadr form))
+             (begin
+               ,@(map (lambda (form)
+                        (make-syntactic-closure env '() form))
+                      (cddr form)))
+           #f)))))
 
-(definition (lala x)
-  (when x (+ x 2))
+@wait
+(define-local-syntax swap!
+  (sc-macro-transformer
+    (lambda (form env)
+      (let ((form (strip-source-info form)))
+        (let ((var1 (make-syntactic-closure env '() (cadr form)))
+              (var2 (make-syntactic-closure env '() (caddr form))))
+          `(let ((value ,var1))
+             (set! ,var1 ,var2)
+             (set! ,var2 value)))))))
+
+
+(definition (test-test!)
+  (let ((va 5))
+    (test! - (+ 2 va) va)))
+
+
+(definition (test-swap!)
+  (let ((x 3)
+        (value 4))
+    (swap! x value)
+    value))
+
+(definition (test-when2 x)
+  (when2 x (+ x 2))
   x)
 
+)
 
 ;;;
 ;;;; Local Macros

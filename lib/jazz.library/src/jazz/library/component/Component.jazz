@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.form)
         (jazz.library.trait)
         (jazz.locale))
 
@@ -65,6 +66,7 @@
   
   (slot name                         initialize #f)
   (slot parent                       initialize #f)
+  (slot traits                       initialize #f)
   (slot branch                       initialize #f)   ;; the immediatly installed branch
   (slot creation-form                initialize #f)   ;; the form that created the component
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
@@ -76,7 +78,6 @@
   (slot flags                 <fx>   initialize Visible-Flag)
   
   
-  (property traits                   initialize #f  accessors explicit)
   (property before                   initialize #f  accessors explicit)
   (property children                 initialize '() accessors explicit)
   (property visible?          <void>                accessors explicit)
@@ -331,8 +332,15 @@
     (install-component))
   
   
+  (method (install-traits initargs)
+    (let ((traits (or (getf initargs 'traits) (getf initargs traits:))))
+      (when traits
+        (set-active-traits (listify traits)))))
+  
+  
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (when form
+      (install-traits (get-properties~ form))
       (install-properties (get-properties~ form) restore-form)
       (install-children (get-children~ form) creator creator-branch restore-form)))
   
@@ -345,17 +353,25 @@
   (method public virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (let ((action (get-action~ form))
           (name (get-name~ form)))
+      (define (new-component)
+        (let ((unit (get-tag-unit~ form)))
+          (let ((registered-form (registered-form (get-model-name~ form))))
+            (if registered-form
+                (let ((model (autoload (get-model-name~ registered-form))))
+                  (let ((component (new model parent: self name: name form: registered-form creator: creator creator-branch: creator-branch)))
+                    (install-form form creator creator-branch restore-form)))
+              (let ((model (if unit (module-ref unit (get-model-name~ form)) (form-model~ (or creator self) form))))
+                (if model
+                    (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)
+                  (error "Unable to find autoload {s} in {s}" (get-model-name~ form) unit)))))))
+      
       (case action
         ((new)
-         (let* ((unit (get-tag-unit~ form))
-                (model (if unit (module-ref unit (get-model-name~ form)) (form-model~ (or creator self) form))))
-           (if (not model)
-               (error "Unable to find autoload {s} in {s}" (get-model-name~ form) unit)
-             (let ((component (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)))
-               (when creator
-                 (add-to-index~ creator (get-name~ component) component))
-               (when restore-form
-                 (remember-creation~ restore-form self component))))))
+         (let ((component (new-component)))
+           (when creator
+             (add-to-index~ creator (get-name~ component) component))
+           (when restore-form
+             (remember-creation~ restore-form self component))))
         ((modify locate)
          (when restore-form
            (set! restore-form (remember-reference~ restore-form self name)))
@@ -371,12 +387,13 @@
     (while (not-null? properties)
       (let ((expr (car properties))
             (value (cadr properties)))
-        (when (symbol? expr)
-          (set! expr (component-property (class-of self) expr))
-          (set-car! properties expr))
-        (when restore-form
-          (remember-property~ restore-form self expr))
-        (write-property-to self expr value))
+        (unless (initer-property? expr)
+          (when (symbol? expr)
+            (set! expr (component-property (class-of self) expr))
+            (set-car! properties expr))
+          (when restore-form
+            (remember-property~ restore-form self expr))
+          (write-property-to self expr value)))
       (set! properties (cddr properties))))
   
   
@@ -399,6 +416,7 @@
             (install-form form creator #f #f)
           (install-form form self #f #f)
           (set! creator~self self)))
+      (install-traits initargs)
       (write-properties initargs)))
   
   
@@ -524,6 +542,7 @@
     (list->table
       '((name . #t)
         (parent . #t)
+        (traits . #t)
         (form . #t)
         (creator . #t)
         (creator-branch . #t))))

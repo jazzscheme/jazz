@@ -175,4 +175,8 @@
             (begin
               (set! previous scan)
               (set! scan (%%cdr scan))))))
-      lst))))
+      lst)))
+
+
+(define (jazz.values? obj)
+  (%%values? obj)))

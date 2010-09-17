@@ -1128,6 +1128,14 @@
 
 
 ;;;
+;;;; Values
+;;;
+
+
+(native jazz.values?)
+
+
+;;;
 ;;;; Walker
 ;;;
 

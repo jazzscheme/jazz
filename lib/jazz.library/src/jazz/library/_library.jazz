@@ -73,8 +73,8 @@
 (definition public (resolve-form name/form)
   (if (is? name/form Form)
       name/form
-    (bind (form . path) (split-symbol name/form "/")
-      (let ((form (load-form form)))
+    (bind (name . path) (split-symbol name/form "/")
+      (let ((form (load-form name)))
         (if (null? path)
             form
           (child~ form path))))))
@@ -107,11 +107,19 @@
 (definition public (resolve-trait name/trait)
   (if (is? name/trait Trait)
       name/trait
-    (bind (trait . path) (split-symbol name/trait "/")
-      (let ((trait (load-trait trait)))
-        (if (null? path)
-            trait
-          (child~ trait path))))))
+    (bind (name . path) (split-symbol name/trait "/")
+      (let ((trait (registered-trait name)))
+        (if trait
+            (if (null? path)
+                trait
+              (child~ trait path))
+          (let ((form (registered-form name)))
+            (if form
+                (assert (not-null? path)
+                  ;; quicky to test
+                  (let ((component (instantiate~ form)))
+                    (child~ component path)))
+              (error "Unable to load trait: {s}" name))))))))
 
 
 ;;;

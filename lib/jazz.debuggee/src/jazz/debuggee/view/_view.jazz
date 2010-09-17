@@ -61,12 +61,16 @@
 ;;;
 
 
-(definition public (design class/component)
-  (let ((component (parameterize ((designing? #t)) (new (if (class? class/component) class/component (class-of class/component))))))
+(definition public (design target)
+  (let ((component (parameterize ((designing? #t))
+                     (cond ((class? target) (new target))
+                           ((symbol? target) (instantiate~ (resolve-form target)))
+                           ((is? target Form) (instantiate~ target))
+                           ((is? target Component) target)
+                           (else (error "Unable to design: {s}" target))))))
     (let ((editor (typecase component
                     ((View) (autoload 'View-Editor))
-                    ((Component) (autoload 'Canvas-Manager))
-                    (else (error "Only components can be designed: {s}" component)))))
+                    ((Component) (autoload 'Canvas-Manager)))))
       (new-frame editor client: component))))
 
 

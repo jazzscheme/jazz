@@ -243,27 +243,54 @@
       (or (when frame
             (bind (creator locat) frame
               (when creator
-                (let ((name (get-procedure-name creator)))
+                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
                   (list name locat)))))
           frame))
     
-    (let ((profile (find-profile name)))
-      (when profile
-        (list (profile-label profile)
-              (profiler-name (profile-profiler profile))
-              (profile-depth profile)
-              (profile-frames profile)
-              (profile-frame-duration profile)
-              (profile-total-count profile)
-              (profile-total-duration profile)
-              (profile-unknown-count profile)
-              (profile-unknown-duration profile)
-              (map (lambda (pair)
-                     (bind (stack . call) pair
-                       (let ((count (profile-call-count call))
-                             (duration (profile-call-duration call)))
-                         (cons (map frame->symbol stack) (cons count duration)))))
-                   (table->list (profile-calls profile)))))))
+    (define (merge-profile profile remote-profile)
+      (let ((temp-profile (new-profile label: (profile-label profile) profiler: (profile-profiler profile) depth: (profile-depth profile))))
+        (profile-total-count-set! temp-profile (+ (profile-total-count profile) (if remote-profile (profile-total-count remote-profile) 0)))
+        (profile-total-duration-set! temp-profile (profile-total-duration profile))
+        (profile-unknown-count-set! temp-profile (+ (profile-unknown-count profile) (if remote-profile (profile-unknown-count remote-profile) 0)))
+        (profile-unknown-duration-set! temp-profile (+ (profile-unknown-duration profile) (if remote-profile (profile-unknown-duration remote-profile) 0)))
+        (let ((temp-calls (profile-calls temp-profile)))
+          (add-calls temp-calls profile)
+          (when remote-profile
+            (add-calls temp-calls remote-profile)))
+        temp-profile))
+   
+   (define (add-calls temp-calls profile)
+     (jazz.iterate-table (profile-calls profile)
+       (lambda (proc call)
+         (let ((key (map frame->symbol proc)))
+           (let ((temp-call (table-ref temp-calls key #f)))
+             (if temp-call
+                 (let ((count (profile-call-count temp-call))
+                       (duration (profile-call-duration temp-call)))
+                   (profile-call-count-set! temp-call (+ (profile-call-count call) count))
+                   (profile-call-duration-set! temp-call (+ (profile-call-duration call) duration))
+                   (table-set! temp-calls key temp-call))
+               (table-set! temp-calls key call)))))))
+    
+   (let ((profile (find-profile name)))
+     (when profile
+       (let ((remote-profile (get-remote-profile~ (get-application) name)))
+         (let ((temp-profile (merge-profile profile remote-profile)))
+              (list (profile-label temp-profile)
+                    (profiler-name (profile-profiler temp-profile))
+                    (profile-depth temp-profile)
+                    (profile-frames temp-profile)
+                    (profile-frame-duration temp-profile)
+                    (profile-total-count temp-profile)
+                    (profile-total-duration temp-profile)
+                    (profile-unknown-count temp-profile)
+                    (profile-unknown-duration temp-profile)
+                    (map (lambda (pair)
+                           (bind (stack . call) pair
+                             (let ((count (profile-call-count call))
+                                   (duration (profile-call-duration call)))
+                               (cons stack (cons count duration)))))
+                         (table->list (profile-calls temp-profile)))))))))
   
   
   (method public (profile-reset name profiler depth)

@@ -57,7 +57,7 @@
                            stamp
                            gambit-stamp))))))
   
-  (set! jazz.source-versions-file "kernel/versions")
+  (set! jazz.source-versions-file (string-append jazz.source "kernel/versions"))
   (validate-gambit-version))
 
 
@@ -652,7 +652,7 @@
   (if (or (not destination) (and (string? destination)
                                  (jazz.parse-destination destination
                                    (lambda (alias title)
-                                     (and (or (not alias) (memq alias '(user jazz bin)))
+                                     (and (or (not alias) (memq alias '(bin build user)))
                                           (if (eq? alias 'bin)
                                               (not title)
                                             (and title (jazz.valid-filename? title))))))))
@@ -955,7 +955,7 @@
             (debug-source? (jazz.configuration-debug-source? configuration))
             (mutable-bindings? (jazz.configuration-mutable-bindings? configuration))
             (interpret-kernel? (jazz.configuration-interpret-kernel? configuration))
-            (source "./")
+            (source jazz.source)
             (source-access? (jazz.configuration-source-access? configuration))
             (destination (jazz.configuration-destination configuration))
             (destination-directory (jazz.configuration-directory configuration)))
@@ -1442,23 +1442,23 @@
 
 
 (define (jazz.load-kernel-base)
-  (load "kernel/runtime/base"))
+  (load (string-append jazz.source "kernel/runtime/base")))
 
 
 (define (jazz.load-kernel-build)
-  (load "kernel/syntax/header")
-  (load "kernel/syntax/macro")
-  (load "kernel/syntax/block")
-  (load "kernel/syntax/expansion")
-  (load "kernel/syntax/features")
-  (load "kernel/syntax/declares")
-  (load "kernel/syntax/primitives")
-  (load "kernel/syntax/syntax")
-  (load "kernel/runtime/common")
-  (load "kernel/runtime/digest")
-  (load "kernel/runtime/settings")
-  (load "kernel/runtime/advise")
-  (load "kernel/runtime/build"))
+  (load (string-append jazz.source "kernel/syntax/header"))
+  (load (string-append jazz.source "kernel/syntax/macro"))
+  (load (string-append jazz.source "kernel/syntax/block"))
+  (load (string-append jazz.source "kernel/syntax/expansion"))
+  (load (string-append jazz.source "kernel/syntax/features"))
+  (load (string-append jazz.source "kernel/syntax/declares"))
+  (load (string-append jazz.source "kernel/syntax/primitives"))
+  (load (string-append jazz.source "kernel/syntax/syntax"))
+  (load (string-append jazz.source "kernel/runtime/common"))
+  (load (string-append jazz.source "kernel/runtime/digest"))
+  (load (string-append jazz.source "kernel/runtime/settings"))
+  (load (string-append jazz.source "kernel/runtime/advise"))
+  (load (string-append jazz.source "kernel/runtime/build")))
 
 
 ;;;

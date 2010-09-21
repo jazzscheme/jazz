@@ -303,15 +303,15 @@
                 (substring dest (+ pos 1) len)))))))
 
 
-(define (jazz.destination-directory name destination source)
+(define (jazz.destination-directory name destination dir)
   (jazz.parse-destination (cond (destination destination)
                                 (name (jazz.format ":{a}" name))
                                 (else "bin:"))
     (lambda (alias dirname)
       (case (or alias 'user)
-        ((user) (string-append (jazz.get-user-build-directory) dirname "/"))
-        ((jazz) (string-append source "build/" dirname "/"))
-        ((bin) (string-append source "bin/"))))))
+        ((bin) (string-append dir "bin/"))
+        ((build) (string-append dir "build/" dirname "/"))
+        ((user) (string-append (jazz.get-user-build-directory) dirname "/"))))))
 
 
 ;;;

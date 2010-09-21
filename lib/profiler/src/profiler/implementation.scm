@@ -140,8 +140,8 @@
 ;;;
 
 
-(define (make-profile label profiler depth)
-  (%%vector 'profile label profiler depth #f 0 0 0 0 0 #f #f (%%make-table test: equal?)))
+(define (make-profile label profiler depth performance-frequency)
+  (%%vector 'profile label profiler depth performance-frequency #f 0 0 0 0 0 #f #f (%%make-table test: equal?)))
 
 
 (define (profile-label profile)
@@ -159,65 +159,71 @@
 (define (profile-depth-set! profile depth)
   (%%vector-set! profile 3 depth))
 
-(define (profile-frame-count profile)
+(define (profile-performance-frequency profile)
   (%%vector-ref profile 4))
 
-(define (profile-frame-count-set! profile count)
-  (%%vector-set! profile 4 count))
+(define (profile-performance-frequency-set! profile performance-frequency)
+  (%%vector-set! profile 4 performance-frequency))
 
-(define (profile-frame-duration profile)
+(define (profile-frame-count profile)
   (%%vector-ref profile 5))
 
-(define (profile-frame-duration-set! profile count)
+(define (profile-frame-count-set! profile count)
   (%%vector-set! profile 5 count))
 
-(define (profile-total-count profile)
+(define (profile-frame-duration profile)
   (%%vector-ref profile 6))
 
-(define (profile-total-count-set! profile total)
-  (%%vector-set! profile 6 total))
+(define (profile-frame-duration-set! profile count)
+  (%%vector-set! profile 6 count))
 
-(define (profile-total-duration profile)
+(define (profile-total-count profile)
   (%%vector-ref profile 7))
 
-(define (profile-total-duration-set! profile total)
+(define (profile-total-count-set! profile total)
   (%%vector-set! profile 7 total))
 
-(define (profile-unknown-count profile)
+(define (profile-total-duration profile)
   (%%vector-ref profile 8))
 
-(define (profile-unknown-count-set! profile unknown)
-  (%%vector-set! profile 8 unknown))
+(define (profile-total-duration-set! profile total)
+  (%%vector-set! profile 8 total))
 
-(define (profile-unknown-duration profile)
+(define (profile-unknown-count profile)
   (%%vector-ref profile 9))
 
-(define (profile-unknown-duration-set! profile unknown)
+(define (profile-unknown-count-set! profile unknown)
   (%%vector-set! profile 9 unknown))
 
-(define (profile-start-counter profile)
+(define (profile-unknown-duration profile)
   (%%vector-ref profile 10))
 
-(define (profile-start-counter-set! profile start-counter)
-  (%%vector-set! profile 10 start-counter))
+(define (profile-unknown-duration-set! profile unknown)
+  (%%vector-set! profile 10 unknown))
 
-(define (profile-last-counter profile)
+(define (profile-start-counter profile)
   (%%vector-ref profile 11))
 
-(define (profile-last-counter-set! profile last-counter)
-  (%%vector-set! profile 11 last-counter))
+(define (profile-start-counter-set! profile start-counter)
+  (%%vector-set! profile 11 start-counter))
 
-(define (profile-calls profile)
+(define (profile-last-counter profile)
   (%%vector-ref profile 12))
 
+(define (profile-last-counter-set! profile last-counter)
+  (%%vector-set! profile 12 last-counter))
+
+(define (profile-calls profile)
+  (%%vector-ref profile 13))
+
 (define (profile-calls-set! profile calls)
-  (%%vector-set! profile 12 calls))
+  (%%vector-set! profile 13 calls))
 
 
-(define (new-profile #!key (label #f) (profiler #f) (depth #f))
-  (let ((profiler (or profiler (default-profiler))))
-    (make-profile label profiler (or depth (profiler-default-depth profiler)))))
-
+(define (new-profile #!key (label #f) (profiler #f) (depth #f) (performance-frequency #f))
+  (let ((profiler (or profiler (default-profiler)))
+        (performance-frequency (or performance-frequency (jazz.system.get-performance-frequency))))
+    (make-profile label profiler (or depth (profiler-default-depth profiler)) performance-frequency)))
 
 ;;;
 ;;;; Profiles

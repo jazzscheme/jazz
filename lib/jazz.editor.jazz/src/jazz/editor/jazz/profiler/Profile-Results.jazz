@@ -238,54 +238,53 @@
     (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager)) profile))
           (tree (get-tree)))
       (when profile
-        (bind (label profiler depth frame-count frame-duration total-count total-duration unknown-count unknown-duration calls) profile
-          (let ((frequency (profiler-performance-frequency)))
-            (let ((seconds (/ total-duration frequency)))
-              (define (present-profile)
-                (if (= seconds 0)
-                    (format "{?{a}~}" label)
-                  (format "{?{a}: ~}{a} frame{a}, average {a} ms, {r precision: 2} fps"
-                          label
-                          frame-count (format-plural frame-count)
-                          (seconds->milliseconds (/ seconds frame-count))
-                          (/ frame-count seconds))))
-              
-              (define (calculate-time duration)
-                (seconds->microseconds (/ duration frequency frame-count)))
-              
-              (define (make-children frame count duration)
-                (let ((procedure (present-frame frame))
-                      (count (if count (->string count) ""))
-                      (time (if duration (->string (calculate-time duration)) ""))
-                      (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
-                  (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
-              
-              (define (present-frame frame)
-                (if (string? frame)
-                    frame
-                  (let ((name (and frame (car frame))))
-                    (if name
-                        (present-identifier name)
-                      "(interaction)"))))
-              
-              (set-title~ (locate 'profile) (present-profile))
-              (set-value~ (locate 'profiler) profiler)
-              (set-value~ (locate 'depth) depth)
-              (remove-every-row~ tree)
-              (with-update-locked~ tree
-                (lambda ()
-                  (for-each (lambda (call)
-                              (bind (stack count . duration) call
-                                (if (null? stack)
-                                    (add-row~ tree children: (make-children "(interaction)" count duration) user-data: #f)
-                                  (bind (head-frame . frames) stack
-                                    (let ((row (add-row~ tree children: (make-children head-frame count duration) user-data: head-frame)))
-                                      (for-each (lambda (frame)
-                                                  (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
-                                                frames))))))
-                            (sort > calls key: cddr))
-                  (when (> unknown-count 0)
-                    (add-row~ tree children: (make-children "<unknown>" unknown-count unknown-duration) user-data: #f)))))))))))
+        (bind (label profiler depth frequency frame-count frame-duration total-count total-duration unknown-count unknown-duration calls) profile
+          (let ((seconds (/ total-duration frequency)))
+            (define (present-profile)
+              (if (= seconds 0)
+                  (format "{?{a}~}" label)
+                (format "{?{a}: ~}{a} frame{a}, average {a} ms, {r precision: 2} fps"
+                        label
+                        frame-count (format-plural frame-count)
+                        (seconds->milliseconds (/ seconds frame-count))
+                        (/ frame-count seconds))))
+            
+            (define (calculate-time duration)
+              (seconds->microseconds (/ duration frequency frame-count)))
+            
+            (define (make-children frame count duration)
+              (let ((procedure (present-frame frame))
+                    (count (if count (->string count) ""))
+                    (time (if duration (->string (calculate-time duration)) ""))
+                    (percentage (if duration (format "{r precision: 2}" (percentage duration total-duration)) "")))
+                (list (new Tree-Node title: procedure image: {Image-Resource "Link"}) (new Tree-Label title: count) (new Tree-Label title: time) (new Tree-Label title: percentage))))
+            
+            (define (present-frame frame)
+              (if (string? frame)
+                  frame
+                (let ((name (and frame (car frame))))
+                  (if name
+                      (present-identifier name)
+                    "(interaction)"))))
+            
+            (set-title~ (locate 'profile) (present-profile))
+            (set-value~ (locate 'profiler) profiler)
+            (set-value~ (locate 'depth) depth)
+            (remove-every-row~ tree)
+            (with-update-locked~ tree
+              (lambda ()
+                (for-each (lambda (call)
+                            (bind (stack count . duration) call
+                              (if (null? stack)
+                                  (add-row~ tree children: (make-children "(interaction)" count duration) user-data: #f)
+                                (bind (head-frame . frames) stack
+                                  (let ((row (add-row~ tree children: (make-children head-frame count duration) user-data: head-frame)))
+                                    (for-each (lambda (frame)
+                                                (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
+                                              frames))))))
+                          (sort > calls key: cddr))
+                (when (> unknown-count 0)
+                  (add-row~ tree children: (make-children "<unknown>" unknown-count unknown-duration) user-data: #f))))))))))
 
 
 ;;;

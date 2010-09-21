@@ -248,29 +248,45 @@
           frame))
     
     (define (merge-profile profile remote-profile)
-      (let ((temp-profile (new-profile label: (profile-label profile) profiler: (profile-profiler profile) depth: (profile-depth profile))))
-        (profile-total-count-set! temp-profile (+ (profile-total-count profile) (if remote-profile (profile-total-count remote-profile) 0)))
-        (profile-total-duration-set! temp-profile (profile-total-duration profile))
-        (profile-unknown-count-set! temp-profile (+ (profile-unknown-count profile) (if remote-profile (profile-unknown-count remote-profile) 0)))
-        (profile-unknown-duration-set! temp-profile (+ (profile-unknown-duration profile) (if remote-profile (profile-unknown-duration remote-profile) 0)))
-        (let ((temp-calls (profile-calls temp-profile)))
-          (add-calls temp-calls profile)
-          (when remote-profile
-            (add-calls temp-calls remote-profile)))
-        temp-profile))
+      (let ((local-frequency (profile-performance-frequency profile))
+            (remote-frequency (profile-performance-frequency remote-profile)))
+        (let ((max-performance-frequency (if (>= local-frequency remote-frequency) local-frequency remote-frequency)))
+          (let ((temp-profile (new-profile label: (profile-label profile) profiler: (profile-profiler profile) depth: (profile-depth profile)
+                                performance-frequency: max-performance-frequency)))
+            (profile-total-count-set! temp-profile (+ (profile-total-count profile) (if remote-profile (profile-total-count remote-profile) 0)))
+            (profile-total-duration-set! temp-profile (adjust-duration (profile-total-duration profile) max-performance-frequency local-frequency))
+            (profile-unknown-count-set! temp-profile (+ (profile-unknown-count profile) (if remote-profile (profile-unknown-count remote-profile) 0)))
+            (profile-unknown-duration-set! temp-profile (+ (adjust-duration (profile-unknown-duration profile) max-performance-frequency local-frequency)
+                                                           (if remote-profile (adjust-duration (profile-unknown-duration remote-profile) max-performance-frequency remote-frequency) 0)))                
+            (let ((temp-calls (profile-calls temp-profile)))
+              (add-calls temp-calls profile max-performance-frequency local-frequency)
+              (when remote-profile
+                (add-calls temp-calls remote-profile max-performance-frequency remote-frequency)
+                (let ((link-method (get-profile-link-method~ (get-application))))
+                  (when link-method
+                    (let ((temp-call (table-ref temp-calls link-method #f)))
+                      (when temp-call
+                        (profile-call-duration-set! temp-call (- (profile-call-duration temp-call) (profile-total-duration remote-profile)))
+                        (table-set! temp-calls link-method temp-call)))))))
+            temp-profile))))
+
+   (define (adjust-duration duration max-performance-frequency profile-performance-frequency)
+     (if (= max-performance-frequency profile-performance-frequency)
+         duration
+       (inexact->exact (floor (/ (* duration max-performance-frequency) profile-performance-frequency)))))
    
-   (define (add-calls temp-calls profile)
+   (define (add-calls temp-calls profile max-performance-frequency performance-frequency)
      (jazz.iterate-table (profile-calls profile)
        (lambda (proc call)
          (let ((key (map frame->symbol proc)))
-           (let ((temp-call (table-ref temp-calls key #f)))
+           (let ((temp-call (table-ref temp-calls key #f))
+                 (duration (adjust-duration (profile-call-duration call) max-performance-frequency performance-frequency)))
              (if temp-call
-                 (let ((count (profile-call-count temp-call))
-                       (duration (profile-call-duration temp-call)))
-                   (profile-call-count-set! temp-call (+ (profile-call-count call) count))
-                   (profile-call-duration-set! temp-call (+ (profile-call-duration call) duration))
+                 (begin
+                   (profile-call-count-set! temp-call (+ (profile-call-count call) (profile-call-count temp-call)))
+                   (profile-call-duration-set! temp-call (+ duration (profile-call-duration temp-call)))
                    (table-set! temp-calls key temp-call))
-               (table-set! temp-calls key call)))))))
+               (table-set! temp-calls key (cons (car call) duration))))))))
     
    (let ((profile (find-profile name)))
      (when profile
@@ -279,6 +295,7 @@
               (list (profile-label temp-profile)
                     (profiler-name (profile-profiler temp-profile))
                     (profile-depth temp-profile)
+                    (profile-performance-frequency temp-profile)
                     (profile-frames temp-profile)
                     (profile-frame-duration temp-profile)
                     (profile-total-count temp-profile)

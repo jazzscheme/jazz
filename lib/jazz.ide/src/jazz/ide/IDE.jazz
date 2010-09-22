@@ -118,18 +118,22 @@
     ;; toggle terminal is windows only at the moment
     (let ((menubar (find-menubar)))
       (when menubar
-        (let ((menu (get-content~ (child~ menubar 'debug))))
-          (let ((label (find-component~ menu 'toggle-terminal)))
-            (when (and label (neq? kernel-platform 'windows))
-              (set-visible?~ label #f)
-              (layout-menu~ menu))))))
+        (let ((item (find-component~ menubar 'debug)))
+          (when item
+            (let ((menu (get-content~ item)))
+              (let ((label (find-component~ menu 'toggle-terminal)))
+                (when (and label (neq? kernel-platform 'windows))
+                  (set-visible?~ label #f)
+                  (layout-menu~ menu))))))))
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
     (when (not (get-controller-debugger))
       (attach-to-controller (get-local-register) #t)
-      (ready-to-controller #f)
-      (current-input-port (console-input-port))
-      (current-output-port (console-output-port))))
+      (with-system-exception-debugger
+      (lambda ()
+        (ready-to-controller #f)
+        (current-input-port (console-input-port))
+        (current-output-port (console-output-port))))))
 
 
   (method override (close-environment)
@@ -205,6 +209,12 @@
     @wait ((member? ext '("py")) jazz.editor.python.Python-Text-View)
           ((member? ext '("tex")) jazz.editor.tex.Tex-Text-View)
     @wait ((member? ext '("bmp" "wmf" "emf" "jpg" "jpeg" "png" "tif" "tiff") test: ci=?) jazz.ui.Image-View)
+          ((member? ext '("diff" "patch") test: ci=?) jazz.editor.diff.Diff-Text-View)
+    @wait ((member? ext '("tpl") test: ci=?) jazz.editor.java.Java-Text-View)
+          ((member? ext Scheme-Extensions test: ci=?) jazz.editor.scheme.Scheme-Text-View)
+          ((member? ext CommonLisp-Extensions test: ci=?) jazz.editor.commonlisp.CommonLisp-Text-View)
+          ((member? ext Jazz-Extensions test: ci=?) Jazz-Text-View)
+          ((member? ext '("jmf") test: ci=?) View-Editor)
           (else (nextmethod ext))))
   
   

@@ -119,52 +119,6 @@
 ;;;
 
 
-(define jazz.debugger
-  #f)
-
-(define jazz.link
-  #f)
-
-(define jazz.link-options
-  #f)
-
-(define (jazz.link-objects?)
-  (%%memq 'objects jazz.link-options))
-
-(define (jazz.link-libraries?)
-  (%%memq 'libraries jazz.link-options))
-   
-(define jazz.jobs
-  #f)
-
-(define jazz.jazzini
-  ".jazzini")
-
-(define jazz.buildini
-  ".buildini")
-
-(define jazz.warnings
-  #f)
-
-
-(define (jazz.load-configuration-files filename)
-  (define (load-if-exists file)
-    (if (file-exists? file)
-        (jazz.load file)))
-  
-  (let ((global (%%string-append "~/.jazz/" filename))
-        (local filename))
-    (load-if-exists global)
-    (load-if-exists local)))
-
-
-(define (jazz.process-jazzini)
-  (jazz.load-configuration-files jazz.jazzini))
-
-(define (jazz.process-buildini)
-  (jazz.load-configuration-files jazz.buildini))
-
-
 (define jazz.image-load-counter 0)
 (define jazz.object-load-counter 0)
 (define jazz.interpreted-load-counter 0)

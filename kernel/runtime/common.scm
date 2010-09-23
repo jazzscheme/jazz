@@ -63,13 +63,24 @@
 ;;;
 
 
-(define jazz.debugger
+(jazz.define-variable jazz.debugger
   #f)
 
-(define jazz.link
+(jazz.define-variable jazz.compile-options
+  `(,@(if jazz.kernel-debug-environments? '(debug-environments) '())
+    ,@(if jazz.kernel-debug-location? '(debug-location) '())
+    ,@(if jazz.kernel-debug-source? '(debug-source) '())))
+
+(jazz.define-variable jazz.link
   #f)
 
-(define jazz.link-options
+(jazz.define-variable jazz.link-options
+  #f)
+
+(jazz.define-variable jazz.jobs
+  #f)
+
+(jazz.define-variable jazz.warnings
   #f)
 
 (define (jazz.link-objects?)
@@ -78,17 +89,11 @@
 (define (jazz.link-libraries?)
   (%%memq 'libraries jazz.link-options))
 
-(define jazz.jobs
-  #f)
-
 (define jazz.jazzini
   ".jazzini")
 
 (define jazz.buildini
   ".buildini")
-
-(define jazz.warnings
-  #f)
 
 
 (define (jazz.load-configuration-files filename install?)
@@ -116,16 +121,12 @@
 ;;;
 
 
-(define jazz.manifest-needs-rebuild? #f)
-(set! jazz.manifest-needs-rebuild?
-      (lambda rest
-        #f))
+(jazz.define-variable jazz.manifest-needs-rebuild?
+  (lambda rest
+    #f))
 
-(define jazz.build-image #f)
-(set! jazz.build-image #f)
-
-(define jazz.build-library #f)
-(set! jazz.build-library #f)
+(jazz.define-variable jazz.build-image #f)
+(jazz.define-variable jazz.build-library #f)
 
 
 ;;;
@@ -308,7 +309,7 @@
 ;;;
 
 
-(define jazz.executable-directory
+(jazz.define-variable jazz.executable-directory
   #f)
 
 

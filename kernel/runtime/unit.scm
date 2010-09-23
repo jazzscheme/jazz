@@ -144,8 +144,8 @@
     (error error-string)))
 
 
-(define jazz.error #f)
-(set! jazz.error jazz.raise-system-error)
+(jazz.define-variable jazz.error
+  jazz.raise-system-error)
 
 
 (define (jazz.primitive-type-error num type proc args)
@@ -296,10 +296,10 @@
        (%%eq? (%%vector-ref obj 0) 'repository)))
 
 
-(define jazz.Repositories
+(jazz.define-variable jazz.Repositories
   '())
 
-(define jazz.Build-Repository
+(jazz.define-variable jazz.Build-Repository
   #f)
 
 
@@ -449,7 +449,7 @@
         table)))
 
 
-(define jazz.setup-repositories-called?
+(jazz.define-variable jazz.setup-repositories-called?
   #f)
 
 
@@ -1168,16 +1168,16 @@
   (%%make-table test: eq?))
 
 
-(define jazz.process-name
+(jazz.define-variable jazz.process-name
   #f)
 
-(define jazz.process-title
+(jazz.define-variable jazz.process-title
   #f)
 
-(define jazz.process-icon
+(jazz.define-variable jazz.process-icon
   #f)
 
-(define jazz.process-version
+(jazz.define-variable jazz.process-version
   #f)
 
 
@@ -1830,10 +1830,10 @@
 (define jazz.Load-Mutex
   (make-mutex 'load))
 
-(define jazz.Load-Thread
+(jazz.define-variable jazz.Load-Thread
   #f)
 
-(define jazz.Load-Stack
+(jazz.define-variable jazz.Load-Stack
   '())
 
 

@@ -119,9 +119,9 @@
 ;;;
 
 
-(define jazz.image-load-counter 0)
-(define jazz.object-load-counter 0)
-(define jazz.interpreted-load-counter 0)
+(jazz.define-variable jazz.image-load-counter 0)
+(jazz.define-variable jazz.object-load-counter 0)
+(jazz.define-variable jazz.interpreted-load-counter 0)
 
 
 (define (jazz.increment-image-load-counter)
@@ -148,7 +148,8 @@
 ;;;
 
 
-(define jazz.currently-loading-library-procs)
+(jazz.define-variable jazz.currently-loading-library-procs #f)
+
 
 (define (jazz.load-libraries)
   (define libraries (%%make-table test: eq?))

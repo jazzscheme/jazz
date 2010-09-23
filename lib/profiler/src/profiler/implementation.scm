@@ -222,7 +222,7 @@
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f) (performance-frequency #f))
   (let ((profiler (or profiler (default-profiler)))
-        (performance-frequency (or performance-frequency (jazz.system.get-performance-frequency))))
+        (performance-frequency (or performance-frequency (profiler-performance-frequency))))
     (make-profile label profiler (or depth (profiler-default-depth profiler)) performance-frequency)))
 
 ;;;

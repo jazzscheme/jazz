@@ -795,6 +795,20 @@
 ;;;
 
 
+(define (jazz.clean-toplevel-file? file level)
+  (define ignored-toplevel-files
+    '(".jazzini"))
+  
+  (not (member (jazz.pathname-name file) ignored-toplevel-files)))
+
+
+(define (jazz.clean-toplevel-directory? dir level)
+  (define ignored-toplevel-directories
+    '(".git"))
+  
+  (not (member (jazz.pathname-name dir) ignored-toplevel-directories)))
+
+
 (define (jazz.make-clean configuration)
   (define delete-feedback
     (jazz.delete-feedback 1))
@@ -804,8 +818,15 @@
     (if (file-exists? dir)
         (jazz.delete-directory dir
                                0
-                               #f
-                               #f
+                               jazz.clean-toplevel-file?
+                               (lambda (dir level)
+                                 (if (jazz.clean-toplevel-directory? dir level)
+                                     (jazz.empty-directory dir
+                                                           level
+                                                           #f
+                                                           #f
+                                                           delete-feedback)
+                                   #f))
                                delete-feedback))))
 
 
@@ -818,15 +839,16 @@
     (if (file-exists? dir)
         (jazz.delete-directory dir
                                0
-                               #f
+                               jazz.clean-toplevel-file?
                                (lambda (dir level)
-                                 (if (string=? (jazz.pathname-name dir) "lib")
-                                     #f
-                                   (jazz.empty-directory dir
-                                                         level
-                                                         #f
-                                                         #f
-                                                         delete-feedback)))
+                                 (if (and (jazz.clean-toplevel-directory? dir level)
+                                          (not (string=? (jazz.pathname-name dir) "lib")))
+                                     (jazz.empty-directory dir
+                                                           level
+                                                           #f
+                                                           #f
+                                                           delete-feedback)
+                                   #f))
                                delete-feedback))))
 
 

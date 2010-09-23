@@ -250,6 +250,12 @@
       (jazz.pathname-normalize jazz.built)))
 
 
+(define (jazz.install-path filename)
+  (if (%%not filename)
+      jazz.kernel-install
+    (%%string-append jazz.kernel-install filename)))
+
+
 (define jazz.kernel-source-built
   jazz.source-built)
 
@@ -259,7 +265,7 @@
   (if (or jazz.source-access? (%%not jazz.product))
       ;; when the install directory is a subdirectory of the source use a .. notation
       (if (jazz.string-starts-with? jazz.source "../")
-          (jazz.pathname-normalize (%%string-append jazz.kernel-install jazz.source) #f)
+          (jazz.pathname-normalize (jazz.install-path jazz.source) #f)
         (jazz.pathname-normalize jazz.source #f))
     #f))
 
@@ -1426,7 +1432,7 @@
               ((%%fx< active-count jobs)
                (let ((process (open-process
                                 (list
-                                  path: (%%string-append jazz.kernel-install "kernel")
+                                  path: (jazz.install-path "kernel")
                                   arguments: `("-:dq-" "-subbuild"
                                                ,@(if (%%memq 'keep-c jazz.compile-options) `("-keep-c") '())
                                                ,@(if (%%memq 'expansion jazz.compile-options) `("-expansion") '())

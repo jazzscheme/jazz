@@ -104,7 +104,7 @@
   (let ((global (%%string-append "~/.jazz/" filename))
         (local filename))
     (if install?
-        (load-if-exists (%%string-append jazz.kernel-install filename)))
+        (load-if-exists (jazz.install-path filename)))
     (load-if-exists global)
     (load-if-exists local)))
 

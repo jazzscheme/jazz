@@ -1264,6 +1264,7 @@
     (apply jazz.configure arguments))
   
   (define (make-command arguments output)
+    (jazz.setup-kernel-build)
     (jazz.make-symbols arguments #f))
   
   (define (help-command arguments output)
@@ -1384,8 +1385,7 @@
                          (exit))
                      (unknown-option (car remaining))))))
               ((equal? action "make")
-               (jazz.load-kernel-build)
-               (jazz.process-buildini)
+               (jazz.setup-kernel-build)
                (jazz.make-symbols (map read-argument arguments) #t)
                (exit))
               ((or (equal? action "help") (equal? action "?"))
@@ -1399,7 +1399,7 @@
                  (jazz.print "  gsc debug" console))
                (exit))
               ((equal? action "debug")
-               (jazz.load-kernel-build)
+               (jazz.setup-kernel-build)
                (##repl-debug-main))
               (else
                (fatal (jazz.format "Unknown build system action: {a}" action))))))))
@@ -1459,6 +1459,16 @@
   (load (string-append jazz.source "kernel/runtime/settings"))
   (load (string-append jazz.source "kernel/runtime/advise"))
   (load (string-append jazz.source "kernel/runtime/build")))
+
+
+(define jazz.setup-kernel-build
+  (let ((kernel-build-setup? #f))
+    (lambda ()
+      (if (not kernel-build-setup?)
+          (begin
+            (jazz.load-kernel-build)
+            (jazz.process-buildini)
+            (set! kernel-build-setup? #t))))))
 
 
 ;;;

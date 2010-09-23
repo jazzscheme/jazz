@@ -668,7 +668,9 @@
          (setter (%%get-property-declaration-setter declaration)))
     ;; XXXX hack in a literal self instead of the hygienically renamed self
     (define (fix-self expr)
-      (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr))))
+      (if (pair? expr)
+          (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr)))
+        expr))
     (jazz.sourcify-if
       `(begin
          ,@(if initialize?
@@ -2025,21 +2027,29 @@
           (%%set-slot-declaration-initialize new-declaration
             (and (%%specified? initialize) (jazz.walk walker resume declaration environment initialize)))
           (%%when (%%class-is? new-declaration jazz.Property-Declaration)
-            (%%set-property-declaration-getter new-declaration
-              (jazz.walk walker resume declaration environment
-                `(lambda (self)
-                   (with-self
-                     ,(if getter-name
-                          `(,getter-name)
-                        name)))))
-            (%%set-property-declaration-setter new-declaration
-              (let ((value (jazz.generate-symbol "val")))
+            (let ((allocate? (%%neq? (%%get-lexical-binding-type new-declaration) jazz.Void)))
+              (%%set-property-declaration-getter new-declaration
                 (jazz.walk walker resume declaration environment
-                  `(lambda (self ,value)
-                     (with-self
-                       ,(if setter-name
-                            `(,setter-name ,value)
-                          `(set! ,name ,value))))))))
+                  (cond (getter-name
+                          `(lambda (self)
+                             (with-self
+                               (,getter-name))))
+                        (allocate?
+                          `(lambda (self)
+                             (with-self ,name)))
+                        (else #f))))
+              (%%set-property-declaration-setter new-declaration
+                (let ((value (jazz.generate-symbol "val")))
+                  (jazz.walk walker resume declaration environment
+                    (cond (setter-name
+                            `(lambda (self ,value)
+                               (with-self
+                                 (,setter-name ,value))))
+                          (allocate?
+                            `(lambda (self ,value)
+                               (with-self
+                                 (set! ,name ,value))))
+                          (else #f)))))))
           (%%set-declaration-source new-declaration form-src)
           new-declaration)))))
 

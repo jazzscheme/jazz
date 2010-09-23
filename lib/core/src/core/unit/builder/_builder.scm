@@ -147,15 +147,9 @@
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))
       (if (or update-obj? (and update-bin? (jazz.link-objects?)))
           (let ((package (%%resource-package src))
-                (path (%%resource-path src))
                 (pathname (jazz.resource-pathname src))
                 (bindir (jazz.resource-build-dir src)))
             (let ((build-package (jazz.create-build-package package)))
-              (display "; compiling ")
-              (display path)
-              (display "...")
-              (newline)
-              (force-output)
               (jazz.create-directories bindir)
               (jazz.with-extension-reader (%%resource-extension src)
                 (lambda ()
@@ -228,12 +222,19 @@
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz.link-objects?) (and bin (not (jazz.build-single-objects?)))))))
-    (if (and update-obj? (or will-link? (jazz.link-libraries?)))
-        (compile))
-    (if update-bin?
-        (if will-link?
-            (link-o1)
-          (delete-o1-files)))))
+    (let ((will-compile? (and update-obj? (or will-link? (jazz.link-libraries?)))))
+      (if (or will-compile? will-link?)
+          (begin (display "; compiling ")
+            (display (%%resource-path src))
+            (display "...")
+            (newline)
+            (force-output)))
+      (if will-compile?
+          (compile))
+      (if update-bin?
+          (if will-link?
+              (link-o1)
+            (delete-o1-files))))))
 
 
 ;;;

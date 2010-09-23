@@ -1552,6 +1552,40 @@
                   (set-selection~ text range)
                   (insert-string~ text output)
                   (user-message "Selected form reprinted")))))))))
+  
+  
+  (method (reprint-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
+    (define (form-range text)
+      (let ((expl (new (explorer-class~ text) text range: (get-selection~ text))))
+        (with-safe-explore
+          (lambda ()
+            (outer-expr~ expl)
+            (let (iterate)
+              (let ((range (get-range~ expl))
+                    (marked (get-marked~ expl)))
+                (when (or (starts-with? marked "(<")
+                          (starts-with? marked "<"))
+                  (outer-expr~ expl)
+                  (or (when (> (get-col~ (get-start~ range)) 0)
+                        (iterate))
+                      range))))))))
+    
+    (let ((text (current-document)))
+      (let ((range (and (is? text Jazz-Text-View) (form-range text))))
+        (if (not range)
+            (bell)
+          (let ((string (get-string~ text range))
+                (level (quotient (get-col~ (get-start~ range)) 2)))
+            (let ((form (jml->form (with-jazz-readtable (lambda () (read-string-element string))))))
+              (if (is-not? form Form)
+                  (bell)
+                (let* ((designer (new Designer form: form))
+                       (output (saved-form~ designer #f level space-properties?: space-properties? align-name?: align-name? indent-first?: #f)))
+                  (with-update-locked~ text
+                    (lambda ()
+                      (set-selection~ text range)
+                      (insert-string~ text output)
+                      (user-message "Selected form reprinted")))))))))))
 
   
   ;;;

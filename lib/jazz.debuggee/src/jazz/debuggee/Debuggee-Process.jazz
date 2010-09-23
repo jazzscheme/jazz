@@ -264,10 +264,11 @@
                 (add-calls temp-calls remote-profile max-performance-frequency remote-frequency)
                 (let ((link-method (get-profile-link-method~ (get-application))))
                   (when link-method
-                    (let ((temp-call (table-ref temp-calls link-method #f)))
-                      (when temp-call
-                        (profile-call-duration-set! temp-call (- (profile-call-duration temp-call) (profile-frame-duration remote-profile)))
-                        (table-set! temp-calls link-method temp-call)))))))
+                    (iterate-table-safe temp-calls
+                                        (lambda (proc call)
+                                          (when (eq? (car (car proc)) link-method)
+                                            (let ((duration (- (profile-call-duration call) (profile-frame-duration remote-profile))))
+                                              (table-set! temp-calls proc (cons (car call) duration))))))))))
             temp-profile))))
 
    (define (adjust-duration duration max-performance-frequency profile-performance-frequency)

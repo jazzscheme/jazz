@@ -1489,7 +1489,7 @@
       (if (not kernel-build-setup?)
           (begin
             (jazz.load-kernel-build)
-            (jazz.process-buildini)
+            (jazz.process-buildini #f)
             (set! kernel-build-setup? #t))))))
 
 

@@ -138,7 +138,7 @@
 
 
 (define (jazz.library-main)
-  (jazz.process-jazzini)
+  (jazz.process-jazzini #t)
   (jazz.prepare-repositories)
   (jazz.setup-repositories))
 
@@ -260,7 +260,7 @@
         (define (setup-kernel)
           (set! ##allow-inner-global-define? #t)
           (set! jazz.debugger debugger)
-          (jazz.process-jazzini))
+          (jazz.process-jazzini #t))
         
         (define (setup-repositories)
           (if build-repository (jazz.build-repository build-repository))
@@ -277,7 +277,7 @@
         
         (define (setup-build)
           (setup-kernel)
-          (jazz.process-buildini)
+          (jazz.process-buildini #t)
           (setup-repositories)
           (set! jazz.link (or link (jazz.build-link)))
           (set! jazz.link-options (jazz.parse-link jazz.link))

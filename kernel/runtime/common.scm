@@ -91,22 +91,24 @@
   #f)
 
 
-(define (jazz.load-configuration-files filename)
+(define (jazz.load-configuration-files filename install?)
   (define (load-if-exists file)
     (if (file-exists? file)
         (jazz.load file)))
   
   (let ((global (%%string-append "~/.jazz/" filename))
         (local filename))
+    (if install?
+        (load-if-exists (%%string-append jazz.kernel-install filename)))
     (load-if-exists global)
     (load-if-exists local)))
 
 
-(define (jazz.process-jazzini)
-  (jazz.load-configuration-files jazz.jazzini))
+(define (jazz.process-jazzini install?)
+  (jazz.load-configuration-files jazz.jazzini install?))
 
-(define (jazz.process-buildini)
-  (jazz.load-configuration-files jazz.buildini))
+(define (jazz.process-buildini install?)
+  (jazz.load-configuration-files jazz.buildini install?))
 
 
 ;;;

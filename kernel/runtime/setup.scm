@@ -323,7 +323,9 @@
                 (setup-build)
                 (jazz.build-product (%%string->symbol build)))
               (else
-                (setup-runtime)
+                (if debug?
+                    (setup-build)
+                  (setup-runtime))
                 (jazz.repl-main))))))
   
   (exit))

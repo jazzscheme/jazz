@@ -761,7 +761,10 @@
   (%%symbol->string (jazz.profile-name profile)))
 
 (define (jazz.profile-unit profile)
-  (%%cadr (%%assq 'unit (%%cdr profile))))
+  (let ((pair (%%assq 'unit (%%cdr profile))))
+    (if (%%not pair)
+        (jazz.error "Unable to find unit in profile: {s}" profile)
+      (%%cadr pair))))
 
 
 ;;;

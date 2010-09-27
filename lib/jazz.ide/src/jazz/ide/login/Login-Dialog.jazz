@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jedi.login.Login-Dialog jazz
+(module protected jazz.ide.login.Login-Dialog jazz
 
 
 (import (jazz.graphic)
@@ -48,6 +48,10 @@
 
 
 (class Login-Dialog extends View
+  
+  
+  (property application initialize #f accessors generate)
+  (property invite      initialize #f accessors generate)
 
 
   (form
@@ -92,7 +96,8 @@
   (method override (finish rest)
     (nextmethod rest)
     (setup-new-profile)
-    (setup-existing-profiles))
+    (setup-existing-profiles)
+    (set-title~ (locate 'title) (format "Welcome to {a}" invite)))
   
   
   (method (setup-new-profile)
@@ -260,15 +265,21 @@
     (acquire-focus~ (locate 'profiles)))
   
   
-  (definition (collect-profile-info)
+  (method (collect-profile-info)
     (define (collect-existing-profiles)
       (let ((jazz-repository (find-repository 'Jazz)))
-        (map cdr (sort nu<? (gather-profiles) key: (lambda (info)
-                                                     (bind (package . profile) info
-                                                       (cons (if (eq? (package-repository package) jazz-repository)
-                                                                 2
-                                                               1)
-                                                             (downcase (profile-title profile)))))))))
+        (map cdr (sort nu<? (collect-profiles) key: (lambda (info)
+                                                      (bind (package . profile) info
+                                                        (cons (if (eq? (package-repository package) jazz-repository)
+                                                                  2
+                                                                1)
+                                                              (downcase (profile-title profile)))))))))
+    
+    (define (collect-profiles)
+      (collect-if (lambda (info)
+                    (bind (package . profile) info
+                      (eq? (profile-application profile) application)))
+                  (gather-profiles)))
     
     (let ((profiles (collect-existing-profiles))
           (default-profile (string-parameter "default-profile" 'profile #f)))
@@ -276,11 +287,12 @@
         (values profiles rank))))
   
   
-  (definition (some-user-profile?)
+  (method (some-user-profile?)
     (let ((jazz-repository (find-repository 'Jazz)))
       (some? (lambda (info)
                (bind (package . profile) info
-                 (neq? (package-repository package) jazz-repository)))
+                 (and (eq? (profile-application profile) application)
+                      (neq? (package-repository package) jazz-repository))))
              (gather-profiles))))
   
 

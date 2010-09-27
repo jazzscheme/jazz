@@ -38,5 +38,4 @@
 (unit jedi.install
 
 
-(jazz.register-service 'workbench 'jedi.services)
-(jazz.register-service 'choose-login 'jedi.services))
+(jazz.register-service 'workbench 'jedi.services))

@@ -461,11 +461,13 @@
       (receive (name unit bindings always-use?) (choose-profile-login)
         (set! profile-bindings bindings)
         (when settings
-          (set-setting~ settings 'profile (if always-use? name #f))
-          (save-content~ settings)
-          (when always-use?
-            (message-box (format "Jedi will now always start using profile {a}. To select another profile, keep the shift key pressed when starting Jedi or delete the 'profile' entry from your HOME/.jedi/.settings file."
-                                 name))))
+          (set-setting~ settings 'profile (if always-use? (->string name) #f))
+          (when (and always-use? (not (get-setting~ settings 'profile-warned? #f)))
+            (message-box (format "{a} will now always start using profile {a}. Note that you can always get this dialog back by keeping the shift key pressed when launching."
+                                 (process-name)
+                                 name))
+            (set-setting~ settings 'profile-warned? #t))
+          (save-content~ settings))
         (values name unit)))
     
     (define (standard-profile title)

@@ -760,10 +760,10 @@
 (define (jazz.profile-title profile)
   (%%symbol->string (jazz.profile-name profile)))
 
-(define (jazz.profile-application profile)
-  (let ((pair (%%assq 'application (%%cdr profile))))
+(define (jazz.profile-appl profile)
+  (let ((pair (%%assq 'appl (%%cdr profile))))
     (if (%%not pair)
-        (jazz.error "Unable to find application in profile: {s}" profile)
+        (jazz.error "Unable to find appl in profile: {s}" profile)
       (%%cadr pair))))
 
 (define (jazz.profile-unit profile)

@@ -1165,6 +1165,14 @@
         (get-guest~ host))))
   
   
+  (method public (find-menu name)
+    (let ((menubar (find-menubar)))
+      (when menubar
+        (let ((menuitem (find-component~ menubar name)))
+          (when menuitem
+            (get-content~ menuitem))))))
+  
+  
   (method public (update-menubar-buttons)
     (let ((menubar (find-menubar)))
       (when menubar
@@ -1232,6 +1240,9 @@
     (case name
       ((:application) self)
       ((:toplevel)    (get-toplevel))
+      ((:menubar)     (find-menubar))
+      ((:toolbar)     (find-toolbar))
+      ((:status-bar)  (find-status-bar))
       ((:stage)       (current-stage))
       ((:frame)       (current-frame))
       ((:document)    (current-document))
@@ -1240,7 +1251,8 @@
       ((:focus-guest) (focused-guest))
       ((:profile)     (get-profile))
       ((:images)      (get-images-portfolio))
-      (else           (nextmethod name))))
+      (else (cond ((and (pair? name) (eq? (car name) :menu)) (find-menu (cadr name)))
+                  (else (nextmethod name))))))
   
   
   ;;;
@@ -1325,30 +1337,29 @@
   
   (method (setup-workspaces)
     (let ((preferences (get-workspaces-preferences)))
-      (if (null? (get-children~ preferences))
-          (error "No workspaces found in Preferences.jml")
-        (let ((menubar (find-menubar)))
-          (when menubar
-            (let ((menuitem (find-component~ menubar 'workspace)))
-              (when menuitem
-                (let ((menu (get-content~ menuitem))
-                      (actions (find-actions 'application))
-                      (toolbar (find-toolbar))
-                      (active (get-active~ preferences)))
-                  (for-each (lambda (workspace)
-                              (let ((name (get-name~ workspace))
-                                    (title (get-title~ workspace))
-                                    (icon (get-icon~ workspace)))
-                                (let ((action-name (string->symbol (format "select-{a}-workspace" name)))
-                                      (event-handler (new Event-Handler target-name: :application method-name: 'on-select-workspace properties: (list workspace: name)))
-                                      (selected? (eq? name active)))
-                                  (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
-                                  (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'layout-separator group: 'workspace selected?: selected? action-handler: (new Action 'application action-name '()))
-                                  (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace background: (if (eq? name 'debugger) #f {Color name: Medium}) resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
-                                  (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator))))
-                            (get-children~ preferences))
-                  (layout-menu~ menu)
-                  (layout~ toolbar)))))))))
+      (case (length (get-children~ preferences))
+        ((0) (error "No workspaces found in Preferences.jml"))
+        ((1))
+        (else
+         (let ((menu (find-menu 'workspace)))
+           (when menu
+             (let ((actions (find-actions 'application))
+                   (toolbar (find-toolbar))
+                   (active (get-active~ preferences)))
+               (for-each (lambda (workspace)
+                           (let ((name (get-name~ workspace))
+                                 (title (get-title~ workspace))
+                                 (icon (get-icon~ workspace)))
+                             (let ((action-name (string->symbol (format "select-{a}-workspace" name)))
+                                   (event-handler (new Event-Handler target-name: :application method-name: 'on-select-workspace properties: (list workspace: name)))
+                                   (selected? (eq? name active)))
+                               (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
+                               (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'layout-separator group: 'workspace selected?: selected? action-handler: (new Action 'application action-name '()))
+                               (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace background: (if (eq? name 'debugger) #f {Color name: Medium}) resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
+                               (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator))))
+                         (get-children~ preferences))
+               (layout-menu~ menu)
+               (layout~ toolbar))))))))
   
   
   (method (select-default-workspace)
@@ -1388,15 +1399,12 @@
   
   
   (method public undocumented (activate-workspace-item workspace)
-    (let ((menubar (find-menubar)))
-      (when menubar
-        (let ((item (find-component~ menubar 'workspace)))
-          (when item
-            (let ((menu (get-content~ item)))
-              (let ((radio (find-component~ menu (get-name~ workspace))))
-                (if (not radio)
-                    (unselect-elements~ menu class: Radio-Item group: 'workspace)
-                  (set-selected?~ radio #t)))))))))
+    (let ((menu (find-menu 'workspace)))
+      (when menu
+        (let ((radio (find-component~ menu (get-name~ workspace))))
+          (if (not radio)
+              (unselect-elements~ menu class: Radio-Item group: 'workspace)
+            (set-selected?~ radio #t))))))
   
   
   (method public undocumented (activate-workspace-button workspace)

@@ -1354,7 +1354,9 @@
            (jazz.sourcified-form code))))))
   (else
    (define (jazz.emit-type-cast code type source-declaration environment)
-     (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
+     (if (or (%%not type) 
+             (%%eq? type jazz.Void)
+             (%%subtype? (%%get-code-type code) type))
          (jazz.sourcified-form code)
        (let ((value (jazz.generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type

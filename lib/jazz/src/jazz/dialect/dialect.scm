@@ -838,6 +838,8 @@
 
 (jazz.define-method (jazz.emit-declaration (jazz.Method-Declaration declaration) environment)
   (let ((name (%%get-lexical-binding-name declaration))
+        (body-type (let ((type (%%get-lexical-binding-type declaration)))
+                     (if (%%is? type jazz.Function-Type) (%%get-function-type-result type) jazz.Any)))
         (propagation (%%get-method-declaration-propagation declaration))
         (abstraction (%%get-method-declaration-abstraction declaration))
         (signature (%%get-method-declaration-signature declaration))
@@ -858,7 +860,9 @@
                                                                                                ((virtual)         'jazz.add-virtual-method))))))
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
-          (let ((augmented-environment (%%cons frame environment)))
+          (let* ((augmented-environment (%%cons frame environment))
+                 (sourcified-body (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
+                                    (jazz.emit-type-cast body-code body-type declaration augmented-environment))))
             (jazz.sourcify-if
               (case method-call
                 ((jazz.add-method-node)
@@ -867,7 +871,7 @@
                       (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                         ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                         (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                          ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
+                          ,sourcified-body))
                       (define ,method-node-locator
                         (,method-call ,class-locator ',name ,method-locator))
                       ,@(jazz.declaration-result))))
@@ -879,7 +883,7 @@
                        `(define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                           ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                           (let ()
-                            ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))))
+                            ,sourcified-body)))
                     (define ,method-rank-locator
                       (,method-call ,class-locator ',name ,method-locator))
                     ,@(jazz.declaration-result)))
@@ -888,7 +892,7 @@
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                       ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                       (let ()
-                        ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
+                        ,sourcified-body))
                     (,method-call ,class-locator ',name ,method-locator)
                     ,@(jazz.declaration-result))))
               (%%get-declaration-source declaration))))))))
@@ -1493,9 +1497,10 @@
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
+            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
+                  (specifier-list (if specifier (%%list specifier) '())))
               (let ((value
-                     `(lambda ,parameters
+                     `(lambda ,parameters ,@specifier-list
                         ,@effective-body)))
                 (values name specifier access compatibility expansion value parameters)))))))))
 

@@ -1,0 +1,148 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; IDE Profile
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.application.IDE-Profile jazz
+
+
+(import (jazz.ide)
+        (jazz.profile)
+        (jazz.tie))
+
+
+(class IDE-Profile extends Profile
+
+  
+  ;;;
+  ;;;; SQL
+  ;;;
+  
+  
+  @wait
+  (method (format-sql value)
+    (cond ((string? value) (format "'{a}'" value))
+          (else (error "Unable to format SQL value: {s}" value))))
+  
+  
+  @wait
+  (method (output-tables tables (name: name #f) (select?: select? #t))
+    (let ((text (get-sql-console-text)))
+      (output-tables~ text tables name))
+    (when select?
+      (let ((appl (get-application)))
+        (select-workspace~ appl 'sql))))
+  
+  
+  @wait
+  (method (output-table table (name: name #f) (select?: select? #t))
+    (output-tables (list table) name: name select?: select?))
+  
+  
+  @wait
+  (method (log-tables tables)
+    (for-each log-table tables))
+  
+  
+  @wait
+  (method (log-table table)
+    (log-entry name: (get-name~ table) data: table))
+  
+  
+  ;;;
+  ;;;; Glue
+  ;;;
+  
+  
+  @wait
+  (method (glue n (kind 1))
+    (let* ((appl (get-application))
+           (stack (get-clipboard-stack~ appl))
+           (lst (cons (get-clipboard-text) (subseq stack 0 (- n 1))))
+           (glued (case kind
+                    ((1) (format "{l}" lst))
+                    ((2) (join lst ", ")))))
+      (set-clipboard-text glued)
+      (user-message "Clipboard set to {a}" glued)))
+
+
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  @wait
+  (method (get-source class-name)
+    (or (find-document class-name)
+        (find-file class-name)))
+
+
+  @wait
+  (method (find-document class-name)
+    (unless (get-manifest-source class-name)
+      (let ((target (->string class-name)))
+        (continuation-capture
+          (lambda (return)
+            (for-each (lambda (frame)
+                        (when (is? frame Frame-Host)
+                          (let ((guest (get-guest~ frame)))
+                            (when (is? guest Document)
+                              (let ((moniker (get-moniker~ (get-controller~ guest))))
+                                (when moniker
+                                  (let ((base (get-base~ moniker))
+                                        (ext (get-extension~ moniker)))
+                                    (when (and (= base target)
+                                               (ci=? ext "jazz"))
+                                      (continuation-return return moniker)))))))))
+                      (all-frames include-invisibles?: #t))
+            #f)))))
+  
+  
+  @wait
+  (method (find-file class-name)
+    (let ((name (tie "{class-name}.jazz")))
+      (continuation-capture
+        (lambda (return)
+          (for-each (lambda (dir)
+                      (let ((file (new-file~ dir name)))
+                        (when (exists?~ file)
+                          (continuation-return return file))))
+                    (source-directories))
+          #f))))
+  
+  
+  @wait
+  (method protected virtual (source-directories)
+    '())))

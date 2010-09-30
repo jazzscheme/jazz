@@ -1,0 +1,932 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Integrated Development Environment
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.application.IDE jazz
+
+
+(import (jazz.catalog)
+        (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.debugger.jazz)
+        (jazz.debugger.jazz.stub)
+        (jazz.designer)
+        (jazz.editor.jazz)
+        (jazz.groupware)
+        (jazz.ide)
+        (jazz.ide.login)
+        (jazz.io)
+        (jazz.jrm)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.network)
+        (jazz.platform)
+        (jazz.recorder)
+        (jazz.system)
+        (jazz.system.application)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jedi)
+        (jedi.builder.workbench))
+
+
+(class IDE extends Application
+
+
+  (slot local-debugger    initialize #f)
+  (slot snapshot-debugger initialize #f)
+  (slot cataloguer        initialize (new Cataloguer))
+  (slot catalog-context   initialize #f)
+  (slot catalog-file      initialize #f)
+  (slot search            initialize #f)
+  (slot recorder          initialize (new Macro-Recorder))
+  
+  
+  (method override (start-process)
+    (nextmethod)
+    (start-debuggers)
+    (set-catalog-context 'jazz))
+
+
+  (method override (prepare-workbench)
+    (nextmethod)
+    (setup-workbench))
+  
+  
+  (method override (workspace-installed)
+    (nextmethod)
+    (update-catalog-context))
+  
+  
+  (method override (finish-process)
+    (define (setup-caption-base)
+      (let ((toplevel-title (toplevel-title)))
+        (cond (toplevel-title (set-caption-base~ toplevel toplevel-title))
+              ((not (get-caption-base~ toplevel)) (set-caption-base~ toplevel "Application")))))
+    
+    (define (toplevel-title)
+      (if profile
+          (toplevel-title~ profile)
+        (get-toplevel-title~ (get-preferences #f))))
+    
+    (set-debugger-manager (new Debugger-Manager)) ;; hack!!!!!
+    (nextmethod)
+    (setup-caption-base)
+    (preload-catalogs))
+  
+  
+  (method protected virtual (preload-catalogs)
+    ;; doing this after the run loop is started ensures
+    ;; that the null? test on the load-stack is correct
+    (delay-event
+      (lambda ()
+        (load-catalogs~ (get-workbench)))))
+
+  
+  (method override (conclude-environment)
+    (nextmethod)
+    ;; toggle terminal is windows only at the moment
+    (let ((menu (find-menu 'debug)))
+      (when menu
+        (let ((label (find-component~ menu 'toggle-terminal)))
+          (when (and label (neq? kernel-platform 'windows))
+            (set-visible?~ label #f)
+            (layout-menu~ menu)))))
+    ;; do this at the last moment possible because any error beyond this point
+    ;; will be handled by the IDE itself which must thus be fully functional
+    (when (not (get-controller-debugger))
+      (attach-to-controller (get-local-register) #t)
+      (with-system-exception-debugger
+      (lambda ()
+        (ready-to-controller #f)
+        (current-input-port (console-input-port))
+        (current-output-port (console-output-port))))))
+
+
+  (method override (close-environment)
+    (unless (reloading-process?)
+      (detach-debugger-processes))
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-backward-history)
+    (get-backward-history~ history-manager))
+  
+  
+  (method public (get-forward-history)
+    (get-forward-history~ history-manager))
+
+
+  ;;;
+  ;;;; Recording
+  ;;;
+  
+  
+  (method override (get-recorder)
+    recorder)
+
+
+  ;;;
+  ;;;; Profile
+  ;;;
+  
+  
+  (method override (use-profile?)
+    #t)
+  
+  
+  (cond-expand
+    ;; quicky to test carbon as dialogs are not yet implemented
+    (carbon
+      (method (use-profile-logging?)
+        #f))
+    (else
+      (method override (use-profile-logging?)
+        #t)))
+  
+  
+  (method protected virtual (choose-profile-appl)
+    )
+  
+  
+  (method override (choose-profile-login)
+    (choose-login invite: (process-name) appl: (choose-profile-appl)))
+
+  
+  ;;;
+  ;;;; Frames
+  ;;;
+
+
+  (method override (default-frame-class)
+    Plain-Text-View)
+
+
+  (method override (known-extension-frame-class ext)
+    (cond ((member? ext '("txt" "text") test: ci=?) Plain-Text-View)
+          ((member? ext '("ftx") test: ci=?) Plain-Formatted-Text-View)
+          ((member? ext '("c" "cc" "cp" "cpp" "cxx" "h" "hpp" "rc" "i") test: ci=?) jazz.editor.c.C-Text-View)
+    @wait ((member? ext '("prop") test: ci=?) jazz.editor.prop.Prop-Text-View)
+    @wait ((member? ext '("java") test: ci=?) jazz.editor.java.Java-Text-View)
+    @wait ((member? ext '("cs") test: ci=?) jazz.editor.csharp.CSharp-Text-View)
+    @wait ((member? ext '("html" "htm")) jazz.editor.html.HTML-Text-View)
+    @wait ((member? ext '("xml")) Plain-Text-View @wait XML-Text-View)
+          ((member? ext '("sql")) jazz.editor.sql.SQL-Text-View)
+    @wait ((member? ext '("css")) jazz.editor.css.CSS-Text-View)
+    @wait ((member? ext '("properties")) jazz.editor.properties.Properties-Text-View)
+    @wait ((member? ext '("js")) jazz.editor.javascript.JavaScript-Text-View)
+    @wait ((member? ext '("lua")) jazz.editor.lua.Lua-Text-View)
+    @wait ((member? ext '("py")) jazz.editor.python.Python-Text-View)
+          ((member? ext '("tex")) jazz.editor.tex.Tex-Text-View)
+    @wait ((member? ext '("bmp" "wmf" "emf" "jpg" "jpeg" "png" "tif" "tiff") test: ci=?) jazz.ui.Image-View)
+          ((member? ext '("diff" "patch") test: ci=?) jazz.editor.diff.Diff-Text-View)
+    @wait ((member? ext '("tpl") test: ci=?) jazz.editor.java.Java-Text-View)
+          ((member? ext Scheme-Extensions test: ci=?) jazz.editor.scheme.Scheme-Text-View)
+          ((member? ext CommonLisp-Extensions test: ci=?) jazz.editor.commonlisp.CommonLisp-Text-View)
+          ((member? ext Jazz-Extensions test: ci=?) Jazz-Text-View)
+          ((member? ext '("jmf") test: ci=?) View-Editor)
+          (else (nextmethod ext))))
+  
+  
+  (method override (unknown-extension-frame-class)
+    Plain-Text-View)
+  
+  
+  ;;;
+  ;;;; Catalog
+  ;;;
+
+
+  (method override (get-cataloguer)
+    cataloguer)
+
+
+  (method override (get-catalog-context)
+    catalog-context)
+        
+  
+  (method public (update-catalog-context)
+    (set-catalog-context (get-catalog-context)))
+  
+  
+  (method public (set-catalog-context context)
+    (when context
+      (let ((title (case context ((jazz) "Jazz") ((c) "C")))
+            (icon (case context ((jazz) {Image-Resource "Script"}) ((c) {Image-Resource "Java"})))
+            (status (find-docked~ toplevel IDE-Status)))
+        (when status
+          (let ((mode (find-component~ status 'mode)))
+            (when mode
+              (set-icon~ mode icon)
+              (set-title~ mode title))))
+        (set! catalog-context context))))
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+
+
+  (method override (get-search-manager)
+    search)
+
+
+  (method public (get-history-manager)
+    history-manager)
+
+
+  ;;;
+  ;;;; Stage
+  ;;;
+
+
+  (method override (stage-class)
+    Wallpaper-Stage)
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (class-actions)
+    (cons (find-actions 'ide)
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Termination
+  ;;;
+  
+  
+  (method override (terminate-process)
+    (nextmethod)
+    (unregister-object~ (get-local-register) 'debugger error?: #f))
+
+
+  ;;;
+  ;;;; Environment
+  ;;;
+  
+  
+  (method override (save-environment)
+    (nextmethod)
+    (when cataloguer
+      (save-catalogs~ cataloguer)))
+  
+  
+  ;;;
+  ;;;; Exit
+  ;;;
+  
+
+  (method override (reload-process)
+    (message-box "An IDE cannot be reloaded yet."))
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+
+  
+  @convert-to-session
+  (method (load-session)
+    (let ((dir (get-current-directory~ (get-preferences '(application session)))))
+      (when dir
+        (set-current-directory dir))))
+  
+  
+  @convert-to-session
+  (method (reload-opened-windows)
+    @convert-to-session
+    (for-each (lambda (info)
+                (bind (class . properties) info
+                  (bind-keywords ((file #f) . others) properties
+                    (when (or (not file) (exists?~ file))
+                      (reload-component class properties)))))
+              (get-opened-windows~ (get-preferences '(application session)))))
+    
+  
+  (method override (reload-component class properties)
+    @to-convert
+    (case class
+      ((plain-text)          (apply new Plain-Text-Frame          properties))
+      ((c-text)              (apply new C-Text-Frame              properties))
+      ((java-text)           (apply new Java-Text-Frame           properties))
+      ((prop-text)           (apply new Prop-Text-Frame           properties))
+      ((html-text)           (apply new HTML-Text-Frame           properties))
+      ((java-palette)        (apply new Java-Text-Palette         properties))
+      ((image-frame)         (apply new Image-Frame               properties))
+      ((browser-frame)       (apply new Browser-Frame             properties))
+      ((catalogs-manager)    (apply new Catalogs-Manager          properties))
+      @to-convert
+      ((compare-directories) (apply new Compare-Directories-Frame properties))
+      @to-convert
+      ((compare-files)       (apply new Compare-Files-Frame       properties))
+      (else                (nextmethod class properties))))
+
+  
+  ;;;
+  ;;;; Workbench
+  ;;;
+  
+  
+  (definition Workbench-File
+    {File Profile "settings" "Workbench.jml"})
+  
+  
+  (method protected virtual (default-workbench)
+    (new Workbench))
+  
+  
+  (method public (setup-workbench)
+    (define (load-workbench)
+      (let ((file Workbench-File))
+        (if (and (is-alias? 'Profile) (exists?~ file))
+            (instantiate~ (read-from-file file))
+          (default-workbench))))
+    
+    (with-safe-execution "loading the workbench"
+      (lambda ()
+        (with-execution-context
+          (lambda ()
+            (set-workbench (load-workbench)))
+          title: "Load Workbench"))
+      continue-handler:
+      (lambda (err)
+        (set-workbench (default-workbench)))))
+  
+  
+  ;;;
+  ;;;; Log
+  ;;;
+  
+  
+  (method override (get-output-log)
+    (get-guest~ (singleton-docked Output-Log #f)))
+    
+  
+  ;;;
+  ;;;; Profiling
+  ;;;
+  
+  
+  (method public (get-profiling-results)
+    (get-guest~ (singleton-docked Profile-Results #f)))
+
+  
+  ;;;
+  ;;;; Register
+  ;;;
+  
+  
+  (method override (register-base-objects)
+    (nextmethod)
+    (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger)))
+
+  
+  ;;;
+  ;;;; Debuggers
+  ;;;
+    
+  
+  (method override (get-local-debugger)
+    local-debugger)
+    
+  
+  (method override (get-snapshot-debugger)
+    snapshot-debugger)
+
+  
+  (method (start-debuggers)
+    (when (not local-debugger)
+      (set! local-debugger (new Jazz-Debugger))
+      (start-debugger~ local-debugger)
+      (register-debugger local-debugger)
+      (set-current-debugger local-debugger))
+    (when (not snapshot-debugger)
+      (set! snapshot-debugger (new Snapshot-Debugger))
+      (start-debugger~ snapshot-debugger)
+      (register-debugger snapshot-debugger)))
+  
+  
+  (definition (detach-debugger-processes)
+    (for-each detach-processes~ (get-debuggers)))
+  
+  
+  ;;;
+  ;;;; Debuggee
+  ;;;
+  
+  
+  (method override (initial-console-context)
+    (let ((pref (get-preferences '(tools console) error?: #f)))
+      (if (not pref)
+          :process
+        (get-context~ pref))))
+
+
+  ;;;
+  ;;;; Alias
+  ;;;
+  
+  
+  (method override (process-alias name)
+    (case name
+      ((:debugger) (current-debugger))
+      ((:view-debugger) (current-view-debugger))
+      ((:recorder) recorder)
+      (else (nextmethod name))))
+  
+
+  ;;;
+  ;;;; Favorites
+  ;;;
+
+  
+  (method (on-open-favorite evt)
+    (define (find-favorite char)
+      (let ((pref (get-preferences 'favorites error?: #f)))
+        (when pref
+          (let ((favorites (get-children~ pref)))
+            (find-if (lambda (favorite)
+                       (eqv? (get-shortcut~ favorite) char))
+                     favorites)))))
+    
+    (let* ((char (get-property~ evt char:))
+           (favorite (find-favorite char)))
+      (if (not favorite)
+          (error "No favorite defined for {t}" char)
+        (let ((target (get-target~ favorite)))
+          (cond ((file? target)
+                 (edit-document target))
+                ((symbol? target)
+                 (edit-definitions target))
+                ((is? target Event-Handler)
+                 (invoke~ target self (apply new Event :launch self (get-properties~ target))))
+                ((is? target Action)
+                 (call-action target self '() event: evt))
+                (else
+                 (error "Unable to open favorite target: {s}" target)))))))
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+
+  
+  (method override (edit-definitions object (class: class #f) (context: context catalog-context) (workspace: workspace #f) (history-item: history-item #f))
+    ;; todo: show only entries belonging to class
+    (define (filter-entries entries class)
+      entries)
+    
+    (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object context: context) class)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit~ (car definitions) workspace: workspace))
+          (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
+
+  
+  (method override (edit-references object (constituent-test: constituent-test #f) (context: context catalog-context) (history-item: history-item #f))
+    (let ((definitions (get-references~ (get-cataloguer) object context: context)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit-reference~ (car definitions) (list (make-search-context (->string object) whole-words?: #t constituent-test: constituent-test))))
+          (else (edit-references~ (get-guest~ (get-search-manager)) object definitions constituent-test context))))))
+
+
+  ;;;
+  ;;;; Documentation
+  ;;;
+  
+  
+  (method public (get-documentation symbol)
+    (when symbol
+      (let ((cataloguer (get-documentation-cataloguer)))
+        (when cataloguer
+          (get-definition~ cataloguer symbol)))))
+  
+  
+  (method public (edit-documentation symbol)
+    (let ((doc (get-documentation symbol)))
+      (if (not doc)
+          (bell)
+        (let* ((form (get-form~ doc))
+               (moniker (get-origin~ (get-toplevel~ form)))
+               (frame (edit-document moniker visible?: #f))
+               (text (get-guest~ frame))
+               (location (append (get-location~ form) (list 0)))
+               (range (location-range~ text location)))
+          (set-selection~ text range)
+          (focus-host~ frame)))))
+
+
+  @old-doc-editor
+  (method public (edit-documentation location object text text-location)
+    (let* ((class Doc-Editor)
+           (editor (find-frame-guest class))
+           (info (list location object text text-location)))
+      (if (not editor)
+          (new-frame class client: (get-documentation-catalog) entry: info)
+        (set-entry~ editor info)
+        (bring-to-front~ (get-host~ editor)))))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+
+  (method package (on-open-text evt)
+    (receive (files char-encoding) (choose-file multiple-selection?: #t text?: #t)
+      (for-each (lambda (file)
+                  (edit-document file class: Jazz-Plain-Text-View char-encoding: char-encoding))
+                (sort string>? files key: get-name~))))
+
+
+  (method package (on-open-jazz-text evt)
+    (receive (files char-encoding) (choose-file title: "Choose Jazz Text File" multiple-selection?: #t text?: #t)
+      (for-each (lambda (file)
+                  (edit-document file class: Jazz-Text-View char-encoding: char-encoding))
+                (sort string>? files key: get-name~))))
+  
+  
+  (method package (on-terminal-repl evt)
+    (terminal-repl))
+  
+  
+  (method package (on-toggle-terminal evt)
+    (toggle-terminal))
+  
+  
+  (method package (on-clear-terminal evt)
+    (clear-terminal))
+
+
+  (method package virtual (on-test evt)
+    (test~ (get-profile)))
+
+
+  (method package virtual (on-test-shift evt)
+    (test-shift~ (get-profile)))
+
+
+  (method (on-test-no evt)
+    (let ((profile (get-profile)))
+      (case (get-property~ evt no:)
+        ((0) (test0~ profile))
+        ((1) (test1~ profile))
+        ((2) (test2~ profile))
+        ((3) (test3~ profile))
+        ((4) (test4~ profile))
+        ((5) (test5~ profile))
+        ((6) (test6~ profile))
+        ((7) (test7~ profile))
+        ((8) (test8~ profile))
+        ((9) (test9~ profile)))))
+  
+  
+  (method package (on-focus-next-process evt)
+    (let ((focused (get-focused-process~ (get-debugger-manager)))
+          (processes (collect-processes)))
+      (define (next-process rank)
+        (if (not rank)
+            (first processes)
+          (let ((next-rank (modulo (+ rank 1) (length processes))))
+            (element processes next-rank))))
+      
+      (unless (null? processes)
+        (focus-process~ (get-debugger-manager) (next-process (find processes focused test: debugged=?))))))
+  
+  
+  (method package (on-focus-previous-process evt)
+    (let ((focused (get-focused-process~ (get-debugger-manager)))
+          (processes (collect-processes)))
+      (define (previous-process rank)
+        (if (not rank)
+            (last processes)
+          (let ((previous-rank (modulo (- rank 1) (length processes))))
+            (element processes previous-rank))))
+      
+      (unless (null? processes)
+        (focus-process~ (get-debugger-manager) (previous-process (find processes focused test: debugged=?))))))
+
+
+  (method package (on-reload-process evt)
+    (let ((debugged (get-focused-process~ (get-debugger-manager))))
+      (if (not debugged)
+          (bell)
+        (reload-process~ debugged))))
+  
+
+  (method package (on-debug-views evt)
+    (debug-views~ (current-view-debugger)))
+  
+  
+  (method package (on-explore-views evt)
+    (explore-views~ (current-view-debugger)))
+  
+  
+  (method package (on-processes evt)
+    (select-docked Processes-View workspace: 'debugger focus?: #t))
+  
+  
+  (method package (on-threads evt)
+    (select-docked Threads-View workspace: 'debugger focus?: #t))
+  
+  
+  (method package (on-frames evt)
+    (select-docked Frames-View workspace: 'debugger focus?: #t))
+  
+  
+  (method package (on-restarts evt)
+    (select-docked Restarts-View workspace: 'debugger focus?: #t))
+  
+  
+  (method package (on-exception evt)
+    (select-docked Exception-View workspace: 'debugger focus?: #t))
+  
+  
+  (method package (on-variables evt)
+    (select-docked Variables-View workspace: 'debugger focus?: #t))
+  
+  
+  (method (on-resources-monitor evt)
+    (show-palette Resources-Monitor))
+
+
+  (method package (on-logs-viewer evt)
+    (show-palette Logs-Viewer))
+  
+  
+  (method (on-class-browser evt)
+    (let* ((focus (get-focus))
+           (text (if (is? focus Text-View) (get-selected-string~ focus) #f)))
+      (show-palette Class-Browser initialize: (lambda (palette view)
+                                                (when text
+                                                  (set-text~ view text))))))
+  
+  
+  (method (on-references-analyser evt)
+    (let* ((focus (get-focus))
+           (text (if (is? focus Text-View) (get-selected-string~ focus) #f)))
+      (show-palette References-Analyser initialize: (lambda (palette view)
+                                                      (when text
+                                                        (set-text~ view text))))))
+
+  
+  (method package (on-edit-clipboard evt)
+    (let ((clipboard (get-clipboard-text)))
+      (if (string? clipboard)
+          (edit-definitions clipboard)
+        (bell))))
+  
+  
+  (method public (get-workbench-manager)
+    (get-guest~ (singleton-docked Workbench-Manager #f)))
+  
+  
+  (method package (on-select-project evt)
+    (select-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-edit-project evt)
+    (edit-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-compile-file evt)
+    (compile-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-preprocess-file evt)
+    (preprocess-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-build-project evt)
+    (build-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-clean-project evt)
+    (clean-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-view-project-log evt)
+    (view-log~ (get-workbench-manager)))
+  
+  
+  (method package (on-test-project evt)
+    (test-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-run-project evt)
+    (run-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-debug-project evt)
+    (debug-current~ (get-workbench-manager)))
+  
+  
+  (method package (on-debug-project-with evt)
+    (debug-current~ (get-workbench-manager) executable: :choose))
+  
+  
+  (method package (on-distribute-project evt)
+    (distribute-current~ (get-workbench-manager)))
+  
+  
+  (method (on-toolbox evt)
+    (select-docked Toolbox-Manager workspace: 'designer focus?: #t))
+  
+  
+  (method (on-traits evt)
+    (select-docked Traits-Editor workspace: 'designer focus?: #t))
+  
+  
+  (method (on-descendants evt)
+    (select-docked Descendants-Editor workspace: 'designer focus?: #t))
+
+
+  ;;;
+  ;;;; Tools-Menu
+  ;;;
+  
+  
+  (method package (on-properties evt)
+    (select-docked Properties-Manager focus?: #t))
+
+  
+  (method package (on-search-results evt)
+    (select-docked Search-Results focus?: #t))
+
+  
+  (method package (on-profile-results evt)
+    (select-docked Profile-Results focus?: #t))
+  
+  
+  (method package (on-servers evt)
+    (select-docked Servers-Manager focus?: #t))
+
+  
+  (method package (on-output-log evt)
+    (select-docked Output-Log focus?: #t))
+
+  
+  (method package (on-user-log evt)
+    (let ((user-log (select-docked User-Log focus?: #t)))
+      (refresh~ user-log)))
+
+  
+  (method package (on-activities evt)
+    (select-docked Activities-Manager focus?: #t))
+
+  
+  (method package (on-workbench evt)
+    (select-docked Workbench-Manager focus?: #t))
+
+  
+  (method package (on-repositories evt)
+    (select-docked Repositories-Manager focus?: #t))
+  
+  
+  (method package (on-favorites evt)
+    (select-docked Favorites-Manager focus?: #t))
+
+  
+  (method package (on-chapters evt)
+    (select-docked Chapters-Browser workspace: 'text focus?: #t))
+
+  
+  (method package (on-hierarchy evt)
+    (select-docked Hierarchy-Browser workspace: 'text focus?: #t))
+  
+  
+  (method package (on-bindings-manager evt)
+    (let ((frame (find-frame-host Bindings-Manager)))
+      (if frame
+          (focus-host~ frame)
+        (new-frame Bindings-Manager))))
+  
+  
+  (method package (on-view-bindings evt)
+    (get-modal Shortcut-Viewer))
+  
+  
+  (method package (on-preferences evt)
+    (new-frame Preferences-Manager))
+
+
+  (method package (on-toggle-catalog-context evt)
+    @convert/wait
+    (case catalog-context
+      ((jazz) (set-catalog-context 'c))
+      ((c) (set-catalog-context 'jazz))))
+  
+  
+  (method package (on-save-profile evt)
+    (with-cursor :wait
+      (lambda ()
+        (user-message "Saving profile...")
+        (call-save-environment-listeners)
+        (call-exit-listeners)
+        (persist-preferences)
+        (user-message "Done"))))
+  
+  
+  (method package (on-exit-without-save evt)
+    (when (eq? (message-box "Are you sure you want to exit without saving?" type: 'question) 'yes)
+      (exit)))
+  
+  
+  (method package (on-compare-directories evt)
+    (if (get-shift?~ evt)
+        (let ((default (get-active-configuration~ (get-preferences '(tools compare-directories)))))
+          (if (not default)
+              (new-frame Compare-Directories)
+            (let ((frame (new-frame Compare-Directories host-visible?: #f)))
+              (with-cursor :wait
+                (lambda ()
+                  (configure~ (get-guest~ frame) default)
+                  (compare-trees~ (get-guest~ frame))
+                  (focus-host~ frame))))))
+      (new-frame Compare-Directories)))
+  
+  
+  (method package (on-compare-files evt)
+    (new-frame Compare-Files))
+
+  
+  (method package (on-compare-databases evt)
+    @convert/wait
+    (new-frame Compare-Databases))
+  
+
+  ;;;
+  ;;;; Catalogs
+  ;;;
+  
+  
+  (method (on-update-catalogs evt)
+    (let ((main (get-main~ (get-preferences 'catalogs))))
+      (if (not main)
+          (message-box "No main catalogs defined in your Catalogs preferences")
+        (with-cursor :wait
+          (lambda ()
+            (if (eq? main #t)
+                (for-each (lambda (catalog)
+                            (update~ catalog))
+                          (get-catalogs~ cataloguer))
+              (for-each (lambda (name)
+                          (update~ (get-catalog~ cataloguer name)))
+                        (listify main))))))))
+
+  
+  (method (on-catalogs-manager evt)
+    (let ((frame (find-frame-host Catalogs-Manager)))
+      (if frame
+          (focus-host~ frame)
+        (new-frame Catalogs-Manager))))))

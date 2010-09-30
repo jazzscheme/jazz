@@ -515,7 +515,7 @@
 (native jazz.kernel-install)
 (native jazz.kernel-source)
 (native jazz.kernel-version)
-(native jazz.get-source-version-number)
+(native jazz.get-jazz-version-number)
 (native jazz.platform-eol-encoding)
 (native jazz.load-debuggee-units)
 (native jazz.jazz-product)

@@ -102,31 +102,31 @@
 ;;;
 
 
-(define jazz.source-versions-file
+(define jazz.jazz-versions-file
   #f)
 
-(define jazz.source-versions
+(define jazz.jazz-versions
   #f)
 
-(define jazz.source-version-number
+(define jazz.jazz-version-number
   #f)
 
-(define jazz.gambit-version
+(define jazz.jazz-gambit-version
   #f)
 
-(define jazz.gambit-stamp
+(define jazz.jazz-gambit-stamp
   #f)
 
 
-(define jazz.load-source-versions
+(define jazz.load-jazz-versions
   (let ((loaded? #f))
     (lambda ()
-      (define (determine-source-versions-file)
-        (or jazz.source-versions-file
+      (define (determine-jazz-versions-file)
+        (or jazz.jazz-versions-file
             (and jazz.kernel-source (string-append jazz.kernel-source "kernel/versions"))))
       
       (define (load-versions)
-        (let ((file (determine-source-versions-file)))
+        (let ((file (determine-jazz-versions-file)))
           (if (and file (file-exists? file))
               (call-with-input-file (list path: file eol-encoding: 'cr-lf)
                 (lambda (input)
@@ -135,57 +135,57 @@
                       (if (eof-object? list)
                           list
                         (apply jazz.new-version list))))
-                  (set! jazz.source-versions (read-all input read-version))
-                  (set! jazz.source-version-number (jazz.version-number (car jazz.source-versions))))))))
+                  (set! jazz.jazz-versions (read-all input read-version))
+                  (set! jazz.jazz-version-number (jazz.version-number (car jazz.jazz-versions))))))))
       
-      (define (setup-gambit-version/stamp)
-        (if jazz.source-versions
-            (let iter ((source-versions jazz.source-versions))
-              (if (not (null? source-versions))
-                  (let ((source-version (car source-versions)))
-                    (let ((gambit-version (jazz.version-gambit-version source-version))
-                          (gambit-stamp (jazz.version-gambit-stamp source-version)))
+      (define (setup-jazz-gambit-version/stamp)
+        (if jazz.jazz-versions
+            (let iter ((jazz-versions jazz.jazz-versions))
+              (if (not (null? jazz-versions))
+                  (let ((jazz-version (car jazz-versions)))
+                    (let ((gambit-version (jazz.version-gambit-version jazz-version))
+                          (gambit-stamp (jazz.version-gambit-stamp jazz-version)))
                       (if gambit-version
                           (begin
-                            (set! jazz.gambit-version gambit-version)
-                            (set! jazz.gambit-stamp gambit-stamp))
-                        (iter (cdr source-versions)))))))))
+                            (set! jazz.jazz-gambit-version gambit-version)
+                            (set! jazz.jazz-gambit-stamp gambit-stamp))
+                        (iter (cdr jazz-versions)))))))))
       
       (if (not loaded?)
           (begin
             (load-versions)
-            (setup-gambit-version/stamp)
+            (setup-jazz-gambit-version/stamp)
             (set! loaded? #t))))))
 
 
-(define (jazz.get-source-versions)
-  (jazz.load-source-versions)
-  jazz.source-versions)
+(define (jazz.get-jazz-versions)
+  (jazz.load-jazz-versions)
+  jazz.jazz-versions)
 
 
-(define (jazz.get-source-version-number)
-  (jazz.load-source-versions)
-  jazz.source-version-number)
+(define (jazz.get-jazz-version-number)
+  (jazz.load-jazz-versions)
+  jazz.jazz-version-number)
 
 
-(define (jazz.get-gambit-version)
-  (jazz.load-source-versions)
-  jazz.gambit-version)
+(define (jazz.get-jazz-gambit-version)
+  (jazz.load-jazz-versions)
+  jazz.jazz-gambit-version)
 
 
-(define (jazz.get-gambit-stamp)
-  (jazz.load-source-versions)
-  jazz.gambit-stamp)
+(define (jazz.get-jazz-gambit-stamp)
+  (jazz.load-jazz-versions)
+  jazz.jazz-gambit-stamp)
 
 
-(define (jazz.gambit-uptodate? system-version system-stamp)
-  (let ((gambit-version (jazz.get-gambit-version))
-        (gambit-stamp (jazz.get-gambit-stamp)))
-    (if gambit-version
-        (if (not gambit-stamp)
-            (>= system-version gambit-version)
-          (or (> system-version gambit-version)
-              (>= system-stamp gambit-stamp)))
+(define (jazz.gambit-uptodate? gambit-version gambit-stamp)
+  (let ((jazz-gambit-version (jazz.get-jazz-gambit-version))
+        (jazz-gambit-stamp (jazz.get-jazz-gambit-stamp)))
+    (if jazz-gambit-version
+        (if (not jazz-gambit-stamp)
+            (>= gambit-version jazz-gambit-version)
+          (or (> gambit-version jazz-gambit-version)
+              (>= gambit-stamp jazz-gambit-stamp)))
       #t)))
 
 

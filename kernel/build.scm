@@ -48,16 +48,15 @@
       (exit 1))
     
     (if (not (jazz.gambit-uptodate? (system-version) (system-stamp)))
-        (let ((gambit-version (jazz.get-gambit-version))
-              (gambit-stamp (jazz.get-gambit-stamp)))
-          (let ((stamp (if gambit-stamp (jazz.format " stamp {a}" gambit-stamp) "")))
+        (let ((jazz-gambit-version (jazz.get-jazz-gambit-version))
+              (jazz-gambit-stamp (jazz.get-jazz-gambit-stamp)))
+          (let ((stamp (if jazz-gambit-stamp (jazz.format " stamp {a}" jazz-gambit-stamp) "")))
             (wrong-version
               (jazz.format "JazzScheme needs Gambit version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
-                           gambit-version
-                           stamp
-                           gambit-stamp))))))
+                           jazz-gambit-version
+                           stamp))))))
   
-  (set! jazz.source-versions-file (string-append jazz.source "kernel/versions"))
+  (set! jazz.jazz-versions-file (string-append jazz.source "kernel/versions"))
   (validate-gambit-version))
 
 
@@ -1310,7 +1309,7 @@
             (display-continuation-backtrace cont console #t #t 0 1000)))))
   
   (let ((console (console-port)))
-    (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-source-version-number))) console)
+    (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-jazz-version-number))) console)
     (force-output console)
     (let loop ((newline? #t))
       (if newline?

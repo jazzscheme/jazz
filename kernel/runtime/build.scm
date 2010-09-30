@@ -46,18 +46,18 @@
 ;;;
 
 
-(define (jazz.for-each-source-version proc)
-  (for-each proc (jazz.get-source-versions)))
+(define (jazz.for-each-jazz-version proc)
+  (for-each proc (jazz.get-jazz-versions)))
 
 
-(define (jazz.for-each-higher-source-version version proc)
-  (let iter ((source-versions (jazz.get-source-versions)))
-    (if (%%not (%%null? source-versions))
-        (let ((source-version (%%car source-versions)))
-          (if (%%fx> (jazz.version-number source-version) version)
+(define (jazz.for-each-higher-jazz-version version proc)
+  (let iter ((jazz-versions (jazz.get-jazz-versions)))
+    (if (%%not (%%null? jazz-versions))
+        (let ((jazz-version (%%car jazz-versions)))
+          (if (%%fx> (jazz.version-number jazz-version) version)
               (begin
-                (proc source-version)
-                (iter (%%cdr source-versions))))))))
+                (proc jazz-version)
+                (iter (%%cdr jazz-versions))))))))
 
 
 (define (jazz.kernel/product-needs-rebuild? version-file)
@@ -66,9 +66,9 @@
         #t
       (or (%%not (jazz.gambit-uptodate? gambit-version gambit-stamp))
           (let ((rebuild? #f))
-            (jazz.for-each-higher-source-version version
-              (lambda (source-version)
-                (if (%%memq (jazz.version-rebuild source-version) '(kernel all))
+            (jazz.for-each-higher-jazz-version version
+              (lambda (jazz-version)
+                (if (%%memq (jazz.version-rebuild jazz-version) '(kernel all))
                     (set! rebuild? #t))))
             rebuild?)))))
 
@@ -79,10 +79,10 @@
         #t
       (or (%%not (jazz.gambit-uptodate? gambit-version gambit-stamp))
           (let ((rebuild-architecture? #f))
-            (jazz.for-each-higher-source-version version
-              (lambda (source-version)
-                (if (or (%%memq (jazz.version-rebuild source-version) '(kernel all))
-                        (jazz.version-recompile source-version))
+            (jazz.for-each-higher-jazz-version version
+              (lambda (jazz-version)
+                (if (or (%%memq (jazz.version-rebuild jazz-version) '(kernel all))
+                        (jazz.version-recompile jazz-version))
                     (set! rebuild-architecture? #t))))
             rebuild-architecture?)))))
 
@@ -102,10 +102,10 @@
   (let ((name (%%manifest-name manifest))
         (version (%%manifest-version manifest)))
     (let ((rebuild? #f))
-      (jazz.for-each-higher-source-version version
-        (lambda (source-version)
-          (let ((rebuild (jazz.version-rebuild source-version))
-                (recompile (jazz.version-recompile source-version)))
+      (jazz.for-each-higher-jazz-version version
+        (lambda (jazz-version)
+          (let ((rebuild (jazz.version-rebuild jazz-version))
+                (recompile (jazz.version-recompile jazz-version)))
             (if (or (%%eq? rebuild 'all)
                     (and recompile (%%memq name recompile)))
                 (set! rebuild? #t)))))
@@ -205,7 +205,7 @@
           (if (or was-touched? (%%not (file-exists? version-file)))
               (call-with-output-file (list path: version-file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                 (lambda (output)
-                  (write (jazz.get-source-version-number) output)
+                  (write (jazz.get-jazz-version-number) output)
                   (newline output)
                   (write (system-version) output)
                   (newline output)
@@ -881,7 +881,7 @@
   (newline output)
   (jazz.print-variable 'jazz.kernel-destination destination output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-version (jazz.get-source-version-number) output))
+  (jazz.print-variable 'jazz.kernel-version (jazz.get-jazz-version-number) output))
 
 
 (define (jazz.print-variable variable value output)

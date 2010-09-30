@@ -182,19 +182,19 @@
   
   
   (method public (process-changed new-process)
-    (unless (debugged=? process new-process)
-      (catch (Cancel-Signal exc
-               (set! process #f)
-               (when (get-processes-view)
-                 (update~ (get-processes-view))))
-        (set! process new-process)
-        (when (visit-debugged process)
-          (update-processes-highlight process))
-        (let ((view (get-threads-view)))
-          (when view
-            (process-changed~ view process)
-            (unless (selected-thread~ view)
-              (thread-changed #f)))))))
+    (let ((new-process (when (and new-process (get-alive?~ new-process)) new-process)))
+      (unless (debugged=? process new-process)
+        (catch (Cancel-Signal exc
+                 (when (get-processes-view)
+                   (update~ (get-processes-view))))
+          (set! process new-process)
+          (when (visit-debugged process)
+            (update-processes-highlight process))
+          (let ((view (get-threads-view)))
+            (when view
+              (process-changed~ view process)
+              (unless (selected-thread~ view)
+                (thread-changed #f))))))))
   
   
   (definition (update-processes-highlight process)

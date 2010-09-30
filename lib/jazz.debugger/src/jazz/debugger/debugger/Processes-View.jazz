@@ -201,6 +201,7 @@
                   (image (process-image process live? focused?))
                   (frame-color (get-stopped-frame-color~ manager process))
                   (background (get-visited-highlight-color~ manager process)))
+              (set-alive?~ process live?)
               (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
     
     (with-system-exception-debugger
@@ -285,8 +286,15 @@
   (method (new-context-menu object)
     (define (new-process-menu)
       (let ((menu (new Process-Menu client: self)))
-        (when (not (focusable?~ object))
-          (set-visible?~ (locate~ menu 'focus) #f))
+        (let ((alive? (get-alive?~ object))
+              (focusable? (focusable?~ object)))
+          (unless (and focusable? alive?)
+            (set-visible?~ (locate~ menu 'focus) #f))
+          (when (and focusable? alive?)
+            (set-title~ (locate~ menu 'exit) "Exit"))
+          @w
+          (unless alive?
+            (set-title~ (locate~ menu 'exit) "Close")))
         (cleanup-separators~ menu)
         (layout-menu~ menu)
         menu))
@@ -354,7 +362,7 @@
       (<Label-Item>     name: select title: "Select" icon: {Image-Resource "Select"} action-handler: {Event-Handler :form on-select})
       @wait
       (<Separator-Item>)
-      (<Label-Item>     name: exit   title: "Exit" action-handler: {Event-Handler :form on-exit})))
+      (<Label-Item>     name: exit   title: "Close" action-handler: {Event-Handler :form on-exit})))
   
   
   (method (on-focus evt)

@@ -54,6 +54,21 @@
         (jazz.ui.window))
 
 
+(definition public (with-jrm-exception-handler thunk)
+  (define (jrm-exception? exc)
+    (os-exception? exc))
+  
+  (define (process-jrm-exception exc)
+    (execute-event
+      (lambda ()
+        (message-box "jrm connection failed")
+        (throw-cancel))))
+  
+  (catch (jrm-exception? exc (process-jrm-exception exc))
+    (thunk)))
+  
+
+
 ;;;
 ;;;; Manager
 ;;;
@@ -252,7 +267,9 @@
         (lambda ()
           (start-pump port
                       (lambda (str)
-                        (console-input~ process-proxy thread-proxy str))))
+                        (with-jrm-exception-handler
+                          (lambda ()
+                            (console-input~ process-proxy thread-proxy str))))))
         'debugger-console-pump)))
   
   (let ((manager (get-console-manager)))

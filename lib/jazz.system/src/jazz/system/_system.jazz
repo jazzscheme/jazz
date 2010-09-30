@@ -246,27 +246,23 @@
 ;;;
 
 
-(definition public (find-preferences name)
-  (let ((root (get-preferences-root~ (get-process))))
-    (if (not root)
-        #f
-      (get-preferences-child root name error?: #f))))
-
-
 (definition public (get-preferences name (error?: error? #t))
-  (let ((root (get-preferences-root~ (get-process))))
-    (if (not root)
-        (when error?
-          (error "Could not find preferences"))
-      (get-preferences-child root name error?: error?))))
+  (let ((root (get-preferences-root)))
+    (cond ((not root)
+           (when error?
+             (error "Could not find preferences")))
+          ((not name)
+           root)
+          (else
+           (or (find-component~ root name)
+               (when error?
+                 (error "Could not find preferences: {t}" name)))))))
 
 
-(definition public (get-preferences-child preferences name (error?: error? #t))
-  (if (not name)
-      preferences
-    (or (find-component~ preferences name)
-        (when error?
-          (error "Could not find preferences: {t}" name)))))
+(definition public (get-preferences-root)
+  (let ((designer (get-preferences-designer~ (get-process))))
+    (when designer
+      (get-reference~ designer))))
 
 
 (definition public (set-preference preferences property value)

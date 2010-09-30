@@ -729,10 +729,11 @@
   
   (method override (save-environment)
     (define (save-application)
-      (when preferences-root
-        @convert/wait
-        (set-property~ preferences-designer preferences-root active-context: context trait: #f)
-        (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) trait: #f)))
+      (let ((process-preferences (get-preferences-root)))
+        (when process-preferences
+          @convert/wait
+          (set-preference process-preferences active-context: context)
+          (set-preference process-preferences current-directory: (get-current-directory)))))
     
     (define (save-all-guest)
       @wait
@@ -828,7 +829,7 @@
   (method public virtual (update-focus-actions)
     (let* ((focus (get-focus))
            (view? (and focus (is? focus View))))
-      (when preferences-root
+      (when preferences-designer
         (set-action-enabled? {Action view undo} (and view? (can-undo?~ focus)))
         (set-action-enabled? {Action view redo} (and view? (can-redo?~ focus)))
         (set-action-enabled? {Action view cut} (and view? (can-cut?~ focus)))
@@ -2234,7 +2235,7 @@
   
   (method override (context-update)
     (define (modify-catalogs)
-      (let ((pref (find-preferences 'catalogs)))
+      (let ((pref (get-preferences 'catalogs error?: #f)))
         (when pref
           (let ((cataloguer (get-cataloguer)))
             (for-each (lambda (config)
@@ -2247,7 +2248,7 @@
     (define (modify-profile)
       (when profile
         (close~ profile))
-      (let ((pref (find-preferences #f)))
+      (let ((pref (get-preferences #f error?: #f)))
         (when pref
           (let ((class (or (get-profile-class~ pref) Profile)))
             (when class

@@ -57,7 +57,6 @@
 
 
   (slot settings             initialize #f getter generate)
-  (slot preferences-root     initialize #f getter generate)
   (slot preferences-designer initialize #f getter generate)
   (slot context              initialize #f)
   (slot exit-continuation    initialize #f)
@@ -391,22 +390,22 @@
   
   
   (method (setup-preferences/designer)
-    (define (preferences-context)
-      (let ((arg (command-argument "context")))
-        (cond (arg (string->symbol arg))
-              (preferences-root (get-active-context~ preferences-root))
-              (else #f))))
-    
     (set-preferences/designer (load-preferences))
-    (set! context (preferences-context))
-    (install-context preferences-root)
-    (let ((directory (get-current-directory~ preferences-root)))
-      (when (and directory (exists?~ directory))
-        (set-current-directory directory))))
+    (let ((root (get-preferences-root)))
+      (define (preferences-context)
+        (let ((arg (command-argument "context")))
+          (cond (arg (string->symbol arg))
+                (root (get-active-context~ root))
+                (else #f))))
+      
+      (set! context (preferences-context))
+      (install-context root)
+      (let ((directory (get-current-directory~ root)))
+        (when (and directory (exists?~ directory))
+          (set-current-directory directory)))))
   
   
   (method (set-preferences/designer preferences)
-    (set! preferences-root preferences)
     (set! preferences-designer (new Designer form: (get-form~ preferences) reference: preferences)))
 
   

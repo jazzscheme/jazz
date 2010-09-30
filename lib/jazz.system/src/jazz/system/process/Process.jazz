@@ -57,7 +57,6 @@
 
 
   (slot settings             initialize #f getter generate)
-  (slot preferences-root     initialize #f getter generate)
   (slot preferences-designer initialize #f getter generate)
   (slot context              initialize #f)
   (slot exit-continuation    initialize #f)
@@ -118,12 +117,13 @@
       (initialize-settings)
       (register-versions)
       (prepare-phase)
-      (start-phase)
+      (install-phase)
       (finalize-phase)
       (finish-phase)
       (conclude-phase)
       (activate-process)
       (ready-debuggee)
+      (start-process)
       (when (run-loop?)
         ;; sanity check for a bug that can occur very easily and is extremely difficult to debug
         (when (and (eq? (current-thread) (get-load-thread)) (not-null? (get-load-stack)))
@@ -172,16 +172,16 @@
     (setup-crash-handler))
   
   
-  (method (start-phase)
-    (start-environment)
-    (start-process))
+  (method (install-phase)
+    (install-environment)
+    (install-process))
 
 
-  (method protected virtual (start-environment)
+  (method protected virtual (install-environment)
     )
   
   
-  (method public virtual (start-process)
+  (method public virtual (install-process)
     (initialize-platform))
   
   
@@ -230,6 +230,10 @@
     (when (get-controller-debugger)
       (select-console)
       (start-repl-thread (current-thread) #f (get-console-port))))
+  
+  
+  (method protected virtual (start-process)
+    )
   
   
   ;;;
@@ -391,22 +395,22 @@
   
   
   (method (setup-preferences/designer)
-    (define (preferences-context)
-      (let ((arg (command-argument "context")))
-        (cond (arg (string->symbol arg))
-              (preferences-root (get-active-context~ preferences-root))
-              (else #f))))
-    
     (set-preferences/designer (load-preferences))
-    (set! context (preferences-context))
-    (install-context preferences-root)
-    (let ((directory (get-current-directory~ preferences-root)))
-      (when (and directory (exists?~ directory))
-        (set-current-directory directory))))
+    (let ((root (get-preferences-root)))
+      (define (preferences-context)
+        (let ((arg (command-argument "context")))
+          (cond (arg (string->symbol arg))
+                (root (get-active-context~ root))
+                (else #f))))
+      
+      (set! context (preferences-context))
+      (install-context root)
+      (let ((directory (get-current-directory~ root)))
+        (when (and directory (exists?~ directory))
+          (set-current-directory directory)))))
   
   
   (method (set-preferences/designer preferences)
-    (set! preferences-root preferences)
     (set! preferences-designer (new Designer form: (get-form~ preferences) reference: preferences)))
 
   

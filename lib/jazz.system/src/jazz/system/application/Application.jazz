@@ -62,8 +62,8 @@
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
-        (jazz.ui.look)
         (jazz.ui.picker)
+        (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.ui.workspace)
@@ -92,6 +92,7 @@
   (slot guest-actions            initialize '()                       getter generate)
   (slot focus-actions            initialize '()                       getter generate)
   (slot bindings-designer        initialize #f                        getter generate)
+  (slot workspaces-designer      initialize #f                        getter generate)
   (slot shortcut-table           initialize #f)
   (slot shortcut-hook            initialize #f                        accessors generate)
   
@@ -125,19 +126,20 @@
     (nextmethod)
     (set-application self)
     (setup-shortcuts)
-    (let ((flat-look (new Flat-Look))
-          (windows-look (new Windows-Look)))
-      (set-looks (list flat-look windows-look))
-      (set-look flat-look))
+    (let ((flat-skin (new Flat-Skin))
+          (windows-skin (new Windows-Skin)))
+      (set-skins (list flat-skin windows-skin))
+      (set-skin flat-skin))
     (initialize-windowing get-setting)
     (initialize-system)
     (prepare-profile))
 
   
-  (method override (start-environment)
+  (method override (install-environment)
     (nextmethod)
-    (setup-bindings)
-    (setup-fonts)
+    (install-fonts)
+    (install-bindings)
+    (install-workspaces)
     (initialize-toplevel)
     (initialize-clipboard)
     (register-clipboard-formats))
@@ -527,6 +529,7 @@
     (confirm-all-close)
     (close-all-no-confirm)
     (save-bindings)
+    (save-workspaces)
     @wait
     (save-page-setup)
     (nextmethod))
@@ -729,10 +732,11 @@
   
   (method override (save-environment)
     (define (save-application)
-      (when preferences-root
-        @convert/wait
-        (set-property~ preferences-designer preferences-root active-context: context trait: #f)
-        (set-property~ preferences-designer preferences-root current-directory: (get-current-directory) trait: #f)))
+      (let ((process-preferences (get-preferences-root)))
+        (when process-preferences
+          @convert/wait
+          (set-preference process-preferences active-context: context)
+          (set-preference process-preferences current-directory: (get-current-directory)))))
     
     (define (save-all-guest)
       @wait
@@ -769,7 +773,7 @@
   ;;;
   
   
-  (method (setup-fonts)
+  (method (install-fonts)
     (define (preferences->font pref)
       (let ((name (get-name~ pref))
             (font-name (get-font-name~ pref))
@@ -828,7 +832,7 @@
   (method public virtual (update-focus-actions)
     (let* ((focus (get-focus))
            (view? (and focus (is? focus View))))
-      (when preferences-root
+      (when preferences-designer
         (set-action-enabled? {Action view undo} (and view? (can-undo?~ focus)))
         (set-action-enabled? {Action view redo} (and view? (can-redo?~ focus)))
         (set-action-enabled? {Action view cut} (and view? (can-cut?~ focus)))
@@ -1095,7 +1099,7 @@
     {File Profile "settings" "Bindings.jml"})
   
   
-  (method (setup-bindings)
+  (method (install-bindings)
     (define (set-bindings/designer bindings)
       (set-bindings bindings)
       (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings)))
@@ -1127,6 +1131,50 @@
   (method (save-bindings)
     (when (and bindings-designer (get-modified?~ bindings-designer) (file? (get-origin~ (get-form~ bindings-designer))))
       (save~ bindings-designer)))
+  
+  
+  ;;;
+  ;;;; Workspaces
+  ;;;
+  
+  
+  (definition Workspaces-File
+    {File Profile "settings" "Workspaces.jml"})
+  
+  
+  (method (install-workspaces)
+    (define (set-workspaces-designer workspaces)
+      (set! workspaces-designer (new Designer form: (get-form~ workspaces) reference: workspaces)))
+    
+    (with-safe-execution "loading the workspaces"
+      (lambda ()
+        (set-workspaces-designer (load-workspaces)))
+      continue-handler:
+      (lambda (err)
+        (set-workspaces-designer (default-workspaces)))))
+  
+  
+  (method protected virtual (load-workspaces)
+    (let ((file Workspaces-File))
+      (if (and (is-alias? 'Profile) (exists?~ file))
+          (instantiate~ (read-from-file file))
+        (default-workspaces))))
+  
+  
+  (method protected virtual (default-workspaces)
+    (instantiate~
+      (form>>
+        (<Workspaces-Preferences>                    active: home
+          (<Workspace-Preferences>     name: home    title: "Home" icon: {Image-Resource "WorkspaceHome"} shortcut: {Shortcut :shift :alt #\A}
+            (<Menubar-Preferences>     name: menubar location: root
+              (<Mainbar-Preferences>   name: toolbar location: second
+                (<Status-Preferences>  name: status  location: second
+                  (<Stage-Preferences> name: top     location: first maximized?: #f)))))))))
+  
+  
+  (method (save-workspaces)
+    (when (and workspaces-designer (get-modified?~ workspaces-designer) (file? (get-origin~ (get-form~ workspaces-designer))))
+      (save~ workspaces-designer)))
   
   
   ;;;
@@ -2234,7 +2282,7 @@
   
   (method override (context-update)
     (define (modify-catalogs)
-      (let ((pref (find-preferences 'catalogs)))
+      (let ((pref (get-preferences 'catalogs error?: #f)))
         (when pref
           (let ((cataloguer (get-cataloguer)))
             (for-each (lambda (config)
@@ -2247,7 +2295,7 @@
     (define (modify-profile)
       (when profile
         (close~ profile))
-      (let ((pref (find-preferences #f)))
+      (let ((pref (get-preferences #f error?: #f)))
         (when pref
           (let ((class (or (get-profile-class~ pref) Profile)))
             (when class

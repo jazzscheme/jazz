@@ -92,6 +92,7 @@
   (slot guest-actions            initialize '()                       getter generate)
   (slot focus-actions            initialize '()                       getter generate)
   (slot bindings-designer        initialize #f                        getter generate)
+  (slot skins-designer           initialize #f                        getter generate)
   (slot workspaces-designer      initialize #f                        getter generate)
   (slot shortcut-table           initialize #f)
   (slot shortcut-hook            initialize #f                        accessors generate)
@@ -139,6 +140,7 @@
     (nextmethod)
     (install-fonts)
     (install-bindings)
+    (install-skins)
     (install-workspaces)
     (initialize-toplevel)
     (initialize-clipboard)
@@ -1131,7 +1133,54 @@
   (method (save-bindings)
     (when (and bindings-designer (get-modified?~ bindings-designer) (file? (get-origin~ (get-form~ bindings-designer))))
       (save~ bindings-designer)))
+    
   
+  ;;;
+  ;;;; Skins
+  ;;;
+  
+  
+  (definition Skins-File
+    {File Profile "settings" "Skins.jml"})
+  
+  
+  (method (install-skins)
+    (define (set-skins/designer skins)
+      (set-skins skins)
+      (set! skins-designer (new Designer form: (get-form~ skins) reference: skins)))
+    
+    (with-safe-execution "loading the skins"
+      (lambda ()
+        (let ((skins (load-skins)))
+          (set-skins/designer skins)
+          (let ((active (or (get-active-skin~ (get-preferences #f)) 'flat)))
+            (let ((trait (locate-component~ skins active)))
+              (when (is? trait Trait)
+                (set-active-trait~ skins trait))))))
+      continue-handler:
+      (lambda (err)
+        (set-skins/designer (default-skins)))))
+  
+  
+  (method protected virtual (load-skins)
+    (let ((file Skins-File))
+      (if (and (is-alias? 'Profile) (exists?~ file))
+          (instantiate~ (read-from-file file))
+        (default-skins))))
+  
+  
+  (method protected virtual (default-skins)
+    (instantiate~
+      (form>>
+        (<Skins>
+          (<Flat-Skin>)
+          (<Windows-Skin>)))))
+  
+  
+  (method (save-skins)
+    (when (and skins-designer (get-modified?~ skins-designer) (file? (get-origin~ (get-form~ skins-designer))))
+      (save~ skins-designer)))
+
   
   ;;;
   ;;;; Workspaces

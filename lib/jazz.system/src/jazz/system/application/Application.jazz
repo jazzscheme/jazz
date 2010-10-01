@@ -127,20 +127,17 @@
     (nextmethod)
     (set-application self)
     (setup-shortcuts)
-    (let ((flat-skin (new Flat-Skin))
-          (windows-skin (new Windows-Skin)))
-      (set-skins (list flat-skin windows-skin))
-      (set-skin flat-skin))
     (initialize-windowing get-setting)
     (initialize-system)
+    (prepare-skins)
     (prepare-profile))
 
   
   (method override (install-environment)
     (nextmethod)
+    (install-skins)
     (install-fonts)
     (install-bindings)
-    (install-skins)
     (install-workspaces)
     (initialize-toplevel)
     (initialize-clipboard)
@@ -193,6 +190,7 @@
   (method override (conclude-environment)
     (nextmethod)
     (initialize-actions)
+    (skin-update)
     (show-toplevel)
     (when (run-loop?)
       (select-foreground~ toplevel))
@@ -1140,26 +1138,31 @@
   ;;;
   
   
+  (method (prepare-skins)
+    (let ((skins (default-skins)))
+      (set-skins (get-children~ skins))
+      (set-skin (child~ skins 'flat))))
+  
+  
   (definition Skins-File
     {File Profile "settings" "Skins.jml"})
   
   
   (method (install-skins)
     (define (set-skins/designer skins)
-      (set-skins skins)
+      (set-skins (get-children~ skins))
       (set! skins-designer (new Designer form: (get-form~ skins) reference: skins)))
     
     (with-safe-execution "loading the skins"
       (lambda ()
         (let ((skins (load-skins)))
           (set-skins/designer skins)
-          (let ((active (or (get-active-skin~ (get-preferences #f)) 'flat)))
-            (let ((trait (locate-component~ skins active)))
-              (when (is? trait Trait)
-                (set-active-trait~ skins trait))))))
+          (set-skin (child~ skins (or (get-active~ skins) 'flat)))))
       continue-handler:
       (lambda (err)
-        (set-skins/designer (default-skins)))))
+        (let ((skins (default-skins)))
+          (set-skins/designer skins)
+          (set-skin (child~ skins 'flat))))))
   
   
   (method protected virtual (load-skins)
@@ -1173,8 +1176,8 @@
     (instantiate~
       (form>>
         (<Skins>
-          (<Flat-Skin>)
-          (<Windows-Skin>)))))
+          (<Flat-Skin>    name: flat)
+          (<Windows-Skin> name: windows)))))
   
   
   (method (save-skins)

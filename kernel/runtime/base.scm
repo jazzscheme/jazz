@@ -36,12 +36,21 @@
 
 
 ;;;
+;;;; Source
+;;;
+
+
+(define jazz.jazz-source
+  jazz.source)
+
+
+;;;
 ;;;; Version
 ;;;
 
 
-(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile description)
-  (vector 'version number gambit-version gambit-stamp rebuild recompile description))
+(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile update description)
+  (vector 'version number gambit-version gambit-stamp rebuild recompile update description))
 
 (define (jazz.version-number version)
   (vector-ref version 1))
@@ -58,8 +67,11 @@
 (define (jazz.version-recompile version)
   (vector-ref version 5))
 
-(define (jazz.version-description version)
+(define (jazz.version-update version)
   (vector-ref version 6))
+
+(define (jazz.version-description version)
+  (vector-ref version 7))
 
 
 (define (jazz.new-version
@@ -69,6 +81,7 @@
           (gambit-stamp #f)
           (rebuild #f)
           (recompile #f)
+          (update #f)
           (description #f))
   (jazz.make-version
     version
@@ -76,6 +89,7 @@
     gambit-stamp
     rebuild
     recompile
+    update
     description))
 
 
@@ -123,7 +137,7 @@
     (lambda ()
       (define (determine-jazz-versions-file)
         (or jazz.jazz-versions-file
-            (and jazz.kernel-source (string-append jazz.kernel-source "kernel/versions"))))
+            (and jazz.jazz-source (string-append jazz.jazz-source "kernel/versions"))))
       
       (define (load-versions)
         (let ((file (determine-jazz-versions-file)))
@@ -187,6 +201,89 @@
           (or (> gambit-version jazz-gambit-version)
               (>= gambit-stamp jazz-gambit-stamp)))
       #t)))
+
+
+(define (jazz.for-each-lower-update target proc)
+  (let iter ((jazz-versions (jazz.get-jazz-versions)))
+    (if (not (null? jazz-versions))
+        (let ((jazz-version (car jazz-versions)))
+          (let ((update (jazz.version-update jazz-version)))
+            (if (and update (memq target update))
+                (proc jazz-version))
+            (iter (cdr jazz-versions)))))))
+
+
+(define (jazz.versioned-directory root target converter)
+  (define (determine-version)
+    (let ((uptodate? #t))
+      (continuation-capture
+        (lambda (return)
+          (jazz.for-each-lower-update target
+            (lambda (version)
+              (let ((version-number (jazz.version-number version)))
+                (let ((version-dir (version-directory version-number)))
+                  (if (file-exists? version-dir)
+                      (continuation-return return (values uptodate? version-number))
+                    (set! uptodate? #f))))))
+          (values uptodate? #f)))))
+  
+  (define (version-directory version-number)
+    (if (not version-number)
+        root
+      (string-append root (jazz.present-version version-number) "/")))
+  
+  (receive (uptodate? current-version-number) (determine-version)
+    (if uptodate?
+        (version-directory current-version-number)
+      (let ((current-dir (version-directory current-version-number))
+            (convertion-dir (string-append root "convertion/")))
+        (if (file-exists? convertion-dir)
+            (begin
+              (jazz.feedback "; deleting {a}..." convertion-dir)
+              (jazz.delete-directory convertion-dir)
+              ;; workaround to yet another windows bug
+              (thread-sleep! .1)))
+        (jazz.feedback "; converting {a}..." target)
+        (jazz.copy-directory current-dir convertion-dir feedback: (lambda (src level) (if (<= level 1) (jazz.feedback "; copying {a}..." src))))
+        (let iter ((working-version-number current-version-number))
+             (let ((converted-version-number (converter convertion-dir working-version-number)))
+               (if converted-version-number
+                   (iter converted-version-number)
+                 (let ((dir (version-directory working-version-number)))
+                   (jazz.feedback "; {a} converted to version {a}" target (jazz.present-version working-version-number))
+                   (rename-file convertion-dir dir)
+                   dir))))))))
+
+
+;;;
+;;;; Settings
+;;;
+
+
+(define jazz.settings-directory
+  #f)
+
+
+(define (jazz.setup-settings)
+  (set! jazz.settings-directory (jazz.versioned-directory "~/.jazz/" 'settings jazz.convert-settings))
+  (set! jazz.named-configurations-file (string-append jazz.settings-directory ".configurations")))
+
+
+(define (jazz.convert-settings dir old)
+  (define (convert-initial)
+    204010)
+  
+  (define (convert-204010)
+    204012)
+  
+  (define (convert-204012)
+    204015)
+  
+  (case old
+    ((#f) (convert-initial))
+    ((204010) (convert-204010))
+    ((204012) (convert-204012))
+    (else #f)))
 
 
 ;;;
@@ -441,6 +538,65 @@
   (jazz.collect-if (lambda (name)
                      (eq? (jazz.pathname-type (string-append directory name)) 'directory))
                    (jazz.directory-content directory)))
+
+
+(define (jazz.delete-directory directory #!optional (level 0) (delete-file? #f) (delete-directory? #f) (feedback #f))
+  (if (jazz.empty-directory directory level delete-file? delete-directory? feedback)
+      (begin
+        (if feedback
+            (feedback directory level))
+        (delete-directory directory)
+        #t)
+    #f))
+
+
+(define (jazz.empty-directory directory #!optional (level 0) (delete-file? #f) (delete-directory? #f) (feedback #f))
+  (define (default-delete-file? file level)
+    #t)
+  
+  (define (default-delete-directory? dir level)
+    (jazz.empty-directory dir level delete-file? delete-directory? feedback))
+  
+  (let ((empty? #t))
+    (for-each (lambda (name)
+                (let ((file (string-append directory name)))
+                  (if ((or delete-file? default-delete-file?) file level)
+                      (begin
+                        (if feedback
+                            (feedback file level))
+                        (delete-file file))
+                    (set! empty? #f))))
+              (jazz.directory-files directory))
+    (for-each (lambda (name)
+                (let ((dir (string-append directory name "/")))
+                  (if ((or delete-directory? default-delete-directory?) dir (+ level 1))
+                      (begin
+                        (if feedback
+                            (feedback dir level))
+                        (delete-directory dir))
+                    (set! empty? #f))))
+              (jazz.directory-directories directory))
+    empty?))
+
+
+(define (jazz.copy-directory src dst #!key (copy? #t) (feedback #f))
+  (define (copy src dst level)
+    (if feedback
+        (feedback src level))
+    (let ((src-content (jazz.directory-content src)))
+      (jazz.create-directories dst)
+      (for-each (lambda (name)
+                  (let ((sub-src (string-append src name))
+                        (sub-dst (string-append dst name)))
+                    (if (or (eq? copy? #t) (copy? name level))
+                        (case (jazz.pathname-type sub-src)
+                          ((regular)
+                           (copy-file sub-src sub-dst))
+                          ((directory)
+                           (copy (string-append sub-src "/") (string-append sub-dst "/") (+ level 1)))))))
+                src-content)))
+  
+  (copy src dst 0))
 
 
 (define (jazz.platform-eol-encoding platform)

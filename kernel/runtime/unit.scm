@@ -270,6 +270,9 @@
     #f))
 
 
+(set! jazz.jazz-source jazz.kernel-source)
+
+
 (define (jazz.jazz-product)
   jazz.product)
 

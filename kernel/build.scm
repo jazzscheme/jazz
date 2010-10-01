@@ -148,7 +148,7 @@
   "./.configuration")
 
 (define jazz.named-configurations-file
-  "~/.jazz/.configurations")
+  #f)
 
 (define jazz.configurations
   '())
@@ -1188,45 +1188,6 @@
           #f)))))
 
 
-(define (jazz.delete-directory directory #!optional (level 0) (delete-file? #f) (delete-directory? #f) (feedback #f))
-  (if (jazz.empty-directory directory level delete-file? delete-directory? feedback)
-      (begin
-        (if feedback
-            (feedback directory level))
-        (delete-directory directory)
-        #t)
-    #f))
-
-
-(define (jazz.empty-directory directory #!optional (level 0) (delete-file? #f) (delete-directory? #f) (feedback #f))
-  (define (default-delete-file? file level)
-    #t)
-  
-  (define (default-delete-directory? dir level)
-    (jazz.empty-directory dir level delete-file? delete-directory? feedback))
-  
-  (let ((empty? #t))
-    (for-each (lambda (name)
-                (let ((file (string-append directory name)))
-                  (if ((or delete-file? default-delete-file?) file level)
-                      (begin
-                        (if feedback
-                            (feedback file level))
-                        (delete-file file))
-                    (set! empty? #f))))
-              (jazz.directory-files directory))
-    (for-each (lambda (name)
-                (let ((dir (string-append directory name "/")))
-                  (if ((or delete-directory? default-delete-directory?) dir (+ level 1))
-                      (begin
-                        (if feedback
-                            (feedback dir level))
-                        (delete-directory dir))
-                    (set! empty? #f))))
-              (jazz.directory-directories directory))
-    empty?))
-
-
 ;;;
 ;;;; Error
 ;;;
@@ -1311,6 +1272,8 @@
   (let ((console (console-port)))
     (jazz.print (jazz.format "JazzScheme Build System v{a}" (jazz.present-version (jazz.get-jazz-version-number))) console)
     (force-output console)
+    (jazz.setup-settings)
+    (jazz.load-configurations)
     (let loop ((newline? #t))
       (if newline?
           (newline console))
@@ -1379,6 +1342,8 @@
         (jazz.build-system-repl)
       (let ((action (car command-arguments))
             (arguments (cdr command-arguments)))
+        (jazz.setup-settings)
+        (jazz.load-configurations)
         (cond ((equal? action "list")
                (jazz.list-configurations)
                (exit))
@@ -1499,5 +1464,4 @@
 
 (jazz.load-kernel-base)
 (jazz.setup-versions)
-(jazz.load-configurations)
 (jazz.build-system-boot)

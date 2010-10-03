@@ -45,6 +45,7 @@
         (jazz.locale)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window))
 
@@ -59,7 +60,7 @@
   
   (form
     (<install>
-      (<Layout-View> name: tools background: {Color name: Medium} size: {Dimension 0 22} layout-type: flow)))
+      (<Layout-View> name: tools size: {Dimension 0 22} layout-type: flow)))
   
   
   ;;;
@@ -284,21 +285,19 @@
     {Color red: 153 green: 186 blue: 243})
   
   (definition Inactive-Start-Color
-    {Color red: 245 green: 244 blue: 235})
+    {Color name: Medium})
  
   (definition Inactive-End-Color
     {Color name: Medium})
-  
-  (definition Frame-Color
-    {Color red: 128 green: 128 blue: 128})
 
   
   (method override (draw surface context lh lv)
     (let ((bounds (get-bounds))
           (focused? (eq? self (get-focused-host)))
-          (all (collect-all)))
-      (fill-rect~ surface (new Rect (get-left~ bounds) (get-top~ bounds) (get-right~ bounds) 24) {Color name: Medium})
-      (frame-rect~ surface bounds Frame-Color)
+          (all (collect-all))
+          (look (get-look)))
+      (fill-background~ surface (new Rect (get-left~ bounds) (get-top~ bounds) (get-right~ bounds) 24) (get-inactive-background~ look))
+      (frame-rect~ surface bounds (get-frame-color~ look))
       (let ((h 1)
             (first (first all)))
         (for-each (lambda (docked)
@@ -313,10 +312,7 @@
                              (right (+ left width))
                              (bottom (+ top height)))
                         (when (and selected? focused?)
-                          (gradient-fill~ surface (new Rect h 1 (+ h width) 24)
-                            (list (list 0 (if focused? Active-Start-Color Inactive-Start-Color))
-                                  (list 1 (if focused? Active-End-Color Inactive-End-Color)))
-                            direction: 'vertical)
+                          (fill-background~ surface (new Rect h 1 (+ h width) 24) (get-active-background~ look))
                           (set-color~ surface (if focused? {Color name: Dark} {Color red: 230 green: 225 blue: 204} @w {Color red: 220 green: 215 blue: 184}))
                           (set-line-width~ surface 1)
                           (when (not first?)
@@ -326,9 +322,7 @@
                           (cairo-move-to~ surface right 1)
                           (cairo-line-to~ surface right bottom)
                           (stroke~ surface))
-                        (if (and selected? focused?)
-                            (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ h 3) 5)
-                          (draw-opaque-image~ (get-images-portfolio~ (get-application)) surface context icon {Color name: Medium} (+ h 3) 5))
+                        (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ h 3) 5)
                         (set-font~ surface {Font name: Label})
                         (set-text-color~ surface (if selected? {Color name: Black} {Color red: 100 green: 75 blue: 0}))
                         (draw-text~ surface (+ h 21) 7 title)
@@ -337,6 +331,15 @@
       (set-color~ surface {Color name: Dark})
       (set-line-width~ surface 1)
       (line~ surface 1 24 (- (get-width) 1) 24)))
+  
+  
+  ;;;
+  ;;;; Skin
+  ;;;
+  
+  
+  (method override (get-look)
+    (find-look 'docked))
 
   
   ;;;

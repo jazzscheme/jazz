@@ -1140,33 +1140,28 @@
   
   (method (prepare-skins)
     (let ((skins (default-skins)))
-      (set-skins (get-children~ skins))
-      (set-skin (child~ skins 'flat))))
-  
-  
-  (definition Skins-File
-    {File Profile "settings" "Skins.jml"})
+      (set-skin (child~ skins 'default))))
   
   
   (method (install-skins)
-    (define (set-skins/designer skins)
-      (set-skins (get-children~ skins))
-      (set! skins-designer (new Designer form: (get-form~ skins) reference: skins)))
-    
     (with-safe-execution "loading the skins"
       (lambda ()
         (let ((skins (load-skins)))
-          (set-skins/designer skins)
-          (set-skin (child~ skins (or (get-active~ skins) 'flat)))))
+          (set-skins-designer skins)
+          (set-skin (child~ skins (or (get-active~ skins) 'default)))))
       continue-handler:
       (lambda (err)
         (let ((skins (default-skins)))
-          (set-skins/designer skins)
-          (set-skin (child~ skins 'flat))))))
+          (set-skins-designer skins)
+          (set-skin (child~ skins 'default))))))
+  
+  
+  (method protected virtual (skins-file)
+    {File Profile "settings" "Skins.jml"})
   
   
   (method protected virtual (load-skins)
-    (let ((file Skins-File))
+    (let ((file (skins-file)))
       (if (and (is-alias? 'Profile) (exists?~ file))
           (instantiate~ (read-from-file file))
         (default-skins))))
@@ -1176,8 +1171,12 @@
     (instantiate~
       (form>>
         (<Skins>
-          (<Flat-Skin>    name: flat)
+          (<Default-Skin> name: default)
           (<Windows-Skin> name: windows)))))
+  
+  
+  (method protected (set-skins-designer skins)
+    (set! skins-designer (new Designer form: (get-form~ skins) reference: skins)))
   
   
   (method (save-skins)
@@ -1450,7 +1449,7 @@
                                    (selected? (eq? name active)))
                                (new Action-Item parent: actions name: action-name action-handler: event-handler shortcut: (get-shortcut~ workspace))
                                (new Radio-Item parent: menu name: (get-name~ workspace) title: title icon: icon before: 'layout-separator group: 'workspace selected?: selected? action-handler: (new Action 'application action-name '()))
-                               (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace background: (if (eq? name 'debugger) #f {Color name: Medium}) resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
+                               (new Workspace-Button parent: toolbar name: name size: {Dimension 22 22} location: 'tail before: 'tail-separator group: 'workspace resource: icon portfolio: :images selected?: selected? tooltip?: #t tooltip-text: title action-handler: event-handler)
                                (new Separator parent: toolbar size: {Dimension 1 0} location: 'tail before: 'tail-separator))))
                          (get-children~ preferences))
                (layout-menu~ menu)

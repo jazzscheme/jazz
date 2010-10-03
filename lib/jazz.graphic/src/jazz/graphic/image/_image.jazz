@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Skin
+;;;; Image Definitions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,7 +16,7 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  The Initial Developer of the Original Code is Stephane Le Cornec.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
@@ -35,45 +35,59 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.skin.Skin jazz
+(module jazz.graphic.image jazz
 
 
-(import (jazz.jml)
-        (jazz.library)
-        (jazz.ui))
+(import (jazz.library)
+        (jazz.platform.cairo)
+        (jazz.system))
 
 
-(class Skin extends Component
+;;;
+;;;; Load
+;;;
+
+
+(definition public (load-image type image)
+  (define (find-icon-file resource)
+    (get-resource~ (get-application) 'icon (get-name~ resource)))
+  
+  (define (find-image-file resource)
+    (get-resource~ (get-application) 'image (get-name~ resource)))
+  
+  (define (create-cairo-surface-from-png file)
+    (let ((handle (cairo_image_surface_create_from_png (parse~ file))))
+      (if (/= (cairo_surface_status handle) 0)
+          (signal (new Image-Load-Error))
+        handle)))
+  
+  (case type
+    ((icon)
+     (create-cairo-surface-from-png
+       (if (resource? image)
+           (find-icon-file image)
+         image)))
+    ((image)
+     (create-cairo-surface-from-png
+       (if (resource? image)
+           (find-image-file image)
+         image)))))
+
+
+(definition public (load-image-from-u8vector u8vector)
+  (let ((handle (load-png-image-from-u8vector u8vector)))
+    (if (/= (cairo_surface_status handle) 0)
+        (signal (new Image-Load-Error))
+      handle)))
+
+
+;;;
+;;;; Error
+;;;
+
+
+(class package Image-Load-Error extends Error
   
   
-  (property title initialize #f accessors generate)
-  
-  
-  (form
-    (<install>
-      (<Border-Look>    name: border/entry)
-      (<Border-Look>    name: border/outline)
-      (<Group-Look>     name: group)
-      (<Header-Look>    name: header)
-      (<Header-Look>    name: header/tool)
-      (<Header-Look>    name: header/document)
-      (<Scrollbar-Look> name: scrollbar)
-      (<Scrollbar-Look> name: scrollbar/tool)
-      (<Scrollbar-Look> name: scrollbar/document)
-      (<Menu-Look>      name: menu)
-      (<Tool-Look>      name: tool)
-      (<Splitter-Look>  name: splitter)
-      (<Docked-Look>    name: docked)
-      (<Stage-Look>     name: stage)
-      (<Toolbar-Look>   name: toolbar)
-      (<Menubar-Look>   name: menubar)
-      (<Statusbar-Look> name: statusbar)))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method public virtual (present)
-    title)))
+  (method override (get-message)
+    "Error loading image file.")))

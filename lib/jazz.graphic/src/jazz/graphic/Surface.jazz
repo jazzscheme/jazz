@@ -42,6 +42,8 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.graphic.font)
+        (jazz.io)
+        (jazz.library)
         (jazz.platform.cairo)
         (jazz.platform.windows (cond windows)))
 
@@ -492,6 +494,65 @@
     (paint))
   
   
+  (method public (fill-background rect background)
+    (typecase background
+      ((Color) (fill-rect rect background))
+      ((Gradient) (fill-gradient rect background))
+      ((Texture) (fill-texture rect background))
+      ((List) (for-each (lambda (background)
+                          (fill-background rect background))
+                        background))
+      (else (error "Unable to fill background with {s}" background))))
+  
+  
+  (method public (fill-gradient rect gradient)
+    (let ((parts (get-parts~ gradient)))
+      (let ((stops (if (every? (lambda (part)
+                                 (is? part Color))
+                               parts)
+                       (let ((stop 0.0)
+                             (incr (/ (- (exact->inexact (length parts)) 1))))
+                         (map (lambda (color)
+                                (prog1 (list stop color)
+                                  (increase! stop incr)))
+                              parts))
+                     parts))
+            (direction (get-kind~ gradient)))
+        (gradient-fill rect stops direction: direction))))
+  
+  
+  (method public (fill-texture rect texture)
+    (define (texture-image)
+      (let ((part (car (get-parts~ texture))))
+        (typecase part
+          ((Image-Resource) (new Image resource: part))
+          ((File) (new Image moniker: part)))))
+    
+    (define (draw-centered image)
+      (let ((pos (center (get-size~ image) (rect-size rect))))
+        (draw~ image self #f (get-h~ pos) (get-v~ pos))))
+    
+    (define (draw-filled image)
+      ;; todo find out to fill an image in cairo
+      (let ((pos (center (get-size~ image) (rect-size rect))))
+        (draw~ image self #f (get-h~ pos) (get-v~ pos))))
+    
+    (define (draw-tiled image)
+      (let ((handle (get-handle~ image)))
+        (set-source-surface handle 0 0)
+        (cairo_pattern_set_extend (get-source) CAIRO_EXTEND_REPEAT)
+        (cairo_rectangle context (cast <fl> (get-left~ rect)) (cast <fl> (get-top~ rect)) (cast <fl> (rect-width rect)) (cast <fl> (rect-height rect)))
+        (cairo_fill context)))
+    
+    (let ((mode (get-mode~ texture))
+          (image (texture-image)))
+      (case mode
+        ((center) (draw-centered image))
+        ((fill) (draw-filled image))
+        ((tile) (draw-tiled image))
+        (else (error "Unknown texture mode: {s}" mode)))))
+  
+  
   ;;;
   ;;;; Control
   ;;;
@@ -920,12 +981,24 @@
     (cairo_pattern_create_linear (cast <fl> sh) (cast <fl> sv) (cast <fl> eh) (cast <fl> ev)))
   
   
+  (method public (get-source)
+    (cairo_get_source context))
+  
+  
   (method public (set-source pattern)
     (cairo_set_source context pattern))
   
   
+  (method public (translate th tv)
+    (cairo_translate context (exact->inexact th) (exact->inexact tv)))
+  
+  
   (method public (scale sh sv)
     (cairo_scale context (exact->inexact sh) (exact->inexact sv)))
+  
+  
+  (method public (rotate angle)
+    (cairo_rotate context (exact->inexact angle)))
   
   
   ;;;

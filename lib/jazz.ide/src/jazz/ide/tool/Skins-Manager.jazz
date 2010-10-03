@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Preferences Manager
+;;;; Skins Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.preference.Preferences-Manager jazz
+(module protected jazz.ide.tool.Skins-Manager jazz
 
 
 (import (jazz.designer)
@@ -44,27 +44,22 @@
         (jazz.library)
         (jazz.platform)
         (jazz.system)
+        (jazz.ui)
+        (jazz.ui.skin)
         (jazz.ui.view))
 
 
-(class undocumented Preferences-Manager extends Canvas-Manager
+(class undocumented Skins-Manager extends Canvas-Manager
   
   
   (method override (form-model form)
     (case (get-name~ form)
-      ((descendants) Preferences-Editor)
+      ((descendants) Skins-Editor)
       (else (nextmethod form))))
   
   
-  (method override (install-in-host host)
-    (nextmethod host)
-    (let ((preferences (tool-preferences)))
-      (when preferences
-        (apply-preferences~ (get-process) preferences host))))
-  
-  
   (method meta override (external-name . rest)
-    'preferences-manager)
+    'skins-manager)
   
   
   ;;;
@@ -74,18 +69,6 @@
   
   (method meta override (host-icon)
     {Image-Resource "Preferences"})
-  
-  
-  (method meta override (host-title)
-    #f)
-  
-  
-  (method meta override (host-position)
-    #f)
-  
-  
-  (method meta override (host-size)
-    #f)
   
   
   (method override (host-workspaces)
@@ -109,8 +92,7 @@
   
   (method override (install rest)
     (nextmethod rest)
-    (set-rights (get-preferences-rights~ (get-application)))
-    (set-client (get-preferences-root)))
+    (set-client (get-skins)))
   
   
   ;;;
@@ -119,7 +101,7 @@
 
 
   (method override (new-controller)
-    (new Preferences-Manager-Controller self))
+    (new Skins-Manager-Controller self))
   
   
   ;;;
@@ -129,30 +111,6 @@
 
   (method override (get-modified?)
     #f)
-  
-  
-  ;;;
-  ;;;; Preferences
-  ;;;
-  
-  
-  (method override (tool-preferences)
-    (get-preferences '(tools preferences-manager)))
-  
-  
-  ;;;
-  ;;;; Session
-  ;;;
-  
-  
-  (method override (confirm-close . rest)
-    (save-session))
-  
-  
-  (method override (save-session)
-    (let ((pref (tool-preferences))
-          (designer (get-preferences-designer~ (get-application))))
-      (save-preferences~ pref designer (get-host))))
 
   
   ;;;
@@ -160,7 +118,7 @@
   ;;;
   
   
-  (method package (on-save-preferences evt)
+  (method package (on-save-skins evt)
     (with-cursor :wait
       (lambda ()
         (save))))
@@ -168,43 +126,14 @@
   
   (method package (on-edit evt)
     (let ((appl (get-application)))
-      (edit-document~ appl {File Profile "settings" "Preferences.jml"})))
+      (edit-document~ appl (skins-file~ appl))))
   
   
   (method package (on-update evt)
     (set-selection~ (locate '(descendants tree)) '())
-    (let ((process (get-process)))
-      (load-preferences~ process)
-      (set-client (get-preferences-root))))
-
-  
-  ;;;
-  ;;;; Properties
-  ;;;
-  
-  
-  (method override (show-properties)
-    (let ((card (get-card)))
-      ;; quick patch
-      (if (not card)
-          (bell)
-        (let ((tree (locate~ card 'tree)))
-          (acquire-focus~ tree)
-          (when (and (null? (get-selection~ tree)) (> (get-visible-count~ tree) 0))
-            (set-single-selection~ tree 0))))))
-  
-  
-  ;;;
-  ;;;; Selection
-  ;;;
-  
-  
-  (method (set-application-selection selection force?)
-    )
-  
-  
-  (method (close-application-selection)
-    ))
+    (let ((appl (get-application)))
+      (load-skins~ appl)
+      (set-client (get-skins)))))
 
 
 ;;;
@@ -212,11 +141,11 @@
 ;;;
 
 
-(class Preferences-Manager-Controller extends Editor-View-Controller
+(class Skins-Manager-Controller extends Editor-View-Controller
   
   
   (method override (document-status)
-    "Preferences"))
+    "Skins"))
 
 
 ;;;
@@ -224,12 +153,12 @@
 ;;;
 
 
-(class Preferences-Editor extends Descendants-Editor
+(class Skins-Editor extends Descendants-Editor
   
   
   (method override (form-model form)
     (case (get-name~ form)
-      ((tree) Preferences-Tree)
+      ((tree) Skins-Tree)
       (else (nextmethod form)))))
 
 
@@ -238,7 +167,7 @@
 ;;;
 
 
-(class Preferences-Tree extends Descendants-Tree
+(class Skins-Tree extends Descendants-Tree
   
   
   (form

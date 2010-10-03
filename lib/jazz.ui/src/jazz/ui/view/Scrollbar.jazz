@@ -378,48 +378,42 @@
               (dv (if (eq? orientation 'horz) -1 0)))
           (draw-arrow-tip~ surface (+ (get-left~ inflated) 3 dh) (+ (get-top~ inflated) 4 dv) 3 direction))))
     
-    (let ((bounds (get-bounds))
-          (up-rect (up-rect))
-          (down-rect (down-rect))
-          (thumb-rect (thumb-rect))
-          (flat? (get-flat?~ (get-look))))
-      (fill-rect~ surface bounds (if (debug-paint?) (cycle-debug-color!) (get-background-color)))
-      (cond (flat?
-             (draw-button up-rect (case orientation ((vert) 'up) ((horz) 'left)))
-             (draw-button down-rect (case orientation ((vert) 'down) ((horz) 'right))))
-            (else
-             (draw-scroll-bar~ surface up-rect (case orientation ((vert) 'up) ((horz) 'left)))
-             (draw-scroll-bar~ surface down-rect (case orientation ((vert) 'down) ((horz) 'right)))))
-      (when thumb-rect
-        (if flat?
+    (let ((look (get-look)))
+      (let ((bounds (get-bounds))
+            (up-rect (up-rect))
+            (down-rect (down-rect))
+            (thumb-rect (thumb-rect))
+            (background (get-background~ look))
+            (thumb (get-thumb~ look))
+            (flat? (get-flat?~ look)))
+        (fill-background~ surface bounds (if (debug-paint?) (cycle-debug-color!) (or background (get-background-color))))
+        (cond (flat?
+               (draw-button up-rect (case orientation ((vert) 'up) ((horz) 'left)))
+               (draw-button down-rect (case orientation ((vert) 'down) ((horz) 'right))))
+              (else
+               (draw-scroll-bar~ surface up-rect (case orientation ((vert) 'up) ((horz) 'left)))
+               (draw-scroll-bar~ surface down-rect (case orientation ((vert) 'down) ((horz) 'right)))))
+        (when thumb-rect
+          (if flat?
+              @interesting
+              (frame-rect~ surface thumb-rect {Color name: Entry-Border})
+              (draw-raised~ surface thumb-rect)
+            (draw-edge~ surface thumb-rect inner: 'raised outer: 'raised edges: 'rectangle))
+          (let ((width (if flat? 1 2)))
+            (let ((inflated (inflate-rect thumb-rect (- width) (- width))))
+              (fill-background~ surface inflated (or thumb {Color name: Medium}))))
           @interesting
-            (frame-rect~ surface thumb-rect {Color name: Entry-Border})
-            (draw-raised~ surface thumb-rect)
-          (draw-edge~ surface thumb-rect inner: 'raised outer: 'raised edges: 'rectangle))
-        (let ((width (if flat? 1 2)))
-          (let ((inflated (inflate-rect thumb-rect (- width) (- width))))
-            (fill-rect~ surface inflated {Color name: Medium})))
-        @interesting
-        (let* ((height (rect-height thumb-rect))
-               (v (+ (get-top~ thumb-rect) (quotient (- height 8) 2))))
-          (set-color~ surface {Color name: Light})
-          (set-line-width~ surface 1)
-          (line~ surface 3 v 8 v)
-          (line~ surface 3 (+ v 3) 8 (+ v 3))
-          (line~ surface 3 (+ v 6) 8 (+ v 6))
-          (set-color~ surface {Color name: Dark})
-          (line~ surface 4 (+ v 1) 9 (+ v 1))
-          (line~ surface 4 (+ v 4) 9 (+ v 4))
-          (line~ surface 4 (+ v 7) 9 (+ v 7))))))
-
-  
-  ;;;
-  ;;;; Transparency
-  ;;;
-  
-  
-  (method override (get-opaque?)
-    #t)
+          (let* ((height (rect-height thumb-rect))
+                 (v (+ (get-top~ thumb-rect) (quotient (- height 8) 2))))
+            (set-color~ surface {Color name: Light})
+            (set-line-width~ surface 1)
+            (line~ surface 3 v 8 v)
+            (line~ surface 3 (+ v 3) 8 (+ v 3))
+            (line~ surface 3 (+ v 6) 8 (+ v 6))
+            (set-color~ surface {Color name: Dark})
+            (line~ surface 4 (+ v 1) 9 (+ v 1))
+            (line~ surface 4 (+ v 4) 9 (+ v 4))
+            (line~ surface 4 (+ v 7) 9 (+ v 7)))))))
 
   
   ;;;
@@ -432,6 +426,15 @@
       ((tool) (find-look 'scrollbar/tool))
       ((document) (find-look 'scrollbar/document))
       (else (find-look 'scrollbar))))
+
+  
+  ;;;
+  ;;;; Transparency
+  ;;;
+  
+  
+  (method override (get-opaque?)
+    #t)
   
   
   ;;;

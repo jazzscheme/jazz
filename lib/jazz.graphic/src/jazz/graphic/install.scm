@@ -38,5 +38,7 @@
 (unit jazz.graphic.install
 
 
-(jazz.define-literal Color jazz.graphic.literals.construct-color)
-(jazz.define-literal Font  jazz.graphic.literals.construct-font))
+(jazz.define-literal Color    jazz.graphic.literals.construct-color)
+(jazz.define-literal Gradient jazz.graphic.literals.construct-gradient)
+(jazz.define-literal Texture  jazz.graphic.literals.construct-texture)
+(jazz.define-literal Font     jazz.graphic.literals.construct-font))

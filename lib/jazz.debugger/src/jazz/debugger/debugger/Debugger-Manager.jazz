@@ -150,15 +150,22 @@
       (update~ (get-processes-view))))
   
   
-  (method public (detach-process process best-process)
+  (method public (detach-process process)
+    (define (local-debugged-process)
+      (let ((local-debugger (get-local-debugger~ (get-application)))
+            (local-process (get-local-process)))
+        (new Debugged-Process local-debugger local-process local-process)))
+    
     (define (cleanup-stops table)
       (for-each (lambda (key)
                   (when (shared-process?~ process key)
                     (table-clear table key)))
                 (table-keys table)))
     
-    (when (and best-process (debugged=? focused-process process))
-      (set-focus-process best-process))
+    (when (debugged=? focused-process process)
+      (let ((best-process (local-debugged-process)))
+        (unless (debugged=? focused-process process)
+          (set-focus-process best-process))))
     (close-process-debugger-resources process)
     (cleanup-stops active-stops)
     (cleanup-stops unvisited-stops)

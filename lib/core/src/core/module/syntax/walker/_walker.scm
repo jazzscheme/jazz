@@ -1347,7 +1347,7 @@
        (let ((value (jazz.generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
-             `(let ((,value ,(jazz.sourcified-form code)))
+             `(let ((,value (let () ,(jazz.sourcified-form code))))
                 (if (%%fixnum? ,value)
                     (%%fixnum->flonum ,value)
                   ,value))
@@ -1361,13 +1361,13 @@
        (let ((value (jazz.generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
          (if (%%eq? type jazz.Flonum)
-             `(let ((,value ,(jazz.sourcified-form code)))
+             `(let ((,value (let () ,(jazz.sourcified-form code))))
                 (if (%%fixnum? ,value)
                     (%%fixnum->flonum ,value)
                   (begin
                     ,(jazz.emit-check type value source-declaration environment)
                     ,value)))
-           `(let ((,value ,(jazz.sourcified-form code)))
+           `(let ((,value (let () ,(jazz.sourcified-form code))))
               ,(jazz.emit-check type value source-declaration environment)
               ,value)))))))
 

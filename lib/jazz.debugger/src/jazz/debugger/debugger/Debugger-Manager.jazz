@@ -151,10 +151,16 @@
   
   
   (method public (detach-process process)
-    (define (local-debugged-process)
-      (let ((local-debugger (get-local-debugger~ (get-application)))
-            (local-process (get-local-process)))
-        (new Debugged-Process local-debugger local-process local-process)))
+    (define (best-process)
+      (continuation-capture
+        (lambda (return)
+          (for-each-process
+            (lambda (debugger debugged-process live? focused?)
+              (when (and live?
+                         (focusable?~ debugged-process)
+                         (not (debugged=? debugged-process process)))
+                (continuation-return return debugged-process))))
+          #f)))
     
     (define (cleanup-stops table)
       (for-each (lambda (key)
@@ -163,7 +169,7 @@
                 (table-keys table)))
     
     (when (debugged=? focused-process process)
-      (let ((best-process (local-debugged-process)))
+      (let ((best-process (best-process)))
         (unless (debugged=? best-process process)
           (set-focus-process best-process))))
     (close-process-debugger-resources process)

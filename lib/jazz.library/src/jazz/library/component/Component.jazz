@@ -1068,46 +1068,67 @@
         (get-trait~ branch))))
   
   
-  (method public (set-active-traits traits)
-    (define (install-traits root-branch effective-traits)
-      (let ((parent-branch root-branch))
-        (for-each (lambda (trait)
-                    (let ((new-branch (configure-client~ trait self)))
-                      (set-branch~ parent-branch new-branch)
-                      (set! parent-branch new-branch)))
-                  effective-traits)))
-    
-    (define (change-installed? current-branch current-traits)
-      (let ((match? (and current-branch (pair? current-traits) (eq? (get-trait~ current-branch) (car current-traits)))))
-        (when (and match? (not (change-installed? (get-branch~ current-branch) (cdr current-traits))))
-          (let ((old-branch (get-branch~ current-branch)))
-            (when old-branch
-              (restore-client~ old-branch)
-              (set-branch~ current-branch #f)))
-          (install-traits current-branch (cdr current-traits)))
-        match?))
-    
-    (let ((effective-traits (apply append! (map compute-effective-traits~ (map resolve-trait traits)))))
-      (when (not (change-installed? branch effective-traits))
-        (when branch
-          (restore-client~ branch)
-          (set! branch #f))
-        (when (not-null? effective-traits)
-          (let ((new-branch (configure-client~ (car effective-traits) self)))
-            (set! branch new-branch)
-            (install-traits new-branch (cdr effective-traits)))))))
-  
-  
   (method public (set-active-trait trait)
     (set-active-traits (if trait (list trait) '())))
   
   
-  (method public (activate-trait trait)
-    (let ((active-branch (get-active-branch))
-          (new-branch (configure-client~ trait self)))
-      (if (not active-branch)
+  (method public (set-active-traits traits)
+    (replace-traits #f traits))
+  
+  
+  (method public (push-trait trait)
+    (replace-traits (get-active-branch) (list trait)))
+  
+  
+  (method public (pop-trait)
+    (let ((active (get-active-branch)))
+      (assert active)
+      (let ((traits (compute-effective-traits~ (get-trait~ active))))
+        (for-each-reversed (lambda (trait)
+                             (if (and (neq? active self) (eq? trait (get-trait~ active)))
+                                 (set! active (get-parent~ active))
+                               (error "Cannot pop trait")))
+                           traits)
+        (replace-traits active '()))))
+  
+  
+  (method public (replace-traits target-branch traits)
+    (define (install-traits root-branch effective-traits)
+      (let ((parent-branch root-branch))
+        (for-each (lambda (trait)
+                    (let ((new-branch (configure-client~ trait self parent-branch)))
+                      (set-branch~ parent-branch new-branch)
+                      (set! parent-branch new-branch)))
+                  effective-traits)))
+    
+    (define (install-in-branch current-branch current-traits)
+      (let ((old-branch (get-branch~ current-branch)))
+        (when old-branch
+          (restore-client~ old-branch)
+          (set-branch~ current-branch #f)))
+      (install-traits current-branch current-traits))
+    
+    (define (install-in-self effective-traits)
+      (when branch
+        (restore-client~ branch)
+        (set! branch #f))
+      (when (not-null? effective-traits)
+        (let ((new-branch (configure-client~ (car effective-traits) self self)))
           (set! branch new-branch)
-        (set-branch~ active-branch new-branch))))
+          (install-traits new-branch (cdr effective-traits)))))
+    
+    (define (change-installed? current-branch current-traits)
+      (let ((match? (and current-branch (pair? current-traits) (eq? (get-trait~ current-branch) (car current-traits)))))
+        (when (and match? (not (change-installed? (get-branch~ current-branch) (cdr current-traits))))
+          (install-in-branch current-branch (cdr current-traits)))
+        match?))
+    
+    (let ((effective-traits (apply append! (map compute-effective-traits~ (map resolve-trait traits))))
+          (base-branch (if target-branch (get-branch~ target-branch) branch)))
+      (when (not (change-installed? base-branch effective-traits))
+        (if target-branch
+            (install-in-branch target-branch effective-traits)
+          (install-in-self effective-traits)))))
   
   
   (method public (for-each-trait proc)

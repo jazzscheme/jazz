@@ -206,29 +206,33 @@
   ;;;; Design
   ;;;
   
-  
   (method public virtual (set-name component name (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
-           (form (find-form component branch))
-           (old-name (get-name~ component))
-           (old-presentation (get-presentation-property~ component)))
-      (for-each-trait~ (or branch reference)
-        (lambda (trait)
-          (let ((form (get-client-form~ trait)))
-            (when form
-              (let* ((ancestry (component-ancestry component))
-                     (component-form (owned-form form ancestry)))
-                (when (and component-form (neq? (get-action~ component-form) 'install))
-                  (set-name~ component-form name)))))))
-      (set-name~ component name)
-      (set-name~ form name)
-      (when design-events?
-        (fire-name-change component name old-name undoable?)
-        (let ((presentation (get-presentation-property~ component)))
-          (fire-presentation-change component presentation old-presentation undoable?))
-        (let ((property (property-field (class-of component) 'name-info)))
-          (fire-property-change branch component property name undoable?)))
-      (set-modified? #t)))
+           (owner (find-owner component))
+           (effective (or branch reference))
+           (effective-cpn (if (is? effective Branch) (get-trait~ effective) effective)))
+      (if (and owner (neq? owner effective))
+          (designer-error "Component cannot be renamed in non owner {a} {a}" (if trait "trait" "root") (get-presentation-property~ effective-cpn))
+        (let ((form (find-form component branch))
+              (old-name (get-name~ component))
+              (old-presentation (get-presentation-property~ component)))
+          (for-each-trait~ effective-cpn
+            (lambda (trait)
+              (let ((form (get-client-form~ trait)))
+                (when form
+                  (let* ((ancestry (component-ancestry component))
+                         (component-form (owned-form form ancestry)))
+                    (when (and component-form (neq? (get-action~ component-form) 'install))
+                      (set-name~ component-form name)))))))
+          (set-name~ component name)
+          (set-name~ form name)
+          (when design-events?
+            (fire-name-change component name old-name undoable?)
+            (let ((presentation (get-presentation-property~ component)))
+              (fire-presentation-change component presentation old-presentation undoable?))
+            (let ((property (property-field (class-of component) 'name-info)))
+              (fire-property-change branch component property name undoable?)))
+          (set-modified? #t)))))
   
   
   (method public virtual (set-tag-unit component parent tag-unit)
@@ -351,10 +355,17 @@
                         (when child-form
                           (remove-child~ parent-form child-form)))))))
               
-              (for-each-trait~ effective
+              ;; Remove component from branch restore-form
+              (when (is? effective Branch)
+                (let* ((restore-form (get-restore-form~ effective))
+                       (remove-form (find-by~ restore-form (lambda (form)
+                                                             (and (eq? (get-action~ form) 'remove)
+                                                                  (eq? (get-component~ form) child))))))
+                  (remove-child~ restore-form remove-form)))
+              
+              (for-each-trait~ (if (is? effective Branch) (get-trait~ effective) effective)
                 (lambda (trait)
-                  (purge-references (get-client-form~ trait))
-                  (purge-references (get-restore-form~ (find-trait-branch~ effective trait)))))
+                  (purge-references (get-client-form~ trait))))
               (close~ child)
               (remove-child~ parent-form form)
               (when design-events?

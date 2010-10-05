@@ -852,14 +852,6 @@
               (build-library)))))))
 
 
-(define (jazz.executable-extension platform)
-  (case platform
-    ((windows)
-     "exe")
-    (else
-     #f)))
-
-
 (define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)

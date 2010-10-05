@@ -353,6 +353,14 @@
        (jazz.string-numeric? (%%substring extension (%%string-length prefix) (%%string-length extension)))))
 
 
+(define (jazz.executable-extension platform)
+  (case platform
+    ((windows)
+     "exe")
+    (else
+     #f)))
+
+
 (define (jazz.pathname-dir pathname)
   (let ((pos (jazz.string-find-reversed pathname #\/)))
     (if (%%not pos)

@@ -42,6 +42,7 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.graphic.font)
+        (jazz.graphic.image)
         (jazz.io)
         (jazz.library)
         (jazz.platform.cairo)
@@ -533,9 +534,8 @@
         (draw~ image self #f (get-h~ pos) (get-v~ pos))))
     
     (define (draw-filled image)
-      ;; todo find out to fill an image in cairo
-      (let ((pos (center (get-size~ image) (rect-size rect))))
-        (draw~ image self #f (get-h~ pos) (get-v~ pos))))
+      (with ((resized (new Image handle: (resize-image (get-handle~ image) (rect-width rect) (rect-height rect)))))
+        (draw~ resized self #f 0 0)))
     
     (define (draw-tiled image)
       (let ((handle (get-handle~ image)))
@@ -544,15 +544,15 @@
         (cairo_rectangle context (cast <fl> (get-left~ rect)) (cast <fl> (get-top~ rect)) (cast <fl> (rect-width rect)) (cast <fl> (rect-height rect)))
         (cairo_fill context)))
     
-    (let ((mode (get-mode~ texture))
-          (image (texture-image)))
-      (if (not image)
-          (fill-rect rect {Color name: Red})
-        (case mode
-          ((center) (draw-centered image))
-          ((fill) (draw-filled image))
-          ((tile) (draw-tiled image))
-          (else (error "Unknown texture mode: {s}" mode))))))
+    (let ((mode (get-mode~ texture)))
+      (with ((image (texture-image)))
+        (if (not image)
+            (fill-rect rect {Color name: Red})
+          (case mode
+            ((center) (draw-centered image))
+            ((fill) (draw-filled image))
+            ((tile) (draw-tiled image))
+            (else (error "Unknown texture mode: {s}" mode)))))))
   
   
   ;;;

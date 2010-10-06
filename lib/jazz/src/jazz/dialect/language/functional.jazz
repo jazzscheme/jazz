@@ -1751,6 +1751,21 @@
         (proc obj)))
 
 
+(definition public (iterate-sequences proc <procedure> . seqs)
+  (define (any? lst)
+    (and (pair? lst)
+         (or (car lst)
+             (any? (cdr lst)))))
+  
+  (let ((iterators (map iterate-sequence seqs)))
+    (let (loop)
+      (let ((done? (any? (map done?~ iterators))))
+        (when (not done?)
+          (apply proc (map get-next~ iterators))
+          (loop)))))
+  (unspecified))
+
+
 (definition public (accumulate seq proc <procedure> (type #f))
   (let ((lst
           (loop (for obj in-sequence seq)
@@ -1972,23 +1987,28 @@
         (get-position~ iterator)))))
 
 
-(definition public (some? predicate <procedure> seq <Object> (key: key #f))
-  (continuation-capture
-    (lambda (return)
-      (iterate (iterate-sequence seq)
-               (lambda (object)
-                 (when (predicate (apply-key key object))
-                   (continuation-return return #t))))
-      #f)))
+(definition public (some? predicate <procedure> (key: key #f) . seqs)
+  (let ((seq (car seqs)))
+    (continuation-capture
+      (lambda (return)
+        (iterate (iterate-sequence seq)
+                 (lambda (object)
+                   (let ((key #f))
+                     (when (predicate (apply-key key object))
+                       (continuation-return return #t)))))
+        #f))))
 
 
-(definition public (every? predicate <procedure> seq <Object> (key: key #f))
+(definition public (every? predicate <procedure> (key: key #f) . seqs)
   (continuation-capture
     (lambda (return)
-      (iterate (iterate-sequence seq)
-               (lambda (object)
-                 (when (not (predicate (apply-key key object)))
-                   (continuation-return return #f))))
+      (apply iterate-sequences
+             (lambda objs
+               (or (apply predicate (map (lambda (object)
+                                           (apply-key key object))
+                                         objs))
+                   (continuation-return return #f)))
+             seqs)
       #t)))
 
 

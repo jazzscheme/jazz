@@ -38,78 +38,13 @@
 (module protected jazz.ui.dialog.platform.windows jazz
 
 
-(import (jazz.io)
+(import (jazz.graphic)
+        (jazz.io)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window))
-
-
-;;;
-;;;; Print
-;;;
-
-
-(definition public (print-dialog . rest)
-  (close-all-popups)
-  (let ((rec (PRINTDLG-make)))
-    (PRINTDLG-lStructSize-set! rec (PRINTDLG-sizeof))
-    (PRINTDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
-    (PRINTDLG-Flags-set! rec (bitwise-ior PD_HIDEPRINTTOFILE PD_NOSELECTION PD_USEDEVMODECOPIESANDCOLLATE PD_RETURNDC))
-    (PRINTDLG-nFromPage-set! rec 0)
-    (PRINTDLG-nToPage-set! rec 0)
-    (PRINTDLG-nMinPage-set! rec 1)
-    (PRINTDLG-nMaxPage-set! rec 10)
-    (prog1 (if (PrintDlg rec)
-               (let* ((flags (PRINTDLG-Flags-ref rec))
-                      (handle (PRINTDLG-hDevMode-ref rec))
-                      (pointer (GlobalLock handle))
-                      (devmode (VOID*->DEVMODE pointer)))
-                 (values (PRINTDLG-hDC-ref rec) (mask-bit-set? flags PD_PRINTTOFILE) (mask-bit-set? flags PD_SELECTION) (mask-bit-set? flags PD_PAGENUMS) (PRINTDLG-nFromPage-ref rec) (PRINTDLG-nToPage-ref rec) (PRINTDLG-nCopies-ref rec) (DEVMODE-dmOrientation-ref devmode)))
-             (let ((code (CommDlgExtendedError)))
-               (if (= code 0)
-                   (throw-cancel)
-                 (error "Print dialog error: {t}" code))))
-      (PRINTDLG-free rec))))
-
-
-(definition public (page-setup-dialog (margins: margins '()) (orientation: orientation #f) (paper-size: paper-size #f) (paper-source: paper-source #f))
-  (close-all-popups)
-  (let ((rec (PAGESETUPDLG-make))
-        (devmode (DEVMODE-make)))
-    (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
-    (DEVMODE-dmOrientation-set! devmode orientation)
-    (DEVMODE-dmPaperSize-set! devmode paper-size)
-    (DEVMODE-dmDefaultSource-set! devmode paper-source)
-    (DEVMODE-dmFields-set! devmode (bitwise-ior DM_ORIENTATION DM_PAPERSIZE DM_DEFAULTSOURCE))
-    (PAGESETUPDLG-lStructSize-set! rec (PAGESETUPDLG-sizeof))
-    (PAGESETUPDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
-    (PAGESETUPDLG-hDevMode-set! rec (DEVMODE->HANDLE devmode))
-    (PAGESETUPDLG-Flags-set! rec (bitwise-ior PSD_INTHOUSANDTHSOFINCHES (if margins PSD_MARGINS 0) PSD_DISABLEPRINTER))
-    (when margins
-      (RECT-left-set! (PAGESETUPDLG-rtMargin-ref rec) (get-left~ margins))
-      (RECT-top-set! (PAGESETUPDLG-rtMargin-ref rec) (get-top~ margins))
-      (RECT-right-set! (PAGESETUPDLG-rtMargin-ref rec) (get-right~ margins))
-      (RECT-bottom-set! (PAGESETUPDLG-rtMargin-ref rec) (get-bottom~ margins)))
-    (prog1 (if (PageSetupDlg rec)
-               (let* ((handle (PAGESETUPDLG-hDevMode-ref rec))
-                      (pointer (GlobalLock handle))
-                      (devmode (VOID*->DEVMODE pointer)))
-                 (prog1
-                     (values (POINT->dimension (PAGESETUPDLG-ptPaperSize-ref rec))
-                             (RECT->rect (PAGESETUPDLG-rtMinMargin-ref rec))
-                             (RECT->rect (PAGESETUPDLG-rtMargin-ref rec))
-                             (DEVMODE-dmOrientation-ref devmode)
-                             (DEVMODE-dmPaperSize-ref devmode)
-                             (DEVMODE-dmDefaultSource-ref devmode))
-                   (GlobalUnlock handle)))
-             (let ((code (CommDlgExtendedError)))
-               (if (= code 0)
-                   (throw-cancel)
-                 (error "Print dialog error: {t}" code))))
-      (PAGESETUPDLG-free rec)
-      (DEVMODE-free devmode))))
 
 
 
@@ -275,6 +210,107 @@
               (throw-cancel)
             (let ((directory (WCHAR-string buffer)))
               (anchorize~ (new Directory (tokenise-windows directory)) anchors: anchors))))))))
+
+
+;;;
+;;;; Print
+;;;
+
+
+(definition public (print-dialog . rest)
+  (close-all-popups)
+  (let ((rec (PRINTDLG-make)))
+    (PRINTDLG-lStructSize-set! rec (PRINTDLG-sizeof))
+    (PRINTDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+    (PRINTDLG-Flags-set! rec (bitwise-ior PD_HIDEPRINTTOFILE PD_NOSELECTION PD_USEDEVMODECOPIESANDCOLLATE PD_RETURNDC))
+    (PRINTDLG-nFromPage-set! rec 0)
+    (PRINTDLG-nToPage-set! rec 0)
+    (PRINTDLG-nMinPage-set! rec 1)
+    (PRINTDLG-nMaxPage-set! rec 10)
+    (prog1 (if (PrintDlg rec)
+               (let* ((flags (PRINTDLG-Flags-ref rec))
+                      (handle (PRINTDLG-hDevMode-ref rec))
+                      (pointer (GlobalLock handle))
+                      (devmode (VOID*->DEVMODE pointer)))
+                 (values (PRINTDLG-hDC-ref rec) (mask-bit-set? flags PD_PRINTTOFILE) (mask-bit-set? flags PD_SELECTION) (mask-bit-set? flags PD_PAGENUMS) (PRINTDLG-nFromPage-ref rec) (PRINTDLG-nToPage-ref rec) (PRINTDLG-nCopies-ref rec) (DEVMODE-dmOrientation-ref devmode)))
+             (let ((code (CommDlgExtendedError)))
+               (if (= code 0)
+                   (throw-cancel)
+                 (error "Print dialog error: {t}" code))))
+      (PRINTDLG-free rec))))
+
+
+(definition public (page-setup-dialog (margins: margins '()) (orientation: orientation #f) (paper-size: paper-size #f) (paper-source: paper-source #f))
+  (close-all-popups)
+  (let ((rec (PAGESETUPDLG-make))
+        (devmode (DEVMODE-make)))
+    (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
+    (DEVMODE-dmOrientation-set! devmode orientation)
+    (DEVMODE-dmPaperSize-set! devmode paper-size)
+    (DEVMODE-dmDefaultSource-set! devmode paper-source)
+    (DEVMODE-dmFields-set! devmode (bitwise-ior DM_ORIENTATION DM_PAPERSIZE DM_DEFAULTSOURCE))
+    (PAGESETUPDLG-lStructSize-set! rec (PAGESETUPDLG-sizeof))
+    (PAGESETUPDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+    (PAGESETUPDLG-hDevMode-set! rec (DEVMODE->HANDLE devmode))
+    (PAGESETUPDLG-Flags-set! rec (bitwise-ior PSD_INTHOUSANDTHSOFINCHES (if margins PSD_MARGINS 0) PSD_DISABLEPRINTER))
+    (when margins
+      (RECT-left-set! (PAGESETUPDLG-rtMargin-ref rec) (get-left~ margins))
+      (RECT-top-set! (PAGESETUPDLG-rtMargin-ref rec) (get-top~ margins))
+      (RECT-right-set! (PAGESETUPDLG-rtMargin-ref rec) (get-right~ margins))
+      (RECT-bottom-set! (PAGESETUPDLG-rtMargin-ref rec) (get-bottom~ margins)))
+    (prog1 (if (PageSetupDlg rec)
+               (let* ((handle (PAGESETUPDLG-hDevMode-ref rec))
+                      (pointer (GlobalLock handle))
+                      (devmode (VOID*->DEVMODE pointer)))
+                 (prog1
+                     (values (POINT->dimension (PAGESETUPDLG-ptPaperSize-ref rec))
+                             (RECT->rect (PAGESETUPDLG-rtMinMargin-ref rec))
+                             (RECT->rect (PAGESETUPDLG-rtMargin-ref rec))
+                             (DEVMODE-dmOrientation-ref devmode)
+                             (DEVMODE-dmPaperSize-ref devmode)
+                             (DEVMODE-dmDefaultSource-ref devmode))
+                   (GlobalUnlock handle)))
+             (let ((code (CommDlgExtendedError)))
+               (if (= code 0)
+                   (throw-cancel)
+                 (error "Print dialog error: {t}" code))))
+      (PAGESETUPDLG-free rec)
+      (DEVMODE-free devmode))))
+
+
+;;;
+;;;; Color
+;;;
+
+
+(define (color->ref color)
+  (RGB (get-red~ color) (get-green~ color) (get-blue~ color)))
+
+(define (ref->color ref)
+  (new Color red: (GetRValue ref) green: (GetGValue ref) blue: (GetBValue ref)))
+
+
+(define custom-colors
+  (let ((array (COLORREF*-alloc 16))
+        (black (color->ref {Color name: Black})))
+    (loop (for n from 0 below 16)
+          (COLORREF*-set! array n black))
+    array))
+
+
+(definition public (choose-color (initial-color: initial-color #f))
+  (let ((r (CHOOSECOLOR-make)))
+    (CHOOSECOLOR-lStructSize-set!  r (CHOOSECOLOR-sizeof))
+    (CHOOSECOLOR-hwndOwner-set!    r (get-handle~ (get-toplevel)))
+    (CHOOSECOLOR-rgbResult-set!    r (color->ref (or initial-color {Color name: Black})))
+    (CHOOSECOLOR-lpCustColors-set! r custom-colors)
+    (CHOOSECOLOR-Flags-set!        r (bitwise-ior CC_ANYCOLOR CC_RGBINIT CC_FULLOPEN))
+    (if (ChooseColor r)
+        (ref->color (CHOOSECOLOR-rgbResult-ref r))
+      (let ((code (CommDlgExtendedError)))
+        (if (= code 0)
+            (throw-cancel)
+          (error "Dialog error: {t}" code))))))
 
 
 ;;;

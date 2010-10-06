@@ -38,28 +38,39 @@
 (module protected jazz.ui.dialog.Color-Request jazz
 
 
-(import (jazz.ui))
+(import (jazz.graphic)
+        (jazz.platform)
+        (jazz.system)
+        (jazz.ui))
+
+
+(define (color->ref color)
+  (RGB (get-red~ color) (get-green~ color) (get-blue~ color)))
+
+(define (ref->color ref)
+  (new Color red: (GetRValue ref) green: (GetGValue ref) blue: (GetBValue ref)))
+
+
+(define custom-colors
+  (let ((array (COLORREF*-alloc 16))
+        (black (color->ref {Color name: Black})))
+    (loop (for n from 0 below 16)
+          (COLORREF*-set! array n black))
+    array))
 
 
 (class undocumented Color-Request extends Dialog
-  
-  
-  @convert-dialog
-  (definition meta custom-colors
-    (new-array int 16))
     
   
-  @convert-dialog
   (method meta (get-modal (initial-color: initial-color #f))
-    (close-all-popups)
-    (let ((r (new CHOOSECOLOR)))
-      (set r 'lStructSize  (size-of CHOOSECOLOR))
-      (set r 'hwndOwner    (get-handle~ (get-toplevel)))
-      (set r 'rgbResult    (get-ref~ (or initial-color {Color name: Black})))
-      (set r 'lpCustColors custom-colors)
-      (set r 'Flags        (bitwise-ior CC_ANYCOLOR CC_RGBINIT CC_FULLOPEN))
+    (let ((r (CHOOSECOLOR-make)))
+      (CHOOSECOLOR-lStructSize-set!  r (CHOOSECOLOR-sizeof))
+      (CHOOSECOLOR-hwndOwner-set!    r (get-handle~ (get-toplevel)))
+      (CHOOSECOLOR-rgbResult-set!    r (color->ref (or initial-color {Color name: Black})))
+      (CHOOSECOLOR-lpCustColors-set! r custom-colors)
+      (CHOOSECOLOR-Flags-set!        r (bitwise-ior CC_ANYCOLOR CC_RGBINIT CC_FULLOPEN))
       (if (ChooseColor r)
-          (new Color colorref: (get r 'rgbResult))
+          (ref->color (CHOOSECOLOR-rgbResult-ref r))
         (let ((code (CommDlgExtendedError)))
           (if (= code 0)
               (throw-cancel)

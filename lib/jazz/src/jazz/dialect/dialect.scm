@@ -861,8 +861,9 @@
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
           (let* ((augmented-environment (%%cons frame environment))
-                 (sourcified-body (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
-                                    (jazz.emit-type-cast body-code body-type declaration augmented-environment))))
+                 (emit-body (lambda () 
+                              (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
+                                (jazz.emit-type-cast body-code body-type declaration augmented-environment)))))
             (jazz.sourcify-if
               (case method-call
                 ((jazz.add-method-node)
@@ -871,7 +872,7 @@
                       (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                         ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                         (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                          ,sourcified-body))
+                          ,(emit-body)))
                       (define ,method-node-locator
                         (,method-call ,class-locator ',name ,method-locator))
                       ,@(jazz.declaration-result))))
@@ -883,7 +884,7 @@
                        `(define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                           ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                           (let ()
-                            ,sourcified-body)))
+                            ,(emit-body))))
                     (define ,method-rank-locator
                       (,method-call ,class-locator ',name ,method-locator))
                     ,@(jazz.declaration-result)))
@@ -892,7 +893,7 @@
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                       ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                       (let ()
-                        ,sourcified-body))
+                        ,(emit-body)))
                     (,method-call ,class-locator ',name ,method-locator)
                     ,@(jazz.declaration-result))))
               (%%get-declaration-source declaration))))))))

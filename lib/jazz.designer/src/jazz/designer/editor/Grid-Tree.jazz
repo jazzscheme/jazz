@@ -1,0 +1,416 @@
+(module jazz.designer.editor.Grid-Tree jazz
+
+
+(import (jazz.graphic)
+        (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.locale)
+        (jazz.ui))
+
+
+(definition (present-property-value component property)
+  (let ((value (read-property component property)))
+    (present-property~ component property value)))
+
+
+(definition (follow-component-path parent-component path fail succeed)
+  (let ((component (find-component-path parent-component (butlast path))))
+    (if (not component) (fail)
+      (let* ((base (class-of component))
+             (property (category-field base (last path))))
+        (if (not property) (fail)
+          (succeed component base property))))))
+
+
+(definition (find-component-path component path)
+  (cond ((not component) #f)
+        ((null? path) component)
+        (else (find-component~ component path))))
+
+
+(definition (iota count (start 0) (step 1))
+  (if (zero? count)
+      '()
+    (cons start (iota (- count 1) (+ start step) step))))
+
+
+(definition (target-classes-union target-classes)
+  (cond ((null? target-classes) '())
+        ((null? (cdr target-classes))
+         target-classes)
+        (else
+         (bind (target classes) (car target-classes)
+           (receive (same rest) (partition-binary (cdr target-classes)
+                                                  (lambda (el)
+                                                    (equal? target (car el))))
+             (cons (list target (apply union test: eq? classes (map second same)))
+                   (target-classes-union rest)))))))
+
+
+(definition (class-properties class)
+  (let* ((descriptor (get-descriptor class))
+         (properties-descriptor (find-child~ descriptor 'properties))
+         (categorized (get-categorized~ properties-descriptor))
+         (keep-property?
+           ;; This is arbitrary.
+           (lambda (descriptor)
+             (let ((category (get-category~ descriptor)))
+               (and (or (not category) (eq? category 'property))
+                    (or (unspecified? categorized)
+                        (memq (get-name~ descriptor)
+                              categorized))
+                    (find-child~ descriptor 'domain))))))
+    (collect-if keep-property? (get-children~ properties-descriptor))))
+
+
+(definition (make-class-cell-domain classes)
+  (new Enumeration-Domain choices: (cons (list #f "") 
+                                         (zip classes
+                                              (map get-class-presentation~ classes)))))
+
+
+(definition (normalize-descriptor-target descriptor)
+  (let ((target (get-target~ descriptor)))
+    (if (symbol? target) (list target) target)))
+
+
+(class Grid-Column extends Tree-Label-Column
+  
+  (property class-column? initialize #f accessors generate)
+  
+  (method public (get-path)
+    (get-user-data))
+  
+  (method override (draw-data surface context row data width height)
+    (let ((component (get-component~ row))
+          (path (get-path)))
+      (follow-component-path component path
+        (lambda ()
+          (nextmethod surface context row data width height))
+        (lambda (child-component base property)
+          (let ((domain (get-domain~ base property))
+                (value (read-property child-component property)))
+            (draw-data~ domain surface context value self row data width height)))))))
+
+
+(class Grid-Row extends Tree-Row
+  
+  (method public (get-component)
+    (get-user-data)))
+
+
+(class Grid-Tree extends Components-Tree
+  
+  
+  (form
+    (<install> reorderable?: #t multiple-selection?: #f selection-mode: cell))
+  
+  
+  (definition Default-Width 100)
+  
+  
+  (method override (on-return-press evt)
+    (end-edition))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method override (mouse-down pos)
+    (case selection-mode
+      ((cell)
+       (let ((cell (view->tree pos)))
+         (when cell
+           (select-cell cell))))
+      (else
+       (nextmethod pos))))
+  
+  
+  ;;;
+  ;;;; Select Cell
+  ;;;
+  
+  
+  (method (prepare-and-focus-entry entry)
+    (let ((view-to-focus (tab-view~ entry)))
+      (set-return-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (on-return-press~ self evt))))
+      (acquire-focus~ view-to-focus)
+      (select-all~ view-to-focus)))
+  
+  
+  (method (select-class-cell cell editor row-component path)
+    (let ((parent-component (if (null? path) client (find-component-path row-component (butlast path))))
+          (classes (if (null? path) (get-addable-classes~ client)
+                     (let* ((row-descriptor (get-descriptor (class-of row-component)))
+                            (descriptor (find-key~ (find-child~ row-descriptor 'children) normalize-descriptor-target path)))
+                       (when descriptor
+                         (map autoload-class (get-classes~ descriptor)))))))
+      (when (and parent-component classes)
+        (let ((old-component (if (null? path) row-component (find-child~ parent-component (last path)))))
+          (let* ((domain (make-class-cell-domain classes))
+                 (entry (setup-entry~ domain editor #f))
+                 (end-edit (lambda (cell)
+                             (when (get-modified?~ entry)
+                               (let* ((class (get-value~ entry))
+                                      (new-component (and class (new class))))
+                                 (when old-component
+                                   (remove-child~ designer old-component))
+                                 (when new-component
+                                   (add-child~ designer new-component parent-component name: (and (not-null? path) (last path)))))))))
+            (set-value~ entry (and old-component (class-of old-component)))
+            (edit-cell cell editor: editor close-editor?: #f after-end: end-edit)
+            (prepare-and-focus-entry entry))))))
+  
+  
+  (method (select-property-cell cell editor row-component path)
+    ;; No property can be edited until a row-component exists
+    (when row-component
+      (follow-component-path row-component path 
+        (lambda () #f)
+        (lambda (component base property)
+          (let* ((domain   (get-domain~ base property))
+                 (entry    (setup-entry~ domain editor #f))
+                 (end-edit (lambda (cell)
+                             (when (get-modified?~ entry)
+                               (let* ((value (get-value~ entry))
+                                      (title (present-property~ component property value)))
+                                 (set-title~ (get-cell-data cell) title)
+                                 (safe-set-property~ designer component property value))))))
+            (set-value~ entry (read-property component property))
+            (edit-cell cell editor: editor close-editor?: #f after-end: end-edit)
+            (prepare-and-focus-entry entry))))))
+  
+  
+  (method override (select-cell cell)
+    ;; Because changes in some cells could make other cells inactive
+    (end-edition)
+    (let ((editor (new Layout-View layout-type: 'fill))
+          (column (get-column (get-col~ cell)))
+          (row    (get-row (get-line~ cell))))
+      (let ((path      (get-path~ column))
+            (row-component (get-component~ row)))
+        (if (get-class-column?~ column)
+            ;; Remove class-info from the path
+            (select-class-cell cell editor row-component (butlast path))
+          (select-property-cell cell editor row-component path)))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method override (client-update)
+    (update))
+  
+  
+  (method override (update)
+    (with-update-locked
+      (lambda ()
+        (setup-columns)
+        (insert-rows))))
+    
+ 
+  (method (setup-node-column)
+    (set-visible?~ (get-node-column) #f))
+ 
+ 
+  (method (add-class-column path)
+    (add-column class: Grid-Column title: (->string path) width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
+  
+  
+  (method (add-property-column path)
+    (add-column class: Grid-Column title: (->string path) width: Default-Width user-data: path class-column?: #f))
+
+  
+  (method (setup-client-columns)
+    (define (setup-target-columns target classes)
+      (add-class-column target)
+      (let ((classes-properties (map class-properties classes)))
+        (for-each (lambda (property)
+                    (add-property-column
+                      (append target (list (get-name~ property)))))
+                  (apply union key: get-name~ classes-properties))))
+    
+    (let* ((addable-classes     (get-addable-classes~ client))
+           (addable-descriptors (map get-class-descriptor~ addable-classes))
+           (child-descriptors (append-map (lambda (descriptor)
+                                            (get-children~ (find-child~ descriptor 'children)))
+                                          addable-descriptors))
+           (targets+classes (apply zip (target-classes-union
+                                         (cons (list '() addable-classes)
+                                               (map (lambda (descriptor)
+                                                      (list (normalize-descriptor-target descriptor)
+                                                            (map autoload-class (get-classes~ descriptor))))
+                                                    child-descriptors))))))
+      (apply for-each setup-target-columns targets+classes)))
+  
+  
+  (method (setup-columns)
+    (set-filled-column #f)
+    (remove-columns preserve-node-column?: #t)
+    (setup-node-column)
+    (setup-client-columns))
+  
+  
+  (method override (row-class)
+    Grid-Row)
+  
+  
+  (method (insert-rows)
+    (remove-every-row)
+    (when client
+      (insert-components client))
+    (insert-component #f))
+  
+  
+  (method (insert-components component)
+    (let ((components (get-components~ component)))
+      (for-each (lambda (child)
+                  (insert-component child))
+                (if (sort-components?~ component)
+                    (sort < components key: get-presentation-property~)
+                  components))))
+  
+  
+  (method (inactive-cell-background row-component column)
+    (let ((component-path (butlast (get-path~ column))))
+      (cond ((not (get-class-column?~ column))
+             {Color name: Gray})
+            ((null? component-path)
+             {Color name: White})
+            ((find-component-path row-component (butlast component-path))
+             {Color name: White})
+            (else
+             {Color name: Gray}))))
+  
+  
+  (method (make-row-element row-component column)
+    (let ((path (get-path~ column)))
+      (let ((make-inactive-element
+              (lambda ()
+                (let ((background (inactive-cell-background row-component column)))
+                  (new Tree-Label title: "" background: background))))
+            (make-active-element
+              (lambda (component base property)
+                (let ((title (present-property-value component property)))
+                  (new Tree-Label title: title background: {Color name: White})))))
+        (follow-component-path row-component path make-inactive-element make-active-element))))
+  
+  
+  (method (call-with-row+column cell proc)
+    (proc (get-row (get-line~ cell))
+          (get-column (get-col~ cell))))
+  
+  
+  (method (update-cell cell)
+    (let* ((editor (get-cell-editor))
+           (label (if editor (get-preserved-data~ editor) (get-cell-data cell))))
+      (call-with-row+column cell
+        (lambda (row column)
+          (let ((row-component (get-component~ row))
+                (path (get-path~ column)))
+            (let ((update-inactive-element
+                    (lambda ()
+                      (let ((background (inactive-cell-background row-component column)))
+                        (set-title~ label "")
+                        (set-background~ label background))))
+                  (update-active-element
+                    (lambda (component base property)
+                      (set-title~ label (present-property-value component property))
+                      (set-background~ label {Color name: White}))))
+              (follow-component-path row-component path update-inactive-element update-active-element)
+              (invalidate-cell cell)))))))
+  
+  
+  (method protected virtual (insert-component component)
+    (let ((labels (map (lambda (column)
+                         (make-row-element component column))
+                       (cdr (get-columns)))))
+      (add-row children: (cons (new Tree-Node) labels) user-data: component)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method override (on-designer evt)
+    (case (get-kind~ evt)
+      ((:name-change)     (name-change (get-property~ evt component:) (get-property~ evt name:) (get-property~ evt old-name:)))
+      ((:child-add)       (child-add (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:child-remove)    (child-remove (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:property-change) (property-change (get-property~ evt component:) (get-property~ evt property:)))))
+  
+  
+  (method (child-add child parent)
+    (if (eq? parent client)
+        (begin
+          (remove-row (component-row #f))
+          (insert-component child)
+          (insert-component #f))
+      (call-with-parsed-lineage child update-component-paths)))
+  
+  
+  (method (child-remove child parent)
+    (if (eq? parent client)
+        (remove-row (component-row child))
+      (call-with-parsed-lineage child update-component-paths)))
+  
+  
+  (method (for-each-column proc)
+    (for-each proc (get-columns) (iota (get-columns-count))))
+  
+  
+  (method (get-lineage-from component ancestor)
+    (let* ((root (get-root-parent~ component))
+           (ancestry (get-ancestry~ component root)))
+      (memq ancestor ancestry)))
+  
+  
+  (method (super-path? path1 path2)
+    (cond ((null? path1) #t)
+          ((eq? (car path1)
+                (car path2))
+           (super-path? (cdr path1) (cdr path2)))
+          (else #f)))
+  
+  (method (update-component-paths row-component . paths)
+    (for-each-row
+      (lambda (row row-rank)
+        (when (eq? row-component (get-component~ row))
+          (for-each-column
+            (lambda (column column-rank)
+              ;; Because of the placeholder node column
+              (unless (zero? column-rank)
+                (let ((column-path (get-path~ column)))
+                  (for-each (lambda (path)
+                              (when (super-path? path column-path)
+                                (update-cell (new Cell row-rank column-rank))))
+                            paths)))))))))
+  
+  (method (call-with-parsed-lineage component proc)
+    (let ((lineage-from-client (get-lineage-from component client)))
+      (when lineage-from-client
+        (proc (cadr lineage-from-client)
+              (map get-name~ (cddr lineage-from-client))))))
+  
+  (method (name-change component new-name old-name)
+    (if (eq? client (get-parent~ component))
+        (update-component-paths component '(name-info))
+      (call-with-parsed-lineage component
+        (lambda (row-component change-path)
+          (let ((old-path (append (butlast change-path) (list old-name)))
+                (new-path (append (butlast change-path) (list new-name))))
+            (update-component-paths row-component old-path new-path))))))
+  
+  
+  (method (property-change component property)
+    (call-with-parsed-lineage component
+      (lambda (row-component change-path)
+        (update-component-paths row-component (append change-path (list (field-name property))))))))
+
+)

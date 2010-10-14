@@ -9,6 +9,12 @@
         (jazz.ui))
 
 
+(definition (get-class-categorized-properties class)
+  (let* ((properties-descriptor (get-properties-descriptor class))
+         (categorized (get-categorized~ properties-descriptor)))
+    (either categorized #f)))
+
+
 (definition (present-property-value component property)
   (let ((value (read-property component property)))
     (present-property~ component property value)))
@@ -40,28 +46,24 @@
         ((null? (cdr target-classes))
          target-classes)
         (else
-         (bind (target classes) (car target-classes)
+         (bind (target title classes) (car target-classes)
            (receive (same rest) (partition-binary (cdr target-classes)
                                                   (lambda (el)
                                                     (equal? target (car el))))
-             (cons (list target (apply union test: eq? classes (map second same)))
+             (cons (list target title (apply union test: eq? classes (map second same)))
                    (target-classes-union rest)))))))
 
 
 (definition (class-properties class)
-  (let* ((descriptor (get-descriptor class))
-         (properties-descriptor (find-child~ descriptor 'properties))
-         (categorized (get-categorized~ properties-descriptor))
+  (let* ((categorized (get-class-categorized-properties class))
          (keep-property?
-           ;; This is arbitrary.
-           (lambda (descriptor)
-             (let ((category (get-category~ descriptor)))
-               (and (or (not category) (eq? category 'property))
-                    (or (unspecified? categorized)
-                        (memq (get-name~ descriptor)
-                              categorized))
-                    (find-child~ descriptor 'domain))))))
-    (collect-if keep-property? (get-children~ properties-descriptor))))
+           (lambda (property)
+             (let ((category (get-name~ (get-category~ class property))))
+               (and (eq? category 'properties)
+                    (or (and categorized
+                             (memq (get-name~ property) categorized))
+                        (get-domain~ (get-property-descriptor class (get-name~ property)))))))))
+    (collect-if keep-property? (get-properties~ class))))
 
 
 (definition (make-class-cell-domain classes)
@@ -104,7 +106,7 @@
   
   
   (form
-    (<install> reorderable?: #t multiple-selection?: #f selection-mode: cell))
+    (<install> reorderable?: #t multiple-selection?: #f selection-mode: cell selection-handler: {Event-Handler :self on-selection-change}))
   
   
   (definition Default-Width 100)
@@ -115,18 +117,38 @@
   
   
   ;;;
-  ;;;; Mouse
+  ;;;; Selection
   ;;;
   
   
-  (method override (mouse-down pos)
-    (case selection-mode
-      ((cell)
-       (let ((cell (view->tree pos)))
-         (when cell
-           (select-cell cell))))
-      (else
-       (nextmethod pos))))
+  (method override (on-selection-change evt)
+    (select-cell (car (get-selection~ evt)))
+    (nextmethod evt))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method override (selection-changed selection old origin force-parent? focus?)
+    (define (determine-client component force-parent?)
+      (let ((parent (get-parent~ component)))
+        (if (and parent (get-addable-classes~ parent) (or force-parent? (null? (get-addable-classes~ component))))
+            (values parent #t)
+          (values component #f))))
+    
+    (unless (or (not origin) (eq? origin self))
+      (if (null? selection)
+          (set-client #f)
+        (let ((component (car selection)))
+          (receive (client parent?) (determine-client component force-parent?)
+            (set-client client)
+            (if (not parent?)
+                (set-selection '() generate-event?: #f)
+              (let ((row (component-row component)))
+                (when row
+                  (set-selection (list (new Cell (row->line row) 1)) generate-event?: #t)))))))))
   
   
   ;;;
@@ -136,7 +158,7 @@
   
   (method (prepare-and-focus-entry entry)
     (let ((view-to-focus (tab-view~ entry)))
-      (set-return-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (on-return-press~ self evt))))
+      (set-return-press-handler~ view-to-focus (new Event-Handler execute: on-return-press))
       (acquire-focus~ view-to-focus)
       (select-all~ view-to-focus)))
   
@@ -204,6 +226,7 @@
   
   
   (method override (client-update)
+    (end-edition)
     (update))
   
   
@@ -212,41 +235,53 @@
       (lambda ()
         (setup-columns)
         (insert-rows))))
-    
- 
+  
+  
   (method (setup-node-column)
     (set-visible?~ (get-node-column) #f))
- 
- 
-  (method (add-class-column path)
-    (add-column class: Grid-Column title: (->string path) width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
   
   
-  (method (add-property-column path)
-    (add-column class: Grid-Column title: (->string path) width: Default-Width user-data: path class-column?: #f))
-
+  (method (add-class-column path title)
+    (add-column class: Grid-Column title: title width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
+  
+  
+  (method (add-property-column path title)
+    (add-column class: Grid-Column title: title width: Default-Width user-data: path class-column?: #f))
+  
   
   (method (setup-client-columns)
-    (define (setup-target-columns target classes)
-      (add-class-column target)
-      (let ((classes-properties (map class-properties classes)))
-        (for-each (lambda (property)
-                    (add-property-column
-                      (append target (list (get-name~ property)))))
-                  (apply union key: get-name~ classes-properties))))
+    (define (setup-target-columns target title classes)
+      (add-class-column target title)
+      (let ((classes-properties (map (lambda (class)
+                                       (map (lambda (property)
+                                              (list class property))
+                                            (class-properties class)))
+                                     classes)))
+        (apply for-each (lambda (class property)
+                          (add-property-column
+                            (append target (list (get-name~ property)))
+                            (let ((presentation (property-presentation~ class property)))
+                              (if (null? target) presentation
+                                (string-append title " " presentation)))))
+          (apply zip (apply union key: (lambda (class+property)
+                                         (get-name~ (second class+property)))
+                       classes-properties)))))
     
-    (let* ((addable-classes     (get-addable-classes~ client))
-           (addable-descriptors (map get-class-descriptor~ addable-classes))
-           (child-descriptors (append-map (lambda (descriptor)
-                                            (get-children~ (find-child~ descriptor 'children)))
-                                          addable-descriptors))
-           (targets+classes (apply zip (target-classes-union
-                                         (cons (list '() addable-classes)
-                                               (map (lambda (descriptor)
-                                                      (list (normalize-descriptor-target descriptor)
-                                                            (map autoload-class (get-classes~ descriptor))))
-                                                    child-descriptors))))))
-      (apply for-each setup-target-columns targets+classes)))
+    (let ((addable-classes (get-addable-classes~ client)))
+      (if (null? addable-classes)
+          (add-property-column '(name-info) "Name")
+        (let* ((addable-descriptors (map get-class-descriptor~ addable-classes))
+               (child-descriptors (append-map (lambda (descriptor)
+                                                (get-children~ (find-child~ descriptor 'children)))
+                                              addable-descriptors))
+               (targets+titles+classes (apply zip (target-classes-union
+                                                    (cons (list '() "Class" addable-classes)
+                                                          (map (lambda (descriptor)
+                                                                 (list (normalize-descriptor-target descriptor)
+                                                                       (get-title~ descriptor)
+                                                                       (map autoload-class (get-classes~ descriptor))))
+                                                               child-descriptors))))))
+          (apply for-each setup-target-columns targets+titles+classes)))))
   
   
   (method (setup-columns)

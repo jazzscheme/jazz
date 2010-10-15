@@ -43,7 +43,8 @@
         (jazz.jml)
         (jazz.library)
         (jazz.system)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class Frames-View extends Layout-View
@@ -60,7 +61,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-frame })))))))
+              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-frame} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press})))))))
   
   
   (method meta override (external-name . rest)
@@ -128,7 +129,19 @@
   
   (method (on-select-frame evt)
     (let ((user-origin? (get-user-origin?~ evt)))
-      (frame-changed~ (get-debugger-manager) (selected-frame) user-origin?: user-origin?)))
+      (frame-changed~ (get-debugger-manager) (selected-frame) user-origin?: user-origin?)
+      ;; we let the previous call give the focus to the document because a lot
+      ;; of framework behavior depends on a new document gaining focus
+      (when user-origin?
+        (acquire-focus~ (locate 'frames)))))
+  
+  
+  (method (on-double-click evt)
+    (edit-frame~ (get-debugger-manager) (selected-frame) select?: #t))
+  
+  
+  (method override (on-return-press evt)
+    (edit-frame~ (get-debugger-manager) (selected-frame) select?: #t))
   
   
   ;;;

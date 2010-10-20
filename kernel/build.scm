@@ -47,12 +47,18 @@
       (newline)
       (exit 1))
     
-    (if (not (jazz.gambit-uptodate? (system-version) (system-stamp)))
+    (define (vendor)
+      (let ((vendor-f (##global-var-ref 'system-vendor)))
+        (and (not (##unbound? vendor-f))
+             (system-vendor))))
+    
+    (if (or (not (jazz.gambit-jazz? (vendor)))
+            (not (jazz.gambit-uptodate? (system-version) (system-stamp))))
         (let ((jazz-gambit-version (jazz.get-jazz-gambit-version))
               (jazz-gambit-stamp (jazz.get-jazz-gambit-stamp)))
           (let ((stamp (if jazz-gambit-stamp (jazz.format " stamp {a}" jazz-gambit-stamp) "")))
             (wrong-version
-              (jazz.format "JazzScheme needs Gambit version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
+              (jazz.format "JazzScheme needs Gambit-Jazz version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
                            jazz-gambit-version
                            stamp))))))
   
@@ -1014,12 +1020,8 @@
                                        (symbol->string target))
                                      (if image
                                          (string-append ":" (symbol->string image))
-                                       "")))
-            (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
-                          "gsc"
-                        "gsc-script")))
-        (jazz.call-process gsc-path `("-:dq-" "make" ,argument)))))
-  
+                                       ""))))
+        (jazz.call-process "sh" `("jbs" "-:dq-" "make" ,argument)))))
   (if local?
       (build-kernel configuration image)
     (build-recursive 'kernel configuration image)))

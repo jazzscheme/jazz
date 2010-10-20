@@ -192,15 +192,18 @@
   jazz.jazz-gambit-stamp)
 
 
+(define (jazz.gambit-jazz? gambit-vendor)
+  (and gambit-vendor
+       (string=? gambit-vendor "Jazz")))
+
 (define (jazz.gambit-uptodate? gambit-version gambit-stamp)
   (let ((jazz-gambit-version (jazz.get-jazz-gambit-version))
         (jazz-gambit-stamp (jazz.get-jazz-gambit-stamp)))
-    (if jazz-gambit-version
-        (if (not jazz-gambit-stamp)
-            (>= gambit-version jazz-gambit-version)
-          (or (> gambit-version jazz-gambit-version)
-              (>= gambit-stamp jazz-gambit-stamp)))
-      #t)))
+    (or (not jazz-gambit-version)
+        (> gambit-version jazz-gambit-version)
+        (if jazz-gambit-stamp
+            (>= gambit-stamp jazz-gambit-stamp)
+          (>= gambit-version jazz-gambit-version)))))
 
 
 (define (jazz.for-each-lower-update target proc)

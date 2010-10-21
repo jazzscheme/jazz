@@ -116,6 +116,7 @@
 (native jazz.continuation-capture)
 (native jazz.continuation-graft)
 (native jazz.continuation-return)
+(native jazz.with-continuation-checkpoints)
 (native jazz.continuation-parent)
 (native jazz.continuation-creator)
 (native jazz.continuation-locat)

@@ -59,6 +59,10 @@
       continuation-return)
     
     
+    (define (jazz.with-continuation-checkpoints before thunk after)
+      (%%with-continuation-checkpoints before thunk after))
+    
+    
     (define (jazz.continuation-parent cont)
       (%%continuation-parent cont))
     

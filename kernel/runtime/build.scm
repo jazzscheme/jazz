@@ -47,11 +47,11 @@
 
 
 (define (jazz.for-each-jazz-version proc)
-  (for-each proc (jazz.get-jazz-versions)))
+  (for-each proc (jazz.kludged-get-jazz-versions)))
 
 
 (define (jazz.for-each-higher-jazz-version version proc)
-  (let iter ((jazz-versions (jazz.get-jazz-versions)))
+  (let iter ((jazz-versions (jazz.kludged-get-jazz-versions)))
     (if (%%not (%%null? jazz-versions))
         (let ((jazz-version (%%car jazz-versions)))
           (if (%%fx> (jazz.version-number jazz-version) version)

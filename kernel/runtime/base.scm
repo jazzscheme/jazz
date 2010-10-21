@@ -177,6 +177,12 @@
   jazz.jazz-versions)
 
 
+;; because the kernel/version file is not available to applications
+;; we should probably burn the content or some other format in the image
+(define (jazz.kludged-get-jazz-versions)
+  (or (jazz.get-jazz-versions) '()))
+
+
 (define (jazz.get-jazz-version-number)
   (jazz.load-jazz-versions)
   jazz.jazz-version-number)
@@ -207,7 +213,7 @@
 
 
 (define (jazz.for-each-lower-update target proc)
-  (let iter ((jazz-versions (jazz.get-jazz-versions)))
+  (let iter ((jazz-versions (jazz.kludged-get-jazz-versions)))
     (if (not (null? jazz-versions))
         (let ((jazz-version (car jazz-versions)))
           (let ((update (jazz.version-update jazz-version)))

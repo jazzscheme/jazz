@@ -362,6 +362,10 @@
                  (iter (%%get-class-declaration-ascendant target-declaration)))))))))
 
 
+(jazz.define-method (jazz.specifiable? (jazz.Class-Declaration declaration))
+  #t)
+
+
 (jazz.define-method (jazz.emit-declaration (jazz.Class-Declaration declaration) environment)
   (let ((name (%%get-lexical-binding-name declaration))
         (locator (%%get-declaration-locator declaration))
@@ -522,6 +526,10 @@
 (jazz.define-method (jazz.of-subtype? (jazz.Interface-Declaration declaration) subtype)
   ;; quicky to fill later on
   #f)
+
+
+(jazz.define-method (jazz.specifiable? (jazz.Interface-Declaration declaration))
+  #t)
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Interface-Declaration declaration) environment)

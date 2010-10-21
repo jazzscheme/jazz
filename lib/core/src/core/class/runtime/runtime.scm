@@ -446,6 +446,13 @@
   (jazz.error "Unable to test type on: {s}" type))
 
 
+(jazz.define-virtual-runtime (jazz.specifiable? (jazz.Type type)))
+
+
+(jazz.define-method (jazz.specifiable? (jazz.Type type))
+  #t)
+
+
 (jazz.define-virtual-runtime (jazz.category-type? (jazz.Type type)))
 
 

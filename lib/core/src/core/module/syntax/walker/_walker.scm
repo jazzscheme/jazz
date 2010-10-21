@@ -115,6 +115,10 @@
   (jazz.sourcified-form (jazz.emit-binding-reference type source-declaration environment)))
 
 
+(jazz.define-method (jazz.specifiable? (jazz.Walk-Binding binding))
+  #f)
+
+
 (jazz.define-virtual-runtime (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol source-declaration))
 (jazz.define-virtual-runtime (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual-runtime (jazz.emit-binding-symbol (jazz.Walk-Binding binding) source-declaration environment))
@@ -932,6 +936,11 @@
   (jazz.of-subtype? (jazz.resolve-binding declaration) subtype))
 
 
+(jazz.define-method (jazz.specifiable? (jazz.Autoload-Declaration declaration))
+  ;; quick hack
+  #t)
+
+
 (jazz.define-method (jazz.resolve-binding (jazz.Autoload-Declaration declaration))
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-module (jazz.resolve-reference (%%get-autoload-declaration-exported-module declaration) (%%get-autoload-declaration-module declaration)))
@@ -1441,11 +1450,13 @@
       (define (consume c)
         (if (%%not (%%eqv? (readc) c))
             (ill-formed (jazz.format "{s} expected" c))))
-            
+      
       (define (lookup-type name)
-        (or (jazz.lookup-primitive-type name)
-            (jazz.lookup-reference walker resume declaration environment name)
-            (ill-formed (jazz.format "{s} not found" name))))
+        (let ((type (or (jazz.lookup-primitive-type name)
+                        (jazz.lookup-reference walker resume declaration environment name)
+                        (ill-formed (jazz.format "{s} not found" name)))))
+          (%%assertion (jazz.specifiable? type) (jazz.error "Invalid specifier: {s}" name)
+            type)))
 
       (define (parse-until separator terminator)
         (let ((queue (jazz.new-queue)))

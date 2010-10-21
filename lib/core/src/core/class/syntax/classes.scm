@@ -62,6 +62,7 @@
 
 (jazz.define-virtual (jazz.of-type? (jazz.Type type) object) #t)
 (jazz.define-virtual (jazz.of-subtype? (jazz.Type type) subtype) #t)
+(jazz.define-virtual (jazz.specifiable? (jazz.Type type)) #t)
 (jazz.define-virtual (jazz.category-type? (jazz.Type type)) #t)
 (jazz.define-virtual (jazz.emit-specifier (jazz.Type type)) #t)
 (jazz.define-virtual (jazz.emit-type (jazz.Type type) source-declaration environment) #t)

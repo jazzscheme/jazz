@@ -46,5 +46,5 @@
          (jazz.dialect.runtime))
 
 
-(export (jazz.dialect.syntax)
+(export (jazz.dialect.syntax (phase syntax))
         (scheme)))

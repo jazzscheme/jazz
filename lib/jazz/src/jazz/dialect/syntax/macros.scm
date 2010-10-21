@@ -39,7 +39,7 @@
 
 
 (import (jazz.dialect.kernel)
-        (scheme.syntax-rules))
+        (scheme.syntax-rules (phase syntax)))
 
 
 (native private jazz.->string)

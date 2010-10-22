@@ -2461,6 +2461,7 @@
 
 
 (define (jazz.enqueue-list queue lst)
+  (%%debug-assert lst)
   (%%when (%%not-null? lst)
     (cond ((%%null? (%%get-queue-current queue))
            (%%set-queue-current queue lst)

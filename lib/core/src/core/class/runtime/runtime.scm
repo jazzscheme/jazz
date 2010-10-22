@@ -446,6 +446,13 @@
   (jazz.error "Unable to test type on: {s}" type))
 
 
+(jazz.define-virtual-runtime (jazz.specifiable? (jazz.Type type)))
+
+
+(jazz.define-method (jazz.specifiable? (jazz.Type type))
+  #t)
+
+
 (jazz.define-virtual-runtime (jazz.category-type? (jazz.Type type)))
 
 
@@ -2454,6 +2461,7 @@
 
 
 (define (jazz.enqueue-list queue lst)
+  (%%debug-assert lst)
   (%%when (%%not-null? lst)
     (cond ((%%null? (%%get-queue-current queue))
            (%%set-queue-current queue lst)

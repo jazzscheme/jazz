@@ -740,14 +740,14 @@
             (bind (name . rest) rest
               (let ((entry (table-ref (get-entries~ module) name)))
                 (if (null? rest)
-                    (advise-entry module entry)
+                    (advise-entry entry)
                   (assert (category? entry)
-                    (advise-class-field module entry (category-field entry (car rest))))))))))))
+                    (advise-class-field entry (category-field entry (car rest))))))))))))
   
   (define (advise-module module)
     (iterate-table (get-entries~ module)
       (lambda (name entry)
-        (advise-entry module entry))))
+        (advise-entry entry))))
   
   (define (advise-prefixed prefix)
     (iterate-table (get-modules)
@@ -755,12 +755,12 @@
         (when (starts-with? (symbol->string module-name) prefix)
           (advise-module module)))))
   
-  (define (advise-entry module entry)
+  (define (advise-entry entry)
     (typecase entry
       ((Field)
        (advise-field entry))
       ((Class)
-       (advise-class module entry))))
+       (advise-class entry))))
 
   (define (advise-field field)
     (let ((locator (field-locator~ field)))
@@ -769,23 +769,23 @@
                  (lambda () (field-ref~ field))
                  (lambda (value) (field-set!~ field value)))))
   
-  (define (advise-class module class)
+  (define (advise-class class)
     (iterate-table-safe (get-fields~ class)
       (lambda (name field)
-        (advise-class-field module class field)))
+        (advise-class-field class field)))
     (iterate-class-overrides class
       (lambda (method)
-        (advise-method module class method))))
+        (advise-method class method))))
   
-  (define (advise-class-field module class field)
+  (define (advise-class-field class field)
     (typecase field
       ((Slot))
       ((Method)
-       (advise-method module class field))
+       (advise-method class field))
       ((Field)
        (advise-field field))))
   
-  (define (advise-method module class method)
+  (define (advise-method class method)
     (let ((name (get-name~ method)))
       (let ((locator (compose-name (get-name~ class) name)))
         (call-proc method
@@ -815,7 +815,9 @@
         ((symbol? what)
          (advise-symbol what))
         ((null/pair? what)
-         (advise-path what))))
+         (advise-path what))
+        ((class? what)
+         (advise-class what))))
 
 
 (definition protected (unadvise-internal what)
@@ -883,12 +885,12 @@
                (format :terminal "{$}{_ :v}({a}{?: {l}~})" column (present-identifier locator) (not-null? rest) rest)
                (let ((result (parameterize ((trace-depth (+ (trace-depth) 1)))
                                (apply original rest))))
-                 (format :terminal "{$}{_ :v}{s}" column result)
+                 (format :terminal "{$}{_ :v}   => {s}" column result)
                  result)))))))
 
 
 (definition protected (trace-internal what)
-  (advise what trace-advice))
+  (advise what trace-advice-internal))
 
 
 (definition protected (untrace-internal what)

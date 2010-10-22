@@ -154,21 +154,10 @@
               (jazz.with-extension-reader (%%resource-extension src)
                 (lambda ()
                   (parameterize ((jazz.walk-for 'compile))
-                    (jazz.compile-file src bin update-obj? update-bin? options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))
-              (let ((digest-filepath (jazz.digest-pathname build-package src))
-                    (manifest-filepath (jazz.manifest-pathname build-package src))
-                    (src-filepath (jazz.resource-pathname src))
-                    (references (let ((module-declaration (jazz.get-catalog-entry manifest-name)))
-                                  (cond ((%%is? module-declaration jazz.Module-Declaration)
-                                         (jazz.generate-reference-list module-declaration))
-                                        ((%%is? module-declaration jazz.Unit-Declaration)
-                                         '())
-                                        (else ; pure scheme
-                                         '())))))
-                (jazz.update-manifest-compile-time manifest-name digest-filepath manifest-filepath src-filepath references))))))))
+                    (jazz.compile-file src bin update-obj? update-bin? build-package options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))))))))
 
 
-(define (jazz.compile-file src bin update-obj? update-bin? #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
+(define (jazz.compile-file src bin update-obj? update-bin? build-package #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz.kernel-platform))
   (define unit-uniqueness-prefix
     "unit:")
   
@@ -188,6 +177,19 @@
         (if (not (and (compile-file-to-c src-pathname output: bin-c options: options module-name: unique-module-name)
                       (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
             (jazz.error "compilation failed")))))
+  
+  (define (update-manifest)
+    (let ((digest-filepath (jazz.digest-pathname build-package src))
+          (manifest-filepath (jazz.manifest-pathname build-package src))
+          (src-filepath (jazz.resource-pathname src))
+          (references (let ((module-declaration (jazz.get-catalog-entry unit-name)))
+                        (cond ((%%is? module-declaration jazz.Module-Declaration)
+                               (jazz.generate-reference-list module-declaration))
+                              ((%%is? module-declaration jazz.Unit-Declaration)
+                               '())
+                              (else ; pure scheme
+                               '())))))
+      (jazz.update-manifest-compile-time unit-name digest-filepath manifest-filepath src-filepath references)))
   
   (define (delete-o1-files)
     (jazz.for-each-numbered-pathname (string-append bin-pathname-base ".o") 1 delete-file))
@@ -230,7 +232,9 @@
             (newline)
             (force-output)))
       (if will-compile?
-          (compile))
+          (begin
+            (compile)
+            (update-manifest)))
       (if update-bin?
           (if will-link?
               (link-o1)

@@ -355,16 +355,6 @@
 ;;;
 
 
-(definition default-context
-  :not-set)
-
-(definition public (get-default-context)
-  default-context)
-
-(definition public (set-default-context ctx)
-  (set! default-context ctx))
-
-
 (definition package current-repl-level
   (make-parameter 0))
 
@@ -429,190 +419,163 @@
     (increase! *eval-count*)))
 
 
+;;;
+;;;; Loop
+;;;
+
+
 (definition (read-eval-print-loop thread port level)
   (define (read-eval-print thread resume port level)
-    (let ((console (thread-console thread)))
-      (let ((expr (parameterize ((walk-for 'eval))
-                    (with-readtable (or (and console (get-readtable~ console)) scheme-readtable)
-                      (lambda ()
-                        (with-exception-filter
-                          (lambda (exc)
-                            #t)
-                          (lambda (exc)
-                            (thread-post thread 'exception
-                              (lambda ()
-                                (throw exc)))
-                            (continuation-return resume #f))
-                          (lambda ()
-                            (read port))))))))
-        (if (eof-object? expr)
-            (thread-post thread 'resume-loop
-              (lambda ()
-                (let ((restarts (find-restarts 'resume-loop)))
-                  (when (> (length restarts) 1)
-                    (newline port)
-                    ;; skip the current resume-loop restart
-                    (let ((restart (second restarts)))
-                      (invoke-restart restart))))))
-          (let ((result
-                  (thread-call thread 'evaluate
-                    (lambda ()
-                      (evaluate expr)))))
-            (when (and (thread-call-result? result)
-                       (specified? result))
-              (repl-result-history-add result)
-              (let ((values (call-with-values (lambda () result) list)))
-                (for-each (lambda (value)
-                            (format port "{s}" value)
-                            (format port "{%}"))
-                          values)))
-            (display-prompt port level)
-            (force-output port))))))
-  
-  (define (evaluate expr)
-    (define (context-init console)
-      (let ((context (get-context~ console)))
-        (if (unspecified? context)
-            (let ((new-context
-                    (let ((process (get-process)))
-                      (context-alias (if process
-                                         (initial-console-context~ process)
-                                       :default)))))
-              (set-context~ console new-context)
-              new-context)
-          context)))
-    
-    (define (context-alias context)
-      (when (enumerator? context)
-        (if (and (eq? context :default)
-                 (neq? default-context :not-set))
-            default-context
-          (let ((process (get-process)))
-            (cond ((not process)
-                   (if (eq? context :default)
-                       (new Me)
-                     #f))
-                  ((eq? context :default)
-                   (or (process-alias~ process :profile)
-                       (process-alias~ process :process)))
-                  ((eq? context :me)
-                   (context-alias :profile))
-                  (else
-                   (process-alias~ process context)))))))
-    
-    (define (parse-unquote-command expr)
-      (if (and (pair? expr)
-               (eq? (car expr) 'unquote)
-               (pair? (cdr expr)))
-          (let ((unquoted (cadr expr)))
-            (cond ((symbol? unquoted)
-                   (values unquoted '()))
-                  ((pair? unquoted)
-                   (values (car unquoted) (cdr unquoted)))
-                  (else
-                   (values #f #f))))
-        (values #f #f)))
-    
-    (define (current-frame)
-      (let ((frame-box (current-repl-frame)))
-        (if frame-box
-            (unbox frame-box)
-          #f)))
-    
-    (define (frame-evaluator frame)
-      (if frame
-          (let ((cont (serial->object (get-continuation~ frame))))
-            (lambda (runner expr)
-              (eval-within-no-winding runner expr cont)))
-        (lambda (runner expr)
-          (runner
+    (define (console-read)
+      (parameterize ((walk-for 'eval))
+        (let ((console (thread-console thread)))
+          (with-readtable (or (and console (get-readtable~ console)) scheme-readtable)
             (lambda ()
-              (eval expr))))))
+              (with-exception-filter
+                (lambda (exc)
+                  #t)
+                (lambda (exc)
+                  (thread-post thread 'exception
+                    (lambda ()
+                      (throw exc)))
+                  (continuation-return resume #f))
+                (lambda ()
+                  (read port))))))))
     
-    (let ((console (current-console)))
-      (let ((context (if (not console) #f (context-init console))))
-        (receive (command arguments) (parse-unquote-command expr)
-          (if (eq? command 'in)
-              (if (null? arguments)
-                  context
-                (let ((ctx (car arguments)))
-                  (let ((new-context (or (context-alias ctx) (evaluate ctx))))
-                    (when (symbol? new-context)
-                      (load-unit new-context))
-                    (when console
-                      (set-context~ console new-context)
-                      (set-readtable~ console (if (not new-context) #f jazz-readtable)))
-                    new-context)))
-            (let ((frame (current-frame)))
-              (let ((evaluator (frame-evaluator frame)))
-                (evaluate-in-context context frame evaluator expr))))))))
-  
-  (define (evaluate-in-context context frame evaluator expr)
-    (define (local-names variables)
-      (map (lambda (var)
-             (string->symbol (car var)))
-           variables))
-    
-    (define (local-self variables)
-      (find-object (lambda (var)
-                     (when (string=? (car var) "self")
-                       (let ((serial (cadr var)))
-                         (when serial
-                           (let ((object (serial->object serial)))
-                             (when (object? object)
-                               object))))))
-                   variables))
-    
-    @debugging
-    (let ((ev evaluator))
-      (set! evaluator
-            (lambda (runner expr)
-              (pp (current-console-context))
-              (pp expr)
-              (ev runner expr))))
-    
-    (parameterize ((walk-for 'eval))
-      (let ((local-variables (if frame (get-variables~ frame :lexical) '())))
-        (let ((local-names (local-names local-variables))
-              (local-self (local-self local-variables)))
-          (let ((effective-context (or local-self context)))
-            (cond ((not effective-context)
-                   (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
-                                  (generate-symbol-counter 0))
-                     (evaluator (lambda (thunk)
-                                  (thunk))
-                                expr)))
-                  ((symbol? effective-context)
-                   (let ((unit-name effective-context))
-                     (load-unit unit-name)
-                     (let ((module-declaration (outline-unit unit-name)))
-                       (parameterize ((requested-unit-name #f)
-                                      (generate-symbol-for (format "%{a}&" (eval-count)))
-                                      (generate-symbol-context unit-name)
+    (define (console-eval expr)
+      (define (parse-unquote-command expr)
+        (if (and (pair? expr)
+                 (eq? (car expr) 'unquote)
+                 (pair? (cdr expr)))
+            (let ((unquoted (cadr expr)))
+              (cond ((symbol? unquoted)
+                     (values unquoted #f))
+                    ((pair? unquoted)
+                     (values (car unquoted) (cdr unquoted)))
+                    (else
+                     (values #f #f))))
+          (values #f #f)))
+      
+      (define (current-frame)
+        (let ((frame-box (current-repl-frame)))
+          (if frame-box
+              (unbox frame-box)
+            #f)))
+      
+      (define (frame-evaluator frame)
+        (if frame
+            (let ((cont (serial->object (get-continuation~ frame))))
+              (lambda (runner expr)
+                (eval-within-no-winding runner expr cont)))
+          (lambda (runner expr)
+            (runner
+              (lambda ()
+                (eval expr))))))
+      
+      (define (eval-in-context context frame evaluator expr)
+        (define (local-names variables)
+          (map (lambda (var)
+                 (string->symbol (car var)))
+               variables))
+        
+        (define (local-self variables)
+          (find-object (lambda (var)
+                         (when (string=? (car var) "self")
+                           (let ((serial (cadr var)))
+                             (when serial
+                               (let ((object (serial->object serial)))
+                                 (when (object? object)
+                                   object))))))
+                       variables))
+        
+        @debugging
+        (let ((ev evaluator))
+          (set! evaluator
+                (lambda (runner expr)
+                  (pp (current-console-context))
+                  (pp expr)
+                  (ev runner expr))))
+        
+        (parameterize ((walk-for 'eval))
+          (let ((local-variables (if frame (get-variables~ frame :lexical) '())))
+            (let ((local-names (local-names local-variables))
+                  (local-self (local-self local-variables)))
+              (let ((effective-context (or local-self context)))
+                (cond ((not effective-context)
+                       (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
                                       (generate-symbol-counter 0))
                          (evaluator (lambda (thunk)
-                                      (parameterize ((current-console-context unit-name))
-                                        (thunk)))
-                                    `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                     (with-local-variables ,local-names
-                                       ,expr)))))))
-                  (else
-                   (let ((class-identifier (category-identifier (class-of effective-context))))
-                     (receive (unit-name class-name) (split-composite class-identifier)
-                       (load-unit unit-name)
-                       (let ((module-declaration (outline-unit unit-name)))
-                         (parameterize ((requested-unit-name #f)
-                                        (generate-symbol-for (format "%{a}&" (eval-count)))
-                                        (generate-symbol-context unit-name)
-                                        (generate-symbol-counter 0))
-                           (evaluator (lambda (thunk)
-                                        (parameterize ((current-console-context effective-context))
-                                          (thunk)))
-                                      `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                       (class ,class-name
-                                         (with-dynamic-self (jazz.debuggee.current-console-context)
-                                           (with-local-variables ,local-names
-                                             ,expr))))))))))))))))
+                                      (thunk))
+                                    expr)))
+                      ((symbol? effective-context)
+                       (let ((unit-name effective-context))
+                         (load-unit unit-name)
+                         (let ((module-declaration (outline-unit unit-name)))
+                           (parameterize ((requested-unit-name #f)
+                                          (generate-symbol-for (format "%{a}&" (eval-count)))
+                                          (generate-symbol-context unit-name)
+                                          (generate-symbol-counter 0))
+                             (evaluator (lambda (thunk)
+                                          (parameterize ((current-console-context unit-name))
+                                            (thunk)))
+                                        `(module ,unit-name ,(get-dialect-name~ module-declaration)
+                                         (with-local-variables ,local-names
+                                           ,expr)))))))
+                      (else
+                       (let ((class-identifier (category-identifier (class-of effective-context))))
+                         (receive (unit-name class-name) (split-composite class-identifier)
+                           (load-unit unit-name)
+                           (let ((module-declaration (outline-unit unit-name)))
+                             (parameterize ((requested-unit-name #f)
+                                            (generate-symbol-for (format "%{a}&" (eval-count)))
+                                            (generate-symbol-context unit-name)
+                                            (generate-symbol-counter 0))
+                               (evaluator (lambda (thunk)
+                                            (parameterize ((current-console-context effective-context))
+                                              (thunk)))
+                                          `(module ,unit-name ,(get-dialect-name~ module-declaration)
+                                           (class ,class-name
+                                             (with-dynamic-self (jazz.debuggee.current-console-context)
+                                               (with-local-variables ,local-names
+                                                 ,expr))))))))))))))))
+      
+      (let ((console (current-console)))
+        (let ((context (console-context console)))
+          (receive (cmd arguments) (parse-unquote-command expr)
+            (if cmd
+                (let ((command (registered-console-command cmd)))
+                  (command cmd arguments console console-read console-eval console-print))
+              (let ((frame (current-frame)))
+                (let ((evaluator (frame-evaluator frame)))
+                  (eval-in-context context frame evaluator expr))))))))
+    
+    (define (console-print result)
+      (when (and (thread-call-result? result)
+                 (specified? result))
+        (repl-result-history-add result)
+        (let ((values (call-with-values (lambda () result) list)))
+          (for-each (lambda (value)
+                      (format port "{s}" value)
+                      (format port "{%}"))
+                    values)))
+      (display-prompt port level)
+      (force-output port))
+    
+    (let ((expr (console-read)))
+      (if (eof-object? expr)
+          (thread-post thread 'resume-loop
+            (lambda ()
+              (let ((restarts (find-restarts 'resume-loop)))
+                (when (> (length restarts) 1)
+                  (newline port)
+                  ;; skip the current resume-loop restart
+                  (let ((restart (second restarts)))
+                    (invoke-restart restart))))))
+        (let ((result
+                (thread-call thread 'console-eval
+                  (lambda ()
+                    (console-eval expr)))))
+          (console-print result)))))
   
   (declare (proper-tail-calls))
   (let (iterate)
@@ -620,6 +583,93 @@
       (lambda (resume)
         (read-eval-print thread resume port level)))
     (iterate)))
+
+
+;;;
+;;;; Context
+;;;
+
+
+(definition default-context
+  :not-set)
+
+(definition public (get-default-context)
+  default-context)
+
+(definition public (set-default-context ctx)
+  (set! default-context ctx))
+
+
+(definition (context-alias context)
+  (when (enumerator? context)
+    (if (and (eq? context :default)
+             (neq? default-context :not-set))
+        default-context
+      (let ((process (get-process)))
+        (cond ((not process)
+               (if (eq? context :default)
+                   (new Me)
+                 #f))
+              ((eq? context :default)
+               (or (process-alias~ process :profile)
+                   (process-alias~ process :process)))
+              ((eq? context :me)
+               (context-alias :profile))
+              (else
+               (process-alias~ process context)))))))
+
+
+(define (console-context console)
+  (define (context-init console)
+    (let ((context (get-context~ console)))
+      (if (unspecified? context)
+          (let ((new-context
+                  (let ((process (get-process)))
+                    (context-alias (if process
+                                       (initial-console-context~ process)
+                                     :default)))))
+            (set-context~ console new-context)
+            new-context)
+        context)))
+  
+  (if (not console)
+      #f
+    (context-init console)))
+
+
+;;;
+;;;; Commands
+;;;
+
+
+(definition *console-commands*
+  (make-table test: eq?))
+
+
+(definition public (register-console-command cmd proc)
+  (table-set! *console-commands* cmd proc))
+
+
+(definition public (registered-console-command cmd)
+  (or (table-ref *console-commands* cmd)
+      (error "Unknown console command: {s}" cmd)))
+
+
+(define (in-command cmd arguments console read eval print)
+  (let ((context (console-context console)))
+    (if (or (not arguments) (null? arguments))
+        context
+      (let ((ctx (car arguments)))
+        (let ((new-context (or (context-alias ctx) (eval ctx))))
+          (when (symbol? new-context)
+            (load-unit new-context))
+          (when console
+            (set-context~ console new-context)
+            (set-readtable~ console (if (not new-context) #f jazz-readtable)))
+          new-context)))))
+
+
+(register-console-command 'in in-command)
 
 
 ;;;

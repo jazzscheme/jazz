@@ -363,30 +363,31 @@
 ;; to link an entry and an exit call.
 (define c-stack-unwinding-restart #f)
 
+
 (definition (with-c-stack-unwinding-entry thunk)
-  (with-continuation-checkpoints
-    (lambda (exit restart)
-      (if restart 
-          (error "Trying to invoke a continuation located beyond protected c code")
-        (set! c-stack-unwinding-restart #f)))
-    thunk
-    (lambda (exit restart)
-      (cond (restart
-              (error "A continuation has been invoked beyond protected c code without an exit protection"))
-            (c-stack-unwinding-restart
-              (c-stack-unwinding-restart))))))
+  (let ((result (continuation-checkpoint
+                  (lambda (restart)
+                    (error "Trying to invoke a continuation located beyond protected c code"))
+                  thunk
+                  (lambda (restart)
+                    (error "A continuation has been invoked beyond protected c code without an exit protection")))))
+    (if c-stack-unwinding-restart
+        (let ((restart c-stack-unwinding-restart))
+          (set! c-stack-unwinding-restart #f)
+          (restart))
+      result)))
+
 
 (definition (with-c-stack-unwinding-exit thunk cleanup)
-  (with-continuation-checkpoints
-    (lambda (exit restart)
-      (if restart
-          (error "A continuation located beyond protected c code has been invoked without an entry protection")))
-    thunk
-    (lambda (exit restart)
-      (if restart
-          (begin
-            (set! c-stack-unwinding-restart restart)
-            (continuation-graft exit cleanup))))))
+  (continuation-capture
+    (lambda (exit)
+      (continuation-checkpoint
+        (lambda (restart)
+          (error "A continuation located beyond protected c code has been invoked without an entry protection"))
+        thunk
+        (lambda (restart)
+          (set! c-stack-unwinding-restart restart)
+          (continuation-graft exit cleanup))))))
 
 
 ;;;

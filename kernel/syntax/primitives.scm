@@ -181,14 +181,14 @@
              `(continuation-return ,cont ,@values)
            `(##continuation-return ,cont ,@values)))))
    
-   (jazz.define-syntax %%with-continuation-checkpoints
+   (jazz.define-syntax %%continuation-checkpoint
      (lambda (src)
        (let ((before (##cadr (##source-code src)))
 	         (thunk (##caddr (##source-code src)))
              (after (##cadddr (##source-code src))))
          (if jazz.debug-core?
-             `(with-continuation-checkpoints ,before ,thunk ,after)
-           `(##with-continuation-checkpoints ,before ,thunk ,after)))))
+             `(continuation-checkpoint ,before ,thunk ,after)
+           `(##continuation-checkpoint ,before ,thunk ,after)))))
    
    (jazz.define-macro (%%continuation-graft-no-winding cont values)
      (%%force-uniqueness (cont values)

@@ -325,7 +325,7 @@
     (if debug-source?
         (jazz.feedback "  debug-source?: {s}" debug-source?))
     (if mutable-bindings?
-        (jazz.feedback "  mutable-bindings??: {s}" mutable-bindings?))
+        (jazz.feedback "  mutable-bindings?: {s}" mutable-bindings?))
     (if interpret-kernel?
         (jazz.feedback "  interpret-kernel?: {s}" interpret-kernel?))
     (if (not (eqv? source-access? #t))
@@ -1355,7 +1355,7 @@
                  (jazz.list-configurations))
                (exit))
               ((equal? action "configure")
-               (jazz.split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "interpret-kernel" "destination") missing-argument-for-option
+               (jazz.split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "mutable-bindings" "interpret-kernel" "destination") missing-argument-for-option
                  (lambda (options remaining)
                    (if (null? remaining)
                        (let ((name (symbol-option "name" options))
@@ -1367,6 +1367,7 @@
                              (debug-environments (boolean-option "debug-environments" options #t))
                              (debug-location (boolean-option "debug-location" options #t))
                              (debug-source (boolean-option "debug-source" options #f))
+                             (mutable-bindings (boolean-option "mutable-bindings" options #f))
                              (interpret-kernel (boolean-option "interpret-kernel" options #f))
                              (destination (string-option "destination" options)))
                          (jazz.configure name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source mutable-bindings?: mutable-bindings interpret-kernel?: interpret-kernel destination: destination)

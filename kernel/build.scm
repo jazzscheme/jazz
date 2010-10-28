@@ -34,6 +34,7 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
+(include "source.scm")
 
 ;;;
 ;;;; Versions

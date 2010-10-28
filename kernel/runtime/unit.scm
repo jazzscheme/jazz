@@ -1446,6 +1446,7 @@
                                 (list
                                   path: (jazz.install-path "kernel")
                                   arguments: `("-:dq-" "-subbuild"
+                                               "-link" ,(%%symbol->string jazz.link)
                                                ,@(if (%%memq 'keep-c jazz.compile-options) `("-keep-c") '())
                                                ,@(if (%%memq 'expansion jazz.compile-options) `("-expansion") '())
                                                ,@(if (jazz.save-emit?) `("-emit") '())

@@ -4331,11 +4331,13 @@
 
 
 (define (jazz.walk-setbang walker resume declaration environment form-src)
-  (let ((variable (%%cadr (jazz.source-code form-src)))
-        (value (%%car (%%cddr (jazz.source-code form-src)))))
-    (if (%%symbol? (jazz.source-code variable))
-        (jazz.walk-symbol-assignment walker resume declaration environment variable value)
-      (jazz.walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable)))))
+  (if (%%not (%%fx= (%%length (jazz.source-code form-src)) 3))
+      (jazz.walk-error walker resume declaration form-src "Ill-formed set!: {s}" (%%desourcify form-src))
+    (let ((variable (%%cadr (jazz.source-code form-src)))
+          (value (%%car (%%cddr (jazz.source-code form-src)))))
+      (if (%%symbol? (jazz.source-code variable))
+          (jazz.walk-symbol-assignment walker resume declaration environment variable value)
+        (jazz.walk-error walker resume declaration variable "Illegal set! of {s}" (%%desourcify variable))))))
 
 
 (define (jazz.special-form-name? symbol ls end)

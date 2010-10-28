@@ -753,7 +753,7 @@
 (native will-execute!)
 (native will-testator)
 (native will?)
-(native with-continuation-checkpoints)
+(native continuation-checkpoint)
 (native with-exception-catcher)
 (native with-exception-handler)
 (native with-input-from-port)

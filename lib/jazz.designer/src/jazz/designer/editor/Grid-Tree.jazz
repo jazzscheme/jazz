@@ -100,11 +100,16 @@
            (lambda (property)
              (let ((category (get-name~ (get-category~ class property))))
                (and (eq? category 'properties)
-                    (or (and categorized
-                             (memq (get-name~ property) categorized))
-                        (let ((property-descriptor (get-property-descriptor class (get-name~ property))))
-                          (and property-descriptor (get-domain~ property-descriptor)))))))))
+                    (if categorized
+                        (memq (get-name~ property) categorized)
+                      (let ((property-descriptor (get-property-descriptor class (get-name~ property))))
+                        (and property-descriptor (get-domain~ property-descriptor)))))))))
     (collect-if keep-property? (get-properties~ class))))
+
+
+(definition (autoload-class-validate class-name)
+  (or (autoload-class class-name)
+      (error "Unable to autoload class {s}" class-name)))
 
 
 (definition (make-class-cell-domain classes)
@@ -115,7 +120,17 @@
 
 (definition (normalize-descriptor-target descriptor)
   (let ((target (get-target~ descriptor)))
-    (if (symbol? target) (list target) target)))
+    (cond
+      ((not target)
+       (error "Child-Descriptor has no target: {s}" descriptor))
+      ((symbol? target)
+       (list target))
+      (else target))))
+
+
+(definition (validate-descriptor-title descriptor)
+  (or (get-title~ descriptor)
+      (error "Child-Descriptor has not title: {s}" descriptor)))
 
 
 ;;;
@@ -339,8 +354,8 @@
                                                     (cons (list '() "Class" addable-classes)
                                                           (map (lambda (descriptor)
                                                                  (list (normalize-descriptor-target descriptor)
-                                                                       (get-title~ descriptor)
-                                                                       (map autoload-class (get-classes~ descriptor))))
+                                                                       (validate-descriptor-title descriptor)
+                                                                       (map autoload-class-validate (get-classes~ descriptor))))
                                                                child-descriptors))))))
           (apply for-each setup-target-columns targets+titles+classes)))))
   

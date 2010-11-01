@@ -605,7 +605,8 @@
 
 (define (jazz.manifest-uptodate? src-pathname manifest)
   (let ((digest (jazz.find-source-digest (jazz.pathname-normalize src-pathname) manifest)))
-    (%%string=? (%%digest-hash digest) (%%manifest-compile-time-hash manifest))))
+    (and (%%string=? (%%digest-hash digest) (%%manifest-compile-time-hash manifest))
+         digest)))
 
 
 (define (jazz.load/create-manifest name digest-filepath manifest-filepath)

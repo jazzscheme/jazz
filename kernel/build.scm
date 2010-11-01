@@ -34,7 +34,6 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
-(include "source.scm")
 
 ;;;
 ;;;; Versions
@@ -1022,7 +1021,7 @@
                                      (if image
                                          (string-append ":" (symbol->string image))
                                        ""))))
-        (jazz.call-process "sh" `("jam" "-:dq-" "make" ,argument)))))
+        (jazz.call-process "sh" `("jam" "make" ,argument)))))
   (if local?
       (build-kernel configuration image)
     (build-recursive 'kernel configuration image)))
@@ -1037,7 +1036,7 @@
   (jazz.make-kernel configuration #f #f)
   (jazz.call-process
      (string-append (jazz.configuration-directory configuration) "kernel")
-     `("-:dq-" "-make"
+     `("-make"
        ,(symbol->string product)
        ,@(if link `("-link" ,(symbol->string link)) '())
        ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))

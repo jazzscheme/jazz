@@ -330,7 +330,6 @@
 
 
 (jazz.define-class jazz.Queue jazz.Object () jazz.Object-Class jazz.allocate-queue
-  ((list        %%get-queue-list        %%set-queue-list)
-   (last-list   %%get-queue-last-list   %%set-queue-last-list)
-   (last-anchor %%get-queue-last-anchor %%set-queue-last-anchor)
-   (current     %%get-queue-current     %%set-queue-current))))
+  ((head    %%get-queue-head    %%set-queue-head)
+   (tail    %%get-queue-tail    %%set-queue-tail)
+   (shared? %%get-queue-shared? %%set-queue-shared?))))

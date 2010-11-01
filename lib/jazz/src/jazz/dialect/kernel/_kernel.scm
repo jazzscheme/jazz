@@ -807,6 +807,7 @@
 (native jazz.new-queue)
 (native jazz.enqueue)
 (native jazz.enqueue-list)
+(native jazz.dequeue)
 (native jazz.queue-list)
 (native jazz.reset-queue)
 

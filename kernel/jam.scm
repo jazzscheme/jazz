@@ -1,6 +1,6 @@
 #!gsc -:dq-
 
 (define jazz.source
-  "bootstrap/jazz/")
+  (path-directory (path-strip-trailing-directory-separator (path-directory (car (command-line))))))
 
 (load (string-append jazz.source "kernel/build"))

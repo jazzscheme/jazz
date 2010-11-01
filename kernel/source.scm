@@ -1,1 +1,1 @@
-(define jazz.source "jazz/")
+(define jazz.source "bootstrap/jazz/")

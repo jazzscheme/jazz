@@ -44,14 +44,14 @@
 
 
 (define-macro (jazz.install-features)
-  (let ((features (list jazz.kernel-system jazz.kernel-platform jazz.kernel-windowing jazz.kernel-safety)))
+  (let ((features `(jazz Jazz JAZZ jazzscheme JazzScheme JAZZSCHEME ,jazz.kernel-system ,jazz.kernel-platform ,jazz.kernel-windowing ,jazz.kernel-safety)))
     (for-each (lambda (feature)
                 (if feature
-                    (set! ##cond-expand-features (cons feature ##cond-expand-features))))
+                    (set! ##cond-expand-features (append ##cond-expand-features (list feature)))))
               features)
     `(for-each (lambda (feature)
                  (if feature
-                     (set! ##cond-expand-features (cons feature ##cond-expand-features))))
+                     (set! ##cond-expand-features (append ##cond-expand-features (list feature)))))
                ',features)))
 
 

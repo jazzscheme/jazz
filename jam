@@ -11,13 +11,13 @@ bootstrap_update () {
 bootstrap_configure () {
     PREFIX=$(pwd)/gambit
     cd bootstrap/gambit &&
-    ./configure --prefix=$PREFIX --enable-single-host
+    ./configure --prefix="$PREFIX" $(host)
 }
 
 bootstrap_make () {
     ( [ -f bootstrap/gambit/config.status ] || bootstrap_configure ) &&
     cd bootstrap/gambit &&
-    make -j2
+    make -j $(jobs)
 }
 
 bootstrap_install () {
@@ -36,22 +36,22 @@ bootstrap_dispatch () {
 
     case "$1" in
     
-	"bootstrap-init" )
+	"init" )
 	    bootstrap_init
 	    ;;
-	"bootstrap-update" )
+	"update" )
 	    bootstrap_update
 	    ;;
-	"bootstrap-configure" )
+	"configure" )
 	    bootstrap_configure
 	    ;;
-	"bootstrap-make" )
+	"make" )
 	    bootstrap_make
 	    ;;
-	"bootstrap-install" )
+	"install" )
 	    bootstrap_install
 	    ;;
-	"bootstrap" )
+	"" )
 	    bootstrap
 	    ;;
 	* )
@@ -64,12 +64,22 @@ bootstrap_dispatch () {
     exit
 
 }
-    
+
+jobs () {
+    [ -n "${JAZZ_JOBS:+x}" ] && echo "$JAZZ_JOBS" || echo 1
+}
+
+host () {
+    if [ ! -n "${JAZZ_MULTIHOST:+x}" ] || [ "$JAZZ_MULTIHOST" == "0" ]; then
+	echo "--enable-single-host"
+    fi
+}
+
 DIRECTORY=$(dirname "$0")
 GSC=$DIRECTORY/gambit/bin/gsc
 JAM=$DIRECTORY/kernel/jam.scm
 
-[[ "$1" == bootstrap* ]] && bootstrap_dispatch $1
+[ "$1" == bootstrap ] && bootstrap_dispatch $2
 
 
 if [ ! -f "$GSC" ]; then

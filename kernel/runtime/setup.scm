@@ -260,6 +260,8 @@
             (link (symbol-argument (jazz.get-option "link" options)))
             (jobs (number-argument (jazz.get-option "jobs" options))))
         (define (setup-kernel)
+          (if jazz.kernel-install
+              (##set-gambcdir! (jazz.absolutize-directory jazz.kernel-install jazz.gambit-dir)))
           (set! ##allow-inner-global-define? #t)
           (set! jazz.debugger debugger)
           (jazz.setup-settings)

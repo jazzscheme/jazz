@@ -263,10 +263,7 @@
 (define jazz.kernel-source
   ;; kernel always needs source access to build
   (if (or jazz.source-access? (%%not jazz.product))
-      ;; when the install directory is a subdirectory of the source use a .. notation
-      (if (jazz.string-starts-with? jazz.source "../")
-          (jazz.pathname-normalize (jazz.install-path jazz.source) #f)
-        (jazz.pathname-normalize jazz.source #f))
+      (jazz.absolutize-directory jazz.kernel-install jazz.source)
     #f))
 
 

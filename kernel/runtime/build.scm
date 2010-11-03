@@ -144,14 +144,15 @@
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
         (gambit-library (if include-compiler? "gambcgsc" "gambc"))
         (library-image? (%%eq? image 'library)))
-    (let ((build-directory (if product (%%repository-directory jazz.Build-Repository) destination-directory))
+    (let ((gambit-dir (path-normalize "~~/"))
+          (build-dir (if product (%%repository-directory jazz.Build-Repository) destination-directory))
           (kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
         (%%string-append source path))
       
       (define (build-file path)
-        (%%string-append build-directory path))
+        (%%string-append build-dir path))
       
       (define (dest-file path)
         (%%string-append destination-directory path))
@@ -383,6 +384,8 @@
                     (newline output)
                     (jazz.print-variable 'jazz.built (jazz.pathname-normalize destination-directory) output)
                     (newline output)
+                    (jazz.print-variable 'jazz.gambit-dir (if library-image? (jazz.pathname-normalize gambit-dir) (jazz.relativise-directory destination-directory "./" gambit-dir)) output)
+                    (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)
@@ -532,12 +535,12 @@
           (jazz.create-directories kernel-dir)
           (##gambc-cc
             'exe
-            (jazz.pathname-normalize build-directory)
+            (jazz.pathname-normalize build-dir)
             c-files
             (string-append kernel-dir "/" kernel-name)
-            (string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
+            (string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
             ""
-            (jazz.join-strings `(,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
+            (jazz.join-strings `(,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                                  ,@(gambit-link-libraries)
                                  ,@(link-libraries)
                                  ,@(resource-files)
@@ -593,6 +596,8 @@
                     (jazz.print-variable 'jazz.image (or image 'executable) output)
                     (newline output)
                     (jazz.print-variable 'jazz.built "." output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.gambit-dir (jazz.relativise-directory destination-directory "./" gambit-dir) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
@@ -846,8 +851,8 @@
                        sub-units)
                 ,linkfile
                 "-o" ,library-o1
-                ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~include")) platform))
-                ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-expand "~~lib")) platform))
+                ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+                ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                 ,@(link-options)))
             (case platform
               ((windows)

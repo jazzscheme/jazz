@@ -421,15 +421,22 @@
                (%%fx>= targlen rootlen)
                (%%string=? (%%substring targdir 0 rootlen) rootdir))
           (let ((suffix (%%substring basedir rootlen baselen))
-                (relative-dir ""))
+                (relative-dir #f))
             (let iter ((n (%%fx- (%%string-length suffix) 1)))
               (if (%%fx>= n 0)
                   (begin
                     (if (%%eqv? (%%string-ref suffix n) #\/)
-                        (set! relative-dir (%%string-append relative-dir "../")))
+                        (set! relative-dir (%%string-append (or relative-dir "") "../")))
                     (iter (%%fx- n 1)))))
-            (%%string-append relative-dir (%%substring targdir rootlen targlen)))
+            (%%string-append (or relative-dir "./") (%%substring targdir rootlen targlen)))
         targdir))))
+
+
+(define (jazz.absolutize-directory basedir reldir)
+  (if (or (jazz.string-starts-with? reldir "./")
+          (jazz.string-starts-with? reldir "../"))
+      (jazz.pathname-normalize (%%string-append basedir reldir) #f)
+    (jazz.pathname-normalize reldir #f)))
 
 
 (define (jazz.quote-gcc-pathname pathname platform)

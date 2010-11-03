@@ -2444,58 +2444,62 @@
 
 
 (define (jazz.new-queue)
-  (jazz.allocate-queue jazz.Queue '() '() '() '()))
+  (jazz.allocate-queue jazz.Queue '() '() #f))
 
 
 (define (jazz.enqueue queue object)
-  (let ((current (%%get-queue-current queue)))
-    (cond ((%%null? current)
-           (%%set-queue-current queue (%%cons object current))
-           (%%set-queue-list queue (%%get-queue-current queue)))
-          (else
-           (%%when (%%not-null? (%%get-queue-last-list queue))
-             (jazz.queue-copy-last-list queue))
-           (let ((pair (%%cons object '())))
-             (%%set-cdr! current pair)
-             (%%set-queue-current queue pair))))))
+  (let ((pair (%%cons object '())))
+    (jazz.enqueue-impl queue pair #f)))
 
 
 (define (jazz.enqueue-list queue lst)
-  (%%debug-assert lst)
+  (%%debug-assert (list? lst))
   (%%when (%%not-null? lst)
-    (cond ((%%null? (%%get-queue-current queue))
-           (%%set-queue-current queue lst)
-           (%%set-queue-last-list queue lst)
-           (%%set-queue-list queue lst))
-          (else
-           (%%when (%%not-null? (%%get-queue-last-list queue))
-             (jazz.queue-copy-last-list queue))
-           (%%set-queue-last-list queue lst)
-           (%%set-queue-last-anchor queue (%%get-queue-current queue))
-           (%%set-cdr! (%%get-queue-current queue) lst)))))
+    (jazz.enqueue-impl queue lst #t)))
 
 
-(define (jazz.queue-copy-last-list queue)
-  (let ((last-anchor (%%get-queue-last-anchor queue)))
-    (cond ((%%null? last-anchor)
-           (%%set-queue-list queue (jazz.list-copy (%%get-queue-last-list queue)))
-           (%%set-queue-current queue (jazz.last-tail (%%get-queue-list queue))))
+(define (jazz.enqueue-impl queue lst shared?)
+  (define (stitch tail)
+    (set-cdr! tail lst)
+    (%%set-queue-tail queue (if shared? tail lst))
+    (%%set-queue-shared? queue shared?))
+  
+  (let ((tail (%%get-queue-tail queue)))
+    (cond ((%%null? tail)
+           (%%set-queue-head queue lst)
+           (%%set-queue-tail queue lst)
+           (%%set-queue-shared? queue shared?))
+          ((%%get-queue-shared? queue)
+           (let ((copy (jazz.list-copy (%%get-queue-head queue))))
+             (%%set-queue-head queue copy)
+             (stitch (jazz.last-pair copy))))
+          ((%%pair? (%%cdr tail))
+           (let ((copy (jazz.list-copy (%%get-queue-head queue))))
+             (set-cdr! tail copy)
+             (stitch (jazz.last-pair copy))))
           (else
-           (%%set-cdr! last-anchor (jazz.list-copy (%%get-queue-last-list queue)))
-           (%%set-queue-current queue (jazz.last-tail last-anchor))))
-    (%%set-queue-last-list queue '())
-    (%%set-queue-last-anchor queue '())))
+           (stitch tail)))))
+
+
+(define (jazz.dequeue queue)
+  (let ((head (%%get-queue-head queue)))
+    (%%when (%%pair? head)
+      (let ((next (%%cdr head)))
+        (%%set-queue-head queue next)
+        (%%when (%%eq? head (%%get-queue-tail queue))
+          (%%set-queue-tail queue next)
+          (%%set-queue-shared? queue #t)))
+      (%%car head))))
 
 
 (define (jazz.queue-list queue)
-  (%%get-queue-list queue))
+  (%%get-queue-head queue))
 
 
 (define (jazz.reset-queue queue)
-  (%%set-queue-list queue '())
-  (%%set-queue-last-list queue '())
-  (%%set-queue-last-anchor queue '())
-  (%%set-queue-current queue '()))
+  (%%set-queue-head queue '())
+  (%%set-queue-tail queue '())
+  (%%set-queue-shared? queue #f))
 
 
 (jazz.encapsulate-class jazz.Queue))

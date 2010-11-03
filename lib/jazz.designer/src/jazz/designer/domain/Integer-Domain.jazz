@@ -45,14 +45,25 @@
 (class Integer-Domain extends Text-Domain
   
   
+  (property upper-limit initialize #f accessors generate)
+  (property lower-limit initialize #f accessors generate)
+  
+  
   ;;;
   ;;;; Validation
   ;;;
   
   
   (method override (validate-value property value component root client context manager)
-    (when (not (integer? value))
-      (add-violation~ manager (new Integrity-Violation message: (format "Value must be an integer: {t}" value) property: property) component root client)))
+    (let ((message (cond ((not (integer? value))
+                          (format "Value must be an integer: {t}" value))
+                         ((and upper-limit (> value upper-limit))
+                          (format "Value {t} must be lower than: {t}" value upper-limit))
+                         ((and lower-limit (< value lower-limit))
+                          (format "Value {t} must be higher than: {t}" value lower-limit))
+                         (else #f))))
+      (when message
+        (add-violation~ manager (new Integrity-Violation message: message property: property) component root client))))
   
   
   ;;;

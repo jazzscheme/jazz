@@ -572,22 +572,37 @@
                     (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination output)))))))
       
       ;;;
-      ;;;; Gambcini
+      ;;;; Kernel Interpret
       ;;;
       
-      (define (generate-gambcini)
-        (let ((file (dest-file ".gambcini")))
+      (define (generate-kernel-interpret)
+        (let ((file (dest-file "kernel-interpret")))
           (if (%%not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
-                    (print ";;;==============" output)
-                    (print ";;;  JazzScheme" output)
-                    (print ";;;==============" output)
-                    (print ";;;" output)
-                    (print ";;;; Gambit Ini" output)
-                    (print ";;;" output)
+                    (print "#!/bin/sh" output)
+                    (newline output)
+                    (print "DIRECTORY=$(dirname \"$0\")" output)
+                    (newline output)
+                    (let ((gambit-dir (jazz.relativise-directory destination-directory "./" gambit-dir)))
+                      (print (string-append "GAM=$DIRECTORY/" gambit-dir) output)
+                      (print (string-append "GSC=$DIRECTORY/" gambit-dir "bin/gsc") output))
+                    (print "SCM=$DIRECTORY/kernel-interpret.scm" output)
+                    (newline output)
+                    (print "exec \"$GSC\" -:=\"$GAM\" -i \"$SCM\" \"$@\"" output))))))
+        (let ((file (dest-file "kernel-interpret.scm")))
+          (if (%%not (file-exists? file))
+              (begin
+                (jazz.feedback "; generating {a}..." file)
+                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                  (lambda (output)
+                    (print "#!gsc -:dar" output)
+                    (newline output)
+                    (newline output)
+                    (print "(define install-dir" output)
+                    (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
                     (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
@@ -598,11 +613,11 @@
                     (newline output)
                     (jazz.print-variable 'jazz.built "." output)
                     (newline output)
-                    (jazz.print-variable 'jazz.gambit-dir (jazz.relativise-directory destination-directory "./" gambit-dir) output)
+                    (jazz.print-expression-variable 'jazz.gambit-dir `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" gambit-dir)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory destination-directory "./" source) output)
+                    (jazz.print-expression-variable 'jazz.source `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" source)) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source-access? source-access? output)
                     (newline output)
@@ -621,7 +636,7 @@
       (build-product)
       
       (if interpret-kernel?
-          (generate-gambcini)))))
+          (generate-kernel-interpret)))))
 
 
 ;;;
@@ -899,6 +914,16 @@
           (list? value))
       (display "'" output))
   (write value output)
+  (display ")" output)
+  (newline output))
+
+
+(define (jazz.print-expression-variable variable expression output)
+  (display "(define " output)
+  (display variable output)
+  (newline output)
+  (display "  " output)
+  (write expression output)
   (display ")" output)
   (newline output))
 

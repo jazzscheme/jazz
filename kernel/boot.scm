@@ -34,7 +34,6 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
-(include "source.scm")
 
 (define jazz.Kernel
   (list

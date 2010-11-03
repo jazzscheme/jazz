@@ -153,9 +153,6 @@
 (define jazz.anonymous-configuration-file
   "./.configuration")
 
-(define jazz.named-configurations-file
-  #f)
-
 (define jazz.configurations
   '())
 

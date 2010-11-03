@@ -272,6 +272,9 @@
 (define jazz.settings-directory
   #f)
 
+(define jazz.named-configurations-file
+  #f)
+
 
 (define (jazz.setup-settings)
   (set! jazz.settings-directory (jazz.versioned-directory "~/.jazz/" 'settings jazz.convert-settings))

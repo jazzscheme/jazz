@@ -145,11 +145,12 @@
         (gambit-library (if include-compiler? "gambcgsc" "gambc"))
         (library-image? (%%eq? image 'library)))
     (let ((gambit-dir (path-normalize "~~/"))
+          (source-dir (jazz.relativise-directory source "./" source))
           (build-dir (if product (%%repository-directory jazz.Build-Repository) destination-directory))
           (kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
-        (%%string-append source path))
+        (%%string-append source-dir path))
       
       (define (build-file path)
         (%%string-append build-dir path))

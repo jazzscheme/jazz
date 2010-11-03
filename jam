@@ -1,13 +1,76 @@
 #!/bin/sh
 
-DIRECTORY=$(dirname "$0")
+bootstrap_init () {
+    git submodule init
+}
 
+bootstrap_update () {
+    git submodule update
+}
+
+bootstrap_configure () {
+    PREFIX=$(pwd)/gambit
+    cd bootstrap/gambit &&
+    ./configure --prefix=$PREFIX --enable-single-host
+}
+
+bootstrap_make () {
+    ( [ -f bootstrap/gambit/config.status ] || bootstrap_configure ) &&
+    cd bootstrap/gambit &&
+    make -j2
+}
+
+bootstrap_install () {
+    cd bootstrap/gambit &&
+    make install
+}
+
+bootstrap () {
+    (bootstrap_init) &&
+    (bootstrap_update) &&
+    (bootstrap_make) &&
+    (bootstrap_install)
+}
+
+bootstrap_dispatch () {
+
+    case "$1" in
+    
+	"bootstrap-init" )
+	    bootstrap_init
+	    ;;
+	"bootstrap-update" )
+	    bootstrap_update
+	    ;;
+	"bootstrap-configure" )
+	    bootstrap_configure
+	    ;;
+	"bootstrap-make" )
+	    bootstrap_make
+	    ;;
+	"bootstrap-install" )
+	    bootstrap_install
+	    ;;
+	"bootstrap" )
+	    bootstrap
+	    ;;
+	* )
+	    echo "Unknown bootstrap option : $1"
+	    exit 1
+	    ;;
+	
+    esac
+
+    exit
+
+}
+    
+DIRECTORY=$(dirname "$0")
 GSC=$DIRECTORY/gambit/bin/gsc
 JAM=$DIRECTORY/kernel/jam.scm
 
-if [ ! -f "$GSC" ]; then
-	jbs
-fi
+[[ "$1" == bootstrap* ]] && bootstrap_dispatch $1
+
 
 if [ ! -f "$GSC" ]; then
 	echo "Unable to find ./gambit/bin/gsc."

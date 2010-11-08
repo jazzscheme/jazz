@@ -298,6 +298,17 @@
     (else #f)))
 
 
+(define (jazz.load-global/local-configurations filename)
+  (define (load-if-exists file)
+    (if (file-exists? file)
+        (load file)))
+  
+  (let ((global (string-append jazz.settings-directory filename))
+        (local filename))
+    (load-if-exists global)
+    (load-if-exists local)))
+
+
 ;;;
 ;;;; Configuration
 ;;;
@@ -316,29 +327,19 @@
     (write value output))
   
   (display "(" output)
-  (if name
-      (print-property name: name))
+  (print-property name: name)
   (print-property system: system)
   (print-property platform: platform)
-  (if windowing
-      (print-property windowing: windowing))
+  (print-property windowing: windowing)
   (print-property safety: safety)
-  (if (not optimize?)
-      (print-property optimize?: optimize?))
-  (if (not debug-environments?)
-      (print-property debug-environments?: debug-environments?))
-  (if (not debug-location?)
-      (print-property debug-location?: debug-location?))
-  (if debug-source?
-      (print-property debug-source?: debug-source?))
-  (if mutable-bindings?
-      (print-property mutable-bindings?: mutable-bindings?))
-  (if interpret-kernel?
-      (print-property interpret-kernel?: interpret-kernel?))
-  (if (not (eqv? source-access? #t))
-      (print-property source-access?: source-access?))
-  (if destination
-      (print-property destination: destination))
+  (print-property optimize?: optimize?)
+  (print-property debug-environments?: debug-environments?)
+  (print-property debug-location?: debug-location?)
+  (print-property debug-source?: debug-source?)
+  (print-property mutable-bindings?: mutable-bindings?)
+  (print-property interpret-kernel?: interpret-kernel?)
+  (print-property source-access?: source-access?)
+  (print-property destination: destination)
   (display ")" output)
   (newline output))
 

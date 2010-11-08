@@ -129,7 +129,7 @@
           (debug-source? jazz.kernel-debug-source?)
           (mutable-bindings? jazz.kernel-mutable-bindings?)
           (include-compiler? #f)
-          (interpret-kernel? #f)
+          (kernel-interpret? #f)
           (source jazz.kernel-source)
           (destination jazz.kernel-destination)
           (destination-directory jazz.kernel-install)
@@ -566,7 +566,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
-                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? destination output)))))))
+                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination output)))))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -630,7 +630,7 @@
       (build-kernel)
       (build-product)
       
-      (if interpret-kernel?
+      (if kernel-interpret?
           (generate-kernel-interpret)))))
 
 

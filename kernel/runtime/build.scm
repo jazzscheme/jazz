@@ -117,6 +117,18 @@
 ;;;
 
 
+(define jazz.*changed-units*
+  '())
+
+
+(define (jazz.get-changed-units)
+  jazz.*changed-units*)
+
+
+(define (jazz.reset-changed-units)
+  (set! jazz.*changed-units* '()))
+
+
 (define (jazz.build-image-impl product
           #!key
           (system jazz.kernel-system)
@@ -171,6 +183,9 @@
         (if feedback
             (apply feedback fmt-string rest)))
       
+      (define (push-changed-units unit)
+        (set! jazz.*changed-units* (cons unit jazz.*changed-units*)))
+      
       (define (compile-file rebuild? name dir output)
         (let ((src (string-append dir name ".scm"))
               (dst (string-append output name ".c"))
@@ -184,9 +199,12 @@
                                  ,@(if debug-source? '(debug-source) '()))))
                   ;; standardize path as it will be the path stored in debugging information
                   (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
+                    (push-changed-units path)
                     (feedback-message "; compiling {a}..." path)
-                    (compile-file-to-c standardized-path options: options output: output)
-                    (jazz.update-manifest-compile-time name digest mnf src #f))
+                    (if (not (jazz.dry-run?))
+                        (begin
+                          (compile-file-to-c standardized-path options: options output: output)
+                          (jazz.update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))
       
@@ -443,6 +461,7 @@
                  (if (or rebuild?
                          (jazz.file-needs-update? rcfile res))
                      (begin
+                       (push-changed-units rcfile)
                        (feedback-message "; compiling {a}..." rcfile)
                        (jazz.call-process "windres" (list rc "-o" res) directory: resources)
                        #t)

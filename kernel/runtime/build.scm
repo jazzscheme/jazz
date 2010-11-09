@@ -611,7 +611,7 @@
                     (newline output)
                     (jazz.print-variable 'jazz.image (or image 'executable) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.built "." output)
+                    (jazz.print-expression-variable 'jazz.built 'install-dir output)
                     (newline output)
                     (jazz.print-expression-variable 'jazz.gambit-dir `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" gambit-dir)) output)
                     (newline output)

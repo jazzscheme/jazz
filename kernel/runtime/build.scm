@@ -129,9 +129,8 @@
           (debug-source? jazz.kernel-debug-source?)
           (mutable-bindings? jazz.kernel-mutable-bindings?)
           (include-compiler? #f)
-          (interpret-kernel? #f)
+          (kernel-interpret? #f)
           (source jazz.kernel-source)
-          (source-access? jazz.source-access?)
           (destination jazz.kernel-destination)
           (destination-directory jazz.kernel-install)
           (resources #f)
@@ -389,9 +388,7 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)
-                    (newline output)
-                    (jazz.print-variable 'jazz.source-access? source-access? output)))
+                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)))
                 #t)
             #f)))
       
@@ -569,7 +566,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
                   (lambda (output)
-                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? interpret-kernel? source-access? destination output)))))))
+                    (jazz.print-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination output)))))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -619,8 +616,6 @@
                     (newline output)
                     (jazz.print-expression-variable 'jazz.source `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source-access? source-access? output)
-                    (newline output)
                     (newline output)
                     (display "(load (string-append jazz.source \"kernel/boot\"))" output)
                     (newline output)))))))
@@ -635,7 +630,7 @@
       (build-kernel)
       (build-product)
       
-      (if interpret-kernel?
+      (if kernel-interpret?
           (generate-kernel-interpret)))))
 
 

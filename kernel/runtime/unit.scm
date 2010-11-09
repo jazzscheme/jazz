@@ -261,8 +261,7 @@
 
 
 (define jazz.kernel-source
-  ;; kernel always needs source access to build
-  (if (or jazz.source-access? (%%not jazz.product))
+  (if jazz.source
       (jazz.absolutize-directory jazz.kernel-install jazz.source)
     #f))
 

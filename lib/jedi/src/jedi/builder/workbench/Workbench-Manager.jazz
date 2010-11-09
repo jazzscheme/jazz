@@ -391,7 +391,7 @@
                 (repository-add-package repository (load-package repository #f package-name (parse~ package-file)))))
             (with-update-locked~ tree
               (lambda ()
-                (let ((project-file (new-file~ destination (append (list package "src" "project") package-parts (list (format "{a}-Manifest.jazz" project))))))
+                (let ((project-file (new-file~ destination (list package ".project"))))
                   (let ((project-component (install-project project-file parent #f)))
                     (let ((src-directory (new-directory~ destination (list package "src"))))
                       (let ((src-content (collect-if (lambda (dir)
@@ -445,23 +445,17 @@
   
   
   (method (install-project file parent descendant?)
-    (let ((parent-project (ascendant-project parent)))
-      (when (validate-pathnames parent-project (list file))
-        (let ((name (string->symbol (get-base~ file)))
-              (unit (find-pathname-unit (parse~ file))))
-          (if (not unit)
-              (error "Unable to find unit associated to project file: \"{a}\"" (get-name~ file))
-            (let ((class (module-ref unit name))
-                  (workbench (get-workbench)))
-              (if (not (subtype? class Project))
-                  (error "The file \"{a}\" does not contain a Project class" (get-name~ file))
-                (let ((project (new class workbench: workbench parent: parent)))
-                  (add-child~ designer project parent)
-                  (set-tag-unit~ designer project parent unit)
-                  (reorder-component~ (get-tree) project)
-                  (load-catalog~ workbench project)
-                  (user-message "{s} installed" (get-presentation-property~ project))
-                  project))))))))
+    (let ((workbench (get-workbench))
+          (parent-project (ascendant-project parent)))
+      (let ((project (instantiate-file file workbench: workbench parent: parent)))
+        (if (is-not? project Project)
+            (error "The file \"{a}\" does not contain a project" (get-name~ file))
+          (let ((form (get-form~ project)))
+            (add-child~ designer project parent tag-unit: file)
+            (reorder-component~ (get-tree) project)
+            (load-catalog~ workbench project)
+            (user-message "{s} installed" (get-presentation-property~ project))
+            project)))))
 
   
   ;;;

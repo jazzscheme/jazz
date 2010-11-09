@@ -235,12 +235,6 @@
           (set-modified? #t)))))
   
   
-  (method public virtual (set-tag-unit component parent tag-unit)
-    (let ((form (find-form component #f)))
-      (set-tag-unit~ form tag-unit)
-      (set-modified? #t)))
-  
-  
   (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
     (let ((branch (target-branch trait)))
       ;; Quick fix for the special case of setting a property of the active trait
@@ -307,12 +301,13 @@
             (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (tag-unit: tag-unit #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let ((branch (target-branch trait)))
       (set-parent~ child parent)
       (receive (form restore) (find-form parent branch restore?: #t)
-        (let ((child-form (new Form textual?: #f context: (get-context~ form) action: 'new model-name: (category-name (class-of child)))))
-          (set-form~ child child-form)
+        (let ((child-form (new Form textual?: #f context: (get-context~ form) action: 'new model-name: (if (not tag-unit) (category-name (class-of child)) '*) tag-unit: tag-unit)))
+          (when (not tag-unit)
+            (set-form~ child child-form))
           (add-form~ parent form child-form))
         (when restore
           (remember-creation~ restore self child))

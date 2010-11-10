@@ -141,13 +141,13 @@
   
   
   (method (add-package tree father package)
-    (let ((name (package-name package)))
-      (receive (project-name project-unit) (parse-package-project package)
-        (let ((title (->string name))
-              (image (cond ((not project-name) {Image-Resource "NoProjectPackage"})
-                           ((find-project~ (get-workbench) project-name) {Image-Resource "Package"})
-                           (else {Image-Resource "UninstalledPackage"}))))
-          (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package)))))
+    (let ((name (package-name package))
+          (file (package-project-file package)))
+      (let ((title (->string name))
+            (image (cond ((not file) {Image-Resource "NoProjectPackage"})
+                         ((find-project-by-file~ (get-workbench) file) {Image-Resource "Package"})
+                         (else {Image-Resource "UninstalledPackage"}))))
+        (add-row~ tree father: father children: (list (new Tree-Node title: title image: image)) user-data: package))))
   
   
   ;;;
@@ -310,32 +310,25 @@
   
   (method (install-in-workbench workbench-manager workbench tree row)
     (let ((package (get-user-data~ row)))
-      (receive (name unit) (parse-package-project package)
-        (let ((file (find-unit-source unit)))
-          (install-project~ workbench-manager file workbench #f)
-          (let ((line (row->line~ tree row)))
-            (let ((cell (new Cell line 0)))
-              (let ((node (get-cell-data~ tree cell)))
-                (set-image~ node {Image-Resource "Package"})
-                (invalidate-cell~ tree cell))))))))
+      (let ((file (package-project-file package)))
+        (install-project~ workbench-manager file workbench #f)
+        (let ((line (row->line~ tree row)))
+          (let ((cell (new Cell line 0)))
+            (let ((node (get-cell-data~ tree cell)))
+              (set-image~ node {Image-Resource "Package"})
+              (invalidate-cell~ tree cell)))))))
   
   
-  (definition (parse-package-project package)
-    (let ((repository (package-repository package))
-          (project (package-project package)))
-      (if (or (not project) (eq? (repository-name repository) 'Build))
-          (values #f #f)
-        (let ((name (car project))
-              (pair (assq 'unit (cdr project))))
-          (if (not pair)
-              (error "Unable to find unit in project: {s}" project)
-            (let ((unit (cadr pair)))
-              (values name unit)))))))
+  (definition (package-project-file package)
+    (let ((project (package-project package)))
+      (and project
+           (string? project)
+           (new File (tokenise-filename (package-pathname package project))))))
   
   
   (definition (package-project-installable? package)
-    (receive (name unit) (parse-package-project package)
-      (and name (not (find-project~ (get-workbench) (module-ref unit name))))))
+    (let ((file (package-project-file package)))
+      (and file (not (find-project-by-file~ (get-workbench) file)))))
   
   
   ;;;

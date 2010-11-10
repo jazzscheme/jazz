@@ -546,6 +546,8 @@
 (native jazz.package-repository)
 (native jazz.package-name)
 (native jazz.package-root)
+(native jazz.package-pathname)
+(native jazz.package-root-pathname)
 (native jazz.package-directory)
 (native jazz.package-products)
 (native jazz.package-project)

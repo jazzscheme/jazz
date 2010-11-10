@@ -3177,33 +3177,6 @@
       (jazz.new-time-special (jazz.walk-list walker resume declaration environment forms)))))
 
 
-;;;
-;;;; Form
-;;;
-
-
-(define (jazz.expand-form walker resume declaration environment form)
-  `(begin
-     (definition meta class-form
-       (jml->form ',form))
-     
-     (method meta override (get-metaclass-form)
-       class-form)
-     
-     (method meta override (get-metaclass-forms)
-       (cons class-form (nextmethod)))
-     
-     (method meta override (initialize)
-       (nextmethod)
-       (setup-toplevel-context~ class-form self))
-     
-     (method override (get-class-form)
-       (get-metaclass-form~ (class-of self)))
-     
-     (method override (get-class-forms)
-       (get-metaclass-forms~ (class-of self)))))
-
-
 (jazz.encapsulate-class jazz.Jazz-Walker)
 
 
@@ -3255,5 +3228,4 @@
 (jazz.define-walker-macro   c-union              jazz jazz.expand-c-union)
 (jazz.define-walker-macro   c-external           jazz jazz.expand-c-external)
 (jazz.define-walker-macro   c-external-so        jazz jazz.expand-c-external-so)
-(jazz.define-walker-macro   com-external         jazz jazz.expand-com-external)
-(jazz.define-walker-macro   form                 jazz jazz.expand-form))
+(jazz.define-walker-macro   com-external         jazz jazz.expand-com-external))

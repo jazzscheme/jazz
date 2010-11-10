@@ -4758,8 +4758,10 @@
 ;;;; Local Macro
 ;;;
 
+
 (define (jazz.register-local-macro module-declaration name macro)
   (%%table-set! (%%get-module-declaration-local-macros module-declaration) name macro))
+
 
 (define (jazz.walk-local-macro-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))

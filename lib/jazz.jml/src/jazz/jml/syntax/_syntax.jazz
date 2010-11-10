@@ -38,17 +38,44 @@
 (module protected jazz.jml.syntax jazz
 
 
+(import (jazz.jml.autoload)
+        (jazz.jml.parse)
+        (jazz.library))
+
+
 ;;;
 ;;;; Form
 ;;;
 
 
-;; This macro should ideally go in jazz.library.
-;; It's here to minimize code breaking for the moment.
+;; These macros should ideally go in jazz.library.
+;; They are here to minimize code breaking for the moment.
+
+
+(macro public (form>> form)
+  (define (compute-locators)
+    (let ((tags (make-table test: eq?)))
+      (define (process-expr expr)
+        (receive (tag properties children) (parse-jml-expr expr)
+          (unless (or (memq? tag '(install * ! ~))
+                      (memv? (last (symbol->string tag)) '(#\! #\~)))
+            (table-set! tags tag #t))
+          (for-each process-expr children)))
+      
+      (process-expr form)
+      (cons 'list (map (lambda (pair)
+                         (let ((tag (car pair)))
+                           `(cons ',tag (lambda () ,tag))))
+                       (table->list tags)))))
+  
+  `(parameterize ((jml-locators (list->table ,(compute-locators))))
+     (jml->form ',form)))
+
+
 (macro public (form form)
   `(begin
      (definition meta class-form
-       (jml->form ',form))
+       (form>> ,form))
      
      (method meta override (get-metaclass-form)
        class-form)

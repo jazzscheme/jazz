@@ -1,0 +1,244 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Workbench Designer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.builder.workbench.Workbench-Designer jazz
+
+
+(import (jazz.designer)
+        (jazz.ide))
+
+
+(class Workbench-Designer extends Designer
+  
+  
+  (slot project-designers initialize '())
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (initialize . rest)
+    (define (install-projects-designers)
+      (for-each-project~ reference
+        add-designer))
+    
+    (apply nextmethod rest)
+    (install-projects-designers))
+  
+  
+  (method (cleanup-project-designers)
+    (let ((fact (new List-Factory)))
+      (for-each-designer
+        (lambda (project designer)
+          (if (find-project~ reference (category-identifier (class-of project)))
+              (put~ fact (cons project designer))
+            (when (get-modified?~ designer)
+              (save~ designer)))))
+      (set! project-designers (get-output~ fact))))
+
+  
+  ;;;
+  ;;;; Design
+  ;;;
+  
+  
+  (method override (set-name component name . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner component)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod component name others)
+          (let ((designer (get-project-designer owner)))
+            (apply (~ set-name designer) component name others))))))
+  
+  
+  (method override (set-property component property value . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner component)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod component property value others)
+          (let ((designer (get-project-designer owner)))
+            (apply (~ set-property designer) component property value others))))))
+  
+  
+  (method override (add-child child parent . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner parent)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod child parent others)
+          (let ((designer (get-project-designer owner)))
+            (apply (~ add-child designer) child parent others))))))
+  
+  
+  (method override (remove-child child . rest)
+    (let* ((parent (get-parent~ child))
+           (owner (find-modification-owner parent)))
+      (if (eq? owner reference)
+          (apply nextmethod child rest)
+        (let ((designer (get-project-designer owner)))
+          (apply (~ remove-child designer) child rest)))))
+  
+  
+  (method override (move-components components destination . rest)
+    (unimplemented 'move-components))
+  
+  
+  (method override (transfer-components components destination . rest)
+    (unimplemented 'transfer-components))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method override (cut-components components)
+    (let* ((parents (get-parents components))
+           (owner (find-modification-owner parents)))
+      (if (eq? owner reference)
+          (nextmethod components)
+        (let ((designer (get-project-designer owner)))
+          (cut-components~ designer components)))))
+  
+  
+  (method override (copy-components components)
+    (let* ((parents (get-parents components))
+           (owner (find-modification-owner parents)))
+      (if (eq? owner reference)
+          (nextmethod components)
+        (let ((designer (get-project-designer owner)))
+          (copy-components~ designer components)))))
+  
+  
+  (method override (paste-clipboard parent . rest)
+    (let ((owner (find-modification-owner parent)))
+      (if (eq? owner reference)
+          (apply nextmethod parent rest)
+        (let ((designer (get-project-designer owner)))
+          (apply (~ paste-clipboard designer) parent rest)))))
+  
+  
+  (method (get-parents components)
+    (map get-parent~ components))
+
+  
+  ;;;
+  ;;;; Owner
+  ;;;
+  
+  
+  (method (find-modification-owner components)
+    (define (find-components-owner)
+      (letrec ((find-owner-project
+                 (lambda (component)
+                   (if (or (eq? component reference) (is? component Project))
+                       component
+                     (find-owner-project (get-parent~ component))))))
+        (if (pair? components)
+            (let ((owners (remove-duplicates (map find-owner-project components))))
+              (if (> (length owners) 1)
+                  (error "This operation is not yet supported accross multiple projects")
+                (car owners)))
+          (find-owner-project components))))
+    
+    (let ((owner (find-components-owner)))
+      (if (not (get-effective-editable?~ owner))
+          (error "Project {a} is not editable"  (get-presentation-property~ owner))
+        owner)))
+
+  
+  ;;;
+  ;;;; Designers
+  ;;;
+  
+  
+  (method (add-designer project)
+    (let ((form (get-form~ project)))
+      (let ((designer (new Designer form: form reference: project)))
+        (add-project-designer project designer))))
+  
+  
+  (method (add-project-designer project designer)
+    (set! project-designers (cons (cons project designer) project-designers)))
+  
+  
+  (method (remove-designer project)
+    (set! project-designers (remove! (assq project project-designers) project-designers)))
+  
+  
+  (method protected (get-project-designer project)
+    (assq-value project project-designers #f))
+  
+  
+  (method (for-each-designer proc)
+    (for-each (lambda (pair)
+                (bind (project . designer) pair
+                  (proc project designer)))
+              project-designers))
+  
+  
+  (method protected (project-add project)
+    (for-each-descendant~ project
+      (lambda (descendant level)
+        (when (is? descendant Project)
+          (add-designer descendant)))))
+  
+  
+  (method protected (project-remove project)
+    ;; This a bit strange way of doing is necessary because when we get notified,
+    ;; the descendants of project have already been removed and so we cannot know
+    ;; which designers to remove
+    (cleanup-project-designers))
+
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method protected (save-designer)
+    (let ((some-modified? #f))
+      (when (get-modified?)
+        (set! some-modified? #t)
+        (save))
+      (for-each-designer
+        (lambda (project designer)
+          (when (get-modified?~ designer)
+            (set! some-modified? #t)
+            (save~ designer))))
+      some-modified?))))

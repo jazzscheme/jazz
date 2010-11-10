@@ -1,0 +1,360 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Projects
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.builder.project.Project jazz
+
+
+(import (jazz.designer)
+        (jazz.ide)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui.view))
+
+
+(class Project extends Project-File
+  
+  
+  (property title              initialize #f accessors generate)
+  (property icon               initialize #f accessors generate)
+  (property owner              initialize #f accessors generate)
+  (property copyright          initialize #f accessors generate)
+  (property version            initialize #f accessors generate)
+  (property include-extensions initialize #f accessors generate)
+  (property documentation      initialize #f accessors generate)
+  (property editable?                        accessors generate)
+  (property active?            initialize #t accessors generate)
+  (property catalog?           initialize #f accessors generate)
+  (property catalog-title      initialize #f accessors generate)
+  (property catalog-extensions initialize #f accessors generate)
+  (property catalog-heuristics initialize #f accessors generate)
+
+
+  (slot workbench                    accessors generate)
+  (slot parent-project initialize #f accessors generate)
+  (slot catalog        initialize #f accessors generate)
+  
+  
+  (form
+    (<install> build?: #f))
+
+  
+  (method override (initer-property? name)
+    (or (nextmethod name)
+        (eq? name 'workbench)))
+  
+  
+  (method override (default-name)
+    (category-name (class-of self)))
+  
+  
+  (method override (prepare rest)
+    (nextmethod rest)
+    (let ((arg (getf rest workbench:)))
+      (when arg
+        (set! workbench arg))))
+  
+  
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{a}"
+                title))))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public virtual (project-title)
+    (or title (->string (category-identifier (class-of self)))))
+
+
+  ;;;
+  ;;;; Concrete
+  ;;;
+  
+  
+  (method public virtual (concrete?)
+    #f)
+
+
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  @convert
+  (method (get-effective-source)
+    (get-manifest-source name))
+
+
+  ;;;
+  ;;;; Catalog
+  ;;;
+  
+  
+  (method override (require-catalog)
+    (define (create/register-catalog)
+      (let ((catalog (create-catalog)))
+        (add-catalog~ (get-cataloguer~ (get-application)) catalog)
+        catalog))
+    
+    (unless catalog
+      (set! catalog (create/register-catalog)))
+    catalog)
+  
+  
+  (method (create-catalog)
+    (new Project-Catalog self (catalog-name) (catalog-output) #f #f #f #f #t))
+  
+  
+  (method protected virtual (catalog-name)
+    (cond (catalog-title (string->symbol catalog-title))
+          (title (string->symbol title))
+          (else name)))
+  
+  
+  (method protected virtual (catalog-output)
+    (new File (list 'Profile "catalogs" (format "{a}.jcat" (catalog-name)))))
+
+
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method public virtual (get-effective-editable?)
+    (if (unspecified? editable?)
+        (get-effective-editable?~ parent-project)
+      editable?))
+
+
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (for-each-file proc (type Project-File))
+    (for-each-descendant
+      (lambda (descendant level)
+        (when (is? descendant type)
+          (proc descendant)))))
+
+
+  (method public (collect-files (type Project-File))
+    (let ((fact (new List-Factory)))
+      (for-each-file
+        (lambda (file)
+          (when (is? file type)
+            (put~ fact file))))
+      (get-output~ fact)))
+  
+  
+  (method public (fold-files proc seed (type Project-File))
+    (letrec ((fold
+               (lambda (x f s)
+                 (let ((ps (if (is? x type)
+                               (f x s)
+                             s)))
+                   (if (eq? ps :skip)
+                       #f
+                     (for-each (lambda (c)
+                                 (fold c f ps))
+                               (get-children~ x))
+                     ps)))))
+      (fold self proc seed)))
+
+
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method override (add-to-index name component)
+    (set-workbench (find-workbench))
+    (add-to-project~ workbench self name component))
+  
+  
+  (method override (remove-from-index name component)
+    (remove-from-project~ workbench self name component))
+  
+  
+  (method protected virtual (find-workbench)
+    (let ((project (or creator workbench)))
+      (if (is? project Workbench)
+          project
+        (find-ascendant Workbench))))
+
+
+  ;;;
+  ;;;; Name
+  ;;;
+  
+  
+  (method public virtual (project-name)
+    )
+
+
+  ;;;
+  ;;;; Test
+  ;;;
+
+
+  (method public virtual (project-test . rest)
+    (message-box "This project doesn't define a project-test method"))
+
+
+  ;;;
+  ;;;; Run
+  ;;;
+  
+  
+  (method public virtual (project-run . rest)
+    (message-box "This project doesn't define a project-run method"))
+  
+  
+  (method public virtual (run-arguments)
+    #f)
+
+
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method public virtual (project-debug . rest)
+    (message-box "This project doesn't define a project-debug method"))
+  
+  
+  (method public virtual (debug-arguments)
+    #f)
+
+
+  ;;;
+  ;;;; Build
+  ;;;
+
+
+  (method public virtual (project-build)
+    (message-box "This project doesn't define a project-build method"))
+
+
+  ;;;
+  ;;;; Clean
+  ;;;
+
+
+  (method public virtual (project-clean)
+    (message-box "This project doesn't define a project-clean method"))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Project-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Project-Descriptor extends Project-File-Descriptor
+  
+  
+  (form
+    (<install>                 image: {Image-Resource "Project"}
+      (<properties~>           categorized: (title @wait icon @wait owner @wait copyright @wait version include-extensions @wait documentation @wait active? catalog? catalog-extensions catalog-heuristics)
+        (<Property-Descriptor> name: title title: "Title")
+        (<Property-Descriptor> name: icon title: "Icon")
+        (<Property-Descriptor> name: owner title: "Owner")
+        (<Property-Descriptor> name: copyright title: "Copyright")
+        (<Property-Descriptor> name: version title: "Version")
+        (<Property-Descriptor> name: include-extensions title: "Include Extensions")
+        (<Property-Descriptor> name: documentation title: "Documentation")
+        (<Property-Descriptor> name: editable? title: "Editable?")
+        (<Property-Descriptor> name: active? title: "Active?")
+        (<Property-Descriptor> name: catalog? title: "Catalog?")
+        (<Property-Descriptor> name: catalog-extensions title: "Catalog Extensions")
+        (<Property-Descriptor> name: catalog-heuristics title: "Catalog Heuristics"))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) (->string (category-name (class-of component)))))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-addable-classes component)
+    (list
+      Project-Group
+      ;#f
+      ;Jazz-File
+      ;C-File
+      ))
+    
+  
+  (method override (component-property-domain component property)
+    (case (field-name property)
+      ((title) (new String-Domain nullable?: #t))
+      ((include-extensions catalog-extensions catalog-heuristics) (new Value-Domain))
+      ((documentation) (new File-Domain))
+      ((catalog? active?) (new Boolean-Domain))
+      (else (nextmethod component property)))))))

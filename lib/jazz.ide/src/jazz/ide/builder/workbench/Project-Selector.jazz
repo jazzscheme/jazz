@@ -1,0 +1,214 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Project Selector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.builder.workbench.Project-Selector jazz
+
+
+(import (jazz.ide)
+        (jazz.ide.builder.workbench)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui))
+
+
+(class Project-Selector extends Layout-View
+  
+  
+  (form
+    (<install>                                               size: {Dimension 500 300} layout-type: border
+      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                 name: hierarchical    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :form on-toggle-hierarchical}))
+      (<Border-View>                   name: content-border  location: center border-type: edge style: entry
+        (<Scroller-View>                                     style: document hscroll?: #t vscroll?: #t
+          (<content!>                                        layout-type: fill
+            (<Tree-View>               name: content         portfolio: :images filled-column: name selection-handler: {Selection-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>      name: name            title: "Name" width: 235 toplevel-controls?: #f)))))
+      (<Layout-View>                   name: buttonbar       size: {Dimension 300 36} location: south layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Button>                 name: ok              title: "OK" location: tail size: {Dimension 80 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
+        (<Separator>                                         size: {Dimension 3 0} location: tail)
+        (<Push-Button>                 name: cancel          title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+        (<Separator>                                         size: {Dimension 5 0} location: tail))))
+  
+  
+  (slot hierarchical? initialize #f)
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (update))
+  
+  
+  (method meta override (host-title)
+    "Select Project")
+  
+  
+  (method override (install-in-host host)
+    (select-active))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (get-tree)))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'content))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-toggle-hierarchical evt)
+    (set! hierarchical? (not hierarchical?))
+    (set-toplevel-controls?~ (get-node-column~ (get-tree)) hierarchical?)
+    (with-preserved-selection~ (get-tree)
+      update
+      use: 'data)
+    (update-buttons))
+  
+  
+  (method (on-selection-change evt)
+    (update-buttons))
+  
+  
+  (method (default-action)
+    (when (ok-enabled?)
+      (end-modal~ (get-host) (get-modal-result))))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update)
+    (update-content)
+    (update-buttons))
+  
+  
+  (method (update-content)
+    (define (update-hierarchical tree)
+      (let ((workbench (get-workbench))
+            (rows (make-table test: eq?)))
+        (define (add file father)
+          (or (table-ref rows file #f)
+              (let ((title (get-presentation-property~ file))
+                    (image (get-component-image~ file)))
+                (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: file)))
+                  (table-set! rows file row)
+                  row))))
+        
+        (define (insert project)
+          (let ((parent (get-parent~ project)))
+            (if (not parent)
+                (add project #f)
+              (add project (insert parent)))))
+        
+        (for-each insert (collect-projects workbench))))
+    
+    (define (update-flat tree)
+      (let ((workbench (get-workbench)))
+        (for-each (lambda (project)
+                    (let ((title (get-presentation-property~ project))
+                          (image (get-component-image~ project)))
+                      (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: project)))
+                  (sort string<? (collect-projects workbench)
+                    key: get-presentation-property~))))
+    
+    (let ((tree (get-tree)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (if hierarchical?
+              (update-hierarchical tree)
+            (update-flat tree))))))
+  
+  
+  (method (update-buttons)
+    (let ((project (selected-project)))
+      (set-enabled?~ (locate 'ok) project)))
+  
+  
+  (method (select-active)
+    (when (get-active-project)
+      (select-user-data-row~ (get-tree) (get-active-project))))
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method override (get-modal-result)
+    (selected-project))
+  
+  
+  (method (ok-enabled?)
+    (get-enabled?~ (locate 'ok)))
+  
+  
+  (method (on-double-click evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Utility
+  ;;;
+  
+  
+  (method (selected-project)
+    (let ((file (get-single-selected-data~ (get-tree))))
+      (when (and (is? file Project)
+                 (concrete?~ file))
+        file)))))

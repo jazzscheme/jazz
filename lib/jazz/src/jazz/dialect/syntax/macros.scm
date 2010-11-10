@@ -200,10 +200,6 @@
       form-src)))
 
 
-(macro public (form>> form)
-  `(jml->form ',form))
-
-
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))
 
 (define (expand-push! location value)

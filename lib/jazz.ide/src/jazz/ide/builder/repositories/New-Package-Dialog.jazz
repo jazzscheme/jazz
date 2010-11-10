@@ -1,0 +1,236 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; New Package Dialog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.builder.repositories.New-Package-Dialog jazz
+
+
+(import (jazz.graphic)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class New-Package-Dialog extends View
+  
+  
+  (property repository initialize #f accessors generate)
+  
+  
+  (form
+    (<install>                                              size: {Dimension 500 261}
+      (<Label-View>               name: title               title: "New Package" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Caption})
+      (<Label-View>               name: description         title: "Please specify package name and repository" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Label})
+      (<Horizontal-Line>                                    position: {Point 0 50} size: {Dimension 500 8})
+      (<Label-View>               name: name-label          title: "Name:" position: {Point 82 111} size: {Dimension 33 16} font: {Font name: Label})
+      (<Border-View>              name: name-border         position: {Point 147 109} size: {Dimension 258 19} border-type: edge style: entry
+        (<Scroller-View>                                    hscroll?: #f vscroll?: #f
+          (<!>                    name: content             layout-type: fill
+            (<Name-Text-View>     name: name-text           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t default-style: {Text-Style name: Default font: {Font name: Label}} tooltip?: #t tooltip-text: "Fully qualified name of the package" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
+      (<Label-View>               name: repository-label    title: "Repository:" position: {Point 82 143} size: {Dimension 64 16} font: {Font name: Label})
+      (<Border-View>              name: repository-border   position: {Point 145 139} size: {Dimension 262 22} border-insets: {Rect 2 2 2 1} border-color: {Color name: Medium}
+        (<Border-View>                                      border-color: {Color name: Entry-Border}
+          (<Combo-Box>            name: repository
+            (<!>                  name: scroller
+              (<!>                name: content
+                (<!>              name: body                left-padding: 2 top-padding: 2 tooltip?: #t tooltip-text: "Repository where the package will be created"))))))
+      (<Horizontal-Line>                                    position: {Point 0 213} size: {Dimension 500 8})
+      (<Push-Button>              name: ok                  title: "OK" position: {Point 167 227} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>              name: cancel              title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+    
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (setup-name)
+    (setup-repositories))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (locate 'name-text)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (method (setup-name)
+    (set-string-content~ (locate 'name-text) "new"))
+  
+  
+  (method (setup-repositories)
+    (let ((combo (locate 'repository))
+          (repositories (get-repositories)))
+      (set-choices~ combo (map (lambda (repository)
+                                 (list repository (->string (repository-name repository))))
+                               repositories))
+      (set-value~ combo (or repository
+                            (find-repository 'User)
+                            (car repositories)))))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-title)
+    "New")
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method override (validate-dialog)
+    (receive (repository name) (get-modal-result)
+      (let* ((directory (new Directory (tokenise-filename (repository-library-directory repository))))
+             (destination (new-directory~ directory name))
+             (message (validate-name name destination)))
+        (when message
+          (message-box message)
+          (throw-cancel)))))
+  
+  
+  (method override (get-modal-result)
+    (values (get-value~ (locate 'repository)) (get-string-content~ (locate 'name-text))))
+  
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method override (get-tab-stops)
+    (list
+      (locate 'name-text)
+      (get-body~ (locate 'repository))))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-selection-change evt)
+    (update-ok))
+  
+  
+  (method (on-content-change evt)
+    (update-ok))
+  
+  
+  (method (on-moniker-update evt)
+    (update-ok))
+  
+  
+  (method (on-double-click evt)
+    (when (get-enabled?~ (locate 'ok))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (when (get-enabled?~ (locate 'ok))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-ok)
+    (set-enabled?~ (locate 'ok) (not (empty-string? (get-string-content~ (locate 'name-text))))))
+  
+  
+  (definition (validate-name name destination)
+    (cond ((exists?~ destination)
+           (format "Package already exists: {a}" (parse~ destination)))
+          ((let ((first (first name)))
+             (not (or (eqv? first #\_)
+                      (alphabetic? first))))
+           "Name must start with a letter or an underscore")
+          ((not (every? (lambda (char)
+                          (or (alphabetic? char)
+                              (numeric? char)
+                              (memv? char '(#\minus #\_ #\.))))
+                        name))
+           "Name can only contain letters, digits, dashes, underscores and periods")
+          (else
+           #f)))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Header-Color
+    (new Color red: 120 green: 120 blue: 255))
+
+  
+  (method override (draw surface context lh lv)
+    (let ((size (get-size)))
+      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color name: White}) (list 1 Header-Color))))))
+
+
+;;;
+;;;; Name-Text-View
+;;;
+
+
+(class Name-Text-View extends Plain-Text-View
+  
+  
+  (method override (get-context-menu)
+    (new-text-context-menu)))
+
+
+(register-autoclass Name-Text-View))

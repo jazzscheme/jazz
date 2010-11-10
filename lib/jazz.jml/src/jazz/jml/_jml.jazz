@@ -39,38 +39,10 @@
 
 
 (export (jazz.jml.syntax (phase syntax))
-        (jazz.jml.autoload))
+        (jazz.jml.autoload)
+        (jazz.jml.parse))
 (import (jazz.jml.autoload)
         (jazz.library))
-
-
-;;;
-;;;; Tag
-;;;
-
-
-(definition public (tag? expr)
-  (and (symbol? expr)
-       (tag-string? (symbol->string expr))))
-
-
-(definition public (tag-string? string)
-  (and (> (string-length string) 2)
-       (starts-with? string "<")
-       (ends-with? string ">")))
-
-
-(definition public (tag->name tag)
-  (let ((extract
-          (lambda (string <string>)
-            (subseq string 1 (- (cardinality string) 1)))))
-    (if (string? tag)
-        (extract tag)
-      (string->symbol (extract (symbol->string tag))))))
-
-
-(definition public (name->tag name)
-  (string->symbol (string-append "<" (symbol->string name) ">")))
 
 
 ;;;
@@ -132,49 +104,16 @@
 
 
 ;;;
-;;;; Parsing
-;;;
-
-
-(definition public (parse-jml-properties/children list)
-  (let ((properties #f)
-        (content #f))
-    (let (iterate (scan list))
-      (if (null? scan)
-          (values (if properties (queue-list properties) '())
-                  (if content (queue-list content) '()))
-        (let ((element (car scan)))
-          (if (and (not content) (keyword? element))
-              (begin
-                (when (not properties)
-                  (set! properties (new-queue)))
-                (enqueue properties element)
-                (enqueue properties (cadr scan))
-                (iterate (cddr scan)))
-            (when (not content)
-              (set! content (new-queue)))
-            (enqueue content element)
-            (iterate (cdr scan))))))))
-
-
-(definition public (get-jml-property list property (not-found: not-found '()))
-  (let ((scan list))
-    (continuation-capture
-      (lambda (return)
-        (while (not-null? scan)
-          (when (eqv? (car scan) property)
-            (continuation-return return (cadr scan)))
-          (set! scan (cddr scan)))
-        not-found))))
-
-
-;;;
 ;;;; Form
 ;;;
 
 
 ;; This is a very naive draft implementation that goes through
 ;; two passes of parsing to a node and then converting to a form
+
+
+(definition public jml-locators
+  (make-parameter #f))
 
 
 (definition public (jml->form expr)

@@ -1,0 +1,114 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JML Parse
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.jml.parse jazz
+
+
+(import (jazz.library))
+
+
+;;;
+;;;; Tag
+;;;
+
+
+(definition public (tag? expr)
+  (and (symbol? expr)
+       (tag-string? (symbol->string expr))))
+
+
+(definition public (tag-string? string)
+  (and (> (string-length string) 2)
+       (starts-with? string "<")
+       (ends-with? string ">")))
+
+
+(definition public (tag->name tag)
+  (let ((extract
+          (lambda (string <string>)
+            (subseq string 1 (- (cardinality string) 1)))))
+    (if (string? tag)
+        (extract tag)
+      (string->symbol (extract (symbol->string tag))))))
+
+
+(definition public (name->tag name)
+  (string->symbol (string-append "<" (symbol->string name) ">")))
+
+
+;;;
+;;;; Parse
+;;;
+
+
+(definition public (parse-jml-expr expr)
+  (bind (first . rest) expr
+    (let ((tag (tag->name first)))
+      (receive (properties children) (parse-jml-properties/children rest)
+        (values tag properties children)))))
+
+
+(definition public (parse-jml-properties/children list)
+  (let ((properties #f)
+        (content #f))
+    (let (iterate (scan list))
+      (if (null? scan)
+          (values (if properties (queue-list properties) '())
+                  (if content (queue-list content) '()))
+        (let ((element (car scan)))
+          (if (and (not content) (keyword? element))
+              (begin
+                (when (not properties)
+                  (set! properties (new-queue)))
+                (enqueue properties element)
+                (enqueue properties (cadr scan))
+                (iterate (cddr scan)))
+            (when (not content)
+              (set! content (new-queue)))
+            (enqueue content element)
+            (iterate (cdr scan))))))))
+
+
+(definition public (get-jml-property list property (not-found: not-found '()))
+  (let ((scan list))
+    (continuation-capture
+      (lambda (return)
+        (while (not-null? scan)
+          (when (eqv? (car scan) property)
+            (continuation-return return (cadr scan)))
+          (set! scan (cddr scan)))
+        not-found)))))

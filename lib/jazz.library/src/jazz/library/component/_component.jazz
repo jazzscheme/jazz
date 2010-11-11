@@ -51,18 +51,26 @@
   (read-from-file (choose-file multiple-selection?: #f)))
 
 
-(definition public (read-from-file file)
+(definition public (read-from-file file (locator #f))
+  (define (parse expr proc)
+    (if (and (pair? expr)
+             (eq? (car expr) 'data))
+        (proc #f expr)
+      (proc #f expr)))
+  
   (call-with-input-file (list path: (parse~ file) char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
     (lambda (reader)
-      (let ((form (read reader)))
-        (if (eof-object? form)
-            #f
-          (set! form (jml->form form))
-          (set-origin~ form file)
-          form)))))
+      (let ((expr (read reader)))
+        (if (eof-object? expr)
+            (error "No expression found in file: {a}" (parse~ file))
+          (parse expr
+            (lambda (imports form)
+              (set! form (jml->form form (or locator @w (if imports (imports-locator imports) #f))))
+              (set-origin~ form file)
+              form)))))))
 
 
-(definition public (safe-read-from-file file)
+(definition public (safe-read-from-file file (locator #f))
   ;; quick solution we should only catch reading and parsing errors
   (call-with-catch (lambda (obj)
                      (or (datum-parsing-exception? obj)
@@ -70,13 +78,26 @@
       (lambda (exc)
         (wrap-exception exc))
     (lambda ()
-      (read-from-file file))))
+      (read-from-file file locator))))
 
 
 (definition public (instantiate-file file . rest)
   (let ((component (apply instantiate~ (read-from-file file) rest)))
     (register-tag-file component file)
     component))
+
+
+(definition public (imports-locator imports)
+  (lambda (symbol)
+    (lambda ()
+      (continuation-capture
+        (lambda (return)
+          (for-each (lambda (import)
+                      (let ((object (module-get import symbol)))
+                        (when object
+                          (continuation-return return object))))
+                    imports)
+          (error "Unable to find class: {s}" symbol))))))
 
 
 ;;;

@@ -46,33 +46,6 @@
 
 
 ;;;
-;;;; Source
-;;;
-
-
-(definition Autoclasses
-  (make-table test: eq?))
-
-
-(definition public (get-autoclass name)
-  (table-ref Autoclasses name #f))
-
-
-(definition public (set-autoclass name class)
-  (table-set! Autoclasses name class))
-
-
-(definition public (register-autoclass class)
-  (set-autoclass (category-name class) class))
-
-
-(definition public (autoload-class name)
-  (or (get-autoclass name)
-      (when (get-autoload name)
-        (autoload name))))
-
-
-;;;
 ;;;; Parse
 ;;;
 
@@ -112,17 +85,17 @@
 ;; two passes of parsing to a node and then converting to a form
 
 
-(definition public jml-locators
+(define jml-locators
   (make-parameter #f))
 
 
-(definition public (jml->form expr)
+(definition public (jml->form expr (locator #f))
   (let* ((parser (new JML-Parser))
          (node (parse~ parser expr)))
-    (node->form node)))
+    (node->form node locator)))
 
 
-(definition package (node->form node)
+(definition package (node->form node (locator #f))
   (define (extract-node-properties node)
     (let ((fact (new List-Factory)))
       (for-each-property (lambda (property value)
@@ -132,36 +105,36 @@
                          (get-properties~ node))
       (get-output~ fact)))
   
-  (letrec ((node->form
-             (lambda (node parent)
-               (if (is? node JML-Text)
-                   node
-                 (let* ((tag (get-tag~ node))
-                        (tag-name (symbol->string tag))
-                        (tag-modify? (and (neq? tag '!) (ends-with? tag-name "!")))
-                        (tag-locate? (and (neq? tag '~) (ends-with? tag-name "~")))
-                        (tag-symbolic? (or tag-modify? tag-locate?))
-                        (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
-                                      ((or (eq? tag '~) tag-symbolic?) 'locate)
-                                      (else 'new)))
-                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
-                        (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
-                        (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
-                        (children (map (lambda (node)
-                                         (node->form node form))
-                                       (get-children~ node))))
-                   (set-parent-value~ form parent)
-                   (if (trait-tag? tag)
-                       ;; not 100% sure about this way of testing for a trait form with no install
-                       (if (null? children)
-                           (begin
-                             (set-property~ form 'client-form (new Form action: 'new model-name: 'install))
-                             (set-children~ form '()))
-                         (set-property~ form 'client-form (car children))
-                         (set-children~ form (cdr children)))
-                     (set-children~ form children))
-                   form)))))
-    (node->form node #f)))
+  (define (node->form node parent)
+    (if (is? node JML-Text)
+        node
+      (let* ((tag (get-tag~ node))
+             (tag-name (symbol->string tag))
+             (tag-modify? (and (neq? tag '!) (ends-with? tag-name "!")))
+             (tag-locate? (and (neq? tag '~) (ends-with? tag-name "~")))
+             (tag-symbolic? (or tag-modify? tag-locate?))
+             (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
+                           ((or (eq? tag '~) tag-symbolic?) 'locate)
+                           (else 'new)))
+             (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
+             (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
+             (form (new Form textual?: #f action: action model-name: model-name model-locator: locator name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
+             (children (map (lambda (node)
+                              (node->form node form))
+                            (get-children~ node))))
+        (set-parent-value~ form parent)
+        (if (trait-tag? tag)
+            ;; not 100% sure about this way of testing for a trait form with no install
+            (if (null? children)
+                (begin
+                  (set-property~ form 'client-form (new Form action: 'new model-name: 'install))
+                  (set-children~ form '()))
+              (set-property~ form 'client-form (car children))
+              (set-children~ form (cdr children)))
+          (set-children~ form children))
+        form)))
+  
+    (node->form node #f))
 
 
 (definition package (form->node form)

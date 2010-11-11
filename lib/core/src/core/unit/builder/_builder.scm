@@ -135,7 +135,7 @@
             (windows #f)
             (else (zero? (shell-command "gcc --version | grep -q 4.2."))))))
     (lambda (str)
-      (if gcc-4-2? (string-append "-U___SINGLE_HOST " str) str))))
+      (if (or jazz.debug-user? gcc-4-2?) (string-append "-U___SINGLE_HOST " str) str))))
 
 
 (define (jazz.compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))

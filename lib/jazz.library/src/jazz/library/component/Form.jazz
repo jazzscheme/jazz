@@ -66,6 +66,7 @@
   (slot context       accessors generate)
   (slot action        getter generate)
   (slot model-name    accessors generate)
+  (slot model-locator accessors generate)
   (slot name          accessors generate)
   (slot tag-symbolic? accessors generate)
   (slot tag-unit      accessors generate)
@@ -81,6 +82,7 @@
                                (context: context #f)
                                (action: action #f)
                                (model-name: model-name #f)
+                               (model-locator: model-locator #f)
                                (name: name #f)
                                (tag-symbolic?: tag-symbolic? #f)
                                (tag-unit: tag-unit #f)
@@ -96,6 +98,7 @@
     (set! context~self context)
     (set! action~self action)
     (set! model-name~self model-name)
+    (set! model-locator~self model-locator)
     (set! name~self name)
     (set! tag-symbolic?~self tag-symbolic?)
     (set! tag-unit~self tag-unit)
@@ -106,7 +109,7 @@
   
   
   (method override (copy-object deep?)
-    (new Form textual?: #f origin: origin context: context action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-unit: tag-unit properties: (copy properties) children: (subcopy children deep?)))
+    (new Form textual?: #f origin: origin context: context action: action model-name: model-name model-locator: model-locator name: name tag-symbolic?: tag-symbolic? tag-unit: tag-unit properties: (copy properties) children: (subcopy children deep?)))
 
 
   (method override (print printer readably)
@@ -146,12 +149,14 @@
   ;;;; Access
   ;;;
   
-    
+  
   (method public (get-model)
-    (if (not context)
-        (or (registered-form model-name)
-            (autoload-class model-name))
-      (slot-value context model-name)))
+    (if model-locator
+        ((model-locator model-name))
+      (if (not context)
+          (or (registered-form model-name)
+              (autoload model-name))
+        (slot-value context model-name))))
 
   
   ;;;
@@ -238,12 +243,12 @@
   
   
   (method public (instantiate . rest)
-    (let ((model (autoload-class model-name)))
+    (let ((model (get-model)))
       (apply new model form: self creator: #t name: name rest)))
   
   
   (method public (instantiate-component . rest)
-    (let ((model (autoload-class model-name)))
+    (let ((model (get-model)))
       (apply new model creator: #t name: name rest)))
 
   

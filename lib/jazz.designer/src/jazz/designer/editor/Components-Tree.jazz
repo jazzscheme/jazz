@@ -404,16 +404,14 @@
   (method override (add-component-class class (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
     (define (create-new-component class parent creation-info extra-properties)
       (receive (presentation added-properties) creation-info
-        (let ((child (new class parent: parent))
-              (name (and presentation (presentation->name~ class presentation)))
-              (designer (get-designer)))
-          (when name
-            (set-name~ child name))
-          (set! last-class class)
-          (with-update-locked
-            (lambda ()
-              (install-new-component designer child parent presentation added-properties extra-properties)))
-          child)))
+        (let ((name (and presentation (presentation->name~ class presentation))))
+          (let ((child (new class parent: parent name: name))
+                (designer (get-designer)))
+            (set! last-class class)
+            (with-update-locked
+              (lambda ()
+                (install-new-component designer child parent presentation added-properties extra-properties)))
+            child))))
     
     (let* ((selected (selected-component))
            (parent (or parent (relocation-parent selected class) selected client))

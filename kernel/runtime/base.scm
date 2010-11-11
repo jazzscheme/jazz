@@ -283,19 +283,39 @@
 
 (define (jazz.convert-settings dir old)
   (define (convert-initial)
-    204010)
-  
-  (define (convert-204010)
-    204012)
-  
-  (define (convert-204012)
-    204015)
+    (jazz.convert-configurations dir
+      (lambda (configuration)
+        configuration))
+    205000)
   
   (case old
     ((#f) (convert-initial))
-    ((204010) (convert-204010))
-    ((204012) (convert-204012))
     (else #f)))
+
+
+(define (jazz.convert-properties plist)
+  plist)
+
+
+(define (jazz.convert-configurations dir converter)
+  (let ((configurations-file (string-append dir ".configurations")))
+    (define (read-configurations)
+      (call-with-input-file (list path: configurations-file eol-encoding: 'cr-lf)
+        (lambda (input)
+          (read-all input read))))
+    
+    (define (write-configurations configurations)
+      (call-with-output-file (list path: configurations-file #; eol-encoding: #; (jazz.platform-eol-encoding (jazz.guess-platform)))
+        (lambda (output)
+          (for-each (lambda (configuration)
+                      (write configuration output)
+                      (newline output))
+                    configurations)
+          (write 23 output)
+          (newline output))))
+    
+    (if (file-exists? configurations-file)
+        (write-configurations (converter (read-configurations))))))
 
 
 (define (jazz.load-global/local-configurations filename)

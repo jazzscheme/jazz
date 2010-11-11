@@ -39,6 +39,7 @@
 
 
 (import (jazz.jml)
+        (jazz.library)
         (jazz.ui.dialog))
 
 
@@ -55,8 +56,20 @@
   (define (parse expr proc)
     (if (and (pair? expr)
              (eq? (car expr) 'data))
-        (proc #f expr)
-      (proc #f expr)))
+        (parse-data expr proc)
+      (parse-form expr proc)))
+  
+  (define (parse-data expr proc)
+    (bind (data dialect . info) expr
+      (let ((import (assq 'import info))
+            (form (assq 'form info)))
+        (proc (new Data
+                dialect
+                (if import (cdr import) #f))
+              (if form (cadr form) #f)))))
+  
+  (define (parse-form expr proc)
+    (proc #f expr))
   
   (call-with-input-file (list path: (parse~ file) char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
     (lambda (reader)
@@ -64,8 +77,9 @@
         (if (eof-object? expr)
             (error "No expression found in file: {a}" (parse~ file))
           (parse expr
-            (lambda (imports form)
-              (set! form (jml->form form (or locator @w (if imports (imports-locator imports) #f))))
+            (lambda (data form)
+              (set! form (jml->form form (or locator (if data (let ((imports (get-imports~ data))) (if imports (imports-locator imports) #f)) #f))))
+              (set-data~ form data)
               (set-origin~ form file)
               form)))))))
 
@@ -93,9 +107,10 @@
       (continuation-capture
         (lambda (return)
           (for-each (lambda (import)
-                      (let ((object (module-get import symbol)))
-                        (when object
-                          (continuation-return return object))))
+                      (let ((module-name (if (pair? import) (car import) import)))
+                        (let ((object (module-get module-name symbol)))
+                          (when object
+                            (continuation-return return object)))))
                     imports)
           (error "Unable to find class: {s}" symbol))))))
 

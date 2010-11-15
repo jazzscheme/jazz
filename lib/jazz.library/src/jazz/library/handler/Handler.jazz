@@ -49,16 +49,15 @@
   (slot target      getter generate)
   (slot target-name getter generate)
   (slot method-name getter generate)
-  (slot form-depth  accessors generate)
+  (slot form        accessors generate)
   
   
-  (method override (initialize (execute: execute #f) (target: target #f) (target-name: target-name #f) (method-name: method-name #f) (form-depth: form-depth #f))
+  (method override (initialize (execute: execute #f) (target: target #f) (target-name: target-name #f) (method-name: method-name #f))
     (nextmethod)
     (set! execute~self execute)
     (set! target~self target)
     (set! target-name~self target-name)
-    (set! method-name~self method-name)
-    (set! form-depth~self form-depth))
+    (set! method-name~self method-name))
   
   
   (method override (print printer readably)
@@ -82,11 +81,19 @@
   
   
   (method public (find-target sender)
+    (define (find-form component)
+      (cond ((not component)
+             (error "Unable to find :form handler"))
+            ((memq? form (get-metaclass-forms~ (class-of component)))
+             component)
+            (else
+             (find-form (get-parent~ component)))))
+    
     (if (is-not? sender Component)
         (process-alias~ (get-process) target-name)
       (cond ((eq? target-name :form)
-             (child~ sender form-depth))
+             (find-form sender))
             ((and (pair? target-name) (eq? (car target-name) :form))
-             (child~ (child~ sender form-depth) (cdr target-name)))
+             (child~ (find-form sender) (cdr target-name)))
             (else
              (child~ sender target-name)))))))

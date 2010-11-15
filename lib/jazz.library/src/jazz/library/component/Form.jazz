@@ -136,8 +136,8 @@
       (for-each-property
         (lambda (name value)
           (cond
-            ((is? value Handler) (set-form-depth~ value level))
-            ((is? value Form) (setup-toplevel-context~ value ctx))))
+            ((is? value Handler) (set-form~ value self))
+            ((is? value Form) (setup-context value 0))))
         (get-properties~ form))
       (for-each (lambda (child)
                   (when (is? child Form)
@@ -155,7 +155,11 @@
   
   (method public (get-model)
     (if model-locator
-        ((model-locator model-name))
+        ;; for backward compatibility of form>> expansion to not force a rebuild all
+        (let ((obj (model-locator model-name)))
+          (if (procedure? obj)
+              (obj)
+            obj))
       (if (not context)
           (or (registered-form model-name)
               (autoload model-name))

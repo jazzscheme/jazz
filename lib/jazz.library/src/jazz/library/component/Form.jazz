@@ -131,21 +131,20 @@
   ;;;
 
 
-  (method public (setup-toplevel-context ctx)
-    (define (setup-context form level)
+  (method public (setup-literals)
+    (define (setup form)
       (for-each-property
         (lambda (name value)
           (cond
             ((is? value Handler) (set-form~ value self))
-            ((is? value Form) (setup-context value 0))))
+            ((is? value Form) (setup value))))
         (get-properties~ form))
       (for-each (lambda (child)
                   (when (is? child Form)
-                    (setup-context child (+ level 1))))
+                    (setup child)))
                 (get-children~ form)))
     
-    (set! origin ctx)
-    (setup-context self 0))
+    (setup self))
   
   
   ;;;
@@ -155,11 +154,7 @@
   
   (method public (get-model)
     (if model-locator
-        ;; for backward compatibility of form>> expansion to not force a rebuild all
-        (let ((obj (model-locator model-name)))
-          (if (procedure? obj)
-              (obj)
-            obj))
+        (model-locator model-name)
       (if (not context)
           (or (registered-form model-name)
               (autoload model-name))

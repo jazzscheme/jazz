@@ -331,7 +331,7 @@
   
   (let ((build (jazz.make-repository 'Build (or (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
         (jazz (jazz.make-repository 'Jazz (or (jazz.jazz-repository) jazz.kernel-source) "lib"))
-        (user (jazz.make-repository 'User (or (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
+        (user (jazz.make-repository 'User (or (jazz.user-repository) (jazz.versioned-directory "~/jazz_user/" 'user jazz.convert-user)) "lib" create?: #t))
         (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
     (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz user repositories)))))

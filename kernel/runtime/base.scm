@@ -329,6 +329,15 @@
     (load-if-exists local)))
 
 
+(define (jazz.convert-user dir old)
+  (define (convert-initial)
+    205000)
+  
+  (case old
+    ((#f) (convert-initial))
+    (else #f)))
+
+
 ;;;
 ;;;; Configuration
 ;;;

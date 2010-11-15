@@ -71,24 +71,29 @@
 
 (macro public (form form)
   `(begin
-     (definition meta class-form
-       (form>> ,form))
+     (definition meta class-self
+       #f)
      
-     (method meta override (get-metaclass-form)
+     (definition meta class-form
+       (let ((form (form>> ,form)))
+         (setup-literals~ form)
+         form))
+     
+     (method meta override (get-class-form)
+       ,@(if (eq? (walk-for) 'eval)
+             '((set-origin~ class-form class-self))
+           '())
        class-form)
      
-     (method meta override (get-metaclass-forms)
+     (method meta override (get-class-forms)
+       ,@(if (eq? (walk-for) 'eval)
+             '((set-origin~ class-form class-self))
+           '())
        (cons class-form (nextmethod)))
      
      (method meta override (initialize)
-       (nextmethod)
-       (setup-toplevel-context~ class-form self))
-     
-     (method override (get-class-form)
-       (get-metaclass-form~ (class-of self)))
-     
-     (method override (get-class-forms)
-       (get-metaclass-forms~ (class-of self)))))
+       (set! class-self self)
+       (set-origin~ class-form self))))
 
 
 ;;;

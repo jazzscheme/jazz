@@ -131,7 +131,8 @@
   ;;;
 
 
-  (method override (setup-context context)
+  (method override (setup-context ctx)
+    (set! context ctx)
     (for-each-property
       (lambda (name value)
         (setup-context~ value context))
@@ -147,12 +148,14 @@
   
   
   (method public (get-model)
-    (if model-locator
-        (model-locator model-name)
-      (if (not context)
-          (or (registered-form model-name)
-              (autoload model-name))
-        (slot-value context model-name))))
+    (if context
+        (locate-reference~ context model-name)
+      (or (registered-form model-name)
+          (autoload model-name))))
+  
+  
+  (method public (locate-reference symbol)
+    (model-locator symbol))
 
   
   ;;;
@@ -219,11 +222,11 @@
   
 
   (method public (remember-creation unused component)
-    (set! children (cons (new Restore-Form context: self action: 'remove component: component properties: '() children: '()) children)))
+    (set! children (cons (new Restore-Form action: 'remove component: component properties: '() children: '()) children)))
 
 
   (method public (remember-reference unused name)
-    (let ((form (new Restore-Form context: self action: 'modify model-name: #f name: name properties: '() children: '())))
+    (let ((form (new Restore-Form action: 'modify model-name: #f name: name properties: '() children: '())))
       (set! children (cons form children))
       form))
 

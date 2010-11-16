@@ -576,7 +576,7 @@
         (if (%%not locator)
             #f
           (or (jazz.emit-specialized-locator locator arguments-codes environment)
-              (if (%%class-is? operator jazz.Reference)
+              (if (%%class-is? operator jazz.Binding-Reference)
                   (let ((binding (%%get-reference-binding operator)))
                     (let ((specializers (jazz.get-specializers binding)))
                       (let ((types (jazz.codes-types arguments-codes)))
@@ -751,7 +751,7 @@
 
 (set! jazz.emit-inlined-call
       (lambda (operator arguments call declaration environment)
-        (if (%%class-is? operator jazz.Reference)
+        (if (%%class-is? operator jazz.Binding-Reference)
             (let ((binding (%%get-reference-binding operator)))
               (jazz.emit-inlined-binding-call binding arguments call declaration environment))
           #f)))
@@ -771,7 +771,7 @@
         (rest (%%get-function-type-rest function-type)))
     (define (match? arg type expect)
       (if (%%class-is? expect jazz.Category-Type)
-          (or (and (%%class-is? arg jazz.Reference)
+          (or (and (%%class-is? arg jazz.Binding-Reference)
                    (%%eq? (%%get-reference-binding arg) (%%get-category-type-declaration expect)))
               (and (%%class-is? type jazz.Category-Type)
                    (%%eq? (%%get-category-type-declaration type) (%%get-category-type-declaration expect))))
@@ -917,7 +917,7 @@
       (if origin
           (let ((yes-type (cond ((jazz.type? type-expr)
                                  type-expr)
-                                ((%%class-is? type-expr jazz.Reference)
+                                ((%%class-is? type-expr jazz.Binding-Reference)
                                  (let ((binding (%%get-reference-binding type-expr)))
                                    (if (%%class-is? binding jazz.Declaration)
                                        (jazz.resolve-binding binding)
@@ -946,7 +946,7 @@
         env)))
   
   (define (extract-binding expr env)
-    (if (%%class-is? expr jazz.Reference)
+    (if (%%class-is? expr jazz.Binding-Reference)
         (let ((binding (%%get-reference-binding expr)))
           (cond ((%%class-is? binding jazz.Variable)
                  (receive (frame actual-variable actual-type) (jazz.find-annotated binding (%%car env))
@@ -969,7 +969,7 @@
            (process-or (%%get-or-expressions expr) env))
           ((%%class-is? expr jazz.Call)
            (let ((operator (%%get-call-operator expr)))
-             (if (%%class-is? operator jazz.Reference)
+             (if (%%class-is? operator jazz.Binding-Reference)
                  (let ((operator-binding (%%get-reference-binding operator)))
                    (if (%%class-is? operator-binding jazz.Declaration)
                        (let ((operator-locator (%%get-declaration-locator operator-binding))

@@ -38,6 +38,9 @@
 (unit jazz.library.install
 
 
+(jazz.define-literal-walker Reference jazz.library.literals.walk-reference)
+
+
 (jazz.define-literal Box                jazz.library.literals.construct-box)
 (jazz.define-literal Directory-Group    jazz.library.literals.construct-directory-group)
 (jazz.define-literal Locales            jazz.library.literals.construct-locales)
@@ -46,4 +49,5 @@
 (jazz.define-literal Cursor-Resource    jazz.library.literals.construct-cursor-resource)
 (jazz.define-literal Event              jazz.library.literals.construct-event)
 (jazz.define-literal Event-Handler      jazz.library.literals.construct-event-handler)
-(jazz.define-literal Version            jazz.library.literals.construct-version))
+(jazz.define-literal Version            jazz.library.literals.construct-version)
+(jazz.define-literal Reference          jazz.library.literals.construct-reference))

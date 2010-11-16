@@ -3290,7 +3290,7 @@
    (lambda (x seed child-seed env) seed)
    (lambda (x seed env)
      (cond
-      ((%%is? x jazz.Reference)
+      ((%%is? x jazz.Binding-Reference)
        (let* ((var (%%get-reference-binding x))
               (sym (unwrap-syntactic-closure (%%get-lexical-binding-name var))))
          (let lp1 ((e env))
@@ -3685,32 +3685,32 @@
 
 
 ;;;
-;;;; Reference
+;;;; Binding Reference
 ;;;
 
 
-(jazz.define-class-runtime jazz.Reference)
+(jazz.define-class-runtime jazz.Binding-Reference)
 
 
-(define (jazz.new-reference symbol-src binding)
-  (jazz.allocate-reference jazz.Reference #f symbol-src binding))
+(define (jazz.new-binding-reference symbol-src binding)
+  (jazz.allocate-binding-reference jazz.Binding-Reference #f symbol-src binding))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Reference expression) declaration environment)
+(jazz.define-method (jazz.emit-expression (jazz.Binding-Reference expression) declaration environment)
   (jazz.sourcify-code (jazz.emit-binding-reference (%%get-reference-binding expression) declaration environment)
                       (%%get-expression-source expression)))
 
 
-(jazz.define-method (jazz.emit-call (jazz.Reference expression) arguments declaration environment)
+(jazz.define-method (jazz.emit-call (jazz.Binding-Reference expression) arguments declaration environment)
   (jazz.sourcify-code (jazz.emit-binding-call (%%get-reference-binding expression) (%%get-expression-source expression) arguments declaration environment)
                       (%%get-expression-source expression)))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.Reference expression) f k s)
+(jazz.define-method (jazz.fold-expression (jazz.Binding-Reference expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.Reference)
+(jazz.encapsulate-class jazz.Binding-Reference)
 
 
 ;;;
@@ -3861,7 +3861,7 @@
 (jazz.define-method (jazz.emit-expression (jazz.Call expression) declaration environment)
   (let ((operator (%%get-call-operator expression))
         (arguments (%%get-call-arguments expression)))
-    (let ((locator (if (%%class-is? operator jazz.Reference)
+    (let ((locator (if (%%class-is? operator jazz.Binding-Reference)
                        (let ((binding (%%get-reference-binding operator)))
                          (if (%%class-is? binding jazz.Declaration)
                              (%%get-declaration-locator binding)
@@ -4410,7 +4410,7 @@
         (begin
           (if (%%class-is? binding jazz.Variable)
               (jazz.walk-binding-referenced binding))
-          (jazz.new-reference symbol-src binding))
+          (jazz.new-binding-reference symbol-src binding))
         (jazz.walk-free-reference walker resume declaration symbol-src))))
 
 
@@ -4462,7 +4462,7 @@
             ((or (%%class-is? procedure-expr jazz.Special-Form)
                  (%%class-is? procedure-expr jazz.Declaration))
              procedure-expr)
-            ((%%class-is? procedure-expr jazz.Reference)
+            ((%%class-is? procedure-expr jazz.Binding-Reference)
              (let ((ref (%%get-reference-binding procedure-expr)))
                (and (or (%%class-is? ref jazz.Special-Form)
                         (%%class-is? ref jazz.Declaration))

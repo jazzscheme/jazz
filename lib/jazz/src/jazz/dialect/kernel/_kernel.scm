@@ -613,6 +613,7 @@
 (native jazz.module-set!)
 (native jazz.split-module-reference)
 (native jazz.module-reference)
+(native jazz.walk-literal)
 (native jazz.walk-for)
 (native jazz.register-service)
 (native jazz.get-service)

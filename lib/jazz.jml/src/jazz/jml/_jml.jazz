@@ -85,17 +85,15 @@
 ;; two passes of parsing to a node and then converting to a form
 
 
-(define jml-locators
-  (make-parameter #f))
-
-
 (definition public (jml->form expr (locator #f))
   (let* ((parser (new JML-Parser))
-         (node (parse~ parser expr)))
-    (node->form node locator)))
+         (node (parse~ parser expr))
+         (form (node->form node)))
+    (set-model-locator~ form locator)
+    form))
 
 
-(definition package (node->form node (locator #f))
+(definition package (node->form node)
   (define (extract-node-properties node)
     (let ((fact (new List-Factory)))
       (for-each-property (lambda (property value)
@@ -118,7 +116,7 @@
                            (else 'new)))
              (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
              (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
-             (form (new Form textual?: #f action: action model-name: model-name model-locator: locator name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
+             (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
              (children (map (lambda (node)
                               (node->form node form))
                             (get-children~ node))))
@@ -182,6 +180,17 @@
                    (set-children~ element (if (trait-tag? model-name) (add-client-form form children) children))
                    element)))))
     (form->node form #f)))
+
+
+(definition public (construct-form expr locator)
+  (let ((form (jml->form expr locator)))
+    (setup-context~ form form)
+    form))
+
+
+(definition public (form-locator-ref table symbol)
+  (let ((locator (table-ref table symbol #f)))
+    (and locator (locator))))
 
 
 (define *trait-tags*

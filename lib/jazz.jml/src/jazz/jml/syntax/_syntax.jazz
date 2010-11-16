@@ -48,25 +48,40 @@
 
 
 (macro public (form>> form)
-  (define (compute-locators)
-    (let ((tags (make-table test: eq?)))
-      (define (process-expr expr)
-        (receive (tag properties children) (jazz.jml.parse.parse-jml-expr expr)
+  (define (gather-references)
+    (let ((references (make-table test: eq?)))
+      (define (walk-reference reference)
+        (table-set! references reference #t))
+      
+      (define (process-form form)
+        (receive (tag properties children) (jazz.jml.parse.parse-jml-expr form)
           (unless (or (memq? tag '(install * ! ~))
                       (memv? (last (symbol->string tag)) '(#\! #\~)))
-            (table-set! tags tag #t))
-          (for-each process-expr children)))
+            (walk-reference tag))
+          (for-each-property
+            (lambda (name value)
+              (process-value value))
+            properties)
+          (for-each process-form children)))
       
-      (process-expr form)
-      (cons 'list (map (lambda (pair)
-                         (let ((tag (car pair)))
-                           `(cons ',tag (lambda () ,tag))))
-                       (table->list tags)))))
+      (define (process-value value)
+        (walk-references~ value
+          walk-reference))
+      
+      (process-form form)
+      references))
   
-  `(jml->form ',form (let ((table (list->table ,(compute-locators))))
+  (define (build-locators references)
+    (cons 'list (map (lambda (pair)
+                       (let ((reference (car pair)))
+                         `(cons ',reference (lambda () ,reference))))
+                     (table->list references))))
+  
+  (let ((locators (build-locators (gather-references))))
+    `(construct-form ',form
+                     (let ((table (list->table ,locators)))
                        (lambda (symbol)
-                         (let ((locator (table-ref table symbol #f)))
-                           (and locator (locator)))))))
+                         (form-locator-ref table symbol))))))
 
 
 (macro public (form form)
@@ -75,9 +90,7 @@
        #f)
      
      (definition meta class-form
-       (let ((form (form>> ,form)))
-         (setup-context~ form form)
-         form))
+       (form>> ,form))
      
      (method meta override (get-class-form)
        ,@(if (eq? (walk-for) 'eval)

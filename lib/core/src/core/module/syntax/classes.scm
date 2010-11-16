@@ -882,11 +882,11 @@
 
 
 ;;;
-;;;; Reference
+;;;; Binding Reference
 ;;;
 
 
-(jazz.define-class jazz.Reference jazz.Expression (type source) jazz.Object-Class jazz.allocate-reference
+(jazz.define-class jazz.Binding-Reference jazz.Expression (type source) jazz.Object-Class jazz.allocate-binding-reference
   ((binding %%get-reference-binding ())))
 
 
@@ -895,7 +895,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Method-Reference jazz.Reference (type source binding) jazz.Object-Class jazz.allocate-method-reference
+(jazz.define-class jazz.Method-Reference jazz.Binding-Reference (type source binding) jazz.Object-Class jazz.allocate-method-reference
   ())
 
 

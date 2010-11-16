@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Literals
+;;;; Reference Objects
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,94 +35,34 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.library.literals jazz
+(module protected jazz.library.utility.Reference jazz
 
 
-(import (jazz.library)
-        (jazz.locale))
+(class Reference extends Object
+  
+  
+  (slot form   getter generate)
+  (slot symbol getter generate)
+    
+  
+  (method override (initialize symbol)
+    (nextmethod)
+    (set! symbol~self symbol))
+  
+  
+  (method override (print printer readably)
+    (format printer "~{{a} {a}}"
+            (category-name (class-of self))
+            symbol))
+  
+  
+  (method override (walk-references proc)
+    (proc symbol))
 
 
-;;;
-;;;; Reference
-;;;
-
-
-(definition package (walk-reference arguments proc)
-  (proc (source-code (car arguments))))
-
-
-(definition package (construct-reference symbol)
-  (new Reference symbol))
-
-
-;;;
-;;;; Box
-;;;
-
-
-(definition package (construct-box . rest)
-  (if (null? rest)
-      (new Box)
-    (new Box (car rest))))
-
-
-;;;
-;;;; Directory-Group
-;;;
-
-
-(definition package (construct-directory-group . rest)
-  (new Directory-Group rest))
-
-
-;;;
-;;;; Locales
-;;;
-
-
-(definition package (construct-locales . rest)
-  (apply new Locales rest))
-
-
-;;;
-;;;; Resource
-;;;
-
-
-(definition package (construct-image-resource name)
-  (new Image-Resource name))
-
-
-(definition package (construct-icon-resource name)
-  (new Icon-Resource name))
-
-
-(definition package (construct-cursor-resource name)
-  (new Cursor-Resource name))
-
-
-;;;
-;;;; Event
-;;;
-
-
-(definition package (construct-event kind . properties)
-  (apply new Event kind #f properties))
-
-
-;;;
-;;;; Handler
-;;;
-
-
-(definition package (construct-event-handler target-name method-name . properties)
-  (new Event-Handler target-name: target-name method-name: method-name properties: properties))
-
-
-;;;
-;;;; Version
-;;;
-
-
-(definition package (construct-version major minor (revision 0) (stage #f))
-  (new Version major minor revision stage)))
+  (method override (setup-context context)
+    (set! form context))
+  
+  
+  (method public (resolve-reference)
+    (locate-reference~ form symbol))))

@@ -1993,8 +1993,8 @@
   (%%make-table test: eq?))
 
 
-(define (jazz.register-literal-constructor name contructor-name constructor)
-  (%%table-set! jazz.Literal-Constructors name (%%cons contructor-name constructor)))
+(define (jazz.register-literal-constructor name constructor-name constructor)
+  (%%table-set! jazz.Literal-Constructors name (%%cons constructor-name constructor)))
 
 
 (define (jazz.require-literal-constructor name)
@@ -2002,17 +2002,40 @@
       (jazz.error "Cannot construct literals of type {s}" name)))
 
 
-(jazz.define-macro (jazz.define-literal name contructor-name)
-  (receive (contructor-module ignore) (jazz.split-composite contructor-name)
-    `(jazz.register-literal-constructor ',name ',contructor-name
+(jazz.define-macro (jazz.define-literal name constructor-name)
+  (receive (constructor-module ignore) (jazz.split-composite constructor-name)
+    `(jazz.register-literal-constructor ',name ',constructor-name
        (lambda (arguments)
-         (jazz.load-unit ',contructor-module)
-         (%%apply (jazz.global-ref ',contructor-name) arguments)))))
+         (jazz.load-unit ',constructor-module)
+         (%%apply (jazz.global-ref ',constructor-name) arguments)))))
 
 
 (define (jazz.construct-literal name arguments)
   (let ((constructor (%%cdr (jazz.require-literal-constructor name))))
     (constructor arguments)))
+
+
+(define jazz.Literal-Walkers
+  (%%make-table test: eq?))
+
+
+(define (jazz.register-literal-walker name walker-name walker)
+  (%%table-set! jazz.Literal-Walkers name (%%cons walker-name walker)))
+
+
+(jazz.define-macro (jazz.define-literal-walker name walker-name)
+  (receive (walker-module ignore) (jazz.split-composite walker-name)
+    `(jazz.register-literal-walker ',name ',walker-name
+       (lambda (arguments proc)
+         (jazz.load-unit ',walker-module)
+         ((jazz.global-ref ',walker-name) arguments proc)))))
+
+
+(define (jazz.walk-literal name arguments proc)
+  (let ((info (%%table-ref jazz.Literal-Walkers name #f)))
+    (if info
+        (let ((walker (%%cdr info)))
+          (walker arguments proc)))))
 
 
 ;;;

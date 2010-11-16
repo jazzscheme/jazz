@@ -47,7 +47,7 @@
 ;; They are here to minimize code breaking for the moment.
 
 
-(macro public (form>> form)
+(macro public (<form> form)
   (define (gather-references)
     (let ((references (make-table test: eq?)))
       (define (walk-reference reference)
@@ -71,17 +71,17 @@
       (process-form form)
       references))
   
-  (define (build-locators references)
+  (define (locators-builder references)
     (cons 'list (map (lambda (pair)
                        (let ((reference (car pair)))
                          `(cons ',reference (lambda () ,reference))))
                      (table->list references))))
   
-  (let ((locators (build-locators (gather-references))))
+  (let ((locators-code (locators-builder (gather-references))))
     `(construct-form ',form
-                     (let ((table (list->table ,locators)))
+                     (let ((locators (list->table ,locators-code)))
                        (lambda (symbol)
-                         (form-locator-ref table symbol))))))
+                         (locators-ref locators symbol))))))
 
 
 (macro public (form form)
@@ -90,7 +90,7 @@
        #f)
      
      (definition meta class-form
-       (form>> ,form))
+       (<form> ,form))
      
      (method meta override (get-class-form)
        ,@(if (eq? (walk-for) 'eval)

@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
         (jazz.locale)
         (jazz.ui))
@@ -55,7 +56,15 @@
                             (title (format "{a}..." (localize (get-class-presentation~ class)))))
                         (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add class)))))))
                   classes)
-        classes)))
+        (for-each (lambda (name+form)
+                    (bind (name . form) name+form
+                      (let ((icon {Image-Resource "Component"})
+                            (title (format "{a}..." (localize (symbol->string name))))
+                            (class (autoload-class (get-model-name~ form))))
+                        (when (memq class classes)
+                          (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add form))))))))
+                  (registered-forms))
+        (append classes (registered-forms)))))
   
   (let* ((count (length components))
          (component (and (>= count 1) (car components)))
@@ -69,7 +78,7 @@
          (empty-add? #f))
     (let ((add-menu (locate-component~ menu 'add-menu))
           (add-item (locate-component~ menu 'add-item)))
-      (if (and (= count 1) add-menu (add-components add-menu))
+      (if (and (= count 1) add-menu (not-null? (add-components add-menu)))
           (let ((children (collect-type Label-Item (get-children~ add-menu))))
             (if (null? children)
                 (begin

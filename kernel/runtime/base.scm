@@ -310,9 +310,7 @@
           (for-each (lambda (configuration)
                       (write configuration output)
                       (newline output))
-                    configurations)
-          (write 23 output)
-          (newline output))))
+                    configurations))))
     
     (if (file-exists? configurations-file)
         (write-configurations (converter (read-configurations))))))
@@ -327,15 +325,6 @@
         (local filename))
     (load-if-exists global)
     (load-if-exists local)))
-
-
-(define (jazz.convert-user dir old)
-  (define (convert-initial)
-    205000)
-  
-  (case old
-    ((#f) (convert-initial))
-    (else #f)))
 
 
 ;;;

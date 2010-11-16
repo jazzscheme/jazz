@@ -144,13 +144,13 @@
           (if (and file (file-exists? file))
               (call-with-input-file (list path: file eol-encoding: 'cr-lf)
                 (lambda (input)
-                  (define (read-version input)
-                    (let ((list (read input)))
-                      (if (eof-object? list)
-                          list
-                        (apply jazz.new-version list))))
-                  (set! jazz.jazz-versions (read-all input read-version))
+                  (set! jazz.jazz-versions (list->versions (read-all input read)))
                   (set! jazz.jazz-version-number (jazz.version-number (car jazz.jazz-versions))))))))
+      
+      (define (list->versions lst)
+        (map (lambda (arguments)
+               (apply jazz.new-version arguments))
+             lst))
       
       (define (setup-jazz-gambit-version/stamp)
         (if jazz.jazz-versions
@@ -177,8 +177,9 @@
   jazz.jazz-versions)
 
 
-;; because the kernel/version file is not available to applications
+;; because the kernel/versions file is not available to applications
 ;; we should probably burn the content or some other format in the image
+;; although probably only the kernel/updates file needs to be burned in
 (define (jazz.kludged-get-jazz-versions)
   (or (jazz.get-jazz-versions) '()))
 
@@ -212,24 +213,104 @@
           (>= gambit-version jazz-gambit-version)))))
 
 
-(define (jazz.for-each-lower-update target proc)
-  (let iter ((jazz-versions (jazz.kludged-get-jazz-versions)))
-    (if (not (null? jazz-versions))
-        (let ((jazz-version (car jazz-versions)))
-          (let ((update (jazz.version-update jazz-version)))
-            (if (and update (memq target update))
-                (proc jazz-version))
-            (iter (cdr jazz-versions)))))))
+;;;
+;;;; Update
+;;;
 
 
-(define (jazz.versioned-directory root target converter)
+(define (jazz.make-update version targets description)
+  (vector 'update version targets description))
+
+(define (jazz.update-version update)
+  (vector-ref update 1))
+
+(define (jazz.update-targets update)
+  (vector-ref update 2))
+
+(define (jazz.update-description update)
+  (vector-ref update 3))
+
+
+(define (jazz.new-update
+          #!key
+          (version #f)
+          (targets #f)
+          (description #f))
+  (jazz.make-update
+    version
+    targets
+    description))
+
+
+;;;
+;;;; Updates
+;;;
+
+
+(define jazz.jazz-updates-file
+  #f)
+
+(define jazz.jazz-updates
+  #f)
+
+
+(define jazz.load-jazz-updates
+  (let ((loaded? #f))
+    (lambda ()
+      (define (determine-jazz-updates-file)
+        (or jazz.jazz-updates-file
+            (and jazz.jazz-source (string-append jazz.jazz-source "kernel/updates"))))
+      
+      (define (load-updates)
+        (let ((file (determine-jazz-updates-file)))
+          (if (and file (file-exists? file))
+              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
+                (lambda (input)
+                  (set! jazz.jazz-updates (jazz.list->updates (read-all input read))))))))
+      
+      (if (not loaded?)
+          (begin
+            (load-updates)
+            (set! loaded? #t))))))
+
+
+(define (jazz.get-jazz-updates)
+  (jazz.load-jazz-updates)
+  jazz.jazz-updates)
+
+
+;; because the kernel/updates file is not available to applications
+;; we should probably burn the content or some other format in the image
+(define (jazz.kludged-get-jazz-updates)
+  (or (jazz.get-jazz-updates) '()))
+
+
+(define (jazz.list->updates lst)
+  (map (lambda (arguments)
+         (apply jazz.new-update arguments))
+       lst))
+
+
+(define (jazz.for-each-lower-update target updates proc)
+  (let iter ((updates updates))
+    (if (not (null? updates))
+        (let ((update (car updates)))
+          (let ((targets (jazz.update-targets update)))
+            (if (and targets (if (symbol? targets)
+                                 (eq? target targets)
+                               (memq target targets)))
+                (proc update))
+            (iter (cdr updates)))))))
+
+
+(define (jazz.versioned-directory root target updates converter)
   (define (determine-version)
     (let ((uptodate? #t))
       (continuation-capture
         (lambda (return)
-          (jazz.for-each-lower-update target
-            (lambda (version)
-              (let ((version-number (jazz.version-number version)))
+          (jazz.for-each-lower-update target updates
+            (lambda (update)
+              (let ((version-number (jazz.update-version update)))
                 (let ((version-dir (version-directory version-number)))
                   (if (file-exists? version-dir)
                       (continuation-return return (values uptodate? version-number))
@@ -277,7 +358,7 @@
 
 
 (define (jazz.setup-settings)
-  (set! jazz.settings-directory (jazz.versioned-directory "~/.jazz/" 'settings jazz.convert-settings))
+  (set! jazz.settings-directory (jazz.versioned-directory "~/.jazz/" 'settings (jazz.kludged-get-jazz-updates) jazz.convert-settings))
   (set! jazz.named-configurations-file (string-append jazz.settings-directory ".configurations")))
 
 

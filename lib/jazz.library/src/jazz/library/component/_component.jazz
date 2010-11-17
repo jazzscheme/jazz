@@ -49,10 +49,10 @@
 
 
 (definition public (open-form)
-  (read-from-file (choose-file multiple-selection?: #f)))
+  (read-form (choose-file multiple-selection?: #f)))
 
 
-(definition public (read-from-file file (locator #f))
+(definition public (read-form file)
   (define (parse expr proc)
     (if (and (pair? expr)
              (eq? (car expr) 'data))
@@ -63,10 +63,11 @@
     (bind (data dialect . info) expr
       (let ((import (assq 'import info))
             (form (assq 'form info)))
+        (assert form)
         (proc (new Data
                 dialect
                 (if import (cdr import) #f))
-              (if form (cadr form) #f)))))
+              (cadr form)))))
   
   (define (parse-form expr proc)
     (proc #f expr))
@@ -78,14 +79,14 @@
             (error "No expression found in file: {a}" (parse~ file))
           (parse expr
             (lambda (data form)
-              @wait (set! form (construct-form form (or locator (if data (let ((imports (get-imports~ data))) (if imports (imports-locator imports) #f)) (error "No locator")))))
-              (set! form (jml->form form (or locator (if data (let ((imports (get-imports~ data))) (if imports (imports-locator imports) #f)) #f))))
+              (set! form (construct-form form (if data (imports-locator (effective-imports~ data)) #f)))
+              @wait (set! form (jml->form form (if data (imports-locator (effective-imports~ data)) #f)))
               (set-data~ form data)
               (set-origin~ form file)
               form)))))))
 
 
-(definition public (safe-read-from-file file (locator #f))
+(definition public (safe-read-form file)
   ;; quick solution we should only catch reading and parsing errors
   (call-with-catch (lambda (obj)
                      (or (datum-parsing-exception? obj)
@@ -93,11 +94,11 @@
       (lambda (exc)
         (wrap-exception exc))
     (lambda ()
-      (read-from-file file locator))))
+      (read-form file))))
 
 
 (definition public (instantiate-file file . rest)
-  (apply instantiate~ (read-from-file file) rest))
+  (apply instantiate~ (read-form file) rest))
 
 
 (definition public (imports-locator imports)

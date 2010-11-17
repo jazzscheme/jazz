@@ -114,9 +114,9 @@
              (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
                            ((or (eq? tag '~) tag-symbolic?) 'locate)
                            (else 'new)))
-             (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
+             (model (if (or (memq? tag '(! ~)) tag-symbolic?) #f tag))
              (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
-             (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
+             (form (new Form textual?: #f action: action model: model name: name tag-symbolic?: tag-symbolic? tag-unit: (get-property~ node 'tag-unit #f) properties: (extract-node-properties node)))
              (children (map (lambda (node)
                               (node->form node form))
                             (get-children~ node))))
@@ -125,7 +125,7 @@
             ;; not 100% sure about this way of testing for a trait form with no install
             (if (null? children)
                 (begin
-                  (set-property~ form 'client-form (new Form action: 'new model-name: 'install))
+                  (set-property~ form 'client-form (new Form action: 'new model: 'install))
                   (set-children~ form '()))
               (set-property~ form 'client-form (car children))
               (set-children~ form (cdr children)))
@@ -165,19 +165,19 @@
                (if (is? form JML-Text)
                    form
                  (let* ((action (get-action~ form))
-                        (model-name (get-model-name~ form))
+                        (model (get-model~ form))
                         (name (get-name~ form))
                         (symbolic? (get-tag-symbolic?~ form))
                         (tag (if symbolic?
                                  (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
-                               (case action ((install) 'install) ((new) model-name) ((modify) '!) ((locate) '~))))
+                               (case action ((install) 'install) ((new) model) ((modify) '!) ((locate) '~))))
                         (element (new JML-Element parent tag))
                         (properties (extract-form-properties form symbolic?))
                         (children (map (lambda (form)
                                          (form->node form element))
                                        (get-children~ form))))
                    (set-properties~ element properties)
-                   (set-children~ element (if (trait-tag? model-name) (add-client-form form children) children))
+                   (set-children~ element (if (trait-tag? model) (add-client-form form children) children))
                    element)))))
     (form->node form #f)))
 

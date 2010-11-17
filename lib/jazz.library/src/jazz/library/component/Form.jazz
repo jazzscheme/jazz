@@ -47,11 +47,11 @@
 ;;;
 
 
-;; (new    model-name)       -> create a new unnamed instance of model-name
-;; (new    model-name name)  -> create a new instance of model-name named name
-;; (modify            name)  -> modify existing instance named name
-;; (modify model-name name)  -> modify existing instance named name and override its class (work in progress)
-;; (remove            name)  -> remove existing instance named name (used internally by branches)
+;; (new    model)       -> create a new unnamed instance of model
+;; (new    model name)  -> create a new instance of model named name
+;; (modify       name)  -> modify existing instance named name
+;; (modify model name)  -> modify existing instance named name and override its class (work in progress)
+;; (remove       name)  -> remove existing instance named name (used internally by branches)
 
 
 ;;;
@@ -66,7 +66,7 @@
   (slot origin        accessors generate)
   (slot context       accessors generate)
   (slot action        getter generate)
-  (slot model-name    accessors generate)
+  (slot model    accessors generate)
   (slot model-locator accessors generate)
   (slot name          accessors generate)
   (slot tag-symbolic? accessors generate)
@@ -83,7 +83,7 @@
                                (origin: origin #f)
                                (context: context #f)
                                (action: action #f)
-                               (model-name: model-name #f)
+                               (model: model #f)
                                (model-locator: model-locator #f)
                                (name: name #f)
                                (tag-symbolic?: tag-symbolic? #f)
@@ -100,7 +100,7 @@
     (set! origin~self origin)
     (set! context~self context)
     (set! action~self action)
-    (set! model-name~self model-name)
+    (set! model~self model)
     (set! model-locator~self model-locator)
     (set! name~self name)
     (set! tag-symbolic?~self tag-symbolic?)
@@ -112,7 +112,7 @@
   
   
   (method override (copy-object deep?)
-    (new Form textual?: #f data: data origin: origin context: context action: action model-name: model-name model-locator: model-locator name: name tag-symbolic?: tag-symbolic? tag-unit: tag-unit properties: (copy properties) children: (subcopy children deep?)))
+    (new Form textual?: #f data: data origin: origin context: context action: action model: model model-locator: model-locator name: name tag-symbolic?: tag-symbolic? tag-unit: tag-unit properties: (copy properties) children: (subcopy children deep?)))
 
 
   (method override (print printer readably)
@@ -120,7 +120,7 @@
       (lambda (printer)
         (format printer "({a}{a}{a}) {a} {a}"
           action
-          (if model-name (format " {s}" model-name) "")
+          (if model (format " {s}" model) "")
           (if name (format " {s}" name) "")
           (if properties (format "{s}" (keywordize-properties properties)) "()")
           (if children (format "[{a}]" (length children)) "()")))))
@@ -147,11 +147,11 @@
   ;;;
   
   
-  (method public (get-model)
+  (method public (resolve-model)
     (if context
-        (locate-reference~ context model-name)
-      (or (registered-form model-name)
-          (autoload model-name))))
+        (locate-reference~ context model)
+      (or (registered-form model)
+          (autoload model))))
   
   
   (method public (locate-reference symbol)
@@ -180,7 +180,7 @@
   (method public (find-type type)
     (find-by
       (lambda (child)
-        (eq? (get-model-name~ child) type))))
+        (eq? (get-model~ child) type))))
   
   
   (method override (add-child child)
@@ -213,7 +213,7 @@
   ;; This is a bit of a heuristic...
   (method public (get-presentation)
     (or (get-property 'title)
-        (get-class-presentation~ (get-model))))
+        (get-class-presentation~ (resolve-model))))
 
   
   ;;;
@@ -226,7 +226,7 @@
 
 
   (method public (remember-reference unused name)
-    (let ((form (new Restore-Form action: 'modify model-name: #f name: name properties: '() children: '())))
+    (let ((form (new Restore-Form action: 'modify model: #f name: name properties: '() children: '())))
       (set! children (cons form children))
       form))
 
@@ -242,12 +242,12 @@
   
   
   (method public (instantiate . rest)
-    (let ((model (get-model)))
+    (let ((model (resolve-model)))
       (apply new model form: self creator: #t name: name rest)))
   
   
   (method public (instantiate-component . rest)
-    (let ((model (get-model)))
+    (let ((model (resolve-model)))
       (apply new model creator: #t name: name rest)))
 
   
@@ -259,7 +259,7 @@
   (method public (get-parts)
     (values
       (get-action)
-      (get-model-name)
+      (get-model)
       (get-name)
       (keywordize-properties (get-properties))
       (get-children)))

@@ -85,19 +85,28 @@
     (set-visible?~ toolbar #t))
   
   
+  (define default-toolbar-classes
+    (list
+      (cons :menubar    (lambda () Menubar))
+      (cons :toolbar    (lambda () Toolbar))
+      (cons :status     (lambda () Status-Toolbar))
+      (cons :command    (lambda () Command-Toolbar))
+      (cons :minibuffer (lambda () Minibuffer-Toolbar))))
+  
+  
   (method (get-class)
-    (define default-toolbar-classes
-      '((:menubar . jazz.ui.Menubar)
-        (:toolbar . jazz.ui.Toolbar)
-        (:status . jazz.ui.Status-Toolbar)
-        (:command . jazz.ui.Command-Toolbar)
-        (:minibuffer . jazz.ui.Minibuffer-Toolbar)))
-    
     (let* ((pref (get-preferences-root))
            (classes (get-toolbar-classes~ pref))
-           (pair (or (assq model-name classes) (assq model-name default-toolbar-classes)))
-           (name (and pair (cdr pair))))
-      (module-reference (or name model-name))))
+           (pair (or (assq model-name classes) (assq model-name default-toolbar-classes))))
+      (if (not pair)
+          (module-reference model-name)
+        (let ((info (cdr pair)))
+          (cond ((procedure? info)
+                 (info))
+                ((symbol? info)
+                 (module-reference info))
+                (else
+                 (resolve-reference~ info)))))))
   
   
   ;;;

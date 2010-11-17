@@ -1053,42 +1053,42 @@
   ;;;
   
   
-  (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
-    (define (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
-      (iterate-content base 'directories sort? ignored-directories
+  (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (recursive?: recursive? #t) (ignored-toplevel-directories: ignored-toplevel-directories '()) (ignored-directories: ignored-directories '()))
+    (define (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-directories ignored-directories prefix base proc)
+      (iterate-content base 'directories sort? ignored-toplevel-directories ignored-directories
         (lambda (name)
           (when recursive?
-            (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "/" name) proc))
+            (iterate-directory-content files? directories? sort? recursive? '() ignored-directories (append prefix (list name)) (concatenate base "/" name) proc))
           (when directories?
             (proc (append prefix (list name)) 'directory))))
-      (iterate-content base 'files sort? ignored-directories
+      (iterate-content base 'files sort? ignored-toplevel-directories ignored-directories
         (lambda (name)
           (when files?
             (proc (concatenate prefix (list name)) 'file)))))
     
-    (define (iterate-content base kind sort? ignored-directories proc)
+    (define (iterate-content base kind sort? ignored-toplevel-directories ignored-directories proc)
       (if (not sort?)
-          (iterate-content-unsorted base kind ignored-directories proc)
+          (iterate-content-unsorted base kind ignored-toplevel-directories ignored-directories proc)
         (let ((list '()))
-          (iterate-content-unsorted base kind ignored-directories
+          (iterate-content-unsorted base kind ignored-toplevel-directories ignored-directories
             (lambda (object)
               (set! list (cons object list))))
           (let ((sorted (sort ci<? list)))
             (for-each proc sorted)))))
     
-    (define (iterate-content-unsorted base kind ignored-directories proc)
+    (define (iterate-content-unsorted base kind ignored-toplevel-directories ignored-directories proc)
       (for-each (lambda (name)
                   (let ((path (string-append base "/" name)))
                     ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
                     (when (file-exists? path)
                       (let ((type (pathname-type path)))
                         (when (or (and (eq? kind 'files) (eq? type 'regular))
-                                  (and (eq? kind 'directories) (eq? type 'directory) (not (member? name ignored-directories))))
+                                  (and (eq? kind 'directories) (eq? type 'directory) (not (member? name ignored-toplevel-directories)) (not (member? name ignored-directories))))
                           (proc name))))))
                 (directory-content-patch base)))
     
     (let ((directory (if full? (get-list) #f)))
-      (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
+      (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-directories ignored-directories '() (parse)
         (lambda (list kind)
           (case kind
             ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))

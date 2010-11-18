@@ -211,7 +211,7 @@
            (parent (selected-object))
            (file (with-import-directory current-directory? parent
                    (lambda (directory)
-                     (choose-file extensions: '(("Jazz Files" . "jazz")) directory: directory)))))
+                     (choose-file extensions: '(("Project Files" . "project")) directory: directory)))))
       (install-project file parent #f)))
   
   
@@ -512,95 +512,35 @@
   
   
   (method (import-pathname project pathname parent descendant? (recursive?: recursive? #t))
-    (define (determine-project-file? file)
-      #f
-      @convert-manifest
-      (let ((ext (get-extension~ file)))
-        (when (ci=? ext "jazz")
-          (let ((info (extract-jazz-file-category file)))
-            (when info
-              (receive (package type name extends) info
-                (when (in-manifest? extends)
-                  (subtype? (autoload extends) Project))))))))
-    
-    @convert-manifest
-    (define (extract-jazz-file-category file)
-      (define (extract-jazz-file-toplevel file)
-        (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-          (lambda (reader)
-            (catch (Read-Error err #f)
-              (let ((in/toplevel (read reader)))
-                (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
-                    (values in/toplevel (read reader))
-                  (values #f in/toplevel)))))))
-      
-      (define (extract-package in)
-        (when (pair? (cdr in))
-          (let ((package (cadr in)))
-            (when (symbol? package)
-              package))))
-      
-      (define (extract-category toplevel)
-        (when (pair? toplevel)
-          (let ((type (car toplevel)))
-            (when (memq? type '(class interface package))
-              (let ((scan (cdr toplevel)))
-                (when (pair? scan)
-                  (let ((name (car scan)))
-                    (when (symbol? name)
-                      (if (or (and (eq? type 'class) (eq? name 'Object))
-                              (and (eq? type 'interface) (eq? name 'Unknown))
-                              (and (eq? type 'package) (eq? name 'Common)))
-                          (values type name #f)
-                        (let ((scan (cdr scan)))
-                          (when (and (pair? scan) (eq? (car scan) 'extends))
-                            (let ((scan (cdr scan)))
-                              (when (pair? scan)
-                                (let ((extends (car scan)))
-                                  (when (symbol? extends)
-                                    (values type name extends))))))))))))))))
-      
-      (let ((in/toplevel (extract-jazz-file-toplevel file)))
-        (when in/toplevel
-          (receive (in toplevel) in/toplevel
-            (let ((package (extract-package in))
-                  (type/name/extends (extract-category toplevel)))
-              (when type/name/extends
-                (receive (type name extends) type/name/extends
-                  (values package type name extends))))))))
-    
-    (let ((name (get-name~ pathname)))
-      (typecase pathname
-        ((Directory)
-         (let ((project-file (new-file~ pathname (format "{a}.jazz" name))))
-           (if (and (exists?~ project-file) (determine-project-file? project-file))
-               (install-project project-file parent #t)
-             (let ((subgroup (new Project-Directory directory: pathname)))
-               (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
-               (set-property~ designer subgroup 'directory pathname design-events?: (not descendant?))
-               (when recursive?
-                 (iterate-directory~ pathname
-                   (lambda (pathname)
-                     ;; not the cleanest test but good enough for now
-                     (unless (and (not descendant?) (string=? (get-name~ pathname) "project"))
-                       (import-pathname project pathname subgroup #t)))
-                   files?: #f
-                   directories?: #t
-                   sort?: #t
-                   recursive?: #f)
-                 (iterate-directory~ pathname
-                   (lambda (pathname)
-                     (import-pathname project pathname subgroup #t))
-                   files?: #t
-                   directories?: #f
-                   sort?: #t
-                   recursive?: #f))
-               subgroup))))
-        ((File)
-         (when (or (not descendant?) (import-filter? project pathname))
-           (if (determine-project-file? pathname)
-               (install-project pathname parent descendant?)
-             (import-file pathname parent descendant?)))))))
+    (typecase pathname
+      ((Directory)
+       (let ((project-file (new-file~ pathname ".project")))
+         (if (exists?~ project-file)
+             (install-project project-file parent #t)
+           (let ((subgroup (new Project-Directory directory: pathname)))
+             (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
+             (set-property~ designer subgroup 'directory pathname design-events?: (not descendant?))
+             (when recursive?
+               (iterate-directory~ pathname
+                 (lambda (pathname)
+                   (import-pathname project pathname subgroup #t))
+                 files?: #f
+                 directories?: #t
+                 sort?: #t
+                 recursive?: #f)
+               (iterate-directory~ pathname
+                 (lambda (pathname)
+                   (import-pathname project pathname subgroup #t))
+                 files?: #t
+                 directories?: #f
+                 sort?: #t
+                 recursive?: #f))
+             subgroup))))
+      ((File)
+       (when (or (not descendant?) (import-filter? project pathname))
+         (if (string-ci=? (get-extension~ pathname) "project")
+             (install-project pathname parent descendant?)
+           (import-file pathname parent descendant?))))))
   
   
   (method (import-file file parent descendant?)

@@ -612,8 +612,6 @@
 (native jazz.module-get)
 (native jazz.module-ref)
 (native jazz.module-set!)
-(native jazz.split-module-reference)
-(native jazz.module-reference)
 (native jazz.walk-literal)
 (native jazz.walk-for)
 (native jazz.register-service)

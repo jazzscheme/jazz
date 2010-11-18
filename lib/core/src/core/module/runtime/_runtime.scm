@@ -166,18 +166,6 @@
         (jazz.error "Unable to find '{s} in: {s}" name module-name)))))
 
 
-(define (jazz.split-module-reference ref)
-  (values (jazz.identifier-unit ref)
-          (jazz.identifier-name ref)))
-
-
-(define (jazz.module-reference ref)
-  (receive (module-name name) (jazz.split-module-reference ref)
-    (if (not module-name)
-        (jazz.autoload name)
-      (jazz.module-ref module-name name))))
-
-
 ;;;
 ;;;; Error
 ;;;

@@ -57,7 +57,7 @@
     (if (and (pair? expr)
              (eq? (car expr) 'data))
         (parse-data expr proc)
-      (parse-form expr proc)))
+      (error "Missing data in form file: {a}" (parse~ file))))
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr
@@ -69,18 +69,14 @@
                 (if import (cdr import) #f))
               (cadr form)))))
   
-  (define (parse-form expr proc)
-    (proc #f expr))
-  
   (call-with-input-file (list path: (parse~ file) char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
     (lambda (reader)
       (let ((expr (read reader)))
         (if (eof-object? expr)
-            (error "No expression found in file: {a}" (parse~ file))
+            (error "No expression found in form file: {a}" (parse~ file))
           (parse expr
             (lambda (data form)
-              (set! form (construct-form form (if data (imports-locator (effective-imports~ data)) #f)))
-              @wait (set! form (jml->form form (if data (imports-locator (effective-imports~ data)) #f)))
+              (set! form (construct-form form (imports-locator (effective-imports~ data))))
               (set-data~ form data)
               (set-origin~ form file)
               form)))))))

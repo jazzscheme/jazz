@@ -38,6 +38,38 @@
 (module protected jazz.library.syntax jazz
 
 
+;;;
+;;;; Environment
+;;;
+
+
+(macro public (<environment> data)
+  (define (gather-references)
+    (let ((references (make-table test: eq?)))
+      (define (walk-reference reference)
+        (table-set! references reference #t))
+      
+      (walk-references~ data walk-reference)
+      references))
+  
+  (define (locators-builder references)
+    (cons 'list (map (lambda (pair)
+                       (let ((reference (car pair)))
+                         `(cons ',reference (lambda () ,reference))))
+                     (table->list references))))
+  
+  (let ((locators-code (locators-builder (gather-references))))
+    `(construct-environment ',data
+                            (let ((locators (list->table ,locators-code)))
+                              (lambda (symbol)
+                                (locators-ref locators symbol))))))
+
+
+;;;
+;;;; Form
+;;;
+
+
 (macro public (define-form name form)
   `(register-form ',name (<form> ,form)))
 

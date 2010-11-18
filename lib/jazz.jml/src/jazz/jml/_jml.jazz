@@ -89,7 +89,7 @@
   (let* ((parser (new JML-Parser))
          (node (parse~ parser expr))
          (form (node->form node)))
-    (set-model-locator~ form locator)
+    (set-locator~ form locator)
     form))
 
 
@@ -160,26 +160,26 @@
                          (get-properties~ form))
       (get-output~ fact)))
   
-  (letrec ((form->node
-             (lambda (form parent)
-               (if (is? form JML-Text)
-                   form
-                 (let* ((action (get-action~ form))
-                        (model (get-model~ form))
-                        (name (get-name~ form))
-                        (symbolic? (get-tag-symbolic?~ form))
-                        (tag (if symbolic?
-                                 (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
-                               (case action ((install) 'install) ((new) model) ((modify) '!) ((locate) '~))))
-                        (element (new JML-Element parent tag))
-                        (properties (extract-form-properties form symbolic?))
-                        (children (map (lambda (form)
-                                         (form->node form element))
-                                       (get-children~ form))))
-                   (set-properties~ element properties)
-                   (set-children~ element (if (trait-tag? model) (add-client-form form children) children))
-                   element)))))
-    (form->node form #f)))
+  (define (form/parent->node form parent)
+    (if (is? form JML-Text)
+        form
+      (let* ((action (get-action~ form))
+             (model (get-model~ form))
+             (name (get-name~ form))
+             (symbolic? (get-tag-symbolic?~ form))
+             (tag (if symbolic?
+                      (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
+                    (case action ((install) 'install) ((new) model) ((modify) '!) ((locate) '~))))
+             (element (new JML-Element parent tag))
+             (properties (extract-form-properties form symbolic?))
+             (children (map (lambda (form)
+                              (form/parent->node form element))
+                            (get-children~ form))))
+        (set-properties~ element properties)
+        (set-children~ element (if (trait-tag? model) (add-client-form form children) children))
+        element)))
+  
+    (form/parent->node form #f))
 
 
 (definition public (construct-form expr locator)

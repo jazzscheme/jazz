@@ -83,8 +83,6 @@
              object)
             ((tagged-expr? object)
              (parse-node parent object))
-            ((and (pair? object) (symbol? (car object)))
-             (parse-new-node parent object))
             ((pair? object)
              (map (lambda (sub)
                     (parse-expr parent sub))
@@ -101,22 +99,6 @@
           (parse-any parent expansion))))
     
     (define (parse-node parent expr)
-      (let ((first (car expr)))
-        (if (tag? first)
-            (parse-jml-node parent expr)
-          (parse-new-node parent expr))))
-    
-    (define (parse-new-node parent expr)
-      (bind (model . rest) expr
-        (let ((class (autoload model)))
-          (receive (properties-list children-list) (parse-jml-properties/children rest)
-            (let* ((node (apply new class properties-list))
-                   (children (parse-children node children-list)))
-              (when children
-                (set-children~ node children))
-              node)))))
-    
-    (define (parse-jml-node parent expr)
       (bind (first . rest) expr
         (let ((tag (tag->name first)))
           (receive (properties-list children-list) (parse-jml-properties/children rest)

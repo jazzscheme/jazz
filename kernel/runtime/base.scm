@@ -350,7 +350,7 @@
 ;;;
 
 
-(define jazz.settings-directory
+(define jazz.jazz-settings-directory
   #f)
 
 (define jazz.named-configurations-file
@@ -358,8 +358,8 @@
 
 
 (define (jazz.setup-settings)
-  (set! jazz.settings-directory (jazz.versioned-directory "~/.jazz/" 'settings (jazz.kludged-get-jazz-updates) jazz.convert-settings))
-  (set! jazz.named-configurations-file (string-append jazz.settings-directory ".configurations")))
+  (set! jazz.jazz-settings-directory (jazz.versioned-directory "~/.jazz/" 'settings (jazz.kludged-get-jazz-updates) jazz.convert-settings))
+  (set! jazz.named-configurations-file (string-append jazz.jazz-settings-directory ".configurations")))
 
 
 (define (jazz.convert-settings dir old)
@@ -402,7 +402,7 @@
     (if (file-exists? file)
         (load file)))
   
-  (let ((global (string-append jazz.settings-directory filename))
+  (let ((global (string-append jazz.jazz-settings-directory filename))
         (local filename))
     (load-if-exists global)
     (load-if-exists local)))

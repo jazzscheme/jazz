@@ -101,7 +101,7 @@
     (if (file-exists? file)
         (jazz.load file)))
   
-  (let ((global (%%string-append jazz.settings-directory filename))
+  (let ((global (%%string-append jazz.jazz-settings-directory filename))
         (local filename))
     (if install?
         (load-if-exists (jazz.install-path filename)))

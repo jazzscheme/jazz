@@ -517,6 +517,7 @@
 (native jazz.kernel-source)
 (native jazz.kernel-version)
 (native jazz.get-jazz-version-number)
+(native jazz.jazz-settings-directory)
 (native jazz.list->updates)
 (native jazz.versioned-directory)
 (native jazz.platform-eol-encoding)

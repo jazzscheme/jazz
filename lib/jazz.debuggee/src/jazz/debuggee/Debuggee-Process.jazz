@@ -169,12 +169,11 @@
   ;;;
   
   
-  (method (unit/module-form? expr)
-    (and (pair? (source-code expr))
-         (memq? (source-code (car (source-code expr))) '(unit module))))
-  
-  
   (method (evaluate-expressions syntax str container line col)
+    (define (unit/module-form? expr)
+      (and (pair? (source-code expr))
+           (memq? (source-code (car (source-code expr))) '(unit module))))
+    
     (define (parse-unit/module expr)
       (let ((first (source-code (car expr))))
         (if (memq? first '(protected public))
@@ -192,27 +191,29 @@
     
     (thread-call (primordial-thread) 'evaluate-expressions
       (lambda ()
-        (let ((expr (parameterize ((walk-for 'eval))
-                      (with-readtable (case syntax
-                                        ((scheme) scheme-readtable)
-                                        ((jazz) jazz-readtable))
-                        (lambda ()
-                          (call-with-input-string str
-                            (lambda (port)
-                              (read-source-first port container line col))))))))
-          (if (unit/module-form? expr)
-              (receive (unit-name access) (parse-unit/module (cdr (source-code expr)))
-                (load-unit unit-name)
-                (outline-unit unit-name)
-                (parameterize ((requested-unit-name unit-name)
-                               (walk-for 'eval)
-                               (generate-symbol-for (format "%{a}&" (eval-count)))
-                               (generate-symbol-context unit-name)
-                               (generate-symbol-counter 0))
-                  (present (eval expr))))
-            (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
-                           (generate-symbol-counter 0))
-              (present (eval expr))))))))
+        (let ((expressions (parameterize ((walk-for 'eval))
+                             (with-readtable (case syntax
+                                               ((scheme) scheme-readtable)
+                                               ((jazz) jazz-readtable))
+                               (lambda ()
+                                 (call-with-input-string str
+                                   (lambda (port)
+                                     (read-source-all port container line col))))))))
+          (let ((first (car expressions))
+                (evaluate (cons 'begin expressions)))
+            (if (and (eq? syntax 'jazz) (unit/module-form? first))
+                (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
+                  (load-unit unit-name)
+                  (outline-unit unit-name)
+                  (parameterize ((requested-unit-name unit-name)
+                                 (walk-for 'eval)
+                                 (generate-symbol-for (format "%{a}&" (eval-count)))
+                                 (generate-symbol-context unit-name)
+                                 (generate-symbol-counter 0))
+                    (present (eval evaluate))))
+              (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
+                             (generate-symbol-counter 0))
+                (present (eval evaluate)))))))))
   
   
   ;;;

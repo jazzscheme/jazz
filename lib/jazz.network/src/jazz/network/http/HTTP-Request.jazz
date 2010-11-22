@@ -39,36 +39,31 @@
 
 
 (import (jazz.network)
-        (jazz.network.http))
+        (jazz.network.http)
+        (irregex))
 
 
 (class HTTP-Request extends HTTP-Message
 
-  
-  ;; (slot remote-address getter generate) ;; FIXME
-  ;; (slot remote-port getter generate) ;; use Gambit's tcp-client-peer-socket-info
-  ;; the two parameters shouldn't be here - TCP stuff
-  
-  (slot http-method getter generate)
-  (slot uri getter generate)
-
+  (slot http-method                   getter generate)
+  (slot uri                           getter generate)
   ;; synthetic parameters (come from uri and content)
   (slot get-parameters  initialize () getter generate)
   (slot post-parameters initialize () getter generate)
   
   
-  (slot cookie-header-name initialize "Cookie")
-  
-  
   (method override (initialize (http-method: http-method #f) 
                                (uri: uri #f)
                                (get-parameters: get-parameters ())
-                               (content: content #f))
-    (nextmethod)
+                               (content: content #f)
+                               (headers: headers ()))
+    (nextmethod content: content headers: headers)
     (set! http-method~self http-method)
     (set! uri~self uri)
     (set! get-parameters~self get-parameters)
-    (set! content~self content))
+    (let ((cookie-header (get-header "Cookie")))
+      (when cookie-header
+        (parse-cookies cookie-header))))
   
   
   ;;;
@@ -157,6 +152,21 @@ Cookie: SessionID=nil
     
     #f
     )
+
+  
+  (method (parse-cookies cookie-string)
+    (let ((cookie-strings (map irregex-match-substring
+                               (irregex-fold (string->irregex "\\w*=.*[,;]?")
+                                             (lambda (i m s) (cons m s))
+                                             '()
+                                             cookie-string
+                                             (lambda (i s) (reverse s))))))
+      (map (lambda (name-value-str)
+             (let ((equal-sign (find name-value-str #\=))
+                   (semi (or (find name-value-str #\;) (find name-value-str #\,) (string-length name-value-str))))
+               (add-cookie
+                (new Cookie (subseq name-value-str 0 equal-sign) (subseq name-value-str (+ equal-sign 1) semi)))))
+           cookie-strings)))
   
   
   ;;;
@@ -179,7 +189,6 @@ Cookie: SessionID=nil
   (method override (send port)
     (output-control port)
     (print-headers port)
-    ;; (output-cookies "Cookie" port)
     (when (= http-method "POST")
       (format port "{%}{%}")
       (output-parameters port))

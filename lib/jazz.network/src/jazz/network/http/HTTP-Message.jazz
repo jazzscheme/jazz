@@ -45,72 +45,60 @@
   
   
   (slot protocol initialize "HTTP/1.1"                getter generate)
-  (slot headers  initialize (make-table test: equal?) getter generate)
+  (slot headers  initialize ()                        getter generate)
   (slot content  initialize #f                        getter generate)
-  
-  ;; synthetic/cached slot
-  (slot cookies  initialize (make-table test: equal?) getter generate)
+  (slot cookies  initialize (make-table test: equal?) getter generate) ;; this goes into/comes out of headers
   
   
-  ;; abstract slot?
-  (slot cookie-header-name)
-  
-  
-  (method override (initialize
-                     (content: content #f))
+  (method override (initialize (content: content #f) (headers: headers ()))
     (nextmethod)
+    (set! headers~self headers)
     (set! content~self content))
+
   
-  (method (crlf port)
+  (method (crlf! port)
     (write-subu8vector #u8(13 10) 0 2 port))
   
-  
+
   ;;;
   ;;;; Headers
   ;;;
   
   
-  (method public (get-header name (error?: error? #t))
-    (or (table-ref headers name #f)
-        (when error?
-          (error "Unknown header: {s}" name))))
+  (method public (get-header name (default #f))
+    (let ((maybe-header (assoc name headers)))
+      (if maybe-header
+          (cdr maybe-header)
+          default)))
   
   
-  (method public (get-list-header name . rest)
-    (let ((value (apply get-header name rest)))
-      (if (string? value)
-          (list value)
-        value)))
-  
-  
-  (method public (add-header name value)
-    (let* ((actual (table-ref headers name #f))
-           (new-value
-            (cond ((not actual) value)
-                  ((pair? actual) (append actual (list value)))
-                  (else (list actual value)))))
-      (table-set! headers name new-value)))
+  (method public (set-header! name value)
+    (let ((old-header (assoc name headers)))
+      (if old-header
+          (set-cdr! old-header value)
+          (set! headers (cons (cons name value) headers)))))
   
   
   (method (print-headers port)
     (when content
-      (add-header "Content-Length" 
-                  ((if (string? content)
-                       string-length
-                     car) ;; assume it's a u8 content bag
-                   content)))
-    (iterate-table 
-      headers
-      (lambda (name value)
-        (print-header name value port))))
+      (set-header! "Content-Length" 
+                   ((if (string? content)
+                        string-length
+                        car) ;; assume it's a u8 content bag
+                    content)))
+    (map (lambda (header)
+                   (print-header (car header) (cdr header) port))
+         headers))
   
   
   (method (print-header name value port)
     (format port "{a}: {a}" name value)
-    (crlf port))
+    (crlf! port))
+  
   
   (method virtual (send port)
     )
+
   
   ;;;
   ;;;; Cookies
@@ -123,28 +111,4 @@
   
   (method public (add-cookie cookie)
     (let ((name (get-name~ cookie)))
-      (table-set! cookies name cookie)))
-  
-  
-  (method public (for-each-cookie proc)
-    (iterate-table cookies proc))
-  
-  
-  (method (print-cookies port)
-    (for-each-cookie
-      (lambda (cookie-name cookie)
-        (print-header cookie-header-name
-                      (print~ cookie) ;; FIXME
-                      port))))
-  
-  ;; (method (parse-cookies) ;; called after init/after add header??
-;;     (let ((headers (get-list-header cookie-header-name error?: #f)))
-;;       (when headers
-;;         (for-each (lambda (header-line)
-;;                     (add-cookie (parse-cookie header-line))) 
-;;                   headers))))
-
-  ;; (method (parse-cookie header-line)
-  ;;)
-    )
-)
+      (table-set! cookies name cookie)))))

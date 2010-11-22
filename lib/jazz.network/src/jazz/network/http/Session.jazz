@@ -41,16 +41,14 @@
 (import (jazz.library)
         (jazz.network))
 
-;;; TODO:
-;; needs last-access timestamp for timeouts
-;; needs to be tied to client info to prevent session hijacking
-
 
 (class Session extends Object
 
   
-  (slot id         initialize #f  getter generate)
-  (slot properties initialize '() getter generate)
+  (slot id               initialize #f          getter generate)
+  (slot session-timeout  initialize 3600        accessors generate) ;; seconds
+  (slot last-access-time initialize (real-time) accessors generate)
+  (slot properties       initialize '()         getter generate)
   
   
   (method override (initialize id)
@@ -58,10 +56,18 @@
     (set! id~self id))
   
   
-  (method override (print output readably)
-    (print-unreadable self output
-      (lambda (output)
-        (format output "id: {s}" id))))
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "id: {s}" id))))
+
+
+  (method public virtual (expired?)
+    (< (- (real-time) last-access-time) session-timeout))
+
+
+  (method public virtual (end-session)
+    )
   
   
   ;;;
@@ -73,7 +79,7 @@
     {Box not-found})
 
 
-  (method public (get-property name (error?: error? #t))
+  (method public virtual (get-property name (error?: error? #t))
     (let ((value (getf properties name not-found: Not-Found)))
       (if (neq? value Not-Found)
           value
@@ -81,9 +87,7 @@
           (error "Unknown property: {s}" name)))))
   
   
-  (method public (set-property name value)
+  (method public virtual (set-property name value)
     (if (getprop properties name)
         (setf properties name value)
-      (set! properties (addf properties name value))))
-  )
-)
+      (set! properties (addf properties name value))))))

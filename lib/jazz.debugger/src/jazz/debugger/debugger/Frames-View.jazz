@@ -56,7 +56,8 @@
   
   (form
     (<install>                                layout-type: border
-      (<Layout-View>         name: tools)
+      (<Layout-View>         name: tools
+        (<Toggle-Tool>       name: hidden     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Hidden Frames" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :form on-show-hidden}))
       (<Scroller-View>       name: scroller   location: center vscroll?: #t style: tool
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
@@ -109,6 +110,10 @@
     (update-frames))
   
   
+  (method (show-hidden?)
+    (get-selected?~ (locate 'hidden)))
+  
+  
   (method public (thread-changed new-thread)
     (set! process (get-process~ (get-debugger-manager)))
     (set! thread new-thread)
@@ -125,6 +130,10 @@
   (method override (resize dh dv)
     (nextmethod dh dv)
     (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method (on-show-hidden evt)
+    (update-frames))
   
   
   (method (on-select-frame evt)
@@ -179,7 +188,8 @@
                     (lambda (frame)
                       (let ((title (frame-title frame))
                             (image (frame-image frame)))
-                        (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: frame)))))))
+                        (when (or (show-hidden?) (not (get-hidden?~ frame)))
+                          (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: frame))))))))
             use: 'data
             test: debugged=?
             generate-event?: #t)))))

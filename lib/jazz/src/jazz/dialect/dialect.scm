@@ -2413,13 +2413,13 @@
            (interface ,stub-access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
              ,@(jazz.queue-list proxies))
            (class package ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
-             (method override (stub-interface)
-               ,stub-interface)
+             (method override (stub-reference)
+               (reference ,stub-interface))
              ,@values-method
              ,@(jazz.queue-list locals))
            (class package ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
-             (method override (stub-interface)
-               ,stub-interface)
+             (method override (stub-reference)
+               (reference ,stub-interface))
              ,@(jazz.queue-list remotes)))))))
 
 

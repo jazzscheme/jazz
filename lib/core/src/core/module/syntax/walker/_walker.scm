@@ -4999,7 +4999,7 @@
 
 
 (define (jazz.walk-reference walker resume declaration environment form-src)
-  (let ((resolver `(lambda () ,(%%cadr (%%source-code form-src)))))
+  (let ((resolver `(lambda () ,(%%cadr (jazz.source-code form-src)))))
     (jazz.new-reference-reification form-src (jazz.walk walker resume declaration environment resolver))))
 
 

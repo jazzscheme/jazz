@@ -112,6 +112,29 @@
   (%%get-runtime-reference-serialization runtime-reference))
 
 
+(define (jazz.deserialize-runtime-reference serialization)
+  (define (deserialize-module-private)
+    (jazz.new-runtime-reference (lambda ()
+                                  (let ((locator (%%cadr serialization)))
+                                    (jazz.global-ref locator)))
+                                serialization))
+  
+  (define (deserialize-module-public)
+    (jazz.new-runtime-reference (lambda ()
+                                  (let ((module-name (%%cadr serialization))
+                                        (name (%%car (%%cddr serialization))))
+                                    (jazz.module-ref module-name name)))
+                                serialization))
+  
+  (or (if (%%pair? serialization)
+          (case (%%car serialization)
+            ((module-private) (deserialize-module-private))
+            ((module-public) (deserialize-module-public))
+            (else #f))
+        #f)
+      (jazz.error "Unable to deserialize runtime reference: {s}" serialization)))
+
+
 ;;;
 ;;;; Modules
 ;;;

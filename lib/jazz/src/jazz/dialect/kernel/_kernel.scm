@@ -843,6 +843,15 @@
 
 
 ;;;
+;;;; Reference
+;;;
+
+
+(native jazz.resolve-runtime-reference)
+(native jazz.serialize-runtime-reference)
+
+
+;;;
 ;;;; Repl
 ;;;
 

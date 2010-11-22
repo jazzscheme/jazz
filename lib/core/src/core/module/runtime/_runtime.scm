@@ -84,6 +84,35 @@
 
 
 ;;;
+;;;; Runtime Reference
+;;;
+
+
+(jazz.define-class jazz.Runtime-Reference jazz.Object () jazz.Object-Class jazz.allocate-runtime-reference
+  ((resolver      %%get-runtime-reference-resolver      ())
+   (serialization %%get-runtime-reference-serialization ())))
+
+
+(jazz.define-class-runtime jazz.Runtime-Reference)
+
+
+(define (jazz.new-runtime-reference resolver serialization)
+  (jazz.allocate-runtime-reference jazz.Runtime-Reference resolver serialization))
+
+
+(jazz.encapsulate-class jazz.Runtime-Reference)
+
+
+(define (jazz.resolve-runtime-reference runtime-reference)
+  (let ((resolver (%%get-runtime-reference-resolver runtime-reference)))
+    (resolver)))
+
+
+(define (jazz.serialize-runtime-reference runtime-reference)
+  (%%get-runtime-reference-serialization runtime-reference))
+
+
+;;;
 ;;;; Modules
 ;;;
 

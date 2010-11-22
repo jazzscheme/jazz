@@ -59,4 +59,5 @@
 (jazz.define-walker-special define-syntax       core jazz.walk-define-syntax)
 (jazz.define-walker-special define-local-syntax core jazz.walk-define-local-syntax)
 (jazz.define-walker-special let-syntax          core jazz.walk-let-syntax)
-(jazz.define-walker-special letrec-syntax       core jazz.walk-letrec-syntax))
+(jazz.define-walker-special letrec-syntax       core jazz.walk-letrec-syntax)
+(jazz.define-walker-special reference           core jazz.walk-reference))

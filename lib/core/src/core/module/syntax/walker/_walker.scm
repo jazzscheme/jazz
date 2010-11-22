@@ -582,9 +582,7 @@
     (cond ((%%is? decl jazz.Export-Declaration)
            (%%get-export-declaration-symbol decl))
           ((%%is? decl jazz.Autoload-Declaration)
-           ;; this heuristic used because we cannot call jazz.resolve-binding at this point
-           ;; is not 100% correct if the autoload was obtained through a reexported module...
-           (jazz.compose-name (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module decl)) (%%get-lexical-binding-name decl)))
+           (jazz.autoload-declaration-locator-heuristic decl))
           (else
            (%%get-declaration-locator decl))))
   
@@ -961,6 +959,13 @@
       `(,(jazz.autoload-locator referenced-declaration))
       (jazz.resolve-binding declaration)
       #f)))
+
+
+
+;; this heuristic used because we cannot call jazz.resolve-binding at various points
+;; is not 100% correct if the autoload was obtained through a reexported module...
+(define (jazz.autoload-declaration-locator-heuristic declaration)
+  (jazz.compose-name (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
 
 
 (define (jazz.autoload-locator referenced-declaration)
@@ -3714,6 +3719,58 @@
 
 
 ;;;
+;;;; Reference Reification
+;;;
+
+
+(jazz.define-class-runtime jazz.Reference-Reification)
+
+
+(define (jazz.new-reference-reification source resolver)
+  (jazz.allocate-reference-reification jazz.Reference-Reification #f source resolver))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Reference-Reification expression) declaration environment)
+  ;; all this should be cleanly obtained from the code walk but it requires a
+  ;; non-trivial work of changing references to remember how they where obtained
+  (define (determine-serialization reference)
+    (let ((module (%%get-declaration-toplevel declaration))
+          (binding (%%get-reference-binding reference)))
+      (if (%%is? binding jazz.Declaration)
+          (if (%%eq? (%%get-declaration-toplevel binding) module)
+              `(module-private ,(%%get-declaration-locator binding))
+            (let ((name (%%get-lexical-binding-name binding)))
+              (let ((import (find-import module name)))
+                (if import
+                    `(module-public ,import ,name)
+                  #f))))
+        #f)))
+  
+  (define (find-import module symbol)
+    (let iter ((scan (%%get-module-declaration-imports module)))
+      (if (%%null? scan)
+          #f
+        (let ((module-invoice (%%car scan)))
+          (let ((imported-module-declaration (%%get-module-invoice-module module-invoice)))
+            (let ((imported (%%get-access-lookup imported-module-declaration jazz.public-access)))
+              (if (%%table-ref imported symbol #f)
+                  (%%get-lexical-binding-name (%%get-module-invoice-module module-invoice))
+                (iter (%%cdr scan)))))))))
+  
+  (let ((resolver (%%get-reference-reification-resolver expression)))
+    (let ((expression (%%car (%%get-body-expressions (%%get-lambda-body resolver)))))
+      (%%assert (%%is? expression jazz.Binding-Reference)
+        (let ((serialization (determine-serialization expression)))
+          (jazz.new-code
+            `(jazz.new-runtime-reference ,(%%get-code-form (jazz.emit-expression resolver declaration environment)) ',serialization)
+            jazz.Any
+            #f))))))
+
+
+(jazz.encapsulate-class jazz.Reference-Reification)
+
+
+;;;
 ;;;; Body
 ;;;
 
@@ -4379,8 +4436,7 @@
          (if (syntactic-closure? symbol-src)
              (or (lookup walker environment symbol-src)
                  (lookup walker (%%get-syntactic-closure-environment symbol-src) (syntactic-closure-form symbol-src))
-                 (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz.source-code (syntactic-closure-form symbol-src)))
-                 )
+                 (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz.source-code (syntactic-closure-form symbol-src))))
            (lookup walker environment (jazz.source-code symbol-src)))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
         (validate-compatibility walker declaration referenced-declaration))
@@ -4781,6 +4837,7 @@
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
+
 (define (jazz.walk-local-macro walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr (jazz.source-code form-src)))
     (jazz.require-declaration declaration name)))
@@ -4860,6 +4917,7 @@
 ;;;; Define-Local-Syntax
 ;;;
 
+
 (define (jazz.walk-define-local-syntax-declaration walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.syntax-modifiers (%%cdr (jazz.source-code form-src)))
     (let ((name (jazz.source-code (%%car rest)))
@@ -4895,6 +4953,7 @@
                       env))))))
           (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))
+
 
 (define (jazz.walk-define-local-syntax walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.syntax-modifiers (%%cdr (jazz.source-code form-src)))
@@ -4932,6 +4991,16 @@
 
 (define (jazz.walk-letrec-syntax . args)
   (apply jazz.walk-let-syntax args))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(define (jazz.walk-reference walker resume declaration environment form-src)
+  (let ((resolver `(lambda () ,(%%cadr (%%source-code form-src)))))
+    (jazz.new-reference-reification form-src (jazz.walk walker resume declaration environment resolver))))
 
 
 ;;;

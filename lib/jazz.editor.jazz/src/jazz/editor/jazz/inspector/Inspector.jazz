@@ -56,7 +56,7 @@
   
   
   (form
-    (<install>                         filled-column: value multiple-selection?: #f selection-mode: row portfolio: :images
+    (<install>                         filled-column: value multiple-selection?: #f selection-mode: row portfolio: :images context-menu-handler: {Event-Handler :form on-context-menu}
       (<Tree-Node-Column>  name: name  title: "Name")
       (<Tree-Label-Column> name: value title: "Value")))
   
@@ -115,6 +115,31 @@
   
   
   ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (cell (view->tree pos))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (lambda ()
+          (let ((menu (and cell (new Inspector-Menu client: self))))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (method (on-reset evt)
+    (let ((row (get-selected-row)))
+      (when row
+        (collapse row)
+        (remove-every-son~ row)
+        (set-state~ row 'dynamic))))
+  
+  
+  ;;;
   ;;;; Inspect
   ;;;
   
@@ -129,4 +154,16 @@
              (with-jrm-exception-handler
                (lambda ()
                  (inspect-serial~ process serial)))
-           '())))))))
+           '()))))))
+
+;;;
+;;;; Inspector-Menu
+;;;
+
+
+(class Inspector-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: delete title: "Reset" action-handler: {Event-Handler (:form :client) on-reset})))))

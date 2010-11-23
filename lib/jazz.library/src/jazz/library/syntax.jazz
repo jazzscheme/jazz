@@ -39,6 +39,65 @@
 
 
 ;;;
+;;;; Match
+;;;
+
+
+@macro (match '(1 2 3) ((?a ?b ?c) (list ?c ?b ?a)))
+@expansion (match-expression '(1 2 3)
+                             (cons '(?a ?b ?c)
+                                   (lambda (match)
+                                     (let ((?a (match '?a))
+                                           (?b (match '?b))
+                                           (?c (match '?c)))
+                                       (list ?c ?b ?a)))))
+
+@macro (match 'a (b 2) (? 3))
+@expansion (match-expression 'a
+                             (cons 'b
+                                   (lambda (match)
+                                     2))
+                             (cons '?
+                                   (lambda (match)
+                                     3)))
+
+
+(macro public (match expr . clauses)
+  (define (extract-variables pattern)
+    (let ((variables '()))
+      (define (process-expr expr)
+        (cond ((variable? expr) (process-variable expr))
+              ((pair? expr) (process-pair expr))))
+      
+      (define (process-variable expr)
+        (set! variables (cons expr variables)))
+      
+      (define (process-pair expr)
+        (process-expr (car expr))
+        (process-expr (cdr expr)))
+      
+      (process-expr pattern)
+      variables))
+  
+  (define (variable? pattern)
+    (and (symbol? pattern)
+         (let ((str (symbol->string pattern)))
+           (and (> (string-length str) 1)
+                (eqv? (string-ref str 0) #\?)))))
+  
+  `(match-expression ,expr
+                     ,@(map (lambda (clause)
+                              (bind (pattern . body) clause
+                                (let ((variables (extract-variables pattern)))
+                                  `(cons ',pattern (lambda (match)
+                                                     (let (,@(map (lambda (variable)
+                                                                    `(,variable (match ',variable)))
+                                                                  variables))
+                                                       ,@body))))))
+                            clauses)))
+
+
+;;;
 ;;;; Environment
 ;;;
 

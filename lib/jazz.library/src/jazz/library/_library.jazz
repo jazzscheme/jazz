@@ -47,6 +47,73 @@
 
 
 ;;;
+;;;; Match
+;;;
+
+
+(definition public (match-expression expr . clauses)
+  (define (match-clauses)
+    (continuation-capture
+      (lambda (found)
+        (for-each (lambda (clause)
+                    (match-clause clause found))
+                  clauses)
+        (unspecified))))
+  
+  (define (match-clause clause found)
+    (bind (pattern . proc) clause
+      (continuation-capture
+        (lambda (failure)
+          (let ((matches (make-table test: eq?)))
+            (define (match variable expr)
+              (table-set! matches variable expr))
+            
+            (define (fail)
+              (continuation-return failure #f))
+            
+            (match-expr expr pattern match fail)
+            (continuation-return found (proc (lambda (variable)
+                                               (table-ref matches variable)))))))))
+  
+  (define (match-expr expr pattern match fail)
+    (cond ((universal-variable? pattern) (match-universal-variable expr pattern match fail))
+          ((variable? pattern)           (match-variable           expr pattern match fail))
+          ((pair? expr)                  (match-pair               expr pattern match fail))
+          ((eqv? expr pattern)           (match-constant           expr pattern match fail))
+          (else                          (match-fail               expr pattern match fail))))
+  
+  (define (match-universal-variable expr pattern match fail)
+    )
+  
+  (define (match-variable expr pattern match fail)
+    (match pattern expr))
+  
+  (define (match-pair expr pattern match fail)
+    (if (pair? pattern)
+        (begin
+          (match-expr (car expr) (car pattern) match fail)
+          (match-expr (cdr expr) (cdr pattern) match fail))
+      (fail)))
+  
+  (define (match-constant expr pattern match fail)
+    )
+  
+  (define (match-fail expr pattern match fail)
+    (fail))
+  
+  (define (variable? pattern)
+    (and (symbol? pattern)
+         (let ((str (symbol->string pattern)))
+           (and (> (string-length str) 1)
+                (eqv? (string-ref str 0) #\?)))))
+  
+  (define (universal-variable? pattern)
+    (eq? pattern '?))
+  
+  (match-clauses))
+
+
+;;;
 ;;;; Environment
 ;;;
 

@@ -553,6 +553,8 @@
 (native jazz.package-root-pathname)
 (native jazz.package-directory)
 (native jazz.package-products)
+(native jazz.package-profiles)
+(native jazz.package-profiles-set!)
 (native jazz.package-project)
 (native jazz.split-version)
 (native jazz.present-version)

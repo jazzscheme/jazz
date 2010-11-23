@@ -40,6 +40,7 @@
 
 (import (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui.dialog))
 
 
@@ -53,11 +54,22 @@
 
 
 (definition public (read-form file)
+  (call-with-input-file (list path: (parse~ file) char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
+    (lambda (reader)
+      (let ((expr (read reader)))
+        (if (eof-object? expr)
+            (error "No expression found in form file: {a}" (parse~ file))
+          (let ((form (parse-form expr)))
+            (set-origin~ form file)
+            form))))))
+
+
+(definition public (parse-form expr)
   (define (parse expr proc)
     (if (and (pair? expr)
              (eq? (car expr) 'data))
         (parse-data expr proc)
-      (error "Missing data in form file: {a}" (parse~ file))))
+      (error "Ill-formed data: {a}" expr)))
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr
@@ -69,17 +81,11 @@
                 (if import (cdr import) #f))
               (cadr form)))))
   
-  (call-with-input-file (list path: (parse~ file) char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
-    (lambda (reader)
-      (let ((expr (read reader)))
-        (if (eof-object? expr)
-            (error "No expression found in form file: {a}" (parse~ file))
-          (parse expr
-            (lambda (data form)
-              (set! form (construct-form form (imports-locator (effective-imports~ data))))
-              (set-data~ form data)
-              (set-origin~ form file)
-              form)))))))
+  (parse expr
+         (lambda (data form)
+           (set! form (construct-form form (imports-locator (effective-imports~ data))))
+           (set-data~ form data)
+           form)))
 
 
 (definition public (safe-read-form file)
@@ -91,6 +97,30 @@
         (wrap-exception exc))
     (lambda ()
       (read-form file))))
+
+
+(definition public (print-form-data form output)
+  (let ((data (get-data~ form)))
+    (output-header (get-model~ form) output)
+    (format output "{%}{%}")
+    (format output "(data {a}{%}" (get-dialect~ data))
+    (format output "{%}{%}")
+    (let ((imports (get-imports~ data)))
+      (when imports
+        (format output "(import ")
+        (let ((first? #t))
+          (for-each (lambda (import)
+                      (if first?
+                          (set! first? #f)
+                        (format output "{%}"))
+                      (format output "{s}" import))
+                    imports)
+          (format output "){%}"))
+        (format output "{%}{%}")))
+    (format output "(form{%}")
+    (pretty-print~ (form->node form) output base: 1)
+    (format output ")")
+    (format output "){%}")))
 
 
 (definition public (instantiate-file file . rest)

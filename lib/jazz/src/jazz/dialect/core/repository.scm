@@ -76,5 +76,11 @@
 (define (jazz.package-products package)
   (%%package-products package))
 
+(define (jazz.package-profiles package)
+  (%%package-profiles package))
+
+(define (jazz.package-profiles-set! package profiles)
+  (%%package-profiles-set! package profiles))
+
 (define (jazz.package-project package)
   (%%package-project package)))

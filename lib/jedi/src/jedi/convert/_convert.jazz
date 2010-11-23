@@ -1,0 +1,179 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jedi Conversions
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jedi.convert jazz
+
+
+(import (jazz.io)
+        (jazz.library)
+        (jazz.library.component))
+
+
+(definition public (convert-settings-205000 settings-dir)
+  (define (convert-profiles)
+    (let ((profiles-dir (new-directory~ settings-dir "profiles")))
+      (unless (exists?~ profiles-dir)
+        (create-directories~ (new-directory~ profiles-dir "lib"))
+        (call-with-output-file (list path: (parse~ (new-file~ profiles-dir ".repository")) eol-encoding: 'cr-lf)
+          (lambda (output)
+            (format output "(repository Profiles{%}{%}")
+            (format output "  (library \"lib\")){%}")))
+        (iterate-directory~ {Directory User "lib"}
+          (lambda (dir)
+            (let ((dirname (get-name~ dir)))
+              (when (and (starts-with? dirname "profile.") (exists?~ (new-file~ dir ".package")))
+                (let ((dest (new-directory~ profiles-dir (list "lib" dirname))))
+                  (unless (exists?~ dest)
+                    (copy-directory~ dir dest)
+                    (convert-profile dest)
+                    (feedback "; moving old {a} to obsolete..." dirname)
+                    (let ((obsolete-dir {Directory User "lib" "obsolete"}))
+                      (create-directories~ obsolete-dir)
+                      (move-pathname~ dir (new-directory~ obsolete-dir dirname))))))))
+          files?: #f
+          directories?: #t
+          recursive?: #f))))
+  
+  (define (convert-profile profile-dir)
+    (let* ((profile-name (let ((dirname (get-name~ profile-dir))) (substring dirname (string-length "profile.") (string-length dirname))))
+           (package-file (new-file~ profile-dir ".package"))
+           (project-file (new-file~ profile-dir ".project"))
+           (class-dir (new-directory~ profile-dir (list "profile" profile-name)))
+           (class-file (new-file~ class-dir (format "{a}.jazz" (capitalize profile-name))))
+           (manifest-file (new-file~ class-dir (format "{a}-Manifest.jazz" (capitalize profile-name))))
+           (settings-dir (new-directory~ class-dir "settings")))
+      (define (convert-package)
+        (let ((expr (read-expr package-file)))
+          (match expr ((package ?package-name . ?alist)
+                       (let ((pair (assq 'project ?alist)))
+                         (when pair
+                           (set-car! (cdr pair) ".project")))
+                       (call-with-output-file (list path: (parse~ package-file) eol-encoding: 'cr-lf)
+                         (lambda (output)
+                           (format output "(package {a}{%}" ?package-name)
+                           (for-each (lambda (pair)
+                                       (format output "{%}  {s}" pair))
+                                     ?alist)
+                           (format output "){%}")))
+                       (let ((package (find-package ?package-name)))
+                         (package-profiles-set! package '())
+                         (unregister-alias ?package-name))))))
+      
+      (define (convert-manifest)
+        (define (read-manifest)
+          (let ((expr (read-expr manifest-file)))
+            (match expr
+                   ((module ?module-name jazz (import . ?) (class ? extends Project (form ?form)) . ?) ?form)
+                   (? (error "Unable to convert manifest")))))
+        
+        (define (convert-manifest form)
+          (remove-property~ form 'unit-name)
+          form)
+        
+        (define (save-project form)
+          (save-form form project-file))
+        
+        (feedback "; converting {a}..." (get-name~ manifest-file))
+        (with-jazz-readtable
+          (lambda ()
+            (let ((form (parse-form `(data jazz.ide.data.project (import (jazz.editor.jazz)) (form (<Project> ,@(cdr (read-manifest))))))))
+              (save-project (convert-manifest form))
+              (delete-file~ manifest-file)))))
+      
+      (define (convert-setting filename dialect import convert)
+        (feedback "; converting {a}..." filename)
+        (let ((file (new-file~ settings-dir filename)))
+          (when (exists?~ file)
+            (let ((expr (read-expr file)))
+              (let ((form (parse-form `(data ,dialect ,@import (form ,expr)))))
+                (save-form (convert form) file))))))
+      
+      (define (convert-workspaces form)
+        (iterate-nodes form
+                       (lambda (node)
+                         (let ((model-name (get-property~ node 'model-name)))
+                           (when model-name
+                             (remove-property~ node 'model-name)
+                             (set-property~ node 'model (new Reference model-name))))
+                         (let ((frame-model (get-property~ node 'frame-model)))
+                           (when frame-model
+                             (set-property~ node 'frame-model (new Reference frame-model))))))
+        form)
+      
+      (feedback "; converting {a}..." (get-name~ profile-dir))
+      (convert-package)
+      (convert-manifest)
+      (convert-setting "Bindings.jml"    'jedi.data.bindings        '() identity)
+      (convert-setting "Connections.jml" 'jazz.ide.data.connections '() identity)
+      (convert-setting "Favorites.jml"   'jazz.ide.data.favorites   '() identity)
+      (convert-setting "PageSetup.jml"   'jazz.ide.data.pagesetup   '() identity)
+      (convert-setting "Preferences.jml" 'jedi.data.preferences     '() identity)
+      (convert-setting "Servers.jml"     'jazz.ide.data.servers     '() identity)
+      (convert-setting "Skins.jml"       'jazz.ide.data.skins       '() identity)
+      (convert-setting "Toolbox.jml"     'jazz.ide.data.toolbox     '() identity)
+      (convert-setting "Workbench.jml"   'jazz.ide.data.workbench   '((import (jazz.editor.c) (jazz.editor.jazz))) identity)
+      (convert-setting "Workspaces.jml"  'jazz.ide.data.workspaces  '() convert-workspaces)))
+  
+  (define (read-expr file)
+    (with-jazz-readtable
+      (lambda ()
+        (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+          (lambda (input)
+            (parameterize ((walk-for #f))
+              (read input)))))))
+  
+  (define (save-form form file)
+    (with-jazz-readtable
+      (lambda ()
+        (call-with-output-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+          (lambda (output)
+            (print-form-data form output))))))
+  
+  (define (iterate-nodes node proc)
+    (proc node)
+    (for-each (lambda (child)
+                (iterate-nodes child proc))
+              (get-children~ node)))
+  
+  (define (feedback . rest)
+    (with-printer :terminal
+      (lambda (printer)
+        (apply format printer rest)
+        (newline printer)
+        (force-output printer))))
+  
+  (convert-profiles)))

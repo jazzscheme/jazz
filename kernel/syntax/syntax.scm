@@ -151,6 +151,9 @@
 (jazz.define-macro (%%package-profiles package)
   `(%%vector-ref ,package 11))
 
+(jazz.define-macro (%%package-profiles-set! package profiles)
+  `(%%vector-set! ,package 11 profiles))
+
 (jazz.define-macro (%%package-project package)
   `(%%vector-ref ,package 12))
 

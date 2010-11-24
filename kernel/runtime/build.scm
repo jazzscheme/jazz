@@ -121,11 +121,10 @@
   '())
 
 
-(define (jazz.get-changed-units)
+(define (jazz.get-changed-units-impl)
   jazz.*changed-units*)
 
-
-(define (jazz.reset-changed-units)
+(define (jazz.reset-changed-units-impl)
   (set! jazz.*changed-units* '()))
 
 
@@ -946,5 +945,7 @@
 
 
 (set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
+(set! jazz.get-changed-units jazz.get-changed-units-impl)
+(set! jazz.reset-changed-units jazz.reset-changed-units-impl)
 (set! jazz.build-image jazz.build-image-impl)
 (set! jazz.build-library jazz.build-library-impl))

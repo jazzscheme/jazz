@@ -46,6 +46,12 @@
         (jazz.ui))
 
 
+(definition (get-lineage-from component ancestor)
+  (let* ((root (get-root-parent~ component))
+         (ancestry (cons root (get-ancestry~ component root))))
+    (memq ancestor ancestry)))
+
+
 (definition (get-class-categorized-properties class)
   (let* ((properties-descriptor (get-properties-descriptor class))
          (categorized (get-categorized~ properties-descriptor)))
@@ -372,8 +378,7 @@
   (method (insert-rows)
     (remove-every-row)
     (when client
-      (insert-components client))
-    (insert-component #f))
+      (insert-components client)))
   
   
   (method (insert-components component)
@@ -457,10 +462,7 @@
   
   (method (child-add child parent)
     (if (eq? parent client)
-        (begin
-          (remove-row (component-row #f))
-          (insert-component child)
-          (insert-component #f))
+        (insert-component child)
       (call-with-parsed-lineage child update-component-paths)))
   
   
@@ -472,12 +474,6 @@
   
   (method (for-each-column proc)
     (for-each proc (get-columns) (iota (get-columns-count))))
-  
-  
-  (method (get-lineage-from component ancestor)
-    (let* ((root (get-root-parent~ component))
-           (ancestry (get-ancestry~ component root)))
-      (memq ancestor ancestry)))
   
   
   (method (super-path? path1 path2)
@@ -504,10 +500,11 @@
   
   
   (method (call-with-parsed-lineage component proc)
-    (let ((lineage-from-client (get-lineage-from component client)))
-      (when lineage-from-client
-        (proc (cadr lineage-from-client)
-              (map get-name~ (cddr lineage-from-client))))))
+    (let* ((lineage-from-client (get-lineage-from component client))
+           (lineage-from-row (and lineage-from-client (cdr lineage-from-client))))
+      (when (and lineage-from-row (not-null? lineage-from-row)
+        (proc (car lineage-from-row)
+              (map get-name~ (cdr lineage-from-row)))))))
   
   
   (method (name-change component new-name old-name)

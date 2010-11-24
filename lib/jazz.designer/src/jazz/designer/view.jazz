@@ -39,10 +39,13 @@
 
 
 (import (jazz.designer)
+        (jazz.io)
         (jazz.library)
+        (jazz.library.component)
         (jazz.locale)
         (jazz.platform)
         (jazz.ui.picker)
+        (jazz.ui)
         (jazz.ui.view))
 
 
@@ -56,7 +59,7 @@
       #f
     (let* ((name-mandatory? (get-name-mandatory?~ class))
            (name-unicity? (get-name-unicity?~ class))
-           (unicity-domain (and name-unicity? (remove "{}" (map get-presentation-property~ brothers) test: equal?)))
+           (unicity-domain (and name-unicity? brothers (remove "{}" (map get-presentation-property~ brothers) test: equal?)))
            (pres (localize (get-class-presentation~ class)))
            (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") prefix: "Name:" initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: validator)))
       presentation)))
@@ -71,6 +74,26 @@
                (not (memq? model classes)))
       (set! classes (cons model (cons #f classes))))
     classes))
+
+
+;;;
+;;;; Edit
+;;;
+
+
+(definition public (edit-component target (editor-class: editor-class #f))
+  (let ((component (parameterize ((designing? #t))
+                     (cond ((class? target) (new target))
+                           ((symbol? target) (instantiate~ (resolve-form target)))
+                           ((is? target Form) (instantiate~ target))
+                           ((is? target Component) target)
+                           ((is? target File) (instantiate~ (read-from-file target)))
+                           (else (error "Unable to edit: {s}" target))))))
+    (let ((editor-class (or editor-class
+                            (typecase component
+                              ((View) View-Editor)
+                              ((Component) Grid-Component-Editor)))))
+      (new-frame editor-class client: component))))
 
 
 ;;;

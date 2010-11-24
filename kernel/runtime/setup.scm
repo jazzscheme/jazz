@@ -236,7 +236,7 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force" "subbuild" "keep-c" "expansion" "emit") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
             (force? (jazz.get-option "force" options))
@@ -244,6 +244,7 @@
             (keep-c? (jazz.get-option "keep-c" options))
             (expansion? (jazz.get-option "expansion" options))
             (emit? (jazz.get-option "emit" options))
+            (dry? (jazz.get-option "dry" options))
             (build-repository (jazz.get-option "build-repository" options))
             (jazz-repository (jazz.get-option "jazz-repository" options))
             (user-repository (jazz.get-option "user-repository" options))
@@ -258,7 +259,8 @@
             (compile (jazz.get-option "compile" options))
             (debugger (jazz.get-option "debugger" options))
             (link (symbol-argument (jazz.get-option "link" options)))
-            (jobs (number-argument (jazz.get-option "jobs" options))))
+            (jobs (number-argument (jazz.get-option "jobs" options)))
+            (port (number-argument (jazz.get-option "port" options))))
         (define (setup-kernel)
           (if jazz.kernel-install
               (##set-gambcdir! (jazz.absolutize-directory jazz.kernel-install jazz.gambit-dir)))
@@ -287,15 +289,16 @@
           (set! jazz.link (or link (jazz.build-link)))
           (set! jazz.link-options (jazz.parse-link jazz.link))
           (set! jazz.jobs jobs)
-          (if (or debug?
-                  (%%eqv? jobs 0))
+          (if (or debug? (%%eqv? jobs 0) dry?)
               (jazz.debug-build? #t))
           (if keep-c?
               (set! jazz.compile-options (%%cons 'keep-c jazz.compile-options)))
           (if expansion?
               (set! jazz.compile-options (%%cons 'expansion jazz.compile-options)))
           (if emit?
-              (jazz.save-emit? #t)))
+              (jazz.save-emit? #t))
+          (if dry?
+              (jazz.dry-run? #t)))
         
         (cond (ev
                 (setup-runtime)
@@ -323,7 +326,7 @@
                 (jazz.make-product (%%string->symbol make)))
               (subbuild?
                 (setup-build)
-                (jazz.subprocess-build-products))
+                (jazz.subprocess-build-products port))
               (build
                 (setup-build)
                 (jazz.build-product (%%string->symbol build)))

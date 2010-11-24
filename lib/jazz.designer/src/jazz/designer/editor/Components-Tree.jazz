@@ -40,6 +40,7 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.jml)
         (jazz.library)
         (jazz.library.component)
         (jazz.locale)
@@ -51,9 +52,6 @@
 
 
 (class undocumented Components-Tree extends Components-Viewer
-    
-  
-  (slot last-class initialize #f getter generate)
 
   
   ;;;
@@ -91,7 +89,14 @@
   
   (method override (on-properties evt)
     (show-properties))
-    
+  
+  
+  (method (on-edit evt)
+    (let* ((component (selected-component))
+           (form (get-form~ component))
+           (origin (get-origin~ form))
+           (to-edit (if (is? origin jazz.io.File) form (class-of component))))
+      (edit-component to-edit editor-class: Canvas-Manager)))
   
   ;;;
   ;;;; Focus
@@ -401,21 +406,22 @@
              (component-addable-classes component (parent-relocation (get-parent~ component)))))))
   
   
-  (method override (add-component-class class (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
-    (define (create-new-component class parent creation-info extra-properties)
+  (method override (add-component-class class/form (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
+    (define (create-new-component class form parent creation-info extra-properties)
       (receive (presentation added-properties) creation-info
-        (let ((child (new class parent: parent))
-              (name (and presentation (presentation->name~ class presentation)))
-              (designer (get-designer)))
-          (when name
-            (set-name~ child name))
-          (set! last-class class)
-          (with-update-locked
-            (lambda ()
-              (install-new-component designer child parent presentation added-properties extra-properties)))
-          child)))
+        (let ((name (and presentation (presentation->name~ class presentation))))
+          (let ((child (if form
+                           (instantiate~ form parent: parent name: name)
+                           (new class parent: parent name: name)))
+                (designer (get-designer)))
+            (with-update-locked
+              (lambda ()
+                (install-new-component designer child parent presentation added-properties extra-properties)))
+            child))))
     
     (let* ((selected (selected-component))
+           (form (and (is? class/form Form) class/form))
+           (class (if form (autoload-class (get-model-name~ form)) class/form))
            (parent (or parent (relocation-parent selected class) selected client))
            (extra-properties properties))
       ;; To support the new feature that it is now possible to
@@ -423,7 +429,7 @@
       (when (not (memq? class (get-addable-classes~ parent)))
         (set! parent (get-parent~ parent)))
       (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
-             (child (create-new-component class parent creation-info extra-properties)))
+             (child (create-new-component class form parent creation-info extra-properties)))
         (when select?
           (select-component child))
         child)))

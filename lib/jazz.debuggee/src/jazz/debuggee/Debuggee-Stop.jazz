@@ -61,14 +61,17 @@
       1000)
     
     (define (collect-continuation-stack cont)
-      (collect (lambda (cont)
-                 (unless (hidden-frame? (continuation-parent cont))
-                   (list cont (get-continuation-name cont))))
-               (get-continuation-stack cont max-depth)))
+      (map (lambda (cont)
+             (list cont (get-continuation-name cont) (boolean (hidden-frame? (continuation-parent cont)))))
+           (get-continuation-stack cont max-depth)))
+    
+    (define (stop-location stack)
+      (let ((found (find-if (lambda (data) (not (third data))) stack)))
+        (and found (exception-location exc (first found)))))
     
     (nextmethod)
     (let ((stack (collect-continuation-stack continuation)))
-      (let ((location (locat->file/line/col (or locat (and (not-null? stack) (exception-location exc (caar stack)))))))
+      (let ((location (locat->file/line/col (or locat (stop-location stack)))))
         (set! thread~self thread)
         (set! kind~self kind)
         (set! reason~self reason)
@@ -91,12 +94,12 @@
   
   (method public (get-frames)
     (define (make-frame id frame)
-      (bind (cont name) frame
+      (bind (cont name hidden?) frame
         ;; to test the stepper
         (let ((location
                 (when (and stepper (= id 0))
                   location)))
-        (let ((frame (new Debuggee-Frame id location (object->serial cont) name)))
+        (let ((frame (new Debuggee-Frame id location (object->serial cont) name hidden?)))
           (new Debuggee-Frame-Local-Proxy frame)))))
     
     (map (lambda (id frame)

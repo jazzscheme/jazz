@@ -366,26 +366,12 @@
   (define (convert-initial)
     (jazz.convert-configurations dir
       (lambda (configurations)
-        (map (lambda (configuration)
-               (jazz.convert-properties configuration
-                 (lambda (property value)
-                   (case property
-                     ((interpret-kernel?:) (list kernel-interpret?: value))
-                     ((source-access?:) (list))
-                     (else (list property value))))))
-             configurations)))
+        (map jazz.convert-configuration-205000 configurations)))
     205000)
   
   (case old
     ((#f) (convert-initial))
     (else #f)))
-
-
-(define (jazz.convert-properties plist converter)
-  (let iter ((scan plist) (result '()))
-    (if (null? scan)
-        result
-      (iter (cddr scan) (append result (converter (car scan) (cadr scan)))))))
 
 
 (define (jazz.convert-configurations dir converter)
@@ -407,6 +393,22 @@
         (write-configurations (converter (read-configurations))))))
 
 
+(define (jazz.convert-configuration-205000 configuration)
+  (jazz.convert-properties configuration
+    (lambda (property value)
+      (case property
+        ((interpret-kernel?:) (list kernel-interpret?: value))
+        ((source-access?:) (list))
+        (else (list property value))))))
+
+
+(define (jazz.convert-properties plist converter)
+  (let iter ((scan plist) (result '()))
+    (if (null? scan)
+        result
+      (iter (cddr scan) (append result (converter (car scan) (cadr scan)))))))
+
+
 (define (jazz.load-global/local-configurations filename)
   (define (load-if-exists file)
     (if (file-exists? file)
@@ -421,6 +423,19 @@
 ;;;
 ;;;; Configuration
 ;;;
+
+
+(define (jazz.save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination file system-platform)
+  (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding system-platform))
+    (lambda (output)
+      (display "(configuration " output)
+      (display (jazz.get-jazz-version-number) output)
+      (newline output)
+      (newline output)
+      (display "  " output)
+      (jazz.print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination output)
+      (display ")" output)
+      (newline output))))
 
 
 (define (jazz.print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination output)
@@ -448,8 +463,7 @@
   (print-property mutable-bindings?: mutable-bindings?)
   (print-property kernel-interpret?: kernel-interpret?)
   (print-property destination: destination)
-  (display ")" output)
-  (newline output))
+  (display ")" output))
 
 
 ;;;

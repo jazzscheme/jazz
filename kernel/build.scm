@@ -269,7 +269,7 @@
         (let ((configuration-dir (jazz.destination-directory #f "bin:" "./")))
           (let ((configuration-file (string-append configuration-dir ".configuration")))
             (if (file-exists? configuration-file)
-                (jazz.load-configuration-file configuration-file)
+                (jazz.load-configuration configuration-file)
               #f)))
       configuration)))
 
@@ -326,13 +326,21 @@
           
           (set! jazz.configurations (read-all input read-configuration)))))
   (if (file-exists? jazz.anonymous-configuration-file)
-      (jazz.register-configuration (jazz.load-configuration-file jazz.anonymous-configuration-file))))
+      (jazz.register-configuration (jazz.load-configuration jazz.anonymous-configuration-file))))
 
 
-(define (jazz.load-configuration-file file)
+(define (jazz.load-configuration file)
+  (define (parse-properties data)
+    (if (and (pair? data)
+             (eq? (car data) 'configuration))
+        (caddr data)
+      data))
+  
   (call-with-input-file (list path: file eol-encoding: 'cr-lf)
     (lambda (input)
-      (apply jazz.new-configuration (read input)))))
+      (let ((data (read input)))
+        ;; quicky until a full-fledged jazz.versioned-file similar to jazz.versioned-directory
+        (apply jazz.new-configuration (jazz.convert-configuration-205000 (parse-properties data)))))))
 
 
 (define (jazz.save-configurations)
@@ -344,6 +352,23 @@
              (if (not (jazz.configuration-name configuration))
                  (split (cdr configurations) configuration named)
                (split (cdr configurations) anonymous (cons configuration named)))))))
+  
+  (define (save-configuration configuration file system-platform)
+    (jazz.save-configuration
+      (jazz.configuration-name configuration)
+      (jazz.configuration-system configuration)
+      (jazz.configuration-platform configuration)
+      (jazz.configuration-windowing configuration)
+      (jazz.configuration-safety configuration)
+      (jazz.configuration-optimize? configuration)
+      (jazz.configuration-debug-environments? configuration)
+      (jazz.configuration-debug-location? configuration)
+      (jazz.configuration-debug-source? configuration)
+      (jazz.configuration-mutable-bindings? configuration)
+      (jazz.configuration-kernel-interpret? configuration)
+      (jazz.configuration-destination configuration)
+      file
+      system-platform))
   
   (define (print-configuration configuration output)
     (jazz.print-configuration
@@ -363,9 +388,7 @@
   
   (receive (anonymous named) (split-configurations jazz.configurations)
     (if anonymous
-        (call-with-output-file (list path: jazz.anonymous-configuration-file eol-encoding: (jazz.platform-eol-encoding (jazz.guess-platform)))
-          (lambda (output)
-            (print-configuration anonymous output)))
+        (save-configuration anonymous jazz.anonymous-configuration-file (jazz.guess-platform))
       (if (file-exists? jazz.anonymous-configuration-file)
           (delete-file jazz.anonymous-configuration-file)))
     (let ((configurations (jazz.sort-configurations named)))
@@ -375,7 +398,8 @@
             (call-with-output-file (list path: jazz.named-configurations-file eol-encoding: (jazz.platform-eol-encoding (jazz.guess-platform)))
               (lambda (output)
                 (for-each (lambda (configuration)
-                            (print-configuration configuration output))
+                            (print-configuration configuration output)
+                            (newline output))
                           configurations))))))))
 
 
@@ -1029,7 +1053,7 @@
     (let ((configuration (or configuration (jazz.require-default-configuration))))
       (let ((configuration-file (jazz.configuration-file configuration)))
         (if (file-exists? configuration-file)
-            (build (jazz.load-configuration-file configuration-file))
+            (build (jazz.load-configuration configuration-file))
           (build configuration)))))
   
   (define (build-recursive target configuration image)

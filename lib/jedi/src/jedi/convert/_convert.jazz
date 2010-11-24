@@ -112,24 +112,34 @@
         (remove-property~ form 'unit-name)
         form)
       
-      (let ((filename (get-name~ manifest-file)))
-        (feedback "; converting {a}..." filename)
-        (with-jazz-readtable
-          (lambda ()
-            (let ((form (parse-form `(data jazz.ide.data.project (form (<Project> ,@(cdr (read-manifest)))))))
-                  (project-file (new-file~ profile-dir ".project")))
-              (add-imports filename form '(jazz.editor.c jazz.editor.jazz))
-              (save-form (convert-manifest form) project-file)
-              (delete-file~ manifest-file))))))
+      (when (exists?~ manifest-file)
+        (let ((filename (get-name~ manifest-file)))
+          (feedback "; converting {a}..." filename)
+          (with-jazz-readtable
+            (lambda ()
+              (let ((form (convert-manifest (parse-form `(data jazz.ide.data.project (form (<Project> ,@(cdr (read-manifest))))))))
+                    (project-file (new-file~ profile-dir ".project")))
+                (add-imports filename form '(jazz.editor.c jazz.editor.jazz))
+                (save-form form project-file)
+                (delete-file~ manifest-file)))))))
     
     (define (convert-setting settings-dir filename dialect potential-imports convert)
       (feedback "; converting {a}..." filename)
       (let ((file (new-file~ settings-dir filename)))
         (when (exists?~ file)
           (let ((expr (read-expr file)))
-            (let ((form (parse-form `(data ,dialect (form ,expr)))))
+            (let ((form (convert (parse-form `(data ,dialect (form ,expr))))))
               (add-imports filename form potential-imports)
-              (save-form (convert form) file))))))
+              (save-form form file))))))
+    
+    (define (convert-workbench form)
+      (let ((profile-unit (get-name~ profile-dir)))
+        (parse-form
+          `(data jazz.ide.data.workbench
+           (form
+             (<Workbench>
+               (<*> tag-reference: ,(new File (list 'Jazz ".project")))
+               (<*> tag-reference: ,(new File (list 'Profiles "lib" profile-unit ".project")))))))))
     
     (define (convert-workspaces form)
       (iterate-nodes form
@@ -158,7 +168,7 @@
             (convert-setting settings-dir "Servers.jml"     'jazz.ide.data.servers     '() identity)
             (convert-setting settings-dir "Skins.jml"       'jazz.ide.data.skins       '() identity)
             (convert-setting settings-dir "Toolbox.jml"     'jazz.ide.data.toolbox     '() identity)
-            (convert-setting settings-dir "Workbench.jml"   'jazz.ide.data.workbench   '(jazz.editor.c jazz.editor.jazz) identity)
+            (convert-setting settings-dir "Workbench.jml"   'jazz.ide.data.workbench   '(jazz.editor.c jazz.editor.jazz) convert-workbench)
             (convert-setting settings-dir "Workspaces.jml"  'jazz.ide.data.workspaces  '() convert-workspaces))))))
   
   (define (read-expr file)

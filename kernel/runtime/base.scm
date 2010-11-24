@@ -365,8 +365,15 @@
 (define (jazz.convert-settings dir old)
   (define (convert-initial)
     (jazz.convert-configurations dir
-      (lambda (configuration)
-        configuration))
+      (lambda (configurations)
+        (map (lambda (configuration)
+               (jazz.convert-properties configuration
+                 (lambda (property value)
+                   (case property
+                     ((interpret-kernel?:) (list kernel-interpret?: value))
+                     ((source-access?:) (list))
+                     (else (list property value))))))
+             configurations)))
     205000)
   
   (case old
@@ -374,8 +381,11 @@
     (else #f)))
 
 
-(define (jazz.convert-properties plist)
-  plist)
+(define (jazz.convert-properties plist converter)
+  (let iter ((scan plist) (result '()))
+    (if (null? scan)
+        result
+      (iter (cddr scan) (append result (converter (car scan) (cadr scan)))))))
 
 
 (define (jazz.convert-configurations dir converter)

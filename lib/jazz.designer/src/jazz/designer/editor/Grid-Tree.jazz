@@ -143,6 +143,7 @@
   
   
   (property class-column? initialize #f accessors generate)
+  (property read-only? initialize #f accessors generate)
   
   
   (method public (get-path)
@@ -272,16 +273,17 @@
         (lambda () #f)
         (lambda (component base property)
           (let* ((domain   (get-domain~ base property))
-                 (entry    (setup-entry~ domain editor #f))
-                 (end-edit (lambda (cell)
-                             (when (get-modified?~ entry)
-                               (let* ((value (get-value~ entry))
-                                      (title (present-property~ component property value)))
-                                 (set-title~ (get-cell-data cell) title)
-                                 (safe-set-property~ designer component property value))))))
+                 (entry    (setup-entry~ domain editor #f)))
             (set-value~ entry (read-property component property))
-            (edit-cell cell editor: editor close-editor?: #f after-end: end-edit)
-            (prepare-and-focus-entry entry))))))
+            (unless (get-read-only?~ (get-column (get-col~ cell)))
+              (let ((end-edit (lambda (cell)
+                                (when (get-modified?~ entry)
+                                  (let* ((value (get-value~ entry))
+                                         (title (present-property~ component property value)))
+                                    (set-title~ (get-cell-data cell) title)
+                                    (safe-set-property~ designer component property value))))))
+                (edit-cell cell editor: editor close-editor?: #f after-end: end-edit)
+                (prepare-and-focus-entry entry))))))))
   
   
   (method override (select-cell cell)
@@ -323,13 +325,17 @@
     (add-column class: Grid-Column title: title width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
   
   
-  (method (add-property-column path title)
-    (add-column class: Grid-Column title: title width: Default-Width user-data: path class-column?: #f))
+  (method (add-property-column path title (read-only? #f))
+    (add-column class: Grid-Column title: title width: Default-Width user-data: path class-column?: #f read-only?: read-only?))
   
   
   (method (setup-client-columns)
     (define (setup-target-columns target title classes)
-      (add-class-column target title)
+      (if (not-null? target)
+          (add-class-column target title)
+        (add-property-column '(name-info) "Name" #t)
+        (when (> (length classes) 1)
+          (add-class-column target title)))
       (let ((classes-properties (map (lambda (class)
                                        (map (lambda (property)
                                               (list class property))

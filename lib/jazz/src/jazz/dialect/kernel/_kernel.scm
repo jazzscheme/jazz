@@ -1044,6 +1044,8 @@
 (native jazz.eq?-hash)
 (native jazz.eqv?-hash)
 (native jazz.equal?-hash)
+(native jazz.string=?-hash)
+(native jazz.string-ci=?-hash)
 (native make-will)
 
 

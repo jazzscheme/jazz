@@ -80,5 +80,7 @@
   (gambit
     (define jazz.eq?-hash eq?-hash)
     (define jazz.eqv?-hash eqv?-hash)
-    (define jazz.equal?-hash equal?-hash))
+    (define jazz.equal?-hash equal?-hash)
+    (define jazz.string=?-hash string=?-hash)
+    (define jazz.string-ci=?-hash string-ci=?-hash))
   (else)))

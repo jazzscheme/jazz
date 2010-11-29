@@ -39,7 +39,8 @@
 
 
 (import (jazz.designer)
-        (jazz.ide))
+        (jazz.ide)
+        (jazz.library.component))
 
 
 (class Workbench-Designer extends Designer
@@ -188,9 +189,13 @@
   
   
   (method (add-designer project)
-    (let ((form (get-form~ project)))
-      (let ((designer (new Designer form: form reference: project)))
-        (add-project-designer project designer))))
+    (let ((project-form (get-form~ project)))
+      (let ((form (case (get-action~ project-form)
+                    ((new) (get-class-form~ (class-of project)))
+                    ((instantiate) (registered-file-form (get-tag-reference~ project-form)))
+                    (else (error "Unable to create designer for project: {s}" project)))))
+        (let ((designer (new Designer form: form reference: project)))
+          (add-project-designer project designer)))))
   
   
   (method (add-project-designer project designer)

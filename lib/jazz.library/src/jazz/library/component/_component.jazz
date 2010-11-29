@@ -38,7 +38,8 @@
 (module jazz.library.component jazz
 
 
-(import (jazz.jml)
+(import (jazz.io)
+        (jazz.jml)
         (jazz.library)
         (jazz.system)
         (jazz.ui.dialog))
@@ -123,8 +124,22 @@
     (format output "){%}")))
 
 
+(definition *file-forms*
+  (make-table test: pathname=? hash: pathname-hash))
+
+
+(definition public (register-file-form file form)
+  (table-set! *file-forms* file form))
+
+(definition public (registered-file-form file)
+  (table-ref *file-forms* file #f))
+
+
 (definition public (instantiate-file file . rest)
-  (apply instantiate~ (read-form file) rest))
+  (or (registered-file-form file)
+      (let ((form (read-form file)))
+        (register-file-form file form)
+        (apply instantiate~ form rest))))
 
 
 (definition public (imports-locator imports)

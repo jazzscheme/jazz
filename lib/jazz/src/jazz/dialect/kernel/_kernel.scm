@@ -536,6 +536,7 @@
 (native jazz.find-package)
 (native jazz.repository?)
 (native jazz.repository-name)
+(native jazz.repository-title)
 (native jazz.repository-directory)
 (native jazz.repository-library-root)
 (native jazz.repository-library-directory)

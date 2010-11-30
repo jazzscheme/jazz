@@ -322,6 +322,7 @@
         root
       (string-append root (jazz.present-version version-number) "/")))
   
+  (jazz.create-directories root)
   (receive (uptodate? current-version-number) (determine-version)
     (if uptodate?
         (version-directory current-version-number)

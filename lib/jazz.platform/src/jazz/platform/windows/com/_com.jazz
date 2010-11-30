@@ -50,16 +50,29 @@
 ;;;
 
 
-(definition public initialize-com
-  (let ((initialized? #f))
-    (lambda ()
-      (unless initialized?
-        (LoadLibrary "ole32")
-        (CoInitializeEx #f COINIT_APARTMENTTHREADED)
-        (set! initialized? #t)))))
+(definition initialized? #f)
+
+
+(definition patch-thunks '())
+
+
+(definition public (initialize-com)
+  (unless initialized?
+    (LoadLibrary "ole32")
+    (CoInitializeEx #f COINIT_APARTMENTTHREADED)
+    (set! initialized? #t)
+    (for-each (lambda (th) (th)) patch-thunks)))
+
+
+(definition public (register-com-patch thunk)
+  (if initialized?
+      (thunk)
+    (set! patch-thunks (cons thunk patch-thunks))))
 
 
 (definition COINIT_APARTMENTTHREADED 2)
+
+
 (definition public CLSCTX_SERVER (+ 1 4 16))
 
 

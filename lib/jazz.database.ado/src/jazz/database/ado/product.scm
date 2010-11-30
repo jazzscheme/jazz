@@ -41,7 +41,7 @@
 (cond-expand
   (windows
     (define (jazz.build-ado descriptor #!key (unit #f) (force? #f))
-      (let ((unit-specs `((jazz.database.ado.connection.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32"))))
+      (let ((unit-specs `((jazz.database.ado.connection.ADODB cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32"))))
         (jazz.custom-compile/build unit-specs unit: unit force?: force?)
         (jazz.update-product-descriptor descriptor))))
   

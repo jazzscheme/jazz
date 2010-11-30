@@ -133,7 +133,7 @@
 
 
 (define jazz.com-units
-  '((jazz.platform.windows.com cc-options: "-DUNICODE" ld-options: "-mwindows -lole32 -loleaut32")))
+  '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
 
 (define jazz.x11-units

@@ -66,7 +66,7 @@
 
 
 (define (make-profiler name start stop default-depth)
-  (%%vector 'profiler name start stop default-depth default-profiler-ignored-procedures default-profiler-ignored-modules))
+  (%%vector 'profiler name start stop default-depth (default-profiler-ignored-procedures) (default-profiler-ignored-modules)))
 
 
 (define (profiler-name profiler)

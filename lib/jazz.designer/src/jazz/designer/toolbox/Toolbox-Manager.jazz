@@ -84,7 +84,8 @@
       (<Layout-View>    name: tools
         (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler :guest on-new})
         (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler :guest on-edit-new})
-        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler :guest on-edit}))
+        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler :guest on-edit})
+        (<Push-Tool>    name: sync        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Sync" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-sync}))
       (<Toolbox-Editor> name: descendants location: center
         (<!>            name: scroller    style: tool
           (<!>          name: content
@@ -153,6 +154,15 @@
   
   
   ;;;
+  ;;;; Tree
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate '(descendants tree)))
+  
+  
+  ;;;
   ;;;; Document
   ;;;
     
@@ -174,20 +184,52 @@
     (edit-new))
   
   
+  (method (on-edit evt)
+    (edit))
+  
+  
+  (method (on-sync evt)
+    (sync-dynamic-toolbox-groups))
+  
+  
   (method (on-double-click evt)
     (add-new))
   
   
+  (method (selected-class)
+    (let ((selected-model (get-single-selected-data~ (get-tree))))
+      (and (is? selected-model Toolbox-Model)
+           (get-class~ selected-model))))
+  
+  
   (method (add-new)
-    (let ((tree (locate '(descendants tree))))
-      (let ((selected-model (get-single-selected-data~ tree)))
-        (when (is? selected-model Toolbox-Model)
-          (let ((editor (current-document)))
-            (when (is? editor View-Editor)
-              (let ((client (get-client~ editor))
-                    (model (or (registered-form (get-model~ selected-model))
-                               (get-class~ selected-model))))
-                (add-new~ (get-surrogate~ client) model {Point 0 0} centered?: #f))))))))
+    (let ((class (selected-class))
+          (editor (current-document)))
+      (when (and class (is? editor View-Editor))
+        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f))))
+  
+  
+  (method (edit)
+    (let* ((class (selected-class))
+           (component (new class)))
+      (new-frame (typecase component
+                   ((View) View-Editor)
+                   ((Component) Grid-Component-Editor))
+                 client: component)))
+  
+  
+  (method (sync-dynamic-toolbox-groups)
+    (with-update-locked
+      (lambda ()
+        (let ((tree (get-tree)))
+          (for-each-descendant~ (get-client)
+            (lambda (child level)
+              (when (is? child Toolbox-Dynamic)
+                (let ((module-name (get-module-name~ child)))
+                  (for-each (lambda (class-name)
+                              (let ((model (new Toolbox-Model parent: child name: class-name)))
+                                (install-new-component~ tree (get-designer) model child (symbol->string class-name) '() (list unit: module-name model: class-name))))
+                            (get-missing-classes~ child))))))))))
   
   
   (method (edit-new)

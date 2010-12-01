@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Toolbox
+;;;; Toolbox Dynamic
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.toolbox.Toolbox jazz
+(module protected jazz.designer.toolbox.Toolbox-Dynamic jazz
 
 
-(import (jazz.jml)
+(import (jazz.designer)
+        (jazz.jml)
         (jazz.library))
 
 
-(class undocumented Toolbox extends Group
+(class undocumented Toolbox-Dynamic extends Toolbox-Group
+  
+  
+  (property module-name initialize #f accessors generate)
+  
+  
+  ;;;
+  ;;;; Missing Classes
+  ;;;
+  
+  
+  (method public (get-missing-classes)
+    (let* ((module (require-module module-name))
+           (exports (table-keys (get-exports~ module)))
+           (classes (collect-if (lambda (export-name)
+                                  (let ((obj (module-ref module-name export-name)))
+                                    (and (class? obj) (subclass? obj Component))))
+                                exports)))
+      (collect-if (lambda (class-name)
+                    (not (find-key (lambda (child)
+                                     (list (get-unit~ child) (get-model~ child)))
+                                   (list module-name class-name))))
+                  classes)))
   
   
   ;;;
@@ -51,7 +74,7 @@
   
   
   (method meta override (get-class-descriptor)
-    (new Toolbox-Descriptor)))
+    (new Toolbox-Dynamic-Descriptor)))
 
 
 ;;;
@@ -65,21 +88,15 @@
 (import (jazz.designer))
 
 
-(class Toolbox-Descriptor extends Group-Descriptor
+(class Toolbox-Dynamic-Descriptor extends Toolbox-Group-Descriptor
   
   
   (form
-    (<install>       title: "Toolbox" image: {Image-Resource "Toolbox"} can-rename?: #f can-delete?: #f can-move?: #f can-copy?: #f
-      (<properties~>)))
-  
-  
-  (method override (component-get-presentation component)
-    "Toolbox")
+    (<install>                 title: "Module" image: {Image-Resource "Library"}
+      (<properties~>           categorized: (class-info name-info module-name)
+        (<Property-Descriptor> name: module-name))))
   
   
   (method override (component-get-addable-classes component)
-    (list
-      Toolbox-Group
-      Toolbox-Dynamic
-      #f
-      Toolbox-Model)))))
+    '()))))
+

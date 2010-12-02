@@ -316,7 +316,7 @@
 
 
 (define (jazz.prepare-repositories)
-  (define (all-repositories build jazz user repositories)
+  (define (all-repositories build jazz repositories)
     (define (listify repository)
       (if repository
           (%%list repository)
@@ -326,32 +326,35 @@
             (map jazz.load-repository (jazz.split-string repositories #\;))
           '())
       ,@(listify build)
-      ,@(listify jazz)
-      ,@(listify user)))
+      ,@(listify jazz)))
   
-  (let ((build (jazz.make-repository 'Build (or (jazz.build-repository) jazz.kernel-install) "lib" binary?: #t create?: #t))
-        (jazz (jazz.make-repository 'Jazz (or (jazz.jazz-repository) jazz.kernel-source) "lib"))
-        (user (jazz.make-repository 'User (or (jazz.user-repository) "~/jazz_user/") "lib" create?: #t))
+  (let ((build (jazz.make-repository 'Build "lib" (or (jazz.build-repository) jazz.kernel-install) binary?: #t create?: #t))
+        (jazz (jazz.make-repository 'Jazz "lib" (or (jazz.jazz-repository) jazz.kernel-source)))
         (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
-    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz user repositories)))))
+    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz repositories)))))
 
 
-(define (jazz.make-repository name directory library-root #!key (binary? #f) (create? #f))
+(define (jazz.make-repository name library directory #!key (binary? #f) (create? #f))
   (define (create-repository repository-file)
     (call-with-output-file (list path: repository-file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
       (lambda (output)
         (display "(repository " output)
         (display name output)
-        (newline output)
-        (newline output)
+        (if (or binary? library)
+            (begin
+              (newline output)
+              (newline output)))
         (if binary?
             (begin
               (display "  (binary? #t)" output)
               (newline output)))
-        (display "  (library " output)
-        (write library-root output)
-        (display "))" output)
+        (if library
+            (begin
+              (display "  (library " output)
+              (write library output)
+              (display ")" output)))
+        (display ")" output)
         (newline output))))
   
   (define (repository-inexistant)
@@ -401,8 +404,8 @@
            #f))))
 
 
-(define (jazz.install-repository directory)
-  (let ((repository (jazz.load-repository directory)))
+(define (jazz.install-repository directory/repository)
+  (let ((repository (if (jazz.repository? directory/repository) directory/repository (jazz.load-repository directory/repository))))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))
     (if jazz.setup-repositories-called?
         (jazz.setup-repository repository))
@@ -1454,7 +1457,6 @@
                                                  ,@(if (jazz.save-emit?) `("-emit") '())
                                                  ,@(if (jazz.build-repository) `("-build-repository" ,(jazz.build-repository)) '())
                                                  ,@(if (jazz.jazz-repository) `("-jazz-repository" ,(jazz.jazz-repository)) '())
-                                                 ,@(if (jazz.user-repository) `("-user-repository" ,(jazz.user-repository)) '())
                                                  ,@(if (jazz.repositories) `("-repositories" ,(jazz.repositories)) '())
                                                  "-jobs" "1"
                                                  "-port" ,(number->string (socket-info-port-number (tcp-server-socket-info listening-port))))

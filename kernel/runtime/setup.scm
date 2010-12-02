@@ -236,7 +236,7 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "user-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz.split-command-line (%%cdr (command-line)) '("debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (options remaining)
       (let ((debug? (jazz.get-option "debug" options))
             (force? (jazz.get-option "force" options))
@@ -247,7 +247,6 @@
             (dry? (jazz.get-option "dry" options))
             (build-repository (jazz.get-option "build-repository" options))
             (jazz-repository (jazz.get-option "jazz-repository" options))
-            (user-repository (jazz.get-option "user-repository" options))
             (repositories (jazz.get-option "repositories" options))
             (ev (jazz.get-option "eval" options))
             (load (jazz.get-option "load" options))
@@ -272,7 +271,6 @@
         (define (setup-repositories)
           (if build-repository (jazz.build-repository build-repository))
           (if jazz-repository (jazz.jazz-repository jazz-repository))
-          (if user-repository (jazz.user-repository user-repository))
           (if repositories (jazz.repositories repositories))
           (jazz.prepare-repositories)
           (jazz.setup-repositories))

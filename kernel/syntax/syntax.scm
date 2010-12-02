@@ -75,8 +75,8 @@
 
 
 ;; A repository is where packages are located. The system comes with the following already
-;; present repositories: install, jazz and user. Note that repository order is important
-;; as it defines search precedence.
+;; present repositories: build and jazz. Note that repository order is important as it
+;; defines search precedence.
 
 
 (jazz.define-macro (%%make-repository name directory library-root library-directory binary?)

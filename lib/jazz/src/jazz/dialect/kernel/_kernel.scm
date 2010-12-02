@@ -530,6 +530,7 @@
 (native jazz.use-debugger?)
 (native jazz.get-repositories)
 (native jazz.get-build-repository)
+(native jazz.make-repository)
 (native jazz.install-repository)
 (native jazz.uninstall-repository)
 (native jazz.find-repository)

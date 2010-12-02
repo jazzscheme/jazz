@@ -53,23 +53,25 @@
             (format output "(repository Profiles{%}{%}")
             (format output "  (library \"lib\")){%}")))
         (when (get-alias 'User)
-          (iterate-directory~ {Directory User "lib"}
-            (lambda (dir)
-              (let ((dirname (get-name~ dir)))
-                (when (and (starts-with? dirname "profile.") (exists?~ (new-file~ dir ".package")))
-                  (let ((dest (new-directory~ profiles-dir (list "lib" dirname))))
-                    (unless (exists?~ dest)
-                      (copy-directory~ dir dest)
-                      (convert-profile dest)
-                      (feedback "; moving old {a} to obsolete..." dirname)
-                      (let ((obsolete-dir {Directory User "lib" "obsolete"}))
-                        (let ((obsolete-profile-dir (new-directory~ obsolete-dir dirname)))
-                          (unless (exists?~ obsolete-profile-dir)
-                            (create-directories~ obsolete-dir)
-                            (move-pathname~ dir obsolete-profile-dir)))))))))
-            files?: #f
-            directories?: #t
-            recursive?: #f)))))
+          (let ((user-dir {Directory User "lib"}))
+            (when (exists?~ user-dir)
+              (iterate-directory~ user-dir
+                (lambda (dir)
+                  (let ((dirname (get-name~ dir)))
+                    (when (and (starts-with? dirname "profile.") (exists?~ (new-file~ dir ".package")))
+                      (let ((dest (new-directory~ profiles-dir (list "lib" dirname))))
+                        (unless (exists?~ dest)
+                          (copy-directory~ dir dest)
+                          (convert-profile dest)
+                          (feedback "; moving old {a} to obsolete..." dirname)
+                          (let ((obsolete-dir {Directory User "lib" "obsolete"}))
+                            (let ((obsolete-profile-dir (new-directory~ obsolete-dir dirname)))
+                              (unless (exists?~ obsolete-profile-dir)
+                                (create-directories~ obsolete-dir)
+                                (move-pathname~ dir obsolete-profile-dir)))))))))
+                files?: #f
+                directories?: #t
+                recursive?: #f)))))))
   
   (define (convert-profile profile-dir)
     (define (convert-package)

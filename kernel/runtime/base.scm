@@ -327,22 +327,22 @@
     (if uptodate?
         (version-directory current-version-number)
       (let ((current-dir (version-directory current-version-number))
-            (convertion-dir (string-append root "convertion/")))
-        (if (file-exists? convertion-dir)
+            (conversion-dir (string-append root "conversion/")))
+        (if (file-exists? conversion-dir)
             (begin
-              (jazz.feedback "; deleting {a}..." convertion-dir)
-              (jazz.delete-directory convertion-dir)
+              (jazz.feedback "; deleting {a}..." conversion-dir)
+              (jazz.delete-directory conversion-dir)
               ;; workaround to yet another windows bug
               (thread-sleep! .1)))
         (jazz.feedback "; converting {a}..." target)
-        (jazz.copy-directory current-dir convertion-dir feedback: (lambda (src level) (if (<= level 1) (jazz.feedback "; copying {a}..." src))))
+        (jazz.copy-directory current-dir conversion-dir feedback: (lambda (src level) (if (<= level 1) (jazz.feedback "; copying {a}..." src))))
         (let iter ((working-version-number current-version-number))
-             (let ((converted-version-number (converter convertion-dir working-version-number)))
+             (let ((converted-version-number (converter conversion-dir working-version-number)))
                (if converted-version-number
                    (iter converted-version-number)
                  (let ((dir (version-directory working-version-number)))
                    (jazz.feedback "; {a} converted to version {a}" target (jazz.present-version working-version-number))
-                   (rename-file convertion-dir dir)
+                   (rename-file conversion-dir dir)
                    dir))))))))
 
 
@@ -370,8 +370,15 @@
         (map jazz.convert-configuration-205000 configurations)))
     205000)
   
+  (define (convert-205000)
+    (jazz.convert-configurations dir
+      (lambda (configurations)
+        (map jazz.convert-configuration-205001 configurations)))
+    205001)
+  
   (case old
     ((#f) (convert-initial))
+    ((205000) (convert-205000))
     (else #f)))
 
 
@@ -400,6 +407,14 @@
       (case property
         ((interpret-kernel?:) (list kernel-interpret?: value))
         ((source-access?:) (list))
+        (else (list property value))))))
+
+
+(define (jazz.convert-configuration-205001 configuration)
+  (jazz.convert-properties configuration
+    (lambda (property value)
+      (case property
+        ((destination:) (list destination: (if (string? value) (jazz.string-replace value #\: #\/) value)))
         (else (list property value))))))
 
 
@@ -505,46 +520,9 @@
 ;;;
 
 
-(define jazz.user-build-directory
-  #f)
-
-
-(define (jazz.get-user-build-directory)
-  (define (user-build-directory)
-    (let ((dir "~/jazz_user/build/"))
-      (jazz.create-directories dir)
-      (jazz.pathname-normalize dir)))
-  
-  (or jazz.user-build-directory
-      (let ((dir (user-build-directory)))
-        (set! jazz.user-build-directory dir)
-        dir)))
-
-
-(define (jazz.parse-destination dest proc)
-  (if (not dest)
-      (proc #f #f)
-    (let ((pos (jazz.string-find dest #\:))
-          (len (string-length dest)))
-      (if (not pos)
-          (proc #f dest)
-        (proc (if (= pos 0)
-                  #f
-                (string->symbol (substring dest 0 pos)))
-              (if (= pos (- len 1))
-                  #f
-                (substring dest (+ pos 1) len)))))))
-
-
 (define (jazz.destination-directory name destination dir)
-  (jazz.parse-destination (cond (destination destination)
-                                (name (jazz.format ":{a}" name))
-                                (else "bin:"))
-    (lambda (alias dirname)
-      (case (or alias 'user)
-        ((bin) (string-append dir "bin/"))
-        ((build) (string-append dir "build/" dirname "/"))
-        ((user) (string-append (jazz.get-user-build-directory) dirname "/"))))))
+  (jazz.dirname-normalize
+    (or destination "bin")))
 
 
 ;;;

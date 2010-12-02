@@ -340,7 +340,7 @@
     (lambda (input)
       (let ((data (read input)))
         ;; quicky until a full-fledged jazz.versioned-file similar to jazz.versioned-directory
-        (apply jazz.new-configuration (jazz.convert-configuration-205000 (parse-properties data)))))))
+        (apply jazz.new-configuration (jazz.convert-configuration-205001 (jazz.convert-configuration-205000 (parse-properties data))))))))
 
 
 (define (jazz.save-configurations)
@@ -708,13 +708,7 @@
 
 
 (define (jazz.validate-destination destination)
-  (if (or (not destination) (and (string? destination)
-                                 (jazz.parse-destination destination
-                                   (lambda (alias title)
-                                     (and (or (not alias) (memq alias '(bin build user)))
-                                          (if (eq? alias 'bin)
-                                              (not title)
-                                            (and title (jazz.valid-filename? title))))))))
+  (if (or (not destination) (string? destination))
       destination
     (jazz.error "Invalid destination: {s}" destination)))
 

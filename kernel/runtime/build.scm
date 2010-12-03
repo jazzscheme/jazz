@@ -124,6 +124,9 @@
 (define (jazz.get-changed-units-impl)
   jazz.*changed-units*)
 
+(define (jazz.push-changed-units-impl unit)
+  (set! jazz.*changed-units* (cons unit jazz.*changed-units*)))
+
 (define (jazz.reset-changed-units-impl)
   (set! jazz.*changed-units* '()))
 
@@ -182,9 +185,6 @@
         (if feedback
             (apply feedback fmt-string rest)))
       
-      (define (push-changed-units unit)
-        (set! jazz.*changed-units* (cons unit jazz.*changed-units*)))
-      
       (define (compile-file rebuild? name dir output)
         (let ((src (string-append dir name ".scm"))
               (dst (string-append output name ".c"))
@@ -198,7 +198,7 @@
                                  ,@(if debug-source? '(debug-source) '()))))
                   ;; standardize path as it will be the path stored in debugging information
                   (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
-                    (push-changed-units path)
+                    (jazz.push-changed-units path)
                     (feedback-message "; compiling {a}..." path)
                     (if (not (jazz.dry-run?))
                         (begin
@@ -946,6 +946,7 @@
 
 (set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
 (set! jazz.get-changed-units jazz.get-changed-units-impl)
+(set! jazz.push-changed-units jazz.push-changed-units-impl)
 (set! jazz.reset-changed-units jazz.reset-changed-units-impl)
 (set! jazz.build-image jazz.build-image-impl)
 (set! jazz.build-library jazz.build-library-impl))

@@ -224,18 +224,21 @@
           (delete-file linkfile)))))
   
   (let ((will-link? (and update-bin? (or (jazz.link-objects?) (and bin (not (jazz.build-single-objects?)))))))
-    (let ((will-compile? (and update-obj? (or will-link? (jazz.link-libraries?)))))
+    (let ((will-compile? (and update-obj? (or will-link? (jazz.link-libraries?))))
+          (dry? (jazz.dry-run?)))
       (if (or will-compile? will-link?)
-          (begin (display "; compiling ")
-            (display (%%resource-path src))
+          (let ((path (%%resource-path src)))
+            (jazz.push-changed-units path)
+            (display "; compiling ")
+            (display path)
             (display "...")
             (newline)
             (force-output)))
-      (if will-compile?
+      (if (and will-compile? (not dry?))
           (begin
             (compile)
             (update-manifest)))
-      (if update-bin?
+      (if (and update-bin? (not dry?))
           (if will-link?
               (link-o1)
             (delete-o1-files))))))

@@ -130,13 +130,14 @@
     (initialize-windowing get-setting)
     (initialize-system)
     (prepare-skins)
-    (prepare-profile))
+    (prepare-profile)
+    (prepare-colors)
+    (prepare-fonts))
 
   
   (method override (install-environment)
     (nextmethod)
     (install-skins)
-    (install-fonts)
     (install-bindings)
     (install-workspaces)
     (initialize-toplevel)
@@ -778,11 +779,42 @@
 
 
   ;;;
+  ;;;; Colors
+  ;;;
+  
+  
+  (method (prepare-colors)
+    (define (preferences->color pref)
+      (let ((name (get-name~ pref))
+            (red (get-red~ pref))
+            (green (get-green~ pref))
+            (blue (get-blue~ pref))
+            (alpha (get-alpha~ pref)))
+        (let ((arguments
+                `(,@(if (specified? red) (list red: red) '())
+                  ,@(if (specified? green) (list green: green) '())
+                  ,@(if (specified? blue) (list blue: blue) '())
+                  ,@(if (specified? alpha) (list alpha: alpha) '()))))
+          (unless (null? arguments)
+            (apply new Color name: name arguments)))))
+    
+    (let ((file {File Profile "settings" "Colors.jml"}))
+      (when (exists?~ file)
+        (let ((colors (instantiate~ (read-form file))))
+          (for-each (lambda (pref)
+                      (let ((color (preferences->color pref)))
+                        (when color
+                          (let ((name (get-name~ color)))
+                            (register-color name color)))))
+                    (get-children~ colors))))))
+
+
+  ;;;
   ;;;; Fonts
   ;;;
   
   
-  (method (install-fonts)
+  (method (prepare-fonts)
     (define (preferences->font pref)
       (let ((name (get-name~ pref))
             (font-name (get-font-name~ pref))
@@ -805,15 +837,15 @@
           (unless (null? arguments)
             (apply new Font name: name arguments)))))
     
-    (let ((pref (get-preferences 'fonts error?: #f)))
-      (when pref
-        (let ((fonts (get-children~ pref)))
+    (let ((file {File Profile "settings" "Fonts.jml"}))
+      (when (exists?~ file)
+        (let ((fonts (instantiate~ (read-form file))))
           (for-each (lambda (pref)
                       (let ((font (preferences->font pref)))
                         (when font
                           (let ((name (get-name~ font)))
                             (register-font name font)))))
-                    fonts)))))
+                    (get-children~ fonts))))))
 
   
   ;;;

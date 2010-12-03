@@ -354,7 +354,7 @@
             (let ((model (if reference (module-ref reference (get-model~ form)) (form-model~ (or creator self) form))))
               (if model
                   (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)
-                (error "Unable to find autoload {s} in {s}" (get-model~ form) reference))))))
+                (error "Unable to resolve model: {s}" (get-model~ form)))))))
       
       (case action
         ((new instantiate)
@@ -1115,7 +1115,9 @@
           (install-in-branch current-branch (cdr current-traits)))
         match?))
     
-    (let ((effective-traits (apply append! (map compute-effective-traits~ (map resolve-trait traits))))
+    (let ((effective-traits (apply append! (map compute-effective-traits~ (map (lambda (trait)
+                                                                                 (resolve-trait self trait))
+                                                                               traits))))
           (base-branch (if target-branch (get-branch~ target-branch) branch)))
       (when (not (change-installed? base-branch effective-traits))
         (if target-branch

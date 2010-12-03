@@ -45,17 +45,17 @@
   
   
   (slot name  getter generate)
-  (slot red   getter generate)
-  (slot green getter generate)
-  (slot blue  getter generate)
-  (slot alpha accessors generate)
+  (slot red   getter explicit)
+  (slot green getter explicit)
+  (slot blue  getter explicit)
+  (slot alpha accessors explicit)
   
   
   (method override (initialize (name: name #f)
-                               (red: red #f)
-                               (green: green #f)
-                               (blue: blue #f)
-                               (alpha: alpha #f))
+                               (red: red (unspecified))
+                               (green: green (unspecified))
+                               (blue: blue (unspecified))
+                               (alpha: alpha (unspecified)))
     (nextmethod)
     (set! name~self name)
     (set! red~self red)
@@ -76,26 +76,20 @@
   (method override (compare-object target)
     (cond ((is-not? target Color)
            :incompatible)
-          ((if name
-               (= name (get-name~ target))
-             (color=? self target))
+          ((color=? self target)
            :equal)
           (else
            :not-equal)))
   
   
   (method override (print printer readably)
-    (if name
-        (format printer "~{{a} name: {s}{? alpha: {a}~}}"
-                (category-name (class-of self))
-                name
-                alpha)
-      (format printer "~{{a} red: {a} green: {a} blue: {a}{? alpha: {a}~}}"
-              (category-name (class-of self))
-              red
-              green
-              blue
-              alpha)))
+    (format printer "~{{a}{? name: {a}~}{?: red: {a}~}{?: green: {a}~}{?: blue: {a}~}{?: alpha: {a}~}}"
+            (category-name (class-of self))
+            name
+            (specified? red) red
+            (specified? green) green
+            (specified? blue) blue
+            (specified? alpha) alpha))
 
 
   ;;;
@@ -103,11 +97,51 @@
   ;;;
   
   
+  (method public (get-red)
+    (cond ((specified? red)
+           red)
+          (name
+           (get-red~ (registered-color name)))
+          (else
+           (unspecified))))
+  
+  
+  (method public (get-green)
+    (cond ((specified? green)
+           green)
+          (name
+           (get-green~ (registered-color name)))
+          (else
+           (unspecified))))
+  
+  
+  (method public (get-blue)
+    (cond ((specified? blue)
+           blue)
+          (name
+           (get-blue~ (registered-color name)))
+          (else
+           (unspecified))))
+  
+  
+  (method public (get-alpha)
+    (cond ((specified? alpha)
+           alpha)
+          (name
+           (get-alpha~ (registered-color name)))
+          (else
+           #f)))
+  
+  
+  (method public (set-alpha value)
+    (set! alpha value))
+  
+  
   (method public (white?)
-    (and (= red 255)
-         (= green 255)
-         (= blue 255)
-         (not alpha)))
+    (and (= (get-red) 255)
+         (= (get-green) 255)
+         (= (get-blue) 255)
+         (not (get-alpha))))
 
 
   ;;;

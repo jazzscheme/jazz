@@ -82,7 +82,8 @@
             (jazz.for-each-higher-jazz-version version
               (lambda (jazz-version)
                 (if (or (%%memq (jazz.version-rebuild jazz-version) '(kernel all))
-                        (jazz.version-recompile jazz-version))
+                        (jazz.version-recompile jazz-version)
+                        (jazz.version-recompile-references jazz-version))
                     (set! rebuild-architecture? #t))))
             rebuild-architecture?)))))
 

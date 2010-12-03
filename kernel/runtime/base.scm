@@ -49,8 +49,8 @@
 ;;;
 
 
-(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile update description)
-  (vector 'version number gambit-version gambit-stamp rebuild recompile update description))
+(define (jazz.make-version number gambit-version gambit-stamp rebuild recompile recompile-references update description)
+  (vector 'version number gambit-version gambit-stamp rebuild recompile recompile-references update description))
 
 (define (jazz.version-number version)
   (vector-ref version 1))
@@ -67,11 +67,14 @@
 (define (jazz.version-recompile version)
   (vector-ref version 5))
 
-(define (jazz.version-update version)
+(define (jazz.version-recompile-references version)
   (vector-ref version 6))
 
-(define (jazz.version-description version)
+(define (jazz.version-update version)
   (vector-ref version 7))
+
+(define (jazz.version-description version)
+  (vector-ref version 8))
 
 
 (define (jazz.new-version
@@ -81,6 +84,7 @@
           (gambit-stamp #f)
           (rebuild #f)
           (recompile #f)
+          (recompile-references #f)
           (update #f)
           (description #f))
   (jazz.make-version
@@ -89,6 +93,7 @@
     gambit-stamp
     rebuild
     recompile
+    recompile-references
     update
     description))
 

@@ -460,7 +460,7 @@
                  (if (or rebuild?
                          (jazz.file-needs-update? rcfile res))
                      (begin
-                       (push-changed-units rcfile)
+                       (jazz.push-changed-units rcfile)
                        (feedback-message "; compiling {a}..." rcfile)
                        (jazz.call-process "windres" (list rc "-o" res) directory: resources)
                        #t)

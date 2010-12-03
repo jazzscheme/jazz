@@ -49,36 +49,52 @@
 
 
 (define (jazz.manifest-references-valid? bin)
-  (define (get-manifest-references)
+  (define (get-manifest)
     (let ((digest-filepath (jazz.digest-pathname (%%resource-package bin) bin))
           (manifest-filepath (jazz.manifest-pathname (%%resource-package bin) bin)))
-      (let ((manifest (jazz.load-manifest digest-filepath manifest-filepath)))
-        (and manifest (%%manifest-references manifest)))))
+      (jazz.load-manifest digest-filepath manifest-filepath)))
   
-  (define (module-references-valid? lst)
+  (define (module-references-valid? version lst)
+    (define (recompile-reference? module-locator)
+      (%%continuation-capture
+        (lambda (return)
+          (jazz.for-each-higher-jazz-version version
+            (lambda (jazz-version)
+              (let ((recompile-references (jazz.version-recompile-references jazz-version)))
+                (if (and recompile-references (%%memq module-locator recompile-references))
+                    (%%continuation-return return #t)))))
+          #f)))
+    
     (let ((module-locator (%%car lst))
           (module-references (%%cdr lst)))
-      (let ((module-declaration (jazz.outline-module module-locator error?: #f)))
-        (and module-declaration
-             (jazz.every? (lambda (symbol)
-                            (let ((found (if (%%pair? symbol)
-                                             (let iter ((symbols symbol)
-                                                        (declaration module-declaration))
-                                                  (cond ((%%not declaration)
-                                                         #f)
-                                                        ((%%pair? symbols)
-                                                         (iter (%%cdr symbols) (jazz.find-declaration declaration (%%car symbols))))
-                                                        (else
-                                                         declaration)))
-                                           (jazz.find-declaration module-declaration symbol))))
-                              (and found
-                                   (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator)
-                                   (%%neq? (%%get-declaration-access found) 'private))))
-                          module-references)))))
+      (and (%%not (recompile-reference? module-locator))
+           (let ((module-declaration (jazz.outline-module module-locator error?: #f)))
+             (and module-declaration
+                  (jazz.every? (lambda (symbol)
+                                 (let ((found (if (%%pair? symbol)
+                                                  (let iter ((symbols symbol)
+                                                             (declaration module-declaration))
+                                                       (cond ((%%not declaration)
+                                                              #f)
+                                                             ((%%pair? symbols)
+                                                              (iter (%%cdr symbols) (jazz.find-declaration declaration (%%car symbols))))
+                                                             (else
+                                                              declaration)))
+                                                (jazz.find-declaration module-declaration symbol))))
+                                   (and found
+                                        (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator)
+                                        (%%neq? (%%get-declaration-access found) 'private))))
+                               module-references))))))
   
-  (let ((references (get-manifest-references)))
-    (if references
-        (jazz.every? module-references-valid? references)
+  (let ((manifest (get-manifest)))
+    (if manifest
+        (let ((version (%%manifest-version manifest))
+              (references (%%manifest-references manifest)))
+          (if references
+              (jazz.every? (lambda (lst)
+                             (module-references-valid? version lst))
+                           references)
+            #f))
       #f)))
 
 

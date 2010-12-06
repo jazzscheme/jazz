@@ -82,8 +82,8 @@
   (form
     (<install>                            layout-type: border
       (<Layout-View>    name: tools
-        (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler :guest on-new})
-        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler :guest on-edit-new})
+        (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler :guest on-add})
+        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler :guest on-new})
         (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler :guest on-edit})
         (<Push-Tool>    name: sync        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Sync" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-sync}))
       (<Toolbox-Editor> name: descendants location: center
@@ -172,15 +172,25 @@
   
   
   ;;;
+  ;;;; Modules
+  ;;;
+  
+  
+  (method (get-dynamic-toolboxes)
+    (collect-if (lambda (cp) (is? cp Toolbox-Dynamic))
+                (collect-family~ (get-client))))
+  
+  
+  ;;;
   ;;;; Events
   ;;;
   
   
-  (method (on-new evt)
+  (method (on-add evt)
     (add-new))
   
   
-  (method (on-edit-new evt)
+  (method (on-new evt)
     (edit-new))
   
   
@@ -196,11 +206,25 @@
     (add-new))
   
   
-  (method (selected-class)
+  (method (call-with-selected-toolbox-model func)
     (let ((selected-model (get-single-selected-data~ (get-tree))))
       (and (is? selected-model Toolbox-Model)
-           (get-class~ selected-model))))
+           (func selected-model))))
   
+  
+  (method (selected-class)
+    (call-with-selected-toolbox-model get-class~))
+  
+  
+  (method (selected-class-name)
+    (call-with-selected-toolbox-model get-model~))
+  
+  
+  (method (editor-class component)
+    (typecase component
+      ((View) View-Editor)
+      ((Component) Grid-Component-Editor)))
+      
   
   (method (add-new)
     (let ((class (selected-class))
@@ -211,29 +235,33 @@
   
   (method (edit)
     (let* ((class (selected-class))
-           (component (new class)))
-      (new-frame (typecase component
-                   ((View) View-Editor)
-                   ((Component) Grid-Component-Editor))
-                 client: component)))
+           (client (new class)))
+      (new-frame (editor-class client) client: client)))
   
   
   (method (sync-dynamic-toolbox-groups)
     (with-update-locked
       (lambda ()
         (let ((tree (get-tree)))
-          (for-each-descendant~ (get-client)
-            (lambda (child level)
-              (when (is? child Toolbox-Dynamic)
-                (let ((module-name (get-module-name~ child)))
-                  (for-each (lambda (class-name)
-                              (let ((model (new Toolbox-Model parent: child name: class-name)))
-                                (install-new-component~ tree (get-designer) model child (symbol->string class-name) '() (list unit: module-name model: class-name))))
-                            (get-missing-classes~ child))))))))))
+          (for-each (lambda (toolbox)
+                      (let ((module-name (get-module-name~ toolbox)))
+                        (for-each (lambda (class-name)
+                                    (let ((model (new Toolbox-Model parent: toolbox name: class-name))
+                                          (props (list unit: module-name model: class-name)))
+                                      (install-new-component~ tree (get-designer) model toolbox (symbol->string class-name) '() props)))
+                                  (get-missing-classes~ toolbox))))
+                    (get-dynamic-toolboxes))))))
   
   
   (method (edit-new)
-    ))
+    (let ((class-name (selected-class-name))
+          (class (selected-class)))
+      (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
+             (form (construct-form (list model-name) (lambda (symbol)
+                                                       (and (eq? symbol class-name) class))))
+             (client (instantiate~ form)))
+        (set-origin~ form #f)
+        (new-frame (editor-class client) client: client)))))
 
 
 ;;;

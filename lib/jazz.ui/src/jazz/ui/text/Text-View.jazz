@@ -50,6 +50,7 @@
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
+        (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window))
 
@@ -66,21 +67,6 @@
   ;; col  -> character offset into a paragraph string
   
   
-  (definition public Active-Selection-Color
-    {Color red: 190 green: 190 blue: 230})
-  
-  (definition public Inactive-Selection-Color
-    {Color name: Unfocused-Selection})
-  
-
-  (definition public Completion-Color
-    {Color red: 128 green: 240 blue: 240})
-
-  
-  (definition Caret-Color
-    {Color name: Black})
-  
-  
   ;; a user friendly textual input format that is saved as is
   (property protected text                           initialize #f                       accessors explicit)
   ;; the text content automaticaly saved in a canonical form when the text is visually edited
@@ -94,10 +80,6 @@
   (property protected accepts-returns?               initialize #t                       accessors generate)
   (property protected focus-selects-all?             initialize #f                       accessors generate)
   (property protected show-unfocused-selection?      initialize #t                       accessors generate)
-  (property protected active-selection-color         initialize Active-Selection-Color   accessors explicit)
-  (property protected inactive-selection-color       initialize Inactive-Selection-Color accessors explicit)
-  (property protected completion-color               initialize Completion-Color         accessors explicit)
-  (property protected caret-color                    initialize Caret-Color              accessors explicit)
   (property protected char-encoding                  initialize #f                       accessors generate)
   (property protected eol-encoding                   initialize #f                       accessors generate)
   ;; this property is a temp optimization because the lisp explorer does its job by creating a jazz text-view
@@ -138,7 +120,7 @@
   
   (form
     ;; the default-row-height: 16 is a try for a quick fix. all the default-row-height related stuff needs cleanup
-    (<install> background: {Color name: White} left-padding: 12 default-row-height: 16))
+    (<install> background: {Color name: Text-Background} left-padding: 12 default-row-height: 16))
 
   
   (method override (verify-reload));;abstract
@@ -206,29 +188,6 @@
   ;;;
   ;;;; Access
   ;;;
-  
-  
-  (method public (get-active-selection-color)
-    active-selection-color)
-  
-  
-  (method public (set-active-selection-color value)
-    (set! active-selection-color value)
-    (invalidate-view))
-  
-  
-  (method public (set-inactive-selection-color value)
-    (set! inactive-selection-color value)
-    (invalidate-view))
-
-
-  (method public (get-completion-color)
-    completion-color)
-
-
-  (method public (set-completion-color value)
-    (set! completion-color value)
-    (invalidate-view))
   
   
   (method protected (get-paragraphs) <Axis>
@@ -804,14 +763,6 @@
   ;;;
   ;;;; Caret
   ;;;
-  
-  
-  (method public (get-caret-color)
-    caret-color)
-  
-  
-  (method public (set-caret-color value)
-    (set! caret-color value))
   
   
   (method (show-caret)
@@ -1529,12 +1480,12 @@
   
   (method protected virtual (get-selection-color)
     (if completion-active?
-        completion-color
-      active-selection-color))
+        (or (get-completion-color~ (get-look)) {Color red: 128 green: 240 blue: 240})
+      (or (get-active-selection-color~ (get-look)) {Color red: 190 green: 190 blue: 230})))
   
   
   (method protected virtual (get-inactive-selection-color)
-    inactive-selection-color)
+    (or (get-inactive-selection-color~ (get-look)) {Color name: Unfocused-Selection}))
   
   
   (method (for-each-logical-range range <Range$Cell$> proc)
@@ -2219,7 +2170,9 @@
   (method override (get-drawing-background context)
     (if (not (draw-enabled?))
         {Color name: Medium}
-      (nextmethod context)))
+      (let ((look (get-look)))
+        (or (get-background~ look)
+            (nextmethod context)))))
   
   
   (method override (draw-outline surface context clipper lh lv sh sv sc sc?)
@@ -2268,7 +2221,7 @@
     (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
       (let ((proc
              (lambda (rect)
-               (set-color~ surface caret-color)
+               (set-color~ surface (or (get-caret-color~ (get-look)) {Color name: Black}))
                (set-line-width~ surface 1)
                (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
         (let ((rect <Rect> (caret-rect (get-caret) 0)))
@@ -2281,6 +2234,15 @@
                             (fxround (if sc? (* (get-right~ rect) sc) (get-right~ rect)))
                             (fxround (if sc? (* (get-bottom~ rect) sc) (get-bottom~ rect))))))
               (proc scaled)))))))
+  
+  
+  ;;;
+  ;;;; Skin
+  ;;;
+  
+  
+  (method override (get-look)
+    (find-look 'text))
   
   
   ;;;
@@ -4619,7 +4581,7 @@
   
   (form
     (<install>
-      (<properties~>           categorized: (class-info name-info wrap? accepts-returns? focus-selects-all? default-format default-style background active-selection-color inactive-selection-color caret-color)
+      (<properties~>           categorized: (class-info name-info wrap? accepts-returns? focus-selects-all? default-format default-style background)
         (<Property-Descriptor> name: text title: "Text")
         (<Property-Descriptor> name: text-content title: "Text Content")
         (<Property-Descriptor> name: selectable? title: "Selectable"
@@ -4636,14 +4598,6 @@
         (<Property-Descriptor> name: focus-selects-all? title: "Focus Selects All"
           (<Boolean-Domain>    name: domain))
         (<Property-Descriptor> name: show-unfocused-selection? title: "Show Unfocused Selection")
-        (<Property-Descriptor> name: active-selection-color title: "Active Selection Color"
-          (<Color-Domain>      name: domain))
-        (<Property-Descriptor> name: inactive-selection-color title: "Inactive Selection Color"
-          (<Color-Domain>      name: domain))
-        (<Property-Descriptor> name: completion-color title: "Completion Color"
-          (<Color-Domain>      name: domain))
-        (<Property-Descriptor> name: caret-color title: "Caret Color"
-          (<Color-Domain>      name: domain))
         (<Property-Descriptor> name: char-encoding title: "Char Encoding")
         (<Property-Descriptor> name: eol-encoding title: "EOL Encoding")
         (<Property-Descriptor> name: colorize? title: "Colorize"

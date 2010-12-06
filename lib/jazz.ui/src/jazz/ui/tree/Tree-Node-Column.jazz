@@ -187,10 +187,6 @@
   ;;;
   ;;;; Drawing
   ;;;
-  
-  
-  (definition Line-Color
-    {Color name: Dark})
 
   
   (method override (draw-data surface context row data width height)
@@ -202,64 +198,68 @@
   
   
   (method override (draw-background surface context row data width height)
-    (let ((rect (new Rect 0 0 width height)))
-      (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) (or (get-cell-background~ parent) {Color name: White}))))
-    (let ((selected? (getf context selected?:)))
-      (if (and selected? (cell-selected? context))
-          (let ((rect (text-rect row data width height #f)))
-            (let ((background (get-background~ parent)))
-              (when background
-                (let ((r (new Rect 0 0 (get-left~ rect) height)))
-                  (fill-rect~ surface r (or (get-cell-background~ parent) {Color name: White})))
-                (fill-rect~ surface rect (selection-color~ parent)))))
-        (let ((background (get-background~ data)))
-          (when background
-            (let ((rect (text-rect row data width height #t)))
-              (if (pair? background)
-                  (apply (~ gradient-fill surface) rect background)
-                (fill-rect~ surface rect background)))))))
-    (let ((frame-color (get-frame-color~ data)))
-      (when frame-color
-        (let ((rect (text-rect row data width height #t)))
-          (frame-rect~ surface rect frame-color)))))
+    (let ((background (or (get-cell-background~ parent) (get-background~ (get-look~ parent)) {Color name: Tree-Background})))
+      (let ((rect (new Rect 0 0 width height)))
+        (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) background)))
+      (let ((selected? (getf context selected?:)))
+        (if (and selected? (cell-selected? context))
+            (let ((rect (text-rect row data width height #f)))
+              (let ((background (get-background~ parent)))
+                (when background
+                  (let ((r (new Rect 0 0 (get-left~ rect) height)))
+                    (fill-rect~ surface r background))
+                  (fill-rect~ surface rect (selection-color~ parent)))))
+          (let ((background (get-background~ data)))
+            (when background
+              (let ((rect (text-rect row data width height #t)))
+                (if (pair? background)
+                    (apply (~ gradient-fill surface) rect background)
+                  (fill-rect~ surface rect background)))))))
+      (let ((frame-color (get-frame-color~ data)))
+        (when frame-color
+          (let ((rect (text-rect row data width height #t)))
+            (frame-rect~ surface rect frame-color))))))
   
   
   (method public (draw-level surface row data width <fx> height <fx>)
-    (set-style~ surface 'alternate)
-    (set-color~ surface Line-Color)
-    (set-line-width~ surface 1)
-    (let ((level (get-level~ row))
-          (row-v (get-v~ (get-position~ row))))
-      (loop (for n from level downto 1)
-            (let ((h (level-h n))
-                  (sf? (visible-sibling-follows?~ row)))
-              (if (/= n level)
-                  (when sf?
-                    (let ((adjust (if (even? row-v) 0 1)))
-                      (line~ surface (+ h 8) adjust (+ h 8) (+ height adjust))))
-                (let* ((half (fxround/ height 2))
-                       (top-adjusted (if (even? row-v) 0 -1))
-                       (half-adjusted (+ half (if (and (odd? height) (odd? row-v)) 1 0)))
-                       (horz-adjusted (+ half-adjusted (if (and (odd? row-v) (even? height)) 1 0))))
-                  (line~ surface (+ h 8) top-adjusted (+ h 8) (if sf? height half-adjusted))
-                  (line~ surface (+ h 8) horz-adjusted (+ h 19) horz-adjusted)))
-              (set! row (get-father~ row)))))
-    (set-style~ surface 'solid)
-    (set-color~ surface {Color name: Black}))
+    (let ((line-color (or (get-line-color~ (get-look~ parent)) {Color name: Black})))
+      (set-style~ surface 'alternate)
+      (set-color~ surface line-color)
+      (set-line-width~ surface 1)
+      (let ((level (get-level~ row))
+            (row-v (get-v~ (get-position~ row))))
+        (loop (for n from level downto 1)
+              (let ((h (level-h n))
+                    (sf? (visible-sibling-follows?~ row)))
+                (if (/= n level)
+                    (when sf?
+                      (let ((adjust (if (even? row-v) 0 1)))
+                        (line~ surface (+ h 8) adjust (+ h 8) (+ height adjust))))
+                  (let* ((half (fxround/ height 2))
+                         (top-adjusted (if (even? row-v) 0 -1))
+                         (half-adjusted (+ half (if (and (odd? height) (odd? row-v)) 1 0)))
+                         (horz-adjusted (+ half-adjusted (if (and (odd? row-v) (even? height)) 1 0))))
+                    (line~ surface (+ h 8) top-adjusted (+ h 8) (if sf? height half-adjusted))
+                    (line~ surface (+ h 8) horz-adjusted (+ h 19) horz-adjusted)))
+                (set! row (get-father~ row)))))
+      (set-style~ surface 'solid)
+      (set-color~ surface {Color name: Black})))
   
   
   (method protected (draw-control surface row data width height)
-    (let* ((level (get-level~ row))
+    (let* ((look (get-look~ parent))
+           (level (get-level~ row))
            (toplevel? (= level 0)))
       (when (and (expandable?~ row) controls? (or (not toplevel?) toplevel-controls?))
-        (let ((h (control-h level)))
+        (let ((h (control-h level))
+              (line-color (or (get-line-color~ look) {Color name: Black})))
           (let ((rect (new Rect (+ h 4) 4 (+ h 13) 13)))
-            (frame-rect~ surface rect Line-Color))
-          (let ((background (get-background~ parent)))
+            (frame-rect~ surface rect line-color))
+          (let ((background (or (get-background~ look) (get-background~ parent))))
             (when background
               (let ((rect (new Rect (+ h 5) 5 (+ h 12) 12)))
-                (fill-rect~ surface rect {Color name: White}))))
-          (set-color~ surface {Color name: Black})
+                (fill-rect~ surface rect background))))
+          (set-color~ surface line-color)
           (set-line-width~ surface 1)
           (line~ surface (+ h 6) 8 (+ h 11) 8)
           (when (neq? (get-state~ row) 'expanded)
@@ -270,7 +270,8 @@
     (let ((h (image-h (get-level~ row)))
           (image (get-image~ data)))
       (when (and display-images? image)
-        (draw-opaque-image~ (get-portfolio~ parent) surface context image {Color name: White} h 0))))
+        (let ((background (or (get-background~ (get-look~ parent)) {Color name: Tree-Background})))
+          (draw-opaque-image~ (get-portfolio~ parent) surface context image background h 0)))))
   
   
   (method override (draw-title surface context row data h v width height)

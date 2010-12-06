@@ -785,27 +785,30 @@
   
   (method (prepare-colors)
     (define (preferences->color pref)
-      (let ((red (get-red~ pref))
+      (let ((base (get-base~ pref))
+            (red (get-red~ pref))
             (green (get-green~ pref))
             (blue (get-blue~ pref))
             (alpha (get-alpha~ pref)))
         (let ((arguments
-                `(,@(if (specified? red) (list red: red) '())
+                `(,@(if (specified? base) (list name: base) '())
+                  ,@(if (specified? red) (list red: red) '())
                   ,@(if (specified? green) (list green: green) '())
                   ,@(if (specified? blue) (list blue: blue) '())
                   ,@(if (specified? alpha) (list alpha: alpha) '()))))
           (unless (null? arguments)
             (apply new Color arguments)))))
     
-    (let ((file {File Profile "settings" "Colors.jml"}))
-      (when (exists?~ file)
-        (let ((colors (instantiate~ (read-form file))))
-          (for-each (lambda (pref)
-                      (let ((color (preferences->color pref)))
-                        (when color
-                          (let ((name (get-name~ pref)))
-                            (register-color name color)))))
-                    (get-children~ colors))))))
+    (when (is-alias? 'Profile)
+      (let ((file {File Profile "settings" "Colors.jml"}))
+        (when (exists?~ file)
+          (let ((colors (instantiate~ (read-form file))))
+            (for-each (lambda (pref)
+                        (let ((color (preferences->color pref)))
+                          (when color
+                            (let ((name (get-name~ pref)))
+                              (register-color name color)))))
+                      (get-children~ colors)))))))
 
 
   ;;;
@@ -815,7 +818,8 @@
   
   (method (prepare-fonts)
     (define (preferences->font pref)
-      (let ((font-name (get-font-name~ pref))
+      (let ((base (get-base~ pref))
+            (font-name (get-font-name~ pref))
             (point-size (get-point-size~ pref))
             (color (get-color~ pref))
             (bold? (get-bold?~ pref))
@@ -824,7 +828,8 @@
             (antialias (get-antialias~ pref))
             (hint-style (get-hint-style~ pref)))
         (let ((arguments
-                `(,@(if (specified? font-name) (list font-name: font-name) '())
+                `(,@(if (specified? base) (list name: base) '())
+                  ,@(if (specified? font-name) (list font-name: font-name) '())
                   ,@(if (specified? point-size) (list point-size: point-size) '())
                   ,@(if (specified? color) (list color: color) '())
                   ,@(if (specified? bold?) (list bold?: bold?) '())
@@ -835,15 +840,16 @@
           (unless (null? arguments)
             (apply new Font arguments)))))
     
-    (let ((file {File Profile "settings" "Fonts.jml"}))
-      (when (exists?~ file)
-        (let ((fonts (instantiate~ (read-form file))))
-          (for-each (lambda (pref)
-                      (let ((font (preferences->font pref)))
-                        (when font
-                          (let ((name (get-name~ pref)))
-                            (register-font name font)))))
-                    (get-children~ fonts))))))
+    (when (is-alias? 'Profile)
+      (let ((file {File Profile "settings" "Fonts.jml"}))
+        (when (exists?~ file)
+          (let ((fonts (instantiate~ (read-form file))))
+            (for-each (lambda (pref)
+                        (let ((font (preferences->font pref)))
+                          (when font
+                            (let ((name (get-name~ pref)))
+                              (register-font name font)))))
+                      (get-children~ fonts)))))))
 
   
   ;;;

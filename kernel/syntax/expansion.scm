@@ -53,7 +53,7 @@
         (context (jazz.generate-symbol-context))
         (counter (jazz.generate-symbol-counter)))
     (if (not context)
-        (error "Invalid call to generate-symbol without a context")
+        (error "Invalid call to generate-global-symbol without a context")
       (let ((module (jazz.string-replace (##symbol->string context) #\. #\/)))
         (let ((name (##string-append module "_" prefix (or for "^") (##number->string counter))))
           (if (##find-interned-symbol name)

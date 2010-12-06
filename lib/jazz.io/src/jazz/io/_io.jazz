@@ -420,6 +420,7 @@
   
   
   (slot path)
+  (slot aliases initialize #f)
   
   
   (method override (initialize lst)
@@ -463,8 +464,8 @@
                             (if (memq? path aliases)
                                 (error "Recursive alias {a} in {s}" path self)
                               (set! aliases (cons path aliases))
-                              (if (is-alias? path)
-                                  (parse (get-alias path))
+                              (if (pathname-alias? path)
+                                  (parse (pathname-alias path))
                                 (error "Unknown alias: {s}" path))))
                            ((pair? path)
                             (parse (car path))
@@ -510,14 +511,24 @@
          (ci=? (parse) (parse~ object))))
   
   
+  (method public (pathname-alias? alias)
+    (or (and aliases (table-ref aliases alias #f))
+        (is-alias? alias)))
+  
+  
+  (method public (pathname-alias alias)
+    (or (and aliases (table-ref aliases alias #f))
+        (get-alias alias)))
+  
+  
   (method public (valid-aliases?)
     (letrec ((valid?
               (lambda (list)
                 (or (eq? list #t)
                     (every? (lambda (item)
                               (or (not (symbol? item))
-                                  (and (is-alias? item)
-                                       (valid? (get-alias item)))))
+                                  (and (pathname-alias? item)
+                                       (valid? (pathname-alias item)))))
                             list)))))
       (valid? (get-list))))
   
@@ -529,7 +540,7 @@
                   (cond ((eq? object #t))
                         ((eq? object :root) (put~ fact :root))
                         ((string? object) (put~ fact object))
-                        ((symbol? object) (expand (get-alias object)))
+                        ((symbol? object) (expand (pathname-alias object)))
                         ((pair? object)
                          (expand (car object))
                          (expand (cdr object)))))))
@@ -543,6 +554,10 @@
 
   (method public (set-list value)
     (set! path value))
+  
+  
+  (method public (get-aliases)
+    aliases)
 
 
   (method override (get-name)
@@ -554,7 +569,7 @@
       (cond ((eq? name :root)
              "/")
             ((symbol? name)
-             (effective-name (get-alias name)))
+             (effective-name (pathname-alias name)))
             (else
              name))))
   
@@ -677,7 +692,18 @@
            (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
-        (car sorted)))))
+        (car sorted))))
+
+  
+  ;;;
+  ;;;; Context
+  ;;;
+
+
+  (method override (setup-context context)
+    (let ((data (get-data~ context)))
+      (when data
+        (set! aliases (get-aliases~ data))))))
 
 
 (definition public inline (pathname? object)

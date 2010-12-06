@@ -351,6 +351,15 @@
                    dir))))))))
 
 
+(define (jazz.versioned-version target updates)
+  (continuation-capture
+    (lambda (return)
+      (jazz.for-each-lower-update target updates
+        (lambda (update)
+          (continuation-return return (jazz.update-version update))))
+      #f)))
+
+
 ;;;
 ;;;; Settings
 ;;;
@@ -359,12 +368,16 @@
 (define jazz.jazz-settings-directory
   #f)
 
+(define jazz.jazz-settings-version
+  #f)
+
 (define jazz.named-configurations-file
   #f)
 
 
 (define (jazz.setup-settings)
   (set! jazz.jazz-settings-directory (jazz.versioned-directory "~/.jazz/" 'settings (jazz.kludged-get-jazz-updates) jazz.convert-settings))
+  (set! jazz.jazz-settings-version (jazz.versioned-version 'settings (jazz.kludged-get-jazz-updates)))
   (set! jazz.named-configurations-file (string-append jazz.jazz-settings-directory ".configurations")))
 
 

@@ -47,7 +47,7 @@
 
 
 (jazz.define-setting default-profiler
-  #f)
+  'statprof)
 
 (jazz.define-setting default-profiler-ignored-procedures
   (%%list
@@ -110,29 +110,6 @@
 (define (profiler-ignore-module profiler module)
   (if (%%not (profiler-ignore-module? profiler module))
       (profiler-ignored-modules-set! profiler (%%cons module (profiler-ignored-modules profiler)))))
-
-
-;;;
-;;;; Profilers
-;;;
-
-
-(define *profilers*
-  (%%make-table test: eq?))
-
-
-(define (get-profilers)
-  *profilers*)
-
-(define (get-profiler name)
-  (%%table-ref *profilers* name #f))
-
-
-(define (register-profiler profiler)
-  (%%table-set! *profilers* (profiler-name profiler) profiler))
-
-(define (unregister-profiler profiler)
-  (%%table-clear *profilers* (profiler-name profiler)))
 
 
 ;;;
@@ -221,9 +198,11 @@
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f) (performance-frequency #f))
-  (let ((profiler (or profiler (default-profiler)))
-        (performance-frequency (or performance-frequency (profiler-performance-frequency))))
-    (make-profile label profiler (or depth (profiler-default-depth profiler)) performance-frequency)))
+  (let ((profiler (or profiler (jazz.require-service (default-profiler)))))
+    (let ((depth (or depth (profiler-default-depth profiler)))
+          (performance-frequency (or performance-frequency (profiler-performance-frequency))))
+      (make-profile label profiler depth performance-frequency))))
+
 
 ;;;
 ;;;; Profiles
@@ -232,6 +211,9 @@
 
 (define *profiles*
   (make-table test: equal?))
+
+(define *selected-profile*
+  #f)
 
 
 (define (get-profiles)
@@ -245,6 +227,13 @@
     names))
 
 
+(define (get-selected-profile)
+  *selected-profile*)
+
+(define (set-selected-profile name)
+  (set! *selected-profile* name))
+
+
 (define (find-profile name)
   (or (%%table-ref *profiles* name #f)
       (if (%%not name)
@@ -252,6 +241,10 @@
             (%%table-set! *profiles* name profile)
             profile)
         #f)))
+
+
+(define (find-selected-profile)
+  (find-profile (get-selected-profile)))
 
 
 (define (register-profile profile)

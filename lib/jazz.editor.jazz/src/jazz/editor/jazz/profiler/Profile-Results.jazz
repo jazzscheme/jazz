@@ -54,9 +54,6 @@
 (class Profile-Results extends Layout-View
   
   
-  (slot profile initialize #f)
-  
-  
   (form
     (<install>                               size: {Dimension 600 400} layout-type: border position: {Point 1 0}
       (<Layout-View>          name: tools
@@ -149,11 +146,11 @@
   
   (method (on-start-profiler evt)
     (user-feedback "Profiler started")
-    (profiler-start~ (require-focused-process~ (get-debugger-manager)) profile))
+    (profiler-start~ (require-focused-process~ (get-debugger-manager))))
   
   
   (method (on-stop-profiler evt)
-    (profiler-stop~ (require-focused-process~ (get-debugger-manager)) profile)
+    (profiler-stop~ (require-focused-process~ (get-debugger-manager)))
     (view-profile)
     (user-message "Profiler stopped"))
   
@@ -162,9 +159,11 @@
     (define (present-profile profile)
       (or profile "<default>"))
     
-    (let ((profiles (profiler-profiles~ (require-focused-process~ (get-debugger-manager)))))
-      (set! profile (request-list (sort string<? profiles key: present-profile) title: "Choose Profile" invite: "Select a profile from the list" present: present-profile selected: profile))
-      (view-profile)))
+    (let ((process (require-focused-process~ (get-debugger-manager))))
+      (let ((profiles (profiler-profiles~ process))
+            (profile (profiler-selected-profile~ process)))
+        (profiler-selected-profile-set!~ process (request-list (sort string<? profiles key: present-profile) title: "Choose Profile" invite: "Select a profile from the list" present: present-profile selected: profile))
+        (view-profile))))
   
   
   (method (on-change-profiler evt)
@@ -180,7 +179,7 @@
   
   
   (method (reset-profile profiler depth)
-    (profile-reset~ (require-focused-process~ (get-debugger-manager)) profile profiler depth)
+    (profile-reset~ (require-focused-process~ (get-debugger-manager)) profiler depth)
     (view-profile))
   
   
@@ -235,7 +234,7 @@
   
   
   (method (view-profile)
-    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager)) profile))
+    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
           (tree (get-tree)))
       (when profile
         (bind (label profiler depth frequency frame-count frame-duration total-count total-duration unknown-count unknown-duration calls) profile

@@ -221,15 +221,15 @@
   ;;;
   
   
-  (method public (profiler-start name)
-    (let ((profile (find-profile name)))
+  (method public (profiler-start)
+    (let ((profile (find-selected-profile)))
       (when profile
         (active-profile profile)
         (start-profiler profile))))
   
   
-  (method public (profiler-stop name)
-    (let ((profile (find-profile name)))
+  (method public (profiler-stop)
+    (let ((profile (find-selected-profile)))
       (when profile
         (stop-profiler profile)
         (active-profile #f))))
@@ -239,7 +239,15 @@
     (get-profile-names))
   
   
-  (method public (profiler-profile name)
+  (method public (profiler-selected-profile)
+    (get-selected-profile))
+  
+  
+  (method public (profiler-selected-profile-set! name)
+    (set-selected-profile name))
+  
+  
+  (method public (profiler-profile)
     (define (frame->symbol frame)
       (or (when frame
             (bind (creator locat) frame
@@ -290,32 +298,33 @@
                    (table-set! temp-calls key temp-call))
                (table-set! temp-calls key (cons (car call) duration))))))))
     
-   (let ((profile (find-profile name)))
+   (let ((profile (find-selected-profile)))
      (when profile
-       (let ((remote-profile (get-remote-profile~ (get-application) name)))
-         (let ((temp-profile (merge-profile profile remote-profile)))
-           (list (profile-label temp-profile)
-                 (profiler-name (profile-profiler temp-profile))
-                 (profile-depth temp-profile)
-                 (profile-performance-frequency temp-profile)
-                 (profile-frames temp-profile)
-                 (profile-frame-duration temp-profile)
-                 (profile-total-count temp-profile)
-                 (profile-total-duration temp-profile)
-                 (profile-unknown-count temp-profile)
-                 (profile-unknown-duration temp-profile)
-                 (map (lambda (pair)
-                        (bind (stack . call) pair
-                          (let ((count (profile-call-count call))
-                                (duration (profile-call-duration call)))
-                            (cons stack (cons count duration)))))
-                      (table->list (profile-calls temp-profile)))))))))
+       (let ((label (profile-label profile)))
+         (let ((remote-profile (get-remote-profile~ (get-application) label)))
+           (let ((temp-profile (merge-profile profile remote-profile)))
+             (list label
+                   (profiler-name (profile-profiler temp-profile))
+                   (profile-depth temp-profile)
+                   (profile-performance-frequency temp-profile)
+                   (profile-frames temp-profile)
+                   (profile-frame-duration temp-profile)
+                   (profile-total-count temp-profile)
+                   (profile-total-duration temp-profile)
+                   (profile-unknown-count temp-profile)
+                   (profile-unknown-duration temp-profile)
+                   (map (lambda (pair)
+                          (bind (stack . call) pair
+                            (let ((count (profile-call-count call))
+                                  (duration (profile-call-duration call)))
+                              (cons stack (cons count duration)))))
+                        (table->list (profile-calls temp-profile))))))))))
   
   
-  (method public (profile-reset name profiler depth)
-    (let ((profile (find-profile name)))
+  (method public (profile-reset profiler depth)
+    (let ((profile (find-selected-profile)))
       (when profile
-        (reset-profile profile (and profiler (get-profiler profiler)) depth))))
+        (reset-profile profile (and profiler (require-service profiler)) depth))))
   
   
   ;;;

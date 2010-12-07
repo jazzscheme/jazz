@@ -1918,25 +1918,27 @@
 
 
 (define (jazz.load-unit unit-name)
-  (let ((unit-state (jazz.get-environment-unit unit-name)))
-    (if (%%not (%%eq? unit-state jazz.Loaded-State))
-        (jazz.call-with-load-lock ; unit-state might change while suspended
-          (lambda ()
-            (let ((unit-state (jazz.get-environment-unit unit-name)))
-              (cond ((%%eq? unit-state jazz.Loading-State)
-                     (jazz.circular-dependency-error unit-name (map cdr (jazz.get-load-stack))))
-                    ((%%eq? unit-state jazz.Unloaded-State)
-                     (dynamic-wind
-                       (lambda ()
-                         (jazz.set-environment-unit unit-name jazz.Loading-State)
-                         (jazz.push-load-stack ':load unit-name))
-                       (lambda ()
-                         (jazz.load-unit-src/bin unit-name)
-                         (jazz.set-environment-unit unit-name jazz.Loaded-State))
-                       (lambda ()
-                         (jazz.pop-load-stack)
-                         (if (%%eq? (jazz.get-environment-unit unit-name) jazz.Loading-State)
-                             (jazz.set-environment-unit unit-name jazz.Unloaded-State))))))))))))
+  (if (%%symbol? unit-name)
+      (let ((unit-state (jazz.get-environment-unit unit-name)))
+        (if (%%not (%%eq? unit-state jazz.Loaded-State))
+            (jazz.call-with-load-lock ; unit-state might change while suspended
+              (lambda ()
+                (let ((unit-state (jazz.get-environment-unit unit-name)))
+                  (cond ((%%eq? unit-state jazz.Loading-State)
+                         (jazz.circular-dependency-error unit-name (map cdr (jazz.get-load-stack))))
+                        ((%%eq? unit-state jazz.Unloaded-State)
+                         (dynamic-wind
+                           (lambda ()
+                             (jazz.set-environment-unit unit-name jazz.Loading-State)
+                             (jazz.push-load-stack ':load unit-name))
+                           (lambda ()
+                             (jazz.load-unit-src/bin unit-name)
+                             (jazz.set-environment-unit unit-name jazz.Loaded-State))
+                           (lambda ()
+                             (jazz.pop-load-stack)
+                             (if (%%eq? (jazz.get-environment-unit unit-name) jazz.Loading-State)
+                                 (jazz.set-environment-unit unit-name jazz.Unloaded-State)))))))))))
+    (jazz.error "Unit name expected: {a}" unit-name)))
 
 
 (define (jazz.unload-unit unit-name)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Install
+;;;; Detprof Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.library.install
+(unit jazz.detprof.install
 
 
-(jazz.define-literal-walker Reference jazz.library.literals.walk-reference)
-
-
-(jazz.define-literal Box                jazz.library.literals.construct-box)
-(jazz.define-literal Directory-Group    jazz.library.literals.construct-directory-group)
-(jazz.define-literal Locales            jazz.library.literals.construct-locales)
-(jazz.define-literal Image-Resource     jazz.library.literals.construct-image-resource)
-(jazz.define-literal Icon-Resource      jazz.library.literals.construct-icon-resource)
-(jazz.define-literal Cursor-Resource    jazz.library.literals.construct-cursor-resource)
-(jazz.define-literal Event              jazz.library.literals.construct-event)
-(jazz.define-literal Event-Handler      jazz.library.literals.construct-event-handler)
-(jazz.define-literal Version            jazz.library.literals.construct-version)
-(jazz.define-literal Reference          jazz.library.literals.construct-reference))
+(jazz.register-service 'detprof 'jazz.detprof))

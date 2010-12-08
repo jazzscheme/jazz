@@ -125,6 +125,71 @@
        (eqv? (get-alpha~ x) (get-alpha~ y))))
 
 
+(definition public (rgb->hsv r g b)
+  (define (hsv h s v)
+    (values (exact->inexact h)
+            (exact->inexact s)
+            (exact->inexact v)))
+  
+  (let ((r (exact->inexact (/ r 255)))
+        (g (exact->inexact (/ g 255)))
+        (b (exact->inexact (/ b 255))))
+    (let ((min (min r g b))
+          (max (max r g b)))
+      (let ((v max)
+            (delta (- max min)))
+        (if (/= max 0)
+            (let ((s (/ delta max)))
+              (let ((h (cond ((= r max) (/ (- g b) delta))
+                             ((= g max) (+ 2 (/ (- b r) delta)))
+                             (else (+ 4 (/ (- r g) delta))))))
+                (set! h (* h 60))
+                (when (< h 0)
+                  (increase! h 360))
+                (hsv h s v)))
+          (hsv -1 0 v))))))
+
+
+(definition public (hsv->rgb h s v)
+  (define (rgb r g b)
+    (values (fxround (* r 255))
+            (fxround (* g 255))
+            (fxround (* b 255))))
+  
+  ;; quicky to fix
+  (when (>= h 360)
+    (set! h 359))
+  (let ((h (exact->inexact h))
+        (s (exact->inexact s))
+        (v (exact->inexact v)))
+    (if (= s 0)
+        (rgb v v v)
+      (let* ((h (/ h 60))
+             (i (fxfloor h))
+             (f (- h i))
+             (p (* v (- 1 s)))
+             (q (* v (- 1 (* s f))))
+             (t (* v (- 1 (* s (- 1 f))))))
+        (case i
+          ((0) (rgb v t p))
+          ((1) (rgb q v p))
+          ((2) (rgb p v t))
+          ((3) (rgb p q v))
+          ((4) (rgb t p v))
+          ((5) (rgb v p q)))))))
+
+
+(definition public (color->hsv color)
+  (rgb->hsv (get-red~ color)
+            (get-green~ color)
+            (get-blue~ color)))
+
+
+(definition public (hsv->color h s v)
+  (receive (r g b) (hsv->rgb h s v)
+    (new Color red: r green: g blue: b)))
+
+
 ;;;
 ;;;; Font
 ;;;

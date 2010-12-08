@@ -279,41 +279,6 @@
 
 
 ;;;
-;;;; Color
-;;;
-
-
-(define (color->ref color)
-  (RGB (get-red~ color) (get-green~ color) (get-blue~ color)))
-
-(define (ref->color ref)
-  (new Color red: (GetRValue ref) green: (GetGValue ref) blue: (GetBValue ref)))
-
-
-(define custom-colors
-  (let ((array (COLORREF*-alloc 16))
-        (black (color->ref {Color name: Black})))
-    (loop (for n from 0 below 16)
-          (COLORREF*-set! array n black))
-    array))
-
-
-(definition public (choose-color (initial-color: initial-color #f))
-  (let ((r (CHOOSECOLOR-make)))
-    (CHOOSECOLOR-lStructSize-set!  r (CHOOSECOLOR-sizeof))
-    (CHOOSECOLOR-hwndOwner-set!    r (get-handle~ (get-toplevel)))
-    (CHOOSECOLOR-rgbResult-set!    r (color->ref (or initial-color {Color red: 128 green: 128 blue: 128})))
-    (CHOOSECOLOR-lpCustColors-set! r custom-colors)
-    (CHOOSECOLOR-Flags-set!        r (bitwise-ior CC_ANYCOLOR CC_RGBINIT CC_FULLOPEN))
-    (if (ChooseColor r)
-        (symbolize-color (ref->color (CHOOSECOLOR-rgbResult-ref r)))
-      (let ((code (CommDlgExtendedError)))
-        (if (= code 0)
-            (throw-cancel)
-          (error "Dialog error: {t}" code))))))
-
-
-;;;
 ;;;; Font
 ;;;
 

@@ -1,0 +1,345 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Color Request
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.dialog.Color-Request jazz
+
+
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui))
+
+
+;;;
+;;;; Color-Request
+;;;
+
+
+(class Color-Request extends Layout-View
+  
+  
+  (property color    <void>               accessors explicit)
+  (property feedback        initialize #f accessors generate)
+  
+  
+  (form
+    (<install>                            return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+      (<Hue-View>        name: hue        position: {Point  10  10} size: {Dimension 410  50})
+      (<Saturation-View> name: saturation position: {Point  10  70} size: {Dimension 200  30})
+      (<Value-View>      name: value      position: {Point 220  70} size: {Dimension 200  30})
+      (<Color-View>      name: color      position: {Point 430  13} size: {Dimension  85  85})
+      (<Horizontal-Line> name: separator  position: {Point  13 115} size: {Dimension 503 8})
+      (<Push-Button>     name: ok         title: "OK" position: {Point 180 129} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>     name: cancel     title: "Cancel" position: {Point 264 129} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+  
+  
+  (method override (finish initargs)
+    (nextmethod initargs)
+    (when (not (get-value~ (locate 'hue)))
+      (set-color (hsv->color 0 1 1))))
+    
+  
+  ;;;
+  ;;;; Host
+  ;;;
+
+  
+  (method meta override (host-title)
+    "Choose Color")
+  
+  
+  (method meta override (host-size)
+    {Dimension 527 164})
+  
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (end-modal~ (get-host) (get-modal-result)))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (cancel-modal~ (get-host)))
+  
+  
+  (method override (get-modal-result)
+    (get-color))
+  
+  
+  ;;;
+  ;;;; Color
+  ;;;
+  
+  
+  (method public (get-color)
+    (hsv->color (get-hue)
+                (get-saturation)
+                (get-value)))
+  
+  
+  (method public (set-color value)
+    (when value
+      (receive (h s v) (color->hsv value)
+        (set-value~ (locate 'hue) h)
+        (set-value~ (locate 'saturation) s)
+        (set-value~ (locate 'value) v))
+      (update)))
+  
+  
+  (method protected (get-hue)
+    (get-value~ (locate 'hue)))
+  
+  (method protected (get-saturation)
+    (get-value~ (locate 'saturation)))
+  
+  (method protected (get-value)
+    (get-value~ (locate 'value)))
+  
+  
+  (method protected (update)
+    (invalidate-view~ (locate 'hue))
+    (invalidate-view~ (locate 'saturation))
+    (invalidate-view~ (locate 'value))
+    (let ((color (get-color)))
+      (set-background~ (locate 'color) color)
+      (when feedback
+        (feedback color)))))
+
+
+;;;
+;;;; Slider-View
+;;;
+
+
+(class Slider-View extends View
+  
+  
+  (slot reticule initialize #f)
+  (slot value    initialize #f)
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method public (get-reticule)
+    reticule)
+  
+  
+  (method public (set-reticule r)
+    (set! reticule (between 0 r (reticule-max)))
+    (set! value (reticule->value reticule)))
+  
+  
+  (method public (get-value)
+    value)
+  
+  
+  (method public (set-value v)
+    (set-reticule (value->reticule v)))
+  
+  
+  (method protected (value->reticule value)
+    (fxround (/ (* value (reticule-span)) (value-max))))
+  
+  
+  (method protected (reticule->value reticule)
+    (exact->inexact (/ (* reticule (value-max)) (reticule-span))))
+  
+  
+  (method protected (reticule-span)
+    (- (get-width) 6))
+  
+  
+  (method protected (reticule-max)
+    (- (reticule-span) 1))
+  
+  
+  (method protected virtual (value-max)
+    )
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method override (mouse-down pos)
+    (acquire-capture)
+    (set-reticule (pos->reticule pos))
+    (update~ parent))
+  
+  
+  (method override (drag-move pos)
+    (set-reticule (pos->reticule pos))
+    (update~ parent))
+  
+  
+  (method override (drag-up pos . rest)
+    (release-capture))
+  
+  
+  (definition (pos->reticule pos)
+    (- (get-h~ pos) 3))
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (method (draw-reticule surface)
+    (when reticule
+      (let ((height (get-height)))
+        (set-color~ surface {Color name: Black})
+        (set-line-width~ surface 1)
+        (line~ surface (+ reticule 3) 3 (+ reticule 3) (- height 3))
+        (draw-arrow-tip~ surface (+ reticule 1) 0 3 'down)
+        (draw-arrow-tip~ surface (+ reticule 1) (- height 3) 3 'up)))))
+
+
+;;;
+;;;; Hue-View
+;;;
+
+
+(class Hue-View extends Slider-View
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method override (value-max)
+    360)
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (method override (draw surface context lh lv)
+    (let ((height (get-height))
+          (s (get-saturation~ parent))
+          (v (get-value~ parent)))
+      (loop (for r from 0 to (reticule-max))
+            (do (let ((h (reticule->value r)))
+                  (let ((color (hsv->color h s v)))
+                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule surface)))
+
+
+;;;
+;;;; Saturation-View
+;;;
+
+
+(class Saturation-View extends Slider-View
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method override (value-max)
+    1)
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (method override (draw surface context lh lv)
+    (let ((height (get-height))
+          (h (get-hue~ parent))
+          (v (get-value~ parent)))
+      (loop (for r from 0 to (reticule-max))
+            (do (let ((s (reticule->value r)))
+                  (let ((color (hsv->color h s v)))
+                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule surface)))
+
+
+;;;
+;;;; Value-View
+;;;
+
+
+(class Value-View extends Slider-View
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method override (value-max)
+    1)
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (method override (draw surface context lh lv)
+    (let ((height (get-height))
+          (h (get-hue~ parent))
+          (s (get-saturation~ parent)))
+      (loop (for r from 0 to (reticule-max))
+            (do (let ((v (reticule->value r)))
+                  (let ((color (hsv->color h s v)))
+                    (fill-rect~ surface (new Rect (+ r 3) 3 (+ r 4) (- height 3)) color))))))
+    (draw-reticule surface)))
+
+
+;;;
+;;;; Color-View
+;;;
+
+
+(class Color-View extends View))

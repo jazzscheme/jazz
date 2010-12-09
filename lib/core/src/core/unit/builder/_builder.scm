@@ -55,19 +55,27 @@
       (jazz.load-manifest digest-filepath manifest-filepath)))
   
   (define (module-references-valid? version lst)
-    (define (recompile-reference? module-locator)
+    (define (recompile-reference? module-locator module-references)
       (%%continuation-capture
         (lambda (return)
           (jazz.for-each-higher-jazz-version version
             (lambda (jazz-version)
               (let ((recompile-references (jazz.version-recompile-references jazz-version)))
-                (if (and recompile-references (%%memq module-locator recompile-references))
+                (if (and recompile-references
+                         (jazz.some? (lambda (recompile-reference)
+                                       (if (%%symbol? recompile-reference)
+                                           (%%eq? recompile-reference module-locator)
+                                         (and (%%eq? (%%car recompile-reference) module-locator)
+                                              (jazz.some? (lambda (recompile-symbol)
+                                                            (%%memq recompile-symbol module-references))
+                                                          (%%cdr recompile-reference)))))
+                                     recompile-references))
                     (%%continuation-return return #t)))))
           #f)))
     
     (let ((module-locator (%%car lst))
           (module-references (%%cdr lst)))
-      (and (%%not (recompile-reference? module-locator))
+      (and (%%not (recompile-reference? module-locator module-references))
            (let ((module-declaration (jazz.outline-module module-locator error?: #f)))
              (and module-declaration
                   (jazz.every? (lambda (symbol)

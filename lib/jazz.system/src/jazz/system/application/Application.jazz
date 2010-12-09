@@ -132,7 +132,8 @@
     (prepare-skins)
     (prepare-profile)
     (prepare-colors)
-    (prepare-fonts))
+    (prepare-fonts)
+    (prepare-styles))
 
   
   (method override (install-environment)
@@ -852,6 +853,40 @@
                             (let ((name (get-name~ pref)))
                               (register-font name font)))))
                       (get-children~ fonts)))))))
+
+
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (method (prepare-styles)
+    (define (preferences->style pref)
+      (let ((name (get-name~ pref))
+            (base (get-base~ pref))
+            (font (get-font~ pref))
+            (color (get-color~ pref))
+            (highlight (get-highlight~ pref))
+            (frame (get-frame~ pref)))
+        (let ((arguments
+                `(,@(if (specified? name) (list name: name) '())
+                  ,@(if (specified? base) (list base: base) '())
+                  ,@(if (specified? font) (list font: font) '())
+                  ,@(if (specified? color) (list color: color) '())
+                  ,@(if (specified? highlight) (list highlight: highlight) '())
+                  ,@(if (specified? frame) (list frame: frame) '()))))
+          (unless (null? arguments)
+            (apply new Text-Style arguments)))))
+    
+    (when (is-alias? 'Profile)
+      (let ((file {File Profile "settings" "Styles.jml"}))
+        (when (exists?~ file)
+          (let ((styles (instantiate~ (read-form file))))
+            (for-each (lambda (pref)
+                        (let ((style (preferences->style pref)))
+                          (when style
+                            (register-style style))))
+                      (get-children~ styles)))))))
 
   
   ;;;

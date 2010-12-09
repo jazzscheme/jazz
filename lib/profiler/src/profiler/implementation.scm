@@ -380,8 +380,8 @@
 (define (with-profiling profile thunk)
   (start-profiler profile)
   (parameterize ((active-profile profile))
-    (thunk))
-  (stop-profiler profile))
+    (thunk)
+    (stop-profiler profile)))
 
 
 (define (start-profiler profile)
@@ -408,7 +408,7 @@
 (define (identify-call cont depth profiler)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
-      (if (%%closure? proc)
+      (if (and proc (%%closure? proc))
           (%%closure-code proc)
         proc)))
   

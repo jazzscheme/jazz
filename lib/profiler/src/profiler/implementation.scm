@@ -380,8 +380,9 @@
 (define (with-profiling profile thunk)
   (start-profiler profile)
   (parameterize ((active-profile profile))
-    (thunk)
-    (stop-profiler profile)))
+    (let ((result (thunk)))
+      (stop-profiler profile)
+      result)))
 
 
 (define (start-profiler profile)

@@ -116,14 +116,28 @@
     (let ((view (tab-view~ (get-entry))))
       (when view
         (set-arrow-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-arrow))
+        (set-tab-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-tab))
+        (set-return-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-return))
         (acquire-focus~ view)
         (select-all~ view))))
   
   
+  (method (on-editor-tab evt)
+    (editor-tab))
+  
+  (method (on-editor-return evt)
+    (editor-return))
+  
   (method (on-editor-arrow evt)
-    (case (get-property~ evt direction:)
-      ((up) (up-arrow-press~ (get-tree) NoModifiers))
-      ((down) (down-arrow-press~ (get-tree) NoModifiers))))
+    (let ((direction (get-property~ evt direction:))
+          (view (tab-view~ (get-entry))))
+      (case direction
+        ((up) (editor-up-arrow))
+        ((down) (editor-down-arrow))
+        (else
+         (typecase view
+           ((Text-View) (arrow-move~ view evt))
+           (else (arrow-press~ view direction (get-modifiers~ evt))))))))
   
   
   (method override (show-cursor)

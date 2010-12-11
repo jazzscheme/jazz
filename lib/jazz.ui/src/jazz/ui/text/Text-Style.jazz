@@ -62,13 +62,13 @@
   
   
   (method override (get-height)
-    (get-height~ (get-metrics~ font)))
+    (get-height~ (get-metrics~ (get-font))))
   
   
   (method override (run-width run)
     (let ((string (get-string~ run)))
       ;; warning this coerce could become inefficient
-      (text-width~ font (coerce string String))))
+      (text-width~ (get-font) (coerce string String))))
   
   
   ;;;
@@ -92,7 +92,7 @@
                         (set! left right)
                         (set! mid (+ right (fxround/ width 2)))
                         (set! right (+ left width))))
-                  (let ((width (get-char-width~ font c)))
+                  (let ((width (get-char-width~ (get-font) c)))
                     (set! left right)
                     (set! mid (+ right (fxround/ width 2)))
                     (increase! right width)))
@@ -150,19 +150,22 @@
   
   
   (method override (draw-style surface <Surface> context string <Sequence> h <fx> v <fx> line-height <fx> tabs left <fx> enabled? <bool>) <fx>
-    (set-font~ surface font)
-    (let* ((font-height (get-height~ (get-metrics~ font)))
-           (v (+ v (justify-element font-height line-height)))
-           (color (if (getf context print-black/white?:)
-                      (registered-color 'Black)
-                    (or color (registered-color 'Black)))))
-      (if (not enabled?)
-          (begin
-            (set-text-color~ surface {Color name: Dark})
-            (draw-text~ surface h v (coerce string String) #f)
-            0)
-        (let ((width (draw-tabbed-text~ surface h v string tabs left color highlight)))
-          (when frame
-            (let ((rect (new Rect h v (+ h width) (+ v line-height))))
-              (frame-rect~ surface rect frame)))
-          width))))))
+    (let ((font (get-font)))
+      (set-font~ surface font)
+      (let* ((font-height (get-height~ (get-metrics~ font)))
+             (v (+ v (justify-element font-height line-height)))
+             (color (if (getf context print-black/white?:)
+                        (registered-color 'Black)
+                      (or (get-color) (registered-color 'Black))))
+             (highlight (get-highlight))
+             (frame (get-frame)))
+        (if (not enabled?)
+            (begin
+              (set-text-color~ surface {Color name: Dark})
+              (draw-text~ surface h v (coerce string String) #f)
+              0)
+          (let ((width (draw-tabbed-text~ surface h v string tabs left color highlight)))
+            (when frame
+              (let ((rect (new Rect h v (+ h width) (+ v line-height))))
+                (frame-rect~ surface rect frame)))
+            width)))))))

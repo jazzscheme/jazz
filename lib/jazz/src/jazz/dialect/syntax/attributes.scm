@@ -47,87 +47,106 @@
 
 ; @macro
 ; (attributes (nullable?)
-;             (key      initialize #f)
-;             (criteria initialize #f))
+;   (key      initialize #f)
+;   (criteria initialize #f))
 
 
 ; @expansion
 ; (begin
-;   (definition (node-properties)
-;     (quote
-;       (nullable?:
-;        key:
-;        criteria:)))
 ;   (slot key initialize #f)
 ;   (slot criteria initialize #f)
-;   (method (get-value property)
-;     (case property
-;       ((key:) key)
-;       ((criteria:) criteria)
-;       (else (nextmethod property))))
-;   (method (set-value property value)
-;     (case property
-;       ((key:) (set! key value))
-;       ((criteria:) (set! criteria value))
-;       (else (nextmethod property value))))
+;   (method override (get-attributes)
+;     '(nullable?
+;       key
+;       criteria))
+;   (method override (get attribute)
+;     (case attribute
+;       ((key) key)
+;       ((criteria) criteria)
+;       (else (nextmethod attribute))))
+;   (method override (set attribute value)
+;     (case attribute
+;       ((key) (set! key value))
+;       ((criteria) (set! criteria value))
+;       (else (nextmethod attribute value))))
 ;   (begin
 ;     (method public (get-key)
 ;       key)
 ;     (method public (set-key value)
-;       (set-property key: value)))
+;       (set! key value)))
 ;   (begin
 ;     (method public (get-criteria)
 ;       criteria)
 ;     (method public (set-criteria value)
-;       (set-property criteria: value))))
+;       (set! criteria value))))
 
 
 (macro public (attributes . form)
-  (define unspecified
-    (cons #f #f))
-  
-  (define (symbol->keyword symbol)
-    (string->keyword (symbol->string symbol)))
-  
   (let ((inherited (car form))
-        (properties (cdr form))
-        (property (generate-symbol "prop"))
+        (attributes (cdr form))
+        (attribute (generate-symbol "attr"))
         (value (generate-symbol "val")))
     `(begin
-       (method override (node-properties)
-         ',(map symbol->keyword (append inherited (map car properties))))
-       ,@(map (lambda (property)
-                (let ((name (car property)))
-                  (parse-specifier (cdr property)
-                    (lambda (specifier rest)
-                      (let ((init (getf rest 'initialize not-found: unspecified)))
-                        (if (eq? init unspecified)
-                            `(slot ,name)
-                          `(slot ,name initialize ,init)))))))
-              properties)
-       (method override (get-value ,property)
-         (case ,property
-           ,@(map (lambda (property)
-                    (let ((name (car property)))
+       ,@(map (lambda (attribute)
+                (let ((name (car attribute)))
+                  `(slot ,name)))
+              attributes)
+       (method override (get-attributes)
+         ',(append inherited (map car attributes)))
+       (method override (get-attribute ,attribute)
+         (case ,attribute
+           ,@(map (lambda (attribute)
+                    (let ((name (car attribute)))
+                      `((,name) ,name)))
+                  attributes)
+           (else (nextmethod ,attribute))))
+       (method override (set-attribute ,attribute ,value)
+         (case ,attribute
+           ,@(map (lambda (attribute)
+                    (let ((name (car attribute)))
+                      `((,name) (set! ,name ,value))))
+                  attributes)
+           (else (nextmethod ,attribute ,value))))
+       (method override (get-attribute-default ,attribute)
+         (case ,attribute
+           ,@(map (lambda (attribute)
+                    (let ((name (car attribute)))
+                      (parse-specifier (cdr attribute)
+                        (lambda (specifier rest)
+                          (let ((init (getf rest 'initialize not-found: '(unspecified))))
+                            `((,name) ,init))))))
+                  attributes)
+           (else (nextmethod ,attribute))))
+       (method override (get ,attribute)
+         (case ,attribute
+           ,@(map (lambda (attribute)
+                    (let ((name (car attribute)))
                       (let ((getter (string->symbol (system-format "get-{a}" name))))
-                        `((,(symbol->keyword name)) (,getter)))))
-                  properties)
-           (else (nextmethod ,property))))
-       (method override (set-value ,property ,value)
-         (case ,property
-           ,@(map (lambda (property)
-                    (let ((name (car property)))
-                      (let ((setter (string->symbol (system-format "set-{a}" name))))
-                        `((,(symbol->keyword name)) (set! ,name ,value)))))
-                  properties)
-           (else (nextmethod ,property ,value))))
-       ,@(map (lambda (property)
-                (let ((name (car property)))
+                        `((,name) (,getter)))))
+                  attributes)
+           (else (nextmethod ,attribute))))
+       (method override (set ,attribute ,value)
+         (case ,attribute
+           ,@(map (lambda (attribute)
+                    (let ((name (car attribute)))
+                      `((,name) (set! ,name ,value))))
+                  attributes)
+           (else (nextmethod ,attribute ,value))))
+       ,@(map (lambda (attribute)
+                (let ((name (car attribute)))
                   (let ((getter (string->symbol (system-format "get-{a}" name)))
                         (setter (string->symbol (system-format "set-{a}" name))))
                     `(begin
                        (method public (,getter)
-                         ,name)
+                         (if (specified? ,name)
+                             ,name
+                           (let (iterate (scan (get-ascendants)))
+                             (if (not-null? scan)
+                                 (let ((value (get~ (car scan) ',name)))
+                                   (if (specified? value)
+                                       value
+                                     (iterate (cdr scan))))
+                               (get-attribute-default ',name)))))
                        (method public (,setter ,value)
-                         (set-property ,(symbol->keyword name) ,value))))))
-              properties)))))
+                         (set! ,name ,value))))))
+              attributes)))))

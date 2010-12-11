@@ -41,7 +41,8 @@
 (export (jazz.graphic.syntax)
         (jazz.graphic.autoload))
 
-(import (jazz.graphic.autoload))
+(import (jazz.graphic.autoload)
+        (jazz.library.exemplar))
 
 
 ;;;
@@ -71,18 +72,18 @@
 ;;;
 
 
-(definition *colors*
-  (make-table test: eq?))
+(definition package *colors*
+  (new Exemplar-Domain))
 
 
-(definition package (register-color name color)
-  (table-set! *colors* name color))
+(definition package (register-color color)
+  (set-domain~ color *colors*)
+  (register~ color))
 
 
 (definition package (registered-color name (alpha #f))
   (load-unit 'jazz.graphic.literals.colors)
-  (let ((color (or (registered-object *colors* name)
-                   (error "Unknown color: {s}" name))))
+  (let ((color (locate~ *colors* name)))
     (if alpha
         (let ((color (copy (registered-color name))))
           (set-alpha~ color alpha)
@@ -91,9 +92,8 @@
 
 
 (definition public (symbolic-colors)
-  (map-table *colors*
-             (lambda (name value)
-               name)))
+  (accumulate (get-content~ *colors*)
+              get-name~))
 
 
 (definition public (symbolic-color color)
@@ -105,16 +105,15 @@
 (definition public (symbolize-color color (epsilon: epsilon 1))
   (continuation-capture
     (lambda (return)
-      (iterate-table-safe *colors*
-        (lambda (name col)
-          (let ((col (registered-object *colors* name)))
-            (when (color-epsilon=? color col epsilon)
-              (continuation-return return col)))))
+      (iterate (get-content~ *colors*)
+               (lambda (col)
+                 (when (color-epsilon=? color col epsilon)
+                   (continuation-return return col))))
       color)))
 
 
 (definition public (for-each-color proc)
-  (for-each-object *colors* proc))
+  (iterate (get-content~ *colors*) proc))
 
 
 (definition public (color=? x y)
@@ -194,6 +193,22 @@
 (definition public (hsv->color h s v)
   (receive (r g b) (hsv->rgb h s v)
     (new Color red: r green: g blue: b)))
+
+
+@to-be-redone
+(definition public (color-cycle base cycle subcycle)
+  (let* ((seq (cycle-naturals cycle subcycle))
+         (cardinality (* cycle subcycle))
+         (inc (/ 240 cardinality))
+         (ref (get-colorref~ (rgb->hls~ base)))
+         (hue (red-part ref))
+         (lig (green-part ref))
+         (sat (blue-part ref)))
+    (map (lambda (n)
+           (let* ((hue (+ hue (round (* inc n))))
+                  (hls (new Color red: (round hue) green: lig blue: sat)))
+             (hls->rgb~ hls)))
+         seq)))
 
 
 ;;;

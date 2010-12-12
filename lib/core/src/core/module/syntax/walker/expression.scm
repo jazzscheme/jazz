@@ -108,18 +108,18 @@
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Quasiquote expression) declaration environment)
-  (letrec ((emit
-            (lambda (form)
-              (if (%%pair? form)
-                  (if (or (%%eq? (%%car form) 'unquote)
-                          (%%eq? (%%car form) 'unquote-splicing))
-                      (%%list (%%car form) (jazz.sourcified-form (jazz.emit-expression (%%cadr form) declaration environment)))
-                    (%%cons (emit (%%car form)) (emit (%%cdr form))))
-                form))))
-    (jazz.new-code
-      (%%list 'quasiquote (emit (%%get-quasiquote-form expression)))
-      jazz.List
-      #f)))
+  (define (emit form)
+    (if (%%pair? form)
+        (if (or (%%eq? (%%car form) 'unquote)
+                (%%eq? (%%car form) 'unquote-splicing))
+            (%%list (%%car form) (jazz.sourcified-form (jazz.emit-expression (%%cadr form) declaration environment)))
+          (%%cons (emit (%%car form)) (emit (%%cdr form))))
+      form))
+  
+  (jazz.new-code
+    (%%list 'quasiquote (emit (%%get-quasiquote-form expression)))
+    jazz.List
+    #f))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Quasiquote expression) f k s)

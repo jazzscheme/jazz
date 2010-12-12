@@ -700,16 +700,16 @@
 
 
 (define (jazz.walk-quasiquote walker resume declaration environment form-src)
-  (letrec ((walk
-             (lambda (form-src)
-               (if (%%pair? (jazz.source-code form-src))
-                   (let ((first (jazz.source-code (%%car (jazz.source-code form-src)))))
-                     (if (or (%%eq? first 'unquote)
-                             (%%eq? first 'unquote-splicing))
-                         (%%list first (jazz.walk walker resume declaration environment (%%cadr (jazz.source-code form-src))))
-                       (%%cons (walk (%%car (jazz.source-code form-src))) (walk (%%cdr (jazz.source-code form-src))))))
-                 form-src))))
-    (jazz.new-quasiquote (walk (%%cadr (jazz.source-code form-src))))))
+  (define (walk form-src)
+    (if (%%pair? (jazz.source-code form-src))
+        (let ((first (jazz.source-code (%%car (jazz.source-code form-src)))))
+          (if (or (%%eq? first 'unquote)
+                  (%%eq? first 'unquote-splicing))
+              (%%list first (jazz.walk walker resume declaration environment (%%cadr (jazz.source-code form-src))))
+            (%%cons (walk (%%car (jazz.source-code form-src))) (walk (%%cdr (jazz.source-code form-src))))))
+      form-src))
+  
+  (jazz.new-quasiquote (walk (%%cadr (jazz.source-code form-src)))))
 
 
 (jazz.encapsulate-class jazz.Scheme-Walker)

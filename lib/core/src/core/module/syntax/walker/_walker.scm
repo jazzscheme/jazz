@@ -260,14 +260,14 @@
 
 
 (define (jazz.get-declaration-path declaration)
-  (letrec ((proc
-            (lambda (declaration)
-              (let ((name (%%get-lexical-binding-name declaration))
-                    (parent (%%get-declaration-parent declaration)))
-                (if (%%not parent)
-                    (%%list name)
-                  (%%cons name (proc parent)))))))
-    (jazz.reverse! (proc declaration))))
+  (define (iter declaration)
+    (let ((name (%%get-lexical-binding-name declaration))
+          (parent (%%get-declaration-parent declaration)))
+      (if (%%not parent)
+          (%%list name)
+        (%%cons name (iter parent)))))
+  
+  (jazz.reverse! (iter declaration)))
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Declaration binding) symbol source-declaration)
@@ -3404,19 +3404,19 @@
         (find-name name (%%cdr lst)))))
   
   (let ((queue (jazz.new-queue)))
-    (letrec ((collect-declarations
-              (lambda (declaration)
-                (for-each collect-declarations (jazz.get-declaration-inclusions declaration))
-                ;; This name based test if a quick solution to the complex problem of a declaration
-                ;; replacing another one where there are references to the old one. Should we then just
-                ;; replace or destructively modify the old one and what if the type of the one replacing
-                ;; is incompatible...
-                (%%when (%%not (find-name (%%get-lexical-binding-name declaration) (jazz.queue-list queue)))
-                  (jazz.enqueue queue declaration)))))
-      (for-each collect-declarations (%%get-module-declaration-inclusions module-declaration))
-      (map (lambda (declaration)
-             (jazz.expand-referenced-declaration declaration))
-           (jazz.queue-list queue)))))
+    (define (collect-declarations declaration)
+      (for-each collect-declarations (jazz.get-declaration-inclusions declaration))
+      ;; This name based test if a quick solution to the complex problem of a declaration
+      ;; replacing another one where there are references to the old one. Should we then just
+      ;; replace or destructively modify the old one and what if the type of the one replacing
+      ;; is incompatible...
+      (%%when (%%not (find-name (%%get-lexical-binding-name declaration) (jazz.queue-list queue)))
+        (jazz.enqueue queue declaration)))
+    
+    (for-each collect-declarations (%%get-module-declaration-inclusions module-declaration))
+    (map (lambda (declaration)
+           (jazz.expand-referenced-declaration declaration))
+         (jazz.queue-list queue))))
 
 
 (define (jazz.emit-module-literals module-declaration)
@@ -4112,45 +4112,45 @@
         (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
   
   (let ((internal-defines '()))
-    (letrec ((process
-               (lambda (form)
-                 (cond ((jazz.begin-form? form)
-                        (let ((state #f))
-                          (for-each (lambda (sub)
-                                      (let ((substate (process sub)))
-                                        (if (%%not state)
-                                            (set! state substate)
-                                          (if (%%neq? substate state)
-                                              (jazz.error "Inconsistant internal defines")))))
-                                    (%%cdr (jazz.source-code form)))
-                          state))
-                       ((jazz.define-form? form)
-                        (set! internal-defines (%%cons form internal-defines))
-                        'defines)
-                       (else
-                        'expressions)))))
-      (let iter ((scan form-list))
-        (if (or (%%null? scan)
-                (%%eq? (process (%%car scan)) 'expressions))
-            (if (%%null? internal-defines)
-                (jazz.new-body '() (jazz.walk-list walker resume declaration environment scan))
-              (let ((variables (jazz.new-queue))
-                    (augmented-environment environment))
-                (for-each (lambda (internal-define)
-                            (let ((signature (%%cadr (%%desourcify internal-define))))
-                              (let ((name (if (%%symbol? signature)
-                                              signature
-                                            (%%car signature))))
-                                (let ((variable (jazz.new-variable name #f)))
-                                  (jazz.enqueue variables variable)
-                                  (set! augmented-environment (%%cons variable augmented-environment))))))
-                          internal-defines)
-                (jazz.new-body (map (lambda (internal-define variable)
-                                      (walk-internal-define augmented-environment internal-define variable))
-                                    internal-defines
-                                    (jazz.queue-list variables))
-                               (jazz.walk-list walker resume declaration augmented-environment scan))))
-          (iter (%%cdr scan)))))))
+    (define (process form)
+      (cond ((jazz.begin-form? form)
+             (let ((state #f))
+               (for-each (lambda (sub)
+                           (let ((substate (process sub)))
+                             (if (%%not state)
+                                 (set! state substate)
+                               (if (%%neq? substate state)
+                                   (jazz.error "Inconsistant internal defines")))))
+                         (%%cdr (jazz.source-code form)))
+               state))
+            ((jazz.define-form? form)
+             (set! internal-defines (%%cons form internal-defines))
+             'defines)
+            (else
+             'expressions)))
+    
+    (let iter ((scan form-list))
+      (if (or (%%null? scan)
+              (%%eq? (process (%%car scan)) 'expressions))
+          (if (%%null? internal-defines)
+              (jazz.new-body '() (jazz.walk-list walker resume declaration environment scan))
+            (let ((variables (jazz.new-queue))
+                  (augmented-environment environment))
+              (for-each (lambda (internal-define)
+                          (let ((signature (%%cadr (%%desourcify internal-define))))
+                            (let ((name (if (%%symbol? signature)
+                                            signature
+                                          (%%car signature))))
+                              (let ((variable (jazz.new-variable name #f)))
+                                (jazz.enqueue variables variable)
+                                (set! augmented-environment (%%cons variable augmented-environment))))))
+                        internal-defines)
+              (jazz.new-body (map (lambda (internal-define variable)
+                                    (walk-internal-define augmented-environment internal-define variable))
+                                  internal-defines
+                                  (jazz.queue-list variables))
+                             (jazz.walk-list walker resume declaration augmented-environment scan))))
+        (iter (%%cdr scan))))))
 
 
 (define (jazz.parse-define walker resume declaration rest)
@@ -4245,20 +4245,20 @@
 
 
 (define (jazz.scheme-pair-literal? form)
-  (letrec ((scheme-data?
-             (lambda (expr)
-               (or (%%null? expr)
-                   (%%boolean? expr)
-                   (%%char? expr)
-                   (%%string? expr)
-                   (%%keyword? expr)
-                   (%%number? expr)
-                   (%%symbol? expr)
-                   ;; will need to scan vectors when we want jazz literals inside vectors
-                   (%%vector? expr)
-                   (and (%%pair? expr) (scheme-data? (%%car expr)) (scheme-data? (%%cdr expr)))))))
-    (and (%%pair? form)
-         (scheme-data? form))))
+  (define (scheme-data? expr)
+    (or (%%null? expr)
+        (%%boolean? expr)
+        (%%char? expr)
+        (%%string? expr)
+        (%%keyword? expr)
+        (%%number? expr)
+        (%%symbol? expr)
+        ;; will need to scan vectors when we want jazz literals inside vectors
+        (%%vector? expr)
+        (and (%%pair? expr) (scheme-data? (%%car expr)) (scheme-data? (%%cdr expr)))))
+  
+  (and (%%pair? form)
+       (scheme-data? form)))
 
 
 ;;;

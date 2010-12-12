@@ -208,27 +208,27 @@
   
   
   (method (import-favorites)
-    (letrec ((tree (get-tree))
-             (component (selected-component~ tree))
-             (directory (choose-directory title: "Choose favorites folder"))
-             (bad '())
-             (proc
-              (lambda (component directory)
-                (iterate-directory~ directory
-                  (lambda (pathname)
-                    (user-message "Importing {a}..." (get-base~ pathname))
-                    (let ((title (get-base~ pathname)))
-                      (if (directory? pathname)
-                          (let ((set (new Group title: title visible?: #f)))
-                            (add-child~ designer set component)
-                            (set-property~ designer set title: title)
-                            (proc set pathname))
-                        (bell))))
-                  directories?: #t
-                  recursive?: #f))))
+    (let* ((tree (get-tree))
+           (component (selected-component~ tree))
+           (directory (choose-directory title: "Choose favorites folder"))
+           (bad '()))
+      (define (iter component directory)
+        (iterate-directory~ directory
+          (lambda (pathname)
+            (user-message "Importing {a}..." (get-base~ pathname))
+            (let ((title (get-base~ pathname)))
+              (if (directory? pathname)
+                  (let ((set (new Group title: title visible?: #f)))
+                    (add-child~ designer set component)
+                    (set-property~ designer set title: title)
+                    (iter set pathname))
+                (bell))))
+          directories?: #t
+          recursive?: #f))
+      
       (with-update-locked~ tree
         (lambda ()
-          (proc component directory)))
+          (iter component directory)))
       (user-message "Done")))
   
   

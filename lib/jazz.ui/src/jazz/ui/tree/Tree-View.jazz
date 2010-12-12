@@ -880,16 +880,17 @@
     
     (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
     (receive (equal smaller greater) (sort-predicates)
-      (letrec ((direction (if sort-ascending? smaller greater))
-               (proc (lambda (row)
-                       (let ((sorted (sort-rows (get-sons~ row) equal direction)))
-                         (reorder-sons~ row sorted)
-                         (iterate (get-sons~ row) proc)))))
+      (let ((direction (if sort-ascending? smaller greater)))
+        (define (iter row)
+          (let ((sorted (sort-rows (get-sons~ row) equal direction)))
+            (reorder-sons~ row sorted)
+            (iterate (get-sons~ row) iter)))
+        
         (with-preserved-selection
           (lambda ()
             (with-update-locked
               (lambda ()
-                (proc root-row))))
+                (iter root-row))))
           ensure-displayed?: #f))))
   
   

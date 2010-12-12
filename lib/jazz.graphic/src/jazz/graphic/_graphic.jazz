@@ -42,6 +42,7 @@
         (jazz.graphic.autoload))
 
 (import (jazz.graphic.autoload)
+        (jazz.geometry)
         (jazz.library.exemplar))
 
 
@@ -162,9 +163,6 @@
             (fxround (* g 255))
             (fxround (* b 255))))
   
-  ;; quicky to fix
-  (when (>= h 360)
-    (set! h 359))
   (let ((h (exact->inexact h))
         (s (exact->inexact s))
         (v (exact->inexact v)))
@@ -196,20 +194,15 @@
     (new Color red: r green: g blue: b)))
 
 
-@to-be-redone
 (definition public (color-cycle base cycle subcycle)
-  (let* ((seq (cycle-naturals cycle subcycle))
-         (cardinality (* cycle subcycle))
-         (inc (/ 240 cardinality))
-         (ref (get-colorref~ (rgb->hls~ base)))
-         (hue (red-part ref))
-         (lig (green-part ref))
-         (sat (blue-part ref)))
-    (map (lambda (n)
-           (let* ((hue (+ hue (round (* inc n))))
-                  (hls (new Color red: (round hue) green: lig blue: sat)))
-             (hls->rgb~ hls)))
-         seq)))
+  (let ((seq (naturals-cycle cycle subcycle))
+        (cardinality (* cycle subcycle)))
+    (let ((inc (/ 360 cardinality)))
+      (receive (h s v) (color->hsv base)
+        (map (lambda (n)
+               (let ((h (+ h (round (* inc n)))))
+                 (hsv->color (fxround h) s v)))
+             seq)))))
 
 
 ;;;

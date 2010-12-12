@@ -274,7 +274,13 @@
 (class undocumented Exemplar-Domain extends Object
   
   
-  (slot protected content <Axis> initialize (new Axis 0))
+  (slot initer)
+  (slot content <Axis> initialize (new Axis 0))
+  
+  
+  (method override (initialize (initer: initer #f))
+    (nextmethod)
+    (set! initer~self initer))
   
   
   ;;;
@@ -283,6 +289,10 @@
   
   
   (method public (get-content)
+    (when initer
+      (let ((thunk initer))
+        (set! initer #f)
+        (thunk)))
     content)
   
   
@@ -302,17 +312,17 @@
   
   
   (method public (add exemplar)
-    (axis-add content exemplar))
+    (axis-add (get-content) exemplar))
   
   
   (method public (reference rank/name)
     (if (integer? rank/name)
-        (element content rank/name)
+        (element (get-content) rank/name)
       (locate rank/name)))
   
   
   (method public (locate name (error?: error? #t))
-    (or (find-in content name key: get-name~)
+    (or (find-in (get-content) name key: get-name~)
         (when error?
           (error "Unable to locate: {t}" name))))
   
@@ -320,11 +330,11 @@
   (method public (similar exemplar)
     (when (not (get-domain~ exemplar))
       (set-domain~ exemplar self))
-    (find-in content exemplar test: exemplar=?))
+    (find-in (get-content) exemplar test: exemplar=?))
   
   
   (method public (get-rank exemplar)
-    (find content exemplar))
+    (find (get-content) exemplar))
   
   
   ;;;
@@ -333,4 +343,4 @@
   
   
   (method public (collect-persistent)
-    (collect-if get-persistent?~ content))))
+    (collect-if get-persistent?~ (get-content)))))

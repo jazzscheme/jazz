@@ -73,7 +73,9 @@
 
 
 (definition package *colors*
-  (new Exemplar-Domain))
+  (new Exemplar-Domain
+    initer: (lambda ()
+              (load-unit 'jazz.graphic.literals.colors))))
 
 
 (definition package (register-color color)
@@ -82,7 +84,6 @@
 
 
 (definition package (registered-color name (alpha #f))
-  (load-unit 'jazz.graphic.literals.colors)
   (let ((color (locate~ *colors* name)))
     (if alpha
         (let ((color (copy (registered-color name))))
@@ -216,24 +217,24 @@
 ;;;
 
 
-(definition *fonts*
-  (make-table test: eq?))
+(definition package *fonts*
+  (new Exemplar-Domain
+    initer: (lambda ()
+              (load-unit 'jazz.graphic.literals.fonts))))
 
 
-(definition package (register-font name font)
-  (table-set! *fonts* name font))
+(definition package (register-font font)
+  (set-domain~ font *fonts*)
+  (register~ font))
 
 
 (definition package (registered-font name)
-  (load-unit 'jazz.graphic.literals.fonts)
-  (or (registered-object *fonts* name)
-      (error "Unknown font: {s}" name)))
+  (locate~ *fonts* name))
 
 
 (definition public (symbolic-fonts)
-  (map-table *fonts*
-             (lambda (name value)
-               name)))
+  (accumulate (get-content~ *fonts*)
+              get-name~))
 
 
 (definition public (symbolic-font font)
@@ -243,7 +244,7 @@
 
 
 (definition public (for-each-font proc)
-  (for-each-object *fonts* proc))
+  (iterate (get-content~ *fonts*) proc))
 
 
 ;;;

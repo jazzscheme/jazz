@@ -71,12 +71,12 @@
 ;       (else (nextmethod attribute value))))
 ;   (begin
 ;     (method public (get-key)
-;       key)
+;       ...)
 ;     (method public (set-key value)
 ;       (set! key value)))
 ;   (begin
 ;     (method public (get-criteria)
-;       criteria)
+;       ...)
 ;     (method public (set-criteria value)
 ;       (set! criteria value))))
 

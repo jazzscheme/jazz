@@ -296,7 +296,7 @@
        lst))
 
 
-(define (jazz.for-each-lower-update target updates proc)
+(define (jazz.for-each-update target updates proc)
   (let iter ((updates updates))
     (if (not (null? updates))
         (let ((update (car updates)))
@@ -313,7 +313,7 @@
     (let ((uptodate? #t))
       (continuation-capture
         (lambda (return)
-          (jazz.for-each-lower-update target updates
+          (jazz.for-each-update target updates
             (lambda (update)
               (let ((version-number (jazz.update-version update)))
                 (let ((version-dir (version-directory version-number)))
@@ -354,7 +354,7 @@
 (define (jazz.versioned-version target updates)
   (continuation-capture
     (lambda (return)
-      (jazz.for-each-lower-update target updates
+      (jazz.for-each-update target updates
         (lambda (update)
           (continuation-return return (jazz.update-version update))))
       #f)))

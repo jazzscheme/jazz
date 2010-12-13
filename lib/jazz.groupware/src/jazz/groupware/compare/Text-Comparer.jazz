@@ -159,26 +159,26 @@
   
   
   (method (insert-line node <Compare-Node> line <Compare-Line>)
-    (letrec ((string (get-string~ line))
-             (proc
-              (lambda (subnode <Compare-Node> n <fx>)
-                (let* ((lines (get-lines~ subnode))
-                       (baseline (if (null? lines) #f (car lines))))
-                  (if baseline
-                      (let ((basestring (get-string~ baseline)))
-                        (if (string=? basestring string)
-                            (add-line~ subnode line)
-                          (let* ((key (string-ref basestring n))
-                                 (newnode (new Compare-Node (get-lines~ subnode) key)))
-                            (set-lines~ subnode '())
-                            (add-child~ subnode newnode)
-                            (proc subnode n))))
-                    (let* ((c (string-ref string n))
-                           (matchnode (find-in (get-children~ subnode) c key: (lambda (node <Compare-Node>) (get-key~ node)))))
-                      (if (not matchnode)
-                          (add-child~ subnode (new Compare-Node (list line) c))
-                        (proc matchnode (+ n 1)))))))))
-      (proc node 0)))
+    (let ((string (get-string~ line)))
+      (define (iter subnode <Compare-Node> n <fx>)
+        (let* ((lines (get-lines~ subnode))
+               (baseline (if (null? lines) #f (car lines))))
+          (if baseline
+              (let ((basestring (get-string~ baseline)))
+                (if (string=? basestring string)
+                    (add-line~ subnode line)
+                  (let* ((key (string-ref basestring n))
+                         (newnode (new Compare-Node (get-lines~ subnode) key)))
+                    (set-lines~ subnode '())
+                    (add-child~ subnode newnode)
+                    (iter subnode n))))
+            (let* ((c (string-ref string n))
+                   (matchnode (find-in (get-children~ subnode) c key: (lambda (node <Compare-Node>) (get-key~ node)))))
+              (if (not matchnode)
+                  (add-child~ subnode (new Compare-Node (list line) c))
+                (iter matchnode (+ n 1)))))))
+      
+      (iter node 0)))
   
   
   (method (collect-matches node <Compare-Node>)
@@ -217,10 +217,10 @@
   
   
   (method public (print-tree node <Compare-Node> printer)
-    (letrec ((proc
-              (lambda (node <Compare-Node> level <fx>)
-                (format printer "{_ :v}{s}{%}" (* level 2) node)
-                (for-each (lambda (subnode <Compare-Node>)
-                            (proc subnode (+ level 1)))
-                          (get-children~ node)))))
-      (proc node 0)))))
+    (define (iter node <Compare-Node> level <fx>)
+      (format printer "{_ :v}{s}{%}" (* level 2) node)
+      (for-each (lambda (subnode <Compare-Node>)
+                  (iter subnode (+ level 1)))
+                (get-children~ node)))
+    
+    (iter node 0))))

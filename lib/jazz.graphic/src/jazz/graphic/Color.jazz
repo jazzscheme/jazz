@@ -38,110 +38,23 @@
 (module protected jazz.graphic.Color jazz
 
 
-(import (jazz.graphic))
+(import (jazz.graphic)
+        (jazz.library.exemplar))
 
 
-(class Color extends Object
+(class Color extends Exemplar
   
   
-  (slot name  getter generate)
-  (slot red   getter explicit)
-  (slot green getter explicit)
-  (slot blue  getter explicit)
-  (slot alpha accessors explicit)
+  (attributes ()
+    (red   initialize 0)
+    (green initialize 0)
+    (blue  initialize 0)
+    (alpha initialize #f))
   
   
-  (method override (initialize (name: name #f)
-                               (red: red (unspecified))
-                               (green: green (unspecified))
-                               (blue: blue (unspecified))
-                               (alpha: alpha (unspecified)))
-    (nextmethod)
-    (set! name~self name)
-    (set! red~self red)
-    (set! green~self green)
-    (set! blue~self blue)
-    (set! alpha~self alpha))
-  
-  
-  (method override (copy-object deep?)
-    (new Color
-      name: name
-      red: red
-      green: green
-      blue: blue
-      alpha: alpha))
-
-
-  (method override (compare-object target)
-    (cond ((is-not? target Color)
-           :incompatible)
-          ((color=? self target)
-           :equal)
-          (else
-           :not-equal)))
-  
-  
-  (method override (print printer readably)
-    (format printer "~{{a}{? name: {a}~}{?: red: {a}~}{?: green: {a}~}{?: blue: {a}~}{?: alpha: {a}~}}"
-            (category-name (class-of self))
-            name
-            (specified? red) red
-            (specified? green) green
-            (specified? blue) blue
-            (specified? alpha) alpha))
-
-
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-red)
-    (cond ((specified? red)
-           red)
-          (name
-           (get-red~ (registered-color name)))
-          (else
-           (unspecified))))
-  
-  
-  (method public (get-green)
-    (cond ((specified? green)
-           green)
-          (name
-           (get-green~ (registered-color name)))
-          (else
-           (unspecified))))
-  
-  
-  (method public (get-blue)
-    (cond ((specified? blue)
-           blue)
-          (name
-           (get-blue~ (registered-color name)))
-          (else
-           (unspecified))))
-  
-  
-  (method public (get-alpha)
-    (cond ((specified? alpha)
-           alpha)
-          (name
-           (get-alpha~ (registered-color name)))
-          (else
-           #f)))
-  
-  
-  (method public (set-alpha value)
-    (set! alpha value))
-  
-  
-  (method public (white?)
-    (and (= (get-red) 255)
-         (= (get-green) 255)
-         (= (get-blue) 255)
-         (not (get-alpha))))
+  (method override (initialize . rest)
+    (apply nextmethod rest)
+    (set! domain *colors*))
 
 
   ;;;
@@ -183,15 +96,22 @@
     (if name
         (->string name)
       (format "{a} {a} {a}{? {a}~}"
-              red
-              green
-              blue
-              alpha)))
+              (get-red)
+              (get-green)
+              (get-blue)
+              (get-alpha))))
 
 
   ;;;
   ;;;; Conversions
   ;;;
+  
+  
+  (method public (white?)
+    (and (= (get-red) 255)
+         (= (get-green) 255)
+         (= (get-blue) 255)
+         (not (get-alpha))))
   
   
   (method public (determine-color enabled? selected?)
@@ -205,36 +125,4 @@
     (case name
       ((Dark-Red) (registered-color 'Yellow))
       ((Dark-Gray) (registered-color 'Gray))
-      (else #f)))
-  
-  
-  @To-be-redone
-  (method public (rgb->hls)
-    (receive (hue lightness saturation) (ColorRGBToHLS ref)
-      (new Color colorref: (rgb hue lightness saturation))))
-  
-  @To-be-redone
-  (method public (hls->rgb)
-    (let ((ref (ColorHLSToRGB (red-part ref) (green-part ref) (blue-part ref))))
-      (new Color colorref: ref)))
-
-
-  ;;;
-  ;;;; Cycles
-  ;;;
-  
-  
-  @To-be-redone
-  (method meta public (color-cycle base cycle subcycle)
-    (let* ((seq (cycle-naturals cycle subcycle))
-           (cardinality (* cycle subcycle))
-           (inc (/ 240 cardinality))
-           (ref (get-colorref~ (rgb->hls~ base)))
-           (hue (red-part ref))
-           (lig (green-part ref))
-           (sat (blue-part ref)))
-      (map (lambda (n)
-             (let* ((hue (+ hue (round (* inc n))))
-                    (hls (new Color red: (round hue) green: lig blue: sat)))
-               (hls->rgb~ hls)))
-           seq)))))
+      (else #f)))))

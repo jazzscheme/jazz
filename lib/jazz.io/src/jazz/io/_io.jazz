@@ -240,20 +240,6 @@
 
 
 ;;;
-;;;; Protocol
-;;;
-
-
-(definition public (get-protocol-handler protocol (error?: error? #t))
-  (let ((protocol (if (keyword? protocol) (keyword->symbol protocol) protocol)))
-    (case protocol
-      ((file) File)
-      ((dir) Directory)
-      (else (when error?
-              (signal (new Parse-Error message: (format "Unknown protocol: {t}" protocol))))))))
-
-
-;;;
 ;;;; Moniker
 ;;;
 
@@ -429,20 +415,20 @@
     (set-list lst))
   
   
-  (definition (validate-component object)
+  (method protected virtual (validate-component object)
     (let ((original object))
-      (letrec ((validate
-                 (lambda (object)
-                   (cond ((null? object))
-                         ((string? object))
-                         ((symbol? object))
-                         ((pair? object)
-                          (if (pair? (car object))
-                              (error "Bad pathname component {t} of {t}" (car object) original)
-                            (validate (car object))
-                            (validate (cdr object))))
-                         (else (error "Bad pathname component {t} of {t}" object original))))))
-        (validate object))))
+      (define (validate object)
+        (cond ((null? object))
+              ((string? object))
+              ((symbol? object))
+              ((pair? object)
+               (if (pair? (car object))
+                   (error "Bad pathname component {t} of {t}" (car object) original)
+                 (validate (car object))
+                 (validate (cdr object))))
+              (else (error "Bad pathname component {t} of {t}" object original))))
+      
+      (validate object)))
   
   
   (method public (parse . rest)
@@ -450,29 +436,29 @@
       (let ((printer (open-output-string))
             (first? #t)
             (aliases '()))
-        (letrec ((parse
-                   (lambda (path)
-                     (cond ((null? path))
-                           ((eq? path :root)
-                            (display "/" printer))
-                           ((string? path)
-                            (if first?
-                                (set! first? #f)
-                              (display separator printer))
-                            (display path printer))
-                           ((symbol? path)
-                            (if (memq? path aliases)
-                                (error "Recursive alias {a} in {s}" path self)
-                              (set! aliases (cons path aliases))
-                              (if (pathname-alias? path)
-                                  (parse (pathname-alias path))
-                                (error "Unknown alias: {s}" path))))
-                           ((pair? path)
-                            (parse (car path))
-                            (parse (cdr path)))
-                           (else
-                            (error "Bad pathname component {t}" path))))))
-          (parse (get-list)))
+        (define (parse path)
+          (cond ((null? path))
+                ((eq? path :root)
+                 (display "/" printer))
+                ((string? path)
+                 (if first?
+                     (set! first? #f)
+                   (display separator printer))
+                 (display path printer))
+                ((symbol? path)
+                 (if (memq? path aliases)
+                     (error "Recursive alias {a} in {s}" path self)
+                   (set! aliases (cons path aliases))
+                   (if (pathname-alias? path)
+                       (parse (pathname-alias path))
+                     (error "Unknown alias: {s}" path))))
+                ((pair? path)
+                 (parse (car path))
+                 (parse (cdr path)))
+                (else
+                 (error "Bad pathname component {t}" path))))
+        
+        (parse (get-list))
         (add-suffix printer)
         (pathname-expand (get-output-string printer)))))
   
@@ -522,29 +508,29 @@
   
   
   (method public (valid-aliases?)
-    (letrec ((valid?
-              (lambda (list)
-                (or (eq? list #t)
-                    (every? (lambda (item)
-                              (or (not (symbol? item))
-                                  (and (pathname-alias? item)
-                                       (valid? (pathname-alias item)))))
-                            list)))))
-      (valid? (get-list))))
+    (define (valid? list)
+      (or (eq? list #t)
+          (every? (lambda (item)
+                    (or (not (symbol? item))
+                        (and (pathname-alias? item)
+                             (valid? (pathname-alias item)))))
+                  list)))
+    
+    (valid? (get-list)))
   
   
   (method public (expand)
     (let ((fact (new List-Factory)))
-      (letrec ((expand
-                (lambda (object)
-                  (cond ((eq? object #t))
-                        ((eq? object :root) (put~ fact :root))
-                        ((string? object) (put~ fact object))
-                        ((symbol? object) (expand (pathname-alias object)))
-                        ((pair? object)
-                         (expand (car object))
-                         (expand (cdr object)))))))
-        (expand (get-list)))
+      (define (expand object)
+        (cond ((eq? object #t))
+              ((eq? object :root) (put~ fact :root))
+              ((string? object) (put~ fact object))
+              ((symbol? object) (expand (pathname-alias object)))
+              ((pair? object)
+               (expand (car object))
+               (expand (cdr object)))))
+      
+      (expand (get-list))
       (get-output~ fact)))
 
 
@@ -742,19 +728,6 @@
     'file))
 
 
-(definition public (create-temporary-file (directory: directory #f) (prefix: prefix "JZZ"))
-  (unimplemented 'create-temporary-file)
-  @windows-specific
-  (let* ((directory (or directory (get-tmp-directory)))
-         (dir (parse~ directory)))
-    (if (empty-string? dir)
-        (error "Unable to use {t} as a temporary directory" directory)
-      (let ((filename (make-string MAX_PATH)))
-        (GetTempFileName (parse~ directory) prefix 0 filename)
-        (adjust-string filename)
-        (new File (tokenise-windows filename))))))
-
-
 (class File metaclass File-Class extends Pathname
   
   
@@ -906,6 +879,19 @@
           (if (exists?~ file)
               (iterate (+ n 1))
             file))))))
+
+
+(definition public (create-temporary-file (directory: directory #f) (prefix: prefix "JZZ"))
+  (unimplemented 'create-temporary-file)
+  @windows-specific
+  (let* ((directory (or directory (get-tmp-directory)))
+         (dir (parse~ directory)))
+    (if (empty-string? dir)
+        (error "Unable to use {t} as a temporary directory" directory)
+      (let ((filename (make-string MAX_PATH)))
+        (GetTempFileName (parse~ directory) prefix 0 filename)
+        (adjust-string filename)
+        (new File (tokenise-windows filename))))))
 
 
 ;;;

@@ -89,23 +89,23 @@
   (method (dependency-modified? object file catalog)
     (continuation-capture
       (lambda (return)
-        (letrec ((object-time (get-modification-time~ object))
-                 (verified '())
-                 (proc
-                   (lambda (def)
-                     (unless (memq? def verified)
-                       (if (> (get-time~ def) object-time)
-                           (continuation-return return #t)
-                         (set! verified (cons def verified))
-                         (for-each (lambda (def)
-                                     (let ((include (get-include-file~ def)))
-                                       (when include
-                                         (proc include))))
-                                   (get-includes~ def)))))))
+        (let ((object-time (get-modification-time~ object))
+              (verified '()))
+          (define (iter def)
+            (unless (memq? def verified)
+              (if (> (get-time~ def) object-time)
+                  (continuation-return return #t)
+                (set! verified (cons def verified))
+                (for-each (lambda (def)
+                            (let ((include (get-include-file~ def)))
+                              (when include
+                                (iter include))))
+                          (get-includes~ def)))))
+          
           (let ((file-def (and catalog (get-file-entry~ catalog file))))
             (if (null? file-def)
                 (> (get-modification-time~ file) object-time)
-              (proc file-def)
+              (iter file-def)
               #f))))))
   
   

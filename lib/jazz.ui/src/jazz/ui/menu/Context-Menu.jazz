@@ -42,7 +42,7 @@
 
 
 (class Context-Menu extends Menu
-    
+  
   
   (property client initialize #f accessors generate)
   
@@ -73,48 +73,50 @@
                                                             (list user-item (key user-item)))
                                                           user-items)
                                         key: second))))
-        (letrec ((proc (lambda (items menu super-count)
-                         (let ((count (* (length items) super-count)))
-                           (for-each (lambda (item)
-                                       (bind (value string . rest) item
-                                         (cond ((null? rest)
-                                                (create-leaf value string menu))
-                                               ((eq? value :leaves)
-                                                (for-each (lambda (item)
-                                                            (bind (value string) item
-                                                              (create-leaf value string menu)))
-                                                          (car rest)))
-                                               (else
-                                                (let ((sub-items (first rest)))
-                                                  (if (collapse? sub-items count)
-                                                      (proc sub-items menu count)
-                                                    (let* ((menu-item (new Label-Item parent: menu title: (string-append string "...") user-data: item ))
-                                                           (submenu (new Context-Menu parent: menu-item)))
-                                                      (proc sub-items submenu 1)
-                                                      (layout-menu~ submenu))))))))
-                                     items)))))
-          (proc values-tree top-menu 1))))
+        (define (iter items menu super-count)
+          (let ((count (* (length items) super-count)))
+            (for-each (lambda (item)
+                        (bind (value string . rest) item
+                          (cond ((null? rest)
+                                 (create-leaf value string menu))
+                                ((eq? value :leaves)
+                                 (for-each (lambda (item)
+                                             (bind (value string) item
+                                               (create-leaf value string menu)))
+                                           (car rest)))
+                                (else
+                                 (let ((sub-items (first rest)))
+                                   (if (collapse? sub-items count)
+                                       (iter sub-items menu count)
+                                     (let* ((menu-item (new Label-Item parent: menu title: (string-append string "...") user-data: item ))
+                                            (submenu (new Context-Menu parent: menu-item)))
+                                       (iter sub-items submenu 1)
+                                       (layout-menu~ submenu))))))))
+                      items)))
+        
+        (iter values-tree top-menu 1)))
     
     (define (create-tree leaves)
-      (letrec ((proc (lambda (items level)
-                       (if (<= (* (length items) 2) max-leaves)
-                           (list (list :leaves "" items))
-                         (let ((groups (partition items key: (lambda (leaf)
-                                                               (let ((title (second leaf)))
-                                                                 (if (<= (string-length title) level)
-                                                                     ""
-                                                                   (subseq title level (+ level 1))))) test: equal?)))
-                           (map (lambda (group)
-                                  (cond ((= (length group) 2)
-                                         (second group))
-                                        ((string=? (first group) "")
-                                         (list :leaves "" (cdr group)))
-                                        (else
-                                         (let* ((sub-items (cdr group))
-                                                (prefix (prefix (map second sub-items))))
-                                           (list '() prefix (proc sub-items (string-length prefix)))))))
-                                groups))))))
-        (proc leaves 0)))
+      (define (iter items level)
+        (if (<= (* (length items) 2) max-leaves)
+            (list (list :leaves "" items))
+          (let ((groups (partition items key: (lambda (leaf)
+                                                (let ((title (second leaf)))
+                                                  (if (<= (string-length title) level)
+                                                      ""
+                                                    (subseq title level (+ level 1))))) test: equal?)))
+            (map (lambda (group)
+                   (cond ((= (length group) 2)
+                          (second group))
+                         ((string=? (first group) "")
+                          (list :leaves "" (cdr group)))
+                         (else
+                          (let* ((sub-items (cdr group))
+                                 (prefix (prefix (map second sub-items))))
+                            (list '() prefix (iter sub-items (string-length prefix)))))))
+                 groups))))
+      
+        (iter leaves 0))
     
     (let ((top-menu self)
           (sections (collect-sections user-items))

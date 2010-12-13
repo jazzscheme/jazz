@@ -788,6 +788,7 @@
 (native jazz.pretty-print)
 (native jazz.read-source-all)
 (native jazz.read-source-first)
+(native jazz.read-literal-hook)
 (native force-output)
 (native current-error-port)
 (native with-output-to-port)

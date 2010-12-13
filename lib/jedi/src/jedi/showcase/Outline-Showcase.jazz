@@ -138,11 +138,11 @@
   
   (method (random-color)
     (random-element
-      '({Color name: Dark-Red}
-        {Color name: Dark-Orange}
-        {Color name: Dark-Green}
-        {Color name: Dark-Blue}
-        {Color name: Dark-Purple})))
+      '({Color Dark-Red}
+        {Color Dark-Orange}
+        {Color Dark-Green}
+        {Color Dark-Blue}
+        {Color Dark-Purple})))
   
   
   ;;;
@@ -224,27 +224,27 @@
   
   
   (method (display-outline)
-    (letrec ((outline (locate 'outline))
-             (info (locate 'info))
-             (proc
-              (lambda (row dest)
-                (let ((subdest (add-row~ info father: dest state: 'expanded children: (display-row outline row))))
-                  (iterate (get-sons~ row)
-                           (lambda (subrow)
-                             (proc subrow subdest)))))))
+    (let ((outline (locate 'outline))
+          (info (locate 'info)))
+      (define (iter row dest)
+        (let ((subdest (add-row~ info father: dest state: 'expanded children: (display-row outline row))))
+          (iterate (get-sons~ row)
+                   (lambda (subrow)
+                     (iter subrow subdest)))))
+      
       (remove-every-row~ info)
       (with-update-locked~ info
         (lambda ()
           (iterate (get-sons~ (get-root-row~ outline))
                    (lambda (row)
-                     (proc row #f)))))))
+                     (iter row #f)))))))
   
   
   (method (display-row outline row)
     (let* ((node (car (get-children~ row)))
            (line (lambda (row) (and row (row->line outline row))))
            (visible? (get-visible?~ row))
-           (color (if visible? {Color name: Dark-Red} {Color name: Dark-Blue}))
+           (color (if visible? {Color Dark-Red} {Color Dark-Blue}))
            (c0 (new Tree-Node color: (get-background~ row) title: (and node (get-title~ node)) image: (and node (get-image~ node))))
            (c1 (new Tree-Label title: (get-level~ row)))
            (c2 (new Tree-Label title: (get-state~ row)))
@@ -257,14 +257,14 @@
   (method (row->line outline row)
     (continuation-capture
       (lambda (return)
-        (letrec ((line -1)
-                 (proc
-                   (lambda (subrow)
-                     (if (eq? subrow row)
-                         (continuation-return return line)
-                       (increase! line)
-                       (iterate (get-sons~ subrow) proc)))))
-          (proc (get-root-row~ outline))
+        (let ((line -1))
+          (define (iter subrow)
+            (if (eq? subrow row)
+                (continuation-return return line)
+              (increase! line)
+              (iterate (get-sons~ subrow) iter)))
+          
+          (iter (get-root-row~ outline))
           (error "Unable to locate row: {t}" row)))))
 
   

@@ -55,11 +55,11 @@
       (with-cursor :wait
         (lambda ()
           (let ((form (file-form file)))
-            (letrec ((convert
-                       (lambda (form)
-                         (proc form)
-                         (for-each convert (get-children~ form)))))
-              (convert form))
+            (define (convert form)
+              (proc form)
+              (for-each convert (get-children~ form)))
+            
+            (convert form)
             (ensure-read/write file)
             (save~ (new Designer form: form))
             (edit-document~ (get-application) file)
@@ -107,15 +107,16 @@
                                               section)
                                             (put~ fact (get-output~ f)))))
                                        (else
-                                        (letrec ((convert
-                                                   (lambda (parent-form form)
-                                                     (proc section-name parent-form form)
-                                                     (for-each (lambda (subform)
-                                                                 (convert form subform))
-                                                               (get-children~ form))
-                                                     (let ((client-form (get-property~ form 'client-form)))
-                                                       (when client-form
-                                                         (convert #f client-form))))))
+                                        (let ()
+                                          (define (convert parent-form form)
+                                            (proc section-name parent-form form)
+                                            (for-each (lambda (subform)
+                                                        (convert form subform))
+                                                      (get-children~ form))
+                                            (let ((client-form (get-property~ form 'client-form)))
+                                              (when client-form
+                                                (convert #f client-form))))
+                                          
                                           (convert #f section))
                                         (put~ fact section)))))
                 book)

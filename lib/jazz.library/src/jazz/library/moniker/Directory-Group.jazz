@@ -42,21 +42,28 @@
 (import (jazz.io))
 
 
-(class undocumented Directory-Group extends Directory
+(class Directory-Group-Class extends (:class Directory)
   
   
-  (method override (print printer readably)
-    (format printer "~{Directory-Group {l detail: :v}}"
-            (get-list)
-            readably))
+  (method override (get-protocol)
+    'group))
+
+
+(class Directory-Group metaclass Directory-Group-Class extends Directory
   
   
-  @convert
-  (method meta (validate-component lst)
+  (method override (validate-component lst)
     (for-each (lambda (dir)
                 (when (is-not? dir Directory)
                   (error "{s} is not of the expected Directory type" dir)))
               lst))
+  
+  
+  (method override (print printer readably)
+    (let ((lst (get-list)))
+      (format printer "~{Directory-Group{?: {l detail: :v}~}}"
+              (not-null? lst) lst
+              readably)))
     
         
   ;;;
@@ -64,24 +71,8 @@
   ;;;
   
   
-  @convert
-  (method meta (get-protocol)
-    'group)
-  
-  
-  @convert-dialog
-  (method meta (get-modal . rest)
-    (bind-keywords ((actual #f) . others) rest
-      (new Directory-Group (get-modal Directories-Request directories: (and actual (get-list~ actual))))))
-  
-  
-  @convert
-  (method meta (new-moniker list)
-    (new self list))
-  
-  
   (method override (present)
-    (format "{l}" (get-list)))
+    (join (map present~ (get-list)) ", "))
   
   
   ;;;

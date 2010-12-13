@@ -39,7 +39,8 @@
 (module protected jazz.groupware.compare.Tree-Comparer jazz
 
 
-(import (jazz.groupware))
+(import (jazz.groupware)
+        (jazz.library))
 
 
 (class Tree-Comparer extends Object
@@ -55,10 +56,10 @@
     (node-feedback node1 node2 feedback)
     (let* ((fact    (new List-Factory))
            (entry   (new-entry parent 'node node1 #f node2 #f))
-           (nodes1  (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'nodes))
-           (nodes2  (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'nodes))
-           (leaves1 (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'leaves))
-           (leaves2 (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'leaves))
+           (nodes1  (collect-items parent node1 content1 ignored-nodes ignored-leaves ignored-extensions 'nodes))
+           (nodes2  (collect-items parent node2 content2 ignored-nodes ignored-leaves ignored-extensions 'nodes))
+           (leaves1 (collect-items parent node1 content1 ignored-nodes ignored-leaves ignored-extensions 'leaves))
+           (leaves2 (collect-items parent node2 content2 ignored-nodes ignored-leaves ignored-extensions 'leaves))
            (n       (lambda () (compare-items entry 'node nodes1 content1 nodes2 content2 ignored-nodes ignored-leaves ignored-extensions compare-node-contents check-algorithm feedback fact has-differences?)))
            (l       (lambda () (compare-items entry 'leaf leaves1 #t leaves2 #t ignored-nodes ignored-leaves ignored-extensions compare-leaf-values check-algorithm feedback fact has-differences?))))
       (compare-nodes/leaves n l)
@@ -145,32 +146,28 @@
   ;;;
   
   
-  ;; a quicky until I add more functionality to the settings (maybe regexprs!?)
-  (definition Not-Ignored-Leaves
-    '("Interpreter.exe" "Launcher.exe" "Jedi.exe" "MetaModeler.exe" "MetaModelerBatch.exe"))
-  
-  
   (method protected virtual (new-entry parent kind left left-value right right-value)
     (new Compare-Entry parent kind (and left (get-moniker~ left)) left-value (and right (get-moniker~ right)) right-value))
   
   
-  (method (collect-items node content ignored-nodes ignored-leaves ignored-extensions kind)
+  (method (collect-items parent node content ignored-nodes ignored-leaves ignored-extensions kind)
     (collect-if (lambda (item)
-                  (collect-item? item content ignored-nodes ignored-leaves ignored-extensions))
+                  (collect-item? parent item content ignored-nodes ignored-leaves ignored-extensions))
                 (sort string<? (get-item-content node kind) key: item-name)))
   
   
-  (method protected virtual (collect-item? item content ignored-nodes ignored-leaves ignored-extensions)
+  (method protected virtual (collect-item? parent item content ignored-nodes ignored-leaves ignored-extensions)
     (let* ((name (item-name item))
            (type (get-item-type item))
-           (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else '()))))
+           (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else '())))
+           (toplevel? (or (not parent) (and (is? (get-left~ parent) Directory-Group) (not (get-parent~ parent))))))
       (and (or (and (eq? content #t)
-                    (not (member? name ignored)))
+                    (not (member? name ignored))
+                    (or (not toplevel?) (not (member? (string-append "/" name) ignored))))
                (and (neq? content #t)
                     (member? name content key: item-name)))
            (or (neq? type 'leaf)
                (null? ignored-extensions)
-               (member? name Not-Ignored-Leaves)
                (not (member? (get-extension~ (get-moniker~ item)) ignored-extensions))))))
   
   

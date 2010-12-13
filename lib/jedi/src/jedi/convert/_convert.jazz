@@ -38,12 +38,18 @@
 (module protected jedi.convert jazz
 
 
-(import (jazz.io)
+(import (jazz.graphic.literals)
+        (jazz.io)
         (jazz.library)
         (jazz.library.component))
 
 
-(definition public (convert-settings-205000 dot-jedi-dir)
+;;;
+;;;; Convert initial
+;;;
+
+
+(definition protected (convert-settings-initial dot-jedi-dir)
   (define (convert-profiles)
     (let ((profiles-dir (new-directory~ dot-jedi-dir "profiles")))
       (unless (exists?~ profiles-dir)
@@ -58,10 +64,10 @@
               (lambda (dir)
                 (let ((dirname (get-name~ dir)))
                   (when (and (starts-with? dirname "profile.") (exists?~ (new-file~ dir ".package")))
-                    (let ((dest (new-directory~ profiles-dir (list "lib" dirname))))
-                      (unless (exists?~ dest)
-                        (copy-directory~ dir dest)
-                        (convert-profile dest)
+                    (let ((profile-dir (new-directory~ profiles-dir (list "lib" dirname))))
+                      (unless (exists?~ profile-dir)
+                        (copy-directory~ dir profile-dir)
+                        (convert-profile profile-dir)
                         (feedback "; moving old {a} to obsolete..." dirname)
                         (let ((obsolete-dir (new-directory~ user-dir "obsolete")))
                           (let ((obsolete-profile-dir (new-directory~ obsolete-dir dirname)))
@@ -179,27 +185,6 @@
             (convert-setting settings-dir "Workbench.jml"   'jazz.ide.data.workbench   '(jazz.editor.c jazz.editor.jazz) convert-workbench)
             (convert-setting settings-dir "Workspaces.jml"  'jazz.ide.data.workspaces  '() convert-workspaces))))))
   
-  (define (read-expr file)
-    (with-jazz-readtable
-      (lambda ()
-        (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-          (lambda (input)
-            (parameterize ((walk-for #f))
-              (read input)))))))
-  
-  (define (save-form form file)
-    (with-jazz-readtable
-      (lambda ()
-        (call-with-output-file (list path: (parse~ file) eol-encoding: 'cr-lf)
-          (lambda (output)
-            (print-form-data form output))))))
-  
-  (define (iterate-nodes node proc)
-    (proc node)
-    (for-each (lambda (child)
-                (iterate-nodes child proc))
-              (get-children~ node)))
-  
   (define (add-imports filename form potential-imports)
     (define (determine-imports form)
       (define (determine-import model)
@@ -227,11 +212,112 @@
       (when (not-null? imports)
         (set-imports~ (get-data~ form) (map list imports)))))
   
-  (define (feedback . rest)
-    (with-printer :terminal
-      (lambda (printer)
-        (apply format printer rest)
-        (newline printer)
-        (force-output printer))))
+  (convert-profiles))
+
+
+;;;
+;;;; Convert 205000
+;;;
+
+
+(definition protected (convert-settings-205000 dot-jedi-dir)
+  (define (convert-profile profile-dir)
+    (define (convert what form)
+      form)
+    
+    (define (literal-hook name arguments)
+      (define (skip-name)
+        (if (and (not-null? arguments) (eq? (car arguments) name:))
+            (cdr arguments)
+          arguments))
+      
+      (case name
+        ((Color) (apply construct-color (skip-name)))
+        ((Font) (apply construct-font (skip-name)))
+        (else #f)))
+    
+    (convert-settings profile-dir convert literal-hook))
   
-  (convert-profiles)))
+  (iterate-profiles dot-jedi-dir convert-profile))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition (iterate-profiles dot-jedi-dir proc)
+  (let ((profiles-dir (new-directory~ dot-jedi-dir '("profiles" "lib"))))
+    (when (exists?~ profiles-dir)
+      (iterate-directory~ profiles-dir
+        (lambda (dir)
+          (let ((dirname (get-name~ dir)))
+            (when (and (starts-with? dirname "profile.") (exists?~ (new-file~ dir ".package")))
+              (let ((profile-dir (new-directory~ profiles-dir dirname)))
+                (proc profile-dir)))))
+        files?: #f
+        directories?: #t
+        recursive?: #f))))
+
+
+(definition (convert-settings profile-dir convert literal-hook)
+  (define (convert-setting what settings-dir filename)
+    (feedback "; converting {a}..." filename)
+    (let ((file (new-file~ settings-dir filename)))
+      (when (exists?~ file)
+        (let ((expr (read-expr file literal-hook)))
+          (let ((form (convert what (parse-form expr))))
+            (save-form form file))))))
+  
+  (let ((profile-name (get-name~ profile-dir)))
+    (feedback "; converting {a}..." profile-name)
+    (let ((module-dir (new-directory~ profile-dir (split profile-name "."))))
+      (when (exists?~ module-dir)
+        (let ((settings-dir (new-directory~ module-dir "settings")))
+          (when (exists?~ settings-dir)
+            (convert-setting 'bindings    settings-dir "Bindings.jml")
+            (convert-setting 'colors      settings-dir "Colors.jml")
+            (convert-setting 'connections settings-dir "Connections.jml")
+            (convert-setting 'favorites   settings-dir "Favorites.jml")
+            (convert-setting 'fonts       settings-dir "Fonts.jml")
+            (convert-setting 'pagesetup   settings-dir "PageSetup.jml")
+            (convert-setting 'preferences settings-dir "Preferences.jml")
+            (convert-setting 'servers     settings-dir "Servers.jml")
+            (convert-setting 'skins       settings-dir "Skins.jml")
+            (convert-setting 'styles      settings-dir "Styles.jml")
+            (convert-setting 'toolbox     settings-dir "Toolbox.jml")
+            (convert-setting 'workbench   settings-dir "Workbench.jml")
+            (convert-setting 'workspaces  settings-dir "Workspaces.jml")))))))
+
+
+(definition (read-expr file (literal-hook #f))
+  (with-jazz-readtable
+    (lambda ()
+      (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+        (lambda (input)
+          (parameterize ((walk-for #f)
+                         (read-literal-hook literal-hook))
+            (read input)))))))
+
+
+(definition (save-form form file)
+  (with-jazz-readtable
+    (lambda ()
+      (call-with-output-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+        (lambda (output)
+          (print-form-data form output))))))
+
+
+(definition (iterate-nodes node proc)
+  (proc node)
+  (for-each (lambda (child)
+              (iterate-nodes child proc))
+            (get-children~ node)))
+
+
+(definition (feedback . rest)
+  (with-printer :terminal
+    (lambda (printer)
+      (apply format printer rest)
+      (newline printer)
+      (force-output printer)))))

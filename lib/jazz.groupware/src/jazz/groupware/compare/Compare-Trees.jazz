@@ -82,13 +82,13 @@
           (<Border-View>                                     position: {Point 81 32} size: {Dimension 111 19} border-type: edge style: entry
             (<Scroller-View>                                 hscroll?: #f vscroll?: #f
               (<!>                     name: content         layout-type: fill
-                (<Text-View>           name: base-date       font: {Font name: Label} accepts-returns?: #f left-padding: 2 top-padding: 2 return-press-handler: {Event-Handler :form on-return-press}))))))
+                (<Text-View>           name: base-date       font: {Font Label} accepts-returns?: #f left-padding: 2 top-padding: 2 return-press-handler: {Event-Handler :form on-return-press}))))))
       (<Group-Box>                     name: trees           title: "Trees" position: {Point 222 5} size: {Dimension 375 76} style: styled
         (<content~>
-          (<Label-View>                name: green-label     title: "Green:" position: {Point 6 9} size: {Dimension 37 16} font: {Font name: Label})
+          (<Label-View>                name: green-label     title: "Green:" position: {Point 6 9} size: {Dimension 37 16} font: {Font Label})
           (<Border-View>               name: green-border    position: {Point 46 7} size: {Dimension 320 19} border-type: edge style: entry
             (<Moniker-Widget>          name: green           return-press-handler: {Event-Handler :form on-return-press}))
-          (<Label-View>                name: blue-label      title: "Blue:" position: {Point 6 34} size: {Dimension 32 16} font: {Font name: Label})
+          (<Label-View>                name: blue-label      title: "Blue:" position: {Point 6 34} size: {Dimension 32 16} font: {Font Label})
           (<Border-View>               name: blue-border     position: {Point 46 32} size: {Dimension 320 19} border-type: edge style: entry
             (<Moniker-Widget>          name: blue            return-press-handler: {Event-Handler :form on-return-press}))))
       (<Group-Box>                     name: check-algorithm title: "Check" position: {Point 603 4} size: {Dimension 111 78} style: styled
@@ -462,11 +462,23 @@
     (define (find-base-date name)
       (assq-value name Base-Dates #f))
     
+    (define (install-monikers)
+      (let ((left (get-left~ config))
+            (right (get-right~ config)))
+        (set-protocol~ (locate 'green) (determine-protocol left))
+        (set-left-moniker left)
+        (set-protocol~ (locate 'blue) (determine-protocol right))
+        (set-right-moniker right)))
+    
+    (define (determine-protocol moniker)
+      (if (is? moniker Directory-Group)
+          'group
+        'dir))
+    
     (set! installed-configuration config)
     (set-mode (get-mode~ config))
     (set-base-date (and (eq? (get-mode~ config) 'merge) (find-base-date (get-name~ config))))
-    (set-left-moniker (get-left~ config))
-    (set-right-moniker (get-right~ config))
+    (install-monikers)
     (set-ignored-nodes (get-ignored-nodes~ config))
     (set-ignored-leaves (get-ignored-leaves~ config))
     (set-ignored-extensions (get-ignored-extensions~ config))
@@ -631,13 +643,13 @@
       (let ((comparer (new-comparer)))
         (receive (entry has-differences? scanned-values)
             (compare-nodes~ comparer #f left-tree right-tree
-             left-content: left-content
-             right-content: right-content
-             ignored-nodes: ignored-nodes
-             ignored-leaves: ignored-leaves
-             ignored-extensions: ignored-extensions
-             check-algorithm: (get-check-algorithm)
-             feedback: (lambda (left right) (scan-feedback left right)))
+              left-content: left-content
+              right-content: right-content
+              ignored-nodes: ignored-nodes
+              ignored-leaves: ignored-leaves
+              ignored-extensions: ignored-extensions
+              check-algorithm: (get-check-algorithm)
+              feedback: (lambda (left right) (scan-feedback left right)))
           (display-results entry)
           (user-feedback "Done")
           (and has-differences? scanned-values)))))

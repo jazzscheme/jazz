@@ -40,21 +40,23 @@
 
 (import (jazz.graphic)
         (jazz.graphic.font)
+        (jazz.library.exemplar)
         (jazz.platform.cairo))
 
 
-(class Font extends Object
+(class Font extends Exemplar
   
   
-  (slot name        getter generate)
-  (slot font-name   getter explicit)
-  (slot point-size  getter explicit)
-  (slot color       getter explicit)
-  (slot bold?       getter explicit)
-  (slot italic?     getter explicit)
-  (slot underline?  getter explicit)
-  (slot antialias   getter explicit)
-  (slot hint-style  getter explicit)
+  (attributes ()
+    (font-name   initialize #f)
+    (point-size  initialize #f)
+    (bold?       initialize #f)
+    (italic?     initialize #f)
+    (underline?  initialize #f)
+    (antialias   initialize #f)
+    (hint-style  initialize #f))
+  
+  
   (slot local?      getter generate)
   (slot handle      getter generate)
   (slot font-face   getter generate)
@@ -64,19 +66,10 @@
   (slot glyph-cache initialize #f)
   
   
-  (method override (initialize (name: name #f)
-                               (font-name: font-name (unspecified))
-                               (point-size: point-size (unspecified))
-                               (color: color (unspecified))
-                               (bold?: bold? (unspecified))
-                               (italic?: italic? (unspecified))
-                               (underline?: underline? (unspecified))
-                               (antialias: antialias (unspecified))
-                               (hint-style: hint-style (unspecified)))
+  (method override (initialize . rest)
     (define (setup-font)
       (let ((font-name (get-font-name))
             (point-size (get-point-size))
-            (color (get-color))
             (bold? (get-bold?))
             (italic? (get-italic?))
             (underline? (get-underline?))
@@ -119,16 +112,8 @@
           (cairo_matrix_t-free ctm)
           (cairo_font_options_destroy options))))
     
-    (nextmethod)
-    (set! name~self name)
-    (set! font-name~self font-name)
-    (set! point-size~self point-size)
-    (set! color~self color)
-    (set! bold?~self bold?)
-    (set! italic?~self italic?)
-    (set! underline?~self underline?)
-    (set! antialias~self antialias)
-    (set! hint-style~self hint-style)
+    (apply nextmethod rest)
+    (set! domain *fonts*)
     (setup-font))
   
   
@@ -155,112 +140,6 @@
     (destroy-cairo-font-face font-face)
     (destroy-font-handle local? handle)
     (nextmethod))
-
-
-  (method override (compare-object target)
-    (cond ((is-not? target Font)
-           :incompatible)
-          ((and (eqv? name (get-name~ target))
-                (= font-name (get-font-name~ target))
-                (= point-size (get-point-size~ target))
-                (= color (get-color~ target))
-                (= bold? (get-bold?~ target))
-                (= italic? (get-italic?~ target))
-                (= underline? (get-underline?~ target)))
-           :equal)
-          ((= handle (get-handle~ target))
-           :equal)
-          (else
-           :not-equal)))
-  
-  
-  (method override (print printer readably)
-    (format printer "~{{a}{? name: {a}~}{?: font-name: {a}~}{?: point-size: {a}~}{?: color: {a}~}{?: bold?: {a}~}{?: italic?: {a}~}{?: underline?: {a}~}}"
-            (category-name (class-of self))
-            name
-            (specified? font-name) font-name
-            (specified? point-size) point-size
-            (specified? color) color
-            (specified? bold?) bold?
-            (specified? italic?) italic?
-            (specified? underline?) underline?))
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-font-name)
-    (cond ((specified? font-name)
-           font-name)
-          (name
-           (get-font-name~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-point-size)
-    (cond ((specified? point-size)
-           point-size)
-          (name
-           (get-point-size~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-color)
-    (cond ((specified? color)
-           color)
-          (name
-           (get-color~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-bold?)
-    (cond ((specified? bold?)
-           bold?)
-          (name
-           (get-bold?~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-italic?)
-    (cond ((specified? italic?)
-           italic?)
-          (name
-           (get-italic?~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-underline?)
-    (cond ((specified? underline?)
-           underline?)
-          (name
-           (get-underline?~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-antialias)
-    (cond ((specified? antialias)
-           antialias)
-          (name
-           (get-antialias~ (registered-font name)))
-          (else
-           #f)))
-  
-  
-  (method public (get-hint-style)
-    (cond ((specified? hint-style)
-           hint-style)
-          (name
-           (get-hint-style~ (registered-font name)))
-          (else
-           #f)))
   
   
   ;;;
@@ -366,7 +245,7 @@
     (new Font
       font-name: (get-font-name)
       point-size: (get-point-size)
-      bold?: (not bold?)
+      bold?: (not (get-bold?))
       italic?: (get-italic?)
       underline?: (get-underline?)))
   
@@ -376,7 +255,7 @@
       font-name: (get-font-name)
       point-size: (get-point-size)
       bold?: (get-bold?)
-      italic?: (not italic?)
+      italic?: (not (get-italic?))
       underline?: (get-underline?)))
   
   
@@ -386,4 +265,4 @@
       point-size: (get-point-size)
       bold?: (get-bold?)
       italic?: (get-italic?)
-      underline?: (not underline?)))))
+      underline?: (not (get-underline?))))))

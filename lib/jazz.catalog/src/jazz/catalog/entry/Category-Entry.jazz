@@ -85,14 +85,14 @@
   (method (collect-ascendants)
     (let ((catalog (get-catalog))
           (fact (new List-Factory)))
-      (letrec ((process
-                (lambda (qualified)
-                  (when qualified
-                    (let ((category (get-qualified-category catalog qualified)))
-                      (when (and category (not (memq? category (get-list~ fact))))
-                        (put~ fact category)
-                        (for-each process (get-extends~ category))))))))
-        (for-each process extends))
+      (define (process qualified)
+        (when qualified
+          (let ((category (get-qualified-category catalog qualified)))
+            (when (and category (not (memq? category (get-list~ fact))))
+              (put~ fact category)
+              (for-each process (get-extends~ category))))))
+      
+      (for-each process extends)
       (get-output~ fact)))
   
   
@@ -113,18 +113,18 @@
     (when interfaces
       (let ((catalog (get-catalog))
             (row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"})))))
-        (letrec ((insert
-                  (lambda (row qualified)
-                    (when qualified
-                      (let ((interface (get-qualified-category catalog qualified)))
-                        (when interface
-                          (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
-                            (for-each (lambda (interface)
-                                        (insert row interface))
-                                      (get-extends~ interface)))))))))
-          (for-each (lambda (interface)
-                      (insert row interface))
-                    interfaces)))))
+        (define (insert row qualified)
+          (when qualified
+            (let ((interface (get-qualified-category catalog qualified)))
+              (when interface
+                (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
+                  (for-each (lambda (interface)
+                              (insert row interface))
+                            (get-extends~ interface)))))))
+        
+        (for-each (lambda (interface)
+                    (insert row interface))
+                  interfaces))))
 
 
   (method (insert-inherited tree father)

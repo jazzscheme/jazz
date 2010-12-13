@@ -110,6 +110,10 @@
       (make-parameter #f))
     
     
+    (define jazz.read-literal-hook
+      (make-parameter #f))
+    
+    
     (define (jazz.read-literal re c)
       (let ((port (jazz.readenv-port re))
             (start-pos (%%readenv-current-filepos re)))
@@ -129,7 +133,11 @@
                      (jazz.new-literal (%%car lst) (%%cdr lst)))
                     ;; read
                     (else
-                     (jazz.construct-literal (%%car lst) (%%cdr lst)))))))))
+                     (let ((name (%%car lst))
+                           (arguments (%%cdr lst))
+                           (hook (jazz.read-literal-hook)))
+                       (or (and hook (hook name arguments))
+                           (jazz.construct-literal name arguments))))))))))
     
     
     (define (jazz.read-comment re c)

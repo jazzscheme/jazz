@@ -1,3 +1,4 @@
+
 ;;;==============
 ;;;  JazzScheme
 ;;;==============
@@ -38,13 +39,7 @@
 (module jazz.library.exemplar jazz
 
 
-(import (jazz.library)
-        (jazz.library.node))
-
-
-(specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
-  (and (node=? e1 e2)
-       (eq? (get-base~ e1) (get-base~ e2))))
+(import (jazz.library))
 
 
 ;;;
@@ -52,83 +47,75 @@
 ;;;
 
 
-(class Exemplar extends Node
+(class Exemplar extends Object
   
   
   (slot protected domain)
   (slot protected base)
-  (slot protected ascendant   getter generate)
-  (slot protected inited?     accessors generate)
+  (slot protected ascendants)
+  (slot protected name        accessors generate)
   (slot protected persistent? accessors generate)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((domain #f) (base #f) . others) rest
-      (apply nextmethod others)
+    (bind-keywords ((domain #f) (base '()) (ascendants #f) (name #f) (persistent? #t) . others) rest
+      (nextmethod)
       (set! domain~self domain)
-      (set! base~self base)
-      (set! ascendant~self #f)
-      (set! inited?~self #f)
-      (set! persistent?~self #t)
-      (when domain
-        (install))))
+      (set! base~self (listify base))
+      (set! ascendants~self ascendants)
+      (set! name~self name)
+      (set! persistent?~self persistent?)
+      (for-each-property (lambda (key value)
+                           (set-attribute (keyword->symbol key) value))
+                         others)))
   
   
   (method override (copy-object deep?)
-    (let ((exemplar (nextmethod deep?)))
-      (set-domain-value~ exemplar domain)
-      (set-base-value~ exemplar base)
+    (let ((exemplar (new (class-of self))))
+      (set-domain~ exemplar domain)
+      (set-base~ exemplar base)
+      (set-name~ exemplar name)
+      (for-each (lambda (attribute)
+                  (set-attribute~ exemplar attribute (get-attribute attribute)))
+                (get-attributes))
       exemplar))
 
 
   (method override (compare-object target)
     (cond ((is-not? target (class-of self))
            :incompatible)
-          ((and (= (nextmethod target) :equal)
-                (= base (get-base~ target)))
+          ((and (equal? base (get-base~ target))
+                (eqv? name (get-name~ target))
+                (every? (lambda (attribute)
+                          (equal? (get attribute) (get~ target attribute)))
+                        (get-attributes)))
            :equal)
           (else
            :not-equal)))
 
-
-  (method (fold-exemplar class-name)
-    `(new ,class-name
-       name: ',name
-       base: ',base
-       ,@(owned-properties)))
-
   
   (method override (print printer readably)
-    (format printer "~{{a}{k empty-value: #f}{k}}"
+    (define (owned-attributes)
+      (let ((fact (new List-Factory)))
+        (for-each (lambda (attribute)
+                    (let ((value (get-attribute attribute)))
+                      (when (specified? value)
+                        (put~ fact (symbol->keyword attribute))
+                        (put~ fact value))))
+                  (get-attributes))
+        (get-output~ fact)))
+    
+    (format printer "~{{a}{?: {l}~}{k empty-value: #f}{k}}"
             (identifier-name (category-name (class-of self)))
+            (not-null? base) (reverse base)
             (list
-             name: name
-             base: base)
-            (owned-properties)))
+             name: name)
+            (owned-attributes)))
   
   
   ;;;
   ;;;; Inheritance
   ;;;
-  
-  
-  (method (install)
-    (init))
-  
-  
-  (method (init)
-    (define (setup-inherited)
-      (for-each (lambda (property)
-                  (unless (memq? property owned)
-                    (set-value property (get-value~ ascendant property))))
-                (node-properties)))
-    
-    (unless inited?
-      (if (not base)
-          (set! ascendant #f)
-        (set! ascendant (locate~ domain base))
-        (setup-inherited))
-      (set! inited? #t)))
   
   
   (method public (inherits? target)
@@ -143,50 +130,18 @@
           #f))))
   
   
-  (method public (has-ascendant? base)
-    (has-ascendant?~ domain self base))
-  
-  
   (method public (for-each-ascendant proc)
-    (when ascendant
-      (proc ascendant)
-      (for-each-ascendant~ ascendant proc)))
-    
+    (for-each (lambda (ascendant)
+                (proc ascendant)
+                (for-each-ascendant~ ascendant proc))
+              (get-ascendants)))
+  
   
   (method public (extend (domain: domain domain))
-    (define (copy-properties exemplar)
-      (for-each (lambda (property)
-                  (set-value~ exemplar property (get-value property)))
-                (node-properties)))
-    
     (let ((exemplar (new (class-of self))))
-      (set-domain-value~ exemplar domain)
-      (cond ((not name)
-             (set-base-value~ exemplar base)
-             (copy-properties exemplar)
-             (set-owned~ exemplar (copy owned))
-             (set-inited?~ exemplar #t))
-            (else
-             (set-base-value~ exemplar name)
-             (install~ exemplar)))
+      (set-domain~ exemplar domain)
+      (set-base~ exemplar (or name base))
       exemplar))
-  
-  
-  ;;;
-  ;;;; Update
-  ;;;
-  
-  
-  (method protected (update)
-    (reset)
-    (init)
-    (when (named?)
-      (update-descendants)))
-  
-  
-  (method (update-descendants)
-    (when domain
-      (update-descendants~ domain self)))
   
   
   ;;;
@@ -196,30 +151,13 @@
   
   (method public (modify-from from)
     (unless (eq? self from)
-      (set! name (get-name~ from))
       (set! base (get-base~ from))
-      (for-each (lambda (property)
-                  (set-value property (get-value~ from property)))
-                (node-properties))
-      (set! owned (copy (get-owned~ from)))
-      (set! persistent? (get-persistent?~ from))
-      (update)))
-  
-  
-  ;;;
-  ;;;; Reset
-  ;;;
-  
-  
-  (method (reset)
-    (define (reset-property property <Object>)
-      (unless (memq? property owned)
-        (set-value property #f)))
-    
-    (when inited?
-      @should-not-reset-to-nil-but-to-slot-initalize--we-skip-since-init-also-*set-value*
-      (for-each reset-property (node-properties))
-      (set! inited? #f)))
+      (set! ascendants #f)
+      (set! name (get-name~ from))
+      (for-each (lambda (attribute)
+                  (set-attribute attribute (get-attribute~ from attribute)))
+                (get-attributes))
+      (set! persistent? (get-persistent?~ from))))
   
   
   ;;;
@@ -227,17 +165,12 @@
   ;;;
   
   
-  (method public inline (set-domain-value d)
-    (set! domain d))
-  
-  
   (method public (get-domain)
     domain)
   
   
   (method public (set-domain d)
-    (set! domain d)
-    (install))
+    (set! domain d))
   
   
   (method public (register)
@@ -249,17 +182,88 @@
   ;;;
   
   
-  (method public inline (set-base-value b)
-    (set! base b))
-  
-  
   (method public (get-base)
     base)
   
   
   (method public (set-base b)
     (set! base b)
-    (update)))
+    (set! ascendants #f))
+  
+  
+  ;;;
+  ;;;; Ascendants
+  ;;;
+  
+  
+  (method public (get-ascendants)
+    (when (not ascendants)
+      (set! ascendants (map (lambda (name)
+                              (locate~ domain name))
+                            base)))
+    ascendants)
+  
+  
+  ;;;
+  ;;;; Name
+  ;;;
+  
+  
+  (method public (named?)
+    name)
+  
+  
+  ;;;
+  ;;;; Attributes
+  ;;;
+  
+  
+  (method public (supports? attribute)
+    (memq? attribute (get-attributes)))
+  
+  
+  (method protected virtual (get-attributes)
+    '())
+  
+  
+  (method protected virtual (get-attribute attribute)
+    (unspecified))
+  
+  
+  (method protected virtual (get-attribute-default attribute)
+    (unspecified))
+  
+  
+  (method protected virtual (set-attribute attribute value)
+    )
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public virtual (get attribute)
+    (unspecified))
+  
+  
+  (method public virtual (set attribute value)
+    (error "Unknown attribute: {t}" attribute)))
+
+
+(definition public (construct-exemplar class rest)
+  (let (iterate (base '()) (scan rest))
+    (if (or (null? scan) (not (symbol? (car scan))))
+        (apply new class base: base scan)
+      (iterate (cons (car scan) base) (cdr scan)))))
+
+
+(specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
+  (and (eq? (get-name~ e1) (get-name~ e2))
+       (eq? (get-base~ e1) (get-base~ e2))
+       (every? (lambda (attribute)
+                 (equal? (get~ e1 attribute) (get~ e2 attribute)))
+               (get-attributes~ e1))))
 
 
 ;;;
@@ -270,7 +274,13 @@
 (class undocumented Exemplar-Domain extends Object
   
   
-  (slot protected content <Axis> initialize (new Axis 0))
+  (slot initer)
+  (slot content <Axis> initialize (new Axis 0))
+  
+  
+  (method override (initialize (initer: initer #f))
+    (nextmethod)
+    (set! initer~self initer))
   
   
   ;;;
@@ -279,6 +289,10 @@
   
   
   (method public (get-content)
+    (when initer
+      (let ((thunk initer))
+        (set! initer #f)
+        (thunk)))
     content)
   
   
@@ -298,58 +312,29 @@
   
   
   (method public (add exemplar)
-    (axis-add content exemplar))
+    (axis-add (get-content) exemplar))
   
   
   (method public (reference rank/name)
     (if (integer? rank/name)
-        (element content rank/name)
+        (element (get-content) rank/name)
       (locate rank/name)))
   
   
   (method public (locate name (error?: error? #t))
-    ;; (assert name)
-    (or (find-in content name key: get-name~)
+    (or (find-in (get-content) name key: get-name~)
         (when error?
           (error "Unable to locate: {t}" name))))
   
   
   (method public (similar exemplar)
-    ;; domain-free exemplar must call (setup-inherited) to inherit default properties
     (when (not (get-domain~ exemplar))
       (set-domain~ exemplar self))
-    (find-in content exemplar test: exemplar=?))
+    (find-in (get-content) exemplar test: exemplar=?))
   
   
   (method public (get-rank exemplar)
-    (find content exemplar))
-  
-  
-  ;;;
-  ;;;; Inheritance
-  ;;;
-  
-  
-  (method public (has-ascendant? exemplar base)
-    (continuation-capture
-      (lambda (return)
-        (for-each-ascendant~ exemplar
-          (lambda (ascendant)
-            (when (eq? ascendant base)
-              (continuation-return return #t))))
-        #f)))
-  
-  
-  ;;;
-  ;;;; Update
-  ;;;
-  
-  
-  (method protected (update-descendants base)
-    (for-each (lambda (exemplar)
-                (when (has-ascendant? exemplar base)
-                  (update~ exemplar)))
-              content))
+    (find (get-content) exemplar))
   
   
   ;;;
@@ -358,4 +343,4 @@
   
   
   (method public (collect-persistent)
-    (collect-if get-persistent?~ content))))
+    (collect-if get-persistent?~ (get-content)))))

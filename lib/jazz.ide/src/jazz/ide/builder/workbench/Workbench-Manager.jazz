@@ -71,7 +71,7 @@
       (<Workbench-Editor> name: descendants        location: center
         (<!>              name: scroller           style: tool)
         (<!>              name: tree               show-header?: #f highlight-edited?: #f
-          (<!>            name: descendant         title: "Project" width: 291 highlight-color: {Color name: Dark-Blue})))))
+          (<!>            name: descendant         title: "Project" width: 291 highlight-color: {Color Dark-Blue})))))
   
   
   (method meta override (external-name . rest)
@@ -559,18 +559,18 @@
   
   
   (definition (default-import-directory object (must-exist?: must-exist? #t))
-    (letrec ((default
-               (lambda (object)
-                 (typecase object
-                   ((Project)
-                    #f)
-                   ((Project-Directory)
-                    (get-directory~ object))
-                   (else
-                    #f)))))
-      (let ((dir (default object)))
-        (when dir
-          (anchorize~ dir)))))
+    (define (default object)
+      (typecase object
+        ((Project)
+         #f)
+        ((Project-Directory)
+         (get-directory~ object))
+        (else
+         #f)))
+    
+    (let ((dir (default object)))
+      (when dir
+        (anchorize~ dir))))
   
   
   (method (with-import-directory current-directory? object proc)
@@ -611,45 +611,45 @@
            (directory (default-import-directory object must-exist?: #f)))
       (if (not (exists?~ directory))
           (error "Directory {s} not found" directory)
-        (let ((fact (new List-Factory))
-              (component-name
-               (lambda (component)
-                 (->string (get-name~ component))))
-              (pathname-name
-               (lambda (pathname)
-                 (get-name~ pathname))))
-          (letrec ((fold
-                    (lambda (component pathname path)
-                      (let ((children (get-children~ component))
-                            (content (get-content~ pathname)))
-                        (merge-ordered (lambda (what key left right)
-                                         (let ((path (cons key path)))
-                                           (case what
-                                             ((:left) (put~ fact (list what path)))
-                                             ((:right) (put~ fact (list what path)))
-                                             ((:same)
-                                              (when (directory? right)
-                                                (fold left right path))))))
-                                       (sort ci<? children key: component-name)
-                                       (sort ci<? content key: pathname-name)
-                                       left-key: component-name
-                                       right-key: pathname-name
-                                       case-insensitive?: #t)))))
-            (fold object directory '())
-            (let ((out-of-synch (get-output~ fact)))
-              (if (null? out-of-synch)
-                  (message-box "Content is already synchronized")
-                (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
-                       (tree (locate~ border 'tree))
-                       (add
-                        (lambda (what path)
-                          (let ((c0 (new Tree-Node title: (join path "/") image: {Image-Resource "OpenedFolder"})))
-                            (add-row~ tree children: (list c0 #f #f #f))))))
-                  (for-each (lambda (info)
-                              (bind (what path) info
-                                (add what (reverse path))))
-                            out-of-synch)
-                  (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))))))))
+        (let ((fact (new List-Factory)))
+          (define (component-name component)
+            (->string (get-name~ component)))
+          
+          (define (pathname-name pathname)
+            (get-name~ pathname))
+          
+          (define (fold component pathname path)
+            (let ((children (get-children~ component))
+                  (content (get-content~ pathname)))
+              (merge-ordered (lambda (what key left right)
+                               (let ((path (cons key path)))
+                                 (case what
+                                   ((:left) (put~ fact (list what path)))
+                                   ((:right) (put~ fact (list what path)))
+                                   ((:same)
+                                    (when (directory? right)
+                                      (fold left right path))))))
+                             (sort ci<? children key: component-name)
+                             (sort ci<? content key: pathname-name)
+                             left-key: component-name
+                             right-key: pathname-name
+                             case-insensitive?: #t)))
+          
+          (fold object directory '())
+          (let ((out-of-synch (get-output~ fact)))
+            (if (null? out-of-synch)
+                (message-box "Content is already synchronized")
+              (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
+                     (tree (locate~ border 'tree))
+                     (add
+                       (lambda (what path)
+                         (let ((c0 (new Tree-Node title: (join path "/") image: {Image-Resource "OpenedFolder"})))
+                           (add-row~ tree children: (list c0 #f #f #f))))))
+                (for-each (lambda (info)
+                            (bind (what path) info
+                              (add what (reverse path))))
+                          out-of-synch)
+                (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border))))))))
   
   
   ;;;
@@ -661,24 +661,24 @@
     @convert-to-checking-conflicts-with-an-understanding-of-the-unit-hierarchy
     (validate
       (lambda (report)
-        (letrec ((workbench (get-workbench))
-                 (iterate
-                  (lambda (pathname)
-                    (typecase pathname
-                      ((Directory)
-                       (iterate-directory~ pathname iterate
-                         files?: #t
-                         directories?: #t
-                         sort?: #t
-                         recursive?: #f))
-                      ((File)
-                       (when (import-filter? project pathname)
-                         (let ((model (extension-model (get-extension~ pathname))))
-                           (when (eq? model Jazz-File)
-                             (let* ((name (string->symbol (get-base~ pathname)))
-                                    (jazz-file (get-entry~ workbench name)))
-                               (when jazz-file
-                                 (report jazz-file)))))))))))
+        (let ((workbench (get-workbench)))
+          (define (iterate pathname)
+            (typecase pathname
+              ((Directory)
+               (iterate-directory~ pathname iterate
+                 files?: #t
+                 directories?: #t
+                 sort?: #t
+                 recursive?: #f))
+              ((File)
+               (when (import-filter? project pathname)
+                 (let ((model (extension-model (get-extension~ pathname))))
+                   (when (eq? model Jazz-File)
+                     (let* ((name (string->symbol (get-base~ pathname)))
+                            (jazz-file (get-entry~ workbench name)))
+                       (when jazz-file
+                         (report jazz-file)))))))))
+          
           (for-each iterate pathnames)))))
   
   
@@ -1171,7 +1171,7 @@
   
   
   (form
-    (<install>                                     border-type: solid border-color: {Color name: Outline-Border}
+    (<install>                                     border-type: solid border-color: {Color Outline-Border}
       (<Scroller-View>                             style: tool hscroll?: #t vscroll?: #t
         (<!>                         name: content layout-type: fill
           (<Tree-Header>                           style: tool

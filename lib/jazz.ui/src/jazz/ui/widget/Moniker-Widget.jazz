@@ -145,21 +145,23 @@
 
   
   (method public (get-moniker)
-    (define (parse-content content)
+    (define (parse-protocol string)
       (if (not (protocol-displayed?))
-          (values (get-protocol-handler protocol) content)
-        (bind (protocol . list) content
-          (values (get-protocol-handler protocol) list))))
+          (values protocol string)
+        (let ((pos (find string #\:)))
+          (assert pos
+            (values protocol (substring string (+ pos 1) (string-length string)))))))
     
     (let ((string (get-content)))
       (unless (empty-string? string)
         (if (not (alias-displayed?))
             (let ((handler (get-protocol-handler protocol))
-                  (parameters (tokenise-filename string)))
-              (anchorize~ (moniker-new handler parameters) anchors: anchors))
-          (let ((content (read-string-content string)))
-            (receive (handler list) (parse-content content)
-              (let ((moniker (moniker-new handler list)))
+                  (parts (list (tokenise-filename string))))
+              (anchorize~ (moniker-new handler parts) anchors: anchors))
+          (receive (protocol arguments) (parse-protocol string)
+            (let ((handler (get-protocol-handler protocol))
+                  (parts (read-delimited-string arguments #\,)))
+              (let ((moniker (moniker-new handler parts)))
                 (typecase moniker
                   ((Directory-Group) moniker)
                   ((Pathname) (anchorize~ moniker anchors: anchors))
@@ -210,6 +212,19 @@
   
   (method meta override (get-class-descriptor)
     (new Moniker-Widget-Descriptor)))
+
+
+;;;
+;;;; Protocol
+;;;
+
+
+(definition public (get-protocol-handler protocol)
+  (case (if (keyword? protocol) (keyword->symbol protocol) protocol)
+    ((file) File)
+    ((dir) Directory)
+    ((group) Directory-Group)
+    (else (signal (new Parse-Error message: (format "Unknown protocol: {t}" protocol))))))
 
 
 ;;;

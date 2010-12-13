@@ -122,6 +122,17 @@
                             `((,name) ,init))))))
                   attributes)
            (else (nextmethod ,attribute))))
+       (method override (get-attribute-no-default ,attribute)
+         (let ((,value (get-attribute ,attribute)))
+           (if (specified? ,value)
+               ,value
+             (let (iterate (scan (get-ascendants)))
+               (if (not-null? scan)
+                   (let ((,value (get-attribute-no-default~ (car scan) ,attribute)))
+                     (if (specified? ,value)
+                         ,value
+                       (iterate (cdr scan))))
+                 (unspecified))))))
        (method override (get ,attribute)
          (case ,attribute
            ,@(map (lambda (attribute)
@@ -145,15 +156,10 @@
                         (setter (string->symbol (system-format "set-{a}" name))))
                     `(begin
                        (method public (,getter)
-                         (if (specified? ,slot-name)
-                             ,slot-name
-                           (let (iterate (scan (get-ascendants)))
-                             (if (not-null? scan)
-                                 (let ((value (get~ (car scan) ',name)))
-                                   (if (specified? value)
-                                       value
-                                     (iterate (cdr scan))))
-                               (get-attribute-default ',name)))))
+                         (let ((,value (get-attribute-no-default ',name)))
+                           (if (specified? ,value)
+                               ,value
+                             (get-attribute-default ',name))))
                        (method public (,setter ,value)
                          (set! ,slot-name ,value))))))
               attributes)))))

@@ -216,8 +216,12 @@
     (call-with-selected-toolbox-model get-class~))
   
   
-  (method (selected-class-name)
+  (method public (selected-class-name)
     (call-with-selected-toolbox-model get-model~))
+  
+  
+  (method public (selected-unit)
+    (call-with-selected-toolbox-model get-unit~))
   
   
   (method (editor-class component)
@@ -228,9 +232,10 @@
   
   (method (add-new)
     (let ((class (selected-class))
+          (unit (selected-unit))
           (editor (current-document)))
       (when (and class (is? editor View-Editor))
-        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f))))
+        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
   
   
   (method (edit)
@@ -256,12 +261,19 @@
   (method (edit-new)
     (let ((class-name (selected-class-name))
           (class (selected-class)))
-      (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
-             (form (construct-form (list model-name) (lambda (symbol)
-                                                       (and (eq? symbol class-name) class))))
-             (client (instantiate~ form)))
-        (set-origin~ form #f)
-        (new-frame (editor-class client) client: client)))))
+      (when class-name
+        (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
+               (form-data (new Data 'jazz `((,(selected-unit))) #f))
+               (form (construct-form
+                       (list model-name)
+                       (lambda (symbol)
+                         (let* ((imports (effective-imports~ form-data))
+                                (locator (imports-locator imports)))
+                           (locator symbol)))
+                       form-data))
+               (client (instantiate~ form)))
+          (set-origin~ form #f)
+          (new-frame (editor-class client) client: client))))))
 
 
 ;;;

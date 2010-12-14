@@ -41,7 +41,6 @@
 (jazz.define-literal Action                jazz.ui.literals.construct-action)
 (jazz.define-literal Shortcut              jazz.ui.literals.construct-shortcut)
 (jazz.define-literal Format                jazz.ui.literals.construct-format)
-(jazz.define-literal Text-Style-Preference jazz.ui.literals.construct-text-style-preference)
 (jazz.define-literal Text-Style            jazz.ui.literals.construct-text-style)
 (jazz.define-literal Hyperlink-Style       jazz.ui.literals.construct-hyperlink-style)
 (jazz.define-literal Text                  jazz.ui.literals.construct-text)

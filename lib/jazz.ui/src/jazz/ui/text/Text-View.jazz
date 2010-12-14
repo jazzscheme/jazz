@@ -44,6 +44,7 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.exemplar)
         (jazz.library.listener)
         (jazz.platform)
         (jazz.system)
@@ -105,8 +106,8 @@
   (slot protected user-tabs              initialize '())
   (slot protected tabs                   initialize '()                   accessors generate)
   (slot protected mark                   initialize #f                    accessors generate)
-  (slot protected formats                initialize (new Exemplar-Domain))
-  (slot protected styles                 initialize (new Exemplar-Domain lookup: (list (styles-domain))))
+  (slot protected formats                initialize (make-formats))
+  (slot protected styles                 initialize (make-styles))
   (slot protected controller             initialize #f)
   (slot protected previous-position      initialize #f)
   (slot protected autoscroll-pulse       initialize #f)
@@ -121,6 +122,13 @@
   (form
     ;; the default-row-height: 16 is a try for a quick fix. all the default-row-height related stuff needs cleanup
     (<install> background: {Color Text-Background} left-padding: 12 default-row-height: 16))
+  
+  
+  (definition (make-formats)
+    (new Exemplar-Domain intern?: #t))
+  
+  (definition (make-styles)
+    (new Exemplar-Domain intern?: #t chained: (list (styles-domain))))
 
   
   (method override (verify-reload));;abstract
@@ -133,16 +141,14 @@
   
   (method override (prepare rest)
     (define (new-default-format)
-      (new Format name: 'Default domain: formats))
+      (new Format domain: formats))
     
     (define (new-default-style)
-      (new Text-Style name: 'Default domain: styles font: {Font Label}))
+      (new Text-Style domain: styles font: {Font Label}))
     
     (nextmethod rest)
     (set! default-format (new-default-format))
-    (set! default-style (new-default-style))
-    (add-format (get-default-format))
-    (add-style (get-default-style)))
+    (set! default-style (new-default-style)))
   
   
   (method override (install rest)
@@ -3044,8 +3050,8 @@
   
   
   (method public (patch-formatted-bug)
-    (empty-content~ formats)
-    (empty-content~ styles)
+    (empty-interned~ formats)
+    (empty-interned~ styles)
     (for-each-paragraph
       (lambda (line <fx> paragraph <Paragraph>)
         (set-format~ paragraph (intern-format (get-format~ paragraph)))
@@ -3510,33 +3516,19 @@
   
   
   (method public (get-formats)
-    (get-content~ formats))
+    (get-interned~ formats))
   
   
   (method public (get-named-formats)
-    (collect-if get-name~ (get-formats)))
+    (get-indexed~ formats))
   
   
   (method (setup-format format) <Format>
-    (let* ((name (get-name~ format))
-           (actual (and name (locate-own~ formats name error?: #f))))
-      (if (not actual)
-          (intern-format format)
-        (modify-from~ actual format)
-        actual)))
+    (intern-format format))
   
   
-  (method public (add-format format) <Format>
-    (let* ((name (get-name~ format))
-           (actual (and name (locate-own~ formats name error?: #f))))
-      (if (not actual)
-          (let ((format (copy format)))
-            (set-domain~ format formats)
-            (set-persistent?~ format #f)
-            (register~ format)
-            format)
-        (modify-from~ actual format)
-        actual)))
+  (method public (add-format name format) <Format>
+    (register-exemplar name format formats))
   
   
   (method public (get-format name (error?: error? #t)) <Format>
@@ -3547,12 +3539,13 @@
     (or (similar~ formats format)
         (begin
           (set-domain~ format formats)
-          (register~ format)
+          (intern~ format)
           format)))
   
   
   (definition (format-reference format formats)
     (or (get-rank format formats)
+        @convert
         (get-name~ format)))
   
   
@@ -3597,40 +3590,24 @@
   
   
   (method public (get-styles)
-    (get-content~ styles))
+    (get-interned~ styles))
   
   
   (method public (get-named-styles)
-    (collect-if (lambda (style)
-                  (get-name~ style))
-                (get-styles)))
+    (get-indexed~ styles))
   
   
   (method (setup-style style) <Style>
-    (let* ((name (get-name~ style))
-           (actual (and name (locate-own~ styles name error?: #f))))
-      (if (not actual)
-          (intern-style style)
-        (modify-from~ actual style)
-        actual)))
+    (intern-style style))
   
   
-  (method public (add-style style) <Style>
-    (let* ((name (get-name~ style))
-           (actual (and name (locate-own~ styles name error?: #f))))
-      (if (not actual)
-          (let ((style (copy style)))
-            (set-domain~ style styles)
-            (set-persistent?~ style #f)
-            (register~ style)
-            style)
-        (modify-from~ actual style)
-        actual)))
+  (method public (add-style name style) <Style>
+    (register-exemplar name style styles))
   
   
   (method public (add-style-preference name preference)
-    (let ((style (preference->text-style name preference)))
-      (add-style style)
+    (let ((style (if (is? preference Style) preference (preference->text-style name preference))))
+      (register-exemplar name style styles)
       style))
   
   
@@ -3644,12 +3621,13 @@
     (or (similar~ styles style)
         (begin
           (set-domain~ style styles)
-          (register~ style)
+          (intern~ style)
           style)))
   
   
   (definition (style-reference style styles)
     (or (get-rank style styles)
+        @convert
         (get-name~ style)))
   
   

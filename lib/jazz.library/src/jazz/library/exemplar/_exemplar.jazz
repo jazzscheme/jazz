@@ -53,17 +53,15 @@
   (slot protected domain)
   (slot protected base)
   (slot protected ascendants)
-  (slot protected name        accessors generate)
   (slot protected persistent? accessors generate)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((domain #f) (base '()) (ascendants #f) (name #f) (persistent? #t) . others) rest
+    (bind-keywords ((domain #f) (base '()) (ascendants #f) (persistent? #t) . others) rest
       (nextmethod)
       (set! domain~self domain)
       (set! base~self (listify base))
       (set! ascendants~self ascendants)
-      (set! name~self name)
       (set! persistent?~self persistent?)
       (for-each-property (lambda (key value)
                            (set-attribute (keyword->symbol key) value))
@@ -74,7 +72,6 @@
     (let ((exemplar (new (class-of self))))
       (set-domain~ exemplar domain)
       (set-base~ exemplar base)
-      (set-name~ exemplar name)
       (for-each (lambda (attribute)
                   (set-attribute~ exemplar attribute (get-attribute attribute)))
                 (get-attributes))
@@ -85,7 +82,6 @@
     (cond ((is-not? target (class-of self))
            :incompatible)
           ((and (equal? base (get-base~ target))
-                (eqv? name (get-name~ target))
                 (every? (lambda (attribute)
                           (equal? (get attribute) (get~ target attribute)))
                         (get-attributes)))
@@ -105,11 +101,9 @@
                   (get-attributes))
         (get-output~ fact)))
     
-    (format printer "~{{a}{?: {l}~}{k empty-value: #f}{k}}"
+    (format printer "~{{a}{?: {l}~}{k}}"
             (identifier-name (category-name (class-of self)))
             (not-null? base) base
-            (list
-             name: name)
             (owned-attributes)))
   
   
@@ -118,16 +112,17 @@
   ;;;
   
   
-  (method public (inherits? target)
-    (if (eq? name target)
-        #t
-      (continuation-capture
-        (lambda (return)
-          (for-each-ascendant
-            (lambda (ascendant)
-              (when (eq? (get-name~ ascendant) target)
-                (continuation-return return #t))))
-          #f))))
+  (method public (inherits? name/target)
+    (let ((target (if (is? name/target Exemplar) name/target (locate~ domain name/target))))
+      (if (eq? self target)
+          #t
+        (continuation-capture
+          (lambda (return)
+            (for-each-ascendant
+              (lambda (ascendant)
+                (when (eq? ascendant target)
+                  (continuation-return return #t))))
+            #f)))))
   
   
   (method public (for-each-ascendant proc)
@@ -140,7 +135,7 @@
   (method public (extend (domain: domain domain))
     (let ((exemplar (new (class-of self))))
       (set-domain~ exemplar domain)
-      (set-base~ exemplar (or name base))
+      (set-ascendants~ exemplar (list self))
       exemplar))
   
   
@@ -153,7 +148,6 @@
     (unless (eq? self from)
       (set! base (get-base~ from))
       (set! ascendants #f)
-      (set! name (get-name~ from))
       (for-each (lambda (attribute)
                   (set-attribute attribute (get-attribute~ from attribute)))
                 (get-attributes))
@@ -173,8 +167,8 @@
     (set! domain d))
   
   
-  (method public (register)
-    (add~ domain self))
+  (method public (intern)
+    (intern~ domain self))
   
   
   ;;;
@@ -204,13 +198,9 @@
     ascendants)
   
   
-  ;;;
-  ;;;; Name
-  ;;;
-  
-  
-  (method public (named?)
-    name)
+  ;; quicky
+  (method public (set-ascendants value)
+    (set! ascendants value))
   
   
   ;;;
@@ -262,22 +252,20 @@
       (iterate (append base (list (car scan))) (cdr scan)))))
 
 
-(definition public (register-exemplar exemplar domain)
-  (let ((name (get-name~ exemplar)))
-    (let ((actual (and name (locate-own~ domain name error?: #f))))
-      (cond (actual
-             (modify-from~ actual exemplar)
-             actual)
-            (else
-             (set-domain~ exemplar domain)
-             (set-persistent?~ exemplar #f)
-             (register~ exemplar)
-             exemplar)))))
+(definition public (register-exemplar name exemplar domain)
+  (let ((actual (locate-own~ domain name error?: #f)))
+    (cond (actual
+           (modify-from~ actual exemplar)
+           actual)
+          (else
+           (set-domain~ exemplar domain)
+           (set-persistent?~ exemplar #f)
+           (register~ domain name exemplar)
+           exemplar))))
 
 
 (specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
-  (and (eq? (get-name~ e1) (get-name~ e2))
-       (eq? (get-base~ e1) (get-base~ e2))
+  (and (eq? (get-base~ e1) (get-base~ e2))
        (every? (lambda (attribute)
                  (equal? (get~ e1 attribute) (get~ e2 attribute)))
                (get-attributes~ e1))))
@@ -292,79 +280,115 @@
   
   
   (slot initer)
-  (slot lookup)
-  (slot content <Axis> initialize (new Axis 0))
+  (slot index)
+  (slot interned)
+  (slot chained)
   
   
-  (method override (initialize (initer: initer #f) (lookup: lookup '()))
+  (method override (initialize (initer: initer #f) (intern?: intern? #f) (chained: chained '()))
     (nextmethod)
     (set! initer~self initer)
-    (set! lookup~self lookup))
+    (set! index~self (make-table test: eq?))
+    (set! interned~self (and intern? (new Axis 0)))
+    (set! chained~self chained))
   
   
   ;;;
-  ;;;; Access
+  ;;;; Exemplar
   ;;;
   
   
-  (method public (get-lookup)
-    lookup)
-  
-  
-  (method public (get-content)
-    (when initer
-      (let ((thunk initer))
-        (set! initer #f)
-        (thunk)))
-    content)
-  
-  
-  (method public (set-content value)
-    (set! content (coerce value Axis)))
-  
-  
-  (method public (empty-content (remove-named?: remove-named? #f))
-    (set! content (collect-if (lambda (exemplar)
-                                (and (not remove-named?) (named?~ exemplar)))
-                              content)))
-  
-  
-  ;;;
-  ;;;; Exemplars
-  ;;;
-  
-  
-  (method public (add exemplar)
-    (axis-add (get-content) exemplar))
+  (method public (register name exemplar)
+    (table-set! index name exemplar)
+    (intern exemplar))
   
   
   (method public (reference rank/name)
     (if (integer? rank/name)
-        (element (get-content) rank/name)
+        (element (get-interned) rank/name)
       (locate rank/name)))
   
   
+  ;;;
+  ;;;; Initer
+  ;;;
+  
+  
+  (method (init)
+    (when initer
+      (let ((thunk initer))
+        (set! initer #f)
+        (thunk))))
+  
+  
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method public (get-index)
+    (init)
+    index)
+  
+  
+  (method public (get-indexed)
+    (table-values (get-index)))
+  
+  
   (method public (locate-own name (error?: error? #t))
-    (or (find-in (get-content) name key: get-name~)
+    (or (table-ref (get-index) name #f)
         (when error?
           (error "Unable to locate: {t}" name))))
   
   
   (method public (locate name (error?: error? #t))
-    (or (find-in (get-content) name key: get-name~)
-        (find-object (lambda (domain) (locate~ domain name error?: #f)) lookup)
+    (or (table-ref (get-index) name #f)
+        (find-object (lambda (domain) (locate~ domain name error?: #f)) chained)
         (when error?
           (error "Unable to locate: {t}" name))))
+  
+  
+  ;;;
+  ;;;; Interned
+  ;;;
+  
+  
+  (method public (get-interned)
+    (init)
+    interned)
+  
+  
+  (method public (set-interned value)
+    (set! interned (coerce value Axis)))
+  
+  
+  (method public (empty-interned)
+    (set! interned (new Axis 0)))
+  
+  
+  (method public (intern exemplar)
+    (init)
+    (when interned
+      (axis-add interned exemplar)))
   
   
   (method public (similar exemplar)
     (when (not (get-domain~ exemplar))
       (set-domain~ exemplar self))
-    (find-in (get-content) exemplar test: exemplar=?))
+    (find-in (get-interned) exemplar test: exemplar=?))
   
   
   (method public (get-rank exemplar)
-    (find (get-content) exemplar))
+    (find (get-interned) exemplar))
+  
+  
+  ;;;
+  ;;;; Chained
+  ;;;
+  
+  
+  (method public (get-chained)
+    chained)
   
   
   ;;;
@@ -373,4 +397,4 @@
   
   
   (method public (collect-persistent)
-    (collect-if get-persistent?~ (get-content)))))
+    (collect-if get-persistent?~ (get-interned)))))

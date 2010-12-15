@@ -75,7 +75,9 @@
   (property protected selectable?                    initialize #t                       accessors generate)
   (property protected editable?                      initialize #t                       accessors generate)
   (property protected wrap?                          initialize #f                       accessors generate)
+  (property protected base-format                    initialize #f                       accessors generate)
   (property protected default-format                 initialize #f                       accessors explicit)
+  (property protected base-style                     initialize #f                       accessors generate)
   (property protected default-style                  initialize #f                       accessors explicit)
   (property protected paragraph-spacing         <fx> initialize 0                        accessors generate)
   (property protected accepts-returns?               initialize #t                       accessors generate)
@@ -141,10 +143,10 @@
   
   (method override (prepare rest)
     (define (new-default-format)
-      (new Format domain: formats base: 'Text-Default))
+      (new Format domain: formats base: 'Text-Base))
     
     (define (new-default-style)
-      (new Text-Style domain: styles base: 'Text-Default))
+      (new Text-Style domain: styles base: 'Text-Base))
     
     (nextmethod rest)
     (set! default-format (new-default-format))
@@ -156,15 +158,15 @@
     (set! syntax (new-syntax))
     (let ((pref (preferences)))
       (when pref
-        ;; background
         (let ((background (get-background~ pref)))
           (when background
             (set-background (symbolic-color background))))
-        ;; default style
-        (let ((default-style-preference (get-default-style~ pref)))
-          (when default-style-preference
-            (let ((style (add-style 'Default default-style-preference)))
-              (set-default-style style))))
+        (let ((base (or base-format (get-base-format~ pref))))
+          (add-format 'Base base)
+          (set-default-format (or (get-default-format~ pref) base)))
+        (let ((base (or base-style (get-base-style~ pref))))
+          (add-style 'Base base)
+          (set-default-style (or (get-default-style~ pref) base)))
         (set! caret-pulse? (get-pulse-caret?~ pref)))))
   
   
@@ -2782,7 +2784,7 @@
              (add-styling
                (lambda (proc)
                  (when (not style)
-                   (set! style (new Text-Style base: 'Default)))
+                   (set! style (new Text-Style base: 'Base)))
                  (proc style))))
         (while (not (done?~ scan))
           (let ((target (get-next~ scan)))
@@ -3010,7 +3012,7 @@
     
     (define (parse-style-tag node intern-style)
       (let ((string (get-text~ (first-child~ node)))
-            (style (new Text-Style base: 'Default)))
+            (style (new Text-Style base: 'Base)))
         (for-each-property (lambda (property value)
                              (case property
                                ((color) (set-color~ style (parse-color value)))

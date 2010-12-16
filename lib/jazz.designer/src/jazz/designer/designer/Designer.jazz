@@ -45,6 +45,7 @@
         (jazz.io)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.component)
         (jazz.library.listener)
         (jazz.platform)
         (jazz.system)
@@ -330,8 +331,15 @@
           (for-each-property (lambda (property value)
                                (set-property child property value trait: trait design-events?: design-events?))
             properties))
-        (when (and data import)
-          (add-import~ data import))
+        (when import
+          (let* ((form (get-form))
+                 (old-locator (get-locator~ form)))
+            (set-locator~ form (let ((new-locator (imports-locator (list (listify import)))))
+                                 (lambda (symbol)
+                                   (or (new-locator symbol)
+                                       (old-locator symbol))))))
+          (when data
+            (add-import~ data import)))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
         (when design-events?

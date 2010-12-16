@@ -1,0 +1,206 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Concrete Fonts
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.graphic.font.Concrete-Font jazz
+
+
+(import (jazz.graphic)
+        (jazz.graphic.font)
+        (jazz.library.exemplar)
+        (jazz.platform.cairo))
+
+
+(class Concrete-Font extends Object
+  
+  
+  (slot font        getter generate)
+  (slot local?      getter generate)
+  (slot handle      getter generate)
+  (slot font-face   getter generate)
+  (slot scaled-font getter generate)
+  (slot metrics     initialize #f)
+  (slot all-widths  initialize #f)
+  (slot glyph-cache initialize #f)
+  
+  
+  (method override (initialize font)
+    (define (create-cairo-scaled-font font-face point-size bold? antialias hint-style)
+      (define (cairo-antialias antialias)
+        (case antialias
+          ((default) CAIRO_ANTIALIAS_DEFAULT)
+          ((none) CAIRO_ANTIALIAS_NONE)
+          ((gray) CAIRO_ANTIALIAS_GRAY)
+          ((subpixel) CAIRO_ANTIALIAS_SUBPIXEL)))
+      
+      (define (cairo-hint-style style)
+        (case style
+          ((default) CAIRO_HINT_STYLE_DEFAULT)
+          ((none) CAIRO_HINT_STYLE_NONE)
+          ((slight) CAIRO_HINT_STYLE_SLIGHT)
+          ((medium) CAIRO_HINT_STYLE_MEDIUM)
+          ((full) CAIRO_HINT_STYLE_FULL)))
+      
+      (let ((height (and point-size (calculate-height point-size)))
+            (matrix (cairo_matrix_t-make))
+            (ctm (cairo_matrix_t-make))
+            (options (cairo_font_options_create)))
+        (cairo_font_options_set_antialias options (cairo-antialias (or antialias 'subpixel)))
+        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (default-hint-style bold?))))
+        (if height
+            (cairo_matrix_init_scale matrix height height)
+          (cairo_matrix_init_identity matrix))
+        (cairo_matrix_init_identity ctm)
+        (prog1 (cairo_scaled_font_create font-face matrix ctm options)
+          (cairo_matrix_t-free matrix)
+          (cairo_matrix_t-free ctm)
+          (cairo_font_options_destroy options))))
+    
+    (nextmethod)
+    (let ((font-name (get-font-name~ font))
+          (point-size (get-point-size~ font))
+          (bold? (get-bold?~ font))
+          (italic? (get-italic?~ font))
+          (underline? (get-underline?~ font))
+          (antialias (get-antialias~ font))
+          (hint-style (get-hint-style~ font)))
+      (set! font~self font)
+      (set! local?~self (symbol? font-name))
+      (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
+      (set! font-face~self (create-cairo-font-face local? handle~self))
+      (set! scaled-font~self (create-cairo-scaled-font font-face point-size bold? antialias hint-style))
+      (set! glyph-cache~self (make-table test: eqv?))))
+  
+  
+  (cond-expand
+    (windows
+      (definition (calculate-height point-size <fl>) <fl>
+        (exact->inexact (/ (* point-size 96) 72))))
+    (else
+      (definition (calculate-height point-size <fl>) <fl>
+        point-size)))
+  
+  
+  (cond-expand
+    (unix
+      (definition (default-hint-style bold?)
+        'slight))
+    (else
+      (definition (default-hint-style bold?)
+        (if bold? 'slight 'full))))
+
+
+  (method override (destroy)
+    (cairo_scaled_font_destroy scaled-font)
+    (destroy-cairo-font-face font-face)
+    (destroy-font-handle local? handle)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (definition Work-DC
+    #f)
+  
+  
+  (definition (work-dc)
+    (unless Work-DC
+      (set! Work-DC (new Memory-Surface #f {Dimension 0 0})))
+    Work-DC)
+
+  
+  (method public (text-extent text)
+    (set-font~ (work-dc) font)
+    (get-text-extent~ (work-dc) text))
+
+  
+  (method public (text-width text)
+    (when text
+      (set-font~ (work-dc) font)
+      (get-text-width~ (work-dc) text)))
+  
+
+  (method public (font-height)
+    (set-font~ (work-dc) font)
+    (get-font-height~ (work-dc)))
+  
+  
+  (method public (glyph-index char)
+    (if (> char 255)
+        (cairo_glyph_index font char)
+      (or (table-ref glyph-cache char #f)
+          (let ((index (cairo_glyph_index font char)))
+            (table-set! glyph-cache char index)
+            index))))
+  
+
+  ;;;
+  ;;;; Metrics
+  ;;;
+  
+  
+  (method public (get-metrics)
+    (unless metrics
+      (set! metrics
+            (begin
+              (set-font~ (work-dc) font)
+              (new Font-Metrics (get-text-metrics~ (work-dc))))))
+    metrics)
+
+  
+  (method public (get-all-widths)
+    (unless all-widths
+      (set! all-widths
+            (begin
+              (set-font~ (work-dc) font)
+              (get-char-widths~ (work-dc)))))
+    all-widths)
+  
+  
+  (method public (get-widths . rest)
+    (set-font~ (work-dc) font)
+    (get-char-widths~ (work-dc)))
+  
+  
+  (method public (get-char-width c)
+    (let ((n (char->integer c)))
+      (if (< n 256)
+          (vector-ref (get-all-widths) n)
+        (set-font~ (work-dc) font)
+        (get-char-width~ (work-dc) n))))))

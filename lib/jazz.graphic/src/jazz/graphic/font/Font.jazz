@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Font
+;;;; Fonts
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -57,132 +57,58 @@
     (hint-style  initialize #f))
   
   
-  (slot local?      getter generate)
-  (slot handle      getter generate)
-  (slot font-face   getter generate)
-  (slot scaled-font getter generate)
-  (slot metrics     initialize #f)
-  (slot all-widths  initialize #f)
-  (slot glyph-cache initialize #f)
-  
-  
-  (method override (initialize . rest)
-    (define (setup-font)
-      (let ((font-name (get-font-name))
-            (point-size (get-point-size))
-            (bold? (get-bold?))
-            (italic? (get-italic?))
-            (underline? (get-underline?))
-            (antialias (get-antialias))
-            (hint-style (get-hint-style)))
-        (set! local?~self (symbol? font-name))
-        (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
-        (set! font-face~self (create-cairo-font-face local? handle~self))
-        (set! scaled-font (create-cairo-scaled-font font-face point-size bold? antialias hint-style))
-        (set! glyph-cache (make-table test: eqv?))))
-        
-    (define (create-cairo-scaled-font font-face point-size bold? antialias hint-style)
-      (define (cairo-antialias antialias)
-        (case antialias
-          ((default) CAIRO_ANTIALIAS_DEFAULT)
-          ((none) CAIRO_ANTIALIAS_NONE)
-          ((gray) CAIRO_ANTIALIAS_GRAY)
-          ((subpixel) CAIRO_ANTIALIAS_SUBPIXEL)))
-      
-      (define (cairo-hint-style style)
-        (case style
-          ((default) CAIRO_HINT_STYLE_DEFAULT)
-          ((none) CAIRO_HINT_STYLE_NONE)
-          ((slight) CAIRO_HINT_STYLE_SLIGHT)
-          ((medium) CAIRO_HINT_STYLE_MEDIUM)
-          ((full) CAIRO_HINT_STYLE_FULL)))
-      
-      (let ((height (and point-size (calculate-height point-size)))
-            (matrix (cairo_matrix_t-make))
-            (ctm (cairo_matrix_t-make))
-            (options (cairo_font_options_create)))
-        (cairo_font_options_set_antialias options (cairo-antialias (or antialias 'subpixel)))
-        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (default-hint-style bold?))))
-        (if height
-            (cairo_matrix_init_scale matrix height height)
-          (cairo_matrix_init_identity matrix))
-        (cairo_matrix_init_identity ctm)
-        (prog1 (cairo_scaled_font_create font-face matrix ctm options)
-          (cairo_matrix_t-free matrix)
-          (cairo_matrix_t-free ctm)
-          (cairo_font_options_destroy options))))
-    
-    (apply nextmethod rest)
-    (setup-font))
+  (slot concrete initialize #f)
   
   
   (method override (default-domain)
     (fonts-domain))
-  
-  
-  (cond-expand
-    (windows
-      (definition (calculate-height point-size <fl>) <fl>
-        (exact->inexact (/ (* point-size 96) 72))))
-    (else
-      (definition (calculate-height point-size <fl>) <fl>
-        point-size)))
-  
-  
-  (cond-expand
-    (unix
-      (definition (default-hint-style bold?)
-        'slight))
-    (else
-      (definition (default-hint-style bold?)
-        (if bold? 'slight 'full))))
 
 
   (method override (destroy)
-    (cairo_scaled_font_destroy scaled-font)
-    (destroy-cairo-font-face font-face)
-    (destroy-font-handle local? handle)
+    (when concrete
+      (close~ concrete)
+      (set! concrete #f))
     (nextmethod))
+  
+  
+  ;;;
+  ;;;; Concrete
+  ;;;
+  
+  
+  (method (concrete-font)
+    (unless concrete
+      (set! concrete (new Concrete-Font self)))
+    concrete)
+  
+  
+  (method public (get-handle)
+    (get-handle~ (concrete-font)))
+  
+  
+  (method public (get-scaled-font)
+    (get-scaled-font~ (concrete-font)))
   
   
   ;;;
   ;;;; Text
   ;;;
-  
-  
-  (definition Work-DC
-    #f)
-  
-  
-  (definition (work-dc)
-    (unless Work-DC
-      (set! Work-DC (new Memory-Surface #f {Dimension 0 0})))
-    Work-DC)
 
   
   (method public (text-extent text)
-    (set-font~ (work-dc) self)
-    (get-text-extent~ (work-dc) text))
+    (text-extent~ (concrete-font) text))
 
   
   (method public (text-width text)
-    (when text
-      (set-font~ (work-dc) self)
-      (get-text-width~ (work-dc) text)))
+    (text-width~ (concrete-font) text))
   
 
   (method public (font-height)
-    (set-font~ (work-dc) self)
-    (get-font-height~ (work-dc)))
+    (font-height~ (concrete-font)))
   
   
-  (method public (glyph-index char)
-    (if (> char 255)
-        (cairo_glyph_index self char)
-      (or (table-ref glyph-cache char #f)
-          (let ((index (cairo_glyph_index self char)))
-            (table-set! glyph-cache char index)
-            index))))
+  (method public (glyph-index c)
+    (glyph-index~ (concrete-font) c))
   
 
   ;;;
@@ -191,38 +117,23 @@
   
   
   (method public (get-metrics)
-    (unless metrics
-      (set! metrics
-            (begin
-              (set-font~ (work-dc) self)
-              (new Font-Metrics (get-text-metrics~ (work-dc))))))
-    metrics)
+    (get-metrics~ (concrete-font)))
 
   
   (method public (get-all-widths)
-    (unless all-widths
-      (set! all-widths
-            (begin
-              (set-font~ (work-dc) self)
-              (get-char-widths~ (work-dc)))))
-    all-widths)
+    (get-all-widths~ (concrete-font)))
   
   
-  (method public (get-widths . rest)
-    (set-font~ (work-dc) self)
-    (get-char-widths~ (work-dc)))
+  (method public (get-widths)
+    (get-widths~ (concrete-font)))
   
   
   (method public (get-char-width c)
-    (let ((n (char->integer c)))
-      (if (< n 256)
-          (vector-ref (get-all-widths) n)
-        (set-font~ (work-dc) self)
-        (get-char-width~ (work-dc) n))))
+    (get-char-width~ (concrete-font) c))
   
   
   ;;;
-  ;;;; Style
+  ;;;; Extend
   ;;;
   
   

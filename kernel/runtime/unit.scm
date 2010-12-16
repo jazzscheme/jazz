@@ -1425,72 +1425,81 @@
       (force-output)
       (mutex-unlock! output-mutex))
     
+    (define (end-port/echo port/echo)
+      (send-command (current-output-port) 'end-port/echo)
+      (close-port (%%car port/echo))
+      (thread-join! (%%cdr port/echo)))
+    
     (define (grab-build-process)
       (mutex-lock! process-mutex)
       (let ((active-count (%%length active-processes))
             (jobs (or jazz:jobs (jazz:build-jobs))))
         (cond ((%%pair? free-processes)
-               (let ((established-port (%%car free-processes)))
+               (let ((port/echo (%%car free-processes)))
                  (set! free-processes (%%cdr free-processes))
                  (mutex-unlock! process-mutex)
-                 established-port))
+                 port/echo))
               ((%%fx< active-count jobs)
                (let ((process (open-process
                                 (list
-                                    path: (jazz:install-path "kernel")
-                                    arguments: `("-:dq-" "-subbuild"
-                                                 "-link" ,(%%symbol->string jazz:link)
-                                                 ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
-                                                 ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
-                                                 ,@(if (jazz:save-emit?) `("-emit") '())
-                                                 ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())
-                                                 ,@(if (jazz:jazz-repository) `("-jazz-repository" ,(jazz:jazz-repository)) '())
-                                                 ,@(if (jazz:repositories) `("-repositories" ,(jazz:repositories)) '())
-                                                 "-jobs" "1"
-                                                 "-port" ,(number->string (socket-info-port-number (tcp-server-socket-info listening-port))))
-                                    stdin-redirection: #t
-                                    stdout-redirection: #t
-                                    stderr-redirection: #t))))
-                 (let ((established-port (read listening-port)))
-                   (thread-start! (make-thread (lambda ()
-                                                 (let iter ()
-                                                      (let ((line (read-line process)))
-                                                        (if (not (eof-object? line))
-                                                            (begin
-                                                              (atomic-output line)
-                                                              (iter))))))))
-                   (set! active-processes (%%cons established-port active-processes))
-                   (mutex-unlock! process-mutex)
-                   established-port)))
+                                  path: (jazz:install-path "kernel")
+                                  arguments: `("-:dq-" "-subbuild"
+                                               "-link" ,(%%symbol->string jazz:link)
+                                               ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
+                                               ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
+                                               ,@(if (jazz:save-emit?) `("-emit") '())
+                                               ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())
+                                               ,@(if (jazz:jazz-repository) `("-jazz-repository" ,(jazz:jazz-repository)) '())
+                                               ,@(if (jazz:repositories) `("-repositories" ,(jazz:repositories)) '())
+                                               "-jobs" "1"
+                                               "-port" ,(number->string (socket-info-port-number (tcp-server-socket-info listening-port))))
+                                  stdin-redirection: #t
+                                  stdout-redirection: #t
+                                  stderr-redirection: #t))))
+                 (let ((established-port (read listening-port))
+                       (echo-thread (thread-start! (make-thread (lambda ()
+                                                                  (let iter ()
+                                                                       (let ((line (read-line process)))
+                                                                         (send-command (current-output-port) (list 'read-line (eof-object? line) line))
+                                                                         (if (not (eof-object? line))
+                                                                             (begin
+                                                                               (atomic-output line)
+                                                                               (iter))))))))))
+                   (let ((port/echo (%%cons established-port echo-thread)))
+                     (set! active-processes (%%cons port/echo active-processes))
+                     (mutex-unlock! process-mutex)
+                     port/echo))))
               (else
                (mutex-unlock! process-mutex process-condition)
                (grab-build-process)))))
     
     (define (build name)
-      (let ((established-port (grab-build-process)))
+      (let ((port/echo (grab-build-process)))
         (define (build-process-died)
+          (send-command (current-output-port) 'build-process-died)
           (mutex-lock! process-mutex)
-          (set! active-processes (jazz:remove established-port active-processes))
+          (set! active-processes (jazz:remove port/echo active-processes))
           (set! stop-build? #t)
           (mutex-unlock! process-mutex)
           (condition-variable-signal! process-condition))
         
         (define (build-process-ended changes)
+          (send-command (current-output-port) 'build-process-ended)
           (mutex-lock! process-mutex)
           (if (and (key-product? name) (%%not (%%null? changes)))
               (set! outdated-processes active-processes))
-          (if (%%memq established-port outdated-processes)
+          (if (%%memq port/echo outdated-processes)
               (begin
-                (set! active-processes (jazz:remove established-port active-processes))
-                (set! outdated-processes (jazz:remove established-port outdated-processes))
-                (close-port established-port))
-            (set! free-processes (%%cons established-port free-processes)))
+                (set! active-processes (jazz:remove port/echo active-processes))
+                (set! outdated-processes (jazz:remove port/echo outdated-processes))
+                (end-port/echo port/echo))
+            (set! free-processes (%%cons port/echo free-processes)))
           (mutex-unlock! process-mutex)
           (condition-variable-signal! process-condition))
         
         (if stop-build?
             (build-process-ended #f)
-          (begin
+          (let ((established-port (%%car port/echo)))
             (send-command established-port name)
             (let ((changes (read established-port)))
               (if (eof-object? changes)
@@ -1537,8 +1546,12 @@
     (parameterize ((current-user-interrupt-handler
                      (lambda ()
                        (set! stop-build? #t)
+                       (send-command (current-output-port) 'fail)
+                       (for-each end-port/echo active-processes)
+                       (for-each end-port/echo free-processes)
                        (exit))))
-      (make name))))
+      (make name))
+    (for-each end-port/echo free-processes)))
 
 
 (define (jazz:subprocess-build-products port)

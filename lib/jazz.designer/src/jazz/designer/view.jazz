@@ -68,13 +68,14 @@
 (definition package (component-addable-classes component parent)
   (let ((parent-classes (and parent (get-addable-classes~ parent)))
         (classes (get-addable-classes~ component))
-        (model (class-of component)))
-    (when (and parent-classes
-               (memq? model parent-classes)
-               (not (memq? model classes)))
-      (set! classes (cons model (cons #f classes))))
-    classes))
-
+        (model (class-of component))
+        (resolve-valid-ref (lambda (ref) (and ref (resolve-runtime-reference ref)))))
+    (let ((model-ref (and parent-classes
+                          (not (find classes model test: eq? key: resolve-valid-ref return: 'item))
+                          (find parent-classes model test: eq? key: resolve-valid-ref return: 'item))))
+      (if model-ref
+          (cons model-ref (cons #f classes))
+        classes))))
 
 ;;;
 ;;;; Edit

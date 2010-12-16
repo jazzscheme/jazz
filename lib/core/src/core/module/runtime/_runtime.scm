@@ -104,12 +104,14 @@
 
 
 (define (jazz.resolve-runtime-reference runtime-reference)
-  (let ((resolver (%%get-runtime-reference-resolver runtime-reference)))
-    (resolver)))
+  (%%debug-assert (%%is? runtime-reference jazz.Runtime-Reference)
+    (let ((resolver (%%get-runtime-reference-resolver runtime-reference)))
+      (resolver))))
 
 
 (define (jazz.serialize-runtime-reference runtime-reference)
-  (%%get-runtime-reference-serialization runtime-reference))
+  (%%debug-assert (%%is? runtime-reference jazz.Runtime-Reference)
+    (%%get-runtime-reference-serialization runtime-reference)))
 
 
 (define (jazz.deserialize-runtime-reference serialization)

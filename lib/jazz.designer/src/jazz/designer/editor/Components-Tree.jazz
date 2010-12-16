@@ -406,26 +406,28 @@
              (component-addable-classes component (parent-relocation (get-parent~ component)))))))
   
   
-  (method override (add-component-class class (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
-    (define (create-new-component class parent creation-info extra-properties)
+  (method override (add-component-class reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
+    (define (create-new-component class parent import creation-info extra-properties)
       (receive (presentation added-properties) creation-info
         (let ((name (and presentation (presentation->name~ class presentation))))
           (let ((child (new class parent: parent name: name))
                 (designer (get-designer)))
             (with-update-locked
               (lambda ()
-                (install-new-component designer child parent presentation added-properties extra-properties)))
+                (install-new-component designer child parent presentation added-properties extra-properties import: import)))
             child))))
     
     (let* ((selected (selected-component))
+           (class (resolve-runtime-reference reference))
            (parent (or parent (relocation-parent selected class) selected client))
-           (extra-properties properties))
+           (extra-properties properties)
+           (import (second (serialize-runtime-reference reference))))
       ;; To support the new feature that it is now possible to
       ;; insert a parent's child directly from the child itself
-      (when (not (memq? class (get-addable-classes~ parent)))
+      (when (not (memq? class (map resolve-runtime-reference (get-addable-classes~ parent))))
         (set! parent (get-parent~ parent)))
       (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
-             (child (create-new-component class parent creation-info extra-properties)))
+             (child (create-new-component class parent import creation-info extra-properties)))
         (when select?
           (select-component child))
         child)))
@@ -444,8 +446,8 @@
     '())
   
   
-  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties)
-    (add-child~ designer child parent)
+  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f))
+    (add-child~ designer child parent import: import)
     (when presentation
       (set-presentation-property~ child designer presentation))
     (install-new-properties designer child added-properties extra-properties))

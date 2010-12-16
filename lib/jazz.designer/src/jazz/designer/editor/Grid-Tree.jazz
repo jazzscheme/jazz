@@ -40,10 +40,12 @@
 
 (import (jazz.graphic)
         (jazz.designer)
+        (jazz.designer.view)
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (definition (get-lineage-from component ancestor)
@@ -116,7 +118,8 @@
 (definition (make-class-cell-domain classes)
   (new Enumeration-Domain choices: (cons (list #f "") 
                                          (zip classes
-                                              (map get-class-presentation~ classes)))))
+                                              (map get-class-presentation~
+                                                   (map resolve-runtime-reference classes))))))
 
 
 (definition (normalize-descriptor-target descriptor)
@@ -132,6 +135,7 @@
 (definition (validate-descriptor-title descriptor)
   (or (get-title~ descriptor)
       (error "Child-Descriptor has not title: {s}" descriptor)))
+
 
 
 ;;;
@@ -194,6 +198,18 @@
   
   
   ;;;
+  ;;;; Classes
+  ;;;
+
+
+(method override (addable-classes component)
+  (let ((toolbox (find-docked Toolbox-Manager)))
+    (if toolbox
+        (get-addable-models-refs~ toolbox component)
+      (get-addable-classes~ component))))
+  
+  
+  ;;;
   ;;;; Selection
   ;;;
   
@@ -213,7 +229,7 @@
   (method override (selection-changed selection old origin force-parent? focus?)
     (define (determine-client component force-parent?)
       (let ((parent (get-parent~ component)))
-        (if (and parent (get-addable-classes~ parent) (or force-parent? (null? (get-addable-classes~ component))))
+        (if (and parent (addable-classes parent) (or force-parent? (null? (addable-classes component))))
             (values parent #t)
           (values component #f))))
     
@@ -244,23 +260,26 @@
   
   (method (select-class-cell cell editor row-component path)
     (let ((parent-component (if (null? path) client (find-component-path row-component (butlast path))))
-          (classes (if (null? path) (get-addable-classes~ client)
+          (classes (if (null? path)
+                       (addable-classes client)
                      (let* ((row-descriptor (get-descriptor (class-of row-component)))
                             (descriptor (find-key~ (find-child~ row-descriptor 'children) normalize-descriptor-target path)))
                        (when descriptor
-                         (map resolve-reference~ (get-classes~ descriptor)))))))
+                         (map get-reference~ (get-classes~ descriptor)))))))
       (when (and parent-component classes)
         (let ((old-component (if (null? path) row-component (find-child~ parent-component (last path)))))
           (let* ((domain (make-class-cell-domain classes))
                  (entry (setup-entry~ domain editor #f))
                  (end-edit (lambda (cell)
                              (when (get-modified?~ entry)
-                               (let* ((class (get-value~ entry))
+                               (let* ((ref (get-value~ entry))
+                                      (import (second (serialize-runtime-reference ref)))
+                                      (class (and ref (resolve-runtime-reference ref)))
                                       (new-component (and class (new class))))
                                  (when old-component
                                    (remove-child~ designer old-component))
                                  (when new-component
-                                   (add-child~ designer new-component parent-component name: (and (not-null? path) (last path)))))))))
+                                   (add-child~ designer new-component parent-component name: (and (not-null? path) (last path)) import: import)))))))
             (set-value~ entry (and old-component (class-of old-component)))
             (edit-cell cell editor: editor close-editor?: #f after-end: end-edit)
             (prepare-and-focus-entry entry))))))
@@ -352,15 +371,15 @@
                                          (get-name~ (second class+property)))
                        classes-properties)))))
     
-    (let ((addable-classes (get-addable-classes~ client)))
-      (if (null? addable-classes)
+    (let ((classes (map resolve-runtime-reference (addable-classes client))))
+      (if (null? classes)
           (add-property-column '(name-info) "Name")
-        (let* ((addable-descriptors (map get-class-descriptor~ addable-classes))
+        (let* ((addable-descriptors (map get-class-descriptor~ classes))
                (child-descriptors (append-map (lambda (descriptor)
                                                 (get-children~ (find-child~ descriptor 'children)))
                                               addable-descriptors))
                (targets+titles+classes (apply zip (target-classes-union
-                                                    (cons (list '() "Class" addable-classes)
+                                                    (cons (list '() "Class" classes)
                                                           (map (lambda (descriptor)
                                                                  (list (normalize-descriptor-target descriptor)
                                                                        (validate-descriptor-title descriptor)

@@ -589,15 +589,12 @@
   (method override (get-row-target drag-drop row)
     (let* ((source (get-source~ drag-drop))
            (view (get-view~ source)))
-      #f
-      @wait
       (typecase view
-        @to-convert-to-new-toolbox
-        ((Model-Icon)
-         (let* ((model (get-model~ view))
-                (class (autoload model))
+        ((Toolbox-Tree)
+         (let* ((tool (selected-component~ view))
+                (class (get-class~ tool))
                 (component (get-user-data~ row)))
-           (when (addable-class?~ component class)
+           (when (and class (addable-class?~ component class))
              (new Tree-Drop-Target view: self row: row))))
         @wait
         ((Descendants-Tree)
@@ -607,26 +604,21 @@
   
   
   (method override (receive-drop sender pos drag-drop)
-    (define (receive-model window target)
-      (let* ((model (dispatch (class-of self) (get-model~ window)))
-             (parent (get-user-data~ (get-row~ target)))
-             (child (new model visible?: #f)))
+    (define (receive-model target)
+      (let* ((tool (selected-component~ sender))
+             (ref (get-reference~ tool))
+             (parent (get-user-data~ (get-row~ target))))
         (with-update-locked
           (lambda ()
-            (add-view~ (get-designer) child parent position: {Point 0 0} centered?: #f)
-            (rename-component child)))))
+            (add-component-class ref parent: parent)))))
     
-    (let* ((source (get-source~ drag-drop))
-           (view (get-view~ source))
-           (target (get-target~ drag-drop)))
-      (if (eq? view self)
+    (let ((source (get-source~ drag-drop))
+          (target (get-target~ drag-drop)))
+      (if (eq? sender self)
           (move-components source target)
-        #f
-        @wait
-        (typecase view
-          @to-convert-to-new-toolbox
-          ((Model-Icon)
-           (receive-model view target))))))
+        (typecase sender
+          ((Toolbox-Tree)
+           (receive-model target))))))
   
   
   ;;;

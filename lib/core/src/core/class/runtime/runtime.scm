@@ -139,7 +139,7 @@
 
 
 (define (jazz.subtype? target type)
-  (%%assert (jazz.type? type)
+  (%%debug-assert (and (jazz.type? target) (jazz.type? type))
     (%%boolean (%%subtype? target type))))
 
 

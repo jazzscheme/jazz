@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.designer.view)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -181,22 +182,16 @@
                 (collect-family~ (get-client))))
   
   
-  (method (call-with-selected-toolbox-model func)
-    (let ((selected-model (get-single-selected-data~ (get-tree))))
-      (and (is? selected-model Toolbox-Model)
-           (func selected-model))))
+  (method public (selected-class)
+    (selected-class~ (get-tree)))
   
   
-  (method (selected-class)
-    (call-with-selected-toolbox-model get-class~))
-  
-  
-  (method public (selected-class-name)
-    (call-with-selected-toolbox-model get-model~))
+  (method public (selected-model)
+    (selected-model~ (get-tree)))
   
   
   (method public (selected-unit)
-    (call-with-selected-toolbox-model get-unit~))
+    (selected-unit~ (get-tree)))
   
   
   (method public (get-toolbox-models)
@@ -219,7 +214,7 @@
   
   
   (method (on-add evt)
-    (add-new))
+    (add))
   
   
   (method (on-new evt)
@@ -235,16 +230,10 @@
   
   
   (method (on-double-click evt)
-    (add-new))
-  
-  
-  (method (editor-class component)
-    (typecase component
-      ((View) View-Editor)
-      ((Component) Grid-Component-Editor)))
+    (add))
       
   
-  (method (add-new)
+  (method (add)
     (let ((class (selected-class))
           (unit (selected-unit))
           (editor (current-document)))
@@ -253,9 +242,7 @@
   
   
   (method (edit)
-    (let* ((class (selected-class))
-           (client (new class)))
-      (new-frame (editor-class client) client: client)))
+    (edit-component (selected-class)))
   
   
   (method (sync-dynamic-toolbox-groups)
@@ -276,7 +263,7 @@
   
   
   (method (edit-new)
-    (let ((class-name (selected-class-name))
+    (let ((class-name (selected-model))
           (class (selected-class)))
       (when class-name
         (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
@@ -285,10 +272,8 @@
                        (list model-name)
                        (let ((imports (effective-imports~ form-data)))
                          (imports-locator imports))
-                       form-data))
-               (client (instantiate~ form)))
-          (set-origin~ form #f)
-          (new-frame (editor-class client) client: client))))))
+                       form-data)))
+          (edit-component form))))))
 
 
 ;;;

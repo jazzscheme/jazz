@@ -45,19 +45,22 @@
         (jazz.ui))
 
 
-(definition package (update-component-menu menu components references add)
+(definition package (update-component-menu menu components reference-categories add)
   (define (add-components add-menu)
     (with-update-locked~ add-menu
       (lambda ()
-        (for-each (lambda (reference)
-                    (if (not reference)
-                        (new Separator-Item parent: add-menu)
-                      (let ((class (resolve-runtime-reference reference)))
-                        (let ((icon (get-class-image~ class))
-                              (title (format "{a}..." (localize (get-class-presentation~ class)))))
-                          (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add reference))))))))
-                  references)
-        references)))
+        (and (not-null? reference-categories)
+             (let ((add-label 
+                     (lambda (reference)
+                       (let ((class (resolve-runtime-reference reference)))
+                         (let ((icon (get-class-image~ class))
+                               (title (format "{a}..." (localize (get-class-presentation~ class)))))
+                           (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add reference)))))))))
+               (for-each add-label (car reference-categories))
+               (for-each (lambda (category)
+                           (new Separator-Item parent: add-menu)
+                           (for-each add-label category))
+                         (cdr reference-categories)))))))
   
   (let* ((count (length components))
          (component (and (>= count 1) (car components)))

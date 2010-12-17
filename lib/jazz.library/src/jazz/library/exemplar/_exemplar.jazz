@@ -109,9 +109,12 @@
         (get-output~ fact)))
     
     (let ((attributes (owned-attributes)))
-      (format "{?:{l}~}{?:{l}~}"
-              (not-null? base) base
-              (not-null? attributes) attributes)))
+      (let ((has-base? (not-null? base))
+            (has-attributes? (not-null? attributes)))
+        (format "{?:{l}~}{a}{?:{l}~}"
+                has-base? base
+                (if (and has-base? has-attributes?) " " "")
+                has-attributes? attributes))))
   
   
   ;;;
@@ -360,10 +363,6 @@
     index)
   
   
-  (method public (get-indexed)
-    (table-values (get-index)))
-  
-  
   (method public (locate-own name (error?: error? #t))
     (or (table-ref (get-index) name #f)
         (when error?
@@ -375,6 +374,17 @@
         (find-object (lambda (domain) (locate~ domain name error?: #f)) chained)
         (when error?
           (error "Unable to locate: {t}" name))))
+  
+  
+  (method public (symbolize target (test: test #f))
+    (let ((test (or test exemplar=?)))
+      (continuation-capture
+        (lambda (return)
+          (iterate-table (get-index)
+            (lambda (name exemplar)
+              (when (test target exemplar)
+                (continuation-return return (new (class-of target) base: name)))))
+          target))))
   
   
   ;;;

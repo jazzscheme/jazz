@@ -50,18 +50,9 @@
   
   
   (method override (client-update)
-    (define (get-all-styles)
-      (let ((formats (remove-false (accumulate (get-formats~ client) get-name~)))
-            (styles (remove-false (accumulate (get-styles~ client) get-name~))))
-        (union formats styles)))
-    
-    #f
-    @convert
-    (let ((names (accumulate (get-all-styles)
-                             (lambda (name)
-                               (list name (->string name)))
-                             List)))
-      (set-choices names)))
+    (set-choices (map (lambda (name)
+                        (list (new Text-Style base: name) (->string name)))
+                      (sort string-ci<? (table-keys (get-named-styles~ client)) key: ->string))))
   
   
   ;;;
@@ -70,11 +61,11 @@
   
   
   (method override (selection-change)
-    #f
-    @convert
     (let* ((end (get-end~ client))
-           (style (get-style-at~ client end)))
-      (set-content (->string (or (get-name~ style) (get-base~ style))))))
+           (style (get-style-at~ client end))
+           (base (get-base~ style))
+           (name (and (not-null? base) (last base))))
+      (set-content (and name (->string name)))))
   
   
   ;;;

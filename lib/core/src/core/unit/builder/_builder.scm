@@ -215,8 +215,15 @@
                                '())))))
       (jazz.update-manifest-compile-time unit-name digest-filepath manifest-filepath src-filepath references)))
   
+  (define (delete-o1-file file)
+    (with-exception-catcher
+      (lambda (exc)
+        (jazz.error "Compilation failed while deleting binary file {a}. A process may be using it." file))
+      (lambda ()
+        (delete-file file))))
+  
   (define (delete-o1-files)
-    (jazz.for-each-numbered-pathname (string-append bin-pathname-base ".o") 1 delete-file))
+    (jazz.for-each-numbered-pathname (string-append bin-pathname-base ".o") 1 delete-o1-file))
   
   (define (determine-o1)
     (if (jazz.build-single-objects?)
@@ -258,14 +265,14 @@
             (display "...")
             (newline)
             (force-output)))
-      (if (and will-compile? (not dry?))
+      (if (not dry?)
           (begin
-            (compile)
-            (update-manifest)))
-      (if (and update-bin? (not dry?))
-          (if will-link?
-              (link-o1)
-            (delete-o1-files))))))
+            (if will-compile? (compile))
+            (if update-bin?
+                (if will-link?
+                    (link-o1)
+                  (delete-o1-files)))
+            (if will-compile? (update-manifest)))))))
 
 
 ;;;

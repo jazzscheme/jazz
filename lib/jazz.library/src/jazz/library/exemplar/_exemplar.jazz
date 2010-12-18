@@ -148,10 +148,13 @@
               (get-ascendants)))
   
   
-  (method public (extend (domain: domain domain))
+  (method public (extend . rest)
     (let ((exemplar (new (class-of self))))
       (set-domain~ exemplar domain)
-      (set-ascendants~ exemplar (list self))
+      (modify-from~ exemplar self)
+      (for-each-property (lambda (keyword value)
+                           (set-attribute~ exemplar (keyword->symbol keyword) value))
+                         rest)
       exemplar))
   
   
@@ -301,17 +304,17 @@
            exemplar))))
 
 
+(definition public (exemplar+=? x y)
+  (or (and (not x) (not y))
+      (and x y (exemplar=? x y))))
+
+
 (specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
   (and (eq? (class-of e1) (class-of e2))
        (equal? (get-base~ e1) (get-base~ e2))
        (every? (lambda (attribute)
                  (attribute/void=?~ e1 attribute (get-attribute~ e1 attribute) (get-attribute~ e2 attribute)))
                (get-attributes~ e1))))
-
-
-(definition public (exemplar+=? x y)
-  (or (and (not x) (not y))
-      (and x y (exemplar=? x y))))
 
 
 ;;;
@@ -424,16 +427,21 @@
     (set! interned (new Axis 0)))
   
   
-  (method public (intern exemplar)
+  (method public (add exemplar)
     (init)
     (when interned
       (axis-add interned exemplar)))
   
   
-  (method public (similar exemplar)
-    (when (not (get-domain~ exemplar))
-      (set-domain~ exemplar self))
-    (find-in (get-interned) exemplar test: exemplar=?))
+  (method public (intern exemplar)
+    (init)
+    (if (not interned)
+        exemplar
+      (or (find-in interned exemplar test: exemplar=?)
+          (begin
+            (set-domain~ exemplar self)
+            (add exemplar)
+            exemplar))))
   
   
   (method public (get-rank exemplar)

@@ -3101,23 +3101,23 @@
     (define (print-formats formats output)
       (format output " (")
       (let ((first? #t))
-        (for-each (lambda (fmt)
-                    (if first?
-                        (set! first? #f)
-                      (format output "{%}  "))
-                    (format output "{s}" fmt))
-                  formats))
+        (iterate formats
+                 (lambda (fmt)
+                   (if first?
+                       (set! first? #f)
+                     (format output "{%}  "))
+                   (format output "{s}" fmt))))
       (format output "){%}{%}"))
     
     (define (print-styles styles output)
       (format output " (")
       (let ((first? #t))
-        (for-each (lambda (style)
-                    (if first?
-                        (set! first? #f)
-                      (format output "{%}  "))
-                    (format output "{s}" style))
-                  styles))
+        (iterate styles
+                 (lambda (style)
+                   (if first?
+                       (set! first? #f)
+                     (format output "{%}  "))
+                   (format output "{s}" style))))
       (format output "){%}{%}"))
     
     (define (range-paragraph-runs paragraph range <Range$Cell$>)
@@ -3149,7 +3149,7 @@
                      (format output "{%}  "))
                    (format output "({s}" (format-reference (get-format~ paragraph) formats))
                    (for-each (lambda (run)
-                               (format output " ({s} {s})" (get-string~ run) (style-reference (get-style~ run) styles)))
+                               (format output " ({s} {s})" (coerce (get-string~ run) String) (style-reference (get-style~ run) styles)))
                              (range-paragraph-runs paragraph range))
                    (format output ")")))
         (format output ")}{%}"))))
@@ -3379,27 +3379,25 @@
                    (lambda (format)
                      (let ((left-margin (get-left-margin~ format))
                            (bulleted? (get-bulleted?~ format)))
-                       (set-bulleted?~ format (not bulleted?))
-                       (set-left-margin~ format (+ left-margin (if bulleted? -16 16)))))))
+                       (extend~ format bulleted?: (not bulleted?) left-margin: (+ left-margin (if bulleted? -16 16)))))))
   
   
   (method public (indent-paragraph line paragraph delta)
     (modify-format paragraph
                    (lambda (format)
-                     (let ((left (get-left-margin~ format)))
-                       (set-left-margin~ format (+ left delta))))))
+                     (let ((left-margin (get-left-margin~ format)))
+                       (extend~ format left-margin: (+ left-margin delta))))))
   
   
   (method (set-justification line paragraph justification)
     (modify-format paragraph
                    (lambda (format)
-                     (set-justification~ format justification))))
+                     (extend~ format justification: justification))))
   
   
   (method (modify-format paragraph proc)
-    (let ((format (extend~ (get-format~ paragraph))))
-      (proc format)
-      (set-paragraph-format paragraph format)))
+    (let ((format (get-format~ paragraph)))
+      (set-paragraph-format paragraph (proc format))))
   
   
   (method (set-paragraph-format paragraph format)
@@ -3575,11 +3573,7 @@
   
   
   (method public (intern-format format) <Format>
-    (or (similar~ formats format)
-        (begin
-          (set-domain~ format formats)
-          (intern~ format)
-          format)))
+    (intern~ formats format))
   
   
   (definition (format-reference format formats)
@@ -3655,11 +3649,7 @@
   
   
   (method public (intern-style style) <Style>
-    (or (similar~ styles style)
-        (begin
-          (set-domain~ style styles)
-          (intern~ style)
-          style)))
+    (intern~ styles style))
   
   
   (definition (style-reference style styles)

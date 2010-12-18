@@ -3129,8 +3129,8 @@
                 (end (if last? (get-col~ (get-end~ range)) (get-length~ paragraph))))
             (range-runs~ paragraph start end)))))
     
-    (let ((formats (collect-persistent~ formats))
-          (styles (collect-persistent~ styles)))
+    (let ((formats (get-interned~ formats))
+          (styles (get-interned~ styles)))
       (format output "~{Formatted-Text{%}")
       (format output " formats:{%}")
       (print-formats formats output)
@@ -3147,24 +3147,24 @@
                    (if first?
                        (set! first? #f)
                      (format output "{%}  "))
-                   (format output "({s}" (format-reference (get-format~ paragraph) formats))
+                   (format output "({s}" (get-rank (get-format~ paragraph) formats))
                    (for-each (lambda (run)
-                               (format output " ({s} {s})" (coerce (get-string~ run) String) (style-reference (get-style~ run) styles)))
+                               (format output " ({s} {s})" (coerce (get-string~ run) String) (get-rank (get-style~ run) styles)))
                              (range-paragraph-runs paragraph range))
                    (format output ")")))
         (format output ")}{%}"))))
   
   
   (method public (get-formatted-content)
-    (let ((formats (collect-persistent~ formats))
-          (styles (collect-persistent~ styles)))
+    (let ((formats (get-interned~ formats))
+          (styles (get-interned~ styles)))
       (define (get-formatted-paragraphs)
         (let ((fact (new List-Factory)))
           (for-each-paragraph
             (lambda (line <fx> paragraph <Paragraph>)
-              (put~ fact (cons (format-reference (get-format~ paragraph) formats)
+              (put~ fact (cons (get-rank (get-format~ paragraph) formats)
                                (map (lambda (run)
-                                      (list (get-string~ run) (style-reference (get-style~ run) styles)))
+                                      (list (get-string~ run) (get-rank (get-style~ run) styles)))
                                     (get-runs~ paragraph))))))
           (get-output~ fact)))
       
@@ -3576,12 +3576,6 @@
     (intern~ formats format))
   
   
-  (definition (format-reference format formats)
-    (or (get-rank format formats)
-        @convert
-        (get-name~ format)))
-  
-  
   (method (reference-format formats reference)
     (if (symbol? reference)
         (get-format reference)
@@ -3650,12 +3644,6 @@
   
   (method public (intern-style style) <Style>
     (intern~ styles style))
-  
-  
-  (definition (style-reference style styles)
-    (or (get-rank style styles)
-        @convert
-        (get-name~ style)))
   
   
   (method (reference-style styles reference)

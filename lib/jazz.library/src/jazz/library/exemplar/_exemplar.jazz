@@ -245,10 +245,23 @@
   
   
   (method protected virtual (get-attribute attribute)
-    (error "Unknown attribute: {s}" attribute))
+    (unknown-attribute attribute))
   
   
   (method protected virtual (set-attribute attribute value)
+    (unknown-attribute attribute))
+  
+  
+  (method protected virtual (attribute=? attribute x y)
+    (eqv? x y))
+  
+  
+  (method protected (attribute/void=? attribute x y)
+    (or (and (unspecified? x) (unspecified? y))
+        (and (specified? x) (specified? y) (attribute=? attribute x y))))
+  
+  
+  (definition (unknown-attribute attribute)
     (error "Unknown attribute: {s}" attribute))
   
   
@@ -289,10 +302,16 @@
 
 
 (specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
-  (and (eq? (get-base~ e1) (get-base~ e2))
+  (and (eq? (class-of e1) (class-of e2))
+       (equal? (get-base~ e1) (get-base~ e2))
        (every? (lambda (attribute)
-                 (equal? (get~ e1 attribute) (get~ e2 attribute)))
+                 (attribute/void=?~ e1 attribute (get-attribute~ e1 attribute) (get-attribute~ e2 attribute)))
                (get-attributes~ e1))))
+
+
+(definition public (exemplar+=? x y)
+  (or (and (not x) (not y))
+      (and x y (exemplar=? x y))))
 
 
 ;;;

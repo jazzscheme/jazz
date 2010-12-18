@@ -379,9 +379,14 @@
             (declaration context 'definition symbol start end marked (symbol-documented? (find-marked-symbol) doc))
             (declaration context 'accessor 'getter start end (string-append "get-" marked) #f)
             (declaration context 'accessor 'setter start end (string-append "set-" marked) #f))
-          (forward-expr)
-          (when (and (eq? kind 'symbol) (eq? (find-marked-symbol) 'initialize))
-            (keyword context start end))
+          (walk-keywords/properties context expression
+            (lambda (symbol)
+              (case symbol
+                ((initialize test)
+                 (keyword context start end)
+                 #f)
+                (else
+                 #f))))
           (walk-expressions context expression))
         (exit-list)
         (iterate))))
@@ -458,33 +463,41 @@
       entry))
   
   
+  (method (walk-keywords/properties context expression proc)
+    (while (forward-expr)
+      (unless (and (eq? kind 'symbol)
+                   (let ((marked-symbol (find-marked-symbol)))
+                     (if marked-symbol
+                         (proc marked-symbol)
+                       #f)))
+        (walk-expression context expression 'code #f))))
+  
+  
   (method (walk-slot/property-accessors context slot-name declaration keyword expression doc)
     (define (declare-accessor accessor)
       (let ((name (string-append (case accessor ((getter) "get-") ((setter) "set-")) slot-name)))
         (declaration context 'accessor accessor start end name (symbol-documented? (find-marked-symbol) doc))
         #t))
     
-    (while (forward-expr)
-      (unless (and (eq? kind 'symbol)
-                   (let ((marked-symbol (find-marked-symbol)))
-                     (case marked-symbol
-                       ((initialize)
-                        (keyword context start end)
-                        #f)
-                       ((getter setter accessors)
-                        (keyword context start end)
-                        (when (and (forward-expr) (eq? kind 'symbol) (string=? (get-marked) "generate"))
-                          (case marked-symbol
-                            ((getter)
-                             (declare-accessor 'getter))
-                            ((setter)
-                             (declare-accessor 'setter))
-                            ((accessors)
-                             (declare-accessor 'getter)
-                             (declare-accessor 'setter)))))
-                       (else
-                        #f))))
-        (walk-expression context expression 'code #f))))
+    (walk-keywords/properties context expression
+      (lambda (symbol)
+        (case symbol
+          ((initialize)
+           (keyword context start end)
+           #f)
+          ((getter setter accessors)
+           (keyword context start end)
+           (when (and (forward-expr) (eq? kind 'symbol) (string=? (get-marked) "generate"))
+             (case symbol
+               ((getter)
+                (declare-accessor 'getter))
+               ((setter)
+                (declare-accessor 'setter))
+               ((accessors)
+                (declare-accessor 'getter)
+                (declare-accessor 'setter)))))
+          (else
+           #f)))))
   
   
   (method (walk-slot context symbol form declaration keyword expression doc)

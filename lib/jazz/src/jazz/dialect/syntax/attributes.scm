@@ -118,8 +118,8 @@
                     (let ((name (car attribute)))
                       (parse-specifier (cdr attribute)
                         (lambda (specifier rest)
-                          (let ((init (getf rest 'initialize not-found: '(unspecified))))
-                            `((,name) ,init))))))
+                          (let ((initialize (getf rest 'initialize not-found: '(unspecified))))
+                            `((,name) ,initialize))))))
                   attributes)
            (else (nextmethod ,attribute))))
        (method override (get-attribute-no-default ,attribute)
@@ -133,6 +133,19 @@
                          ,value
                        (iterate (cdr scan))))
                  (unspecified))))))
+       (method override (attribute=? ,attribute x y)
+         (case ,attribute
+           ,@(let ((clauses (new-queue)))
+               (for-each (lambda (attribute)
+                           (let ((name (car attribute)))
+                             (parse-specifier (cdr attribute)
+                               (lambda (specifier rest)
+                                 (let ((test (getf rest 'test)))
+                                   (if test
+                                       (enqueue clauses `((,name) (,test x y)))))))))
+                         attributes)
+               (queue-list clauses))
+           (else (nextmethod ,attribute x y))))
        (method override (get ,attribute)
          (case ,attribute
            ,@(map (lambda (attribute)

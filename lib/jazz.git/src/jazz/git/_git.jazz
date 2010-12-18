@@ -159,24 +159,24 @@
 
 (definition public (parse-patch-file patch-file proc)
   (call-with-input-file (path-settings patch-file eol-encoding: 'cr-lf)
-    (lambda (reader)
+    (lambda (input)
       (define (read-diff line)
         (let (iter (line line))
           (unless (not line)
             (if (starts-with? line "diff ")
                 (parse-diff line)
-              (iter (read-line reader))))))
+              (iter (read-line input))))))
       
       (define (parse-diff line)
-        (let ((line (read-line reader)))
+        (let ((line (read-line input)))
           (receive (a-index b-index) (parse-index line)
-            (let ((a-name (parse-name (read-line reader)))
-                  (b-name (parse-name (read-line reader))))
+            (let ((a-name (parse-name (read-line input)))
+                  (b-name (parse-name (read-line input))))
               (if (and a-name b-name (not (equal? a-name b-name)))
                   (parse-error line)
                 (let ((deltas (new-queue)))
                   (let iter-delta ()
-                       (let ((range (read-line reader)))
+                       (let ((range (read-line input)))
                          (if (not (starts-with? range "@@ "))
                              (read-diff range)
                            (receive (a-line a-count b-line b-count) (parse-range range)
@@ -184,8 +184,8 @@
                                    (b-cnt 0)
                                    (lines (new-queue)))
                                (let iter-line ()
-                                    (let ((c (read-char reader))
-                                          (l (read-line reader)))
+                                    (let ((c (read-char input))
+                                          (l (read-line input)))
                                       (case c
                                         ((#\-)
                                          (enqueue lines (cons 'a l))
@@ -205,7 +205,7 @@
                   (proc a-name a-index b-name b-index (queue-list deltas))))))))
       
       (define (parse-index line)
-        (let ((line (if (starts-with? line "index ") line (read-line reader))))
+        (let ((line (if (starts-with? line "index ") line (read-line input))))
           (let* ((start 6)
                  (dotdot (search line ".." start: start))
                  (end (find line #\space start: (+ dotdot 2))))
@@ -234,7 +234,7 @@
       (define (parse-error line)
         (error "Invalid patch file: {s} at line: {a}" patch-file line))
       
-      (read-diff (read-line reader)))))
+      (read-diff (read-line input)))))
 
 
 ;;;
@@ -386,8 +386,8 @@
                             (user-message "Extracting base/{a}..." base-name)
                             (create-directories~ base-file)
                             (call-with-output-file (path-settings base-file)
-                              (lambda (printer)
-                                (git-show base-index printer)))))))
+                              (lambda (output)
+                                (git-show base-index output)))))))
                     
                     (define (setup-left)
                       (let ((working-file (new-file~ directory name-path)))
@@ -411,11 +411,11 @@
                                (user-message "Adding right/{a}..." name)
                                (create-directories~ right-file)
                                (call-with-output-file (path-settings right-file)
-                                 (lambda (printer)
+                                 (lambda (output)
                                    (let ((lines (fifth (car deltas))))
                                      (for-each (lambda (info)
                                                  (bind (what . line) info
-                                                   (write-line line printer)))
+                                                   (write-line line output)))
                                                lines)))))
                               ;; modified
                               (else

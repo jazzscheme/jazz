@@ -46,13 +46,13 @@
     
   
   (slot text)
-  (slot printer)
+  (slot output)
   
   
-  (method override (initialize text printer)
+  (method override (initialize text output)
     (nextmethod)
     (set! text~self text)
-    (set! printer~self printer))
+    (set! output~self output))
   
   
   (method public (export-html)
@@ -79,15 +79,15 @@
     (let* ((fmt (get-format~ paragraph))
            (bulleted? (get-bulleted?~ fmt)))
       (when bulleted?
-        (format printer "<UL type=disc><LI style='margin-left:{a}in;font-size:12.0pt;font-family:\"Times New Roman\"'>{%}"
+        (format output "<UL type=disc><LI style='margin-left:{a}in;font-size:12.0pt;font-family:\"Times New Roman\"'>{%}"
                 (/ (- (get-left-margin~ fmt) 16) 64)))
       (for-each (lambda (run)
                   (run->html run in-table?))
                 (get-runs~ paragraph))
       (when bulleted?
-        (format printer "</LI></UL>{%}"))
+        (format output "</LI></UL>{%}"))
       (unless bulleted?
-        (format printer "<BR>{%}"))))
+        (format output "<BR>{%}"))))
   
   
   @future
@@ -97,12 +97,12 @@
            (color (get-value~ style color:)))
       ;; Tags opening
       (when (not default?)
-        (when (not-null? color) (format printer "<COLOR={a}>" (get-name~ color))))
+        (when (not-null? color) (format output "<COLOR={a}>" (get-name~ color))))
       ;; Content printing
-      (format printer "{a}" (get-string~ run))
+      (format output "{a}" (get-string~ run))
       ;; Tags closing
       (when (not default?)
-        (when (not-null? color) (format printer "</COLOR>")))))
+        (when (not-null? color) (format output "</COLOR>")))))
   
   
   (method (run->html run in-table?)
@@ -113,14 +113,14 @@
               (string (get-string~ run)))
           (typecase style
             ((Hyperlink-Style)
-             (format printer "<A href=\"#{a}\">{a}</A>" string string))
+             (format output "<A href=\"#{a}\">{a}</A>" string string))
             ((Text-Style)
              (case name
-               ((Heading0) (format printer "<H1><A name=\"{a}\">{a}</A></H1>" string string))
-               ((Heading1) (format printer "<H2><A name=\"{a}\">{a}</A></H2>" string string))
-               ((Heading2) (format printer "<H3><A name=\"{a}\">{a}</A></H3>" string string))
-               ((Heading3) (format printer "<H4><A name=\"{a}\">{a}</A></H4>" string string))
-               (else (format printer "{a}" string)))))))))
+               ((Heading0) (format output "<H1><A name=\"{a}\">{a}</A></H1>" string string))
+               ((Heading1) (format output "<H2><A name=\"{a}\">{a}</A></H2>" string string))
+               ((Heading2) (format output "<H3><A name=\"{a}\">{a}</A></H3>" string string))
+               ((Heading3) (format output "<H4><A name=\"{a}\">{a}</A></H4>" string string))
+               (else (format output "{a}" string)))))))))
   
   
   (method (text->html element in-table?)
@@ -131,63 +131,63 @@
   
   (method (tree->html tree header?)
     @w
-    (format printer "<TABLE BORDER=\"0\" style=\"border: 1px solid black\" CELLSPACING=\"0\" BGCOLOR=WHITE>{%}")
-    (format printer "<TABLE BORDER=\"1\" CELLSPACING=\"0\" BGCOLOR=WHITE>{%}")
+    (format output "<TABLE BORDER=\"0\" style=\"border: 1px solid black\" CELLSPACING=\"0\" BGCOLOR=WHITE>{%}")
+    (format output "<TABLE BORDER=\"1\" CELLSPACING=\"0\" BGCOLOR=WHITE>{%}")
     (when header?
-      (format printer "<TR>{%}")
+      (format output "<TR>{%}")
       (for-each (lambda (column)
-                  (format printer "<TH>")
+                  (format output "<TH>")
                   (to-html column #t)
-                  (format printer "</TH>{%}"))
+                  (format output "</TH>{%}"))
                 (get-columns~ tree))
-      (format printer "</TR>{%}"))
+      (format output "</TR>{%}"))
     (for-each-row~ tree row->html)
-    (format printer "</TABLE>{%}"))
+    (format output "</TABLE>{%}"))
   
   
   (method (row->html row)
-    (format printer "<TR>")
+    (format output "<TR>")
     (let ((in-table? #t)
           (first? #t))
       (for-each (lambda (child)
-                  (format printer "<TD VALIGN=\"TOP\">")
+                  (format output "<TD VALIGN=\"TOP\">")
                   (when (and first? (/= (get-level~ row) 0))
-                    (format printer "-- "))
+                    (format output "-- "))
                   (to-html child in-table?)
-                  (format printer "</TD>{%}")
+                  (format output "</TD>{%}")
                   (set! first? #f))
                 (get-children~ row)))
-    (format printer "</TR>{%}"))
+    (format output "</TR>{%}"))
   
   
   (method (tree-label->html data)
     (let ((string (localize (get-title~ data))))
       (if (empty-string? string)
-          (format printer "&nbsp;")
-        (format printer "{a}" string))))
+          (format output "&nbsp;")
+        (format output "{a}" string))))
   
   
   (method (tree-column->html column)
-    (format printer "{a}" (localize (get-title~ column))))
+    (format output "{a}" (localize (get-title~ column))))
   
   
   (method public (print-header (name: name "") (header?: header? #f) (header-level: header-level 2) (style-sheet: style-sheet #f))
-    (format printer "<HTML>{%}")
-    (format printer "<HEAD>{%}")
+    (format output "<HTML>{%}")
+    (format output "<HEAD>{%}")
     (when (/= name "")
-      (format printer "<TITLE>{a}</TITLE>{%}" (localize name)))
+      (format output "<TITLE>{a}</TITLE>{%}" (localize name)))
     (when style-sheet
-      (format printer "<LINK REL=STYLESHEET HREF=\"{a}\" TYPE=\"text/css\">{%}"
+      (format output "<LINK REL=STYLESHEET HREF=\"{a}\" TYPE=\"text/css\">{%}"
         style-sheet))
-    (format printer "</HEAD>{%}")
-    (format printer "{%}")
+    (format output "</HEAD>{%}")
+    (format output "{%}")
     (when header?
       @am
       (print-title name header-level centered?: #t))
     @w
-    (format printer "<BODY BGCOLOR=#b7d6d9>{%}"))
+    (format output "<BODY BGCOLOR=#b7d6d9>{%}"))
   
   
   (method public (print-footer)
-    (format printer "</BODY>{%}")
-    (format printer "</HTML>"))))
+    (format output "</BODY>{%}")
+    (format output "</HTML>"))))

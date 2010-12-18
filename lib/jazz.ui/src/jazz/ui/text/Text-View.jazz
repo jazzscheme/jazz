@@ -3093,32 +3093,32 @@
   
   (method protected (save-formatted moniker)
     (call-with-output-file (path-settings moniker)
-      (lambda (printer)
-        (print-formatted printer #f))))
+      (lambda (output)
+        (print-formatted output #f))))
   
   
-  (method protected (print-formatted printer range <Range$Cell$>)
-    (define (print-formats formats printer)
-      (format printer " (")
+  (method protected (print-formatted output range <Range$Cell$>)
+    (define (print-formats formats output)
+      (format output " (")
       (let ((first? #t))
         (for-each (lambda (fmt)
                     (if first?
                         (set! first? #f)
-                      (format printer "{%}  "))
-                    (format printer "{s}" fmt))
+                      (format output "{%}  "))
+                    (format output "{s}" fmt))
                   formats))
-      (format printer "){%}{%}"))
+      (format output "){%}{%}"))
     
-    (define (print-styles styles printer)
-      (format printer " (")
+    (define (print-styles styles output)
+      (format output " (")
       (let ((first? #t))
         (for-each (lambda (style)
                     (if first?
                         (set! first? #f)
-                      (format printer "{%}  "))
-                    (format printer "{s}" style))
+                      (format output "{%}  "))
+                    (format output "{s}" style))
                   styles))
-      (format printer "){%}{%}"))
+      (format output "){%}{%}"))
     
     (define (range-paragraph-runs paragraph range <Range$Cell$>)
       (if (not range)
@@ -3131,13 +3131,13 @@
     
     (let ((formats (collect-persistent~ formats))
           (styles (collect-persistent~ styles)))
-      (format printer "~{Formatted-Text{%}")
-      (format printer " formats:{%}")
-      (print-formats formats printer)
-      (format printer " styles:{%}")
-      (print-styles styles printer)
-      (format printer " paragraphs:{%}")
-      (format printer " (")
+      (format output "~{Formatted-Text{%}")
+      (format output " formats:{%}")
+      (print-formats formats output)
+      (format output " styles:{%}")
+      (print-styles styles output)
+      (format output " paragraphs:{%}")
+      (format output " (")
       (let ((first? #t)
             (paragraphs (if (not range)
                             (get-paragraphs)
@@ -3146,13 +3146,13 @@
                  (lambda (paragraph)
                    (if first?
                        (set! first? #f)
-                     (format printer "{%}  "))
-                   (format printer "({s}" (format-reference (get-format~ paragraph) formats))
+                     (format output "{%}  "))
+                   (format output "({s}" (format-reference (get-format~ paragraph) formats))
                    (for-each (lambda (run)
-                               (format printer " ({s} {s})" (get-string~ run) (style-reference (get-style~ run) styles)))
+                               (format output " ({s} {s})" (get-string~ run) (style-reference (get-style~ run) styles)))
                              (range-paragraph-runs paragraph range))
-                   (format printer ")")))
-        (format printer ")}{%}"))))
+                   (format output ")")))
+        (format output ")}{%}"))))
   
   
   (method public (get-formatted-content)
@@ -3267,9 +3267,9 @@
     @convert
     (if (empty-selection?)
         (bell)
-      (let ((printer (open-output-string)))
-        (print-formatted printer (get-selection))
-        (let ((output (get-output-string printer)))
+      (let ((output (open-output-string)))
+        (print-formatted output (get-selection))
+        (let ((output (get-output-string output)))
           (set-clipboard-text output format: 'jazz-formatted-text)))))
   
   
@@ -3308,9 +3308,9 @@
     (define (range-formatted-text range <Range$Cell$>)
       (unimplemented 'range-formatted-text)
       @convert
-      (let ((printer (open-output-string)))
-        (print-formatted printer range)
-        (car (read-string-content (get-output-string printer)))))
+      (let ((output (open-output-string)))
+        (print-formatted output range)
+        (car (read-string-content (get-output-string output)))))
     
     (define (apply-formats/styles range <Range$Cell$>)
       (let* ((start (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range))))
@@ -3706,12 +3706,12 @@
   
   
   (definition (run-infos->string infos)
-    (let ((printer (open-output-string)))
+    (let ((output (open-output-string)))
       (for-each (lambda (info)
                   (let ((string (car info)))
-                    (format printer "{a}" string)))
+                    (format output "{a}" string)))
                 infos)
-      (get-output-string printer)))
+      (get-output-string output)))
   
   
   (method (make-runs string <string> styles infos)

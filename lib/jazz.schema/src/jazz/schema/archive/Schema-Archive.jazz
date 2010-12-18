@@ -62,11 +62,11 @@
     (set! schemas~self schemas))
   
   
-  (method (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
+  (method (print output readably)
+    (print-unreadable self output
+      (lambda (output)
         (let ((count (length schemas)))
-          (format printer "with {a} schema{a}" count (format-plural count))))))
+          (format output "with {a} schema{a}" count (format-plural count))))))
   
   
   ;;;
@@ -134,22 +134,22 @@
   
   (method meta public (read-header moniker)
     (call-with-input-file (path-settings moniker eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (reader)
-        (values (read-version reader)
-                (read-properties reader)))))
+      (lambda (input)
+        (values (read-version input)
+                (read-properties input)))))
   
   
-  (method meta (read-version reader)
-    (let ((name (read reader))
-          (version (read reader)))
+  (method meta (read-version input)
+    (let ((name (read input))
+          (version (read input)))
       (if (and (= name version:) (is? version Version))
           version
         (error "Unsupported file format"))))
   
   
-  (method meta (read-properties reader)
-    (let ((name (read reader))
-          (properties (read reader)))
+  (method meta (read-properties input)
+    (let ((name (read input))
+          (properties (read input)))
       (if (and (= name properties:) (pair? properties))
           properties
         (error "Unsupported file format"))))
@@ -172,8 +172,8 @@
   
   (method meta public (load-archive file)
     (call-with-input-file (path-settings file eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (reader)
-        (let ((content (read-until eof-object? reader)))
+      (lambda (input)
+        (let ((content (read-until eof-object? input)))
           (new self
             (getf content version:)
             (getf content properties:)
@@ -187,36 +187,36 @@
   
   (method public (save-archive file)
     (call-with-output-file (path-settings file)
-      (lambda (printer)
-        (output-header "Archive" printer)
-        (output-version version printer)
-        (output-properties properties printer)
-        (output-schemas schemas printer))))
+      (lambda (output)
+        (output-header "Archive" output)
+        (output-version version output)
+        (output-properties properties output)
+        (output-schemas schemas output))))
   
   
-  (method (output-version version printer)
-    (format printer "{%}{%}version: {s}{%}" version))
+  (method (output-version version output)
+    (format output "{%}{%}version: {s}{%}" version))
   
   
-  (method (output-properties properties printer)
-    (format printer "{%}{%}properties: {a}{%}"
+  (method (output-properties properties output)
+    (format output "{%}{%}properties: {a}{%}"
             (if (null? properties)
                 "()"
               (format "{s}" properties))))
   
   
-  (method (output-schemas schemas printer)
-    (format printer "{%}{%}schemas:{%}")
-    (format printer "({%}")
+  (method (output-schemas schemas output)
+    (format output "{%}{%}schemas:{%}")
+    (format output "({%}")
     (for-each (lambda (schema)
-                (output-schema schema printer))
+                (output-schema schema output))
               schemas)
-    (format printer "){%}"))
+    (format output "){%}"))
   
   
-  (method (output-schema schema printer)
-    (output-section (get-property~ schema name:) printer)
-    (print-schema~ schema printer))
+  (method (output-schema schema output)
+    (output-section (get-property~ schema name:) output)
+    (print-schema~ schema output))
   
   
   ;;;

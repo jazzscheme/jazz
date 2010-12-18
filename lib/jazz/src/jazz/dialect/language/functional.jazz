@@ -3362,10 +3362,10 @@
     (native-class "tables"))
 
 
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (system-format printer "{a} entries"
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (system-format output "{a} entries"
           (table-length self))))))
 
 
@@ -3407,10 +3407,10 @@
     list))
 
 
-(definition public (table-load table reader error-on-duplicates?)
+(definition public (table-load table input error-on-duplicates?)
   (let (iterate)
-    (let ((name (read reader))
-          (object (read reader)))
+    (let ((name (read input))
+          (object (read input)))
       (when (and (not (eof-object? name))
                  (not (eof-object? object)))
         (if (and error-on-duplicates? (table-ref table name #f))
@@ -4282,10 +4282,10 @@
     (set! members (append! members (list member))))
   
   
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (system-format printer "{a}" members))))
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (system-format output "{a}" members))))
 
 
   (method (name->member name)
@@ -4327,10 +4327,10 @@
     (add-member~ (class-of self) self))
 
 
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (system-format printer "{a}" name))))
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (system-format output "{a}" name))))
   
   
   (method protected virtual (get-value)
@@ -4405,10 +4405,10 @@
 ;;;
 
 
-(definition public (read-until test reader)
+(definition public (read-until test input)
   (let ((queue (new-queue)))
     (let (iterate)
-      (let ((expr (read reader)))
+      (let ((expr (read input)))
         (if (test expr)
             (queue-list queue)
           (enqueue queue expr)
@@ -4422,69 +4422,69 @@
 
 (definition public (read-string-content string)
   (call-with-input-string string
-    (lambda (reader)
-      (read-until eof-object? reader))))
+    (lambda (input)
+      (read-until eof-object? input))))
 
 
 (definition public (read-delimited-string string char)
   (call-with-input-string string
-    (lambda (reader)
+    (lambda (input)
       (let ((fact (new List-Factory)))
         (let (iterate)
-          (let ((lst (read-delimited reader "delimited" char #t)))
+          (let ((lst (read-delimited input "delimited" char #t)))
             (put~ fact lst)
-            (skip-whites reader)
-            (if (eof-object? (peek-char reader))
+            (skip-whites input)
+            (if (eof-object? (peek-char input))
                 (get-output~ fact)
               (iterate))))))))
 
 
-(definition public (require-char reader)
-  (let ((c (read-char reader)))
+(definition public (require-char input)
+  (let ((c (read-char input)))
     (if (eof-object? c)
         (error "Unexpected end of stream reached while reading")
       c)))
 
 
-(definition public (skip-line reader)
+(definition public (skip-line input)
   (let (iterate)
-    (let ((c (read-char reader)))
+    (let ((c (read-char input)))
       (if (and (not (eof-object? c))
                (not (eqv? c #\newline))
                (not (eqv? c #\return)))
           (iterate)
         (if (eqv? c #\return)
-            (read-char reader))))))
+            (read-char input))))))
 
 
-(definition public (skip-whites reader)
+(definition public (skip-whites input)
   (let (iterate)
-    (let ((c (peek-char reader)))
+    (let ((c (peek-char input)))
       (unless (eof-object? c)
         (if (eqv? c #\;)
-            (skip-line reader)
+            (skip-line input)
           (when (whitespace? c)
-            (read-char reader)
+            (read-char input)
             (iterate)))))))
 
 
-(definition public (read-delimited reader kind delimiter (allow-eof? #f))
+(definition public (read-delimited input kind delimiter (allow-eof? #f))
   (let ((queue (new-queue)))
     (let (iterate)
-      (skip-whites reader)
-      (let ((c (peek-char reader)))
+      (skip-whites input)
+      (let ((c (peek-char input)))
         (cond ((eof-object? c)
                (if allow-eof?
                    (queue-list queue)
                  (error "Unexpected end of stream reached while reading {a}" kind)))
               ((eqv? c delimiter)
-               (read-char reader)
+               (read-char input)
                (queue-list queue))
               ((eqv? c #\.)
-               (enqueue-list queue (read reader))
+               (enqueue-list queue (read input))
                (iterate))
               (else
-               (enqueue queue (read reader))
+               (enqueue queue (read input))
                (iterate)))))))
 
 
@@ -4492,11 +4492,11 @@
   (eqv? c #\double-quote))
 
 
-(definition public (read-lines reader)
+(definition public (read-lines input)
   (declare (proper-tail-calls))
   (let ((queue (new-queue)))
     (let (iterate (last-proper? #t))
-      (receive (line proper?) (read-proper-line reader)
+      (receive (line proper?) (read-proper-line input)
         (if line
             (begin
               (enqueue queue line)
@@ -4506,10 +4506,10 @@
           (queue-list queue))))))
 
 
-(definition public (read-content-string reader)
+(definition public (read-content-string input)
   ;; passing #f to gambit's read-line make's it never see an actual
   ;; end-of-line so that it will read the whole content as a string
-  (let ((line (read-line reader #f)))
+  (let ((line (read-line input #f)))
     (if (eof-object? line)
         ""
       line)))
@@ -4529,22 +4529,22 @@
 ;;;
 
 
-(definition public (textual expr (printer (current-output-port)))
-  (write expr printer)
+(definition public (textual expr (output (current-output-port)))
+  (write expr output)
   @wait-bug-fix-for-char-and-probably-others
-  (print~ expr printer :text))
+  (print~ expr output :text))
 
 
-(definition public (describe expr (printer (current-output-port)))
-  (print~ expr printer :describe))
+(definition public (describe expr (output (current-output-port)))
+  (print~ expr output :describe))
 
 
-(definition public (fresh-line (printer (current-output-port)))
-  (unless (at-fresh-line? printer)
-    (newline printer)))
+(definition public (fresh-line (output (current-output-port)))
+  (unless (at-fresh-line? output)
+    (newline output)))
 
 
-(definition public (at-fresh-line? (printer (current-output-port)))
+(definition public (at-fresh-line? (output (current-output-port)))
   ;; todo
   #f)
 
@@ -4564,9 +4564,9 @@
 
 (definition public (with-printer printer proc)
   (if (eq? printer :string)
-      (let ((printer (open-output-string)))
-        (proc printer)
-        (get-output-string printer))
+      (let ((output (open-output-string)))
+        (proc output)
+        (get-output-string output))
     (proc
       (let ((printer-proc (table-ref *printers* printer #f)))
         (if printer-proc
@@ -4600,11 +4600,11 @@
     (newline port)))
 
 
-(definition public (write-lines printer lines)
+(definition public (write-lines output lines)
   (loop (for line in lines remainder remain)
-        (do (display line printer)
+        (do (display line output)
             (unless (null? remain)
-              (newline printer)))))
+              (newline output)))))
 
 
 ;;;

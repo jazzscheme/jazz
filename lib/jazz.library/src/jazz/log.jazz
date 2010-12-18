@@ -123,16 +123,16 @@
             (message-box (format "Cannot process log file {a}{%}at line {a}, column {a}" file-path line column)))
         (set! read-error? #t)))
     
-    (with ((reader (new File-Reader file sharing: 'read/write)))
+    (with ((input (new File-Reader file sharing: 'read/write)))
       (when last-mark
-        (set-reader-file-mark reader last-mark))
+        (set-reader-file-mark input last-mark))
       (let ((done? #f)
             (current-mark last-mark))
         (catch (Error err
                       (handle-read-error current-mark))
           (while (not done?)
-            (set! current-mark (reader-file-mark reader))
-            (let ((expr (read reader)))
+            (set! current-mark (reader-file-mark input))
+            (let ((expr (read input)))
               (if (eof-object? expr)
                   (set! done? #t)
                 (let ((node (parse-jml expr)))
@@ -272,15 +272,15 @@
 
 
 (definition public (log-properties properties (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (let ((printer (open-output-string))
+  (let ((output (open-output-string))
         (first? #t))
     (for-each-property (lambda (property value)
                          (if first?
                              (set! first? #f)
-                           (format printer ", "))
-                         (format printer "{a}: {a}" (keyword->symbol property) value))
+                           (format output ", "))
+                         (format output "{a}: {a}" (keyword->symbol property) value))
       properties)
-    (let ((message (get-output-string printer)))
+    (let ((message (get-output-string output)))
       (log-entry tag: tag name: name message: message data: data log: log))))
 
 

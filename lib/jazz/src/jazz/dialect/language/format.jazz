@@ -74,28 +74,28 @@
     ;;;; Process
     ;;;
     
-    (define (process reader (output? #t))
+    (define (process input (output? #t))
       (let ((done? #f))
         (while (not done?)
-          (let ((c (read-char reader)))
+          (let ((c (read-char input)))
             (if (eof-object? c)
                 (set! done? #t)
               (case c
                 ((#\~)
-                 (let ((c (require-char reader)))
+                 (let ((c (require-char input)))
                    (when output?
                      (write-char c out))))
                 ((#\{)
-                 (let ((c (peek-char reader)))
+                 (let ((c (peek-char input)))
                    (case c
                      ((#\?)
                       (if (not output?)
                           (error "Recursive conditional directive not yet supported")
-                        (read-char reader)
-                        (conditional-directive reader)))
+                        (read-char input)
+                        (conditional-directive input)))
                      (else
-                      (let ((directive (read reader))
-                            (parameters (read-parameters reader)))
+                      (let ((directive (read input))
+                            (parameters (read-parameters input)))
                         (case directive
                           ((a) (display-directive parameters output?))
                           ((s) (write-directive parameters output?))
@@ -118,14 +118,14 @@
                 (else
                  (when output?
                    (write-char c out))))))))
-      (when (and (toplevel? reader) (not (arguments-empty?)))
+      (when (and (toplevel? input) (not (arguments-empty?)))
         (error "Too many format arguments")))
     
-    (define (read-parameters reader)
-      (read-delimited reader "format parameter" #\}))
+    (define (read-parameters input)
+      (read-delimited input "format parameter" #\}))
     
-    (define (toplevel? reader)
-      (eq? reader control-reader))
+    (define (toplevel? input)
+      (eq? input control-reader))
     
     (define (arguments-empty?)
       (null? arguments-scan))
@@ -134,27 +134,27 @@
     ;;;; Conditional
     ;;;
     
-    (define (conditional-directive reader)
-      (cond ((eqv? (peek-char reader) #\:)
-             (read-char reader)
-             (process-conditional reader #t))
+    (define (conditional-directive input)
+      (cond ((eqv? (peek-char input) #\:)
+             (read-char input)
+             (process-conditional input #t))
             (else
-             (process-conditional reader #f))))
+             (process-conditional input #f))))
     
-    (define (read-control-string reader)
-      (let ((printer (open-output-string))
+    (define (read-control-string input)
+      (let ((output (open-output-string))
             (done? #f))
         (while (not done?)
-          (let ((c (require-char reader)))
-            (if (and (eqv? c #\~) (eqv? (peek-char reader) #\}))
+          (let ((c (require-char input)))
+            (if (and (eqv? c #\~) (eqv? (peek-char input) #\}))
                 (begin
-                  (read-char reader)
+                  (read-char input)
                   (set! done? #t))
-              (write-char c printer))))
-        (get-output-string printer)))
+              (write-char c output))))
+        (get-output-string output)))
     
-    (define (process-conditional reader explicit?)
-      (let ((subreader (open-input-string (read-control-string reader)))
+    (define (process-conditional input explicit?)
+      (let ((subreader (open-input-string (read-control-string input)))
             (output? (or (and explicit? (next-argument)) (and (not explicit?) (peek-argument)))))
         (process subreader output?)))
     
@@ -166,66 +166,66 @@
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (display argument printer))))))
+            (lambda (output)
+              (display argument output))))))
     
     (define (write-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (write argument printer))))))
+            (lambda (output)
+              (write argument output))))))
     
     (define (text-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (textual argument printer))))))
+            (lambda (output)
+              (textual argument output))))))
     
     (define (print-directive parameters output?)
       (let ((argument (next-argument))
             (detail (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-expr argument detail printer))))))
+            (lambda (output)
+              (print-expr argument detail output))))))
     
     (define (char-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (write-char argument printer))))))
+            (lambda (output)
+              (write-char argument output))))))
     
     (define (unsigned-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-unsigned argument printer))))))
+            (lambda (output)
+              (print-unsigned argument output))))))
     
     (define (binary-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-binary argument printer))))))
+            (lambda (output)
+              (print-binary argument output))))))
     
     (define (hexadecimal-directive parameters output?)
       (let ((argument (next-argument)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-hexadecimal argument printer))))))
+            (lambda (output)
+              (print-hexadecimal argument output))))))
     
     (define (real-directive parameters output?)
       (let ((argument (next-argument))
             (precision (get-precision parameters)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-real argument precision printer))))))
+            (lambda (output)
+              (print-real argument precision output))))))
     
     (define (list-directive parameters output?)
       (let* ((argument (next-argument))
@@ -236,8 +236,8 @@
              (detail (get-detail parameters)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (print-list argument separator last-separator before after detail printer))))))
+            (lambda (output)
+              (print-list argument separator last-separator before after detail output))))))
     
     (define (properties-directive parameters output?)
       (let ((argument (next-argument))
@@ -246,17 +246,17 @@
             (detail (get-detail parameters)))
         (when output?
           (with-justification parameters
-            (lambda (printer)
+            (lambda (output)
               (let ((scan argument))
                 (while (not-null? scan)
                   (let ((key (car scan))
                         (value (cadr scan)))
                     (when (and (or (null? properties) (memq key properties))
                                (or (unspecified? empty-value) (neq? value empty-value)))
-                      (write-char #\space printer)
-                      (print-expr key detail printer)
-                      (write-char #\space printer)
-                      (print-expr value detail printer)))
+                      (write-char #\space output)
+                      (print-expr key detail output)
+                      (write-char #\space output)
+                      (print-expr value detail output)))
                   (set! scan (cddr scan)))))))))
     
     (define (column-directive parameters output?)
@@ -294,8 +294,8 @@
       (let ((argument (localize (next-argument))))
         (when output?
           (with-justification parameters
-            (lambda (printer)
-              (display argument printer))))))
+            (lambda (output)
+              (display argument output))))))
     
     ;;;
     ;;;; Justification
@@ -307,9 +307,9 @@
             (proc out)
           (let ((justification (get-justify parameters))
                 (padding (get-padding parameters))
-                (printer (open-output-string)))
-            (proc printer)
-            (let ((buffer (get-output-string printer)))
+                (output (open-output-string)))
+            (proc output)
+            (let ((buffer (get-output-string output)))
               (justify buffer width justification padding))))))
     
     (define (justify buffer width justification padding)
@@ -409,8 +409,8 @@
   (parse-format
     (lambda (destination control-string <string> arguments <list>)
       (with-printer destination
-        (lambda (printer)
-          (process-format destination control-string arguments printer (open-input-string control-string) arguments))))))
+        (lambda (output)
+          (process-format destination control-string arguments output (open-input-string control-string) arguments))))))
 
 
 ;;;
@@ -465,23 +465,23 @@
 ;;;
 
 
-(definition (print-expr expr detail (printer (current-output-port)))
-  (print~ expr printer detail))
+(definition (print-expr expr detail (output (current-output-port)))
+  (print~ expr output detail))
 
 
-(definition (print-unsigned n (printer (current-output-port)))
+(definition (print-unsigned n (output (current-output-port)))
   (unimplemented 'print-unsigned))
 
 
-(definition (print-binary n (printer (current-output-port)))
-  (display (number->string n 2) printer))
+(definition (print-binary n (output (current-output-port)))
+  (display (number->string n 2) output))
 
 
-(definition (print-hexadecimal n (printer (current-output-port)))
-  (display (number->string n 16) printer))
+(definition (print-hexadecimal n (output (current-output-port)))
+  (display (number->string n 16) output))
 
 
-(definition (print-real r d (printer (current-output-port)))
+(definition (print-real r d (output (current-output-port)))
   (let ((n (floor (inexact->exact (round (* (abs r) (expt 10 d)))))))
     (let ((i (quotient n (expt 10 d)))
           (f (modulo n (expt 10 d))))
@@ -494,23 +494,23 @@
           (set! sf ""))
         (let ((lsi (string-length si))
               (lsf (string-length sf)))
-          (display si printer)
-          (display sf printer))))))
+          (display si output)
+          (display sf output))))))
 
 
-(definition (print-list list separator last-separator before after detail (printer (current-output-port)))
+(definition (print-list list separator last-separator before after detail (output (current-output-port)))
   (when (not-null? list)
     (when before
-      (display before printer))
+      (display before output))
     (let (iter (scan list))
       (let ((expr (car scan)))
-        (print~ expr printer detail)
+        (print~ expr output detail)
         (let ((next (cdr scan)))
           (when (not-null? next)
             (if (pair? next)
-                (display (if (null? (cdr next)) last-separator separator) printer)
-              (display " . " printer)
-              (print~ next printer detail))
+                (display (if (null? (cdr next)) last-separator separator) output)
+              (display " . " output)
+              (print~ next output detail))
             (iter (cdr scan))))))
     (when after
-      (display after printer)))))
+      (display after output)))))

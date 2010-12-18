@@ -74,12 +74,12 @@
 
   (method public (extract file (activity: activity #f))
     (call-with-output-file (path-settings file)
-      (lambda (printer)
-        (output-header name printer)
-        (format printer "{%}{%}")
-        (emit-package-header printer)
-        (emit-library-types printer activity)
-        (emit-package-footer printer))))
+      (lambda (output)
+        (output-header name output)
+        (format output "{%}{%}")
+        (emit-package-header output)
+        (emit-library-types output activity)
+        (emit-package-footer output))))
 
 
   ;;;
@@ -87,28 +87,28 @@
   ;;;
 
 
-  (method (emit-package-header printer)
-    (format printer "(module {a} jazz{%}{%}{%}" name) ; must fix to full module locator
-    (format printer "(import (jazz.platform.types){%}")
-    (format printer "        (jazz.platform.windows){%}")
-    (format printer "        (jazz.platform.windows.com)){%}{%}{%}")
-    (format printer ";; patch - need a direct ref to ole32{%}")
-    (format printer "(definition (patch-link class aggregate context interface coptr*){%}")
-    (format printer "  (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT \"CoCreateInstance\"))"))
+  (method (emit-package-header output)
+    (format output "(module {a} jazz{%}{%}{%}" name) ; must fix to full module locator
+    (format output "(import (jazz.platform.types){%}")
+    (format output "        (jazz.platform.windows){%}")
+    (format output "        (jazz.platform.windows.com)){%}{%}{%}")
+    (format output ";; patch - need a direct ref to ole32{%}")
+    (format output "(definition (patch-link class aggregate context interface coptr*){%}")
+    (format output "  (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT \"CoCreateInstance\"))"))
 
 
-  (method (emit-package-footer printer)
-    (format printer "){%}"))
+  (method (emit-package-footer output)
+    (format output "){%}"))
 
 
-  (method (emit-section-header section-name printer)
-    (format printer "{%}{%}{%}")
-    (format printer ";;;{%}")
-    (format printer ";;;; {a}{%}" section-name)
-    (format printer ";;;{%}{%}{%}"))
+  (method (emit-section-header section-name output)
+    (format output "{%}{%}{%}")
+    (format output ";;;{%}")
+    (format output ";;;; {a}{%}" section-name)
+    (format output ";;;{%}{%}{%}"))
 
 
-  (method (emit-library-types printer activity)
+  (method (emit-library-types output activity)
     (let ((types (get-types~ library)))
       (set! to-emit (map info-name types))
       (set! emited #f)
@@ -116,13 +116,13 @@
       (when activity
         (set-range~ activity (new Range 0 (length types))))
       (for-each (lambda (info)
-                  (emit-type-information info printer activity))
+                  (emit-type-information info output activity))
                 types)
       (when (not-null? waiting)
         (debug waiting))))
   
   
-  (method (emit-type-information info printer activity)
+  (method (emit-type-information info output activity)
     (if (and activity (cancel-requested?~ activity))
         (throw-cancel)
       (let ((name (get-name~ info)))
@@ -131,14 +131,14 @@
         (let ((waiting-upon (waiting-implemented info)))
           (if waiting-upon
               (set! waiting (cons (cons info waiting-upon) waiting))
-            (emit-type-info info printer)
+            (emit-type-info info output)
             (set! emited (cons name emited))
-            (emit-waiting name printer activity)
+            (emit-waiting name output activity)
             (when activity
               (delta-pos~ activity 1)))))))
   
   
-  (method (emit-waiting name printer activity)
+  (method (emit-waiting name output activity)
     (let ((processed '()))
       (for-each (lambda (pair)
                   (bind (info . names) pair
@@ -146,7 +146,7 @@
                                (every? (lambda (name)
                                          (member? name emited))
                                        names))
-                      (emit-type-information info printer activity)
+                      (emit-type-information info output activity)
                       (set! processed (cons pair processed)))))
                 waiting)
       (for-each (lambda (pair)
@@ -163,50 +163,50 @@
              (get-implemented-types~ info)))
   
   
-  (method (emit-type-info info printer)
+  (method (emit-type-info info output)
     (let ((kind (get-kind~ info)))
       (ecase kind
-        ((TKIND_ENUM)      (emit-enum      info printer))
-        ((TKIND_RECORD)    (emit-record    info printer))
-        ((TKIND_MODULE)    (emit-package   info printer))
-        ((TKIND_INTERFACE) (emit-interface info printer))
-        ((TKIND_DISPATCH)  (emit-dispatch  info printer))
-        ((TKIND_COCLASS)   (emit-com-class info printer))
-        ((TKIND_ALIAS)     (emit-alias     info printer))
-        ((TKIND_UNION)     (emit-union     info printer))
-        ((TKIND_MAX)       (emit-max       info printer))
+        ((TKIND_ENUM)      (emit-enum      info output))
+        ((TKIND_RECORD)    (emit-record    info output))
+        ((TKIND_MODULE)    (emit-package   info output))
+        ((TKIND_INTERFACE) (emit-interface info output))
+        ((TKIND_DISPATCH)  (emit-dispatch  info output))
+        ((TKIND_COCLASS)   (emit-com-class info output))
+        ((TKIND_ALIAS)     (emit-alias     info output))
+        ((TKIND_UNION)     (emit-union     info output))
+        ((TKIND_MAX)       (emit-max       info output))
         (else            (error "Unknown type info kind: {t}" kind)))))
 
 
-  (method (emit-enum info printer)
+  (method (emit-enum info output)
     (let ((name (get-name~ info))
           (variables (get-variables~ info)))
-      (emit-section-header name printer)
-      (format printer "(c-enumeration public {a}" name)
+      (emit-section-header name output)
+      (format output "(c-enumeration public {a}" name)
       (if (null? variables)
-          (format printer ")")
-        (format printer "{%}{%}")
-        (emit-variables info variables printer ")"))))
+          (format output ")")
+        (format output "{%}{%}")
+        (emit-variables info variables output ")"))))
 
 
-  (method (emit-record info printer)
+  (method (emit-record info output)
     (let ((name (get-name~ info))
           (variables (get-variables~ info)))
-      (emit-section-header name printer)
-      (format printer "(structure public {a}" name)
+      (emit-section-header name output)
+      (format output "(structure public {a}" name)
       (if (null? variables)
-          (format printer ")")
-        (format printer "{%}{%}")
-        (emit-variables info variables printer ")"))))
+          (format output ")")
+        (format output "{%}{%}")
+        (emit-variables info variables output ")"))))
 
 
-  (method (emit-package info printer)
+  (method (emit-package info output)
     (let ((name (get-name~ info)))
-      (emit-section-header name printer)
-      (format printer "  ;; unimplemented kind: package")))
+      (emit-section-header name output)
+      (format output "  ;; unimplemented kind: package")))
 
 
-  (method (emit-interface info printer)
+  (method (emit-interface info output)
     (let* ((interface-name (get-name~ info))
            (guid (get-guid~ info))
            (variables (get-variables~ info))
@@ -216,11 +216,11 @@
       ;; hack import collision
       (when (member? interface-name '("Field" "Error" "Property"))
         (set! interface-name (append interface-name "_")))
-      (emit-section-header interface-name printer)
-      (format printer "(definition {a}{%}" interface-name)
-      (format printer "  (com-interface {s}))" (->string guid))
+      (emit-section-header interface-name output)
+      (format output "(definition {a}{%}" interface-name)
+      (format output "  (com-interface {s}))" (->string guid))
       (when (or variables functions)
-        (format printer "{%}{%}"))
+        (format output "{%}{%}"))
       (for-each (lambda (desc)
                   (let* ((name (get-member-name~ info desc))
                          (typedesc (get desc '(elemdescVar tdesc)))
@@ -229,71 +229,71 @@
                          (ptr-typedesc (and pointer? (coerce (get typedesc 'desc) TYPEDESC)))
                          (final-typedesc (or ptr-typedesc typedesc))
                          (type-name (intern-type info final-typedesc #f)))
-                    (format printer "{%}")
-                    (format printer "(com-external {a} ({a}$get-{a}))" type-name interface-name name)))
+                    (format output "{%}")
+                    (format output "(com-external {a} ({a}$get-{a}))" type-name interface-name name)))
                 variables)
-      (emit-functions info '() functions 'com-external "" interface-name printer '())))
+      (emit-functions info '() functions 'com-external "" interface-name output '())))
 
 
-  (method (emit-dispatch info printer)
-    (emit-interface info printer))
+  (method (emit-dispatch info output)
+    (emit-interface info output))
 
 
-  (method (emit-com-class info printer)
+  (method (emit-com-class info output)
     (let* ((name (get-name~ info))
            (guid (get-guid~ info))
            (interfaces (get-implemented-types~ info))
            (interface-names (map info-name interfaces)))
-      (emit-section-header name printer)
-      (format printer "(definition public {a}-class{%}" name)
-      (format printer "  (com-class {s} {a}))" (->string guid) (car interface-names))))
+      (emit-section-header name output)
+      (format output "(definition public {a}-class{%}" name)
+      (format output "  (com-class {s} {a}))" (->string guid) (car interface-names))))
 
 
-  (method (emit-alias info printer)
+  (method (emit-alias info output)
     (let ((name (get-name~ info))
           (aliased (get-name~ (get-referenced-type~ info (get (get-attr~ info) '(tdescAlias desc))))))
       (if (member? aliased emited)
-          (emit-alias-code name aliased printer)
+          (emit-alias-code name aliased output)
         (set! waiting (cons (cons info (list aliased)) waiting)))))
   
   
-  (method (emit-alias-code name aliased printer)
-    (emit-section-header name printer)
-    (format printer ";(constant {a} {a})" name aliased))
+  (method (emit-alias-code name aliased output)
+    (emit-section-header name output)
+    (format output ";(constant {a} {a})" name aliased))
 
 
   ;; This is a temporary kludge that will only work
   ;; with unions that have a sizeof equal to sizeof(int)...
-  (method (emit-union info printer)
+  (method (emit-union info output)
     (let ((name (get-name~ info)))
-      (emit-section-header name printer)
-      (format printer ";; warning: this will only work if sizeof({a}) equals sizeof(long){%}" name)
-      (format printer "(structure public {a}{%}" name)
-      (format printer "  (long union))")))
+      (emit-section-header name output)
+      (format output ";; warning: this will only work if sizeof({a}) equals sizeof(long){%}" name)
+      (format output "(structure public {a}{%}" name)
+      (format output "  (long union))")))
 
 
-  (method (emit-max info printer)
+  (method (emit-max info output)
     (let ((name (get-name~ info)))
-      (emit-section-header name printer)
-      (format printer ";; unimplemented kind: max")))
+      (emit-section-header name output)
+      (format output ";; unimplemented kind: max")))
 
 
-  (method (emit-functions info names functions header modifiers namespace printer trailer)
+  (method (emit-functions info names functions header modifiers namespace output trailer)
     (if (null? functions)
         (when trailer
-          (format printer "{a}" trailer))
+          (format output "{a}" trailer))
       (for-each-pair (lambda (pair)
                        (bind (desc . tail) pair
                          (let* ((name (get-member-name~ info desc))
                                 (effective (effective-name (get desc 'invkind) name)))
                            (when (not (memq? effective names))
-                             (emit-function info effective desc header modifiers namespace printer (essay (nil? tail) trailer))
+                             (emit-function info effective desc header modifiers namespace output (essay (nil? tail) trailer))
                              (set! names (cons effective names))))))
                      functions))
     names)
 
 
-  (method (emit-function info effective desc header modifiers namespace printer trailer)
+  (method (emit-function info effective desc header modifiers namespace output trailer)
     ;; a serious patch
     (unless (member? effective '("QueryInterface" "AddRef" "Release" "GetTypeInfoCount" "GetTypeInfo" "GetIDsOfNames" "Invoke") test: equal?)
     (let* ((unimplemented '())
@@ -304,8 +304,8 @@
            (ptr-return-typedesc (and return-pointer? (coerce (get return-typedesc 'desc) TYPEDESC)))
            (final-return-typedesc (or ptr-return-typedesc return-typedesc))
            (return-type-name (intern-type info final-return-typedesc return-pointer?)))
-      (format printer "{%}")
-      (format printer "({a}{a} {a} ({a}${a}"
+      (format output "{%}")
+      (format output "({a}{a} {a} ({a}${a}"
               header
               modifiers
               return-type-name
@@ -333,16 +333,16 @@
                       ;; patch - runtime does not AddRef interface passed as <in-out> parameters
                       (if (and (eq? '<in-out> param-direction)
                                (or (= "IUnknown*" param-type-name) (= "IDispatch" param-type-name)))
-                          (format printer " ({a} unpl @wait {a})" param-direction param-type-name)
-                        (format printer " ({a} {a})" param-direction param-type-name))
+                          (format output " ({a} unpl @wait {a})" param-direction param-type-name)
+                        (format output " ({a} {a})" param-direction param-type-name))
                       (when (eq? param-type-name 'unpl)
                         (set! unimplemented (cons param-type unimplemented)))))
                   (naturals 0 (get desc 'cParams)))
-        (format printer ") {a} {a})" namespace (quotient virtual-offset 4))
+        (format output ") {a} {a})" namespace (quotient virtual-offset 4))
         (when trailer
-          (format printer "{a}" trailer))
+          (format output "{a}" trailer))
         (when unimplemented
-          (format printer " ; {l separator: \", \"}"
+          (format output " ; {l separator: \", \"}"
                   (map (lambda (item)
                          (value->name~ VARENUM item))
                        (reverse! unimplemented))))))))
@@ -387,31 +387,31 @@
             (else (error "Bad parameter direction")))))
 
 
-  (method (emit-variables info variables printer trailer)
+  (method (emit-variables info variables output trailer)
     (if (null? variables)
         (when trailer
-          (format printer "{a}" trailer))
+          (format output "{a}" trailer))
       (for-each-pair (lambda (pair)
                        (bind (desc . tail) pair
-                         (emit-variable info desc printer (and (null? tail) trailer))))
+                         (emit-variable info desc output (and (null? tail) trailer))))
                      variables)))
 
 
-  (method (emit-variable info desc printer trailer)
+  (method (emit-variable info desc output trailer)
     (let* ((kind (get-kind~ info))
            (name (get-member-name~ info desc))
            (typedesc (get desc '(elemdescVar tdesc)))
            (basetype (get typedesc 'vt))
            (value (get desc 'lpvarValue))
            (variable-type-name (intern-type info typedesc #f)))
-      (format printer "{%}")
+      (format output "{%}")
       (ecase kind
-        ((TKIND_ENUM)   (format printer "  ({a} {a})" name (read-variant value)))
-        ((TKIND_RECORD) (format printer "  ({a} {a})" variable-type-name name)))
+        ((TKIND_ENUM)   (format output "  ({a} {a})" name (read-variant value)))
+        ((TKIND_RECORD) (format output "  ({a} {a})" variable-type-name name)))
       (when trailer
-        (format printer "{a}" trailer))
+        (format output "{a}" trailer))
       (when (and (= kind TKIND_RECORD) (= variable-type-name 'unpl))
-        (format printer " ; {a}" (value->name~ VARENUM basetype)))))
+        (format output " ; {a}" (value->name~ VARENUM basetype)))))
   
   
   (method (info-name info)

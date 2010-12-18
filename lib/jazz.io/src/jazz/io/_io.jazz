@@ -451,18 +451,18 @@
   
   (method public (parse . rest)
     (bind-optionals ((separator "/")) rest
-      (let ((printer (open-output-string))
+      (let ((output (open-output-string))
             (first? #t)
             (aliases '()))
         (define (parse path)
           (cond ((null? path))
                 ((eq? path :root)
-                 (display "/" printer))
+                 (display "/" output))
                 ((string? path)
                  (if first?
                      (set! first? #f)
-                   (display separator printer))
-                 (display path printer))
+                   (display separator output))
+                 (display path output))
                 ((symbol? path)
                  (if (memq? path aliases)
                      (error "Recursive alias {a} in {s}" path self)
@@ -477,15 +477,15 @@
                  (error "Bad pathname component {t}" path))))
         
         (parse (get-list))
-        (add-suffix printer)
-        (pathname-expand (get-output-string printer)))))
+        (add-suffix output)
+        (pathname-expand (get-output-string output)))))
   
   
   (method public (platform-parse)
     (parse platform-separator))
   
   
-  (method protected virtual (add-suffix printer)
+  (method protected virtual (add-suffix output)
     )
   
   
@@ -749,8 +749,8 @@
 (class File metaclass File-Class extends Pathname
   
   
-  (method override (print printer readably)
-    (format printer "~{File {l detail: :v}}"
+  (method override (print output readably)
+    (format output "~{File {l detail: :v}}"
             (get-list)
             readably))
   
@@ -814,8 +814,8 @@
   (method public (get-size)
     (unimplemented 'get-size)
     @windows-specific
-    (with ((reader (new File-Reader self readable?: #f)))
-      (get-size~ reader)))
+    (with ((input (new File-Reader self readable?: #f)))
+      (get-size~ input)))
 
 
   (method override (get-modification-time)
@@ -830,8 +830,8 @@
       ;; this is ugly big time...
       (set-read/write)
       (call-with-output-file (path-settings self mode: 'append)
-        (lambda (printer)
-          (SetFileTime (get-handle~ printer) NULL NULL ft)))
+        (lambda (output)
+          (SetFileTime (get-handle~ output) NULL NULL ft)))
       (set-attributes at)))
   
   
@@ -879,8 +879,8 @@
 
   (method override (save-lines lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
     (call-with-output-file (path-settings self char-encoding: (or char-encoding 'UTF-8) eol-encoding: eol-encoding)
-      (lambda (printer)
-        (write-lines printer lines)))))
+      (lambda (output)
+        (write-lines output lines)))))
 
 
 (definition public inline (file? object)
@@ -927,8 +927,8 @@
 (class Directory metaclass Directory-Class extends Pathname
   
   
-  (method override (print printer readably)
-    (format printer "~{Directory {l detail: :v}}"
+  (method override (print output readably)
+    (format output "~{Directory {l detail: :v}}"
             (get-list)
             readably))
   
@@ -1067,8 +1067,8 @@
   ;;;
   
   
-  (method override (add-suffix printer)
-    (write-char #\/ printer))
+  (method override (add-suffix output)
+    (write-char #\/ output))
      
    
   ;;;

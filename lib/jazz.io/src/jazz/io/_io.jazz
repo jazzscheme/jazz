@@ -47,6 +47,9 @@
 ;;;
 
 
+;; work around a bug where gambit doesn't save as cr-lf on windows
+
+
 (definition *eol-encoding*
   (platform-eol-encoding kernel-platform))
 
@@ -57,6 +60,21 @@
 
 (definition public (set-eol-encoding encoding)
   (set! *eol-encoding* encoding))
+
+
+;;;
+;;;; Path
+;;;
+
+
+(definition public (path-settings pathname . rest)
+  (bind-keywords ((char-encoding #f) (eol-encoding #f) . others) rest
+    `(path: ,(parse~ pathname)
+      ,@(if char-encoding
+            `(char-encoding: ,char-encoding)
+          '())
+      eol-encoding: ,(or eol-encoding *eol-encoding*)
+      ,@others)))
 
 
 ;;;
@@ -767,7 +785,7 @@
     (unless (exists?)
       (create-directories)
       ;; is there any smarter way to do this in gambit?
-      (call-with-output-file (parse)
+      (call-with-output-file (path-settings self)
         (lambda (output)
           ))))
 
@@ -811,7 +829,7 @@
           (at (get-attributes)))
       ;; this is ugly big time...
       (set-read/write)
-      (call-with-output-file (list (parse) mode: 'append)
+      (call-with-output-file (path-settings self mode: 'append)
         (lambda (printer)
           (SetFileTime (get-handle~ printer) NULL NULL ft)))
       (set-attributes at)))
@@ -855,12 +873,12 @@
 
 
   (method override (load-lines (char-encoding: char-encoding #f) (char-encoding-errors: char-encoding-errors #t))
-    (call-with-input-file (list path: (parse) char-encoding: (or char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
+    (call-with-input-file (path-settings self char-encoding: (or char-encoding 'UTF) char-encoding-errors: char-encoding-errors eol-encoding: 'cr-lf)
       read-lines))
 
 
   (method override (save-lines lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
-    (call-with-output-file (list path: (parse) char-encoding: (or char-encoding 'UTF-8) eol-encoding: (or eol-encoding (get-eol-encoding)))
+    (call-with-output-file (path-settings self char-encoding: (or char-encoding 'UTF-8) eol-encoding: eol-encoding)
       (lambda (printer)
         (write-lines printer lines)))))
 

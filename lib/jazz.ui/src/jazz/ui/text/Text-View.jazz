@@ -3184,8 +3184,8 @@
        (let ((formats (get-formats~ text))
              (styles (get-styles~ text))
              (paragraphs (get-paragraphs~ text)))
-         (let* ((formats (map setup-format formats))
-                (styles (map setup-style styles))
+         (let* ((formats (map intern-format formats))
+                (styles (map intern-style styles))
                 (count 0)
                 (height 0)
                 (previous root-row)
@@ -3267,21 +3267,19 @@
   
   
   (method (copy-formatted-selection)
-    (unimplemented 'copy-formatted-selection)
-    @convert
     (if (empty-selection?)
         (bell)
       (let ((output (open-output-string)))
         (print-formatted output (get-selection))
-        (let ((output (get-output-string output)))
-          (set-clipboard-text output format: 'jazz-formatted-text)))))
+        (let ((text (get-output-string output)))
+          (set-clipboard-text text format: 'jazz-formatted-text)))))
   
   
   (method (paste-formatted-clipboard)
     (if (clipboard-format-available? 'jazz-formatted-text)
         (let* ((text (get-clipboard-text format: 'jazz-formatted-text))
-               (info (read-string-content text)))
-          (apply replace-formatted (get-selection) info))
+               (info (with-jazz-readtable (lambda () (read-string-element text)))))
+          (replace-formatted (get-selection) info))
       (let ((strings (split-lines (get-clipboard-text))))
         (replace-selection strings))))
   
@@ -3290,11 +3288,11 @@
     (let ((caret
            (typecase info
              ((Formatted-Text)
-              (let* ((formats (get-interned-formats~ info))
-                     (styles (get-interned-styles~ info))
+              (let* ((formats (get-formats~ info))
+                     (styles (get-styles~ info))
                      (paragraphs (get-paragraphs~ info))
-                     (interned-formats (map @w intern-format setup-format formats))
-                     (interned-styles (map @w intern-style setup-style styles))
+                     (interned-formats (map intern-format formats))
+                     (interned-styles (map intern-style styles))
                      (strings (map (lambda (run-info)
                                      (bind (format . runs) run-info
                                        (run-infos->string runs)))
@@ -3310,11 +3308,9 @@
   
   (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
     (define (range-formatted-text range <Range$Cell$>)
-      (unimplemented 'range-formatted-text)
-      @convert
       (let ((output (open-output-string)))
         (print-formatted output range)
-        (car (read-string-content (get-output-string output)))))
+        (read-string-element (get-output-string output))))
     
     (define (apply-formats/styles range <Range$Cell$>)
       (let* ((start (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range))))
@@ -3545,7 +3541,7 @@
   (method public (set-default-format value)
     (set! default-format value)
     (set-domain~ default-format formats)
-    (setup-format (copy default-format)))
+    (intern-format (copy default-format)))
   
   
   (method public (get-formats-domain)
@@ -3562,10 +3558,6 @@
   
   (method public (symbolize-format format)
     (symbolize~ formats format))
-  
-  
-  (method (setup-format format) <Format>
-    (intern-format format))
   
   
   (method public (add-format name format) <Format>
@@ -3598,7 +3590,7 @@
   (method public (set-default-style value)
     (set! default-style value)
     (set-domain~ default-style styles)
-    (setup-style (copy default-style)))
+    (intern-style (copy default-style)))
   
   
   (method public virtual (propagate-styles?)
@@ -3630,10 +3622,6 @@
   
   (method public (symbolize-style style)
     (symbolize~ styles style))
-  
-  
-  (method (setup-style style) <Style>
-    (intern-style style))
   
   
   (method public (add-style name style) <Style>

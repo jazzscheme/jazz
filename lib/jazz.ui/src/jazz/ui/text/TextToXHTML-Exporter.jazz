@@ -110,7 +110,7 @@
     (let ((fmt (get-format~ paragraph)))
       (define (paragraph-style)
         (case (get-justification~ fmt)
-          ((center) `(style: "text-align: center"))
+          ((centered) `(style: "text-align: center"))
           ((right) `(style: "text-align: right"))
           (else '())))
           
@@ -126,23 +126,39 @@
   
   
   (method (export-run run in-table?)
-    (coerce (get-string~ run) String)
-    @w
-    (let ((style (get-style~ run)))
-      (if (is? style View-Style)
-          (export-element (get-view~ style) in-table?)
-        (let ((name (get-name~ style))
-              (string (get-string~ run)))
-          (typecase style
-            ((Hyperlink-Style)
-             (format output "<A href=\"#{a}\">{a}</A>" string string))
-            ((Text-Style)
-             (case name
-               ((Heading1) (format output "<H1><A name=\"{a}\">{a}</A></H1>" string string))
-               ((Heading2) (format output "<H2><A name=\"{a}\">{a}</A></H2>" string string))
-               ((Heading3) (format output "<H3><A name=\"{a}\">{a}</A></H3>" string string))
-               ((Heading4) (format output "<H4><A name=\"{a}\">{a}</A></H4>" string string))
-               (else (format output "{a}" string)))))))))
+    (define (add tag flag element)
+      (if flag
+          `(,tag ,element)
+        element))
+    
+    (define (add-color color element)
+      (if color
+          `(<span> style: ,(format "color: {a}" (->rbg~ color)) ,element)
+        element))
+    
+    (define (add-heading style element)
+      (cond ((inherits?~ style 'Heading1) `(<h1> ,element))
+            ((inherits?~ style 'Heading2) `(<h2> ,element))
+            ((inherits?~ style 'Heading3) `(<h3> ,element))
+            ((inherits?~ style 'Heading4) `(<h4> ,element))
+            ((inherits?~ style 'Heading5) `(<h5> ,element))
+            (else #f)))
+    
+    (let ((str (coerce (get-string~ run) String))
+          (style (get-style~ run)))
+      (typecase style
+        ((View-Style)
+         (export-element (get-view~ style) in-table?))
+        ((Hyperlink-Style)
+         `(<a> href: ,(format "#{a}" str) ,str))
+        ((Text-Style)
+         (let ((font (get-font~ style))
+               (color (get-color~ style)))
+           (let ((bold? (get-bold?~ font))
+                 (italic? (get-italic?~ font))
+                 (underline? (get-underline?~ font)))
+             (or (add-heading style str)
+                 (add '<b> bold? (add '<i> italic? (add '<u> underline? (add-color color str)))))))))))
   
   
   ;;;

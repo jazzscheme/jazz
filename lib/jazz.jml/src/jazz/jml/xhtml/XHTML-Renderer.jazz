@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; oh boy, all these simple, composite, mix, empty, separated, ... need big time simplification!
+;; All these simple, composite, mix, empty, separated, ... need big time simplification!
 
 
 (module protected jazz.jml.xhtml.XHTML-Renderer jazz
@@ -109,46 +109,46 @@
            (pre? (memq? tag Pre-Tags))
            (inside-pre? (or pre? inside-pre?)))
       (when (and (memq? tag Separated-Tags) (not inside-pre?))
-        (output context output "{%}"))
+        (output-text context output "{%}"))
       (unless (or simple? parent-mix? inside-pre?)
-        (output context output "{_ :v}" (* level tab)))
-      (output context output "<{a}" tag)
+        (output-text context output "{_ :v}" (* level tab)))
+      (output-text context output "<{a}" tag)
       (for-each-property (lambda (property value)
                            (if (null? value)
-                               (output context output " {a}" property)
+                               (output-text context output " {a}" property)
                              (if (and (pair? value) (eq? (car value) :string))
                                  (render-string context output property value)
                                (render-value context output property value))))
                          (get-properties~ jml))
       (if (memq? tag Empty-Tags)
-          (output context output "/>")
-        (output context output ">")
+          (output-text context output "/>")
+        (output-text context output ">")
         (when (and composite? (not inside-pre?))
-          (output context output "{%}"))
+          (output-text context output "{%}"))
         (let ((new-level
                (case tag
                  ((html body) level)
                  (else (+ level 1)))))
           (render-children context jml (not composite?) mix? inside-pre? new-level output))
         (when (and composite? (not mix?) (not inside-pre?))
-          (output context output "{_ :v}" (* level tab)))
+          (output-text context output "{_ :v}" (* level tab)))
         (when (and (memq? tag Separated2-Tags) (not inside-pre?))
-          (output context output "{%}"))
-        (output context output "{a}" (end-tag tag)))
+          (output-text context output "{%}"))
+        (output-text context output "{a}" (end-tag tag)))
       (unless (or simple? parent-mix? inside-pre?)
-        (output context output "{%}"))))
+        (output-text context output "{%}"))))
   
   
   (method virtual (render-string context output property value)
-    (output context output " {a}=\"" property)
+    (output-text context output " {a}=\"" property)
     (for-each (lambda (string)
-                (output context output "{a}" string))
+                (output-text context output "{a}" string))
               (cdr value))
-    (output context output "\""))
+    (output-text context output "\""))
   
   
   (method virtual (render-value context output property value)
-    (output context output " {a}=\"{a}\"" property value))
+    (output-text context output " {a}=\"{a}\"" property value))
   
   
   (method (render-children context jml simple? mix? inside-pre? level output)
@@ -157,14 +157,10 @@
               (get-children~ jml)))
   
   
-  (method (output context output format-string . parameters)
-    (let ((text (apply format format-string parameters)))
-      (output-text context output text)))
-  
-  
-  (method virtual (output-text context output text)
+  (method (output-text context output format-string . parameters)
     (when output
-      (format output "{a}" text)))
+      (let ((text (apply format format-string parameters)))
+        (format output "{a}" text))))
 
 
   (definition (end-tag tag)

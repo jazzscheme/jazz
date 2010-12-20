@@ -48,29 +48,29 @@
 (class Image extends Object
 
 
-  (slot background    initialize #f          accessors generate)
-  (slot portfolio     initialize #f          accessors generate)
-  (slot resource      initialize #f          accessors generate)
-  (slot moniker       initialize #f)
-  (slot handle        initialize #f          accessors generate)
-  (slot view-position initialize {Point 0 0} accessors generate)
-  (slot view-size     initialize #f          accessors generate)
+  (slot position   initialize {Point 0 0} accessors generate)
+  (slot size       initialize #f          accessors generate)
+  (slot background initialize #f          accessors generate)
+  (slot portfolio  initialize #f          accessors generate)
+  (slot resource   initialize #f          accessors generate)
+  (slot moniker    initialize #f)
+  (slot handle     initialize #f          accessors generate)
   
   
   (method override (initialize
+                     (position: position {Point 0 0})
+                     (size: size #f)
                      (background: background #f)
                      (portfolio: portfolio #f)
                      (resource: resource #f)
                      (moniker: moniker #f)
-                     (handle: handle #f)
-                     (view-position: view-position {Point 0 0})
-                     (view-size: view-size #f))
+                     (handle: handle #f))
     (nextmethod)
+    (set! position~self position)
+    (set! size~self size)
     (set! background~self background)
     (set! portfolio~self portfolio)
     (set! resource~self resource)
-    (set! view-position~self view-position)
-    (set! view-size~self view-size)
     (cond (moniker (set-moniker moniker))
           (handle (set-handle handle))))
   
@@ -97,8 +97,8 @@
     (define (draw-handle h v)
       (draw-image~ surface handle h v))
     
-    (let ((h (+ (get-h~ view-position) h))
-          (v (+ (get-v~ view-position) v)))
+    (let ((h (+ (get-h~ position) h))
+          (v (+ (get-v~ position) v)))
       (cond (portfolio (draw-image h v))
             (handle (draw-handle h v)))))
 
@@ -108,19 +108,6 @@
   ;;;
   
   
-  (method public (get-position)
-    view-position)
-  
-  
-  (method public (get-size)
-    (cond (resource
-           #f)
-          (handle
-           (get-cairo-image-surface-size handle))
-          (else
-           view-size)))
-  
-  
   (method public (get-moniker)
     moniker)
   
@@ -128,4 +115,16 @@
   (method public (set-moniker mnk)
     (set! moniker mnk)
     (when moniker
-      (set! handle (load-image 'image mnk))))))
+      (set! handle (load-image 'image mnk))))
+
+
+  ;;;
+  ;;;; Image
+  ;;;
+  
+  
+  (method public (image-size)
+    (cond (handle
+           (get-cairo-image-surface-size handle))
+          (else
+           #f)))))

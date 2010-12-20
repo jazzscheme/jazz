@@ -524,10 +524,21 @@
   
   (method public (fill-texture rect texture)
     (define (texture-image)
-      (let ((part (car (get-parts~ texture))))
-        (typecase part
-          ((Image-Resource) (new Image resource: part))
-          ((File) (and (exists?~ part) (new Image moniker: part))))))
+      (let ((content (car (get-parts~ texture))))
+        (typecase content
+          ((Image-Resource) (new Image resource: content))
+          ((File) (and (exists?~ content) (new Image moniker: content))))))
+    
+    (define (draw-positioned image)
+      (let ((pos (get-attribute~ texture 'position not-found: {Point 0 0}))
+            (size (get-attribute~ texture 'size)))
+        (define (draw image)
+          (draw~ image self #f (get-h~ pos) (get-v~ pos)))
+        
+        (if (not size)
+            (draw image)
+          (with ((resized (new Image handle: (resize-image (get-handle~ image) (get-width~ size) (get-height~ size)))))
+            (draw resized)))))
     
     (define (draw-centered image)
       (let ((pos (center (image-size~ image) (rect-size rect))))
@@ -549,6 +560,7 @@
         (if (not image)
             (fill-rect rect {Color Red})
           (case mode
+            ((position) (draw-positioned image))
             ((center) (draw-centered image))
             ((fill) (draw-filled image))
             ((tile) (draw-tiled image))

@@ -198,11 +198,10 @@
 
 
   (define (expand-loop)
-    `(let* ,bindings
+    `(let* ,(append withs bindings)
        (while (and ,@tests)
          ,@befores
-         (let* ,withs
-           ,@actions)
+         ,@actions
          ,@afters)
        ,@epilogue
        ,@(if (eq? return noobject)
@@ -293,7 +292,9 @@
 
 
   (define (process-with actions rest)
-    (add-with rest))
+    (bind (variable equal value) rest
+      (let ((binding (list variable value)))
+        (add-with binding))))
   
   
   ;;;

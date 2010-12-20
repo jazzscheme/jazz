@@ -1,0 +1,157 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Image-Style Dialog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.text.Image-Style-Dialog jazz
+
+
+(import (jazz.graphic)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.runtime)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class Image-Style-Dialog extends View
+  
+  
+  (property style initialize #f accessors generate)
+  
+  
+  (form
+    (<install>                                            size: {Dimension 500 261}
+      (<Label-View>               name: title             title: "Image" position: {Point 10 9} size: {Dimension 350 16} font: {Font Caption})
+      (<Label-View>               name: description       title: "Please specify title and address" position: {Point 30 27} size: {Dimension 350 16} font: {Font Label})
+      (<Horizontal-Line>                                  position: {Point 0 50} size: {Dimension 500 8})
+      (<Label-View>               name: title-label       title: "Title:" position: {Point 62 110} size: {Dimension 33 16} font: {Font Label})
+      (<Border-View>              name: title-border      position: {Point 121 108} size: {Dimension 294 19} border-type: edge style: entry
+        (<Scroller-View>                                  hscroll?: #f vscroll?: #f
+          (<!>                    name: content           layout-type: fill
+            (<Name-Text-View>     name: title-text        left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t base-style: {Text-Style Text-Base} tooltip?: #t tooltip-text: "Image title" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}))))
+      (<Label-View>               name: address-label     title: "Address:" position: {Point 62 142} size: {Dimension 54 16} font: {Font Label})
+      (<Border-View>              name: address-border    position: {Point 121 140} size: {Dimension 294 19} border-type: edge style: entry
+        (<Scroller-View>                                  hscroll?: #f vscroll?: #f
+          (<!>                    name: content           layout-type: fill
+            (<Name-Text-View>     name: address-text      left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t base-style: {Text-Style Text-Base} tooltip?: #t tooltip-text: "Name of the document without the file extension" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}))))
+      (<Horizontal-Line>                                  position: {Point 0 213} size: {Dimension 500 8})
+      (<Push-Button>              name: ok                title: "OK" position: {Point 167 227} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>              name: cancel            title: "Cancel" position: {Point 253 227} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+    
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-string-content~ (locate 'title-text) "New"))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (locate 'title-text)))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-title)
+    "New")
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method override (get-modal-result)
+    (values (get-string-content~ (locate 'title-text))
+            (get-string-content~ (locate 'address-text))))
+  
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method override (get-tab-stops)
+    (list
+      (locate 'title-text)
+      (locate 'address-text)))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (when (get-enabled?~ (locate 'ok))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Header-Color
+    (new Color red: 120 green: 120 blue: 255))
+
+  
+  (method override (draw surface context lh lv)
+    (let ((size (get-size)))
+      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color))))))
+
+
+;;;
+;;;; Name-Text-View
+;;;
+
+
+(class Name-Text-View extends Plain-Text-View
+  
+  
+  (method override (get-context-menu)
+    (new-text-context-menu))))

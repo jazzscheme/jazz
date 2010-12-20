@@ -183,7 +183,7 @@
     
     (define (goto-anchor anchor)
       (for-each-heading
-        (lambda (heading line string)
+        (lambda (name heading line string)
           (when (= string anchor)
             (set-selection (new Range$Cell$
                              (new Cell line 0)
@@ -238,25 +238,24 @@
   
   
   (method public (for-each-heading proc)
-    (let ((heading1 (get-style 'Heading1 error?: #f))
-          (heading2 (get-style 'Heading2 error?: #f))
-          (heading3 (get-style 'Heading3 error?: #f))
-          (heading4 (get-style 'Heading4 error?: #f)))
-      (when (and heading1 heading2 heading3 heading4)
-        (let ((all (list heading1 heading2 heading3 heading4)))
-          (for-each-paragraph
-            (lambda (row <fx> paragraph <Paragraph>)
-              (let* ((run (first-run~ paragraph))
-                     (style (and run (get-style~ run))))
-                (when (memq? style all)
-                  (proc (get-name~ style) row (get-string~ paragraph))))))))))
+    (let ((all '(Heading1 Heading2 Heading3 Heading4 Heading5)))
+      (for-each-paragraph
+        (lambda (line <fx> paragraph <Paragraph>)
+          (let ((run (first-run~ paragraph)))
+            (let ((style (and run (get-style~ run))))
+              (when style
+                (for-each (lambda (name)
+                            (let ((heading (get-style name error?: #f)))
+                              (when (and heading (inherits?~ style heading))
+                                (proc name heading line (get-string~ paragraph)))))
+                          all))))))))
   
   
   (method public (collect-headings)
     (let ((headings (new List-Factory)))
       (for-each-heading
-        (lambda (heading row string)
-           (put~ headings (list heading row string))))
+        (lambda (name style line string)
+           (put~ headings (list name style line string))))
       (get-output~ headings)))
 
   
@@ -270,14 +269,14 @@
       (insert-styled "Table Of Content" 'Heading1)
       (insert-newline)
       (for-each (lambda (heading)
-                  (bind (heading row string) heading
-                    (when (eq? heading 'Heading1)
+                  (bind (name style line string) heading
+                    (when (eq? name 'Heading1)
                       (insert-newline))
                     (let* ((start (get-start))
                            (line (get-line~ start)))
                       (insert-hyperlink string anchor: string)
                       (insert-newline)
-                      (unless (eq? heading 'Heading1)
+                      (unless (eq? name 'Heading1)
                         (toggle-bulleted line)))))
                 headings))
     (insert-newline)
@@ -311,8 +310,8 @@
   
   (method override (get-chapters)
     (map (lambda (heading)
-           (bind (heading line string) heading
-             (list (heading-level heading) (new Cell line 0) "" string)))
+           (bind (name style line string) heading
+             (list (heading-level name) (new Cell line 0) "" string)))
          (collect-headings)))
   
   

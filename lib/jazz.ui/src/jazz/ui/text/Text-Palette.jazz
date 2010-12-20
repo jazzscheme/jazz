@@ -44,7 +44,8 @@
         (jazz.library)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.dialog))
+        (jazz.ui.dialog)
+        (jazz.ui.view))
 
 
 (class undocumented Text-Palette extends View
@@ -180,23 +181,6 @@
   (method (on-text evt)
     (case (get-kind~ evt)
       ((:selection-change) (selection-change))))
-  
-  
-  (method (on-insert-link evt)
-    (let ((style (new Link-Style base: 'Link)))
-      (if (empty-selection?~ client)
-          (insert-styled~ client " " style)
-        (set-text-style~ client (get-selection~ client) style))))
-  
-  
-  (method (on-insert-image evt)
-    (let* ((moniker (choose-file))
-           (style (new Image-Style moniker: moniker)))
-      (insert-styled~ client " " style)))
-  
-  
-  (method (on-insert-table evt)
-    (insert-table~ client size: {Dimension 304 101} header?: #f node-column?: #f columns: '((width: 100) (width: 100) (width: 100)) row-count: 2))
 
 
   (method protected virtual (enable-buttons enabled?)
@@ -225,6 +209,53 @@
     (set-enabled?~ (locate 'insert-image) enabled?)
     @wait
     (set-enabled?~ (locate 'insert-table) enabled?))
+  
+  
+  ;;;
+  ;;;; Insert
+  ;;;
+
+  
+  (method (on-insert-link evt)
+    (define (replace (text: text #f) (address: address #f) (anchor: anchor #f) (range: range #f))
+      (receive (text address anchor) (get-modal Link-Style-Dialog text: text address: address anchor: anchor)
+        (debug text address anchor)
+        (let ((arguments
+                `(base: Link
+                  ,@(if address (list address: address) '())
+                  ,@(if anchor (list anchor: anchor) '()))))
+          (replace-styled~ client range (list (or text " ")) (apply new Link-Style arguments)))))
+      
+    (let* ((selection (get-selection~ client))
+           (start (get-start~ selection))
+           (end (get-end~ selection))
+           (text (get-selected-string~ client))
+           (style (get-style-at~ client end)))
+      (cond ((nu=? start end)
+             (if (is-not? style Link-Style)
+                 (replace range: selection)
+               (let ((paragraph (get-paragraph~ client (get-line~ end)))
+                     (run (get-run-at~ client end)))
+                 (let ((range (determine-run-range~ paragraph run)))
+                   (let ((start (new Cell (get-line~ end) (get-start~ range)))
+                         (end (new Cell (get-line~ end) (get-end~ range))))
+                     (replace text: (export-string~ run) address: (get-address~ style) anchor: (get-anchor~ style) range: (new Range$Cell$ start end)))))))
+            ((= (get-line~ start) (get-line~ end))
+             (if (is-not? style Link-Style)
+                 (replace text: text range: selection)
+               (replace text: text address: (get-address~ style) anchor: (get-anchor~ style) range: selection)))
+            (else
+             (bell)))))
+  
+  
+  (method (on-insert-image evt)
+    (let* ((moniker (choose-file))
+           (style (new Image-Style moniker: moniker)))
+      (insert-styled~ client " " style)))
+  
+  
+  (method (on-insert-table evt)
+    (insert-table~ client size: {Dimension 304 101} header?: #f node-column?: #f columns: '((width: 100) (width: 100) (width: 100)) row-count: 2))
 
   
   ;;;

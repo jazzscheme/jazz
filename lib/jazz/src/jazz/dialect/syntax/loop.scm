@@ -380,6 +380,10 @@
            (when (not-null? rest)
              (bind (then-key then) rest
                (add-after (list 'set! variable then))))))
+        ((=)
+         (let ((value (car rest)))
+           (add-binding variable '<Object>)
+           (add-before (list 'set! variable value))))
         (else
          (error "Unknown for keyword: {t}" (source-code key))))))
   

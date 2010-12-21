@@ -40,8 +40,11 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.library)
+        (jazz.library.component)
         (jazz.jml)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class undocumented Toolbox-Tree extends Descendants-Tree
@@ -64,7 +67,7 @@
            (func selected-toolbox-model))))
   
   
-  (method (selected-class)
+  (method public (selected-class)
     (call-with-selected-toolbox-model get-class~))
   
   
@@ -88,9 +91,35 @@
       (set-action-enabled? {Action components-tree add} #t)))
   
   
+  (method (on-double-click evt)
+    (on-edit evt))
+  
+  
   (method override (on-edit evt)
     (let ((class (selected-class)))
       (and class (edit-component class))))
+  
+  
+  (method (on-add evt)
+    (let ((class (selected-class))
+          (unit (selected-unit))
+          (editor (current-document)))
+      (when (and class (is? editor View-Editor))
+        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
+  
+  
+  (method (on-new evt)
+    (let ((class-name (selected-model))
+          (class (selected-class)))
+      (when class-name
+        (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
+               (form-data (new Data 'jazz `((,(selected-unit))) #f))
+               (form (construct-form
+                       (list model-name)
+                       (let ((imports (effective-imports~ form-data)))
+                         (imports-locator imports))
+                       form-data)))
+          (jazz.designer.view.edit-component form)))))
   
   
   (method override (row-state component update? level)

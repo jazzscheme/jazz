@@ -78,27 +78,38 @@
 
 
 (class undocumented Toolbox-Manager extends Component-Editor implements Exit-Listener
-
-
+  
+  
   (form
     (<install>                            layout-type: border
       (<Layout-View>    name: tools
-        (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler :guest on-add})
-        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler :guest on-new})
-        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler :guest on-edit})
+        (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-add})
+        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-new})
+        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-edit})
         (<Push-Tool>    name: sync        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Sync" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-sync}))
       (<Toolbox-Editor> name: descendants location: center
         (<!>            name: scroller    style: tool
           (<!>          name: content
             (<!>        name: header
               (<!>      name: content
-                (<!>    name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :form on-double-click}
+                (<!>    name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :self on-double-click}
                   (<!>  name: descendant  title: "Model" width: 291)))))))))
   
   
   (method meta override (external-name . rest)
     'toolbox-manager)
-
+  
+  
+  ;;;
+  ;;;; Aliases
+  ;;;
+  
+  
+  (method override (component-alias name)
+    (case name
+      ((tree) (get-tree))
+      (else (nextmethod name))))
+  
   
   ;;;
   ;;;; Host
@@ -108,7 +119,7 @@
   (method meta override (host-icon)
     {Image-Resource "Toolbox"})
   
-
+  
   (method meta override (host-title)
     "Toolbox")
   
@@ -130,17 +141,17 @@
   ;;;
   ;;;; Controller
   ;;;
-
-
+  
+  
   (method override (new-controller)
     (new Toolbox-Manager-Controller self))
-
+  
   
   ;;;
   ;;;; Component
   ;;;
-
-
+  
+  
   (method override (install rest)
     (nextmethod rest)
     (set-shown?~ (locate-component '(descendants header)) #f)
@@ -166,7 +177,7 @@
   ;;;
   ;;;; Document
   ;;;
-    
+  
   
   (method (document-status)
     "Toolbox")
@@ -177,21 +188,13 @@
   ;;;
   
   
-  (method (get-dynamic-toolboxes)
+  (method public (get-dynamic-toolboxes)
     (collect-if (lambda (cp) (is? cp Toolbox-Dynamic))
                 (collect-family~ (get-client))))
   
   
-  (method public (selected-class)
-    (selected-class~ (get-tree)))
-  
-  
-  (method public (selected-model)
-    (selected-model~ (get-tree)))
-  
-  
-  (method public (selected-unit)
-    (selected-unit~ (get-tree)))
+  (method public (get-module-names)
+    (map get-modules-name~ (get-dynamic-toolboxes)))
   
   
   (method public (get-toolbox-models)
@@ -207,73 +210,25 @@
       (map get-reference~ tools)))
   
   
-  
   ;;;
   ;;;; Events
   ;;;
   
   
-  (method (on-add evt)
-    (add))
-  
-  
-  (method (on-new evt)
-    (edit-new))
-  
-  
-  (method (on-edit evt)
-    (edit))
-  
-  
   (method (on-sync evt)
-    (sync-dynamic-toolbox-groups))
-  
-  
-  (method (on-double-click evt)
-    (add))
-      
-  
-  (method (add)
-    (let ((class (selected-class))
-          (unit (selected-unit))
-          (editor (current-document)))
-      (when (and class (is? editor View-Editor))
-        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
-  
-  
-  (method (edit)
-    (edit-component (selected-class)))
-  
-  
-  (method (sync-dynamic-toolbox-groups)
     (with-update-locked
       (lambda ()
-        (let ((tree (get-tree)))
-          (for-each (lambda (toolbox)
-                      (let ((module-name (get-module-name~ toolbox)))
-                        (for-each (lambda (class-name)
-                                    (let ((model (new Toolbox-Model parent: toolbox name: class-name))
-                                          (props (list unit: module-name model: class-name)))
-                                      (install-new-component~ tree (get-designer) model toolbox (symbol->string class-name) '() props)))
-                                  (get-missing-classes~ toolbox))
-                        (for-each (lambda (tool)
-                                    (remove-child~ (get-designer) tool))
-                                  (get-removed-classes~ toolbox))))
-                    (get-dynamic-toolboxes))))))
-  
-  
-  (method (edit-new)
-    (let ((class-name (selected-model))
-          (class (selected-class)))
-      (when class-name
-        (let* ((model-name (string->symbol (string-append "<" (symbol->string class-name) ">")))
-               (form-data (new Data 'jazz `((,(selected-unit))) #f))
-               (form (construct-form
-                       (list model-name)
-                       (let ((imports (effective-imports~ form-data)))
-                         (imports-locator imports))
-                       form-data)))
-          (edit-component form))))))
+        (for-each (lambda (toolbox)
+                    (let ((module-name (get-module-name~ toolbox)))
+                      (for-each (lambda (class-name)
+                                  (let ((model (new Toolbox-Model parent: toolbox name: class-name))
+                                        (props (list unit: module-name model: class-name)))
+                                    (install-new-component~ (get-tree) designer model toolbox (symbol->string class-name) '() props)))
+                                (get-missing-classes~ toolbox))
+                      (for-each (lambda (tool)
+                                  (remove-child~ (get-tree) designer tool))
+                                (get-removed-classes~ toolbox))))
+                  (get-dynamic-toolboxes))))))
 
 
 ;;;

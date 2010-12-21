@@ -474,15 +474,24 @@
   (make-table test: eq?))
 
 
+(definition get-descriptor-hook #f)
+
+
+(definition public (set-descriptor-hook proc)
+  (set! get-descriptor-hook proc))
+
+
 (definition public undocumented (get-descriptor model)
-  (let ((name (category-identifier model)))
-    (or (table-ref Class-Descriptors name #f)
-        (let ((form (get-class-descriptor~ model)))
-          (when form
-            (let ((descriptor (if (is? form Form) (instantiate~ form) form)))
-              (set-name~ descriptor name)
-              (table-set! Class-Descriptors name descriptor)
-              descriptor))))))
+  (if get-descriptor-hook
+      (get-descriptor-hook model)
+    (let ((name (category-identifier model)))
+      (or (table-ref Class-Descriptors name #f)
+          (let ((form (get-class-descriptor~ model)))
+            (when form
+              (let ((descriptor (if (is? form Form) (instantiate~ form) form)))
+                (set-name~ descriptor name)
+                (table-set! Class-Descriptors name descriptor)
+                descriptor)))))))
 
 
 (definition public undocumented (get-properties-descriptor model)

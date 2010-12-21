@@ -43,6 +43,7 @@
 (jazz.define-literal Format                jazz.ui.literals.construct-format)
 (jazz.define-literal Text-Style            jazz.ui.literals.construct-text-style)
 (jazz.define-literal Link-Style            jazz.ui.literals.construct-link-style)
+(jazz.define-literal Image-Style           jazz.ui.literals.construct-image-style)
 (jazz.define-literal Text                  jazz.ui.literals.construct-text)
 (jazz.define-literal Formatted-Text        jazz.ui.literals.construct-formatted-text)
 (jazz.define-literal Clipboard-Parcel      jazz.ui.literals.construct-clipboard-parcel)

@@ -401,7 +401,7 @@
   
   
   (method (on-paragraph-style evt)
-    (set-selection-format/style (get-property~ evt style:)))
+    (set-selection-format/style (get-property~ evt style:) style?: #t))
   
   
   (method (on-numbered evt)
@@ -3572,8 +3572,10 @@
     (register-exemplar name format formats))
   
   
-  (method public (get-format name (error?: error? #t)) <Format>
-    (locate~ formats name error?: error?))
+  (method public (get-format name/format (error?: error? #t)) <Format>
+    (if (is? name/format Format)
+        name/format
+      (locate~ formats name/format error?: error?)))
   
   
   (method public (intern-format format) <Format>
@@ -3964,6 +3966,11 @@
   ;;;
   
   
+  (method public (get-format-at pos <Cell>) <Format>
+    (let ((paragraph (get-paragraph (get-line~ pos))))
+      (get-format~ paragraph)))
+  
+  
   (method public (get-run-at pos <Cell>) <Run+>
     (let ((paragraph (get-paragraph (get-line~ pos))))
       (get-run~ paragraph (get-col~ pos))))
@@ -4087,9 +4094,9 @@
   ;;;
   
   
-  (method public (set-selection-format/style name)
-    (let* ((format (get-format name error?: #f))
-           (style (get-style name error?: #f))
+  (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
+    (let* ((format (and format? (get-format name/exemplar error?: #f)))
+           (style (and style? (get-style name/exemplar error?: #f)))
            (selection (get-selection))
            (start (get-start))
            (end (get-end))

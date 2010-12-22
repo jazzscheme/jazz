@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Plain Formatted Text View
+;;;; Text Format Combo
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,37 +35,44 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.text.Plain-Formatted-Text-View jazz
+(module protected jazz.ui.text.Text-Format-Combo jazz
 
 
-(import (jazz.graphic)
-        (jazz.jml)
-        (jazz.ui))
+(import (jazz.ui))
 
 
-(class undocumented Plain-Formatted-Text-View extends Formatted-Text-View
+(class undocumented Text-Format-Combo extends Text-Combo
   
   
-  (form
-    (<install> base-style: {Text-Style font: {Font Text}}))
+  ;;;
+  ;;;; Client
+  ;;;
   
   
-  (method override (install rest)
-    (nextmethod rest)
-    ;; Formats
-    (add-format 'Heading1 {Format Base keep-with-next?: #t})
-    (add-format 'Heading2 {Format Base keep-with-next?: #t})
-    (add-format 'Heading3 {Format Base keep-with-next?: #t})
-    (add-format 'Heading4 {Format Base keep-with-next?: #t})
-    (add-format 'Heading5 {Format Base keep-with-next?: #t})
-    (add-format 'Code     {Format Base left-margin: 100 right-margin: 100 background: {Color Light-Gray}})
-    ;; Styles
-    (add-style 'Heading1  {Text-Style Base font: {Font Heading1} color: {Color Dark-Red}})
-    (add-style 'Heading2  {Text-Style Base font: {Font Heading2} color: {Color Dark-Red}})
-    (add-style 'Heading3  {Text-Style Base font: {Font Heading3} color: {Color Dark-Red}})
-    (add-style 'Heading4  {Text-Style Base font: {Font Heading4} color: {Color Dark-Red}})
-    (add-style 'Heading5  {Text-Style Base font: {Font Heading5} color: {Color Dark-Red}})
-    (add-style 'Reference {Text-Style Base font: {Font Link} color: {Color Dark-Blue}})
-    (add-style 'Link      {Link-Style font: {Font Link} color: {Color Link}})
-    (add-style 'Code      {Text-Style Base font: {Font Code} color: {Color Dark-Red}})
-    (add-style 'Variable  {Text-Style Code}))))
+  (method override (client-update)
+    (set-choices (map (lambda (name)
+                        (list (new Format base: name) (->string name)))
+                      (sort string-ci<? (table-keys (get-named-formats~ client)) key: ->string))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method override (selection-change)
+    (let* ((end (get-end~ client))
+           (format (get-format-at~ client end))
+           (base (get-base~ format))
+           (name (and (not-null? base) (last base))))
+      (set-content (and name (->string name)))))
+  
+  
+  ;;;
+  ;;;; Choice
+  ;;;
+  
+  
+  (method override (combo-choice)
+    (set-selection-format/style~ client (get-value) format?: #t)
+    (selection-change))))

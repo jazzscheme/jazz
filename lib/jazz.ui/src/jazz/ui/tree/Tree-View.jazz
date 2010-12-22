@@ -148,7 +148,11 @@
     (when (is? child Tree-Column)
       (set! columns (append! columns (list child)))
       ;; should idealy be done incrementaly
-      (invalidate-columns)))
+      (invalidate-columns)
+      (when (is? child Tree-Node-Column)
+        (set! node-column child))
+      (fill-column)
+      (invalidate-header)))
   
   
   (method override (remove-child child)
@@ -156,8 +160,12 @@
     (unless (destroying?)
       (when (is? child Tree-Column)
         (set! columns (remove! child columns))
+        (when (eq? child node-column)
+          (set! node-column #f))
         ;; should idealy be done incrementaly
-        (invalidate-columns))))
+        (invalidate-columns)
+        (fill-column)
+        (invalidate-header))))
   
 
   ;;;
@@ -1492,26 +1500,12 @@
 
   
   (method public (add-column . rest)
-    (bind-keywords ((class Tree-Column) (title #f) (width #f) . others) rest
-      (let ((column (apply new class parent: self others)))
-        (when (is? column Tree-Node-Column)
-          (set! node-column column))
-        (when width
-          (set-width~ column width))
-        (when title
-          (set-title~ column title))
-        (fill-column)
-        (invalidate-header)
-        column)))
+    (bind-keywords ((class Tree-Column) . others) rest
+      (apply new class parent: self others)))
   
   
   (method public (remove-column column)
-    (set! columns (remove! column columns))
-    (when (eq? column node-column)
-      (set! node-column #f))
-    (invalidate-columns)
-    (fill-column)
-    (invalidate-header))
+    (remove-child column))
   
   
   (method public (remove-columns (preserve-node-column?: preserve-node-column? #f) (preserve: preserve '()))

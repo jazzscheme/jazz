@@ -516,37 +516,40 @@
 
 
   (method public virtual (current-drop pos drag-drop)
-    (new Drop-Target view: client))
+    (let ((sender (get-view~ (get-source~ drag-drop))))
+      (typecase sender
+        ((Toolbox-Tree)
+         (let ((class (selected-class~ sender)))
+           (and class
+                (addable-class?~ client class)
+                (new Surrogate-Drop-Target (selected-component~ sender) view: client))))
+        ((Properties-Tree)
+         (let ((row (get-row~ (get-source~ drag-drop))))
+           (and (is? row Value-Row)
+                (new Surrogate-Drop-Target row view: client)))))))
 
 
   (method public virtual (receive-drop pos sender drag-drop)
-    (typecase sender
-      ((Toolbox-Tree)
-       (let ((component (selected-component~ sender)))
-         ;; quick test as this should really be some accepts-drop? so that the
-         ;; drag&drop framework can show a visual feedback on the operation...
-         (when (is? component Toolbox-Model)
-           (let ((unit (get-unit~ component)))
-             (add-new (get-class~ component) pos import: unit)))))
-      ((Properties-Tree)
-       (let* ((source (get-source~ drag-drop))
-              (row (get-row~ source)))
-         (when (is? row Value-Row)
-           (set-selection~ sender '())
-           (let* ((property (get-property~ row))
-                  (name (field-name property)))
-             (if (eq? name (get-showed-property~ editor))
-                 (set-showed-property~ editor #f)
-               (set-showed-property~ editor (field-name property)))))))))
+    (let ((payload (get-payload~ (get-target~ drag-drop))))
+      (typecase sender
+        ((Toolbox-Tree)
+         (add-new (get-class~ payload) pos import: (get-unit~ payload)))
+        ((Properties-Tree)
+         (set-selection~ sender '())
+         (let* ((property (get-property~ payload))
+                (name (field-name property)))
+           (if (eq? name (get-showed-property~ editor))
+               (set-showed-property~ editor #f)
+             (set-showed-property~ editor (field-name property))))))))
   
   
   (method public (add-new model pos (centered?: centered? #t) (name: name #f) (properties: properties '()) (import: import #f))
     (let ((preferences (get-preferences 'designer))
           (designer (get-designer~ editor))
           (view? (subclass? model View)))
-      (let ((child (if view? 
-                       (new model visible?: #f)
-                     (new model))))
+      (let ((child (if view?
+                       (new model parent: client visible?: #f)
+                     (new model parent: client))))
         (if view?
             (add-view~ designer child client position: pos centered?: centered? name: name import: import properties: properties)
           (add-child~ designer child client import: import name: name properties: properties)) 
@@ -839,6 +842,22 @@
         (let ((manager (select-docked Properties-Manager focus?: #t)))
           (select-property~ (get-tree~ manager) default-property))))))
 
+
+;;;
+;;;; Surrogate-Drop-Target
+;;;
+
+
+(class Surrogate-Drop-Target extends Drop-Target
+  
+  
+  (slot payload getter generate)
+  
+  
+  (method override (initialize payload . rest)
+    (apply nextmethod rest)
+    (set! payload~self payload))
+  )
 
 ;;;
 ;;;; Surrogate-Menu

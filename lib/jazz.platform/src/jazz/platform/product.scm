@@ -212,8 +212,8 @@
                           ,@jazz.font-units
                           ,@jazz.x11-units
                           ,@jazz.clipboard-units)))
-          (jazz.custom-compile/build unit-specs unit: unit force?: force?)
-          (jazz.update-product-descriptor descriptor)))))
+        (jazz.custom-compile/build unit-specs unit: unit force?: force?)
+        (jazz.update-product-descriptor descriptor)))))
 
 
 ;;;

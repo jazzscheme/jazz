@@ -42,6 +42,7 @@
 
 
 (jazz.define-literal Box                jazz.library.literals.construct-box)
+(jazz.define-literal Manifest           jazz.library.literals.construct-manifest)
 (jazz.define-literal Directory-Group    jazz.library.literals.construct-directory-group)
 (jazz.define-literal Locales            jazz.library.literals.construct-locales)
 (jazz.define-literal Image-Resource     jazz.library.literals.construct-image-resource)

@@ -194,29 +194,6 @@
 ;;;
 
 
-(define *handlers*
-  (make-table test: eq?))
-
-
-(definition public (get-handlers)
-  *handlers*)
-
-
-(definition public (find-handler name)
-  (table-ref *handlers* name #f))
-
-(definition public (require-handler name)
-  (or (find-handler name)
-      (error "Unknown handler: {s}" name)))
-
-
-(definition public (register-handler name handler)
-  (table-set! *handlers* name handler))
-
-(definition public (unregister-handler name)
-  (table-clear *handlers* name))
-
-
 (definition public (notify-handler component handler sender properties)
   (typecase handler
     ((Handler)
@@ -225,10 +202,6 @@
          (invoke~ handler component event))))
     ((Action)
      (call-action handler sender properties))
-    ((Symbol)
-     (let ((handler (require-handler handler))
-           (event (apply new Event :action sender (or properties '()))))
-       (handler event)))
     (else
      (error "Unknown handler type: {s}" handler))))
 
@@ -239,9 +212,6 @@
      (invoke~ handler component event))
     ((Action)
      (call-action handler component #f event: event))
-    ((Symbol)
-     (let ((handler (require-handler handler)))
-       (handler event)))
     (else
      (error "Unknown handler type: {s}" handler))))
 

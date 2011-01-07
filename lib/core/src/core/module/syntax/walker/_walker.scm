@@ -3726,25 +3726,29 @@
 (jazz.define-class-runtime jazz.Reference-Reification)
 
 
-(define (jazz.new-reference-reification source resolver)
-  (jazz.allocate-reference-reification jazz.Reference-Reification #f source resolver))
+(define (jazz.new-reference-reification source reference resolver)
+  (jazz.allocate-reference-reification jazz.Reference-Reification #f source reference resolver))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Reference-Reification expression) declaration environment)
   ;; all this should be cleanly obtained from the code walk but it requires a
   ;; non-trivial work of changing references to remember how they where obtained
   (define (determine-serialization reference)
-    (let ((module (%%get-declaration-toplevel declaration))
-          (binding (%%get-reference-binding reference)))
-      (if (%%is? binding jazz.Declaration)
-          (if (%%eq? (%%get-declaration-toplevel binding) module)
-              `(module-private ,(%%get-declaration-locator binding))
-            (let ((name (%%get-lexical-binding-name binding)))
-              (let ((import (find-import module name)))
-                (if import
-                    `(module-public ,import ,name)
-                  #f))))
-        #f)))
+    (let ((reified-reference (%%get-reference-reification-reference expression)))
+      (if (jazz.composite-name? reified-reference)
+          (receive (module-name name) (jazz.split-composite reified-reference)
+            `(module-public ,module-name ,name))
+        (let ((module (%%get-declaration-toplevel declaration))
+              (binding (%%get-reference-binding reference)))
+          (if (%%is? binding jazz.Declaration)
+              (if (%%eq? (%%get-declaration-toplevel binding) module)
+                  `(module-private ,(%%get-declaration-locator binding))
+                (let ((name (%%get-lexical-binding-name binding)))
+                  (let ((import (find-import module name)))
+                    (if import
+                        `(module-public ,import ,name)
+                      #f))))
+            #f)))))
   
   (define (find-import module symbol)
     (let iter ((scan (%%get-module-declaration-imports module)))
@@ -3758,9 +3762,9 @@
                 (iter (%%cdr scan)))))))))
   
   (let ((resolver (%%get-reference-reification-resolver expression)))
-    (let ((expression (%%car (%%get-body-expressions (%%get-lambda-body resolver)))))
-      (%%assert (%%is? expression jazz.Binding-Reference)
-        (let ((serialization (determine-serialization expression)))
+    (let ((reference (%%car (%%get-body-expressions (%%get-lambda-body resolver)))))
+      (%%assert (%%is? reference jazz.Binding-Reference)
+        (let ((serialization (determine-serialization reference)))
           (jazz.new-code
             `(jazz.new-runtime-reference ,(%%get-code-form (jazz.emit-expression resolver declaration environment)) ',serialization)
             jazz.Any
@@ -4999,8 +5003,9 @@
 
 
 (define (jazz.walk-reference walker resume declaration environment form-src)
-  (let ((resolver `(lambda () ,(%%cadr (jazz.source-code form-src)))))
-    (jazz.new-reference-reification form-src (jazz.walk walker resume declaration environment resolver))))
+  (let ((reference-src (%%cadr (jazz.source-code form-src))))
+    (let ((resolver `(lambda () ,reference-src)))
+      (jazz.new-reference-reification form-src (jazz.source-code reference-src) (jazz.walk walker resume declaration environment resolver)))))
 
 
 ;;;

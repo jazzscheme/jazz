@@ -896,7 +896,8 @@
 
 
 (jazz.define-class jazz.Reference-Reification jazz.Expression (type source) jazz.Object-Class jazz.allocate-reference-reification
-  ((resolver %%get-reference-reification-resolver ())))
+  ((reference %%get-reference-reification-reference ())
+   (resolver  %%get-reference-reification-resolver  ())))
 
 
 ;;;

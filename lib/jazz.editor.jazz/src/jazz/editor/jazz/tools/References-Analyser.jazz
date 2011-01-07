@@ -49,9 +49,6 @@
 
 
 (class References-Analyser extends View
-  
-  
-  (property text initialize #f)
 
 
   (form
@@ -59,7 +56,7 @@
       (<Border-View>                   name: name-border         position: {Point 2 9} size: {Dimension 250 19} border-type: edge style: entry
         (<Scroller-View>                                         hscroll?: #f vscroll?: #f
           (<!>                         name: content             layout-type: fill
-            (<IDE-Text-View>           name: name                left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
+            (<IDE-Text-View>           name: repository          left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
       (<Push-Button>                   name: browse              title: "Find Dead Code" position: {Point 272 7} size: {Dimension 120 22} action-handler: {Event-Handler :form on-find-dead-code})
       (<Border-View>                   name: declarations-border position: {Point 2 35} size: {Dimension 391 562} border-type: edge style: entry
         (<Scroller-View>                                         style: document hscroll?: #t vscroll?: #t
@@ -97,7 +94,7 @@
 
   
   (method override (focus-default)
-    (acquire-focus~ (locate 'name)))
+    (acquire-focus~ (locate 'repository)))
   
   
   ;;;
@@ -105,12 +102,13 @@
   ;;;
   
   
-  (method public (get-text)
-    (get-string-content~ (locate 'name)))
-  
-  
-  (method public (set-text value)
-    (set-string-content~ (locate 'name) (or value "")))
+  (method public (get-repositories)
+    (let ((content (get-string-content~ (locate 'repository))))
+      (if (empty-string? content)
+          #f
+        (let ((repository (find-repository (string->symbol content))))
+          (assert repository
+            (list repository))))))
 
   
   ;;;
@@ -150,6 +148,13 @@
   
   
   (method (find-dead-code)
+    (define (analyse)
+      (parameterize ((analysis-mode? #t))
+        (iterate-units walk-unit repositories: (get-repositories) feedback: feedback)))
+    
+    (define (feedback unit-name)
+      (user-message "Walking {a}..." unit-name))
+    
     (define (exception-declaration? declaration)
       (and (is? declaration Class-Declaration)
            (table-ref (get-core-classes) (category-name declaration) #f)))
@@ -158,7 +163,7 @@
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (analyse-all)
+          (analyse)
           (iterate-table analysis-data
             (lambda (locator data)
               (let ((autoload-reference (get-autoload-reference~ data)))
@@ -188,15 +193,6 @@
                                         user-data: declaration))))))
                             (queue-list (get-children~ declaration)))))))))
       (user-feedback "Found {a}" (get-row-count~ tree))))
-  
-  
-  (definition analyse-all
-    (let ((done? #f))
-      (lambda ()
-        (unless done?
-          (parameterize ((analysis-mode? #t))
-            (walk-all))
-          (set! done? #t)))))
 
   
   ;;;

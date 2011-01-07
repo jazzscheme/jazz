@@ -2313,7 +2313,8 @@
                                constituent-test
                                word-constituent?))
          (whole-words? (get-whole-words?~ (car (get-contexts~ search-set))))
-         (end (or (and reversed? start) (cardinality seq))))
+         (card (cardinality seq))
+         (end (or (and reversed? start) card)))
     (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
       (let ((m (irregex-search rx seq i)))
         (if (not m)
@@ -2323,11 +2324,17 @@
             (cond
               ((> to end) best)
               ((or (not whole-words?)
-                   (and (or (= 0 from)
-                            (not (constituent-test (element seq (- from 1)))))
-                        (or (>= to (cardinality seq))
-                            (eqv? (element seq to) #\~) ;; hack for ~ syntax
-                            (not (constituent-test (element seq to))))))
+                   (let ((before (and (> from 0) (element seq (- from 1))))
+                         (after (and (< to card) (element seq to))))
+                     (or ;; special case for <tag> syntax
+                         (and (eqv? before #\<)
+                              (eqv? after #\>))
+                         (and (or (not before)
+                                  (not (constituent-test before)))
+                              (or (not after)
+                                  (not (constituent-test after))
+                                  ;; special case for method~ syntax
+                                  (eqv? after #\~))))))
                (let ((res (cons from to)))
                  (if reversed? (lp (+ to 1) res) res)))
               (else (lp to best)))))))))

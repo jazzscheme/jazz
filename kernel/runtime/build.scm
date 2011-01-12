@@ -474,7 +474,7 @@
           ((windows)
            (with-resources
              (lambda (resources rc res)
-               (%%list (jazz.quote-gcc-pathname res platform)))))
+               (%%list (jazz.quote-pathname res platform)))))
           (else
            '())))
       
@@ -555,9 +555,9 @@
             (jazz.pathname-normalize build-dir)
             c-files
             (string-append kernel-dir "/" kernel-name)
-            (string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+            (string-append "-I" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
             ""
-            (jazz.join-strings `(,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+            (jazz.join-strings `(,(string-append "-L" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                                  ,@(gambit-link-libraries)
                                  ,@(link-libraries)
                                  ,@(resource-files)
@@ -764,8 +764,8 @@
             (let* ((jazz-relative-dir (prefix "~~jazz" dir))
                    (quoted-dir
                      (if jazz-relative-dir
-                         (jazz.quote-jazz-gcc-pathname jazz-relative-dir)
-                       (jazz.quote-gcc-pathname dir platform))))
+                         (jazz.quote-jazz-pathname jazz-relative-dir)
+                       (jazz.quote-pathname dir platform))))
               (%%list (%%string-append "-L" quoted-dir)))
           (jazz.error "Ill-formed libdir parameter in product link options")))
       
@@ -879,8 +879,8 @@
                        sub-units)
                 ,linkfile
                 "-o" ,library-o1
-                ,(string-append "-I" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-                ,(string-append "-L" (jazz.quote-gcc-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                ,(string-append "-I" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+                ,(string-append "-L" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                 ,@(link-options)))
             (case platform
               ((windows)

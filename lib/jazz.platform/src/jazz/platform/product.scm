@@ -70,8 +70,8 @@
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (windows
     (define jazz.cairo-units
-      (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
-            (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
+      (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
+            (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
         `((jazz.platform.cairo            cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
           (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
   (x11
@@ -94,8 +94,8 @@
 
 
 (define (jazz.logfont-units)
-  (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
-        (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
+  (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
+        (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
     `((jazz.platform.cairo.cairo-logfont cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo")))))
 
 
@@ -109,10 +109,10 @@
 
 
 (define jazz.windows-units
-  (let ((cairo-include-path   (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
-        (cairo-lib-path       (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows"))
-        (windows-include-path (jazz.quote-jazz-gcc-pathname "foreign/windows/include"))
-        (windows-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/windows/lib"))
+  (let ((cairo-include-path   (jazz.quote-jazz-pathname "foreign/cairo/include"))
+        (cairo-lib-path       (jazz.quote-jazz-pathname "foreign/cairo/lib/windows"))
+        (windows-include-path (jazz.quote-jazz-pathname "foreign/windows/include"))
+        (windows-lib-path     (jazz.quote-jazz-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")

@@ -63,8 +63,8 @@
 (cond-expand
   (windows
     (define jazz.opengl-units
-      (let ((glut-include-path (jazz.quote-jazz-gcc-pathname "foreign/opengl/glut/include"))
-            (glut-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/opengl/glut/lib/windows")))
+      (let ((glut-include-path (jazz.quote-jazz-pathname "foreign/opengl/glut/include"))
+            (glut-lib-path     (jazz.quote-jazz-pathname "foreign/opengl/glut/lib/windows")))
         `((jazz.graphic.opengl.platform.WinOpenGL cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")
           (jazz.graphic.opengl.foreign.gl-header)
           (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")

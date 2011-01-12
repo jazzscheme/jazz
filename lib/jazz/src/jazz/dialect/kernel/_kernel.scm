@@ -591,6 +591,7 @@
 (native jazz.current-process-present)
 (native jazz.destination-directory)
 (native jazz.executable-extension)
+(native jazz.quote-pathname)
 (native jazz.run-product)
 (native jazz.update-product)
 (native jazz.build-product)

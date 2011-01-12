@@ -442,7 +442,7 @@
     (jazz.pathname-normalize reldir #f)))
 
 
-(define (jazz.quote-gcc-pathname pathname platform)
+(define (jazz.quote-pathname pathname #!optional (platform jazz.kernel-platform))
   (case platform
     ((windows)
      (string-append "\"" pathname "\""))
@@ -451,8 +451,8 @@
      pathname)))
 
 
-(define (jazz.quote-jazz-gcc-pathname suffix)
-  (jazz.quote-gcc-pathname (path-expand (string-append jazz.kernel-source suffix)) jazz.kernel-platform))
+(define (jazz.quote-jazz-pathname suffix)
+  (jazz.quote-pathname (path-expand (string-append jazz.kernel-source suffix))))
 
 
 (cond-expand

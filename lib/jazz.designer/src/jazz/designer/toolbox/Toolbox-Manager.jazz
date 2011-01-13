@@ -47,7 +47,8 @@
         (jazz.system)
         (jazz.system.process)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (uranos.metadata))
 
 
 ;;;
@@ -87,7 +88,9 @@
         (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit Class" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-edit})
         (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New Subclass" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-new})
         (<Separator>                      size: {Dimension 4 0})
-        (<Push-Tool>    name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
+        (<Push-Tool>    name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize})
+        (<Push-Tool>    name: generate-sql size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Generate SQL" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-sql-generate}))
+      
       (<Toolbox-Editor> name: descendants location: center
         (<!>            name: scroller    style: tool
           (<!>          name: content
@@ -229,7 +232,91 @@
                       (for-each (lambda (tool)
                                   (remove-child~ designer tool))
                                 (get-removed-classes~ toolbox))))
-                  (get-dynamic-toolboxes))))))
+                  (get-dynamic-toolboxes)))))
+
+  
+  (method (on-sql-generate evt)                   
+    
+    ;; Load the modules
+    (define (get-module-table-classes module-name)
+      (let* ((module (require-module module-name))
+             (exports (table-keys (get-exports~ module))))
+        (collect-if (lambda (export-name)
+                      (let ((obj (module-ref module-name export-name)))
+                        (and (class? obj) (subclass? obj Table-Metadata))))
+                    exports)))
+    
+    ;; Helper function which recursively prints table data
+    (define (print-table-design form port)
+      (when (not-null? form)
+        (case (get-action~ form)
+          ((install) 
+           (format port "~{ Form (new Design-Table \"{a}\")(:description nil)\n~{Form (modify \"Columns\")()\n" 
+             (get-property~ form 'sql-name))
+           (for-each (lambda (child)
+                       (print-table-design child port))
+                     (get-children~ form))                 
+           (display "}\n" port))
+          ((new)
+           (let ((inner-child (car (get-children~ form)))
+                 (name (symbol->string (get-name~ form))))
+             (format port "~{ Form (new Design-Column \"{a}\")(:physical-name {a} :nullable? {a} :identity? {a} ) " 
+               name name
+               (if (get-property~ inner-child 'nullable?) "true" "false")
+               (if (get-property~ form 'identity?) "true" "false"))
+             )))
+        (display "}\n" port)))
+    
+    ;; Helper function which recursively converts a literal as well as it's arguments
+    ;; into a string.
+    (define (build-literal-string value)
+      (cond ((null? value) " ")
+            ((symbol? value) (symbol->string value))
+            ((string? value) (format "\"{a}\"" value))
+            ((number? value) (number->string value))
+            ((instance-of? value Literal)
+             (format " ~{{a} {a}~}"
+                     (symbol->string (get-name~ value))
+                     (build-literal-string (get-arguments~ value))))
+            ((list? value)
+             (let (iterate (scan value) (result ""))
+               (if (null? scan)
+                   result
+                 (iterate (cdr scan) (format "{a} {a}{a}{a}"
+                                             result 
+                                             (if (list? (car scan)) "(" "")
+                                             (build-literal-string (car scan))
+                                             (if (list? (car scan)) ")" "" ))))))))
+    
+    (let* ((db-name "Database-Name")
+           (module-name 'uranos.showcase.requests)
+           (module-classes (get-module-table-classes module-name))
+           (out-path (string-append "/" db-name ".dsg"))
+           (existing-layout #f))
+      
+      ;; Check if there is pre-existing :layout data, and if so fetch it before overwriting the file
+      (when (file-exists? out-path)
+        (with-jazz-readtable
+          (lambda ()
+            (parameterize ((walk-for 'eval))
+              (call-with-input-file out-path
+                (lambda (port)
+                  (let ((content (read-all port read)))
+                    (set! existing-layout (getf content ':layout)))))))))
+      
+      (call-with-output-file out-path
+        (lambda (port)
+          (format port ":version ~{Version 1 1 0 23~}\n\n :properties (:schemas ((\"{a}\" sqlserver)))\n\n :architecture\n~{ Form (new Design-Architecture \"{a}\" )() \n ~{ Form (modify \"Tables\") ()\n"
+                           db-name db-name )
+          (for-each (lambda (current-class)
+                      (print-table-design (get-class-form~ 
+                                            (table-ref (get-entries~ 
+                                                         (require-module module-name)) current-class)) 
+                                          port))
+                    module-classes)      
+          (display " }}\n " port)
+          (when existing-layout
+            (format port "\n:layout \n\n {a}" (build-literal-string existing-layout))))))))
 
 
 ;;;

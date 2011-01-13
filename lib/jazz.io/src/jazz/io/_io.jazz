@@ -82,36 +82,87 @@
 ;;;
 
 
-(definition *aliases*
-  (make-table test: eq?))
+(class Alias extends Object
+  (slot path accessors generate)
+  (slot table accessors generate initialize (make-table test: eq? ))
+  (slot parent accessors generate)
+  
+  (method override (initialize path (parent: parent #f))
+    (set! path~self path)
+    (set! parent~self parent)))
 
+(definition root-alias
+  (new Alias #f))
 
 (definition public (get-aliases)
-  *aliases*)
+  (get-table~ root-alias))
 
+(definition public (get-root-alias)
+  root-alias)
+
+(definition public (get-alias-anchors alias)
+  
+  (define (append-symbol first second separator)
+    (string->symbol (string-append (symbol->string first)
+                                   separator
+                                   (symbol->string second))))
+  
+  (let (iterate (keys (table-keys (get-table~ alias)))
+                (result '()))
+    (if (empty? keys)
+        result
+      (let ((scan (car keys))
+            (inner-values (get-alias-anchors
+                            (table-ref (get-table~ alias) (car keys) #f))))
+        (iterate (cdr keys)
+                 (if (empty? inner-values)
+                     (cons scan result)
+                     (append (cons scan
+                                   (map (lambda (value)
+                                          (append-symbol scan value "/"))
+                                        inner-values))
+                             result)))))))
 
 (definition public (is-alias? name)
   (boolean (find-alias name)))
 
-
 (definition public (valid-alias? name)
   (is-alias? name))
 
-
 (definition public (get-alias name (error?: error? #t))
-  (or (find-alias name)
+  (let ((result (find-alias name)))
+    (if result
+        (get-path~ result)
       (when error?
-        (error "Unknown alias: {t}" name))))
+        (error "Unknown alias: {t}" name)))))
 
+(definition public (set-alias! name path)
+  (let ((result (find-alias name)))
+    (if result
+        (table-set! (get-parent~ result)
+                    (last (split-symbol name "/"))
+                    path)
+      (error "Unknown alias: {t}" name))))
+    
 
-(definition public (find-alias name)
-  (or (table-ref (get-aliases) name #f)
-      (let ((process (get-process)))
-        (when process
-          (resolve-alias~ process name)))))
+(definition public (find-alias name (start: start root-alias))
+  (let (iterate (qualifier (split-symbol name "/"))
+                (result start))
+    (cond ((not result) #f)
+          ((eq? (length qualifier) 1)
+           (table-ref (get-table~ result) (car qualifier) #f))
+          (else
+           (iterate (cdr qualifier)
+                    (table-ref (get-table~ result) (car qualifier) #f))))))
 
+(definition public (unregister-alias name (start: start root-alias))
+  (let ((result (find-alias name start: start)))
+    (if result
+        (table-clear (get-table~ (get-parent~ result)) 
+                     (car (split-symbol name "/")))
+      (error "The alias {s} does not exist." name))))
 
-(definition public (register-alias name path)
+(definition public (register-alias name path (start: start #f))
   (define (expand-up path)
     (let ((dir (anchorize~ (get-parent~ (new Directory (list (car path)))) ignored-anchors: (list name)))
           (sub (cddr path)))
@@ -124,20 +175,28 @@
         (process-up (expand-up path))
       path))
   
-  (let ((actual (table-ref (get-aliases) name #f))
-        (new (process-up path)))
-    (if (or (not actual) (equal? new actual))
-        (set-alias name new)
-      (error "Alias already registered: {s}" name))))
-
-
-(definition public (unregister-alias name)
-  (table-clear (get-aliases) name))
-
-
-(definition public (set-alias name path)
-  (table-set! (get-aliases) name path))
-
+  (define (inner-register name path alias)
+    (typecase path
+      ((Alias)
+       (table-set! (get-table~ alias) name path))
+      (else 
+       (let ((actual (table-ref (get-table~ alias) name #f))
+             (fixed-path (process-up path)))
+         (if (or (not actual) (equal? fixed-path (get-path~ actual)))
+             (table-set! (get-table~ alias) name (new Alias fixed-path parent: alias))
+           (error "Alias already registered: {s}" name))))))
+  
+  (cond ((not start) (inner-register name path (get-root-alias)))
+        ((symbol? start)
+         (let ((search (find-alias start)))
+           (if search
+               (register-alias name path start: search)
+             (error "The alias {s}/{s} could not be registered as the start path does not exist."
+                    start name))))
+        ((is? start Alias)
+         (inner-register name path start))
+        (else
+         (error "Error registering alias: {s}. The given start path was not valid." name))))
 
 (definition public (initialize-aliases)
   (define (register-home)
@@ -422,9 +481,9 @@
 
 (class Pathname metaclass Pathname-Class extends Moniker
   
-  
+ 
   (slot path)
-  (slot aliases initialize #f)
+  (slot context initialize #f accessors generate)
   
   
   (method override (initialize lst)
@@ -488,6 +547,12 @@
   (method protected virtual (add-suffix output)
     )
   
+  (method override public (present-location)
+    (inspect self)
+    (if (get-context~ self)
+        (format "{l}" (append (get-path~ context) (cdr (get-list))))
+      (format "{l detail: :human}" (get-list))))
+  
   
   (method public (relocated-pathname old-root new-root)
     (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
@@ -500,7 +565,7 @@
   (method public (move-pathname dst (error?: error? #t))
     (file-rename (parse) (parse~ dst)))
   
-
+  
   (method override (compare-object target)
     (cond ((is-not? target (class-of self))
            :incompatible)
@@ -516,26 +581,16 @@
   
   
   (method public (pathname-alias? alias)
-    (or (and aliases (table-ref aliases alias #f))
-        (is-alias? alias)))
+    (or (is-alias? alias)
+        (and (eq? alias ':context) context)))
   
   
   (method public (pathname-alias alias)
-    (or (and aliases (table-ref aliases alias #f))
-        (get-alias alias)))
-  
-  
-  (method public (valid-aliases?)
-    (define (valid? list)
-      (or (eq? list #t)
-          (every? (lambda (item)
-                    (or (not (symbol? item))
-                        (and (pathname-alias? item)
-                             (valid? (pathname-alias item)))))
-                  list)))
-    
-    (valid? (get-list)))
-  
+    (if (eq? alias ':context)
+        (if context 
+            (get-path~ context)
+          (error "No context alias specified."))
+      (get-alias alias)))
   
   (method public (expand)
     (let ((fact (new List-Factory)))
@@ -558,11 +613,6 @@
 
   (method public (set-list value)
     (set! path value))
-  
-  
-  (method public (get-aliases)
-    aliases)
-
 
   (method override (get-name)
     (effective-name (get-list)))
@@ -590,10 +640,11 @@
   
   
   (method override (get-parent)
-    (let ((effective-path (if (= (length path) 1) (expand) path)))
-      (if (or (null? effective-path) (null? (cdr effective-path)))
-          #f
-        (new Directory (butlast effective-path)))))
+    (let ((path (if context (get-list~ (expand-context)) path~self)))
+      (let ((effective-path (if (= (length path) 1) (expand) path)))
+        (if (or (null? effective-path) (null? (cdr effective-path)))
+            #f
+          (new Directory (butlast effective-path))))))
   
   
   (method public (get-brother name)
@@ -704,10 +755,16 @@
   ;;;
 
 
-  (method override (setup-context context)
-    (let ((data (get-data~ context)))
-      (when data
-        (set! aliases (get-aliases~ data))))))
+  (method override (setup-context given-context)
+    (when (member? ':context (get-list~ self))
+      (let ((data (get-data~ given-context)))
+        (when data
+          (set! context (get-context~ data))))))
+  
+  (method public (expand-context)
+    (if context
+        (new File (append (get-path~ context) (cdr (get-list))))
+      #f)))
 
 
 (definition public inline (pathname? object)

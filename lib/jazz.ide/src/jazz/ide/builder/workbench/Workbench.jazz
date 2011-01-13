@@ -47,7 +47,6 @@
         (jazz.system)
         (jazz.ui.view))
 
-
 (class Workbench extends Project
   
   
@@ -137,6 +136,7 @@
     (when (get-catalog?~ project)
       (let ((catalog (require-catalog~ project)))
         (activate~ catalog report?: #f)
+        (prepare-files~ catalog)
         catalog)))
 
 
@@ -153,6 +153,36 @@
   ;;;; Add/Remove
   ;;;
   
+  (method public (add-project-aliases component project)
+    (define (fix-children-aliases parent context)
+      (let (iterate (children (get-children~ parent)))
+        (unless (empty? children)
+          (typecase (car children)
+            ((Project)
+             (let ((child (car children)))
+               (set-parent~ (get-context~ child) context)
+               (register-alias (string->symbol (get-title~ child))
+                               (get-context~ child)
+                               start: context)))
+            ((Project-Group)
+             (iterate (get-children~ (car children))))
+            ((Project-File)
+             (if (member? ':context
+                          (get-list~ (get-source~ (car children))))
+                 (set-context~ (get-source~ (car children)) context))))
+          (iterate (cdr children)))))
+
+    (let ((content (if (get-origin~ (get-form~ component))
+                       (get-origin~ (get-form~ component))
+                     (get-tag-reference~ (get-form~ component)))))
+      (set-context~ component (new Alias (butlast (get-list~
+                                                        content))))
+      (fix-children-aliases component (get-context~ component)))
+    (when (is? project Workbench)
+      (set-parent~ (get-context~ component) (get-root-alias))
+      (register-alias (string->symbol (get-title~ component))
+                      (get-context~ component)
+                      start: (get-root-alias))))
   
   (method protected (add-to-project project name component)
     (typecase component
@@ -160,7 +190,9 @@
        (when (is? component Project)
          (set-workbench~ component self)
          (set-parent-project~ component project)
+         (add-project-aliases~ self component project)
          (table-set! projects-table component #t))
+       
        (set-project~ component project)
        (let ((source (get-source~ component)))
          (add-source source component)
@@ -176,6 +208,8 @@
     (typecase component
       ((Project-File)
        (when (is? component Project)
+         (unregister-alias (string->symbol (get-title~ component))
+                           start: (get-parent~ (get-context~ component)))
          (table-clear projects-table component)
          (let ((catalog (get-catalog~ component)))
            (when catalog

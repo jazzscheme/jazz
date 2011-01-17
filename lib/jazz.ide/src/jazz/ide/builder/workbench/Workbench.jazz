@@ -47,6 +47,7 @@
         (jazz.system)
         (jazz.ui.view))
 
+
 (class Workbench extends Project
   
   
@@ -153,30 +154,28 @@
   ;;;; Add/Remove
   ;;;
   
+  
   (method public (add-project-aliases component project)
     (define (fix-children-aliases parent context)
       (let (iterate (children (get-children~ parent)))
-        (unless (empty? children)
-          (typecase (car children)
-            ((Project)
-             (let ((child (car children)))
+        (unless (null? children)
+          (let ((child (car children)))
+            (typecase child
+              ((Project)
                (set-parent~ (get-context~ child) context)
                (register-alias (string->symbol (get-title~ child))
                                (get-context~ child)
-                               start: context)))
-            ((Project-Group)
-             (iterate (get-children~ (car children))))
-            ((Project-File)
-             (if (member? ':context
-                          (get-list~ (get-source~ (car children))))
-                 (set-context~ (get-source~ (car children)) context))))
+                               start: context))
+              ((Project-Group)
+               (iterate (get-children~ child)))
+              ((Project-File)
+               (when (eq? (car (get-list~ (get-source~ child))) :context)
+                 (set-context~ (get-source~ child) context)))))
           (iterate (cdr children)))))
-
-    (let ((content (if (get-origin~ (get-form~ component))
-                       (get-origin~ (get-form~ component))
-                     (get-tag-reference~ (get-form~ component)))))
-      (set-context~ component (new Alias (butlast (get-list~
-                                                        content))))
+    
+    (let ((content (or (get-origin~ (get-form~ component))
+                       (get-tag-reference~ (get-form~ component)))))
+      (set-context~ component (new Alias (butlast (get-list~ content))))
       (fix-children-aliases component (get-context~ component)))
     (when (is? project Workbench)
       (set-parent~ (get-context~ component) (get-root-alias))
@@ -184,13 +183,14 @@
                       (get-context~ component)
                       start: (get-root-alias))))
   
+  
   (method protected (add-to-project project name component)
     (typecase component
       ((Project-File)
        (when (is? component Project)
          (set-workbench~ component self)
          (set-parent-project~ component project)
-         (add-project-aliases~ self component project)
+         (add-project-aliases component project)
          (table-set! projects-table component #t))
        
        (set-project~ component project)

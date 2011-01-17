@@ -60,7 +60,6 @@
   (property editable?                        accessors generate)
   (property active?            initialize #t accessors generate)
   (property catalog?           initialize #f accessors generate)
-  (property catalog-title      initialize #f accessors generate)
   (property catalog-extensions initialize #f accessors generate)
   (property catalog-heuristics initialize #f accessors generate)
 
@@ -147,13 +146,23 @@
   
   
   (method protected virtual (catalog-name)
-    (cond (catalog-title (string->symbol catalog-title))
-          (title (string->symbol title))
-          (else name)))
+    (if title
+        (string->symbol title)
+      name))
+  
+  
+  (method protected virtual (catalog-output-base)
+    (let (iterate (project self)
+                  (name (catalog-name)))
+      (let ((parent (get-parent-project~ project)))
+        (if (or (not parent)
+                (is? parent Workbench))
+            name
+          (iterate parent (format "{a}${a}" (catalog-name~ parent) name))))))
   
   
   (method protected virtual (catalog-output)
-    (new File (list 'Profile "catalogs" (format "{a}.jcat" (catalog-name)))))
+    (new File (list 'Profile "catalogs" (format "{a}.jcat" (catalog-output-base)))))
 
 
   ;;;

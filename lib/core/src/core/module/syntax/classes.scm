@@ -1152,6 +1152,15 @@
 
 
 ;;;
+;;;; Walk-Failed Special
+;;;
+
+
+(jazz.define-class jazz.Walk-Failed-Special jazz.Expression (type source) jazz.Object-Class jazz.allocate-walk-failed
+  ((answer %%get-walk-failed-special-answer ())))
+
+
+;;;
 ;;;; Analysis Data
 ;;;
 

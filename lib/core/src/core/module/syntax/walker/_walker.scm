@@ -3049,6 +3049,10 @@
 ;;;
 
 
+(define jazz.*raise-walk-problems?*
+  (make-parameter #f))
+
+
 (define (jazz.walk-warning walker declaration src fmt-string . rest)
   (let ((location (jazz.walk-location walker declaration (jazz.source-locat src)))
         (message (apply jazz.format fmt-string rest)))
@@ -3067,15 +3071,20 @@
 
 
 (define (jazz.walker-warning walker warning)
-  (if (jazz.warnings?)
-      (%%set-walker-warnings walker (%%append (%%get-walker-warnings walker) (%%list warning)))))
+  (cond ((jazz.*raise-walk-problems?*)
+         (raise warning))
+        ((jazz.warnings?)
+         (%%set-walker-warnings walker (%%append (%%get-walker-warnings walker) (%%list warning))))))
 
 
 (define (jazz.walker-error walker resume error)
-  (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
-  (if (and resume (jazz.delay-reporting?))
-      (continuation-return resume (jazz.unspecified))
-    (jazz.validate-walk-problems walker)))
+  (cond ((jazz.*raise-walk-problems?*)
+         (raise error))
+        (else
+         (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
+         (if (and resume (jazz.delay-reporting?))
+             (continuation-return resume (jazz.unspecified))
+           (jazz.validate-walk-problems walker)))))
 
 
 (define (jazz.validate-walk-problems walker)
@@ -4019,6 +4028,33 @@
 
 
 ;;;
+;;;; Walk-Failed Special
+;;;
+
+
+(jazz.define-class-runtime jazz.Walk-Failed-Special)
+
+
+(define (jazz.new-walk-failed-special answer)
+  (jazz.allocate-walk-failed jazz.Walk-Failed-Special #f #f answer))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Walk-Failed-Special expression) declaration environment)
+  (let ((answer (%%get-walk-failed-special-answer expression)))
+    (jazz.new-code
+      answer
+      jazz.Boolean
+      #f)))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Walk-Failed-Special expression) f k s)
+  (f expression s))
+
+
+(jazz.encapsulate-class jazz.Walk-Failed-Special)
+
+
+;;;
 ;;;; Analysis Data
 ;;;
 
@@ -4086,6 +4122,7 @@
 ;;;
 ;;;; Walk
 ;;;
+
 
 (define (jazz.walk walker resume declaration environment form-src)
   (let ((form (jazz.source-code form-src)))
@@ -5165,6 +5202,36 @@
       (jazz.enqueue queue #!rest)
       (emit rest))
     (jazz.queue-list queue)))
+
+
+;;;
+;;;; Walk Failed
+;;;
+
+
+(define (jazz.walk-walk-failed walker resume declaration environment form-src)
+  (let ((form (%%cadr (%%desourcify form-src)))
+        (rest (%%cddr (%%desourcify form-src))))
+    (let ((problem-subclass
+            (cond ((%%null? rest) jazz.Walk-Problem)
+                  ((%%eq? (%%car rest) ':warning) jazz.Walk-Warning)
+                  ((%%eq? (%%car rest) ':error) jazz.Walk-Error)
+                  (else (jazz.error "Ill-formed walk-failed?")))))
+      (let ((answer
+              (jazz.with-exception-filter
+                (lambda (exc)
+                  #t)
+                (lambda (exc)
+                  (and (%%object? exc)
+                       (if (%%is? exc jazz.Walk-Problem)
+                           (%%is? exc problem-subclass)
+                         ;; because some walk problems still throw explicit errors
+                         (jazz.is? exc jazz.Error))))
+                (lambda ()
+                  (parameterize ((jazz.*raise-walk-problems?* #t))
+                    (jazz.walk walker resume declaration environment form)
+                    #f)))))
+        (jazz.new-walk-failed-special answer)))))
 
 
 (jazz.encapsulate-class jazz.Walker)

@@ -47,5 +47,16 @@
 
 
 (syntax public (error-occurred? form-src)
-  ;; todo
-  #f))
+  (let ((body (cdr (source-code form-src))))
+    (sourcify-if
+      `(with-exception-filter
+         (lambda (exc)
+           #t)
+         (lambda (exc)
+           (let ((wrapped (wrap-exception exc)))
+             (or (is? wrapped System-Exception)
+                 (is? wrapped Error))))
+         (lambda ()
+           ,@body
+           #f))
+      form-src))))

@@ -56,7 +56,6 @@
   
   
   (slot matching-highlights initialize '())
-  (slot flashing-thread     initialize #f)
   
   
   (form
@@ -811,36 +810,30 @@
       (get-flash-duration~ pref))
     
     (define (flash-character highlight)
-      (let ((start (get-start~ (get-range~ highlight))))
+      (let ((start (get-start~ (get-range~ highlight)))
+            (add (lambda () (add-matching-highlight highlight)))
+            (remove (lambda () (remove-matching-highlights))))
+        (add-text-action add)
+        (add-text-action remove)
         (if (cell-displayed? start)
-            (set! flashing-thread
-                  (thread-start!
-                    (new-thread
-                      (lambda ()
-                        (sleep flash-delay)
-                        (execute-event
-                          (lambda ()
-                            (add-matching-highlight highlight)))
-                        (sleep flash-duration)
-                        (execute-event
-                          (lambda ()
-                            (remove-matching-highlights)
-                            (set! flashing-thread #f)))))))
+            (thread-start!
+              (new-thread
+                (lambda ()
+                  (sleep flash-delay)
+                  (execute-event
+                    (lambda () (run-text-action add)))
+                  (sleep flash-duration)
+                  (execute-event
+                    (lambda () (run-text-action remove))))))
           (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))
                                                     (collect-forward-exprs~ expl 3)))))))
     
-    (define (exit-flashing-thread)
-      (when flashing-thread
-        (thread-interrupt! flashing-thread
-          thread-exit)
-        (set! flashing-thread #f)))
-    
     (let ((pref (preferences)))
       (when (and pref (eq? (get-match-action~ pref) 'flash))
+        (remove-all-text-actions)
         (remove-matching-highlights)
-        (exit-flashing-thread)
         (let ((highlight (find-matching-highlight (not (keyboard-input?)))))
           (when (and highlight (neq? flash-delay 'infinity))
             (flash-character (car highlight)))))))

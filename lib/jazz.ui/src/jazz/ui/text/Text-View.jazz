@@ -120,6 +120,7 @@
   (slot protected mouse-copy-selection   initialize #f)
   (slot protected mouse-copy-destination initialize #f)
   (slot protected highlights             initialize '())
+  (slot protected text-actions           initialize #f)
   
   
   (form
@@ -2017,6 +2018,25 @@
   
   
   ;;;
+  ;;;; Text Actions
+  ;;;
+  
+  
+  (method public (add-text-action text-action)
+    (set! text-actions (cons text-action text-actions)))
+  
+  
+  (method public (run-text-action text-action)
+    (when (memq text-action text-actions)
+      (text-action)
+      (remove! text-action text-actions)))
+  
+  
+  (method public (remove-all-text-actions)
+    (set! text-actions '()))
+  
+  
+  ;;;
   ;;;; Highlights
   ;;;
   
@@ -2698,6 +2718,8 @@
     (let ((start (get-start~ range))
           (end   (get-end~ range))
           (count (length strings)))
+      (remove-all-text-actions)
+      (set! highlights '())
       (if (and (= (get-line~ start) (get-line~ end)) (= 1 count))
           (replace-paragraph (get-line~ start) (get-col~ start) (get-col~ end) (car strings))
         (if (<= count (- (get-line~ end) (get-line~ start)))

@@ -95,6 +95,29 @@
     (set! parent~self parent))
   
   
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" (present)))))
+  
+  
+  (method protected (present)
+    (define (collect-names)
+      (let (iterate (parent parent)
+                    (alias self)
+                    (names '()))
+        (if (not parent)
+            names
+          (let ((name (table-find (get-table~ parent) alias)))
+            (if (not name)
+                names
+              (iterate (get-parent~ parent) parent (cons (symbol->string name) names)))))))
+    
+    (if (not parent)
+        ":root"
+      (join (collect-names) "/")))
+  
+  
   (method public (get-table)
     (or table (let ((table (make-table test: eq?)))
                 (set! table~self table)

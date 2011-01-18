@@ -542,31 +542,10 @@
   
   
   (method (import-file file parent descendant?)
-    (define (add-context-to-file)
-      (if (neq? (car (get-list~ file)) :context)
-          file
-        (let ((context (find-context parent)))
-          (if (not context)
-              file
-            (let (iterate-name (file-path (expand~ file))
-                               (context-path (expand~ (new File (get-path~ context)))))
-              (cond ((empty? context-path)
-                     (let ((context-file (new File (cons :context file-path))))
-                       (set-context~ context-file context)
-                       context-file))
-                    ((eqv? (car file-path) (car context-path))
-                     (iterate-name (cdr file-path) (cdr context-path)))))))))
-    
-    (define (find-context next)
-      (typecase next
-        ((Project) (get-context~ next))
-        ((Project-Directory) (find-context (get-parent~ next)))
-        (else #f)))
-      
     (let ((reference (extension-reference (get-extension~ file))))
       (match reference
         ((module-public ?module-name ?class-name)
-         (let ((file (add-context-to-file)))
+         (let ((file (contextualize-file~ (ascendant-project parent) file)))
            (let ((name (if (eq? ?class-name 'Jazz-File) (string->symbol (get-base~ file)) #f))
                  (model (resolve-runtime-reference (deserialize-runtime-reference reference)))
                  (import (if (eq? ?module-name 'jazz.ide) #f ?module-name)))

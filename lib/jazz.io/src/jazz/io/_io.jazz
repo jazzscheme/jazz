@@ -98,10 +98,16 @@
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}" (present)))))
+        (if (root-alias?)
+            (format output ":root")
+          (format output "{a}" (get-anchor))))))
   
   
-  (method protected (present)
+  (method protected (root-alias?)
+    (not parent))
+  
+  
+  (method protected (get-anchor)
     (define (collect-names)
       (let (iterate (parent parent)
                     (alias self)
@@ -114,14 +120,31 @@
               (iterate (get-parent~ parent) parent (cons (symbol->string name) names)))))))
     
     (if (not parent)
-        ":root"
-      (join (collect-names) "/")))
+        #f
+      (string->symbol (join (collect-names) "/"))))
   
   
   (method public (get-table)
     (or table (let ((table (make-table test: eq?)))
                 (set! table~self table)
-                table))))
+                table)))
+  
+  
+  (method public (get-children)
+    (table-values (get-table)))
+  
+  
+  (method public (get-descendant-anchors)
+    (let ((queue (new-queue)))
+      (for-each-alias self
+        (lambda (alias)
+          (unless (eq? alias self)
+            (enqueue queue (get-anchor~ alias)))))
+      (queue-list queue)))
+  
+  
+  (method public (get-anchors)
+    (cons self (get-descendant-anchors))))
 
 
 (definition *root-alias*
@@ -132,27 +155,6 @@
 
 (definition public (get-root-alias)
   *root-alias*)
-
-
-(definition public (get-alias-anchors alias)
-  (define (add-separator first second separator)
-    (join-symbols (list first second) separator))
-  
-  (let (iterate (keys (table-keys (get-table~ alias)))
-                (result '()))
-    (if (empty? keys)
-        result
-      (let ((scan (car keys))
-            (inner-values (get-alias-anchors
-                            (table-ref (get-table~ alias) (car keys) #f))))
-        (iterate (cdr keys)
-                 (if (empty? inner-values)
-                     (cons scan result)
-                   (append (cons scan
-                                 (map (lambda (value)
-                                        (add-separator scan value "/"))
-                                      inner-values))
-                           result)))))))
 
 
 (definition public (is-alias? name)
@@ -187,14 +189,6 @@
           (else
            (iterate (cdr qualifier)
                     (table-ref (get-table~ result) (car qualifier) #f))))))
-
-
-(definition public (unregister-alias name (root: root #f))
-  (let ((result (find-alias name root: root)))
-    (if result
-        (table-clear (get-table~ (get-parent~ result)) 
-                     (car (split-symbol name "/")))
-      (error "The alias {s} does not exist" name))))
 
 
 (definition public (register-alias name path (root: root #f))
@@ -233,6 +227,21 @@
          (inner-register name path root))
         (else
          (error "Error registering alias: {s}. The given root path was not valid" name))))
+
+
+(definition public (unregister-alias name (root: root #f))
+  (let ((result (find-alias name root: root)))
+    (if result
+        (table-clear (get-table~ (get-parent~ result)) 
+                     (car (split-symbol name "/")))
+      (error "The alias {s} does not exist" name))))
+
+
+(definition public (for-each-alias alias proc)
+  (proc alias)
+  (iterate-table (get-table~ alias)
+    (lambda (name child)
+      (for-each-alias child proc))))
 
 
 (definition public (initialize-aliases)
@@ -778,10 +787,12 @@
   
   
   (method public (anchorize (anchors: anchors #f) (ignored-anchors: ignored-anchors #f))
-    (define (default-anchors)
-      (application-anchors~ (get-application)))
+    (define (determine-anchors)
+      (if (not anchors)
+          (get-descendant-anchors~ (get-root-alias))
+        (apply append (map get-anchors~ (map find-alias anchors)))))
     
-    (let* ((anchors (difference (or anchors (default-anchors)) (or ignored-anchors '())))
+    (let* ((anchors (difference (determine-anchors) (or ignored-anchors '())))
            (anchored (collect (lambda (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
            (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)

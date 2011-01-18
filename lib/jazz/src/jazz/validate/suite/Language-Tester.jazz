@@ -1,0 +1,233 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Language Tests
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.validate.suite.Language-Tester jazz
+
+(import (jazz.jml)
+        (jazz.validate)
+        (jazz.validation))
+
+(class Language-Tester extends Tester
+  
+  (form
+    (<install> title: "Language"))
+  
+  (method override (test)
+    (invoke #f test-language)
+    (invoke #f test-binding)
+    (invoke #f test-conditionals))
+  
+  ;;;
+  ;;;; Language
+  ;;;
+  
+  (method (test-language)
+    
+    ;; comments
+    (validate rpt (eq? 5 (+ 1 4 @comment-next-sexp (+ 1 2))))
+    (validate rpt @comment-next-step #f #t)
+    
+    ;; lambda
+    (validate rpt (eq? 16 ((lambda (x) (* x x)) 4)))
+    (validate rpt (error-occurred? ((lambda x (* x x)) 2)))
+    (validate rpt (procedure? (lambda ())))
+    (validate rpt (walk-failed? (lambda (()))))
+    (validate rpt (walk-failed? (lambda (1))))
+    (validate rpt (walk-failed? (lambda (display 1))))
+    @wait-for-crash-proof-test-method
+    (begin
+      (lambda))
+    
+    ;; error throwing
+    (validate rpt (walk-failed? (throw)))
+    (validate rpt (walk-failed? (throw new Error)))
+    (validate rpt (walk-failed? (throw (new Error) (new Error))))
+    (validate rpt (error-occurred? (throw (new Error))))
+    (validate rpt (error-occurred? (throw 1)))
+    
+    ;; error catching
+    (validate rpt (walk-failed? (catch ()
+                                  (throw (new Error)))))
+    (validate rpt (walk-failed? (catch (throw (new Error)) 
+                                  (Error error))))
+    (validate rpt (error-occurred? (catch (Error error #f)
+                                     (throw 'foo)))))
+  
+  
+  ;;;
+  ;;;; Binding
+  ;;;
+  
+  (method (test-binding)
+    
+    ;; define
+    (define foo 1)
+    (define (bar) 1)
+    (validate rpt (eq? foo 1))
+    (validate rpt (not (equal? 'foo 1)))
+    (validate rpt (procedure? bar))
+    (validate rpt (eq? (bar) 1))
+    (validate rpt (walk-failed? (let () (define (a 1)))))
+    @wait-for-crash-proof-test-method
+    (begin
+      (define)
+      (define a))
+    
+    ;; let
+    (validate rpt (eq? 2 (let () 2)))
+    (validate rpt (procedure? (let (func (arg 'val)) func)))
+    (validate rpt (procedure? (let (func) func)))
+    (validate rpt (walk-failed? (let (()))))
+    (validate rpt (walk-failed? (let ((())))))
+    (validate rpt (walk-failed? (let ((a)))))
+    (validate rpt (walk-failed? (let ((a 1) (b a)) a)))
+    (validate rpt (walk-failed? (let 1)))
+    (validate rpt (walk-failed? (let ((fact (lambda (n)
+                                              (if (= 0 n)
+                                                  1
+                                                (* n (fact (- n 1)))))))
+                                  (fact 3))))
+    (validate rpt (let (opposite (bool #f))
+                    (if bool 
+                        bool 
+                      (opposite (not bool)))))
+    
+    ;; let*
+    (validate rpt (eq? 25 (let* ((func (lambda (x) (* x x)))
+                                 (val (func 5)))
+                            val)))
+    (validate rpt (eq? 4 (let* ((a 2)
+                                (b (* a 2)))
+                           b)))
+    (validate rpt (walk-failed? (let* ())))
+    (validate rpt (walk-failed? (let* ((a b) (b 2)) b)))
+    (validate rpt (walk-failed? (let* ((fact (lambda (n)
+                                               (if (= 0 n)
+                                                   1
+                                                 (* n (fact (- n 1)))))))
+                                  (fact 3))))
+    
+    ;; letrec
+    (validate rpt (neq? 2 (letrec ((a 2) (b a)) b)))
+    (validate rpt (not (walk-failed? (letrec ((a b) (b 2)) b))))
+    (validate rpt (eq? 6 (letrec ((fact (lambda (n)
+                                          (if (= 0 n)
+                                              1
+                                            (* n (fact (- n 1)))))))
+                           (fact 3))))
+    
+    
+    @wait-for-crash-proof-test-method
+    (begin
+      (let)
+      (let*)
+      (letrec))
+    
+    ;; bind
+    (validate rpt (error-occurred? (bind (a) 1)))
+    (validate rpt (error-occurred? (bind (a) (1))))
+    (validate rpt (error-occurred? (bind (a b) '(1))))
+    (validate rpt (walk-failed? (bind (a b) (list 1 a))))
+    (validate rpt (equal? '(2 3) (bind (first . rest) '(1 2 3) rest)))
+    
+    ;; receive
+    (validate rpt (eq? 1 (receive (x) 1 x)))
+    (validate rpt (error-occurred? (receive (x) (1) x)))
+    (validate rpt (list? (receive (x) '(1) x)))
+    (validate rpt (eq? -3 (receive (x y) (values 2 5) (- x y))))
+    (validate rpt (error-occurred? (receive (x y) '(2 5) (- x y))))
+    @wait-for-crash-proof-test-method
+    (begin 
+      (receive x 1 x))
+    
+    ;; set!
+    (validate rpt (walk-failed? (set!)))
+    (validate rpt (walk-failed? (set! test)))
+    (validate rpt (walk-failed? (set! 'test 3)))
+    (validate rpt (walk-failed? (set! foo 2 3)))
+    (validate rpt (not (walk-failed? (set! foo 10)))))
+  
+  
+  ;;;
+  ;;;; Conditionals
+  ;;;
+  
+  (method (test-conditionals)
+    ;; if
+    (validate rpt (walk-failed? (if)))
+    (validate rpt (walk-failed? (if #t)))
+    (validate rpt (eq? 1 (if #t 1 2)))
+    (validate rpt (eq? 3 (if #f 1 2 3)))
+    
+    ;; when
+    (validate rpt (walk-failed? (when)))
+    (validate rpt (eq? 2 (when (lambda ()) 2)))
+    
+    ;; unless
+    (validate rpt (walk-failed? (unless)))
+    (validate rpt (not (unless (lambda ()) 3)))
+    
+    ;; cond
+    (validate rpt (walk-failed? (cond ())))
+    (validate rpt (walk-failed? (cond (else 1) (else 2))))
+    (validate rpt (walk-failed? (cond 1 2)))
+    
+    ;; equal?
+    (validate rpt (error-occurred? (equal?)))
+    (validate rpt (error-occurred? (equal? 'foo)))
+    (validate rpt (error-occurred? (equal? 'foo 'bar 'test)))
+    
+    ;; ecase
+    ;;; Important : This is on the jazzscheme website in the tutorial
+    ;;;             and actually does not work! This should be fixed.
+    (validate rpt (walk-failed? (ecase 1
+                                  (0 (display "zero"))
+                                  (1 (display "one"))
+                                  (2 (display "two")))))
+    
+    ;; typecase
+    (validate rpt (eq? 2 (typecase "Test string"
+                           ((List) 1)
+                           ((String) 2))))
+    (validate rpt (eq? 2 (typecase "Test string"
+                           ((List) 1)
+                           ((String) 2)
+                           ((String) 3))))
+    
+    @wait-for-crash-proof-test-method
+    (begin
+      (typecase)))))

@@ -40,6 +40,7 @@
 
 (import (jazz.debuggee)
         (jazz.designer)
+        (jazz.designer.view)
         (jazz.editor.jazz)
         (jazz.io)
         (jazz.jml)
@@ -451,8 +452,27 @@
         (set-modified? #f))))
   
   
-  (method (insert-new-class form module-name class-name)
-    (let ((super-class (get-model~ form))
+  (method (insert-new-class form module-name class-string)
+    (define (validate-class-name)
+      (with-safe-design
+        (lambda ()
+          (let ((content (with-exception-catcher
+                           (lambda (err)
+                             (designer-error "Invalid class name"))
+                           (lambda ()
+                             (read-string-content class-string)))))
+            (if (and (= 1 (length content))
+                     (symbol? (car content)))
+                (let* ((class-name (car content))
+                       (not-found (list #f))
+                       (ref (module-get module-name class-name not-found: not-found)))
+                  (if (eq? ref not-found)
+                      class-name
+                    (designer-error "Existing class")))
+              (designer-error "Invalid class name"))))))
+    
+    (let ((class-name (validate-class-name))
+          (super-class (get-model~ form))
           (new-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form)))
           (file (find-unit-source module-name))
           (reference (get-reference)))

@@ -84,9 +84,31 @@
           (cons (list model-ref) categorized)
         categorized))))
 
+
 ;;;
 ;;;; Edit
 ;;;
+
+
+(definition public (edit-class class)
+  (define (find-editor)
+    (find-frame-if-guest
+      (lambda (guest)
+        (and (is? guest Component-Editor)
+             (let* ((client (get-client~ guest))
+                    (origin (get-origin~ (get-form~ client))))
+               (eq? class origin))))))
+  
+  (if (class? class)
+      (let ((frame (find-editor)))
+        (if frame
+            (focus-host~ frame)
+          (let* ((component (new class))
+                 (editor-class (typecase component
+                                 ((View) View-Editor)
+                                 ((Component) Grid-Component-Editor))))
+            (new-frame editor-class client: component))))
+    (error "Unable to edit: {s}" class)))
 
 
 (definition public (edit-component target (editor-class: editor-class #f))

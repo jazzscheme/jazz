@@ -304,7 +304,7 @@
             (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
+  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let ((data (get-data~ form))
           (branch (target-branch trait)))
       (unless (eq? (get-parent~ child) parent)
@@ -333,14 +333,16 @@
                                (set-property child property value trait: trait design-events?: design-events?))
             properties))
         (when import
-          (let* ((form (get-form))
-                 (old-locator (get-locator~ form)))
-            (set-locator~ form (let ((new-locator (imports-locator (list (listify import)))))
-                                 (lambda (symbol)
-                                   (or (new-locator symbol)
-                                       (old-locator symbol))))))
-          (when data
-            (add-import~ data import)))
+          (let ((imports (map listify (listify import))))
+            (when (not-null? imports)
+              (let* ((form (get-form))
+                     (old-locator (get-locator~ form)))
+                (set-locator~ form (let ((new-locator (imports-locator imports)))
+                                     (lambda (symbol)
+                                       (or (new-locator symbol)
+                                           (old-locator symbol)))))))
+            (when data
+              (for-each (lambda (import) (add-import~ data import)) imports))))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
         (when design-events?
@@ -481,6 +483,7 @@
                   (format output "~{{a} " (category-name (class-of parcel)))
                   (format output "{a} " (get-process-id~ parcel))
                   (format output "{a} " (get-object-id~ parcel))
+                  (format output "{a} " (get-imports~ parcel))
                   (format output "(")
                   (for-each (lambda (form)
                               (print-form form 0 output))
@@ -550,7 +553,7 @@
   
   
   (method (package-components components (trait: trait #f))
-    (define (package-component component (trait: trait #f))
+    (define (component-forms component)
       (let ((ancestry (component-ancestry component))
             (forms '()))
         (iterate-branch-spine~ reference
@@ -559,13 +562,24 @@
               (when form
                 (set! forms (cons form forms)))))
           trait: trait)
+        (reverse forms)))
+    
+    (define (form-imports form)
+      (let ((imports (if (memq? (get-action~ form) '(new install))
+                         (let* ((context (get-context~ form))
+                                (reference (get-reference~ context (get-model~ form))))
+                           (list (second (serialize-runtime-reference reference))))
+                       '())))
+        (remove-duplicates (apply append imports (map form-imports (get-children~ form))))))
+    
+    (define (package-component component)
+      (let ((forms (component-forms component)))
         (if (and (not-null? forms) (memq? (get-action~ (car forms)) '(new install)))
-            (new Component-Parcel (current-process-id) (object->serial component) forms)
+            (let ((imports (map listify (apply union (map form-imports forms)))))
+              (new Component-Parcel (current-process-id) (object->serial component) imports forms))
           (designer-error "Unable to find owner for {t}" component))))
     
-    (map (lambda (component)
-           (package-component component trait: trait))
-         components))
+    (map package-component components))
   
   
   ;;;
@@ -584,6 +598,10 @@
   
   
   (method public virtual (instantiate-parcel parcel parent (trait: trait #t) (name-resolution: name-resolution #f) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (define (set-context-recursive form context)
+      (set-context~ form context)
+      (for-each (lambda (child) (set-context-recursive child context)) (get-children~ form)))
+    
     (let* ((forms (get-content~ parcel))
            (master (car forms))
            (name (get-name~ master)))
@@ -599,32 +617,38 @@
                        forms))
             ((override) (let ((conflicts (name-conflicts (list name) brothers)))
                           (delete-components conflicts trait: trait))))))
-      (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant?)))
-        (for-each (lambda (form)
-                    (instantiate-form name #f form parent trait design-events? descendant?))
-                  (cdr forms))
-        component)))
+      (let ((imports (get-imports~ parcel)))
+        (let ((locator (imports-locator imports)))
+          (for-each (lambda (f)
+                      (set-locator~ f locator)
+                      (set-context-recursive f f))
+                    forms))
+        (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant? imports: imports)))
+          (for-each (lambda (form)
+                      (instantiate-form name #f form parent trait design-events? descendant?))
+                    (cdr forms))
+          component))))
   
   
-  (method public virtual (instantiate-form name name-resolution form parent trait design-events? descendant?)
-    (let ((component (instantiate-component name name-resolution form parent trait design-events? descendant?)))
+  (method public virtual (instantiate-form name name-resolution form parent trait design-events? descendant? (imports: imports '()))
+    (let ((component (instantiate-component name name-resolution form parent trait design-events? descendant? imports: imports)))
       (when component
         (instantiate-properties component (get-properties~ form) trait design-events?)
         (instantiate-children component (get-children~ form) trait design-events?)
         component)))
 
   
-  (method public virtual (instantiate-component name name-resolution form parent trait design-events? descendant?)
+  (method public virtual (instantiate-component name name-resolution form parent trait design-events? descendant? (imports: imports '()))
     (let ((action (get-action~ form)))
       (case action
-        ((new) (instantiate-new-component name form parent trait design-events? descendant?))
+        ((new) (instantiate-new-component name form parent trait design-events? descendant? imports: imports))
         ((modify locate) (find-to-modify~ parent (get-name~ form) (sort-predicate 'equal)))
         (else (designer-error "Unsupported form action: {t}" action)))))
   
   
-  (method public virtual (instantiate-new-component name form parent trait design-events? descendant?)
+  (method public virtual (instantiate-new-component name form parent trait design-events? descendant? (imports: imports '()))
     (let ((component (instantiate-component~ form parent: parent)))
-      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant?)
+      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports)
       component))
   
   
@@ -757,7 +781,7 @@
       form)
     
     (define (embed-new-form form name)
-      (let ((subform (new Form action: 'modify name: name)))
+      (let ((subform (new Form action: 'modify context: (get-context~ form) name: name)))
         (add-child~ form subform)
         subform))
     

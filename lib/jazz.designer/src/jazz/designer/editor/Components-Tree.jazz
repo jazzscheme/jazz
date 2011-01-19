@@ -312,45 +312,14 @@
           duration: .150))))
   
   
-  @convert
-  (class Paste-Reporter extends Progress-Reporter
-  
-  
-    (form
-      (<install>              title: "Paste Progress"
-        (<!>     name: invite title: "Please wait while the paste operation completes")))
-    
-    
-    (method meta (dialog-title)
-      "Paste Progress"))
-  
-  
-  @convert
-  (method (paste-clipboard)
+  ;; This is a simplification from the old version see commit : 
+  (method override (paste-clipboard)
     (let ((parent (or (selected-component) client))
           (parcels (get-jazz-parcels)))
-      ;; Note: the MetaModeler makes sure that all parcels have the same model
-      ;; Todo: the override confirm should be done all at once and before the progress bar!
-      ;;       a possible solution would be to call explicitly verify-name-conflicts before pasting
-      (with-progress
-        (lambda (reporter)
-          (set-range~ reporter (new Range 0 (length parcels)))
-          (with-update-locked
-            (lambda ()
-              (with-cursor :wait
-                (lambda ()
-                  ;; because of relocation parcels may go to different parents...
-                  (for-each (lambda (info)
-                              (bind (model . parcels) info
-                                (paste-parcels~ designer parcels (relocation-parent parent model) reporter: reporter)))
-                            (partition parcels key: (lambda (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))))
-          (user-message~ reporter "Completed")
-          (set-done~ reporter))
-        threaded?: #t
-        name: "Paste"
-        context: self
-        progress-reporter: Paste-Reporter
-        cancelable?: #t)))
+      (for-each (lambda (info)
+                  (bind (model . parcels) info
+                    (paste-parcels~ designer parcels (relocation-parent parent model))))
+                (partition parcels key: (lambda (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))
   
   
   (method override (paste-properties)

@@ -454,24 +454,37 @@
   
   (method (insert-new-class form module-name class-string)
     (define (validate-class-name)
+      (let ((content (with-exception-catcher
+                       (lambda (err)
+                         (designer-error "Invalid class name"))
+                       (lambda ()
+                         (read-string-content class-string)))))
+        (if (and (= 1 (length content))
+                 (symbol? (car content)))
+            (let* ((class-name (car content))
+                   (not-found (list #f))
+                   (ref (module-get module-name class-name not-found: not-found)))
+              (if (eq? ref not-found)
+                  class-name
+                (designer-error "Existing class")))
+          (designer-error "Invalid class name"))))
+    
+    (define (validate-module)
+      (if module-name
+          (with-exception-catcher
+            (lambda (exc)
+              (designer-error "Non-existant module"))
+            (lambda ()
+              (module-get module-name)))
+          (designer-error "Empty module")))
+    
+    (define (validate)
       (with-safe-design
         (lambda ()
-          (let ((content (with-exception-catcher
-                           (lambda (err)
-                             (designer-error "Invalid class name"))
-                           (lambda ()
-                             (read-string-content class-string)))))
-            (if (and (= 1 (length content))
-                     (symbol? (car content)))
-                (let* ((class-name (car content))
-                       (not-found (list #f))
-                       (ref (module-get module-name class-name not-found: not-found)))
-                  (if (eq? ref not-found)
-                      class-name
-                    (designer-error "Existing class")))
-              (designer-error "Invalid class name"))))))
+          (validate-module)
+          (validate-class-name))))
     
-    (let ((class-name (validate-class-name))
+    (let ((class-name (validate))
           (super-class (get-model~ form))
           (new-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form)))
           (file (find-unit-source module-name))

@@ -98,13 +98,12 @@
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
-        (if (root-alias?)
-            (format output ":root")
-          (format output "{a}" (get-anchor))))))
-  
-  
-  (method protected (root-alias?)
-    (not parent))
+        (cond ((eq? self *root-alias*)
+               (format output ":root"))
+              ((not parent)
+               (format output ""))
+              (else
+               (format output "{a}" (get-anchor)))))))
   
   
   (method protected (get-anchor)
@@ -121,7 +120,9 @@
     
     (if (not parent)
         #f
-      (string->symbol (join (collect-names) "/"))))
+      (let ((names (collect-names)))
+        (assert (not-null? names)
+          (string->symbol (join names "/"))))))
   
   
   (method public (get-table)
@@ -144,7 +145,7 @@
   
   
   (method public (get-anchors)
-    (cons self (get-descendant-anchors))))
+    (cons (get-anchor) (get-descendant-anchors))))
 
 
 (definition *root-alias*
@@ -160,8 +161,10 @@
 (definition public (is-alias? name)
   (boolean (find-alias name)))
 
+
 (definition public (valid-alias? name)
   (is-alias? name))
+
 
 (definition public (get-alias name (error?: error? #t))
   (let ((result (find-alias name)))
@@ -170,6 +173,7 @@
       (when error?
         (error "Unknown alias: {t}" name)))))
 
+
 (definition public (set-alias! name path)
   (let ((result (find-alias name)))
     (if result
@@ -177,18 +181,37 @@
                     (last (split-symbol name "/"))
                     path)
       (error "Unknown alias: {t}" name))))
-    
 
-(definition public (find-alias name (root: root #f))
-  (let (iterate (qualifier (split-symbol name "/"))
+
+(definition public (find-alias name (root: root #f) (error?: error? #f))
+  (find-path-alias (split-symbol name "/") root error?))
+
+
+(definition protected (find-path-alias path root error?)
+  (let (iterate (path path)
                 (result (or root (get-root-alias))))
-    (cond ((not result)
-           #f)
-          ((eq? (length qualifier) 1)
-           (table-ref (get-table~ result) (car qualifier) #f))
-          (else
-           (iterate (cdr qualifier)
-                    (table-ref (get-table~ result) (car qualifier) #f))))))
+    (if (null? path)
+        result
+      (let ((name (car path)))
+        (let ((alias (table-ref (get-table~ result) name #f)))
+          (if alias
+              (iterate (cdr path) alias)
+            (when error?
+              (error "Unknown alias: {t}" name))))))))
+
+
+(definition public (require-alias name)
+  (find-alias name error?: #t))
+
+
+(definition protected (canonical-alias name root)
+  (let ((root (cond ((not root) (get-root-alias))
+                    ((is? root Alias) root)
+                    (else (require-alias root))))
+        (path (split-symbol name "/")))
+    (if (= (length path) 1)
+        (values root name)
+      (values (find-path-alias (butlast path) root #t) (last path)))))
 
 
 (definition public (register-alias name path (root: root #f))
@@ -204,37 +227,27 @@
         (process-up (expand-up path))
       path))
   
-  (define (inner-register name path alias)
+  (define (set-alias root name alias)
+    (let ((table (get-table~ root)))
+      (if (table-ref table name #f)
+          (error "Alias already registered: {s}" name)
+        (table-set! table name alias)
+        alias)))
+  
+  (receive (root name) (canonical-alias name root)
     (typecase path
       ((Alias)
-       (table-set! (get-table~ alias) name path))
-      (else 
-       (let ((actual (table-ref (get-table~ alias) name #f))
-             (fixed-path (process-up path)))
-         (if (or (not actual) (equal? fixed-path (get-path~ actual)))
-             (table-set! (get-table~ alias) name (new Alias fixed-path parent: alias))
-           (error "Alias already registered: {s}" name))))))
-  
-  (cond ((not root)
-         (inner-register name path (get-root-alias)))
-        ((symbol? root)
-         (let ((search (find-alias root)))
-           (if search
-               (register-alias name path root: search)
-             (error "The alias {s}/{s} could not be registered because the root path does not exist"
-                    root name))))
-        ((is? root Alias)
-         (inner-register name path root))
-        (else
-         (error "Error registering alias: {s}. The given root path was not valid" name))))
+       (set-alias root name path))
+      (else
+       (set-alias root name (new Alias (process-up path) parent: root))))))
 
 
 (definition public (unregister-alias name (root: root #f))
-  (let ((result (find-alias name root: root)))
-    (if result
-        (table-clear (get-table~ (get-parent~ result)) 
-                     (car (split-symbol name "/")))
-      (error "The alias {s} does not exist" name))))
+  (receive (root name) (canonical-alias name root)
+    (let ((table (get-table~ root)))
+      (if (table-ref table name #f)
+          (table-clear table name)
+        (error "The alias {s} does not exist" name)))))
 
 
 (definition public (for-each-alias alias proc)
@@ -276,18 +289,19 @@
 
 
 (definition public (register-repository-aliases repository)
-  (define (register-repository-packages repository)
+  (define (register-repository-packages repository repository-alias)
     (let ((name (repository-name repository)))
       (for-each (lambda (package)
                   (let ((package-name (package-name package))
                         (package-root (package-root package)))
                     (register-alias package-name
-                                    `(,name ,@(tokenise-filename package-root)))))
+                                    `(,name ,@(tokenise-filename package-root))
+                                    root: repository-alias)))
                 (repository-packages repository))))
   
   (unless (repository-binary? repository)
-    (register-repository-alias repository)
-    (register-repository-packages repository)))
+    (let ((repository-alias (register-repository-alias repository)))
+      (register-repository-packages repository repository-alias))))
 
 
 (definition public (register-repository-alias repository)
@@ -559,6 +573,12 @@
       (let ((output (open-output-string))
             (first? #t)
             (aliases '()))
+        (define (validate-recursive symbol)
+          (unless (eq? symbol :context)
+            (if (memq? symbol aliases)
+                (error "Recursive alias {a} in {s}" symbol self)
+              (set! aliases (cons symbol aliases)))))
+        
         (define (parse path)
           (cond ((null? path))
                 ((eq? path :root)
@@ -569,12 +589,10 @@
                    (display separator output))
                  (display path output))
                 ((symbol? path)
-                 (if (memq? path aliases)
-                     (error "Recursive alias {a} in {s}" path self)
-                   (set! aliases (cons path aliases))
-                   (if (pathname-alias? path)
-                       (parse (pathname-alias path))
-                     (error "Unknown alias: {s}" path))))
+                 (validate-recursive path)
+                 (if (pathname-alias? path)
+                     (parse (pathname-alias path))
+                   (error "Unknown alias: {s}" path)))
                 ((pair? path)
                  (parse (car path))
                  (parse (cdr path)))
@@ -627,6 +645,10 @@
          (ci=? (parse) (parse~ object))))
   
   
+  (method public (context-alias?)
+    (eq? (car path) :context))
+  
+  
   (method public (pathname-alias? alias)
     (or (is-alias? alias)
         (and (eq? alias :context) context)))
@@ -653,6 +675,12 @@
       
       (expand (get-list))
       (get-output~ fact)))
+  
+  
+  (method public (expand-context)
+    (if context
+        (append (get-path~ context) (cdr (get-list)))
+      (get-list)))
 
 
   (method override (get-list)
@@ -688,7 +716,7 @@
   
   
   (method override (get-parent)
-    (let ((path (if context (get-list~ (expand-context)) path)))
+    (let ((path (expand-context)))
       (let ((effective-path (if (= (length path) 1) (expand) path)))
         (if (or (null? effective-path) (null? (cdr effective-path)))
             #f
@@ -759,6 +787,19 @@
                   (unless (exists?~ dir)
                     (create~ dir)))
                 dirs)))
+  
+  
+  (method public (subpath target)
+    (let (iterate (path (expand))
+                  (target-path (expand~ target)))
+      (cond ((null? path)
+             target-path)
+            ((null? target-path)
+             #f)
+            ((equal? (car path) (car target-path))
+             (iterate (cdr path) (cdr target-path)))
+            (else
+             #f))))
 
 
   ;;;
@@ -805,17 +846,11 @@
   ;;;
 
 
-  (method override (setup-context given-context)
-    (when (member? :context (get-list~ self))
-      (let ((data (get-data~ given-context)))
+  (method override (setup-context toplevel-context)
+    (when (context-alias?)
+      (let ((data (get-data~ toplevel-context)))
         (when data
-          (set! context (get-context~ data))))))
-  
-  
-  (method public (expand-context)
-    (if context
-        (new File (append (get-path~ context) (cdr (get-list))))
-      #f)))
+          (set! context (get-context~ data)))))))
 
 
 (definition public inline (pathname? object)

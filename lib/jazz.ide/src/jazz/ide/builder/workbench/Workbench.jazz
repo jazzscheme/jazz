@@ -67,12 +67,12 @@
   ;;;
   
   
-  (method public (find-project title)
+  (method public (find-project name)
     (continuation-capture
       (lambda (return)
         (iterate-table projects-table
           (lambda (project ignore)
-            (when (string=? (get-title~ project) title)
+            (when (eq? (get-catalog-name~ project) name)
               (continuation-return return project))))
         #f)))
   
@@ -119,7 +119,7 @@
   ;;;
   
   
-  (method override (catalog-name)
+  (method override (catalog-output-name)
     'workbench)
   
   
@@ -151,43 +151,13 @@
   ;;;
   
   
-  (method public (add-project-aliases component project)
-    (define (setup-children-aliases parent context)
-      (let (iterate (children (get-children~ parent)))
-        (unless (null? children)
-          (let ((child (car children)))
-            (typecase child
-              ((Project)
-               (set-parent~ (get-context~ child) context)
-               (register-alias (string->symbol (get-title~ child))
-                               (get-context~ child)
-                               root: context))
-              ((Project-Group)
-               (iterate (get-children~ child)))
-              ((Project-File)
-               (when (eq? (car (get-list~ (get-source~ child))) :context)
-                 (set-context~ (get-source~ child) context)))))
-          (iterate (cdr children)))))
-    
-    (let ((content (or (get-origin~ (get-form~ component))
-                       (get-tag-reference~ (get-form~ component)))))
-      (set-context~ component (new Alias (butlast (get-list~ content))))
-      (setup-children-aliases component (get-context~ component)))
-    (when (is? project Workbench)
-      (set-parent~ (get-context~ component) (get-root-alias))
-      (register-alias (string->symbol (get-title~ component))
-                      (get-context~ component))))
-  
-  
   (method protected (add-to-project project name component)
     (typecase component
       ((Project-File)
        (when (is? component Project)
          (set-workbench~ component self)
          (set-parent-project~ component project)
-         (add-project-aliases component project)
          (table-set! projects-table component #t))
-       
        (set-project~ component project)
        (let ((source (get-source~ component)))
          (add-source source component)
@@ -203,8 +173,6 @@
     (typecase component
       ((Project-File)
        (when (is? component Project)
-         (unregister-alias (string->symbol (get-title~ component))
-                           root: (get-parent~ (get-context~ component)))
          (table-clear projects-table component)
          (let ((catalog (get-catalog~ component)))
            (when catalog

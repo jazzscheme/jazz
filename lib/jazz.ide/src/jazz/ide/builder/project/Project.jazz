@@ -60,6 +60,7 @@
   (property editable?                        accessors generate)
   (property active?            initialize #t accessors generate)
   (property catalog?           initialize #f accessors generate)
+  (property catalog-name       initialize #f accessors generate)
   (property catalog-extensions initialize #f accessors generate)
   (property catalog-heuristics initialize #f accessors generate)
 
@@ -67,7 +68,6 @@
   (slot workbench                    accessors generate)
   (slot parent-project initialize #f accessors generate)
   (slot catalog        initialize #f accessors generate)
-  (slot context        initialize #f accessors generate)
   
   
   (form
@@ -77,10 +77,6 @@
   (method override (initer-property? name)
     (or (nextmethod name)
         (eq? name 'workbench)))
-  
-  
-  (method override (default-name)
-    (category-name (class-of self)))
   
   
   (method override (prepare rest)
@@ -93,8 +89,7 @@
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}"
-                title))))
+        (format output "{a}" (project-title)))))
 
 
   ;;;
@@ -103,7 +98,9 @@
 
 
   (method public virtual (project-title)
-    (or title (->string (category-identifier (class-of self)))))
+    (or title (if catalog-name
+                  (symbol->string catalog-name)
+                "<project>")))
 
 
   ;;;
@@ -130,19 +127,20 @@
   ;;;
   
   
+  (method public (project-context)
+    (get-context~ (get-data~ (get-file-form))))
+  
+  
   (method public (contextualize-file file)
-    (if (not context)
-        file
-      (let (iterate-name (file-path (expand~ file))
-                         (context-path (expand~ (new File (get-path~ context)))))
-        (cond ((null? context-path)
-               (let ((context-file (new File (cons :context file-path))))
-                 (set-context~ context-file context)
-                 context-file))
-              ((equal? (car file-path) (car context-path))
-               (iterate-name (cdr file-path) (cdr context-path)))
-              (else
-               file)))))
+    (let ((context (project-context)))
+      (if (not context)
+          file
+        (let ((subpath (subpath~ (new File (get-path~ context)) file)))
+          (if (not subpath)
+              file
+            (let ((context-file (new File (cons :context subpath))))
+              (set-context~ context-file context)
+              context-file))))))
 
 
   ;;;
@@ -154,7 +152,7 @@
     (when catalog?
       (let ((catalog (require-catalog)))
         (activate~ catalog report?: #f)
-        (prepare-files~ catalog)
+        (setup-contexts~ catalog)
         catalog)))
   
   
@@ -174,23 +172,21 @@
   
   
   (method (create-catalog)
-    (new Project-Catalog self (catalog-name) (catalog-output) #f #f #f #f #t))
+    (new Project-Catalog self (catalog-output-name) (catalog-output) #f #f #f #f #t))
   
   
-  (method protected virtual (catalog-name)
-    (if title
-        (string->symbol title)
-      name))
+  (method protected virtual (catalog-output-name)
+    catalog-name)
   
   
   (method protected virtual (catalog-output-base)
     (let (iterate (project self)
-                  (name (catalog-name)))
+                  (name (catalog-output-name)))
       (let ((parent (get-parent-project~ project)))
         (if (or (not parent)
                 (is? parent Workbench))
             name
-          (iterate parent (format "{a}${a}" (catalog-name~ parent) name))))))
+          (iterate parent (format "{a}${a}" (catalog-output-name~ parent) name))))))
   
   
   (method protected virtual (catalog-output)
@@ -376,6 +372,7 @@
         (<Property-Descriptor> name: editable? title: "Editable?")
         (<Property-Descriptor> name: active? title: "Active?")
         (<Property-Descriptor> name: catalog? title: "Catalog?")
+        (<Property-Descriptor> name: catalog-name title: "Catalog Name")
         (<Property-Descriptor> name: catalog-extensions title: "Catalog Extensions")
         (<Property-Descriptor> name: catalog-heuristics title: "Catalog Heuristics"))))
   
@@ -385,7 +382,7 @@
   
   
   (method override (component-get-presentation component)
-    (or (get-title~ component) (->string (category-name (class-of component)))))
+    (project-title~ component))
   
   
   (method override (component-set-presentation component designer presentation)

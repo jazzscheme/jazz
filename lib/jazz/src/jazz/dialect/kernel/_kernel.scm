@@ -1040,6 +1040,7 @@
 
 (native table?)
 (native make-table)
+(native table-for-each)
 (native table-ref)
 (native table-set!)
 (native table->list)

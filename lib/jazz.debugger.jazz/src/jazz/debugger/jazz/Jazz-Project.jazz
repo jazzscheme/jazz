@@ -54,10 +54,10 @@
 (class Jazz-Project extends Project
   
   
-  (property product      initialize #f  accessors generate)
-  (property destination  initialize #f  accessors generate)
-  (property repositories initialize '() accessors generate)
-  (property test         initialize #f  accessors generate)
+  (property directory     initialize #f accessors generate)
+  (property configuration initialize #f accessors generate)
+  (property product       initialize #f accessors generate)
+  (property test          initialize #f accessors generate)
 
 
   ;;;
@@ -150,7 +150,7 @@
         (start-debuggers~ ide))
       (let* ((executable               (determine-kernel))
              (runtime-arg              (list @wait "-:m250000,h1000000"))
-             (repositories-arg         (let ((projects (find-repository 'Projects))) (if projects (list "-repositories" (quote-pathname (repository-directory projects))) '())))
+             (repositories-arg         '() @w (if repositories (list "-repositories" (join (map parse~ repositories) ";")) '()))
              (product-arg              (list (or action "-run") (->string product)))
              (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
              (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
@@ -175,12 +175,18 @@
   
   
   (method public (project-kernel)
-    (let ((executable (if destination
-                          (find-kernel destination)
+    (let ((executable (if directory
+                          (let ((kernel-name (add-extension "kernel" (executable-extension kernel-platform))))
+                            (cond ((directory? configuration)
+                                   (new-directory~ configuration kernel-name))
+                                  ((string? configuration)
+                                   (new-file~ (new-directory~ directory configuration) kernel-name))
+                                  (else
+                                   (error "Ill-formed configuration: {s}" configuration))))
                         (find-actual-kernel))))
       (if (and executable (exists?~ executable))
           executable
-        (message-box (format "Unable to find kernel{?~: {a}~}" destination))
+        (message-box (format "Unable to find kernel{?~: {a}~}" executable))
         (throw-cancel))))
   
   
@@ -247,42 +253,7 @@
   
   (form
     (<install>                 image: {Image-Resource "ConcreteProject"}
-      (<properties~>           categorized: (title include-extensions catalog? catalog-extensions catalog-heuristics product destination repositories)
-        (<Property-Descriptor> name: product title: "Product")
-        (<Property-Descriptor> name: destination title: "Destination"
-          (<String-Domain>     name: domain nullable?: #t))
-        (<Property-Descriptor> name: repositories title: "Repositories"
-          @convert
-          (<Repositories-Domain>  name: domain))))))
-
-
-;;;
-;;;; Repositories-Row
-;;;
-
-
-@convert
-(class Repositories-Row extends Value-Row
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present names)
-    (if (null? names)
-        "{}"
-      (format "{l}" names)))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method override (get-edited-value)
-    (let ((content (get-string-content~ editor)))
-      (if (or (empty-string? content) (string=? content "{}"))
-          '()
-        (read-string-content content)))))))
+      (<properties~>           categorized: (title include-extensions catalog? catalog-extensions catalog-heuristics directory configuration product)
+        (<Property-Descriptor> name: directory)
+        (<Property-Descriptor> name: configuration)
+        (<Property-Descriptor> name: product)))))))

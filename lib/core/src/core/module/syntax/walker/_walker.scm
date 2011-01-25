@@ -550,6 +550,13 @@
       (%%when new-autoload
         (%%set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
   
+  (define (add-to-module-references declaration)
+    (%%when (and declaration
+                 (%%neq? module-declaration (%%get-declaration-toplevel declaration)))
+      (let ((references-table (%%get-module-declaration-walker-references module-declaration)))
+        (%%when (%%neq? module-declaration (%%get-declaration-toplevel declaration))
+          (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
+  
   (%%when (%%eq? (%%get-module-invoice-phase module-invoice) 'syntax)
     (let ((module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) module-declaration)))
       (jazz.load-unit (%%get-lexical-binding-name module-declaration))))
@@ -563,18 +570,26 @@
         (autoload (%%get-export-invoice-autoload module-invoice)))
     (cond (only
            (for-each (lambda (declaration-reference)
-                       (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                         (%%table-set! public name (jazz.resolve-reference declaration-reference module-declaration))))
+                       (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference)))
+                             (declaration (jazz.resolve-reference declaration-reference module-declaration)))
+                         (%%table-set! public name declaration)
+                         (add-to-module-references declaration)))
                      only))
           (autoload
            (let ((exported-module-reference (%%get-module-invoice-module module-invoice)))
              (for-each (lambda (declaration-reference)
-                         (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                           (%%table-set! public name (jazz.resolve-autoload-reference declaration-reference module-declaration exported-module-reference))))
+                         (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference)))
+                               (declaration (jazz.resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
+                           (%%table-set! public name declaration)
+                           (add-to-module-references declaration)))
                        autoload)))
           (else
-           (let ((exported-module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) module-declaration)))
-             (jazz.table-merge-reporting-conflicts! module-declaration "exports" public (%%get-access-lookup exported-module-declaration jazz.public-access)))))))
+           (let* ((exported-module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) module-declaration))
+                  (exported-table (%%get-access-lookup exported-module-declaration jazz.public-access)))
+             (jazz.table-merge-reporting-conflicts! module-declaration "exports" public exported-table)
+             (table-for-each (lambda (key declaration)
+                               (add-to-module-references declaration))
+                             exported-table))))))
 
 
 (define (jazz.table-merge-reporting-conflicts! module-declaration suffix table add)

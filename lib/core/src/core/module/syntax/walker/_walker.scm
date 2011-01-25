@@ -3212,6 +3212,13 @@
                 body)))))
 
 
+(define (jazz.parse-script partial-form)
+  (let ((dialect-name (jazz.source-code (%%car partial-form)))
+        (body (%%cdr partial-form)))
+    (values dialect-name
+            body)))
+
+
 (define (jazz.parse-module-invoice specification)
   (%%assertion (%%pair? specification) (jazz.error "Ill-formed module invoice: {s}" specification)
     (let ((name (%%car specification))
@@ -3297,6 +3304,10 @@
   (jazz.emit-declaration (jazz.walk-module partial-form) '()))
 
 
+(define (jazz.expand-script-source partial-form)
+  (jazz.emit-declaration (jazz.walk-script partial-form) '()))
+
+
 (define (jazz.rename-identifier-conflicts expressions environment)
   (jazz.tree-fold-list
    expressions
@@ -3356,6 +3367,22 @@
           (jazz.rename-identifier-conflicts body environment)
           (%%set-namespace-declaration-body declaration body)
           declaration)))))
+
+
+(define (jazz.walk-script partial-form)
+  (receive (dialect-name body) (jazz.parse-script partial-form)
+    (parameterize ((jazz.walk-context (jazz.new-walk-context #f #f #f)))
+      (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
+             (dialect (jazz.require-dialect dialect-name))
+             (walker (jazz.dialect-walker dialect))
+             (resume #f)
+             (declaration (jazz.walk-module-declaration walker #f #f 'public dialect-name dialect-invoice body))
+             (environment (%%cons declaration (jazz.walker-environment walker)))
+             (body (jazz.walk-namespace walker resume declaration environment body)))
+        (jazz.validate-walk-problems walker)
+        (jazz.rename-identifier-conflicts body environment)
+        (%%set-namespace-declaration-body declaration body)
+        declaration))))
 
 
 (define (jazz.cond-expand form-src cont)

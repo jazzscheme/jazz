@@ -611,6 +611,7 @@
 (native jazz.unit-status)
 (native jazz.unit-uptodate-binary?)
 (native jazz.load-unit)
+(native jazz.load-script)
 (native jazz.unload-unit)
 (native jazz.reload-unit)
 (native jazz.get-load-mutex)

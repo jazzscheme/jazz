@@ -1941,6 +1941,19 @@
     (jazz.error "Unit name expected: {a}" unit-name)))
 
 
+(define (jazz.load-script path)
+  (parameterize ((jazz.walk-for 'interpret)
+                 (jazz.generate-symbol-for "&")
+                 (jazz.generate-symbol-context (gensym))
+                 (jazz.generate-symbol-counter 0))
+    (jazz.with-extension-reader (jazz.pathname-extension path)
+      (lambda ()
+        (jazz.load (%%list
+                     path: path
+                     char-encoding: 'UTF)
+                   #t)))))
+
+
 (define (jazz.unload-unit unit-name)
   (if (mutex-lock! jazz.Load-Mutex)
       (begin

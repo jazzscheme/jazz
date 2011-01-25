@@ -39,6 +39,7 @@
 
 
 (import (jazz.catalog)
+        (jazz.debuggee)
         (jazz.designer)
         (jazz.designer.view)
         (jazz.editor.jazz)
@@ -48,6 +49,7 @@
         (jazz.library.component)
         (jazz.library.listener)
         (jazz.platform)
+        (jazz.runtime)
         (jazz.system)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
@@ -130,8 +132,90 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (set-origin~ form (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions)))
-    (save-content))
+    (let ((toolbox-manager (find-docked Toolbox-Manager)))
+        (set-origin~ form 
+          (if toolbox-manager
+              (choose-new-origin toolbox-manager)
+            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
+        (save-content)))
+  
+  (method (call-with-explorer-and-save file func)
+    (let* ((frame (edit-document~ (get-application) file force-new?: #t class: Jazz-Text-View visible?: #f))
+           (text (get-guest~ frame))
+           (result (func (new Jazz-Explorer text))))
+      (save~ text)
+      (close~ frame)
+      result))
+  
+  (method (evaluate-at-caret text)
+    (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
+  
+  (method (choose-new-origin toolbox-manager)
+    (define (parse-class-name class-string)
+      (let ((content (with-exception-catcher
+                       (lambda (err) #f)
+                       (lambda () (read-string-content class-string)))))
+        (and content
+             (= 1 (length content))
+             (symbol? (car content))
+             (car content))))
+    
+    (define (validate-class-name module-name class-name)
+      (if class-name
+          (let* ((not-found (list #f))
+                 (ref (module-get module-name class-name not-found: not-found)))
+            (if (eq? ref not-found)
+                class-name
+              (designer-error "Existing class")))
+        (designer-error "Invalid class name")))
+    
+    (define (validate-module-name module-name)
+      (if module-name
+          (with-exception-catcher
+            (lambda (exc)
+              (designer-error "Non-existant module"))
+            (lambda ()
+              (require-module module-name)))
+          (designer-error "Empty module")))
+    
+    (define (evaluate-class module-name class-name)
+      (call-with-explorer-and-save (find-unit-source module-name)
+        (lambda (explorer)
+          (let ((text (get-text~ explorer)))
+            (forward-location~ explorer (list class-name))
+            (set-end~ explorer (get-start~ explorer))
+            (enter-list~ explorer)
+            (set-caret~ text (get-end~ explorer))
+            (evaluate-at-caret text)
+            (module-ref module-name class-name)))))
+    
+    (define (insert-class module-name class-name)
+      (call-with-explorer-and-save (find-unit-source module-name)
+        (lambda (explorer)
+          (let ((text (get-text~ explorer)))
+            (forward-namespace~ explorer)
+            ;; We suppose the import form exist
+            (forward-expr~ explorer)
+            (set-caret~ text (get-end~ explorer))
+            (let* ((super-class (get-model~ form))
+                   (class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class)))
+              (insert-string~ text class-string))))))
+    
+    (let* ((modules (get-module-names~ toolbox-manager))
+           (result (get-modal Save-Chooser modules: modules)))
+      (if (is? result File)
+          result
+        (bind (module-name class-string) result
+          (with-safe-design
+            (lambda ()
+              (let ((class-name (parse-class-name class-string)))
+                (validate-module-name module-name)
+                (validate-class-name module-name class-name)
+                ;; Imports need to be preemptively inserted to ensure super-class is resolvable
+                (insert-imports module-name)
+                (evaluate-imports module-name)
+                (insert-class module-name class-name)
+                (evaluate-class module-name class-name))))))))
   
   
   (method (save-content)
@@ -141,34 +225,78 @@
         (save-to-class origin)))
     (set-modified? #f))
   
+  (method (evaluate-imports module-name)
+    (call-with-explorer-and-save (find-unit-source module-name)
+      (lambda (explorer)
+        (let ((text (get-text~ explorer)))
+          (forward-namespace~ explorer)
+          (enter-import~ explorer)
+          (set-caret~ text (get-end~ explorer))
+          (evaluate-at-caret text)))))
+  
+  (method (insert-imports module-name)
+    (call-with-explorer-and-save (find-unit-source module-name)
+      (lambda (explorer)
+        (let ((units (cons 'jazz.jml (map car (get-imports~ (get-data~ form))))))
+          (insert-unique-import-invoices~ explorer units)))))
   
   (method (save-to-class class)
-    (let* ((appl (get-application))
-           (class-name (category-identifier class))
-           (where (if (eq? form (get-class-form~ class)) :form :new-form))
-           (location (list class-name where))
-           (code-location (new Jazz-Code-Location location))
-           (code-source (find-source~ code-location))
-           (being-edited? (find-document~ appl code-source))
-           (output (saved-form 2)))
-      ;; Invoking the Interpreter is the simplest way of creating
-      ;; the new definition that did not already exist in the class...
-      @convert
-      (when (eq? where :new-form)
-        (evaluate~ Interpreter (list '(form (<install>))) #f class (list Language)))
-      @convert
-      (set-class-form~ class form)
-      (receive (frame text range) (find-location~ code-location)
-        (with-update-locked~ text
-          (lambda ()
-            (set-selection~ text range)
-            (when (eq? where :new-form)
-              (insert-string~ text (format "{%}{%}{%}  ")))
-            (insert-string~ text output)))
-        (if being-edited?
-            (focus-host~ frame)
-          (save~ text)
-          (close~ frame)))))
+    (let ((class-name (category-name class))
+          (module-name (category-unit class)))
+      
+      (define (save-to-existing-class)
+        (let ((form-exists? (eq? form (get-class-form~ class))))
+          (insert-imports module-name)
+          (evaluate-imports module-name)
+          (save-form form form-exists?)
+          (tabulate-form)
+          (unless form-exists? (evaluate-form))))
+      
+      (define (save-to-new-class)
+        (let ((adjusted-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form))))
+          (save-form adjusted-form #f)
+          (tabulate-form)
+          (evaluate-form)
+          (set-object-slot reference 0 class)
+          (for-each (lambda (designer)
+                      (process-property-change~ designer #f reference (category-field class 'class-info) (get-class-presentation~ class) #f)) 
+                    (get-designers~ reference))))
+      
+      (define (tabulate-form)
+        (call-with-explorer-and-save (find-unit-source module-name)
+          (lambda (explorer)
+            (let ((text (get-text~ explorer)))
+              (forward-location~ explorer (list class-name :form))
+              (set-selection~ text (get-range~ explorer))
+              (tabulate~ text)))))
+      
+      (define (save-form form form-exists?)
+        (call-with-explorer-and-save (find-unit-source module-name)
+          (lambda (explorer)
+            (let ((text (get-text~ explorer))
+                  (where (if form-exists? :form :new-form))
+                  (str (form->string form 2)))
+              (forward-location~ explorer (list class-name where))
+              (set-selection~ text (get-range~ explorer))
+              (insert-string~ text (format (if form-exists? "{a}" "{%}{%}{%}{a}") str))))))
+      
+      (define (evaluate-form)
+        (call-with-explorer-and-save (find-unit-source module-name)
+          (lambda (explorer)
+            (let ((text (get-text~ explorer)))
+              (forward-location~ explorer (list class-name :form))
+              (set-end~ explorer (get-start~ explorer))
+              (enter-list~ explorer)
+              (set-caret~ text (get-end~ explorer))
+              (evaluate-at-caret text)
+              (for-each (lambda (designer)
+                          (debug 'set-form )
+                          (set-form~ designer (get-class-form~ class)))
+                        (get-designers~ reference))))))
+      
+      (if (is? reference class)
+          (save-to-existing-class)
+        (save-to-new-class))))
   
   
   (method (save-to-file file)

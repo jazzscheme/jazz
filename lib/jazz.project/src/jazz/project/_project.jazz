@@ -1,0 +1,163 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Projects
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.project jazz
+
+
+(export (jazz.project.autoload))
+(import (jazz.project.autoload)
+        (jazz.ide)
+        (jazz.io)
+        (jazz.system))
+
+
+;;;
+;;;; Kernel
+;;;
+
+
+(definition public (find-kernel destination)
+  (let ((dir (destination-directory #f destination kernel-source)))
+    (new File (tokenise-filename (concatenate dir (add-extension "kernel" (executable-extension kernel-platform)))))))
+
+
+(definition public (require-kernel destination)
+  (let ((kernel (find-kernel destination)))
+    (if (exists?~ kernel)
+        kernel
+      (error "Unable to find kernel: {a}" destination))))
+
+
+(definition public (find-actual-kernel)
+  (let ((filename (concatenate kernel-install (add-extension "kernel" (executable-extension kernel-platform)))))
+    (new File (tokenise-filename filename))))
+
+
+(definition public (require-actual-kernel)
+  (let ((kernel (find-actual-kernel)))
+    (if (exists?~ kernel)
+        kernel
+      (error "Unable to find kernel"))))
+
+
+(definition public (launch-executable executable (directory: directory #f) (runtime-arguments: runtime-arguments #f) (arguments: arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+  (let* ((runtime-arg   (or runtime-arguments '()))
+         (arguments-arg (or arguments '()))
+         (arguments     (append runtime-arg arguments-arg)))
+    @debug
+    (debug executable directory arguments)
+    (open-process
+      (list
+        path: (parse~ executable)
+        directory: (and directory (parse~ directory))
+        arguments: arguments
+        ;; this is not yet quite what we want as an access to the terminal
+        ;; will not dynamically show the console when using show-console: #f
+        stdin-redirection: #f
+        stdout-redirection: #f
+        stderr-redirection: #f
+        show-console: show-console?))))
+
+
+;;;
+;;;; Repositories
+;;;
+
+
+(definition *active-repositories*
+  #f)
+
+
+(definition (get-active-repositories)
+  *active-repositories*)
+
+
+(definition (set-active-repositories repositories)
+  (set! *active-repositories* repositories))
+
+
+;;;
+;;;; Workbench
+;;;
+
+
+(definition *active-workbench*
+  #f)
+
+
+(definition public (get-workbench)
+  *active-workbench*)
+
+
+(definition public (set-workbench workbench)
+  (set! *active-workbench* workbench))
+
+
+;;;
+;;;; Project
+;;;
+
+
+(definition *active-project*
+  #f)
+
+
+(definition public (get-active-project)
+  *active-project*)
+
+
+(definition public (set-active-project project)
+  (set! *active-project* project))
+
+
+(definition public (collect-projects project)
+  (let ((projects (new-queue)))
+    (for-each-descendant~ project
+      (lambda (file level)
+        (when (and (is? file Project)
+                   (concrete?~ file))
+          (enqueue projects file))))
+    (queue-list projects)))
+
+
+;;;
+;;;; Preferences
+;;;
+
+
+(definition (build-preferences)
+  (get-preferences 'build)))

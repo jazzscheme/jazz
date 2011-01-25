@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Project Files
+;;;; Project Groups
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,40 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.editor.jazz.builder.Jazz-File jazz
+(module protected jazz.project.file.Project-Group jazz
 
 
-(import (jazz.designer)
-        (jazz.jml)
+(import (jazz.jml)
+        (jazz.library)
         (jazz.project))
 
 
-(class Jazz-File extends Project-File
-
-
-  (property tester? initialize #f accessors generate)
-  
-  
-  (method override (print output readably)
-    (print-unreadable self output
-      (lambda (output)
-        (format output "{a}"
-                name))))
-  
-  
-  ;;;
-  ;;;; Product
-  ;;;
-  
-  
-  ;; Because for the moment, a product's project slot will point to it's container project
-  ;; which is strange but makes some sense because it is his owner... Need to think this through.
-  (method public (get-product)
-    #f
-    @obsolete
-    (if (is? self Product)
-        self
-      project))
+(class Project-Group extends Group
   
   
   ;;;
@@ -77,7 +52,7 @@
   
   
   (method meta override (get-class-descriptor)
-    (new Jazz-File-Descriptor)))
+    (new Project-Group-Descriptor)))
 
 
 ;;;
@@ -91,11 +66,32 @@
 (import (jazz.designer))
 
 
-(class Jazz-File-Descriptor extends Project-File-Descriptor
+(class Project-Group-Descriptor extends Group-Descriptor
   
   
   (form
-    (<install>                 title: "Jazz File" can-rename?: #f
-      (<properties~>           categorized: (@wait source @wait build? @wait tester?)
-        (<Property-Descriptor> name: tester? title: "Tester?"
-          (<Boolean-Domain>    name: domain))))))))
+    (<install>       can-cut?: #f can-copy?: #f can-paste?: #f can-move?: #f
+      (<properties~>)))
+  
+  
+  (method override (class-presentation->name class presentation)
+    presentation)
+  
+  
+  (method override (class-name->presentation class name)
+    name)
+  
+  
+  (method override (component-sort-components component predicate components)
+    (sort nu<? components key: (lambda (component)
+                                 (cons (if (is? component Project-Group) 0 1)
+                                       (get-presentation-property~ component)))))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list (list (reference Project-Group)))))))

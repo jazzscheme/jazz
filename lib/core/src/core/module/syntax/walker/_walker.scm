@@ -554,8 +554,7 @@
     (%%when (and declaration
                  (%%neq? module-declaration (%%get-declaration-toplevel declaration)))
       (let ((references-table (%%get-module-declaration-walker-references module-declaration)))
-        (%%when (%%neq? module-declaration (%%get-declaration-toplevel declaration))
-          (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
+        (%%table-set! references-table (%%get-declaration-locator declaration) declaration))))
   
   (%%when (%%eq? (%%get-module-invoice-phase module-invoice) 'syntax)
     (let ((module-declaration (jazz.resolve-reference (%%get-module-invoice-module module-invoice) module-declaration)))

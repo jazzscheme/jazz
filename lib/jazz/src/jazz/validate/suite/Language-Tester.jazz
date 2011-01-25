@@ -62,20 +62,27 @@
   
   
   (method (test-language)
+    ;; required defines
+    (define (square x) (* x x))
+    (define (double-proc proc x) (* (proc x) 2))
+    
     ;; comments
     (validate rpt (eq? 5 (+ 1 4 @comment-next-sexp (+ 1 2))))
     (validate rpt @comment-next-step #f #t)
     
     ;; lambda
+    (validate rpt (walk-failed? (lambda)))
     (validate rpt (eq? 16 ((lambda (x) (* x x)) 4)))
     (validate rpt (error-occurred? ((lambda x (* x x)) 2)))
     (validate rpt (procedure? (lambda ())))
     (validate rpt (walk-failed? (lambda (()))))
     (validate rpt (walk-failed? (lambda (1))))
     (validate rpt (walk-failed? (lambda (display 1))))
-    @wait-for-crash-proof-test-method
-    (begin
-      (lambda))
+    
+    ;; functional syntax
+    (validate rpt (procedure? square))
+    (validate rpt (eq? 4 (square 2)))
+    (validate rpt (eq? 8 (double-proc square 2)))
     
     ;; error throwing
     (validate rpt (walk-failed? (throw)))
@@ -85,10 +92,12 @@
     (validate rpt (error-occurred? (throw 1)))
     
     ;; error catching
+    (validate rpt (walk-failed? (catch)))
     (validate rpt (walk-failed? (catch ()
                                   (throw (new Error)))))
     (validate rpt (walk-failed? (catch (throw (new Error)) 
                                   (Error error))))
+    (validate rpt (walk-failed? (catch 1)))
     (validate rpt (error-occurred? (catch (Error error #f)
                                      (throw 'foo)))))
   
@@ -102,20 +111,25 @@
     ;; define
     (define foo 1)
     (define (bar) 1)
+    (validate rpt (walk-failed? (let () (define))))
+    (validate rpt (walk-failed? (let () (define a))))
     (validate rpt (eq? foo 1))
     (validate rpt (not (equal? 'foo 1)))
     (validate rpt (procedure? bar))
     (validate rpt (eq? (bar) 1))
     (validate rpt (walk-failed? (let () (define (a 1)))))
-    @wait-for-crash-proof-test-method
-    (begin
-      (define)
-      (define a))
+    (validate rpt (walk-failed? (invalid-symbol)))
+    (validate rpt (walk-failed? invalid-symbol))
+    
+    ;; define-macro
+    (validate rpt (walk-failed? (let () (define-macro))))
+    (validate rpt (walk-failed? (let () (define-macro a))))
     
     ;; let
     (validate rpt (eq? 2 (let () 2)))
     (validate rpt (procedure? (let (func (arg 'val)) func)))
     (validate rpt (procedure? (let (func) func)))
+    (validate rpt (walk-failed? (let)))
     (validate rpt (walk-failed? (let (()))))
     (validate rpt (walk-failed? (let ((())))))
     (validate rpt (walk-failed? (let ((a)))))
@@ -132,6 +146,7 @@
                       (opposite (not bool)))))
     
     ;; let*
+    (validate rpt (walk-failed? (let*)))
     (validate rpt (eq? 25 (let* ((func (lambda (x) (* x x)))
                                  (val (func 5)))
                             val)))
@@ -148,6 +163,7 @@
                                   (fact 3))))
     
     ;; letrec
+    (validate rpt (walk-failed? (letrec)))
     (validate rpt (neq? 2 (letrec ((a 2) (b a)) b)))
     (validate rpt (not (walk-failed? (letrec ((a b) (b 2)) b))))
     (validate rpt (eq? 6 (letrec ((fact (lambda (n)
@@ -155,13 +171,6 @@
                                               1
                                             (* n (fact (- n 1)))))))
                            (fact 3))))
-    
-    
-    @wait-for-crash-proof-test-method
-    (begin
-      (let)
-      (let*)
-      (letrec))
     
     ;; bind
     (validate rpt (error-occurred? (bind (a) 1)))
@@ -171,6 +180,7 @@
     (validate rpt (equal? '(2 3) (bind (first . rest) '(1 2 3) rest)))
     
     ;; receive
+    (validate rpt (walk-failed? (receive)))
     (validate rpt (eq? 1 (receive (x) 1 x)))
     (validate rpt (error-occurred? (receive (x) (1) x)))
     (validate rpt (list? (receive (x) '(1) x)))
@@ -220,6 +230,7 @@
     (validate rpt (error-occurred? (equal? 'foo 'bar 'test)))
     
     ;; ecase
+    (validate rpt (walk-failed? (ecase)))
     ;;; Important : This is on the jazzscheme website in the tutorial
     ;;;             and actually does not work! This should be fixed.
     (validate rpt (walk-failed? (ecase 1
@@ -228,14 +239,11 @@
                                   (2 (display "two")))))
     
     ;; typecase
+    (validate rpt (walk-failed? (typecase)))
     (validate rpt (eq? 2 (typecase "Test string"
                            ((List) 1)
                            ((String) 2))))
     (validate rpt (eq? 2 (typecase "Test string"
                            ((List) 1)
                            ((String) 2)
-                           ((String) 3))))
-    
-    @wait-for-crash-proof-test-method
-    (begin
-      (typecase)))))
+                           ((String) 3)))))))

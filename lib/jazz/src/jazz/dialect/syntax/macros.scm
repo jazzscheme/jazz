@@ -173,6 +173,8 @@
 ;; @syntax (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
 (syntax public (catch form-src)
+  (if (null? (cdr (unwrap-syntactic-closure form-src)))
+      (error "Ill-formed catch."))
   (let ((predicate/type (cadr (source-code form-src)))
         (body (cddr (source-code form-src))))
     (sourcify-if

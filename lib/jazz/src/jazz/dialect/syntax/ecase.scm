@@ -52,6 +52,8 @@
 
 
 (syntax public (ecase form-src)
+  (if (null? (cdr (source-code form-src)))
+      (error "Ill-formed ecase"))
   (let ((target (cadr (source-code form-src)))
         (clauses (cddr (source-code form-src))))
     (sourcify-if

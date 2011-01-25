@@ -53,6 +53,8 @@
 
 
 (syntax public (typecase form-src)
+  (if (null? (cdr (source-code form-src)))
+      (error "Ill-formed typecase"))
   (let ((target (cadr (source-code form-src)))
         (clauses (cddr (source-code form-src))))
     (sourcify-if

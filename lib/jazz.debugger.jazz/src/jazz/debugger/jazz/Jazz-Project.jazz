@@ -151,7 +151,6 @@
         (start-debuggers~ ide))
       (let* ((executable               (determine-kernel))
              (runtime-arg              (list @wait "-:m250000,h1000000"))
-             (repositories-arg         '() @w (if repositories (list "-repositories" (join (map parse~ repositories) ";")) '()))
              (product-arg              (list (or action "-run") (->string product)))
              (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
              (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
@@ -161,12 +160,12 @@
              (profile-arg              (if profile (list "-profile" (->string profile)) '()))
              (action-arg               (if command-action (list command-action) '()))
              (arguments-arg            (if command-arguments command-arguments '()))
-             (arguments                (append runtime-arg action-arg repositories-arg product-arg kernel-arguments-arg debugger-arg debugger-cookie-arg debugger-interactive-arg profile-arg arguments-arg)))
+             (arguments                (append runtime-arg action-arg product-arg kernel-arguments-arg debugger-arg debugger-cookie-arg debugger-interactive-arg profile-arg arguments-arg)))
         (save-all~ ide)
         (when debugger?
           (user-message "Debugging {a}..." (get-presentation-property)))
         (launch-executable executable
-          directory: directory
+          directory: (or directory directory~self)
           arguments: arguments
           show-console?: show-console?))))
   
@@ -182,6 +181,8 @@
                                    (new-directory~ configuration kernel-name))
                                   ((string? configuration)
                                    (new-file~ (new-directory~ directory configuration) kernel-name))
+                                  ((not configuration)
+                                   (find-actual-kernel))
                                   (else
                                    (error "Ill-formed configuration: {s}" configuration))))
                         (find-actual-kernel))))

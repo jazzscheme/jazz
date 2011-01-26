@@ -145,6 +145,10 @@
   #f)
 
 
+(jazz.define-option jazz.default-target
+  'all)
+
+
 
 ;;;
 ;;;; Configuration
@@ -730,10 +734,6 @@
 ;;;
 
 
-(define jazz.default-target
-  'all)
-
-
 (define (jazz.make-symbols symbols local?)
   (define (parse-target/configuration/image str proc)
     (let ((colon (jazz.string-find str #\:)))
@@ -752,10 +752,10 @@
   (define (parse-target/configuration str proc)
     (let ((at (jazz.string-find str #\@)))
       (if (not at)
-          (proc (if (string=? str "") jazz.default-target (string->symbol str)) (jazz.require-default-configuration))
+          (proc (if (string=? str "") (jazz.default-target) (string->symbol str)) (jazz.require-default-configuration))
         (let ((target
                 (if (= at 0)
-                    jazz.default-target
+                    (jazz.default-target)
                   (string->symbol (substring str 0 at))))
               (configuration
                 (if (= (+ at 1) (string-length str))
@@ -819,7 +819,7 @@
                        (jazz.error "Invalid make option: {s}" (car option)))))
                   options)
         (let iter ((scan (if (null? symbols)
-                             (list jazz.default-target)
+                             (list (jazz.default-target))
                            symbols)))
              (if (not (null? scan))
                  (let ((symbol (car scan)))

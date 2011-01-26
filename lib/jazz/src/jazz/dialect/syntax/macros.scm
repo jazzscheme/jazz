@@ -174,21 +174,21 @@
 
 (syntax public (catch form-src)
   (if (null? (cdr (unwrap-syntactic-closure form-src)))
-      (error "Ill-formed catch."))
-  (let ((predicate/type (cadr (source-code form-src)))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      (cond ((symbol? (source-code predicate/type))
-             `(call-with-catch ,predicate/type (lambda (exc) exc)
-                (lambda ()
-                  ,@body)))
-            ((pair? (source-code predicate/type))
-             `(call-with-catch ,(car (source-code predicate/type)) (lambda (,(source-code (cadr (source-code predicate/type)))) ,@(cddr (source-code predicate/type)))
-                (lambda ()
-                  ,@body)))
-            (else
-             (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
-      form-src)))
+      (error "Ill-formed catch")
+    (let ((predicate/type (cadr (source-code form-src)))
+          (body (cddr (source-code form-src))))
+      (sourcify-if
+        (cond ((symbol? (source-code predicate/type))
+               `(call-with-catch ,predicate/type (lambda (exc) exc)
+                  (lambda ()
+                    ,@body)))
+              ((pair? (source-code predicate/type))
+               `(call-with-catch ,(car (source-code predicate/type)) (lambda (,(source-code (cadr (source-code predicate/type)))) ,@(cddr (source-code predicate/type)))
+                  (lambda ()
+                    ,@body)))
+              (else
+               (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
+        form-src))))
 
 
 (syntax public (~ form-src)

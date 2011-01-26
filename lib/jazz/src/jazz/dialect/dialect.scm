@@ -410,7 +410,10 @@
           ((%%not ascendant-relation)
            (jazz.sourcified-form (jazz.emit-binding-reference ascendant declaration environment)))
           (else
-           `(%%get-object-class ,(jazz.sourcified-form (jazz.emit-binding-reference ascendant-base declaration environment)))))))
+           (let rec ((rel ascendant-relation))
+             (if (%%null? rel)
+                 (jazz.sourcified-form (jazz.emit-binding-reference ascendant-base declaration environment))
+               `(%%get-object-class ,(rec (%%cdr rel)))))))))
 
 
 (jazz.encapsulate-class jazz.Class-Declaration)
@@ -997,6 +1000,14 @@
           ((c-definition)         (jazz.walk-c-definition-declaration         walker resume declaration environment form-src))
           (else                   (nextmethod walker resume declaration environment form-src))))
     #f))
+
+
+(define (jazz.expand-declaration-path walker resume declaration environment)
+  `(quote ,(jazz.get-declaration-path declaration)))
+
+
+(define (jazz.expand-declaration-locator walker resume declaration environment)
+  `(quote ,(apply jazz.compose-name (jazz.get-declaration-path declaration))))
 
 
 ;;;
@@ -1780,12 +1791,15 @@
   
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr (jazz.source-code form-src)))
     (receive (metaclass-body class-body) (preprocess-meta body)
-      (cond ((%%null? metaclass-body)
+      (cond ((and (%%not-null? metaclass-body)
+                  (%%specified? metaclass-name))
+             (jazz.walk-error walker resume declaration form-src "Ambiguous use of both metaclass and meta keywords: {s}" name))
+            ((or (%%specified? metaclass-name)
+                 (jazz.core-class? name)
+                 (%%unspecified? ascendant-name))
              (jazz.sourcify-if
                `(%class ,@(%%cdr (jazz.source-code form-src)))
                form-src))
-            ((%%specified? metaclass-name)
-             (jazz.walk-error walker resume declaration form-src "Ambiguous use of both metaclass and meta keywords: {s}" name))
             (else
              (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
                `(begin
@@ -1843,13 +1857,17 @@
                  #f))
         ((and (%%pair? ascendant-name)
               (%%eq? (%%car ascendant-name) ':class))
-         (let ((relation (%%car ascendant-name))
-               (base (jazz.lookup-reference walker resume declaration environment (%%cadr ascendant-name))))
-           (values (or (jazz.effective-class-declaration-metaclass base)
-                       ;; need to do this because Object-Class is a special case to break circularity
-                       (jazz.lookup-reference walker resume declaration environment 'Object-Class))
-                   relation
-                   base)))
+         (let ((object-class (jazz.lookup-reference walker resume declaration environment 'Object-Class)))
+           (let rec ((ascendant-name ascendant-name))
+                (if (%%pair? ascendant-name)
+                    (receive (decl relation base) (rec (%%cadr ascendant-name))
+                      (values (if (%%eq? decl object-class)
+                                  object-class
+                                (or (jazz.effective-class-declaration-metaclass base) object-class))
+                              (%%cons (%%car ascendant-name) relation)
+                              base))
+                  (let ((base (jazz.lookup-reference walker resume declaration environment ascendant-name)))
+                    (values base '() base))))))
         (else
          (values (jazz.lookup-reference walker resume declaration environment ascendant-name)
                  #f
@@ -3228,4 +3246,6 @@
 (jazz.define-walker-macro   c-union              jazz jazz.expand-c-union)
 (jazz.define-walker-macro   c-external           jazz jazz.expand-c-external)
 (jazz.define-walker-macro   c-external-so        jazz jazz.expand-c-external-so)
-(jazz.define-walker-macro   com-external         jazz jazz.expand-com-external))
+(jazz.define-walker-macro   com-external         jazz jazz.expand-com-external)
+(jazz.define-walker-macro   declaration-path     jazz jazz.expand-declaration-path)
+(jazz.define-walker-macro   declaration-locator  jazz jazz.expand-declaration-locator))

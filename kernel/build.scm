@@ -259,7 +259,11 @@
         (jazz.error "Unable to find configuration: {s}" name))))
 
 (define (jazz.require-default-configuration)
-  (jazz.require-configuration #f))
+  (or (jazz.find-configuration #f)
+      (begin
+        (jazz.feedback "configure")
+        (jazz.configure)
+        (jazz.require-configuration #f))))
 
 
 (define (jazz.find-configuration name)

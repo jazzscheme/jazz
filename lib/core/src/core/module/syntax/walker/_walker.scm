@@ -4239,18 +4239,17 @@
 
 
 (define (jazz.parse-define walker resume declaration rest)
-  (%%assertion (%%not-null? (%%cdr rest)) (jazz.walk-error walker resume declaration rest "Ill-formed define")
-    (if (%%symbol? (jazz.source-code (%%car rest)))
-        (let ((name (jazz.source-code (%%car rest))))
-          (jazz.parse-specifier (%%cdr rest)
-            (lambda (specifier rest)
-              (values name specifier (%%car rest) #f))))
-      (let ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
-            (parameters (%%cdr (%%desourcify (%%car rest)))))
+  (if (%%symbol? (jazz.source-code (%%car rest)))
+      (let ((name (jazz.source-code (%%car rest))))
         (jazz.parse-specifier (%%cdr rest)
-          (lambda (specifier body)
-            (let ((specifier-list (if specifier (%%list specifier) '())))
-              (values name #f `(lambda ,parameters ,@specifier-list ,@body) parameters))))))))
+          (lambda (specifier rest)
+            (values name specifier (%%car rest) #f))))
+    (let ((name (jazz.source-code (%%car (jazz.source-code (%%car rest)))))
+          (parameters (%%cdr (%%desourcify (%%car rest)))))
+      (jazz.parse-specifier (%%cdr rest)
+        (lambda (specifier body)
+          (let ((specifier-list (if specifier (%%list specifier) '())))
+            (values name #f `(lambda ,parameters ,@specifier-list ,@body) parameters)))))))
 
 
 ;;;

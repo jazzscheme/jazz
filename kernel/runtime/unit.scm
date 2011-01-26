@@ -281,7 +281,7 @@
   (make-parameter #f))
 
 
-;; to enable timing loading of jedi
+;; to enable timing loading of an application
 (define jazz.run-loop?
   (make-parameter #t))
 

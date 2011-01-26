@@ -183,6 +183,17 @@
       '())))
 
 
+(define (jazz.collect test lst)
+  (declare (proper-tail-calls))
+  (let iter ((scan lst))
+    (if (%%not (%%null? scan))
+        (let ((value (test (%%car scan))))
+          (if value
+              (%%cons value (iter (%%cdr scan)))
+            (iter (%%cdr scan))))
+      '())))
+
+
 (define (jazz.remove item lst)
   (declare (proper-tail-calls))
   (let iter ((scan lst))

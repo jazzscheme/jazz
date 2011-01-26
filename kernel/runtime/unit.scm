@@ -269,6 +269,10 @@
 (set! jazz.jazz-source jazz.kernel-source)
 
 
+(define jazz.kernel-source-repositories
+  jazz.source-repositories)
+
+
 (define (jazz.jazz-product)
   jazz.product)
 
@@ -316,7 +320,7 @@
 
 
 (define (jazz.prepare-repositories)
-  (define (all-repositories build jazz repositories)
+  (define (all-repositories build jazz source-repositories repositories)
     (define (listify repository)
       (if repository
           (%%list repository)
@@ -325,14 +329,19 @@
     `(,@(if repositories
             (map jazz.load-repository (jazz.split-string repositories #\;))
           '())
+      ,@(jazz.collect (lambda (path)
+                        (let ((dir (jazz.absolutize-directory jazz.kernel-install path)))
+                          (jazz.load-repository dir error?: #f)))
+                      source-repositories)
       ,@(listify build)
       ,@(listify jazz)))
   
   (let ((build (jazz.make-repository 'Build "lib" (or (jazz.build-repository) jazz.kernel-install) binary?: #t create?: #t))
         (jazz (jazz.make-repository 'Jazz "lib" (or (jazz.jazz-repository) jazz.kernel-source)))
+        (source-repositories (or jazz.kernel-source-repositories '()))
         (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
-    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz repositories)))))
+    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz source-repositories repositories)))))
 
 
 (define (jazz.make-repository name library directory #!key (binary? #f) (create? #f))
@@ -378,30 +387,32 @@
 
 (define (jazz.load-repository directory #!key (error? #t))
   (define (load-repository directory)
-    (let ((repository-file (%%string-append directory jazz.Repository-Filename)))
-      (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
-        (lambda (input)
-          (let ((form (read input)))
-            (let ((name (%%cadr form))
-                  (alist (%%cddr form)))
-              (let ((directory (jazz.pathname-normalize directory))
-                    (binary-pair (%%assq 'binary? alist))
-                    (library-pair (%%assq 'library alist)))
-                (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
-                      (library-root (if library-pair (%%cadr library-pair) #f)))
-                  (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
-                    (%%make-repository name directory library-root library-directory binary?))))))))))
+    (if (jazz.directory-exists? directory)
+        (let ((repository-file (%%string-append directory jazz.Repository-Filename)))
+          (if (jazz.file-exists? repository-file)
+              (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
+                (lambda (input)
+                  (let ((form (read input)))
+                    (let ((name (%%cadr form))
+                          (alist (%%cddr form)))
+                      (let ((directory (jazz.pathname-normalize directory))
+                            (binary-pair (%%assq 'binary? alist))
+                            (library-pair (%%assq 'library alist)))
+                        (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
+                              (library-root (if library-pair (%%cadr library-pair) #f)))
+                          (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
+                            (%%make-repository name directory library-root library-directory binary?))))))))
+            #f))
+      #f))
   
   (define (repository-inexistant)
     (jazz.error "Repository is inexistant: {a}" directory))
   
   (let ((directory (jazz.dirname-normalize directory)))
-    (cond ((jazz.directory-exists? directory)
-           (load-repository directory))
-          (error?
-           (repository-inexistant))
-          (else
-           #f))))
+    (or (load-repository directory)
+        (if error?
+            (repository-inexistant)
+          #f))))
 
 
 (define (jazz.install-repository directory/repository)

@@ -406,7 +406,9 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)))
+                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source-repositories (if library-image? #f (jazz.determine-source-repositories destination-directory)) output)))
                 #t)
             #f)))
       
@@ -633,6 +635,8 @@
                     (newline output)
                     (jazz.print-expression-variable 'jazz.source `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" source)) output)
                     (newline output)
+                    (jazz.print-expression-variable 'jazz.source-repositories (jazz.determine-source-repositories destination-directory) output)
+                    (newline output)
                     (newline output)
                     (display "(load (string-append jazz.source \"kernel/boot\"))" output)
                     (newline output)))))))
@@ -649,6 +653,19 @@
       
       (if kernel-interpret?
           (generate-kernel-interpret)))))
+
+
+;;;
+;;;; Utilities
+;;;
+
+
+(define (jazz.determine-source-repositories destination-directory)
+  (let ((repositories (jazz.repositories)))
+    (and repositories
+         (jazz.collect (lambda (path)
+                         (jazz.relativise-directory destination-directory "./" path))
+                       (jazz.split-string repositories #\;)))))
 
 
 ;;;

@@ -298,41 +298,51 @@
           (if dry?
               (jazz.dry-run? #t)))
         
+        (define (run-scripts lst)
+          (jazz.load-unit 'core.module)
+          (for-each (lambda (path)
+                      (if (file-exists? path)
+                          (jazz.load-script path)))
+                    lst))
+        
         (cond (ev
-                (setup-runtime)
-                (eval (call-with-input-string ev read)))
+               (setup-runtime)
+               (eval (call-with-input-string ev read)))
               (load
-                (setup-runtime)
-                (jazz.load-unit (%%string->symbol load)))
+               (setup-runtime)
+               (jazz.load-unit (%%string->symbol load)))
               (test
-                (setup-runtime)
-                (jazz.test-product (%%string->symbol test)))
+               (setup-runtime)
+               (jazz.test-product (%%string->symbol test)))
               (run
-                (setup-runtime)
-                (jazz.run-product (%%string->symbol run)))
+               (setup-runtime)
+               (jazz.run-product (%%string->symbol run)))
               (jazz.product
-                (setup-runtime)
-                (jazz.run-product jazz.product))
+               (setup-runtime)
+               (jazz.run-product jazz.product))
               (compile
-                (setup-build)
-                (jazz.custom-compile-unit (%%string->symbol compile) force?: force?))
+               (setup-build)
+               (jazz.custom-compile-unit (%%string->symbol compile) force?: force?))
               (update
-                (setup-build)
-                (jazz.update-product (%%string->symbol update)))
+               (setup-build)
+               (jazz.update-product (%%string->symbol update)))
               (make
-                (setup-build)
-                (jazz.make-product (%%string->symbol make)))
+               (setup-build)
+               (jazz.make-product (%%string->symbol make)))
               (subbuild?
-                (setup-build)
-                (jazz.subprocess-build-products port))
+               (setup-build)
+               (jazz.subprocess-build-products port))
               (build
-                (setup-build)
-                (jazz.build-product (%%string->symbol build)))
+               (setup-build)
+               (jazz.build-product (%%string->symbol build)))
+              ((%%not (%%null? remaining))
+               (setup-runtime)
+               (run-scripts remaining))
               (else
-                (if debug?
-                    (setup-build)
-                  (setup-runtime))
-                (jazz.repl-main))))))
+               (if debug?
+                   (setup-build)
+                 (setup-runtime))
+               (jazz.repl-main))))))
   
   (exit))
 

@@ -603,7 +603,6 @@
 (native jazz.make-profile)
 (native jazz.profile-name)
 (native jazz.profile-title)
-(native jazz.profile-appl)
 (native jazz.profile-unit)
 (native jazz.get-environment)
 (native jazz.get-environment-unit)

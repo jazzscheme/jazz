@@ -773,12 +773,6 @@
 (define (jazz.profile-title profile)
   (%%symbol->string (jazz.profile-name profile)))
 
-(define (jazz.profile-appl profile)
-  (let ((pair (%%assq 'appl (%%cdr profile))))
-    (if (%%not pair)
-        (jazz.error "Unable to find appl in profile: {s}" profile)
-      (%%cdr pair))))
-
 (define (jazz.profile-unit profile)
   (let ((pair (%%assq 'unit (%%cdr profile))))
     (if (%%not pair)

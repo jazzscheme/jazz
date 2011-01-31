@@ -243,7 +243,7 @@
                 (set-selection '() generate-event?: #f)
               (let ((row (component-row component)))
                 (when row
-                  (set-selection (list (new Cell (row->line row) 1)) generate-event?: #t)))))))))
+                  (set-selection (list (new Cell (row->line row) 0)) generate-event?: #t)))))))))
   
   
   ;;;
@@ -336,10 +336,6 @@
         (insert-rows))))
   
   
-  (method (setup-node-column)
-    (set-visible?~ (get-node-column) #f))
-  
-  
   (method (add-class-column path title)
     (add-column class: Grid-Column title: title width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
   
@@ -390,8 +386,7 @@
   
   (method (setup-columns)
     (set-filled-column #f)
-    (remove-columns preserve-node-column?: #t)
-    (setup-node-column)
+    (remove-columns)
     (when client
       (setup-client-columns)))
   
@@ -468,8 +463,8 @@
   (method protected virtual (insert-component component)
     (let ((labels (map (lambda (column)
                          (make-row-element component column))
-                       (cdr (get-columns)))))
-      (add-row children: (cons (new Tree-Node) labels) user-data: component)))
+                       (get-columns))))
+      (add-row children: labels user-data: component)))
   
   
   ;;;
@@ -515,13 +510,11 @@
         (when (eq? row-component (get-component~ row))
           (for-each-column
             (lambda (column column-rank)
-              ;; Because of the placeholder node column
-              (unless (zero? column-rank)
-                (let ((column-path (get-path~ column)))
-                  (for-each (lambda (path)
-                              (when (super-path? path column-path)
-                                (update-cell (new Cell row-rank column-rank))))
-                            paths)))))))))
+              (let ((column-path (get-path~ column)))
+                (for-each (lambda (path)
+                            (when (super-path? path column-path)
+                              (update-cell (new Cell row-rank column-rank))))
+                          paths))))))))
   
   
   (method (call-with-parsed-lineage component proc)

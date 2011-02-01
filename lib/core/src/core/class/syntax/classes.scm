@@ -285,7 +285,7 @@
 
 (jazz.define-class jazz.Slot jazz.Field (name) jazz.Object-Class jazz.allocate-slot
   ((offset     %%get-slot-offset     ())
-   (initialize %%get-slot-initialize ())))
+   (initialize %%get-slot-initialize %%set-slot-initialize)))
 
 
 ;;;
@@ -294,8 +294,8 @@
 
 
 (jazz.define-class jazz.Property jazz.Slot (name offset initialize) jazz.Object-Class jazz.allocate-property
-  ((getter %%get-property-getter ())
-   (setter %%get-property-setter ())))
+  ((getter %%get-property-getter %%set-property-getter)
+   (setter %%get-property-setter %%set-property-setter)))
 
 
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Catalogs Manager
+;;;; Projects Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,37 +35,51 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.catalog.tools.Catalogs-Manager jazz
+(module protected jazz.project.workbench.Projects-Manager jazz
 
 
 (import (jazz.catalog)
         (jazz.jml)
         (jazz.library)
+        (jazz.project)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window))
 
 
-(class undocumented Catalogs-Manager extends View
+(class undocumented Projects-Manager extends Layout-View
+  
+  
+  (slot hierarchical? initialize #t)
 
 
   (form
-    (<install>                                               size: {Dimension 553 608}
-      (<Push-Button>                   name: update          title: "Update" position: {Point 449 7} size: {Dimension 100 22} action-handler: {Event-Handler :form on-update} default?: #t)
-      (<Border-View>                   name: catalogs-border position: {Point 2 35} size: {Dimension 549 571} border-type: edge style: entry
+    (<install>                                               size: {Dimension 553 608} layout-type: border
+      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                                       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Display Flat / Hierarchical" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical})
+        (<Push-Button>                 name: update          title: "Update" size: {Dimension 100 22} location: tail action-handler: {Event-Handler :form on-update} default?: #t))
+      (<Border-View>                   name: projects-border location: center border-type: edge style: entry
         (<Scroller-View>                                     vscroll?: #t
           (<!>                         name: content         layout-type: fill
             (<Tree-Header>                                   style: document
               (<!>                     name: content
-                (<Tree-View>           name: catalogs        filled-column: name selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
-                  (<Tree-Node-Column>  name: name            title: "Name" width: 150 toplevel-controls?: #f display-images?: #f)
-                  (<Tree-Label-Column> name: references?     title: "References?" width: 100)
+                (<Tree-View>           name: projects        filled-column: name selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
+                  (<Tree-Node-Column>  name: name            title: "Name" width: 150)
                   (<Tree-Label-Column> name: statistics      title: "Statistics" width: 250)))))))))
   
   
   (method meta override (external-name . rest)
-    'catalogs-manager)
+    'projects-manager)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'projects))
   
   
   ;;;
@@ -75,7 +89,8 @@
   
   (method override (finish initargs)
     (nextmethod initargs)
-    (view-catalogs)
+    (set-hierarchical? hierarchical?)
+    (view-projects)
     (update-buttons))
     
   
@@ -89,7 +104,7 @@
   
   
   (method meta override (host-title)
-    "Catalogs Manager")
+    "Projects Manager")
   
   
   (method meta override (host-position)
@@ -105,7 +120,7 @@
   
   
   (method override (focus-default)
-    (acquire-focus~ (locate 'catalogs)))
+    (acquire-focus~ (get-tree)))
   
   
   ;;;
@@ -116,7 +131,20 @@
   (method override (resize dh dv)
     (nextmethod dh dv)
     (move-figure~ (locate 'update) dh 0)
-    (size-figure~ (locate 'catalogs-border) dh dv))
+    (size-figure~ (locate 'projects-border) dh dv))
+  
+  
+  (method (on-flat/hierarchical evt)
+    (set-hierarchical? (not hierarchical?))
+    (view-projects))
+  
+  
+  (method (set-hierarchical? flag)
+    (debug flag)
+    (set! hierarchical? flag)
+    (let ((node-column (get-node-column~ (get-tree))))
+      (set-toplevel-controls?~ (get-node-column~ (get-tree)) flag)
+      (set-display-images?~ node-column flag)))
   
   
   (method (on-selection-change evt)
@@ -128,22 +156,25 @@
   ;;;
 
 
-  (method public (view-catalogs)
-    (define (get-filing-catalogs)
-      (collect-if (lambda (catalog)
-                    (is? catalog Filing-Catalog))
-                  (get-catalogs~ (get-cataloguer~ (get-application)))))
+  (method public (view-projects)
+    (define (insert-workbench tree)
+      (insert-project tree #f (get-workbench) 0))
     
-    (let ((tree (locate 'catalogs)))
+    (define (insert-project tree row project level)
+      (let ((catalog (get-catalog~ project)))
+        (let ((c0 (new Tree-Node image: (get-component-image~ project) title: (get-presentation-property~ project)))
+              (c1 (new Tree-Label title: (if catalog (get-statistics~ catalog) ""))))
+          (let ((row (add-row~ tree father: row state: 'expanded children: (list c0 c1) user-data: project)))
+            (for-each (lambda (child)
+                        (when (is? child Project)
+                          (insert-project tree row child (+ level 1))))
+                      (get-children~ project))))))
+    
+    (let ((tree (get-tree)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (for-each (lambda (catalog)
-                      (let ((c0 (new Tree-Node title: (->string (get-name~ catalog))))
-                            (c1 (new Tree-Label title: (->string (get-references?~ catalog))))
-                            (c2 (new Tree-Label title: (get-statistics~ catalog))))
-                        (add-row~ tree children: (list c0 c1 c2) user-data: catalog)))
-                    (get-filing-catalogs))))))
+          (insert-workbench tree)))))
 
 
   (method package (on-update evt)
@@ -156,14 +187,14 @@
     (let ((sender (get-sender~ evt))
           (alt? (get-alt?~ evt)))
       (case (get-name~ sender)
-        ((catalogs)
+        ((projects)
          (with-cursor :wait
            (lambda ()
              (update-selection)))))))
   
   
   (method (update-selection)
-    (let* ((tree (locate 'catalogs))
+    (let* ((tree (get-tree))
            (selection (get-selection~ tree)))
       (define (effective-selection selection)
         (if (null? selection)
@@ -184,7 +215,7 @@
   
   
   (method (update-buttons)
-    (let ((tree (locate 'catalogs)))
+    (let ((tree (get-tree)))
       (let ((count (get-row-count~ tree)))
         (set-enabled?~ (locate 'update) (> count 0)))))
   

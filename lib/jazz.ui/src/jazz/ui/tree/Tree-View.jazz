@@ -2584,6 +2584,15 @@
   
   
   (method public (end-edition)
+    (define (find-editor-line editor col)
+      (continuation-capture
+        (lambda (return)
+          (for-each-visible-row
+            (lambda (row line)
+              (when (eq? editor (get-child~ row col))
+                (continuation-return return line))))
+          #f)))
+    
     (when edited-cell
       (let ((cell edited-cell)
             (editor cell-editor)
@@ -2594,17 +2603,21 @@
           (before-end cell))
         (set! edited-cell #f)
         (set! cell-editor #f)
-        (let ((preserved-data (get-preserved-data~ editor))
-              (merge-cell (safe-get-merge-cell (cell->site cell))))
-          (if merge-cell
-              (replace-cell (get-master-cell~ merge-cell) preserved-data)
-            (replace-cell cell preserved-data)))
-        (if close-cell-editor?
-            (close~ editor)
-          (set-parent~ editor #f))
-        (when after-end
-          (after-end cell))
-        (invalidate-rect bounds))))
+        (let* ((line (find-editor-line editor (get-col~ cell)))
+               (new-cell (new Cell line (get-col~ cell))))
+          (unless line
+            (break))
+          (let ((preserved-data (get-preserved-data~ editor))
+                (merge-cell (safe-get-merge-cell (cell->site new-cell))))
+            (if merge-cell
+                (replace-cell (get-master-cell~ merge-cell) preserved-data)
+              (replace-cell new-cell preserved-data)))
+          (if close-cell-editor?
+              (close~ editor)
+            (set-parent~ editor #f))
+          (when after-end
+            (after-end new-cell))
+          (invalidate-rect bounds)))))
   
   
   (method public (kill-edition)

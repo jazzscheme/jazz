@@ -224,26 +224,33 @@
   ;;;
   
   
+  (method (determine-client component)
+    (let ((editor-client (get-client~ editor))
+          (parent (get-parent~ component)))
+      (cond ((or (not parent) (not-null? (addable-classes component)))
+             (values component #f))
+            ((not-null? (addable-classes parent))
+             (values parent component))
+            ((eq? parent editor-client)
+             (values parent #f))
+            (else
+             (determine-client parent)))))
+  
+  
   (method override (selection-changed selection old origin force-parent? focus?)
-    (define (determine-client component force-parent?)
-      (let ((parent (get-parent~ component)))
-        (if (and parent (not-null? (addable-classes parent)) (or force-parent? (null? (addable-classes component))))
-            (values parent #t)
-          (values component #f))))
-    
     (unless (or (not origin) (eq? origin self))
       (if (null? selection)
           (begin
             (set-client (get-client~ editor))
             (set-selection '() generate-event?: #f))
         (let ((component (car selection)))
-          (receive (client parent?) (determine-client component force-parent?)
+          (receive (client selected) (determine-client component)
             (set-client client)
-            (if (not parent?)
-                (set-selection '() generate-event?: #f)
-              (let ((row (component-row component)))
-                (when row
-                  (set-selection (list (new Cell (row->line row) 0)) generate-event?: #t)))))))))
+            (if selected
+                (let ((row (component-row selected)))
+                  (when row
+                    (set-selection (list (new Cell (row->line row) 0)) generate-event?: #t)))
+              (set-selection '() generate-event?: #f)))))))
   
   
   ;;;
@@ -368,8 +375,7 @@
                        classes-properties)))))
     
     (let ((classes (map resolve-runtime-reference (addable-classes client))))
-      (if (null? classes)
-          (add-property-column '(name-info) "Name")
+      (when (not-null? classes)
         (let* ((addable-descriptors (map get-descriptor classes))
                (child-descriptors (append-map (lambda (descriptor)
                                                 (get-children~ (find-child~ descriptor 'children)))

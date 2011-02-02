@@ -60,6 +60,7 @@
   
   
   (slot form      initialize #f accessors generate)
+  (slot form-copy initialize #f accessors generate)
   (slot reference initialize #f getter generate)
   (slot listeners initialize '())
   (slot modified? initialize #f accessors generate)
@@ -92,7 +93,8 @@
     ;; (lazy approach) and if we need to rollback, set the original form
     ;; to the copy.
     (define (setup-class-form frm)
-      (set! form~self frm))
+      (set! form~self frm)
+      (set! form-copy (copy-object~ frm #t)))
     
     (define (setup-file-form frm)
       (set! form~self frm))
@@ -100,6 +102,17 @@
     (nextmethod)
     (set! reference~self reference)
     (setup-form form))
+  
+  
+  ;;;
+  ;;;; Revert
+  ;;;
+  
+  
+  (method public (revert)
+    (let ((origin (get-origin~ form)))
+      (when (class? origin)
+        (set-class-form~ origin form-copy))))
   
 
   ;;;

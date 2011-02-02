@@ -40,7 +40,8 @@
 
 (import (jazz.designer)
         (jazz.io)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class undocumented Component-Editor-Controller extends Document-Controller
@@ -50,6 +51,8 @@
   (method override (save)
     (save-content-patch~ document #f))
   
+  (method (revert)
+    (revert-content~ document #f))
   
   (method override (name-status)
     (define (find-origin)
@@ -67,6 +70,16 @@
                      (get-name~ origin))
                     (else
                      (category-name origin))))))
+  
+  
+  (method override (confirm-close)
+    (when (get-modified?)
+      (let ((code (message-box (format "Save changes to {a}?" (name-status))
+                               type: 'confirmation)))
+        (case code
+          ((yes) (save-all))
+          ((no) (revert))
+          ((cancel) (throw-cancel))))))
   
   
   (method override (update-moniker-time moniker)

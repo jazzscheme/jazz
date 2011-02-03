@@ -2088,17 +2088,20 @@
 
 
 (define (jazz.add-slot class slot-name slot-initialize slot-allocate?)
-  ;; this is a quicky that needs to be well tought out
-  (or (%%get-category-field class slot-name)
-      (let* ((instance-size (%%get-class-instance-size class))
-             (slot-offset (and slot-allocate? instance-size))
-             (slot (jazz.new-slot slot-name slot-offset slot-initialize)))
-        (jazz.add-field class slot)
-        (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
-        (%%when slot-allocate?
-          (%%set-class-instance-size class (%%fx+ instance-size 1)))
-        slot)))
+  (let ((actual (%%get-category-field class slot-name)))
+    (cond (actual
+           (%%set-slot-initialize actual slot-initialize)
+           actual)
+          (else
+           (let* ((instance-size (%%get-class-instance-size class))
+                  (slot-offset (and slot-allocate? instance-size))
+                  (slot (jazz.new-slot slot-name slot-offset slot-initialize)))
+             (jazz.add-field class slot)
+             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
+             (%%when slot-allocate?
+               (%%set-class-instance-size class (%%fx+ instance-size 1)))
+             slot)))))
 
 
 (define (jazz.remove-own-slots class)
@@ -2168,17 +2171,22 @@
 
 
 (define (jazz.add-property class slot-name slot-initialize slot-allocate? slot-getter slot-setter)
-  ;; this is a quicky that needs to be well tought out
-  (or (%%get-category-field class slot-name)
-      (let* ((instance-size (%%get-class-instance-size class))
-             (slot-offset (and slot-allocate? instance-size))
-             (slot (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)))
-        (jazz.add-field class slot)
-        (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
-        (%%when slot-allocate?
-          (%%set-class-instance-size class (%%fx+ instance-size 1)))
-        slot)))
+  (let ((actual (%%get-category-field class slot-name)))
+    (cond (actual
+           (%%set-slot-initialize actual slot-initialize)
+           (%%set-property-getter actual slot-getter)
+           (%%set-property-setter actual slot-setter)
+           actual)
+          (else
+           (let* ((instance-size (%%get-class-instance-size class))
+                  (slot-offset (and slot-allocate? instance-size))
+                  (slot (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)))
+             (jazz.add-field class slot)
+             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
+             (%%when slot-allocate?
+               (%%set-class-instance-size class (%%fx+ instance-size 1)))
+             slot)))))
 
 
 (jazz.encapsulate-class jazz.Property)

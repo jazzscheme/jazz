@@ -272,15 +272,16 @@
         (mutex-unlock! mutex)))))
 
 
-(definition (thread-console thread (select? #f))
-  (if (not controller-debugger)
-      #f
-    (with-consoles-mutex
-      (lambda ()
-        (or (table-ref *consoles* thread #f)
-            (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) select?)))
-              (table-set! *consoles* thread console)
-              console))))))
+(definition package (thread-console thread (debugger: debugger #f) (select?: select? #f))
+  (let ((debugger (or debugger controller-debugger)))
+    (if (not debugger)
+        #f
+      (with-consoles-mutex
+        (lambda ()
+          (or (table-ref *consoles* thread #f)
+              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) debugger select?)))
+                (table-set! *consoles* thread console)
+                console)))))))
 
 
 (definition package (thread-console-pump-port thread)
@@ -297,15 +298,15 @@
   (make-parameter #f))
 
 
-(definition (make-debuggee-console thread-proxy select?)
+(definition (make-debuggee-console thread-proxy debugger select?)
   (receive (head tail) (open-string-pipe (list permanent-close: #f readtable: jazz-readtable))
-    (let ((console (register-console~ controller-debugger local-process thread-proxy select?)))
-      (let ((pump (start-debuggee-console-pump console tail)))
+    (let ((console (register-console~ debugger local-process thread-proxy select?)))
+      (let ((pump (start-debuggee-console-pump debugger console tail)))
         (new Console console pump tail head)))))
 
 
 (definition package (select-console)
-  (select-console~ controller-debugger (get-remote~ (thread-console (current-thread) #t))))
+  (select-console~ controller-debugger (get-remote~ (thread-console (current-thread) select?: #t))))
 
 
 (definition (console-port-getter)
@@ -334,14 +335,14 @@
 ;;;
 
 
-(definition (start-debuggee-console-pump console port)
+(definition (start-debuggee-console-pump debugger console port)
   (thread-start!
     (new-system-thread
       (lambda ()
         (start-pump port
           (lambda (str)
-            (when controller-debugger
-              (console-output~ controller-debugger console str)))))
+            (when debugger
+              (console-output~ debugger console str)))))
       'debuggee-console-pump)))
 
 

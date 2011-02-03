@@ -907,6 +907,7 @@
   (define (object-file? file level)
     (let ((ext (jazz.pathname-extension file)))
       (or (jazz.extension? ext "c")
+          (jazz.extension? ext "dgs")
           (jazz.extension? ext "mnf")
           (jazz.extension? ext "o")
           (jazz.numeric-extension? ext "o"))))

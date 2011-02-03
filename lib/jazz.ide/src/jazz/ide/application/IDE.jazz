@@ -987,23 +987,19 @@
   ;;;
   
   
-  (method (on-update-catalogs evt)
-    (let ((main (get-main~ (get-preferences 'catalogs))))
-      (if (not main)
-          (message-box "No main catalogs defined in your Catalogs preferences")
-        (with-cursor :wait
-          (lambda ()
-            (if (eq? main #t)
-                (for-each (lambda (catalog)
-                            (update~ catalog))
-                          (get-catalogs~ cataloguer))
-              (for-each (lambda (name)
-                          (update~ (get-catalog~ cataloguer name)))
-                        (listify main))))))))
-
-  
   (method (on-projects-manager evt)
     (let ((frame (find-frame-host Projects-Manager)))
       (if frame
           (focus-host~ frame)
-        (new-frame Projects-Manager))))))
+        (new-frame Projects-Manager))))
+
+  
+  (method (on-update-catalogs evt)
+    (with-cursor :wait
+      (lambda ()
+        (for-each-active-project~ (get-workbench)
+          (lambda (project)
+            (let ((catalog (get-catalog~ project)))
+              (when catalog
+                (update~ catalog))))
+          include-self?: #t))))))

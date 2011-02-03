@@ -161,7 +161,7 @@
   
   
   (method public (load-catalog)
-    (when catalog?
+    (when (and active? catalog?)
       (let ((catalog (require-catalog)))
         (activate~ catalog report?: #f)
         (setup-contexts~ catalog)
@@ -169,7 +169,8 @@
   
   
   (method public (load-catalogs)
-    (for-each-project load-catalog~ include-self?: #t))
+    (for-each-active-project load-catalog~
+                             include-self?: #t))
   
   
   (method override (require-catalog)
@@ -217,12 +218,20 @@
   ;;;
   
   
-  (method public (for-each-project proc (include-self?: include-self? #f))
+  (method public (for-each-project proc (include-self?: include-self? #f) (stop-test: stop-test #f))
     (for-each-descendant
       (lambda (descendant level)
         (when (is? descendant Project)
           (proc descendant)))
-      include-self?: include-self?))
+      include-self?: include-self?
+      stop-test: stop-test))
+  
+  
+  (method public (for-each-active-project proc (include-self?: include-self? #f))
+    (for-each-project proc
+                      include-self?: include-self?
+                      stop-test: (lambda (project)
+                                   (not (get-active?~ project)))))
 
 
   ;;;

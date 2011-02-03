@@ -38,8 +38,7 @@
 (module protected jazz.designer.editor.Component-Editor jazz
 
 
-(import (jazz.debuggee)
-        (jazz.designer)
+(import (jazz.designer)
         (jazz.designer.view)
         (jazz.editor.jazz)
         (jazz.io)
@@ -51,7 +50,6 @@
         (jazz.platform)
         (jazz.ui)
         (jazz.ui.view)
-        (jazz.runtime)
         (jazz.system))
 
 
@@ -442,88 +440,16 @@
   
   ;; temp patch to make saving in the view designer work
   (method public (save-content-patch moniker)
-    (let ((toolbox-manager (find-docked Toolbox-Manager)))
-      (process-saving)
-      (or (and toolbox-manager (save-content-with-toolbox toolbox-manager))
-          (designer-save))
-      (update-moniker-time moniker)
-      (if (not (get-modified?))
-          (update-status)
-        (set-modified? #f))))
+    (process-saving)
+    (designer-save)
+    (update-moniker-time moniker)
+    (if (not (get-modified?))
+        (update-status)
+      (set-modified? #f)))
   
   
-  (method (insert-new-class form module-name class-name)
-    (let ((super-class (get-model~ form))
-          (new-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form)))
-          (file (find-unit-source module-name))
-          (reference (get-reference)))
-      (let* ((frame (edit-document~ (get-application) file class: Jazz-Text-View visible?: #f))
-             (text (get-guest~ frame))
-             (explorer (new Jazz-Explorer text)))
-        (forward-namespace~ explorer)
-        (forward-expr~ explorer)
-        (set-caret~ text (get-end~ explorer))
-        (let ((str (format "{%}{%}{%}(class {a} extends {a}{%}{%}{%}{a})" class-name super-class (form->string new-form 2))))
-          (insert-string~ text str)
-          (forward-expr~ explorer)
-          (set-selection~ text (get-range~ explorer))
-          (tabulate~ text)
-          (save~ text)
-          (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (get-range~ explorer)))
-          (let* ((class (module-ref module-name class-name))
-                 (new-form (get-class-form~ class)))
-            ;; Changing object class. Unsafe.
-            (set-object-slot reference 0 class)
-            (for-each (lambda (designer)
-                        (set-form~ designer new-form)
-                        (process-property-change~ designer #f reference (category-field class 'class-info) (get-class-presentation~ class) #f)) 
-                      (get-designers~ reference)))
-          (close~ frame)
-          #t))))
-  
-  
-  (method (save-content-with-toolbox toolbox-manager)
-    (define (parse-class-name class-string)
-      (let ((content (with-exception-catcher
-                       (lambda (err) #f)
-                       (lambda () (read-string-content class-string)))))
-        (and content
-             (= 1 (length content))
-             (symbol? (car content))
-             (car content))))
-    
-    (define (validate-class-name module-name class-name)
-      (if class-name
-          (let* ((not-found (list #f))
-                 (ref (module-get module-name class-name not-found: not-found)))
-            (if (eq? ref not-found)
-                class-name
-              (designer-error "Existing class")))
-        (designer-error "Invalid class name")))
-    
-    (define (validate-module-name module-name)
-      (if module-name
-          (with-exception-catcher
-            (lambda (exc)
-              (designer-error "Non-existant module"))
-            (lambda ()
-              (require-module module-name)))
-          (designer-error "Empty module")))
-    
-    (and (not (get-origin~ (get-form~ (get-designer))))
-         (let* ((modules (get-module-names~ toolbox-manager))
-                (result (get-modal Save-Chooser modules: modules)))
-           (cond ((is? result File)
-                  (set-origin~ (get-form~ designer) result)
-                  #f)
-                 (else
-                  (bind (module-name class-string) result
-                    (with-safe-design
-                      (lambda ()
-                        (let ((class-name (parse-class-name class-string)))
-                          (validate-module-name module-name)
-                          (validate-class-name module-name class-name)
-                          (insert-new-class (get-form~ designer) module-name class-name))))))))))
+  (method (revert-content _)
+    (revert~ designer))
   
   
   (method protected virtual (designer-save)

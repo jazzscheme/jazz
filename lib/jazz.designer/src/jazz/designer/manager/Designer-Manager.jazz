@@ -69,7 +69,7 @@
       (<Separator>)
       (<Toggle-Tool>   name: try-out     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" resource: {Image-Resource "Trait"} portfolio: :images action-handler: {Event-Handler :form on-toggle-try-out})
       (<Separator>)
-      (<Push-Tool>     name: edit-form   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Source form" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :form on-edit-form})))
+      (<Push-Tool>     name: edit-form   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Source" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :form on-edit-form})))
   
   
   (method meta override (external-name . rest)
@@ -91,7 +91,7 @@
   
   (method override (client-activate)
     (let ((guest (current-document)))
-      (let ((client (and (is? guest View-Editor) guest)))
+      (let ((client (and (is? guest Component-Editor) guest)))
         (set-client client))))
   
   
@@ -136,7 +136,10 @@
   
   
   (method (on-toggle-try-out evt)
-    (toggle-try-out~ client))
+    (let ((component (get-client~ client)))
+      (when (or (is-not? component View)
+                (not (try-out~ (get-surrogate~ component))))
+        (toggle-try-out~ client))))
   
   
   (method (on-edit-form evt)
@@ -170,19 +173,20 @@
   
   
   (method (client-update)
-    (set-enabled?~ (locate 'mode-select) client)
-    @wait
-    (set-enabled?~ (locate 'mode-rect) client)
-    (set-enabled?~ (locate 'edit-form) client)
-    (let ((frames-button (locate 'frames))
-          (content-button (locate 'content))
-          (try-out-button (locate 'try-out)))
-      (set-enabled?~ frames-button client)
-      (set-enabled?~ content-button client)
-      (set-enabled?~ try-out-button client)
-      (set-selected?~ frames-button (and client (get-show-frames?~ client)))
-      (set-selected?~ content-button (and client (get-show-content?~ client)))
-      (set-selected?~ try-out-button (and client (trying-out?~ client)))))
+    (let ((view-editor? (and client (is? client View-Editor))))
+      (set-enabled?~ (locate 'mode-select) view-editor?)
+      @wait
+      (set-enabled?~ (locate 'mode-rect) view-editor?)
+      (let ((frames-button (locate 'frames))
+            (content-button (locate 'content))
+            (try-out-button (locate 'try-out)))
+        (set-enabled?~ frames-button view-editor?)
+        (set-enabled?~ content-button view-editor?)
+        (set-enabled?~ try-out-button view-editor?)
+        (set-selected?~ frames-button (and view-editor? (get-show-frames?~ client)))
+        (set-selected?~ content-button (and view-editor? (get-show-content?~ client)))
+        (set-selected?~ try-out-button (and view-editor? (trying-out?~ client))))
+      (set-enabled?~ (locate 'edit-form) client)))
   
   
   ;;;

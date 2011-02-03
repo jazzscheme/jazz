@@ -2075,13 +2075,14 @@
                            ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin?: #t))
                            ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin?: #t))))))
                 (control?
-                 (if (member? element selection)
-                     (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin?: #t)
-                   (set-selection (cons element selection) set-pivot?: #f user-origin?: #t))
-                 (when (and selection-pivot (= element selection-pivot))
-                   (cond ((null? selection) (set! selection-pivot #f))
-                         ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
-                         ((> selection-pivot (last selection)) (set! selection-pivot (last selection)))))))
+                  (if (member? element selection)
+                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin?: #t)
+                    (set-selection (cons element selection) set-pivot?: #f user-origin?: #t))
+                  (unless (eq? selection-mode 'cell)
+                    (when (and selection-pivot (= element selection-pivot))
+                      (cond ((null? selection) (set! selection-pivot #f))
+                            ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
+                            ((> selection-pivot (last selection)) (set! selection-pivot (last selection))))))))
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
           (delay-selection~ selection-manager))
         (set! selection-pivot element)
@@ -2251,15 +2252,16 @@
   
   
   (method public (with-deleted-selection selection proc (can-survive?: can-survive? #f))
-    (let ((data (and can-survive? (get-selection-data selection)))
-          (smallest (apply min selection)))
+    (let* ((selected-lines (if (eq? selection-mode 'cell) (map get-line~ selection) selection))
+           (data (and can-survive? (get-selection-data selected-lines)))
+           (smallest (apply min selected-lines)))
       (proc)
       (let ((sel (and can-survive? (remove-false (map user-data-index data)))))
         (if (and can-survive? (= (length selection) (length sel)))
             (set-selection sel)
           (when (and smallest (> smallest 0))
             (let ((previous (- smallest 1)))
-              (set-single-selection previous)))))))
+              (set-single-selection (if (eq? selection-mode 'cell) (new Cell previous 0) previous))))))))
   
   
   (method (selection->rows selection)
@@ -2584,6 +2586,15 @@
   
   
   (method public (end-edition)
+    (define (find-editor-line editor col)
+      (continuation-capture
+        (lambda (return)
+          (for-each-visible-row
+            (lambda (row line)
+              (when (eq? editor (get-child~ row col))
+                (continuation-return return line))))
+          #f)))
+    
     (when edited-cell
       (let ((cell edited-cell)
             (editor cell-editor)
@@ -2594,17 +2605,21 @@
           (before-end cell))
         (set! edited-cell #f)
         (set! cell-editor #f)
-        (let ((preserved-data (get-preserved-data~ editor))
-              (merge-cell (safe-get-merge-cell (cell->site cell))))
-          (if merge-cell
-              (replace-cell (get-master-cell~ merge-cell) preserved-data)
-            (replace-cell cell preserved-data)))
-        (if close-cell-editor?
-            (close~ editor)
-          (set-parent~ editor #f))
-        (when after-end
-          (after-end cell))
-        (invalidate-rect bounds))))
+        (let* ((line (find-editor-line editor (get-col~ cell)))
+               (new-cell (new Cell line (get-col~ cell))))
+          (unless line
+            (break))
+          (let ((preserved-data (get-preserved-data~ editor))
+                (merge-cell (safe-get-merge-cell (cell->site new-cell))))
+            (if merge-cell
+                (replace-cell (get-master-cell~ merge-cell) preserved-data)
+              (replace-cell new-cell preserved-data)))
+          (if close-cell-editor?
+              (close~ editor)
+            (set-parent~ editor #f))
+          (when after-end
+            (after-end new-cell))
+          (invalidate-rect bounds)))))
   
   
   (method public (kill-edition)

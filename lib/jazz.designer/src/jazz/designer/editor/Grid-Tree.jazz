@@ -187,10 +187,11 @@
   
   
   (form
-    (<install> reorderable?: #t multiple-selection?: #f selection-mode: cell selection-handler: {Event-Handler :self on-selection-change}))
+    (<install> reorderable?: #t multiple-selection?: #t selection-mode: cell selection-handler: {Event-Handler :self on-selection-change}))
   
   
-  (definition Default-Width 100)
+  (definition Default-Class-Width 150)
+  (definition Default-Property-Width 100)
   
   
   (method override (on-return-press evt)
@@ -219,31 +220,49 @@
     (nextmethod evt))
   
   
+  (method (cells->lines cells)
+    (sort < (remove-duplicates (map get-line~ cells))))
+  
+  
+  (method override (selected-components)
+    (map get-selection-component
+         (map (lambda (line)
+                (new Cell line 0))
+              (cells->lines (get-selection)))))
+  
+  
   ;;;
   ;;;; Editor
   ;;;
   
   
+  (method (determine-client component)
+    (let ((editor-client (get-client~ editor))
+          (parent (get-parent~ component)))
+      (cond ((or (not parent) (not-null? (addable-classes component)))
+             (values component #f))
+            ((not-null? (addable-classes parent))
+             (values parent component))
+            ((eq? parent editor-client)
+             (values parent #f))
+            (else
+             (determine-client parent)))))
+  
+  
   (method override (selection-changed selection old origin force-parent? focus?)
-    (define (determine-client component force-parent?)
-      (let ((parent (get-parent~ component)))
-        (if (and parent (not-null? (addable-classes parent)) (or force-parent? (null? (addable-classes component))))
-            (values parent #t)
-          (values component #f))))
-    
     (unless (or (not origin) (eq? origin self))
       (if (null? selection)
           (begin
             (set-client (get-client~ editor))
             (set-selection '() generate-event?: #f))
         (let ((component (car selection)))
-          (receive (client parent?) (determine-client component force-parent?)
+          (receive (client selected) (determine-client component)
             (set-client client)
-            (if (not parent?)
-                (set-selection '() generate-event?: #f)
-              (let ((row (component-row component)))
-                (when row
-                  (set-selection (list (new Cell (row->line row) 1)) generate-event?: #t)))))))))
+            (if selected
+                (let ((row (component-row selected)))
+                  (when row
+                    (set-selection (list (new Cell (row->line row) 0)) generate-event?: #t)))
+              (set-selection '() generate-event?: #f)))))))
   
   
   ;;;
@@ -336,16 +355,12 @@
         (insert-rows))))
   
   
-  (method (setup-node-column)
-    (set-visible?~ (get-node-column) #f))
-  
-  
   (method (add-class-column path title)
-    (add-column class: Grid-Column title: title width: Default-Width user-data: (append path '(class-info)) class-column?: #t))
+    (add-column class: Grid-Column title: title width: Default-Class-Width user-data: (append path '(class-info)) class-column?: #t))
   
   
   (method (add-property-column path title (read-only? #f))
-    (add-column class: Grid-Column title: title width: Default-Width user-data: path class-column?: #f read-only?: read-only?))
+    (add-column class: Grid-Column title: title width: Default-Property-Width user-data: path class-column?: #f read-only?: read-only?))
   
   
   (method (setup-client-columns)
@@ -363,17 +378,13 @@
         (apply for-each (lambda (class property)
                           (add-property-column
                             (append target (list (get-name~ property)))
-                            (let ((presentation (property-presentation~ class property)))
-                              (if (null? target)
-                                  presentation
-                                (string-append title " " presentation)))))
+                            (property-presentation~ class property)))
           (apply zip (apply union key: (lambda (class+property)
                                          (get-name~ (second class+property)))
                        classes-properties)))))
     
     (let ((classes (map resolve-runtime-reference (addable-classes client))))
-      (if (null? classes)
-          (add-property-column '(name-info) "Name")
+      (when (not-null? classes)
         (let* ((addable-descriptors (map get-descriptor classes))
                (child-descriptors (append-map (lambda (descriptor)
                                                 (get-children~ (find-child~ descriptor 'children)))
@@ -390,8 +401,7 @@
   
   (method (setup-columns)
     (set-filled-column #f)
-    (remove-columns preserve-node-column?: #t)
-    (setup-node-column)
+    (remove-columns)
     (when client
       (setup-client-columns)))
   
@@ -468,8 +478,8 @@
   (method protected virtual (insert-component component)
     (let ((labels (map (lambda (column)
                          (make-row-element component column))
-                       (cdr (get-columns)))))
-      (add-row children: (cons (new Tree-Node) labels) user-data: component)))
+                       (get-columns))))
+      (add-row children: labels user-data: component)))
   
   
   ;;;
@@ -515,13 +525,11 @@
         (when (eq? row-component (get-component~ row))
           (for-each-column
             (lambda (column column-rank)
-              ;; Because of the placeholder node column
-              (unless (zero? column-rank)
-                (let ((column-path (get-path~ column)))
-                  (for-each (lambda (path)
-                              (when (super-path? path column-path)
-                                (update-cell (new Cell row-rank column-rank))))
-                            paths)))))))))
+              (let ((column-path (get-path~ column)))
+                (for-each (lambda (path)
+                            (when (super-path? path column-path)
+                              (update-cell (new Cell row-rank column-rank))))
+                          paths))))))))
   
   
   (method (call-with-parsed-lineage component proc)

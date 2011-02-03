@@ -55,16 +55,16 @@
 
 
   (form
-    (<install>                                               size: {Dimension 553 608} layout-type: border
+    (<install>                                               size: {Dimension 553 508} layout-type: border
       (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Toggle-Tool>                                       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Display Flat / Hierarchical" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical})
+        @wait (<Toggle-Tool>                                       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Display Flat / Hierarchical" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical})
         (<Push-Button>                 name: update          title: "Update" size: {Dimension 100 22} location: tail action-handler: {Event-Handler :form on-update} default?: #t))
       (<Border-View>                   name: projects-border location: center border-type: edge style: entry
         (<Scroller-View>                                     vscroll?: #t
           (<!>                         name: content         layout-type: fill
             (<Tree-Header>                                   style: document
               (<!>                     name: content
-                (<Tree-View>           name: projects        filled-column: name selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
+                (<Tree-View>           name: projects        filled-column: name portfolio: :images selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
                   (<Tree-Node-Column>  name: name            title: "Name" width: 150)
                   (<Tree-Label-Column> name: statistics      title: "Statistics" width: 250)))))))))
   
@@ -112,7 +112,7 @@
   
   
   (method meta override (host-size)
-    {Dimension 573 508})
+    {Dimension 573 408})
   
   
   (method override (host-workspaces)
@@ -140,7 +140,6 @@
   
   
   (method (set-hierarchical? flag)
-    (debug flag)
     (set! hierarchical? flag)
     (let ((node-column (get-node-column~ (get-tree))))
       (set-toplevel-controls?~ (get-node-column~ (get-tree)) flag)
@@ -161,14 +160,27 @@
       (insert-project tree #f (get-workbench) 0))
     
     (define (insert-project tree row project level)
-      (let ((catalog (get-catalog~ project)))
-        (let ((c0 (new Tree-Node image: (get-component-image~ project) title: (get-presentation-property~ project)))
+      (let ((catalog (get-catalog~ project))
+            (handler (new Event-Handler execute: (lambda (evt) (set-active? project (get-checked?~ (get-sender~ evt)))))))
+        (let ((state (if (= level 0) 'expanded 'collapsed))
+              (c0 (new Check-Box title: (get-presentation-property~ project) checked?: (get-active?~ project) content-change-handler: handler))
               (c1 (new Tree-Label title: (if catalog (get-statistics~ catalog) ""))))
-          (let ((row (add-row~ tree father: row state: 'expanded children: (list c0 c1) user-data: project)))
-            (for-each (lambda (child)
-                        (when (is? child Project)
-                          (insert-project tree row child (+ level 1))))
-                      (get-children~ project))))))
+          (let ((row (add-row~ tree father: row state: state children: (list c0 c1) user-data: project)))
+            (insert-children tree row project (+ level 1))))))
+    
+    (define (insert-children tree row component level)
+      (for-each (lambda (child)
+                  (cond ((and (is? child Project)
+                              (not (concrete?~ child)))
+                         (insert-project tree row child level))
+                        ((is? child Project-Group)
+                         (insert-children tree row child level))))
+                (get-children~ component)))
+    
+    (define (set-active? project flag)
+      (let ((workbench-manager (get-workbench-manager~ (get-application))))
+        (when workbench-manager
+          (set-project-active?~ workbench-manager project flag))))
     
     (let ((tree (get-tree)))
       (remove-every-row~ tree)
@@ -194,24 +206,35 @@
   
   
   (method (update-selection)
-    (let* ((tree (get-tree))
-           (selection (get-selection~ tree)))
-      (define (effective-selection selection)
-        (if (null? selection)
-            (naturals 0 (get-row-count~ tree))
-          selection))
+    (let ((tree (get-tree)))
+      (define (effective-rows)
+        (let ((selected-rows (get-selected-rows~ tree)))
+          (if (null? selected-rows)
+              (collect-rows~ tree)
+            selected-rows)))
       
       (post-catalog
         (lambda ()
-          (for-each (lambda (line)
-                      (let ((catalog (get-user-data~ (get-row~ tree line))))
-                        (update~ catalog)
-                        (execute-event
-                          (lambda ()
-                            (let ((cell (new Cell line 2)))
-                              (set-title~ (get-cell-data~ tree cell) (get-statistics~ catalog))
-                              (invalidate-cell~ tree cell))))))
-                    (effective-selection selection))))))
+          (define (update-project project)
+            (when (get-active?~ project)
+              (let ((catalog (get-catalog~ project)))
+                (when catalog
+                  (update~ catalog)
+                  (execute-event
+                    (lambda ()
+                      (let ((row (user-data-row~ tree project visible?: #f)))
+                        (let ((data (second (get-children~ row))))
+                          (set-title~ data (get-statistics~ catalog)))
+                        (let ((line (row->line~ tree row)))
+                          (when line
+                            (let ((cell (new Cell line 1)))
+                              (invalidate-cell~ tree cell)))))))))))
+          
+          (for-each (lambda (row)
+                      (let ((project (get-user-data~ row)))
+                        (for-each-project~ project update-project
+                          include-self?: #t)))
+                    (effective-rows))))))
   
   
   (method (update-buttons)

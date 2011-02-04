@@ -890,8 +890,8 @@
                 ((jazz.add-virtual-method)
                  `(begin
                     ,(if (%%eq? abstraction 'abstract)
-                         `(define (,method-locator . rest)
-                            (jazz.call-into-abstract ',class-locator ',name))
+                         `(define (,method-locator self . rest)
+                            (jazz.call-into-abstract ',class-locator ',name self rest))
                        `(define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                           ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                           (let ()

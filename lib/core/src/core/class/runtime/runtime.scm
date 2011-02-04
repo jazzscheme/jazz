@@ -207,7 +207,7 @@
                                             (%%vector-set! category-vtable
                                                            (%%get-method-implementation-rank field)
                                                            (lambda (object . rest)
-                                                             (jazz.call-into-abstract (%%get-category-identifier (jazz.class-of object)) field-name))))))
+                                                             (jazz.call-into-abstract (%%get-category-identifier (jazz.class-of object)) field-name object rest))))))
                                       (%%vector-set! vtable rank category-vtable))))))
                             (%%get-category-ancestors class))
       (%%set-class-interface-table class vtable))))
@@ -2436,7 +2436,7 @@
   (jazz.error "Dispatch table contains non-method, parameters are {l}" rest))
 
 
-(define (jazz.call-into-abstract class method)
+(define (jazz.call-into-abstract class method object arguments)
   (jazz.error "Cannot call abstract method {s} on a {s}" method class))
 
 

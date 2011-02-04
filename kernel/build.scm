@@ -1057,13 +1057,15 @@
   
   (define (build-recursive target configuration image)
     (let ((configuration-name (jazz.configuration-name configuration)))
-      (let ((argument (string-append (if configuration-name
+      (let ((jam (string-append jazz.source "jam"))
+            (argument (string-append (if configuration-name
                                          (jazz.format "{a}@{a}" target configuration-name)
                                        (symbol->string target))
                                      (if image
                                          (string-append ":" (symbol->string image))
                                        ""))))
-        (jazz.call-process "sh" `("jam" "make" ,argument)))))
+        (jazz.call-process "sh" `(,jam "make" ,argument)))))
+  
   (if local?
       (build-kernel configuration image)
     (build-recursive 'kernel configuration image)))

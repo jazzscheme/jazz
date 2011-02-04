@@ -334,11 +334,13 @@
                           (jazz.load-repository dir error?: #f)))
                       source-repositories)
       ,@(listify build)
-      ,@(listify jazz)))
+      ,@(if jazz
+            (%%list jazz)
+          '())))
   
   (let ((build (jazz.make-repository 'Build "lib" (or (jazz.build-repository) jazz.kernel-install) binary?: #t create?: #t))
-        (jazz (jazz.make-repository 'Jazz "lib" (or (jazz.jazz-repository) jazz.kernel-source)))
-        (source-repositories (or jazz.kernel-source-repositories '()))
+        (jazz (and (jazz.source-access?) (jazz.make-repository 'Jazz "lib" (or (jazz.jazz-repository) jazz.kernel-source))))
+        (source-repositories (or (and (jazz.source-access?) jazz.kernel-source-repositories) '()))
         (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
     (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz source-repositories repositories)))))

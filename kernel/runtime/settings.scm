@@ -55,6 +55,9 @@
 (jazz.define-setting jazz.repositories
   #f)
 
+(jazz.define-setting jazz.source-access?
+  #t)
+
 
 ;;;
 ;;;; Verbose

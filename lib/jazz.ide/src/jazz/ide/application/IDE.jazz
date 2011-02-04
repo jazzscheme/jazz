@@ -464,6 +464,66 @@
       command-arguments: command-arguments
       show-console?: show-console?
       wait?: wait?))
+
+
+  ;;;
+  ;;;; Console
+  ;;;
+
+
+  (method public (fresh-prompt (text: text #f))
+    (let ((text (or text (get-console-text))))
+      (when text
+        (fresh-prompt~ text))))
+  
+  
+  (method package (on-console evt)
+    (let ((focus (get-focus))
+          (text (show-console)))
+      (when (and text (eq? text focus))
+        (cond ((or (not (at-end?~ text))
+                   (extended?~ (last-block~ text)))
+               (fresh-prompt~ text))
+              ((not (cell-displayed?~ text (get-end~ text)))
+               (ensure-displayed~ text))
+              (else
+               (select-next-console~ (get-console-manager)))))))
+  
+  
+  (method public (show-console (class: class Lisp-Console-Manager)
+                               (workspace: workspace 'home)
+                               (focus?: focus? #t))
+    (let ((manager (select-docked class workspace: workspace)))
+      (when (and manager focus?)
+        (let ((text (get-text~ manager)))
+          (if (not text)
+              (bell)
+            (acquire-focus~ text))
+          text))))
+  
+  
+  (method package (on-clear-console evt)
+    (clear-console~ (get-console-text)))
+  
+  
+  (method package (on-sql-console evt)
+    (let ((had-focus? (is? (get-focus) SQL-Console-Text-View)))
+      (show-console class: SQL-Console-Manager workspace: 'sql)
+      (when had-focus?
+        (fresh-prompt text: (get-sql-console-text)))))
+  
+  
+  (method (on-sql-connections evt)
+    (select-docked SQL-Connections-Manager workspace: 'sql focus?: #t))
+  
+  
+  @convert
+  (method (on-sql-inventory evt)
+    (select-docked Inventory-Browser workspace: 'sql focus?: #t))
+  
+  
+  (method (on-sql-tree-output evt)
+    (select-docked SQL-Tree-Output 'sql focus?: #t))
   
   
   ;;;

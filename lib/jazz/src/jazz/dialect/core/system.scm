@@ -61,6 +61,10 @@
       (%%substring arg start len))))
 
 
+(define jazz.kernel-runtime-options-with-no-args
+  '("nosource"))
+
+
 (define (jazz.command-argument name)
   (if (eq? jazz.image 'executable)
       (let ((all (%%cdr (command-line))))
@@ -68,7 +72,9 @@
           (if (%%null? arguments)
               #f
             (let ((arg (%%car arguments)))
-              (cond ((or (%%not (jazz.switch? arg))
+              (cond ((%%member (jazz.switch-name arg) jazz.kernel-runtime-options-with-no-args)
+                     (iter (%%cdr arguments)))
+                    ((or (%%not (jazz.switch? arg))
                          (%%null? (%%cdr arguments)))
                      (jazz.error "Unable to parse command line: {a}" all))
                     ((%%equal? name (jazz.switch-name arg))

@@ -77,6 +77,7 @@
 (native jazz.build-unit)
 (native jazz.build-image)
 (native jazz.for-each-subunit)
+(native jazz.load-manifest)
 
 
 ;;;

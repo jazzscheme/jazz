@@ -41,6 +41,7 @@
 (import (jazz.graphic)
         (jazz.jml)
         (jazz.platform)
+        (jazz.project)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
@@ -58,7 +59,7 @@
           (<Label-View>                          title: "Project:" position: {Point 115 21} size: {Dimension 46 16})
           (<Border-View>                         position: {Point 163 17} size: {Dimension 155 22} border-insets: {Rect 2 3 2 1} border-color: {Color Medium}
             (<Border-View>                       border-color: {Color Entry-Border}
-              (<Catalog-Combo> name: catalog     condensed?: #t)))
+              (<Project-Combo> name: project)))
           (<Label-View>                          title: "Entries:" position: {Point 115 45} size: {Dimension 46 16})
           (<Border-View>                         position: {Point 163 41} size: {Dimension 155 22} border-insets: {Rect 2 3 2 1} border-color: {Color Medium}
             (<Border-View>                       border-color: {Color Entry-Border}
@@ -66,21 +67,24 @@
   
   
   (method override (finish rest)
-    (define (setup-catalogs)
-      (define (collect-catalogs)
-        (map (lambda (catalog)
-               (list catalog (->string (get-name~ catalog))))
-             (get-catalogs~ (get-cataloguer~ (get-application)))))
+    (define (setup-projects)
+      (define (collect-projects workbench)
+        (cons (project-entry workbench)
+              (map project-entry (get-children~ workbench))))
       
-      (let ((combo (locate 'catalog)))
-        (set-choices~ combo (cons (list #f "All") (cons #f (collect-catalogs))))
-        (set-value~ combo #f))
+      (define (project-entry project)
+        (list project (->string (get-presentation-property~ project))))
+      
+      (let ((workbench (get-workbench))
+            (combo (locate 'project)))
+        (set-choices~ combo (collect-projects workbench))
+        (set-value~ combo workbench))
       (let ((combo (locate 'entries)))
         (set-choices~ combo (list (list #f "All")))
         (set-value~ combo #f)))
     
     (nextmethod rest)
-    (setup-catalogs))
+    (setup-projects))
   
 
   ;;;
@@ -98,7 +102,7 @@
   ;;;
   
   
-  (method (catalog-change catalog)
+  (method (project-change project)
     )
     
 
@@ -109,11 +113,10 @@
   
   (method override (search-targets search-set)
     (define (search-targets-definitions search-set)
-      (let ((catalog (selected-catalog))
+      (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
-        (let ((definitions (if catalog
-                               (search-definitions~ catalog search-set)
-                             (search-definitions~ cataloguer search-set))))
+        (let ((definitions (search-definitions~ cataloguer search-set context: project)))
+          (debug search-set definitions)
           (if (null? definitions)
               (message-box "No search results found")
             (case (length definitions)
@@ -124,11 +127,9 @@
                       (select-results~ results))))))))
     
     (define (search-targets-references search-set)
-      (let ((catalog (selected-catalog))
+      (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
-        (let ((references (if catalog
-                              (search-references~ catalog search-set)
-                            (search-references~ cataloguer search-set))))
+        (let ((references (search-references~ cataloguer search-set context: project)))
           (if (null? references)
               (message-box "No search results found")
             (case (length references)
@@ -151,20 +152,20 @@
   ;;;
   
   
-  (method (selected-catalog)
-    (get-value~ (locate 'catalog))))
+  (method (selected-project)
+    (get-value~ (locate 'project))))
 
 
 ;;;
-;;;; Catalog
+;;;; Project
 ;;;
 
 
-(class Catalog-Combo extends Combo-Box
+(class Project-Combo extends Combo-Box
   
   
   (method override (content-change origin)
-    (catalog-change~ (get-creator) (get-value))))
+    (project-change~ (get-creator) (get-value))))
 
 
 ;;;

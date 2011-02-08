@@ -76,26 +76,18 @@
   (slot local-debugger    initialize #f)
   (slot snapshot-debugger initialize #f)
   (slot cataloguer        initialize (new Workbench-Cataloguer))
-  (slot catalog-context   initialize #f)
-  (slot catalog-file      initialize #f)
   (slot search            initialize #f)
   (slot recorder          initialize (new Macro-Recorder))
   
   
   (method override (install-process)
     (nextmethod)
-    (start-debuggers)
-    (set-catalog-context 'jazz))
+    (start-debuggers))
 
 
   (method override (prepare-workbench)
     (nextmethod)
     (setup-workbench))
-  
-  
-  (method override (workspace-installed)
-    (nextmethod)
-    (update-catalog-context))
   
   
   (method override (finalize-process)
@@ -260,33 +252,12 @@
   
   
   ;;;
-  ;;;; Catalog
+  ;;;; Cataloguer
   ;;;
 
 
   (method override (get-cataloguer)
     cataloguer)
-
-
-  (method override (get-catalog-context)
-    catalog-context)
-        
-  
-  (method public (update-catalog-context)
-    (set-catalog-context (get-catalog-context)))
-  
-  
-  (method public (set-catalog-context context)
-    (when context
-      (let ((title (case context ((jazz) "Jazz") ((c) "C")))
-            (icon (case context ((jazz) {Image-Resource "Script"}) ((c) {Image-Resource "Java"})))
-            (status (find-docked~ toplevel IDE-Status)))
-        (when status
-          (let ((mode (find-component~ status 'mode)))
-            (when mode
-              (set-icon~ mode icon)
-              (set-title~ mode title))))
-        (set! catalog-context context))))
   
   
   ;;;
@@ -650,7 +621,7 @@
   ;;;
 
   
-  (method override (edit-definitions object (class: class #f) (context: context catalog-context) (workspace: workspace #f) (history-item: history-item #f))
+  (method override (edit-definitions object (class: class #f) (context: context #f) (workspace: workspace #f) (history-item: history-item #f))
     ;; todo: show only entries belonging to class
     (define (filter-entries entries class)
       entries)
@@ -664,7 +635,7 @@
           (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
 
   
-  (method override (edit-references object (constituent-test: constituent-test #f) (context: context catalog-context) (history-item: history-item #f))
+  (method override (edit-references object (constituent-test: constituent-test #f) (context: context #f) (history-item: history-item #f))
     (let ((definitions (get-references~ (get-cataloguer) object context: context)))
       (if (null? definitions)
           (bell)
@@ -999,13 +970,6 @@
   
   (method package (on-preferences evt)
     (new-frame Preferences-Manager))
-
-
-  (method package (on-toggle-catalog-context evt)
-    @convert/wait
-    (case catalog-context
-      ((jazz) (set-catalog-context 'c))
-      ((c) (set-catalog-context 'jazz))))
   
   
   (method package (on-save-profile evt)

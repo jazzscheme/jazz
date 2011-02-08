@@ -53,9 +53,8 @@
   
 
   (slot file              getter generate)
-  (slot active?)
   (slot loaded?)
-  (slot modified?)
+  (slot modified?         accessors generate)
   (slot directories       getter generate)
   (slot extensions)
   (slot char-encoding)
@@ -70,7 +69,6 @@
   (method override (initialize name file directories extensions char-encoding heuristics references?)
     (nextmethod name)
     (set! file~self file)
-    (set! active?~self #f)
     (set! loaded?~self #f)
     (set! modified?~self #f)
     (set! directories~self directories)
@@ -87,18 +85,6 @@
   ;;;
   ;;;; Access
   ;;;
-    
-  
-  (method override (get-active?)
-    active?)
-  
-  
-  (method override (set-active? flag)
-    (set! active? flag))
-  
-  
-  (method (set-modified? flag)
-    (set! modified? flag))
   
   
   (method public virtual (get-extensions)
@@ -182,25 +168,11 @@
 
 
   ;;;
-  ;;;; Activation
+  ;;;; Load
   ;;;
   
   
-  (method override (activate (report?: report? #t))
-    (define (load-content report?)
-      (when (and (not loaded?) (exists?~ file))
-        (when report?
-          (user-feedback "Loading Catalog..."))
-        (with-jazz-readtable
-          (lambda ()
-            (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
-              (lambda (port)
-                (table-load content-index port #t)))))
-        (update-catalog-indexes report?)
-        (set! loaded? #t)
-        (when report?
-          (user-feedback "Done"))))
-    
+  (method public (load-content (report?: report? #t))
     (define (update-catalog-indexes report?)
       (when report?
         (user-feedback "Updating Indexes..."))
@@ -211,15 +183,20 @@
                       (update-indexes~ file-definition definitions-index references-index))
                     definitions))))
     
-    (unless (get-active?)
-      (with-mutex
-        (lambda ()
-          (load-content report?)
-          (set-active? #t)))))
-      
-  
-  (method override (deactivate)
-    (set-active? #f))
+    (with-mutex
+      (lambda ()
+        (when (and (not loaded?) (exists?~ file))
+          (when report?
+            (user-feedback "Loading Catalog..."))
+          (with-jazz-readtable
+            (lambda ()
+              (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
+                (lambda (port)
+                  (table-load content-index port #t)))))
+          (update-catalog-indexes report?)
+          (set! loaded? #t)
+          (when report?
+            (user-feedback "Done"))))))
 
 
   ;;;
@@ -227,7 +204,7 @@
   ;;;
   
   
-  (method (save)
+  (method public (save)
     (define (save-content)
       (let* ((all (table-keys/values content-index))
              (sorted (sort string<? all key: car)))
@@ -262,7 +239,7 @@
   
   
   (method public (update (report?: report? #t))
-    (activate report?: report?)
+    (load-content report?: report?)
     (when report?
       (user-feedback "Updating {a} Catalog..." name))
     
@@ -292,7 +269,7 @@
   
   
   (method public (update-file file)
-    (activate report?: #t)
+    (load-content report?: #t)
     (let ((exception/entry (scan-file file #f)))
       (when exception/entry
         (if (exception? exception/entry)

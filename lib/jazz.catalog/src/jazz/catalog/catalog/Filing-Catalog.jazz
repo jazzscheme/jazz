@@ -305,6 +305,26 @@
 
 
   ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method protected virtual (iterate-files proc)
+    (define (iterate-dir dir)
+      (iterate-directory~ dir
+        (lambda (file)
+          (when (scan-file? file)
+            (proc file)))
+        files?: #t
+        directories?: #f
+        recursive?: #t))
+    
+    (if (is? directories Directory-Group)
+        (for-each iterate-dir (get-list~ directories))
+      (iterate-dir directories)))
+
+
+  ;;;
   ;;;; Scan
   ;;;
   
@@ -315,37 +335,22 @@
   (method protected (scan)
     (reset)
     (let ((queue (new-queue)))
-      (scan-directories queue)
+      (iterate-files
+        (lambda (file)
+          (let ((entry (scan-file file #t)))
+            (when entry
+              (enqueue queue entry)))))
       (queue-list queue)))
   
   
-  (method protected virtual (scan-directories queue)
-    (define (scandir dir)
-      (scan-directory dir queue))
-    
-    (if (is? directories Directory-Group)
-        (for-each scandir (get-list~ directories))
-      (scandir directories)))
-  
-  
-  (method protected (scan-directory directory queue)
-    (iterate-directory~ directory
-      (lambda (file)
-        (let ((entry (scan-file file #t)))
-          (when entry
-            (enqueue queue entry))))
-      files?: #t
-      directories?: #f
-      recursive?: #t))
+  (method protected (scan-file? file)
+    (let ((extension (get-extension~ file))
+          (extensions (get-extensions)))
+      (and (or (not extensions) (member? extension extensions test: ci=?))
+           (get-parser-class extension))))
 
   
   (method protected (scan-file file report?)
-    (define (scan? file)
-      (let ((extension (get-extension~ file))
-            (extensions (get-extensions)))
-        (and (or (not extensions) (member? extension extensions test: ci=?))
-             (get-parser-class extension))))
-    
     (define (scan file time report?)
       (when report?
         (user-feedback "Parsing {a}" file))
@@ -357,7 +362,7 @@
         (when (and actual (= (time->seconds (get-time~ actual)) (time->seconds time)))
           actual)))
     
-    (when (scan? file)
+    (when (scan-file? file)
       (if (exists?~ file)
           (let ((time (get-modification-time~ file)))
             (let ((file-entry (unmodified-file-entry file time)))

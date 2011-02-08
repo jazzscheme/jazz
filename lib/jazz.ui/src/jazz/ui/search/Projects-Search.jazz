@@ -44,7 +44,8 @@
         (jazz.project)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
 (class undocumented Projects-Search extends Search-View
@@ -54,8 +55,9 @@
     (<install>
       (<!>                     name: domain      title: "Search"
         (<content~>
-          (<Radio-Button>      name: definitions title: "Definitions" position: {Point 13 20} size: {Dimension 100 18} selected?: #t)
-          (<Radio-Button>      name: references  title: "References" position: {Point 13 44} size: {Dimension 100 18})
+          (<Radio-Button>      name: files       title: "Files" position: {Point 13 14} size: {Dimension 100 18} selected?: #t)
+          (<Radio-Button>      name: definitions title: "Definitions" position: {Point 13 34} size: {Dimension 100 18})
+          (<Radio-Button>      name: references  title: "References" position: {Point 13 54} size: {Dimension 100 18})
           (<Label-View>                          title: "Project:" position: {Point 115 21} size: {Dimension 46 16})
           (<Border-View>                         position: {Point 163 17} size: {Dimension 155 22} border-insets: {Rect 2 3 2 1} border-color: {Color Medium}
             (<Border-View>                       border-color: {Color Entry-Border}
@@ -93,7 +95,8 @@
 
   
   (method override (get-search-domains)
-    '(definitions
+    '(files
+      definitions
       references))
   
   
@@ -112,11 +115,32 @@
 
   
   (method override (search-targets search-set)
-    (define (search-targets-definitions search-set)
+    (define (search-targets-files)
+      (let ((appl (get-application)))
+        (let ((project (selected-project))
+              (cataloguer (get-cataloguer~ appl))
+              (expression? (get-expression?~ appl))
+              (factory (new List-Factory))
+              (reporter (new User-Reporter)))
+          (let ((results (search-project project cataloguer expression? factory reporter)))
+            (post-event
+              (lambda ()
+                (let ((results (get-results)))
+                  (set-mode~ results 'text)
+                  (add-results~ results (get-output~ factory) (get-search-targets))
+                  (select-results~ results))))))))
+    
+    (define (search-project project cataloguer expression? factory reporter)
+      (for-each-active-project~ project
+        (lambda (project)
+          (iterate-files~ project
+            (lambda (file)
+              (search-in-file search-set file expression? factory reporter))))))
+    
+    (define (search-targets-definitions)
       (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
         (let ((definitions (search-definitions~ cataloguer search-set context: project)))
-          (debug search-set definitions)
           (if (null? definitions)
               (message-box "No search results found")
             (case (length definitions)
@@ -126,7 +150,7 @@
                       (add-results~ results definitions (get-search-targets))
                       (select-results~ results))))))))
     
-    (define (search-targets-references search-set)
+    (define (search-targets-references)
       (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
         (let ((references (search-references~ cataloguer search-set context: project)))
@@ -141,10 +165,16 @@
                       (select-results~ results))))))))
     
     (case (get-selected-element~ (get-content~ (locate 'domain)))
+      ((files)
+       (thread-start!
+         (new-thread
+           (lambda ()
+             (search-targets-files))
+           'search)))
       ((definitions)
-       (search-targets-definitions search-set))
+       (search-targets-definitions))
       ((references)
-       (search-targets-references search-set))))
+       (search-targets-references))))
   
   
   ;;;

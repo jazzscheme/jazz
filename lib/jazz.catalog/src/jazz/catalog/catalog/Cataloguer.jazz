@@ -54,62 +54,42 @@
   ;;;
 
 
-  (method public (get-catalog name (error?: error? #t) (report?: report? #t))
-    (or (find-catalog name)
-        (when error?
-          (error "Unknown catalog: {t}" name))))
-
-
-  (method public (add-catalog catalog)
-    (unless (memq? catalog catalogs)
-      (set! catalogs (append! catalogs (list catalog)))))
-
-
-  (method public (remove-catalog catalog)
-    (when (memq? catalog catalogs)
-      (set! catalogs (remove! catalog catalogs))))
-  
-  
-  (method public (find-catalog name)
-    (find-if (lambda (catalog)
-               (eq? (get-name~ catalog) name))
-             catalogs))
-
-
-  (method (for-each-catalog context proc)
-    (let ((context (if (pair? context) context (list context))))
+  (method public virtual (for-each-catalog context proc)
+    (let ((context (effective-context context)))
       (for-each (lambda (catalog)
                   (when (and (get-active?~ catalog) (in-context?~ catalog context))
                     (proc catalog)))
                 catalogs)))
-
-
-  ;;;
-  ;;;; Load
-  ;;;
   
   
-  (method (create-catalog pref report?)
-    (define (catalog-class type)
-      (let ((pair (assq type (get-catalog-types~ (get-preferences #f)))))
-        (if (not pair)
-            (error "Unknown catalog type: {t}" type)
-          (resolve-reference~ (cdr pair)))))
-    
-    (let* ((type (get-type~ pref))
-           (class (catalog-class type)))
-      (new class
-        (get-name~ pref)
-        (get-output-file~ pref)
-        (get-directories~ pref)
-        (get-extensions~ pref)
-        (get-recursive?~ pref)
-        (get-active?~ pref)
-        (get-references?~ pref)
-        (get-content-size~ pref)
-        (get-definitions-size~ pref)
-        (get-references-size~ pref)
-        report?: report?)))
+  (method protected (effective-context context)
+    (if (pair? context) context (list context)))
+
+
+  (method public virtual (add-catalog catalog)
+    (unless (memq? catalog catalogs)
+      (set! catalogs (append! catalogs (list catalog)))))
+
+
+  (method public virtual (remove-catalog catalog)
+    (when (memq? catalog catalogs)
+      (set! catalogs (remove! catalog catalogs))))
+
+
+  (method public (get-catalog name (error?: error? #t) (report?: report? #t))
+    (or (find-catalog name)
+        (when error?
+          (error "Unknown catalog: {t}" name))))
+  
+  
+  (method public (find-catalog name)
+    (continuation-capture
+      (lambda (return)
+        (for-each-catalog (get-context)
+          (lambda (catalog)
+            (when (eq? (get-name~ catalog) name)
+              (continuation-return return catalog))))
+        #f)))
 
 
   ;;;
@@ -119,13 +99,13 @@
   
   (method public (save-catalogs)
     (let ((names (make-table test: equal?)))
-      (for-each (lambda (catalog)
-                  (let ((name (get-name~ (get-file~ catalog))))
-                    (if (table-ref names name #f)
-                        (message-box (format "Conflict detected. Two or more catalogs are saving to the same file: {a}" name))
-                      (table-set! names name #t)
-                      (save~ catalog))))
-                catalogs)))
+      (for-each-catalog (get-context)
+        (lambda (catalog)
+          (let ((name (get-name~ (get-file~ catalog))))
+            (if (table-ref names name #f)
+                (message-box (format "Conflict detected. Two or more catalogs are saving to the same file: {a}" name))
+              (table-set! names name #t)
+              (save~ catalog)))))))
 
 
   ;;;

@@ -73,18 +73,31 @@
   
   
   (method public (find-project name)
-    (continuation-capture
-      (lambda (return)
-        (for-each-active-project
-          (lambda (project)
-            (when (eq? (get-name~ project) name)
-              (continuation-return return project))))
-        #f)))
+    (define (find project path)
+      (cond ((null? path)
+             project)
+            ((symbol? path)
+             (find-name project path))
+            ((pair? path)
+             (find (find project (car path)) (cdr path)))
+            (else
+             #f)))
+    
+    (define (find-name project name)
+      (continuation-capture
+        (lambda (return)
+          (for-each-active-project~ project
+            (lambda (project)
+              (when (eq? (get-name~ project) name)
+                (continuation-return return project))))
+          #f)))
+    
+    (find self (split-symbol name "/")))
   
   
-  (method public (require-project title)
-    (or (find-project title)
-        (error "Unable to find project: {a}" title)))
+  (method public (require-project name)
+    (or (find-project name)
+        (error "Unable to find project: {a}" name)))
   
   
   (method public (find-project-by-file file)

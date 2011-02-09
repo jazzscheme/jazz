@@ -52,10 +52,6 @@
 (class Workbench extends Project
   
   
-  ;; this is clearly not maintained up to date perfectly but it will do for now
-  (slot sources-table    initialize (make-table test: equal?))
-  
-  
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
@@ -117,19 +113,30 @@
   ;;;
   
   
-  (method public (find-source source)
-    (get-source-entry source))
+  (method public (find-source target)
+    (continuation-capture
+      (lambda (return)
+        (let ((target-name (get-name~ target)))
+          (for-each-project-file
+            (lambda (project-file)
+              (let ((source (get-source~ project-file)))
+                (when source
+                  (when (and ;; key optimization
+                             (ci=? (get-name~ source) target-name)
+                             (pathname=? source target))
+                    (continuation-return return project-file)))))))
+          #f)))
   
   
   (method public (find-filename filename)
     (continuation-capture
       (lambda (return)
         (for-each-project-file
-          (lambda (descendant)
-            (let ((source (get-effective-source~ descendant)))
+          (lambda (project-file)
+            (let ((source (get-source~ project-file)))
               (when source
                 (when (ci=? (get-name~ source) filename)
-                  (continuation-return return descendant))))))
+                  (continuation-return return project-file))))))
         #f)))
 
 
@@ -171,20 +178,7 @@
       ((Project-File)
        (when (is? component Project)
          (set-workbench~ component self))
-       (set-project~ component project)
-       (let ((source (get-source~ component)))
-         (add-source source component)))))
-  
-  
-  (method protected (remove-from-project project name component)
-    (typecase component
-      ((Project-File)
-       (when (is? component Project)
-         (let ((catalog (get-catalog~ component)))
-           (when catalog
-             (remove-catalog~ (get-cataloguer~ (get-application)) catalog))))
-       (let ((source (get-source~ component)))
-         (remove-source source component)))))
+       (set-project~ component project))))
 
 
   ;;;
@@ -198,34 +192,6 @@
         (when (is? descendant Project-File)
           (proc descendant)))
       include-self?: include-self?))
-  
-  
-  (method public (for-each-jazz-file proc (include-self?: include-self? #f))
-    (for-each-descendant
-      (lambda (descendant level)
-        (when (is? descendant Jazz-File)
-          (proc descendant)))
-      include-self?: include-self?))
-  
-  
-  (method public (add-source source entry)
-    (when source
-      (let ((name (get-name~ source)))
-        (table-set! sources-table name (cons entry (table-ref sources-table name '()))))))
-  
-  
-  (method public (remove-source source entry)
-    (when source
-      (let ((name (get-name~ source)))
-        (table-set! sources-table name (remove! entry (table-ref sources-table name '()))))))
-  
-  
-  (method public (get-source-entry source)
-    (let* ((name (get-name~ source))
-           (entries (table-ref sources-table name '())))
-      (find-if (lambda (entry)
-                 (pathname=? (get-effective-source~ entry) source))
-               entries)))
 
 
   ;;;
@@ -235,15 +201,6 @@
   
   (method override (find-workbench)
     self)
-
-
-  ;;;
-  ;;;; Update
-  ;;;
-  
-  
-  (method public (update)
-    (empty-table sources-table))
   
   
   ;;;

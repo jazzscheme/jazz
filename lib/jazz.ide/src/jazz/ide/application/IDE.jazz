@@ -53,6 +53,7 @@
         (jazz.ide)
         (jazz.ide.login)
         (jazz.io)
+        (jazz.jml)
         (jazz.jrm)
         (jazz.library)
         (jazz.library.component)
@@ -381,8 +382,16 @@
     (define (load-workbench)
       (let ((file Workbench-File))
         (if (and (is-alias? 'Profile) (exists?~ file))
-            (instantiate~ (read-form file))
+            (parameterize ((tag-reference-not-found-handler not-found-handler))
+              (instantiate~ (read-form file)))
           (default-workbench))))
+    
+    (define (not-found-handler ref)
+      (let ((form
+              (<form>
+                (<Project-Not-Found>))))
+        (set-property~ form 'title (format "{a} not found" (parse~ ref)))
+        form))
     
     (with-safe-execution "loading the workbench"
       (lambda ()

@@ -2706,6 +2706,18 @@
     form-src))
 
 
+(define (jazz.expand-debug-assert walker resume declaration environment form-src)
+  (jazz.sourcify-if
+    (jazz.expand-assert-test jazz.debug-user? form-src)
+    form-src))
+
+
+(define (jazz.expand-debug-assertion walker resume declaration environment form-src)
+  (jazz.sourcify-if
+    (jazz.expand-assertion-test jazz.debug-user? form-src)
+    form-src))
+
+
 (define (jazz.expand-assert-test test? src)
   (let ((assertion (%%cadr (jazz.source-code src)))
         (body (%%cddr (jazz.source-code src))))
@@ -3248,4 +3260,6 @@
 (jazz.define-walker-macro   c-external-so        jazz jazz.expand-c-external-so)
 (jazz.define-walker-macro   com-external         jazz jazz.expand-com-external)
 (jazz.define-walker-macro   declaration-path     jazz jazz.expand-declaration-path)
-(jazz.define-walker-macro   declaration-locator  jazz jazz.expand-declaration-locator))
+(jazz.define-walker-macro   declaration-locator  jazz jazz.expand-declaration-locator)
+(jazz.define-walker-syntax  debug-assert         jazz jazz.expand-debug-assert)
+(jazz.define-walker-syntax  debug-assertion      jazz jazz.expand-debug-assertion))

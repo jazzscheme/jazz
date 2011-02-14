@@ -39,18 +39,36 @@
 
 
 (import (jazz.jml)
-        (jazz.ui))
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class Menu extends View
   
   
-  (slot item  initialize #f accessors generate)
-  (slot poped initialize #f)
+  (slot item        initialize #f accessors generate)
+  (slot highlighted initialize #f)
+  (slot popped      initialize #f)
+  (slot locator     initialize (new Menu-Locator self))
 
 
   (form
     (<install> visible?: #f))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (focus-actions)
+    (cons (menu-actions)
+          (nextmethod)))
+  
+  
+  (method protected virtual (menu-actions)
+    (find-actions 'menu))
 
   
   ;;;
@@ -68,16 +86,136 @@
   ;;;
   
   
-  (method public (get-poped)
-    poped)
+  (method public (get-popped)
+    popped)
   
   
-  (method public (set-poped menu)
-    (when poped
-      (let ((initiator (popup-initiator~ poped)))
+  (method public (set-popped menu)
+    (when popped
+      (let ((initiator (popup-initiator~ popped)))
         (when initiator
           (invalidate-view~ initiator))))
-    (set! poped menu))
+    (set! popped menu))
+  
+  
+  ;;;
+  ;;;; Highlighted
+  ;;;
+  
+  
+  (method public (get-highlighted)
+    highlighted)
+  
+  
+  (method public (set-highlighted new)
+    (let ((old highlighted))
+      (set! highlighted new)
+      (when old
+        (invalidate-view~ old))
+      (when new
+        (invalidate-view~ new))))
+  
+  
+  (method package (clear-highlighted)
+    (set! highlighted #f))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-lose)
+    (set-highlighted #f))
+  
+  
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (on-navigate-previous evt)
+    (navigate-previous))
+  
+  
+  (method (on-navigate-next evt)
+    (navigate-next))
+  
+  
+  (method (on-navigate-open evt)
+    (navigate-open))
+  
+  
+  (method (on-navigate-close evt)
+    (navigate-close))
+
+
+  (method override (key-press key)
+    (enter~ locator key))
+
+
+  (method override (up-arrow-press modifiers)
+    (navigate-previous))
+
+
+  (method override (down-arrow-press modifiers)
+    (navigate-next))
+  
+  
+  (method (navigate-to navigate)
+    (let ((items (navigable-items)))
+      (when (not-null? items)
+        (set-highlighted (navigate items highlighted)))))
+  
+  
+  (method (navigable-items)
+    (collect-if navigable?~ (collect-type Item children)))
+  
+  
+  (method override (right-arrow-press modifiers)
+    (navigate-open))
+  
+  
+  (method override (left-arrow-press modifiers)
+    (navigate-close))
+  
+  
+  (method override (return-press key)
+    (navigate-open))
+
+
+  (method override (escape-press key)
+    (navigate-close))
+  
+  
+  ;;;
+  ;;;; Navigate
+  ;;;
+
+
+  (method protected (navigate-previous)
+    (navigate-to previous-element))
+
+
+  (method protected (navigate-next)
+    (navigate-to next-element))
+  
+  
+  (method protected (navigate-open)
+    (when highlighted
+      (let ((content (get-content~ highlighted)))
+        (when content
+          (popup-content~ highlighted)
+          (set-highlighted~ content (first-child~ content))))))
+  
+  
+  (method protected (navigate-close)
+    (close-popup (get-player))
+    (when item
+      (let ((menu (get-parent~ item))
+            (focus (get-focus)))
+        (when (eq? focus menu)
+          (set-highlighted~ menu item)))))
   
   
   ;;;
@@ -170,4 +308,38 @@
                       (set! previous-separator? separator?))))
                 visibles)
       (when (and previous-separator? kept-separator)
-        (set-visible?~ kept-separator #f))))))
+        (set-visible?~ kept-separator #f)))))
+
+
+;;;
+;;;; Menu-Locator
+;;;
+
+
+(class Menu-Locator extends Locator
+  
+  
+  (slot menu)
+  
+  
+  (method override (initialize menu . rest)
+    (set! menu~self menu)
+    (apply nextmethod rest))
+  
+  
+  (method override (iterate proc)
+    (let ((items (navigable-items~ menu))
+          (current (get-highlighted~ menu)))
+      (when (not-null? items)
+        (let ((start (if (not current) 0 (get-rank (if prefix current (next-element items current)) items)))
+              (card (cardinality items)))
+          (loop (for n from 0 below card)
+                (let ((rank (modulo (+ start n) card)))
+                  (let ((item (element items rank)))
+                    (let ((title (get-title~ item)))
+                      (proc title rank)))))))))
+  
+  
+  (method override (select rank)
+    (let ((items (navigable-items~ menu)))
+      (set-highlighted~ menu (element items rank))))))

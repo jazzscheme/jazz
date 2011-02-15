@@ -152,10 +152,10 @@
   ;;;
 
 
-  (method public (namespace-declaration-range)
+  (method public (namespace-declaration-range (include-invoices?: include-invoices? #f))
     (let ((s (copy start))
           (e (copy end)))
-      (forward-namespace)
+      (forward-namespace include-invoices?: include-invoices?)
       (prog1 (new Range$Cell$ s (copy end))
         (set-start s)
         (set-end e))))
@@ -167,19 +167,17 @@
     (forward-expr)
     (let ((type (intern-marked-symbol)))
       (case type
-        ((unit) (forward-unit include-invoices?))
+        ((unit) (forward-unit))
         ((module) (forward-module include-invoices?))
-        ((submodule) (forward-submodule))
+        ((submodule) (forward-submodule include-invoices?))
         ((class) (forward-class))
         ((interface) (forward-interface)))))
   
   
-  (method (forward-unit include-invoices?)
+  (method (forward-unit)
     (list 'unit
           (forward-modifiers (expression-syntax-modifiers 'unit))
-          (forward-name)
-          (when include-invoices?
-            (forward-invoices))))
+          (forward-name)))
   
   
   (method (forward-module include-invoices?)
@@ -191,10 +189,12 @@
             (forward-invoices))))
   
   
-  (method (forward-submodule)
+  (method (forward-submodule include-invoices?)
     (list 'submodule
           (forward-modifiers (expression-syntax-modifiers 'submodule))
-          (forward-name)))
+          (forward-name)
+          (when include-invoices?
+            (forward-invoices))))
   
   
   (method (forward-class)
@@ -236,7 +236,30 @@
   
   
   (method (forward-invoices)
-    #f)
+    (while (forward-invoice)
+      ))
+  
+  
+  (method (forward-invoice)
+    (let ((s (copy start))
+          (e (copy end)))
+      (define (reset)
+        (set-start s)
+        (set-end e))
+      
+      (define (forward)
+        (when (enter-list)
+          (forward-expr)
+          (when (and (eq? kind 'symbol)
+                     (memq? (intern-marked-symbol) '(export import)))
+            (exit-list)
+            (read-marked))))
+      
+      (let ((invoices (forward)))
+        (or invoices
+            (begin
+              (reset)
+              #f)))))
 
 
   ;;;

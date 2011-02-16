@@ -40,6 +40,7 @@
 
 (import (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.platform)
         (jazz.project)
         (jazz.system)
@@ -70,23 +71,28 @@
   
   (method override (finish rest)
     (define (setup-projects)
-      (define (collect-projects workbench)
-        (cons (project-entry workbench)
-              (map project-entry (get-children~ workbench))))
-      
-      (define (project-entry project)
-        (list project (->string (get-presentation-property~ project))))
-      
       (let ((workbench (get-workbench))
             (combo (locate 'project)))
-        (set-choices~ combo (collect-projects workbench))
-        (set-value~ combo workbench))
+        (set-choices~ combo (collect-choices workbench))
+        (set-value~ combo workbench)))
+    
+    (define (collect-choices workbench)
+      (let ((choices (new-queue)))
+        (for-each-project~ workbench
+          (lambda (project)
+            (when (has-content?~ project)
+              (enqueue choices (list project (->string (get-presentation-property~ project))))))
+          include-inactives?: #t)
+        (queue-list choices)))
+    
+    (define (setup-entries)
       (let ((combo (locate 'entries)))
         (set-choices~ combo (list (list #f "All")))
         (set-value~ combo #f)))
     
     (nextmethod rest)
-    (setup-projects))
+    (setup-projects)
+    (setup-entries))
   
 
   ;;;
@@ -128,10 +134,11 @@
                 (let ((results (get-results)))
                   (set-mode~ results 'text)
                   (add-results~ results (get-output~ factory) (get-search-targets))
-                  (select-results~ results))))))))
+                  (select-results~ results)))))
+          (user-feedback~ reporter "Done"))))
     
     (define (search-project project cataloguer expression? factory reporter)
-      (for-each-active-project~ project
+      (for-each-project~ project
         (lambda (project)
           (iterate-files~ project
             (lambda (file)
@@ -187,19 +194,111 @@
 
 
 ;;;
-;;;; Project
+;;;; Project-Combo
 ;;;
 
 
 (class Project-Combo extends Combo-Box
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
   
   
   (method override (content-change origin)
-    (project-change~ (get-creator) (get-value))))
+    (set-modified? #t))
+  
+  
+  (method override (button-action)
+    (let ((picker (new Project-Picker size: (new Dimension (- (get-width) 2) 200) action-handler: (new Event-Handler target: self method-name: 'on-project-picked))))
+      (let ((tree (locate~ picker 'tree)))
+        (let ((row (user-data-row~ tree (get-value) include-invisibles?: #t)))
+          (when row
+            (ensure-expanded~ tree row)
+            (set-single-selection~ tree (row->line~ tree row))))
+        (select-user-data-row~ tree (get-value))
+        (receive (pos alternate-pos) (combo-popup-positions picker)
+          (popup picker pos alternate-position: alternate-pos initiator: self)
+          (push-focus tree)))))
+  
+  
+  (method (on-project-picked evt)
+    (let ((project (get-property~ evt project:)))
+      (close-popups)
+      (content-change 'popup))))
 
 
 ;;;
-;;;; Entries
+;;;; Project-Picker
+;;;
+
+
+(class Project-Picker extends Layout-View
+  
+  
+  (slot mouse-selected? initialize #f)
+  
+  
+  (form
+    (<install>                                   layout-type: border
+      (<Border-View>               name: border  location: center border-type: edge style: entry
+        (<Scroller-View>                         style: document hscroll?: #t vscroll?: #t
+          (<!>                     name: content layout-type: fill
+            (<Tree-View>           name: tree    portfolio: :images auto-expand/collapse?: #f selection-handler: {Event-Handler :form on-selection-change} mouse-up-handler: {Event-Handler :form on-mouse-up} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>  name: name    title: "Name" width: 250 @toplevel-controls?: #f)))))))
+  
+  
+  (method override (finish initargs)
+    (nextmethod initargs)
+    (setup-projects))
+  
+  
+  (method (setup-projects)
+    (let ((tree (locate 'tree)))
+      (define (insert-project project father)
+        (when (has-content?~ project)
+          (let ((title (get-presentation-property~ project))
+                (image (get-component-image~ project))
+                (state (if (not father) 'expanded 'collapsed)))
+            (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: project))))
+      
+      (fold-projects~ (get-workbench)
+        insert-project
+        #f
+        include-inactives?: #t)))
+  
+  
+  (method (on-selection-change evt)
+    (when (eq? (get-user-origin~ evt) 'mouse)
+      (set! mouse-selected? #t)))
+  
+  
+  (method (on-mouse-up evt)
+    (when mouse-selected?
+      (process-selected)))
+  
+  
+  (method override (on-return-press evt)
+    (process-selected))
+  
+  
+  (method override (on-escape-press evt)
+    (close-popups~ (get-toplevel)))
+  
+  
+  (method (process-selected)
+    (let ((tree (locate 'tree)))
+      (let ((project (get-single-selected-data~ tree)))
+        (when project
+          (let ((combo (popup-initiator)))
+            (close-popups~ combo)
+            (when project
+              (set-value~ combo project))))))))
+
+
+;;;
+;;;; Entries-Combo
 ;;;
 
 

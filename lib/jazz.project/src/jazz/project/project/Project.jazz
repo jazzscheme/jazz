@@ -142,18 +142,15 @@
   ;;;
   
   
+  (method public (load-catalogs (include-inactives?: include-inactives? #f))
+    (for-each-project load-catalog~))
+  
+  
   (method public (load-catalog)
-    (when active?
-      (let ((catalog (require-catalog)))
-        (load-content~ catalog report?: #f)
-        catalog)))
+    (require-catalog))
   
   
-  (method public (load-catalogs)
-    (for-each-active-project load-catalog~))
-  
-  
-  (method public (require-catalog)
+  (method public (require-catalog (report?: report? #f))
     (define (create/register-catalog)
       (let ((catalog (create-catalog)))
         (add-catalog~ (get-cataloguer~ (get-application)) catalog)
@@ -161,6 +158,7 @@
     
     (unless catalog
       (set! catalog (create/register-catalog)))
+    (load-content~ catalog report?: report?)
     catalog)
   
   
@@ -202,26 +200,26 @@
   ;;;
   
   
-  (method public (for-each-project proc (include-self?: include-self? #f) (stop-test: stop-test #f))
+  (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (stop-test: stop-test #f))
     (for-each-descendant
       (lambda (descendant level)
         (when (is? descendant Project)
           (proc descendant)))
       include-self?: include-self?
-      stop-test: stop-test))
+      stop-test: (lambda (descendant)
+                   (or (and (not include-inactives?)
+                            (neq? descendant self)
+                            (is? descendant Project)
+                            (not (get-active?~ descendant)))
+                       (and stop-test
+                            (stop-test descendant))))))
   
   
-  (method public (for-each-active-project proc)
-    (for-each-project proc
-                      include-self?: #t
-                      stop-test: (lambda (descendant)
-                                   (and (is? descendant Project)
-                                        (not (get-active?~ descendant))))))
-  
-  
-  (method public (fold-projects proc seed)
+  (method public (fold-projects proc seed (include-inactives?: include-inactives? #f))
     (define (fold x f s)
-      (let ((ps (if (is? x Project)
+      (let ((ps (if (and (is? x Project)
+                         (or include-inactives?
+                             (get-active?~ x)))
                     (f x s)
                   s)))
         (if (eq? ps :skip)
@@ -270,18 +268,21 @@
     (fold self proc seed))
   
   
-  (method public (iterate-files proc)
-    (let ((extensions (effective-catalog-extensions catalog-extensions)))
-      (fold-files
-        (lambda (project-file seed)
-          (if (and (neq? project-file self) (is? project-file Project))
-              :skip
-            (let ((file (get-source~ project-file)))
-              (when file
-                (let ((ext (get-extension~ file)))
-                  (when (or (not extensions) (member? ext extensions test: ci=?))
-                    (proc file)))))))
-        #f)))
+  (method public (iterate-files proc (extensions: extensions #f))
+    (fold-files
+      (lambda (project-file seed)
+        (if (and (neq? project-file self) (is? project-file Project))
+            :skip
+          (let ((file (get-source~ project-file)))
+            (when file
+              (let ((ext (get-extension~ file)))
+                (when (or (not extensions) (member? ext extensions test: ci=?))
+                  (proc file)))))))
+      #f))
+  
+  
+  (method public (iterate-catalog-files proc)
+    (iterate-files proc extensions: (effective-catalog-extensions catalog-extensions)))
 
 
   ;;;

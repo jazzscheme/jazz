@@ -63,11 +63,14 @@
   ;;           the combo still works correctly, in effect ignoring the optional size part)
 
 
+  (property nullable?       initialize #f  accessors generate)
   (property condensed?      initialize #f  accessors generate)
   (property choices         initialize '() accessors explicit)
-  (property nullable?       initialize #f  accessors generate)
   (property choices-updater initialize #f  accessors explicit)
   (property entry-test      initialize #f  accessors generate)
+  
+  
+  (slot selected initialize #f)
 
   
   ;;;
@@ -81,23 +84,24 @@
     (when (update-choices)
       (let ((menu (new-choices-menu))
             (pick (get-pick)))
-        (if (not menu)
-            (begin
-              (bell)
-              (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))
-          (let ((size (get-size)))
-            (let ((width (get-width~ size))
-                  (height (get-height~ size)))
-              (layout-menu~ menu width: (- width 4))
-              (track-popup-menu menu (new Point -1 (+ height 1)) alternate-position: (new Point -1 (- (+ 5 (get-height~ (get-size~ menu))))))))))))
+        (cond (menu
+               (receive (pos alternate-pos) (combo-popup-positions menu)
+                 (layout-menu~ menu width: (- (get-width) 4))
+                 (track-popup-menu menu pos alternate-position: alternate-pos)))
+              (else
+               (bell)
+               (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))))))
+  
+  
+  (method protected (combo-popup-positions view)
+    (values (new Point -1 (+ (get-height) 1))
+            (new Point -1 (- (+ 5 (get-height~ view))))))
   
   
   (method protected virtual (on-action evt)
-    (let* ((sender (get-sender~ evt))
-           (entry (get-title~ sender))
-           (choice (get-user-data~ sender))
-           (text (get-body)))
-      (set-entry entry)
+    (let ((choice (get-user-data~ (get-sender~ evt)))
+          (text (get-body)))
+      (set-choice choice)
       (select-all~ (get-body))
       (set-modified?~ text #t)
       (call-content-change 'popup)
@@ -135,34 +139,34 @@
   
   
   (method protected virtual (new-choices-menu)
-    (define (new-choices-menu-plain)
+    (let ((current (get-entry))
+          (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
+      (define (checked? choice title)
+        (if selected
+            (eq? choice selected)
+          (string=? title current)))
+      
+      (define (create-check-item choice title parent)
+        (let ((checked? (checked? choice title)))
+          (new Check-Item parent: parent title: title checked?: checked? user-data: choice action-handler: handler)))
+      
+      (define (new-choices-menu-plain menu)
+        (for-each (lambda (choice)
+                    (if (not choice)
+                        (new Separator-Item parent: menu)
+                      (let ((title (present-choice choice)))
+                        (create-check-item choice title menu))))
+                  choices))
+      
+      (define (new-choices-menu-condensed menu)
+        (make-condensed-menu~ menu choices create-check-item key: present-choice))
+      
       (when choices
-        (let ((current (get-entry))
-              (menu (new Context-Menu))
-              (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
-          (for-each (lambda (choice)
-                      (if (not choice)
-                          (new Separator-Item parent: menu)
-                        (let ((title (present-choice choice)))
-                          (new Check-Item parent: menu title: title checked?: (string=? title current) user-data: choice action-handler: handler))))
-                    choices)
-          menu)))
-    
-    (define (new-choices-menu-condensed)
-      (when choices
-        (let ((current (get-entry))
-              (menu (new Context-Menu))
-              (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
-          (let ((create-leaf (lambda (value string parent)
-                               (new Check-Item parent: parent title: string checked?: (equal? string current) user-data: (cons value string) action-handler: handler)))
-                (get-string (lambda (value) (present-choice value))))
-            (make-condensed-menu~ menu choices create-leaf key: get-string)
-            menu))))
-    
-    (when choices
-      (if condensed?
-          (new-choices-menu-condensed)
-        (new-choices-menu-plain))))
+        (let ((menu (new Context-Menu)))
+          (if condensed?
+              (new-choices-menu-condensed menu)
+            (new-choices-menu-plain menu))
+          menu))))
   
   
   ;;;
@@ -180,11 +184,32 @@
       (when (eq? kind 'pick)
         (set-enabled?~ (get-pick) (or choices-updater (not-null? choices))))
       (when old
-        (set-value (car old)))))
+        (set-choice old))))
   
   
   (method (get-choice)
-    (entry->choice (get-entry)))
+    (define (collect-matches entry)
+      (let ((test (or entry-test nu=?))
+            (queue (new-queue)))
+        (for-each (lambda (choice)
+                    (when choice
+                      (bind (value . presented) choice
+                        (define (tryout string)
+                          (let ((localized (localize string)))
+                            (when (test entry localized)
+                              (enqueue queue choice))))
+                        
+                        (if (not presented)
+                            (tryout (value->presented value))
+                          (for-each tryout presented)))))
+                  choices)
+        (queue-list queue)))
+    
+    (let ((matches (collect-matches (get-entry))))
+      (if (and selected (memq? selected matches))
+          selected
+        (and (not-null? matches)
+             (car matches)))))
   
   
   ;;;
@@ -221,6 +246,10 @@
     (assoc value choices))
   
   
+  (method (choice->value choice)
+    (car choice))
+  
+  
   (method public virtual (value->presented value)
     (if (not value)
         "{}"
@@ -229,30 +258,6 @@
   
   (method public virtual (invalid->value presented)
     (signal (new Parse-Error message: (format "Invalid value: {a}" presented))))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method (entry->choice entry)
-    (let ((test (or entry-test nu=?)))
-      (continuation-capture
-        (lambda (return)
-          (for-each (lambda (choice)
-                      (when choice
-                        (bind (value . presented) choice
-                          (let ((tryout
-                                  (lambda (string)
-                                    (let ((localized (localize string)))
-                                      (when (test entry localized)
-                                        (continuation-return return choice))))))
-                            (if (not presented)
-                                (tryout (value->presented value))
-                              (for-each tryout presented))))))
-                    choices)
-          #f))))
   
   
   ;;;
@@ -280,7 +285,12 @@
   
   
   (method public (set-value value (generate-event?: generate-event? #f))
-    (set-entry (present-value value))
+    (set-choice (value->choice value) generate-event?: generate-event?))
+  
+  
+  (method public (set-choice choice (generate-event?: generate-event? #f))
+    (set! selected choice)
+    (set-entry (present-value (choice->value choice)))
     (when generate-event?
       (call-content-change #f)))
   

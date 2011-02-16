@@ -160,11 +160,10 @@
             (directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
             (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
         (for-each (lambda (directory)
-                    (iterate-directory~ directory
+                    (iterate-project/directory directory
                       (lambda (file)
                         (when (member? (get-extension~ file) extensions test: ci=?)
-                          (increase! count)))
-                      ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "gambit")))
+                          (increase! count)))))
                   directories)
         count)))
   
@@ -181,9 +180,9 @@
                 (lambda ()
                   (let ((count 0))
                     (for-each (lambda (directory)
-                                (iterate-directory~ directory
+                                (iterate-project/directory directory
                                   (lambda (file)
-                                    (when (member? (get-extension~ file) extensions)
+                                    (when (member? (get-extension~ file) extensions test: ci=?)
                                       (increase! count)))))
                               directories)
                     count))))
@@ -199,7 +198,10 @@
   
   
   (definition (filter-existing directories)
-    (collect-if exists?~ directories))
+    (collect-if (lambda (project/directory)
+                  (or (symbol? project/directory)
+                      (exists?~ project/directory)))
+                directories))
   
   
   (definition (default-search-directories)

@@ -1302,7 +1302,7 @@
     (left-arrow-action modifiers #t))
   
   
-  (method public (left-arrow-action modifiers user-origin?)
+  (method public (left-arrow-action modifiers user-origin)
     (define (logical-col cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1317,7 +1317,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (> col 0)
-               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user-origin?))))))
+               (move-cell (new Cell (get-line~ cell) (- col 1)) 'left user-origin))))))
       ((row)
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1332,7 +1332,7 @@
     (up-arrow-action modifiers #t))
   
   
-  (method public (up-arrow-action modifiers user-origin?)
+  (method public (up-arrow-action modifiers user-origin)
     (define (logical-row cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1347,22 +1347,22 @@
          (let ((cell selection-pivot))
            (let ((line (logical-row cell)))
              (when (> line 0)
-               (move-cell (new Cell (- line 1) (get-col~ cell)) 'up user-origin?))))))
+               (move-cell (new Cell (- line 1) (get-col~ cell)) 'up user-origin))))))
       (else
        (let ((count (get-visible-count)))
          (if (null? selection)
              (when (> count 0)
-               (move-selection (- count 1) 'backward user-origin?))
+               (move-selection (- count 1) 'backward user-origin))
            (let ((line (car selection)))
              (when (> line 0)
-               (move-selection (- line 1) 'backward user-origin?))))))))
+               (move-selection (- line 1) 'backward user-origin))))))))
 
 
   (method override (right-arrow-press modifiers)
     (right-arrow-action modifiers #t))
   
   
-  (method public (right-arrow-action modifiers user-origin?)
+  (method public (right-arrow-action modifiers user-origin)
     (define (logical-col cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1377,7 +1377,7 @@
          (let ((cell selection-pivot))
            (let ((col (logical-col cell)))
              (when (< col (- (get-columns-count) 1))
-               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user-origin?))))))
+               (move-cell (new Cell (get-line~ cell) (+ col 1)) 'right user-origin))))))
       (else
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1390,7 +1390,7 @@
     (down-arrow-action modifiers #t))
   
   
-  (method public (down-arrow-action modifiers user-origin?)
+  (method public (down-arrow-action modifiers user-origin)
     (define (logical-row cell)
       (let ((site (cell->site cell)))
         (when site
@@ -1407,34 +1407,34 @@
            (let ((cell selection-pivot))
              (let ((line (logical-row cell)))
                (when (< line last)
-                 (move-cell (new Cell (+ line 1) (get-col~ cell)) 'down user-origin?))))))
+                 (move-cell (new Cell (+ line 1) (get-col~ cell)) 'down user-origin))))))
         (else
          (if (null? selection)
              (when (> count 0)
-               (move-selection 0 'forward user-origin?))
+               (move-selection 0 'forward user-origin))
            (let ((line (car selection)))
              (when (< line last)
-               (move-selection (+ line 1) 'forward user-origin?))))))))
+               (move-selection (+ line 1) 'forward user-origin))))))))
     
   
-  (method (move-selection line direction user-origin?)
+  (method (move-selection line direction user-origin)
     (let ((row (get-row line)))
-      (set-selection (list line) user-origin?: user-origin?)
+      (set-selection (list line) user-origin: user-origin)
       (when auto-expand/collapse?
         (auto-select~ row))
-      (when user-origin?
+      (when user-origin
         (update-view))))
   
   
-  (method (move-cell cell direction user-origin?)
-    (set-selection (list cell) ensure-displayed?: #f user-origin?: user-origin?)
+  (method (move-cell cell direction user-origin)
+    (set-selection (list cell) ensure-displayed?: #f user-origin: user-origin)
     (let ((rect (cell-rect cell)))
       (case direction
         ((left)  (scroll (new Point (horizontal-scroll-needed (get-left~ rect) 'backward) 0)))
         ((up)    (scroll (new Point 0 (vertical-scroll-needed (get-top~ rect) 'backward))))
         ((right) (scroll (new Point (horizontal-scroll-needed (get-right~ rect) 'forward) 0)))
         ((down)  (scroll (new Point 0 (vertical-scroll-needed (get-bottom~ rect) 'forward))))))
-    (when user-origin?
+    (when user-origin
       (update-view)))
   
   
@@ -1453,9 +1453,9 @@
            (= (get-v~ needed) 0))))
   
   
-  (method override (select-all (user-origin?: user-origin? #f))
+  (method override (select-all (user-origin: user-origin #f))
     (when multiple-selection?
-      (set-selection (naturals 0 visible-count) user-origin?: user-origin?)))
+      (set-selection (naturals 0 visible-count) user-origin: user-origin)))
 
   
   ;;;
@@ -2067,17 +2067,17 @@
           (cond ((and shift? control?)
                  (set! selection-pivot element)
                  (unless (member? element selection)
-                   (set-selection (list element) set-pivot?: #f user-origin?: #t)))
+                   (set-selection (list element) set-pivot?: #f user-origin: #t)))
                 (shift?
                  (unless (eq? selection-mode 'cell) ; unimplemented
                    (let ((pivot (or selection-pivot 0)))
-                     (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin?: #t))
-                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin?: #t))
-                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin?: #t))))))
+                     (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin: #t))
+                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin: #t))
+                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin: #t))))))
                 (control?
                   (if (member? element selection)
-                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin?: #t)
-                    (set-selection (cons element selection) set-pivot?: #f user-origin?: #t))
+                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin: #t)
+                    (set-selection (cons element selection) set-pivot?: #f user-origin: #t))
                   (unless (eq? selection-mode 'cell)
                     (when (and selection-pivot (= element selection-pivot))
                       (cond ((null? selection) (set! selection-pivot #f))
@@ -2086,7 +2086,7 @@
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
           (delay-selection~ selection-manager))
         (set! selection-pivot element)
-        (set-selection (list element) set-pivot?: #f user-origin?: #t))))
+        (set-selection (list element) set-pivot?: #f user-origin: #t))))
   
   
   (method override (get-selection)
@@ -2103,7 +2103,7 @@
                                   (ensure-displayed?: ensure-displayed? #t)
                                   (auto-expand?: auto-expand? #t)
                                   (generate-event?: generate-event? #t)
-                                  (user-origin?: user-origin? #f))
+                                  (user-origin: user-origin #f))
     (define (inval-selection selection)
       (when (not-null? selection)
         (for-each (lambda (cell)
@@ -2123,7 +2123,7 @@
           (inval-selection old-selection)
           (inval-selection selection)
           (when generate-event?
-            (selection-change old-selection force? user-origin?))))
+            (selection-change old-selection force? user-origin))))
       (let ((auto-row (and (not-null? sel) (get-row (selection-row (car sel))))))
         (when (and auto-expand/collapse? auto-expand?)
           (unless multiple-selection?
@@ -2135,10 +2135,10 @@
         (ensure-displayed))))
   
   
-  (method protected virtual (selection-change old-selection force? user-origin?)
+  (method protected virtual (selection-change old-selection force? user-origin)
     (with-locked-operation~ selection-manager
       (lambda ()
-        (call-selection-handler old-selection selection force? user-origin?))))
+        (call-selection-handler old-selection selection force? user-origin))))
   
   
   (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))

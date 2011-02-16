@@ -223,7 +223,7 @@
                 (validate-class-name module-name class-name)
                 (call-with-saved-text (find-unit-source module-name)
                   (lambda (text)
-                    (insert-imports text)
+                    (insert-imports text module-name)
                     (evaluate-imports text)
                     (insert-class text class-name)
                     (evaluate-class text module-name class-name))))))))))
@@ -245,12 +245,12 @@
       (evaluate-at-caret text)))
   
   
-  (method (insert-imports text)
+  (method (insert-imports text module-name)
     (for-each (lambda (unit)
                 (let ((explorer (new Jazz-Explorer text)))
                   (insert-import-invoice~ explorer unit)))
               (let* ((explorer (new Jazz-Explorer text))
-                     (units (cons 'jazz.jml (map car (get-imports~ (get-data~ form))))))
+                     (units (cons 'jazz.jml (remove module-name (map car (get-imports~ (get-data~ form)))))))
                 (filter-existing-import-invoices~ explorer units))))
   
   
@@ -260,7 +260,7 @@
       
       (define (save-to-existing-class text)
         (let ((form-exists? (eq? form (get-class-form~ class))))
-          (insert-imports text)
+          (insert-imports text module-name)
           (evaluate-imports text)
           (save-form text form form-exists?)
           (tabulate-form text)

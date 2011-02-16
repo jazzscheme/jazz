@@ -710,7 +710,7 @@
           (control? (control-down?)))
       (if (not cell)
           (when can-select-empty?
-            (set-selection '()))
+            (set-selection '() user-origin: 'mouse))
         (let ((pos (cell-coordinates cell view))
               (column (get-column (get-col~ cell))))
           (mouse-down~ column cell pos shift? control?)))))
@@ -2061,23 +2061,23 @@
       site))
 
 
-  (method public (process-selection cell shift? control?)
+  (method public (process-selection cell shift? control? user-origin)
     (let ((element (case selection-mode ((cell) cell) (else (get-line~ cell)))))
       (if (and multiple-selection? (or shift? control?))
           (cond ((and shift? control?)
                  (set! selection-pivot element)
                  (unless (member? element selection)
-                   (set-selection (list element) set-pivot?: #f user-origin: #t)))
+                   (set-selection (list element) set-pivot?: #f user-origin: user-origin)))
                 (shift?
                  (unless (eq? selection-mode 'cell) ; unimplemented
                    (let ((pivot (or selection-pivot 0)))
-                     (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin: #t))
-                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin: #t))
-                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin: #t))))))
+                     (cond ((= element pivot) (set-selection (list element) set-pivot?: #f user-origin: user-origin))
+                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) set-pivot?: #f user-origin: user-origin))
+                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) set-pivot?: #f user-origin: user-origin))))))
                 (control?
                   (if (member? element selection)
-                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin: #t)
-                    (set-selection (cons element selection) set-pivot?: #f user-origin: #t))
+                      (set-selection (remove element selection test: equal?) set-pivot?: #f user-origin: user-origin)
+                    (set-selection (cons element selection) set-pivot?: #f user-origin: user-origin))
                   (unless (eq? selection-mode 'cell)
                     (when (and selection-pivot (= element selection-pivot))
                       (cond ((null? selection) (set! selection-pivot #f))
@@ -2086,7 +2086,7 @@
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
           (delay-selection~ selection-manager))
         (set! selection-pivot element)
-        (set-selection (list element) set-pivot?: #f user-origin: #t))))
+        (set-selection (list element) set-pivot?: #f user-origin: user-origin))))
   
   
   (method override (get-selection)

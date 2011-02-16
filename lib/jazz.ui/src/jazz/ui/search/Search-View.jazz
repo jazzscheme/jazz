@@ -44,6 +44,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.platform)
+        (jazz.project)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.activity)
@@ -563,15 +564,14 @@
 
   (method protected (search-in-directory search-set directory extensions expression? factory reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
-      (iterate-directory~ directory
+      (iterate-project/directory directory
         (lambda (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
               ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
                (search-in-file search-set file expression? factory reporter))
               ((member? ext extensions test: ci=?)
-               (search-in-file search-set file expression? factory reporter)))))
-        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "gambit"))))
+               (search-in-file search-set file expression? factory reporter))))))))
 
 
   (method (search-file file search-set expression?)
@@ -589,6 +589,17 @@
                    (expl (new Jazz-Explorer text start: beginning end: beginning))
                    (mode (if (ci=? ext "jazz") 'code 'quotation)))
               (search-expressions~ expl mode search-set beginning)))))))
+  
+  
+  (method protected (iterate-project/directory project/directory proc)
+    (if (symbol? project/directory)
+        (for-each-project~ (find-project~ (get-workbench) project/directory)
+          (lambda (project)
+            (debug project)
+            (iterate-files~ project
+              proc)))
+      (iterate-directory~ project/directory proc
+        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "gambit"))))
 
 
   ;;;

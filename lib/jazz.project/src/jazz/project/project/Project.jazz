@@ -142,15 +142,12 @@
   ;;;
   
   
+  (method public (load-catalogs (include-inactives?: include-inactives? #f))
+    (for-each-project load-catalog~))
+  
+  
   (method public (load-catalog)
-    (when active?
-      (let ((catalog (require-catalog)))
-        (load-content~ catalog report?: #f)
-        catalog)))
-  
-  
-  (method public (load-catalogs)
-    (for-each-active-project load-catalog~))
+    (load-content~ (require-catalog) report?: #f))
   
   
   (method public (require-catalog)
@@ -202,27 +199,25 @@
   ;;;
   
   
-  (method public (for-each-project proc (include-self?: include-self? #f) (stop-test: stop-test #f))
+  (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (stop-test: stop-test #f))
     (for-each-descendant
       (lambda (descendant level)
         (when (is? descendant Project)
           (proc descendant)))
       include-self?: include-self?
-      stop-test: stop-test))
+      stop-test: (lambda (descendant)
+                   (or (and (is? descendant Project)
+                            (not include-inactives?)
+                            (not (get-active?~ descendant)))
+                       (and stop-test
+                            (stop-test))))))
   
   
-  (method public (for-each-active-project proc)
-    (for-each-project proc
-                      include-self?: #t
-                      stop-test: (lambda (descendant)
-                                   (and (is? descendant Project)
-                                        (not (get-active?~ descendant))))))
-  
-  
-  (method public (fold-projects proc seed)
+  (method public (fold-projects proc seed (include-inactives?: include-inactives? #f))
     (define (fold x f s)
       (let ((ps (if (and (is? x Project)
-                         (get-active?~ x))
+                         (or include-inactives?
+                             (get-active?~ x)))
                     (f x s)
                   s)))
         (if (eq? ps :skip)

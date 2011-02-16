@@ -81,15 +81,18 @@
     (when (update-choices)
       (let ((menu (new-choices-menu))
             (pick (get-pick)))
-        (if (not menu)
-            (begin
-              (bell)
-              (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))
-          (let ((size (get-size)))
-            (let ((width (get-width~ size))
-                  (height (get-height~ size)))
-              (layout-menu~ menu width: (- width 4))
-              (track-popup-menu menu (new Point -1 (+ height 1)) alternate-position: (new Point -1 (- (+ 5 (get-height~ (get-size~ menu))))))))))))
+        (cond (menu
+               (receive (pos alternate-pos) (combo-popup-positions menu)
+                 (layout-menu~ menu width: (- (get-width) 4))
+                 (track-popup-menu menu pos alternate-position: alternate-pos)))
+              (else
+               (bell)
+               (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))))))
+  
+  
+  (method protected (combo-popup-positions view)
+    (values (new Point -1 (+ (get-height) 1))
+            (new Point -1 (- (+ 5 (get-height~ view))))))
   
   
   (method protected virtual (on-action evt)

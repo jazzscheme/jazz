@@ -93,7 +93,13 @@
     ;; to the copy.
     (define (setup-class-form frm)
       (set! form~self frm)
-      (set! form-copy (copy-object~ frm #t)))
+      (set! form-copy (copy-object~ frm #t))
+      (set-form-data frm))
+    
+    (define (set-form-data frm)
+      (let* ((class (get-origin~ frm))
+             (unit (category-unit class)))
+        (set-data~ frm (new Data 'jazz (unit-imports unit) #f))))
     
     (define (setup-file-form frm)
       (set! form~self frm))
@@ -153,12 +159,28 @@
   
   
   (method (call-with-saved-text file func)
+    (call-with-text file
+      (lambda (text)
+        (let ((result (func text)))
+          (save~ text)
+          result))))
+  
+  
+  (method (call-with-text file func)
     (let* ((frame (edit-document~ (get-application) file force-new?: #t class: Jazz-Text-View visible?: #f))
            (text (get-guest~ frame))
            (result (func text)))
-      (save~ text)
       (close~ frame)
       result))
+  
+  
+  (method (unit-imports unit)
+    (call-with-text (find-unit-source unit)
+      (lambda (text)
+        (let ((explorer (new Jazz-Explorer text)))
+          (forward-namespace~ explorer)
+          (find-import~ explorer)
+          (cdr (read-marked~ explorer))))))
   
   
   (method (evaluate-at-caret text)

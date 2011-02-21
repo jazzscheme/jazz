@@ -61,9 +61,9 @@
   (property caption?       initialize #f          accessors explicit)
 
   
-  (slot root              initialize #f)
-  (slot view-focus        initialize #f accessors generate)
-  (slot preserved-focuses initialize '())
+  (slot root           initialize #f)
+  (slot view-focus     initialize #f accessors generate)
+  (slot pushed-focuses initialize '())
 
   
   ;;;
@@ -444,32 +444,42 @@
   
   (method package (push-view-focus new-focus)
     (when view-focus
-      (set! preserved-focuses (cons view-focus preserved-focuses)))
+      (set! pushed-focuses (cons view-focus pushed-focuses)))
     (focus-view new-focus #f))
   
   
   (method package (pop-view-focus)
-    (when (not-null? preserved-focuses)
-      (let ((new-focus (car preserved-focuses)))
-        (set! preserved-focuses (cdr preserved-focuses))
+    (when (has-pushed-focuses?)
+      (let ((new-focus (car pushed-focuses)))
+        (set! pushed-focuses (cdr pushed-focuses))
         (when view-focus
           (call-focus-lose~ view-focus))
         (focus-view new-focus #f))))
   
   
-  (method package (pop-all-view-focus)
+  (method package (pop-view-focuses popup)
     (let (iterate)
-      (when (not-null? preserved-focuses)
+      (let ((focus view-focus))
+        (when (and view-focus
+                   (eq? (get-player~ view-focus) popup)
+                   (has-pushed-focuses?))
+          (pop-view-focus)
+          (iterate)))))
+  
+  
+  (method package (pop-all-view-focuses)
+    (let (iterate)
+      (when (has-pushed-focuses?)
         (pop-view-focus)
         (iterate))))
   
   
-  (method package (clear-preserved-focuses)
-    (set! preserved-focuses '()))
+  (method package (clear-pushed-focuses)
+    (set! pushed-focuses '()))
   
   
-  (method package (has-preserved-focuses?)
-    (not-null? preserved-focuses))
+  (method package (has-pushed-focuses?)
+    (not-null? pushed-focuses))
   
   
   ;;;

@@ -275,16 +275,36 @@
   
   
   (method override (frame-location process frame)
+    (define (location-from-snapshot)
+      (let ((location (get-property~ frame 'location)))
+        (when location
+          (let ((path (car location)))
+            (if (exists?~ (new File (tokenise-filename path)))
+                location
+              (let ((unit (get-property~ frame 'unit)))
+                (when unit
+                  (let ((cataloguer (get-cataloguer~ (get-application))))
+                    (let ((entry (get-definition~ cataloguer unit)))
+                      (when (is? entry File-Entry)
+                        (let ((file (get-file~ entry)))
+                          (when file
+                            (cons (parse~ file)
+                                  (cdr location))))))))))))))
+    
+    (define (location-from-catalog name)
+      (let ((entry (locator->entry name)))
+        (when entry
+          (let ((file (parse~ (get-file~ (get-file-definition~ entry))))
+                (line (get-line~ entry))
+                (column (get-column~ entry)))
+            (list file line column)))))
+    
     (let ((name (get-property~ frame 'name)))
       (when (symbol? name)
-        (let ((entry (locator->entry name)))
-          (when entry
-            (let ((file (parse~ (get-file~ (get-file-definition~ entry))))
-                  (line (get-line~ entry))
-                  (column (get-column~ entry)))
-              (list file line column)))))))
-  
-  
+        (or (location-from-snapshot)                 
+            (location-from-catalog name)))))
+
+    
   (method override (frame-variables process frame kind)
     (map (lambda (variable)
            (let ((name (get-property~ variable 'name))

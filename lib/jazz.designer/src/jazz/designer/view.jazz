@@ -65,6 +65,11 @@
       presentation)))
 
 
+(definition package (component-addable-classes component)
+  (flatten (or (component-categorized-toolbox-addable-classes component)
+               (get-categorized-addable-classes~ component))))
+
+
 (definition package (component-categorized-toolbox-addable-classes component)
   (let ((toolbox (find-docked Toolbox-Manager)))
     (and toolbox
@@ -83,6 +88,40 @@
       (if model-ref
           (cons (list model-ref) categorized)
         categorized))))
+
+
+(definition public (redundant-descendant? component components)
+    (some? (lambda (target)
+             (and (neq? component target)
+                  (has-parent?~ component target)))
+           components))
+
+
+(definition (can-modify-components? components pred)
+  (every? (lambda (component)
+            (and (is? component Component)
+                 (pred component)
+                 (not (redundant-descendant? component components))))
+          components))
+
+
+(definition public (can-copy-components? components)
+  (can-modify-components? components can-copy-component?~))
+
+
+(definition public (can-cut-components? components)
+  (can-modify-components? components can-cut-component?~))
+
+
+(definition public (can-delete-components? components)
+  (can-modify-components? components can-delete-component?~))
+
+
+(definition public (can-paste-components? components)
+  (and (every? (lambda (component)
+                 (is? component Component))
+               components)
+       (determine-unique-paster components)))
 
 
 ;;;

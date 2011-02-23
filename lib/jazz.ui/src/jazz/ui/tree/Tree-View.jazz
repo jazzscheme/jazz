@@ -568,11 +568,11 @@
         (when (and top-left bottom-right)
           (receive (left top width height) (merge-geometry top-left bottom-right)
             (let ((left-column (get-column~ top-left))
-                  (top-line (row->line (get-row~ top-left)))
+                  (top-row (get-row~ top-left))
                   (data (get-cell-data (get-master-cell~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
-              (let ((new-context (cons selected?: (cons selected? (cons line: (cons top-line context))))))
-                (paint-data new-context left-column #f (+ lh left) (+ lv top) 0 0 width height data)))))))
+              (let ((new-context (cons selected?: (cons selected? (cons line: (cons (row->line top-row) context))))))
+                (paint-data new-context left-column top-row (+ lh left) (+ lv top) 0 0 width height data)))))))
     
     (nextmethod surface nodes context lh lv sh sv sc sc?)
     (for-each paint-merge-cell-data merge-cell-list))
@@ -1463,6 +1463,10 @@
   ;;;
   
   
+  (method public (for-each-column proc)
+    (for-each proc (get-columns) (iota (get-columns-count))))
+  
+  
   (method public (fill-column)
     (define (find-filled-column name)
       (cond ((integer? name) (element columns name))
@@ -1787,16 +1791,11 @@
             (when (eq? row target)
               (continuation-return return line))))
         #f)))
-
-
+  
+  
   (method public (user-data-row data (test: test eqv?) (include-invisibles?: include-invisibles? #f))
-    (continuation-capture
-      (lambda (return)
-        ((if include-invisibles? for-each-row for-each-visible-row)
-         (lambda (row line)
-           (when (test (get-user-data~ row) data)
-             (continuation-return return row))))
-        #f)))
+    (let ((rows (if include-invisibles? (collect-rows) (collect-visible-rows))))
+      (find rows data key: get-user-data~ test: test return: 'item)))
 
 
   (method public (user-data-rows data-list (test: test eqv?) (include-invisibles?: include-invisibles? #f))
@@ -1841,6 +1840,11 @@
   ;;;
   ;;;; Cells
   ;;;
+  
+  
+  (method public (cell-values cell)
+    (values (get-row (get-line~ cell))
+            (get-column (get-col~ cell))))
   
   
   (method public (get-cell-data cell)

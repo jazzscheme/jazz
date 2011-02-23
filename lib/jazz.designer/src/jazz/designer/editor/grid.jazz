@@ -1,0 +1,763 @@
+(module protected jazz.designer.editor.grid jazz
+
+
+(import (jazz.designer)
+        (jazz.designer.menu)
+        (jazz.designer.view)
+        (jazz.graphic)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.jml)
+        (jazz.system)
+        (jazz.ui.clipboard)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(definition (classes-common-ancestor . classes)
+  (let ((ancestor (find-if (lambda (class)
+                             (every? (lambda (subclass)
+                                       (subclass? subclass class))
+                                     classes))
+                           classes)))
+    (or ancestor (apply classes-common-ancestor (map class-ascendant classes)))))
+
+
+(definition (get-class-categorized-properties class)
+  (let* ((properties-descriptor (get-properties-descriptor class))
+         (categorized (get-categorized~ properties-descriptor)))
+    (either categorized #f)))
+
+
+(definition (class-properties class)
+  (let* ((categorized (get-class-categorized-properties class))
+         (keep-property?
+           (lambda (property)
+             (let ((category (get-name~ (get-category~ class property))))
+               (and (eq? category 'properties)
+                    (if categorized
+                        (memq (get-name~ property) categorized)
+                      (let ((property-descriptor (get-property-descriptor class (get-name~ property))))
+                        (and property-descriptor (get-domain~ property-descriptor)))))))))
+    (collect-if keep-property? (get-properties~ class))))
+
+
+(definition (present-property-value component property)
+  (let ((value (read-property component property)))
+    (present-property~ component property value)))
+
+
+(definition (column-data-component-property row-data column-data fail succeed)
+  (let* ((component (element row-data (get-is-in~ column-data)))
+         (property (and component (category-field (class-of component) (get-path~ column-data)))))
+    (if property
+        (succeed component property)
+      (fail))))
+
+
+
+
+(definition (column-component-property row column fail succeed)
+  (call-with-row/column-data row column
+    (lambda (rd cd) (column-data-component-property rd cd fail succeed))))
+
+
+(definition (call-with-row/column-data row column proc)
+  (proc (get-user-data~ row) (get-provider-data~ column)))
+
+
+(definition (make-class-cell-domain references)
+  (new Enumeration-Domain choices: (zip references
+                                        (map get-class-presentation~
+                                             (map resolve-reference~ references)))))
+
+
+(definition (update-grid-element label row-data column-data)
+  (define (inactive-cell-background)
+    (typecase column-data
+      ((Component-Provider-Selection-Data)
+       (let ((is-in (get-is-in~ column-data)))
+         (cond ((not is-in) {Color White})
+               ((element row-data (get-is-in~ column-data)) {Color White})
+               (else {Color Gray}))))
+      (else
+       {Color Gray})))
+  
+  (define (update-inactive-element)
+    (set-title~ label "")
+    (set-background~ label (inactive-cell-background)))
+  
+  (define (update-active-element component property)
+    (set-title~ label (if property (present-property-value component property) ""))
+    (set-background~ label {Color Tree-Background}))
+  
+  (if (is? column-data Component-Provider-Selection-Data)
+      (update-inactive-element)
+    (column-data-component-property row-data column-data update-inactive-element update-active-element)))
+
+
+(class Component-Provider-Data extends Component
+  
+  
+  (property read-only? initialize #f accessors generate)
+  (property path       initialize #f accessors generate)
+  (property is-in      initialize #f accessors generate))
+
+
+(class Component-Provider-Selection-Data extends Component-Provider-Data
+  
+  
+  (property is initialize #f accessors generate)
+  (property references initialize '() accessors generate))
+
+
+(class Component-Provider extends Component
+  
+  
+  (slot designer accessors generate)
+  (slot client accessors generate)
+  
+  
+  (method (get-grid)
+    (get-parent))
+  
+  
+  (method (class-column? column)
+    (let ((column-data (get-provider-data~ column)))
+      (eq? (get-path~ column-data) 'class-info)))
+  
+  
+  (method (get-selection-columns)
+    (collect-type Component-Provider-Selection-Data (get-columns~ (get-grid)) key: get-provider-data~))
+  
+  
+  (method (column-data-component-class-references row-data column-data fail succeed)
+    (let ((component (element row-data (get-is-in~ column-data))))
+      (if component
+          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-is-in~ column-data)))))
+            (succeed component (get-references~ component-column-data)))
+        (fail))))
+
+
+  (method (column-component-class-references row column fail succeed)
+    (call-with-row/column-data row column
+      (lambda (rd cd) (column-data-component-class-references rd cd fail succeed))))
+  
+  
+  (method (get-class-domain row-data column-data)
+    (column-data-component-class-references row-data column-data
+      (lambda () #f)
+      (lambda (component references)
+        (make-class-cell-domain references))))
+  
+  
+  (method public (get-domain row column)
+    (call-with-row/column-data row column
+      (lambda (row-data column-data)
+        (and (is-not? column-data Component-Provider-Selection-Data)
+             (if (class-column? column)
+                 (get-class-domain row-data column-data)
+               (column-component-property row column (lambda () #f) property-domain~))))))
+  
+  
+  (method public (update-label row column label)
+    (update-grid-element label row column))
+  
+  
+  (method (get-class-reference row column)
+    (column-component-class-references row column
+      (lambda () #f)
+      (lambda (component references)
+        (find references (class-of component) key: resolve-reference~ return: 'item))))
+  
+  
+  (method public (get-data row column (not-present: not-present #f))
+    (if (class-column? column)
+        (get-class-reference row column)
+        (column-component-property row column (lambda () not-present) read-property)))
+  
+  
+  (method (set-class row column reference)
+    (let ((runtime-reference (get-runtime-reference~ reference)))
+      (column-component-class-references row column
+        (lambda () #f)
+        (lambda (component _)
+          (let ((parent (get-parent~ component))
+                (name (get-name~ component))
+                (import (second (serialize-runtime-reference runtime-reference)))
+                (new-component (new (resolve-runtime-reference runtime-reference))))
+            (remove-child~ designer component)
+            (add-child~ designer new-component parent name: name import: import))))))
+  
+  
+  (method public (set-data row column value)
+    (if (class-column? column)
+        (set-class row column value)
+      (column-component-property row column
+        (lambda () #f)
+        (lambda (component property)
+          (safe-set-property~ designer component property value))))))
+
+
+(class Component-Controller-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: rename     action-handler: {Event-Handler (:focus controller) on-rename-component} shortcut: {Shortcut F2})
+      (<Action-Item> name: insert     action-handler: {Event-Handler (:focus controller) on-insert-component}))))
+
+
+(class Component-Controller-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: insert            title: "Insert" icon: {Image-Resource "Add"} action-handler: {Action component-controller insert})
+      (<Label-Item>     name: delete            title: "Delete" icon: {Image-Resource "Remove"} action-handler: {Action view delete})
+      (<Label-Item>     name: rename            title: "Rename"action-handler: {Action component-controller rename})
+      (<Label-Item>     name: cut               title: "Cut" icon: {Image-Resource "Cut"} action-handler: {Action view cut})
+      (<Label-Item>     name: copy              title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Action view copy})
+      (<Label-Item>     name: paste             title: "Paste" icon: {Image-Resource "Paste"} action-handler: {Action view paste}))))
+
+
+(class Component-Controller extends Component
+  
+  
+  (slot designer accessors generate)
+  (slot editor accessors generate)
+  (slot client accessors generate)
+  
+  
+  ;;;
+  ;;;; Redispatch
+  ;;;
+  
+  
+  (method (get-tab-stops)
+    (let ((grid (get-grid)))
+      
+      (define (tab-cell row column)
+        (let ((cell (site->cell~ grid (row/column->site~ grid row column))))
+          (or (and (cell=? (get-single-selection~ grid) cell) cell)
+              (call-with-row/column-data row column
+                (lambda (rd cd)
+                  (and (is-not? cd Component-Provider-Selection-Data)
+                       (not (get-read-only?~ cd))
+                       (column-data-component-property rd cd
+                         (lambda () #f)
+                         (lambda (c p) cell))))))))
+      
+      (append-map (lambda (row)
+                    (collect (lambda (column) (tab-cell row column)) (get-columns~ grid)))
+                  (collect-visible-rows~ grid))))
+  
+  
+  (method (get-domain row column)
+    (get-domain~ (get-provider) row column))
+  
+  
+  (method (get-data row column (not-present: not-present #f))
+    (get-data~ (get-provider) row column not-present: not-present))
+  
+  
+  (method (set-data row column value)
+    (set-data~ (get-provider) row column value))
+  
+  
+  (method public (update-label row column label)
+    (call-with-row/column-data row column
+      (lambda (rd cd)
+        (update-label~ (get-provider) rd cd label))))
+  
+  
+  (method public (selection-cell? row column)
+    (call-with-row/column-data row column
+      (lambda (row-data column-data)
+        (is? column-data Component-Provider-Selection-Data))))
+  
+  
+  (method public (cell-editable? row column)
+    (call-with-row/column-data row column
+      (lambda (row-data column-data)
+        (and (not (get-read-only?~ column-data))
+             (not (is? column-data Component-Provider-Selection-Data))))))
+  
+  (method (get-provider)
+    (get-provider~ parent))
+  
+  
+  (method (get-grid)
+    parent)
+  
+  
+  (method (get-focus-actions)
+    (find-actions 'component-controller))
+  
+  
+  (method (can-rename?)
+    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+      (and (= 1 (length rows-data))
+           (let ((row-data (car rows-data))
+                 (column-data (car columns-data)))
+             (and (is? column-data Component-Provider-Selection-Data)
+                  (element row-data (get-is~ column-data))
+                  (not (get-path~ column-data)))))))
+  
+  
+  (method (can-insert?)
+    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+      (and (= 1 (length rows-data))
+           (let ((row-data (car rows-data))
+                 (column-data (car columns-data)))
+             (and (is? column-data Component-Provider-Selection-Data)
+                  (or (not (get-path~ column-data))
+                      (not (element row-data (get-is~ column-data)))))))))
+  
+  
+  (method (focus-update-actions)
+    (set-action-enabled? {Action component-controller insert} (can-insert?))
+    (set-action-enabled? {Action component-controller rename} (can-rename?)))
+  
+  
+  (method (get-context-menu)
+    (new Component-Controller-Menu client: self))
+  
+  
+  (method (selected-components)
+    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+      (if (null? rows-data)
+          '()
+        (assert (if (> (length columns-data) 1)
+                    (every? (lambda (data) (is? data Component-Provider-Selection-Data)) columns-data)
+                  #t))
+        (if (is? (car columns-data) Component-Provider-Selection-Data)
+            (map element rows-data (map get-is~ columns-data))
+          (map element rows-data (map get-is-in~ columns-data))))))
+  
+  
+  (method public (on-rename-component evt)
+    (let* ((component (car (selected-components)))
+           (presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property~ component))))
+      (set-presentation-property~ component designer presentation)))
+  
+  
+  (method public (on-insert-component evt)
+    (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
+      (let ((row-data (car rows-data))
+            (column-data (car columns-data)))
+        (let ((runtime-reference (get-runtime-reference~ (car (get-references~ column-data))))
+              (parent (let ((is-in (get-is-in~ column-data)))
+                        (if is-in (element row-data is-in) client))))
+          (let* ((brothers (get-children~ parent))
+                 (class (resolve-runtime-reference runtime-reference))
+                 (name (request-component-presentation class brothers))
+                 (child (new class parent: parent name: name)))
+            (add-child~ designer child parent import: (let ((serialization (serialize-runtime-reference runtime-reference)))
+                                                        (and (eq? 'module-public (car serialization))
+                                                             (second serialization)))))))))
+  
+  
+  (method public (on-selection-change evt)
+    (set-selection~ editor (selected-components))
+    (update-focus-actions~ (get-application)))
+  
+  
+  (method public (cut-selection)
+    (cut-components~ designer (selected-components)))
+  
+  
+  (method public (copy-selection)
+    (copy-components~ designer (selected-components)))
+  
+  
+  (method public (delete-selection)
+    (delete-components~ designer (selected-components)))
+  
+  
+  (method public (paste-clipboard)
+    (let ((parent (determine-unique-paster (selected-components))))
+      (paste-parcels~ designer (get-jazz-parcels) parent)))
+  
+  
+  (method public (can-copy?)
+    (can-copy-components? (selected-components)))
+  
+  
+  (method public (can-cut?)
+    (can-cut-components? (selected-components)))
+  
+  
+  (method public (can-paste?)
+    (can-paste-components? (selected-components)))
+  
+  
+  (method public (can-delete?)
+    (can-delete-components? (selected-components)))
+  
+  
+  (method (child-add child parent)
+    (grid-populate))
+  
+  
+  (method (child-remove child parent)
+    (grid-populate))
+  
+  
+  (method (property-change component property)
+    (for-each-row~ (get-grid)
+      (lambda (row row-rank)
+        (let ((row-data (get-user-data~ row)))
+          (when (memq? component row-data)
+            (for-each-column~ (get-grid)
+              (lambda (column column-rank)
+                (let ((column-data (get-provider-data~ column)))
+                  (when (and (eq? (get-name~ property) (get-path~ column-data))
+                             (eq? component (element row-data (get-is-in~ column-data))))
+                    (update-cell~ (get-grid) (new Cell row-rank column-rank)))))))))))
+  
+  
+  (method (name-change component new-name old-name)
+    (grid-populate))
+  
+  
+  (method (grid-populate)
+    (populate~ (get-grid)
+      (lambda ()
+        (when (and client (not-null? (component-addable-classes client)))
+          (insert-client client)))))
+  
+  
+  (method public (merge? row1-data row2-data column-data)
+    (let ((is (if (is? column-data Component-Provider-Selection-Data) (get-is~ column-data) (get-is-in~ column-data))))
+      (eq? (element row1-data is) (element row2-data is))))
+  
+  
+  (method protected virtual (insert-client component)
+    
+    (define (make-rows-data component selection-columns)
+      (if (null? selection-columns)
+          '()
+        (let* ((column-data (get-provider-data~ (car selection-columns)))
+               (path (get-path~ column-data)))
+          (if path
+              (list (cons (find-child~ component path) (make-rows-data component (cdr selection-columns))))
+            (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
+                                                (get-components~ component)
+                                                key: class-of)))
+              (if (null? addable-children)
+                  (list (make-list (length selection-columns) #f))
+                (append-map (lambda (child)
+                              (let ((rest (make-rows-data child (cdr selection-columns))))
+                                (if (null? rest)
+                                    (list (list child))
+                                  (map (lambda (row-data) (cons child row-data)) rest))))
+                            addable-children)))))))
+    
+    (define (make-row-label row-data column-data)
+      (let ((label (new Tree-Label)))
+        (update-grid-element label row-data column-data)
+        label))
+    
+    (define (make-row-labels row-data)
+      (map (lambda (column)
+             (make-row-label row-data (get-provider-data~ column)))
+           (get-columns~ (get-grid))))
+    
+    (let ((rows-data (make-rows-data component (collect-type Component-Provider-Selection-Data
+                                                             (get-columns~ (get-grid))
+                                                             key: get-provider-data~))))
+      (for-each (lambda (row-data row-labels)
+                  (add-row~ (get-grid) children: row-labels user-data: row-data))
+                rows-data
+                (map make-row-labels rows-data)))))
+
+
+(class Grid-Tree-Editor extends Layout-View
+  
+  
+  (property generate-columns? initialize #t)
+  
+  
+  (slot editor   initialize #f)
+  (slot designer initialize #f)
+  (slot client   initialize #f)
+  
+  
+  (form
+    (<install>                                       layout-type: fill
+      (<Layout-View>                    name: tools)
+      (<Scroller-View>                  name: scroller style: document hscroll?: #t vscroll?: #t
+        (<!>                            name: content  layout-type: fill
+          (<Tree-Header>                name: header   style: document
+            (<!>                        name: content
+              (<Grid-Tree>              name: grid
+                (<Component-Provider>   name: provider)
+                (<Component-Controller> name: controller))))))))
+  
+  
+  (definition Default-Class-Width 150)
+  (definition Default-Property-Width 100)
+  (definition Default-Selection-Width 20)
+  
+  
+  (method override (destroy)
+    (set-designer #f)
+    (set-editor #f)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Grid
+  ;;;
+  
+  
+  (method (get-grid)
+    (locate 'grid))
+  
+  
+  (method (get-provider)
+    (locate 'provider))
+  
+  
+  (method (get-controller)
+    (locate 'controller))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  ;;; Mettre ce qu'il faut pour gerer les docked. Voir Descendants-Editor
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public (get-client)
+    client)
+  
+  
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (client-update)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-provider)
+    (set-client~ (get-provider) client)
+    (set-designer~ (get-provider) designer))
+  
+  
+  (method (update-controller)
+    (set-client~ (get-controller) client)
+    (set-designer~ (get-controller) designer)
+    (set-editor~ (get-controller) self))
+  
+  
+  (method (client-update)
+    (end-edition~ (get-grid))
+    (update-controller)
+    (update-provider)
+    (update))
+  
+  
+  (method (update)
+    (with-update-locked~ (get-grid)
+      (lambda ()
+        (when generate-columns?
+          (setup-columns))
+        (grid-populate~ (get-controller)))))
+  
+  
+  (method (add-selection-column path is is-in references)
+    (let ((column (add-column~ (get-grid) class: Grid-Tree-Column width: Default-Selection-Width)))
+      (add-child~ column (new Component-Provider-Selection-Data name: 'provider-data path: path is: is is-in: is-in references: references))))
+  
+  
+  (method (add-class-column is-in)
+    (let ((column (add-column~ (get-grid) class: Grid-Tree-Column title: "Class" width: Default-Class-Width)))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data path: 'class-info is-in: is-in))))
+  
+  
+  (method (add-property-column is-in path title (read-only? #f))
+    (let ((column (add-column~ (get-grid) class: Grid-Tree-Column title: title width: Default-Property-Width)))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data path: path is-in: is-in read-only?: read-only?))))
+  
+  
+  (method (setup-client-columns)
+    
+    (define (setup-class-column references is)
+      (when (> (length references) 1)
+        (add-class-column is)))
+    
+    (define (setup-property-columns references is)
+      (for-each (lambda (x)
+                  (bind (property presentation) x
+                    (add-property-column is (get-name~ property) presentation)))
+                (remove-duplicates
+                  (append-map (lambda (class)
+                                (map (lambda (property)
+                                       (list property (property-presentation~ class property)))
+                                     (class-properties class)))
+                              (map resolve-reference~ references))
+                  key: second
+                  test: string=?)))
+    
+    (define (runtime-reference->reference runtime-reference)
+      (let* ((ref (new Reference #f)))
+        (setup-context~ ref (new Environment #f (lambda (sym) runtime-reference)))
+        ref))
+    
+    (define (setup-selection-columns addable-references is add-to)
+      (let ((references (map runtime-reference->reference addable-references)))
+        (add-selection-column #f is add-to references)
+        (add-property-column is 'name-info "Name" #t)
+        (setup-class-column references is)
+        (setup-property-columns references is))
+      (debug (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
+      (let* ((addable-ancestor (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
+             (ancestor-descriptor (get-descriptor addable-ancestor))
+             (children-descriptor (find-child~ ancestor-descriptor 'children))
+             (child-descriptors (get-children~ children-descriptor)))
+        (debug 'before-children)
+        (for-each (lambda (descriptor child-is)
+                    (let ((references (get-classes~ descriptor)))
+                      (add-selection-column (get-target~ descriptor) child-is is references)
+                      (setup-class-column references child-is)
+                      (setup-property-columns references child-is)))
+                  child-descriptors
+                  (iota (length child-descriptors) (+ is 1)))
+        (when (get-addable?~ children-descriptor)
+          (let ((ancestor-addable-classes (component-get-addable-classes~ (get-descriptor addable-ancestor) #f)))
+            (when (not-null? ancestor-addable-classes)
+              (setup-selection-columns ancestor-addable-classes (+ is 1 (length child-descriptors)) is))))))
+    
+    (setup-selection-columns (component-addable-classes client) 0 #f)
+    (debug 'end-setup))
+  
+  
+  (method (setup-columns)
+    (remove-columns~ (get-grid))
+    (when (and client (not-null? (component-addable-classes client)))
+      (setup-client-columns)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (set-designer dsg)
+    (when (neq? dsg designer)
+      (when designer
+        (remove-designer-listener~ designer self))
+      (set! designer dsg)
+      (when designer
+        (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
+          (add-designer-listener~ designer listener))
+        (update-controller)
+        (update-provider))))
+  
+  
+  (method (on-designer evt)
+    (case (get-kind~ evt)
+      ((:name-change)     (name-change~     (get-controller) (get-property~ evt component:) (get-property~ evt name:) (get-property~ evt old-name:)))
+      ((:child-add)       (child-add~       (get-controller) (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:child-remove)    (child-remove~    (get-controller) (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:property-change) (property-change~ (get-controller) (get-property~ evt component:) (get-property~ evt property:)))))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (get-editor)
+    editor)
+  
+  
+  (method public (set-editor edt)
+    (when (neq? edt editor)
+      (when editor
+        (remove-editor-listener~ editor self))
+      (set! editor edt)
+      (when editor
+        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+  
+  
+  (method (on-editor evt)
+    (case (get-kind~ evt)
+      ((:client-change) (set-client (get-property~ evt client:)))
+      ((:designer-change) (set-designer (get-property~ evt designer:)))
+      ((:selection-changed) (selection-changed (get-selection~ evt) (get-old~ evt) (get-origin~ evt) (get-force-parent?~ evt) (get-user-origin~ evt)))))
+  
+  
+  (method (determine-client component)
+    (let ((parent (get-parent~ component)))
+      (cond ((or (not parent) (not-null? (component-addable-classes component)))
+             (values component #f))
+            ((not-null? (component-addable-classes parent))
+             (values parent component))
+            ((eq? parent (get-client~ editor))
+             (values parent #f))
+            (else
+             (determine-client parent)))))
+  
+  
+  (method (set-selection components)
+    (set-selection~ editor (remove #f components) origin: self force?: #t focus?: #f))
+  
+  
+  (method (selection-changed selection old origin force-parent? focus?)
+    (unless (or (not origin) (eq? origin self))
+      (if (null? selection)
+          (begin
+            (set-client (get-client~ editor))
+            (set-selection~ (get-grid) '() generate-event?: #f))
+        (let ((component (car selection)))
+          (receive (client selected) (determine-client component)
+            (set-client client)
+            (if selected
+                (let ((row (user-data-row~ (get-grid) selected)))
+                  (when row
+                    (set-selection~ (get-grid) (list (new Cell (row->line~ (get-grid) row) 0)) generate-event?: #t)))
+              (set-selection~ (get-grid) '() generate-event?: #f))))))))
+
+
+(class Grid-Component-Editor extends Component-Editor
+  
+  
+  (form
+    (<install>                       layout-type: fill
+      (<Grid-Tree-Editor> name: grid)))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Doc"})
+  
+  
+  (method override (host-workspaces)
+    '(designer))
+  
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method override (install rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'grid) self))))

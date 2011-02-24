@@ -1506,7 +1506,7 @@
             (set! kernel-build-setup? #t))))))
 
 
-(define (jazz.process-jamini) 
+(define (jazz.process-jamini)
   (jazz.load-global/local-configurations ".jamini"))
 
 

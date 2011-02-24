@@ -294,6 +294,30 @@
 ;;;
 
 
+(cond-expand
+  (chicken
+    (require 'lolevel)
+
+    (define (jazz.global-bound? symbol)
+      (global-bound? symbol))
+    
+    (define (jazz.global-ref symbol)
+      (global-ref symbol)))
+  
+  (gambit
+    (define (jazz.global-bound? symbol)
+      (and (%%global-var? symbol)
+           (%%not (%%unbound? (%%global-var-ref symbol)))))
+    
+    (define (jazz.global-ref symbol)
+      (%%global-var-ref symbol))
+    
+    (define (jazz.global-set! symbol value)
+      (%%global-var-set! symbol value)))
+  
+  (else))
+
+
 (define (jazz.split-composite identifier)
   (let ((str (%%symbol->string identifier)))
     (let ((n (jazz.string-find-reversed str #\.)))

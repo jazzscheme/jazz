@@ -175,35 +175,6 @@
 
 
 ;;;
-;;;; Symbol
-;;;
-
-
-(cond-expand
-  (chicken
-    (require 'lolevel)
-
-    (define (jazz.global-bound? symbol)
-      (global-bound? symbol))
-    
-    (define (jazz.global-ref symbol)
-      (global-ref symbol)))
-  
-  (gambit
-    (define (jazz.global-bound? symbol)
-      (and (%%global-var? symbol)
-           (%%not (%%unbound? (%%global-var-ref symbol)))))
-    
-    (define (jazz.global-ref symbol)
-      (%%global-var-ref symbol))
-    
-    (define (jazz.global-set! symbol value)
-      (%%global-var-set! symbol value)))
-  
-  (else))
-
-
-;;;
 ;;;; Pathname
 ;;;
 
@@ -269,6 +240,10 @@
 (set! jazz.jazz-source jazz.kernel-source)
 
 
+(define jazz.kernel-binary-repositories
+  jazz.binary-repositories)
+
+
 (define jazz.kernel-source-repositories
   jazz.source-repositories)
 
@@ -320,7 +295,7 @@
 
 
 (define (jazz.prepare-repositories)
-  (define (all-repositories build jazz source-repositories repositories)
+  (define (all-repositories build jazz binary-repositories source-repositories repositories)
     (define (listify repository)
       (if repository
           (%%list repository)
@@ -329,6 +304,10 @@
     `(,@(if repositories
             (map jazz.load-repository (jazz.split-string repositories #\;))
           '())
+      ,@(jazz.collect (lambda (path)
+                        (let ((dir (jazz.absolutize-directory jazz.kernel-install path)))
+                          (jazz.load-repository dir name: 'Binaries error?: #f)))
+                      binary-repositories)
       ,@(jazz.collect (lambda (path)
                         (let ((dir (jazz.absolutize-directory jazz.kernel-install path)))
                           (jazz.load-repository dir error?: #f)))
@@ -340,10 +319,11 @@
   
   (let ((build (jazz.make-repository 'Build "lib" (or (jazz.build-repository) jazz.kernel-install) binary?: #t create?: #t))
         (jazz (and (jazz.source-access?) (jazz.make-repository 'Jazz "lib" (or (jazz.jazz-repository) jazz.kernel-source))))
+        (binary-repositories (or (and (jazz.source-access?) jazz.kernel-binary-repositories) '()))
         (source-repositories (or (and (jazz.source-access?) jazz.kernel-source-repositories) '()))
         (repositories (jazz.repositories)))
     (set! jazz.Build-Repository build)
-    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz source-repositories repositories)))))
+    (set! jazz.Repositories (%%append jazz.Repositories (all-repositories build jazz binary-repositories source-repositories repositories)))))
 
 
 (define (jazz.make-repository name library directory #!key (binary? #f) (create? #f))

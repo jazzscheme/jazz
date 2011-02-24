@@ -408,6 +408,8 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)
                     (newline output)
+                    (jazz.print-variable 'jazz.binary-repositories (if library-image? #f (jazz.determine-binary-repositories destination-directory)) output)
+                    (newline output)
                     (jazz.print-variable 'jazz.source-repositories (if library-image? #f (jazz.determine-source-repositories destination-directory)) output)))
                 #t)
             #f)))
@@ -635,6 +637,8 @@
                     (newline output)
                     (jazz.print-expression-variable 'jazz.source `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" source)) output)
                     (newline output)
+                    (jazz.print-expression-variable 'jazz.binary-repositories (jazz.determine-binary-repositories destination-directory) output)
+                    (newline output)
                     (jazz.print-expression-variable 'jazz.source-repositories (jazz.determine-source-repositories destination-directory) output)
                     (newline output)
                     (newline output)
@@ -660,12 +664,23 @@
 ;;;
 
 
+(define (jazz.determine-binary-repositories destination-directory)
+  (jazz.determine-repositories destination-directory
+    (and (jazz.global-bound? 'binary-repositories)
+         ((jazz.global-ref 'binary-repositories)))))
+
+
 (define (jazz.determine-source-repositories destination-directory)
-  (let ((repositories (jazz.repositories)))
-    (and repositories
-         (jazz.collect (lambda (path)
-                         (jazz.relativise-directory destination-directory "./" path))
-                       (jazz.split-string repositories #\;)))))
+  (jazz.determine-repositories destination-directory
+    (jazz.repositories)))
+
+
+(define (jazz.determine-repositories destination-directory repositories)
+  (if repositories
+      (jazz.collect (lambda (path)
+                      (jazz.relativise-directory destination-directory "./" path))
+                    (jazz.split-string repositories #\;))
+    '()))
 
 
 ;;;

@@ -124,6 +124,13 @@
   (%%locat-position locat))
 
 
+(define (jazz.locat->line/col locat)
+  (let ((filepos (%%position->filepos (%%locat-position locat))))
+    (let ((line (%%filepos-line filepos))
+          (col (%%filepos-col filepos)))
+      (%%cons line col))))
+
+
 (define (jazz.locat->file/line/col locat)
   (let ((file (and locat (%%container->path (%%locat-container locat)))))
     (if file

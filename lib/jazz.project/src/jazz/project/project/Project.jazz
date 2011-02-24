@@ -201,16 +201,20 @@
   
   
   (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (stop-test: stop-test #f))
+    (define (inactive? project)
+      (and (not include-inactives?)
+           (neq? project self)
+           (is? project Project)
+           (not (get-active?~ project))))
+    
     (for-each-descendant
       (lambda (descendant level)
-        (when (is? descendant Project)
+        (when (and (is? descendant Project)
+                   (not (inactive? descendant)))
           (proc descendant)))
       include-self?: include-self?
       stop-test: (lambda (descendant)
-                   (or (and (not include-inactives?)
-                            (neq? descendant self)
-                            (is? descendant Project)
-                            (not (get-active?~ descendant)))
+                   (or (inactive? descendant)
                        (and stop-test
                             (stop-test descendant))))))
   

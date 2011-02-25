@@ -11,6 +11,7 @@
         (jazz.system)
         (jazz.ui.clipboard)
         (jazz.ui)
+        (jazz.ui.tree.grid)
         (jazz.ui.view))
 
 
@@ -55,15 +56,9 @@
       (fail))))
 
 
-
-
 (definition (column-component-property row column fail succeed)
   (call-with-row/column-data row column
     (lambda (rd cd) (column-data-component-property rd cd fail succeed))))
-
-
-(definition (call-with-row/column-data row column proc)
-  (proc (get-user-data~ row) (get-provider-data~ column)))
 
 
 (definition (make-class-cell-domain references)
@@ -72,36 +67,15 @@
                                              (map resolve-reference~ references)))))
 
 
-(definition (update-grid-element label row-data column-data)
-  (define (inactive-cell-background)
-    (typecase column-data
-      ((Component-Provider-Selection-Data)
-       (let ((is-in (get-is-in~ column-data)))
-         (cond ((not is-in) {Color White})
-               ((element row-data (get-is-in~ column-data)) {Color White})
-               (else {Color Gray}))))
-      (else
-       {Color Gray})))
-  
-  (define (update-inactive-element)
-    (set-title~ label "")
-    (set-background~ label (inactive-cell-background)))
-  
-  (define (update-active-element component property)
-    (set-title~ label (if property (present-property-value component property) ""))
-    (set-background~ label {Color Tree-Background}))
-  
-  (if (is? column-data Component-Provider-Selection-Data)
-      (update-inactive-element)
-    (column-data-component-property row-data column-data update-inactive-element update-active-element)))
-
-
 (class Component-Provider-Data extends Component
   
   
   (property read-only? initialize #f accessors generate)
   (property path       initialize #f accessors generate)
-  (property is-in      initialize #f accessors generate))
+  (property is-in      initialize #f accessors generate)
+  
+  (method (class-selection?)
+    (eq? path 'class-info)))
 
 
 (class Component-Provider-Selection-Data extends Component-Provider-Data
@@ -111,7 +85,7 @@
   (property references initialize '() accessors generate))
 
 
-(class Component-Provider extends Component
+(class Component-Provider extends Component implements Data-Provider
   
   
   (slot designer accessors generate)
@@ -120,11 +94,6 @@
   
   (method (get-grid)
     (get-parent))
-  
-  
-  (method (class-column? column)
-    (let ((column-data (get-provider-data~ column)))
-      (eq? (get-path~ column-data) 'class-info)))
   
   
   (method (get-selection-columns)
@@ -137,50 +106,39 @@
           (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-is-in~ column-data)))))
             (succeed component (get-references~ component-column-data)))
         (fail))))
-
-
-  (method (column-component-class-references row column fail succeed)
-    (call-with-row/column-data row column
-      (lambda (rd cd) (column-data-component-class-references rd cd fail succeed))))
   
   
   (method (get-class-domain row-data column-data)
     (column-data-component-class-references row-data column-data
-      (lambda () #f)
+      (const #f)
       (lambda (component references)
         (make-class-cell-domain references))))
   
   
-  (method public (get-domain row column)
-    (call-with-row/column-data row column
-      (lambda (row-data column-data)
-        (and (is-not? column-data Component-Provider-Selection-Data)
-             (if (class-column? column)
-                 (get-class-domain row-data column-data)
-               (column-component-property row column (lambda () #f) property-domain~))))))
+  (method override (get-domain row-data column-data)
+    (and (is-not? column-data Component-Provider-Selection-Data)
+         (if (class-selection?~ column-data)
+             (get-class-domain row-data column-data)
+           (column-data-component-property row-data column-data (const #f) property-domain~))))
   
   
-  (method public (update-label row column label)
-    (update-grid-element label row column))
-  
-  
-  (method (get-class-reference row column)
-    (column-component-class-references row column
-      (lambda () #f)
+  (method (get-class-reference row-data column-data)
+    (column-data-component-class-references row-data column-data
+      (const #f)
       (lambda (component references)
         (find references (class-of component) key: resolve-reference~ return: 'item))))
   
   
-  (method public (get-data row column (not-present: not-present #f))
-    (if (class-column? column)
-        (get-class-reference row column)
-        (column-component-property row column (lambda () not-present) read-property)))
+  (method override (get-data row-data column-data)
+    (if (class-selection?~ column-data)
+        (get-class-reference row-data column-data)
+      (column-data-component-property row-data column-data (lambda () (error "Value not present")) read-property)))
   
   
-  (method (set-class row column reference)
+  (method (set-class row-data column-data reference)
     (let ((runtime-reference (get-runtime-reference~ reference)))
-      (column-component-class-references row column
-        (lambda () #f)
+      (column-data-component-class-references row-data column-data
+        (const #f)
         (lambda (component _)
           (let ((parent (get-parent~ component))
                 (name (get-name~ component))
@@ -190,11 +148,11 @@
             (add-child~ designer new-component parent name: name import: import))))))
   
   
-  (method public (set-data row column value)
-    (if (class-column? column)
-        (set-class row column value)
-      (column-component-property row column
-        (lambda () #f)
+  (method override (set-data row-data column-data value)
+    (if (class-selection?~ column-data)
+        (set-class row-data column-data value)
+      (column-data-component-property row-data column-data
+        (const #f)
         (lambda (component property)
           (safe-set-property~ designer component property value))))))
 
@@ -254,21 +212,41 @@
   
   
   (method (get-domain row column)
-    (get-domain~ (get-provider) row column))
+    (call-with-row/column-data row column (~ get-domain (get-provider))))
   
   
-  (method (get-data row column (not-present: not-present #f))
-    (get-data~ (get-provider) row column not-present: not-present))
+  (method (get-data row column)
+    (call-with-row/column-data row column (~ get-data (get-provider))))
   
   
   (method (set-data row column value)
-    (set-data~ (get-provider) row column value))
-  
-  
-  (method public (update-label row column label)
     (call-with-row/column-data row column
       (lambda (rd cd)
-        (update-label~ (get-provider) rd cd label))))
+        (set-data~ (get-provider) rd cd value))))
+  
+  
+  (method public (update-label row-data column-data label)
+    (define (inactive-cell-background)
+      (typecase column-data
+        ((Component-Provider-Selection-Data)
+         (let ((is-in (get-is-in~ column-data)))
+           (cond ((not is-in) {Color White})
+                 ((element row-data (get-is-in~ column-data)) {Color White})
+                 (else {Color Gray}))))
+        (else
+         {Color Gray})))
+    
+    (define (update-inactive-element)
+      (set-title~ label "")
+      (set-background~ label (inactive-cell-background)))
+    
+    (define (update-active-element component property)
+      (set-title~ label (if property (present-property-value component property) ""))
+      (set-background~ label {Color Tree-Background}))
+    
+    (if (is? column-data Component-Provider-Selection-Data)
+        (update-inactive-element)
+      (column-data-component-property row-data column-data update-inactive-element update-active-element)))
   
   
   (method public (selection-cell? row column)
@@ -414,7 +392,11 @@
                 (let ((column-data (get-provider-data~ column)))
                   (when (and (eq? (get-name~ property) (get-path~ column-data))
                              (eq? component (element row-data (get-is-in~ column-data))))
-                    (update-cell~ (get-grid) (new Cell row-rank column-rank)))))))))))
+                    (update-cell~ (get-grid) (new Cell row-rank column-rank)
+                      (lambda (row column label)
+                        (call-with-row/column-data row column
+                          (lambda (rd cd)
+                            (update-label rd cd label))))))))))))))
   
   
   (method (name-change component new-name old-name)
@@ -456,7 +438,7 @@
     
     (define (make-row-label row-data column-data)
       (let ((label (new Tree-Label)))
-        (update-grid-element label row-data column-data)
+        (update-label row-data column-data label)
         label))
     
     (define (make-row-labels row-data)
@@ -622,12 +604,10 @@
         (add-property-column is 'name-info "Name" #t)
         (setup-class-column references is)
         (setup-property-columns references is))
-      (debug (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
       (let* ((addable-ancestor (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
              (ancestor-descriptor (get-descriptor addable-ancestor))
              (children-descriptor (find-child~ ancestor-descriptor 'children))
              (child-descriptors (get-children~ children-descriptor)))
-        (debug 'before-children)
         (for-each (lambda (descriptor child-is)
                     (let ((references (get-classes~ descriptor)))
                       (add-selection-column (get-target~ descriptor) child-is is references)
@@ -640,8 +620,7 @@
             (when (not-null? ancestor-addable-classes)
               (setup-selection-columns ancestor-addable-classes (+ is 1 (length child-descriptors)) is))))))
     
-    (setup-selection-columns (component-addable-classes client) 0 #f)
-    (debug 'end-setup))
+    (setup-selection-columns (component-addable-classes client) 0 #f))
   
   
   (method (setup-columns)

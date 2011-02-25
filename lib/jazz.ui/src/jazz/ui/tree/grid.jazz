@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.tree.grid jazz
+(module jazz.ui.tree.grid jazz
 
 
 (import (jazz.graphic)
@@ -44,6 +44,52 @@
         (jazz.system)
         (jazz.ui))
 
+
+(definition public (call-with-row/column-data row column proc)
+  (proc (get-user-data~ row) (get-provider-data~ column)))
+
+
+;;;
+;;;; Data-Provider
+;;;
+
+
+(interface Data-Provider
+  
+  
+  (method public virtual abstract (get-domain row-data column-data))
+  (method public virtual abstract (get-data row-data column-data))
+  (method public virtual abstract (set-data row-data column-data value)))
+
+
+;;;
+;;;; Grid-Controller
+;;;
+
+
+(interface Grid-Controller
+  
+  
+  (method public virtual abstract (get-focus-actions))
+  (method public virtual abstract (focus-update-actions))
+  (method public virtual abstract (selection-cell? row column))
+  (method public virtual abstract (get-context-menu))
+  (method public virtual abstract (on-selection-change evt))
+  (method public virtual abstract (get-tab-stops))
+  (method public virtual abstract (copy-selection))
+  (method public virtual abstract (cut-selection))
+  (method public virtual abstract (delete-selection))
+  (method public virtual abstract (paste-clipboard))
+  (method public virtual abstract (can-copy?))
+  (method public virtual abstract (can-cut?))
+  (method public virtual abstract (can-delete?))
+  (method public virtual abstract (can-paste?))
+  (method public virtual abstract (cell-editable? row column))
+  (method public virtual abstract (grid-populate))
+  (method public virtual abstract (get-domain row column))
+  (method public virtual abstract (get-data row column))
+  (method public virtual abstract (set-data row column value)))
+  
 
 ;;;
 ;;;; Grid-Column
@@ -58,10 +104,10 @@
   
   
   (method override (draw-data surface context row data width height)
-    (let* ((provider (get-provider~ parent))
-           (domain (get-domain~ provider row self)))
+    (let* ((controller (get-controller~ parent))
+           (domain (get-domain~ controller row self)))
       (if domain
-          (let ((value (get-data~ provider row self)))
+          (let ((value (get-data~ controller row self)))
             (draw-data~ domain surface context value self row data width height))
         (nextmethod surface context row data width height)))))
 
@@ -132,7 +178,7 @@
   (method (editor-arrow-press evt)
     (let* ((sender (get-sender~ evt))
            (text? (is? sender Text-View))
-           (next-move (~ sender (if text? 'arrow-move 'arrow-press))))
+           (next-move (dispatch (class-of sender) (if text? 'arrow-move 'arrow-press))))
       (let ((direction (get-property~ evt direction:))
             (internal? (if text? (not (get-property~ evt word?:)) (get-control?~ evt))))
         (case direction
@@ -273,18 +319,8 @@
     (for-each-column merge-column-cells))
   
   
-  (method (update-cells update-cell?)
-    (for-each-visible-row
-      (lambda (row line)
-        (for-each-column
-          (lambda (column col)
-            (when (update-cell? row column)
-              (update-cell (new Cell line col))))))))
-  
-  
-  (method (update-cell cell)
-    (let* ((editor (get-cell-editor))
-           (label (if editor (get-preserved-data~ editor) (get-cell-data cell))))
+  (method (update-cell cell update)
+    (let ((label (if (cell=? cell edited-cell) (get-preserved-data~ cell-editor) (get-cell-data cell))))
       (receive (row column) (cell-values cell)
-        (update-label~ (get-controller) row column label)
+        (update row column label)
         (invalidate-cell cell))))))

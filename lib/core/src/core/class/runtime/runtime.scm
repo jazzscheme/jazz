@@ -74,9 +74,13 @@
   (%%string->symbol (%%string-append (%%symbol->string locator) ":" (%%symbol->string suffix))))
 
 
-(define (jazz.split-identifier identifier)
+(define (jazz.split-symbol identifier separator)
   (%%debug-assert (%%symbol? identifier)
-    (map string->symbol (jazz.split-string (%%symbol->string identifier) #\.))))
+    (map string->symbol (jazz.split-string (%%symbol->string identifier) separator))))
+
+
+(define (jazz.split-identifier identifier)
+  (jazz.split-symbol identifier #\.))
 
 
 ;;;

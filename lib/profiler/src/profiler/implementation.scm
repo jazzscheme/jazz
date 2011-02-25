@@ -372,6 +372,17 @@
   (set! profiler-performance-counter proc))
 
 
+(define tick-performance-counter
+  (let ((tick 0))
+    (lambda ()
+      (let ((counter tick))
+        (set! tick (+ tick 1))
+        counter))))
+
+(set! profiler-performance-frequency (lambda () 1))
+(set! profiler-performance-counter tick-performance-counter)
+
+
 ;;;
 ;;;; Run
 ;;;

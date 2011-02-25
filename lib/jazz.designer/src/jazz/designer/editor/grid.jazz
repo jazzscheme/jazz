@@ -115,30 +115,17 @@
         (make-class-cell-domain references))))
   
   
-  (method override (get-domain row-data column-data)
-    (and (is-not? column-data Component-Provider-Selection-Data)
-         (if (class-selection?~ column-data)
-             (get-class-domain row-data column-data)
-           (column-data-component-property row-data column-data (const #f) property-domain~))))
-  
-  
-  (method (get-class-reference row-data column-data)
+  (method (get-class-reference row-data column-data fail succeed)
     (column-data-component-class-references row-data column-data
-      (const #f)
+      fail
       (lambda (component references)
-        (find references (class-of component) key: resolve-reference~ return: 'item))))
-  
-  
-  (method override (get-data row-data column-data)
-    (if (class-selection?~ column-data)
-        (get-class-reference row-data column-data)
-      (column-data-component-property row-data column-data (lambda () (error "Value not present")) read-property)))
+        (succeed (find references (class-of component) key: resolve-reference~ return: 'item)))))
   
   
   (method (set-class row-data column-data reference)
     (let ((runtime-reference (get-runtime-reference~ reference)))
       (column-data-component-class-references row-data column-data
-        (const #f)
+        (lambda () (error "Can't set class"))
         (lambda (component _)
           (let ((parent (get-parent~ component))
                 (name (get-name~ component))
@@ -148,13 +135,41 @@
             (add-child~ designer new-component parent name: name import: import))))))
   
   
+  ;;;
+  ;;;; Data Provider
+  ;;;
+  
+  
+  (method override (get-data row-data column-data fail succeed)
+    (cond ((is? column-data Component-Provider-Selection-Data)
+           (fail))
+          ((class-selection?~ column-data)
+           (get-class-reference row-data column-data fail succeed))
+          (else
+           (column-data-component-property row-data column-data
+             fail
+             (lambda (component property)
+               (succeed (read-property component property)))))))
+  
+  
   (method override (set-data row-data column-data value)
     (if (class-selection?~ column-data)
         (set-class row-data column-data value)
       (column-data-component-property row-data column-data
-        (const #f)
+        (lambda () (error "Can't set data"))
         (lambda (component property)
-          (safe-set-property~ designer component property value))))))
+          (safe-set-property~ designer component property value)))))
+  
+  
+  (method override (get-domain row-data column-data)
+    (and (is-not? column-data Component-Provider-Selection-Data)
+         (if (class-selection?~ column-data)
+             (get-class-domain row-data column-data)
+           (column-data-component-property row-data column-data (const #f) property-domain~))))
+  
+  
+  (method override (read-only? row-data column-data)
+    (get-read-only?~ column-data)))
 
 
 (class Component-Controller-Actions extends Actions
@@ -211,20 +226,6 @@
                   (collect-visible-rows~ grid))))
   
   
-  (method (get-domain row column)
-    (call-with-row/column-data row column (~ get-domain (get-provider))))
-  
-  
-  (method (get-data row column)
-    (call-with-row/column-data row column (~ get-data (get-provider))))
-  
-  
-  (method (set-data row column value)
-    (call-with-row/column-data row column
-      (lambda (rd cd)
-        (set-data~ (get-provider) rd cd value))))
-  
-  
   (method public (update-label row-data column-data label)
     (define (inactive-cell-background)
       (typecase column-data
@@ -240,13 +241,17 @@
       (set-title~ label "")
       (set-background~ label (inactive-cell-background)))
     
-    (define (update-active-element component property)
-      (set-title~ label (if property (present-property-value component property) ""))
+    (define (update-active-element val domain)
+      (set-title~ label (present~ domain val))
       (set-background~ label {Color Tree-Background}))
     
     (if (is? column-data Component-Provider-Selection-Data)
         (update-inactive-element)
-      (column-data-component-property row-data column-data update-inactive-element update-active-element)))
+      (get-data~ (get-provider) row-data column-data
+        update-inactive-element
+        (lambda (val)
+          (let ((domain (get-domain~ (get-provider) row-data column-data)))
+            (update-active-element val domain))))))
   
   
   (method public (selection-cell? row column)

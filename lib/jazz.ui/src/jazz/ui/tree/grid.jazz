@@ -58,8 +58,9 @@
   
   
   (method public virtual abstract (get-domain row-data column-data))
-  (method public virtual abstract (get-data row-data column-data))
-  (method public virtual abstract (set-data row-data column-data value)))
+  (method public virtual abstract (get-data row-data column-data fail succeed))
+  (method public virtual abstract (set-data row-data column-data value))
+  (method public virtual abstract (read-only? row-data column-data)))
 
 
 ;;;
@@ -104,12 +105,15 @@
   
   
   (method override (draw-data surface context row data width height)
-    (let* ((controller (get-controller~ parent))
-           (domain (get-domain~ controller row self)))
-      (if domain
-          (let ((value (get-data~ controller row self)))
-            (draw-data~ domain surface context value self row data width height))
-        (nextmethod surface context row data width height)))))
+    (let ((provider (get-provider~ parent)))
+      (call-with-row/column-data row self
+        (lambda (row-data column-data)
+          (get-data~ provider row-data column-data
+            (lambda ()
+              (nextmethod surface context row data width height))
+            (lambda (value)
+              (let ((domain (get-domain~ provider row-data column-data)))
+                (draw-data~ domain surface context value self row data width height)))))))))
 
 
 ;;;
@@ -145,6 +149,11 @@
     (let ((cells (remove-duplicates (get-selection) test: cell=?)))
       (values (map (compose* get-user-data~ get-row get-line~) cells)
               (map (compose* get-provider-data~ get-column get-col~) cells))))
+  
+  
+  (method (cell-data-values cell)
+    (receive (row column) (cell-values cell)
+      (values (get-user-data~ row) (get-provider-data~ column))))
   
   
   ;;;
@@ -281,21 +290,24 @@
   
   
   (method override (select-cell cell)
-    (receive (row column) (cell-values cell)
-      (acquire-focus)
-      (set-single-selection cell)
-      (when (cell-editable?~ (get-controller) row column)
-        (let ((domain (get-domain~ (get-controller) row column)))
-          (when domain
-            (let* ((editor (new Border-View border-type: 'edge style: 'entry))
-                   (entry (setup-entry~ domain editor #f))
-                   (after-end (lambda (cell)
-                                (receive (row column) (cell-values cell)
-                                  (when (get-modified?~ entry)
-                                    (set-data~ (get-controller) row column (get-value~ entry)))))))
-              (set-value~ entry (get-data~ (get-controller) row column))
-              (edit-cell cell editor: editor close-editor?: #f after-end: after-end)
-              (prepare-and-focus-entry entry)))))))
+    (let ((provider (get-provider)))
+      (receive (row-data column-data) (cell-data-values cell)
+        (acquire-focus)
+        (set-single-selection cell)
+        (unless (read-only?~ provider row-data column-data)
+          (get-data~ provider row-data column-data
+            (const #f)
+            (lambda (value)
+              (let ((domain (get-domain~ provider row-data column-data))
+                    (editor (new Border-View border-type: 'edge style: 'entry)))
+                (let* ((entry (setup-entry~ domain editor #f))
+                       (after-end (lambda (cell)
+                                    (receive (row-data column-data) (cell-data-values cell)
+                                      (when (get-modified?~ entry)
+                                        (set-data~ provider row-data column-data (get-value~ entry)))))))
+                  (set-value~ entry value)
+                  (edit-cell cell editor: editor close-editor?: #f after-end: after-end)
+                  (prepare-and-focus-entry entry)))))))))
   
   
   (method (populate proc)

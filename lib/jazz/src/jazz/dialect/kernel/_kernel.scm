@@ -471,6 +471,7 @@
 (native jazz.compose-name)
 (native jazz.identifier-unit <symbol>)
 (native jazz.identifier-name <symbol>)
+(native jazz.split-symbol)
 (native jazz.split-identifier)
 (native jazz.split-composite)
 

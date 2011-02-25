@@ -100,10 +100,10 @@
           (let ((result (parameterize ((time-spent-in-children 0))
                           (let ((inner-start-time (profiler-performance-counter)))
                             (let ((result (proc)))
-                              (let ((total-elapsed-time (- (profiler-performance-counter) inner-start-time inner-epsilon)))
+                              (let ((total-elapsed-time (- (profiler-performance-counter) inner-start-time (get-inner-epsilon))))
                                 (profile-register-call profile (profile-stack) (- total-elapsed-time (time-spent-in-children))))
                               result)))))
-            (let ((total-elapsed-time (- (profiler-performance-counter) outer-start-time outer-epsilon)))
+            (let ((total-elapsed-time (- (profiler-performance-counter) outer-start-time (get-outer-epsilon))))
               (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time)))
             result))
       (proc))))
@@ -119,6 +119,17 @@
 
 (define inner-epsilon
   #f)
+
+
+(define (get-outer-epsilon)
+  (when (not outer-epsilon)
+    (setup-epsilon))
+  outer-epsilon)
+
+(define (get-inner-epsilon)
+  (when (not inner-epsilon)
+    (setup-epsilon))
+  inner-epsilon)
 
 
 (define (setup-epsilon)
@@ -145,10 +156,6 @@
 
 (define (test-proc . rest)
   rest)
-
-
-
-(setup-epsilon)
 
 
 ;;;

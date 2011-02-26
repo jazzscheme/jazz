@@ -236,6 +236,10 @@
     (update-catalog))
   
   
+  (method (on-search-project evt)
+    (search-project))
+  
+  
   (method (on-edit-source evt)
     (edit-selection))
   
@@ -807,6 +811,19 @@
             (let ((catalog (require-catalog~ project)))
               (load-content~ catalog report?: #f)
               (update~ catalog)))))))
+  
+  
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method (search-project)
+    (update-search~ (get-application) 'projects
+      selector: (lambda (projects-search)
+                  (let ((project (selected-object))
+                        (combo (locate~ projects-search 'project)))
+                    (set-value~ combo project)))))
     
   
   ;;;
@@ -1062,27 +1079,33 @@
           menu))
       
       (define (new-workbench-menu object)
-        (let ((menu (new Workbench-Menu client: (get-tree))))
+        (let ((menu (new Workbench-Menu client: (get-tree)))
+              (content? (has-content?~ object)))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) (has-content?~ object))
+          (set-visible?~ (locate~ menu 'update-catalog) content?)
+          (set-visible?~ (locate~ menu 'search-project) content?)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
           menu))
       
       (define (new-concrete-project-menu object)
-        (let ((menu (new Concrete-Project-Menu client: (get-tree))))
+        (let ((menu (new Concrete-Project-Menu client: (get-tree)))
+              (content? (has-content?~ object)))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) (has-content?~ object))
+          (set-visible?~ (locate~ menu 'update-catalog) content?)
+          (set-visible?~ (locate~ menu 'search-project) content?)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
           menu))
       
       (define (new-project-menu object)
-        (let ((menu (new Project-Menu client: (get-tree))))
+        (let ((menu (new Project-Menu client: (get-tree)))
+              (content? (has-content?~ object)))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) (has-content?~ object))
+          (set-visible?~ (locate~ menu 'update-catalog) content?)
+          (set-visible?~ (locate~ menu 'search-project) content?)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
@@ -1194,8 +1217,6 @@
       @wait-complete
       (<Label-Item>     name: synchronize-content   title: "Synchronize Content..." before: cut action-handler: {Action workbench-manager synchronize-content})
       (<Separator-Item>                             before: cut)
-      (<Label-Item>     name: update-catalog        title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
-      (<Separator-Item>                             before: cut)
       (<Label-Item>     name: set-current-directory title: "Set as Current Directory" before: cut action-handler: {Action workbench-manager set-current-directory})
       (<Separator-Item>                             before: cut)
       (<!>              name: delete-selection      title: "Remove"))))
@@ -1221,6 +1242,7 @@
       @wait-complete
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action-handler: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut)
+      (<Label-Item>     name: search-project      title: "Search Project" before: cut icon: {Image-Resource "Find"} action-handler: {Action workbench-manager search-project})
       (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
       (<Separator-Item>                           before: cut)
       (<!>              name: delete-selection    title: "Remove"))))

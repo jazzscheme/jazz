@@ -516,6 +516,22 @@
           (else (error "Cannot ci-compare {t} and {t}" min value)))))))
 
 
+(definition public (di=? x y)
+  (eq? (di-compare x y) :equal))
+
+(definition public (di<? x y)
+  (eq? (di-compare x y) :less))
+
+(definition public (di<=? x y)
+  (memq? (di-compare x y) '(:less :equal)))
+
+(definition public (di>? x y)
+  (eq? (di-compare x y) :greater))
+
+(definition public (di>=? x y)
+  (memq? (di-compare x y) '(:greater :equal)))
+
+
 (definition public inline (boolean->integer bool)
   (if bool 1 0))
 
@@ -598,6 +614,36 @@
   (char->integer #\9))
 
 
+;; putting the uppercase chars here is a quick fix until
+;; we add diacritic awareness to upcase and downcase
+(definition Diacritic-Equivalences
+  '((#\a #\à #\â #\A #\À #\Â)
+    (#\c #\ç #\C #\Ç)
+    (#\e #\é #\è #\ê #\ë #\E #\É #\È #\Ê #\Ë)
+    (#\i #\î #\ï #\I #\Î #\Ï)
+    (#\o #\ô #\O #\Ô)
+    (#\u #\ù #\û #\U #\Ù #\Û)))
+
+
+(definition (make-diacritic-table equivalences)
+  (let ((table (make-table test: eqv?)))
+    (for-each (lambda (equivalences)
+                (let ((equivalent (car equivalences)))
+                  (for-each (lambda (char)
+                              (table-set! table char equivalent))
+                            equivalences)))
+              equivalences)
+    table))
+
+(definition Diacritic-Table
+  (make-diacritic-table Diacritic-Equivalences))
+
+
+(definition public (diacritic-equivalent c)
+  (or (table-ref Diacritic-Table c #f)
+      c))
+
+
 (class Char-Class extends Class)
 
 
@@ -627,8 +673,13 @@
   (method override (ci-compare-object c)
     (compare (downcase self)
              (downcase c)))
-             
-
+  
+  
+  (method override (di-compare-object c)
+    (ci-compare (diacritic-equivalent self)
+                (diacritic-equivalent c)))
+  
+  
   (method override (object-similar? object)
     (unimplemented 'object-similar?)
     @convert
@@ -1501,10 +1552,7 @@
   (method override (put object)
     (case direction
       ((forward)  (put-forward object))
-      ((backward) (put-backward object))))
-
-
-  )
+      ((backward) (put-backward object)))))
 
 
 (definition public (explore object <Object> . rest) <Explorer>
@@ -1537,18 +1585,12 @@
   
   (method override (compare-object seq)
     (if (is? seq Sequence)
-        (let ((l1 (cardinality self))
-              (l2 (cardinality seq)))
-          (let (iter (i <fx> 0))
-            (if (or (>= i l1) (>= i l2))
-                (cond ((= l1 l2) :equal)
-                      ((> l1 l2) :greater)
-                      (else      :less))
-              (let ((cmp (compare (element self i) (element seq i))))
-                (if (neq? cmp :equal)
-                    cmp
-                  (iter (+ i 1)))))))
+        (compare-sequence self seq compare)
       :incompatible))
+  
+  
+  (method override (di-compare-object seq)
+    (compare-sequence self seq di-compare))
   
   
   (method override (copy-object deep? <bool>)
@@ -1673,6 +1715,20 @@
 
 (definition public inline (butlast seq <Sequence>)
   (sequence-butlast~ seq))
+
+
+(definition public (compare-sequence s1 s2 compare)
+  (let ((l1 (cardinality s1))
+        (l2 (cardinality s2)))
+    (let (iter (i <fx> 0))
+      (if (or (>= i l1) (>= i l2))
+          (cond ((= l1 l2) :equal)
+                ((> l1 l2) :greater)
+                (else      :less))
+        (let ((cmp (compare (element s1 i) (element s2 i))))
+          (if (eq? cmp :equal)
+              (iter (+ i 1))
+            cmp))))))
 
 
 (definition public (skip-whitespace seq <Sequence> (start: start #f))

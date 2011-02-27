@@ -506,6 +506,7 @@
                       (capitalize (format-cardinality count))
                       (format-plural count)))))
   
+  
   (method (import-pathname project pathname parent descendant? (recursive?: recursive? #t))
     (typecase pathname
       ((Directory)
@@ -540,19 +541,18 @@
   
   (method (import-file file parent descendant?)
     (let ((reference (extension-reference (get-extension~ file))))
-      (match reference
-        ((module-public ?module-name ?class-name)
-         (let ((file (contextualize-file~ (ascendant-project parent) file)))
-           (let ((name (if (eq? ?class-name 'Jazz-File) (string->symbol (get-base~ file)) #f))
-                 (model (resolve-runtime-reference (deserialize-runtime-reference reference)))
-                 (import (if (eq? ?module-name 'jazz.ide) #f ?module-name)))
-             (let ((project-file (new model name: name source: file))
-                   (workbench (get-workbench)))
-               (add-child~ designer project-file parent import: import design-events?: (not descendant?) descendant?: descendant?)
-               (set-property~ designer project-file 'source file design-events?: (not descendant?))
-               (when (eq? ?class-name 'Jazz-File)
-                 (set-name~ designer project-file name design-events?: (not descendant?)))
-               project-file)))))))
+      (bind (module-public module-name class-name) reference
+        (let ((file (contextualize-file~ (ascendant-project parent) file)))
+          (let ((name (if (eq? class-name 'Jazz-File) (string->symbol (get-base~ file)) #f))
+                (model (resolve-runtime-reference (deserialize-runtime-reference reference)))
+                (import (if (eq? module-name 'jazz.ide) #f module-name)))
+            (let ((project-file (new model name: name source: file))
+                  (workbench (get-workbench)))
+              (add-child~ designer project-file parent import: import design-events?: (not descendant?) descendant?: descendant?)
+              (set-property~ designer project-file 'source file design-events?: (not descendant?))
+              (when (eq? class-name 'Jazz-File)
+                (set-name~ designer project-file name design-events?: (not descendant?)))
+              project-file))))))
   
   
   (definition (default-import-directory object (must-exist?: must-exist? #t))

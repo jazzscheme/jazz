@@ -966,6 +966,8 @@
 ;;;
 
 
+(native jazz.string-find-reversed)
+(native jazz.split-string)
 (native jazz.join-strings)
 
 

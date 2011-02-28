@@ -57,11 +57,17 @@
     (define (parse-composite-colon)
       (when (string-find-reversed name #\:)
         (adder name)
-        (adder (split-string name #\:))
+        (for-each adder (split-string name #\:))
         #t))
     
     (define (parse-composite-period)
-      (let ((pos (string-find-reversed name #\.)))
+      (parse-composite #\.))
+    
+    (define (parse-composite-tilde)
+      (parse-composite #\~))
+    
+    (define (parse-composite separator)
+      (let ((pos (string-find-reversed name separator)))
         (when pos
           (adder name)
           (adder (substring name 0 pos))
@@ -70,5 +76,5 @@
     
     (or (parse-composite-colon)
         (parse-composite-period)
-        (cond ((dispatch-string? name) (adder (dispatch->name name)))
-              (else (nextmethod name adder)))))))
+        (parse-composite-tilde)
+        (nextmethod name adder)))))

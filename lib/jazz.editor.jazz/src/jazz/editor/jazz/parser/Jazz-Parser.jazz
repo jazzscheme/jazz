@@ -42,7 +42,61 @@
         (jazz.editor.lisp))
 
 
+;;;
+;;;; Iterate
+;;;
+
+
+(definition (iterate-references name proc)
+  (define (parse-composite-colon)
+    (when (string-find-reversed name #\:)
+      (call-proc name)
+      (for-each call-proc (split-string name #\:))
+      #t))
+  
+  (define (parse-composite-period)
+    (parse-composite #\.))
+  
+  (define (parse-composite-tilde)
+    (parse-composite #\~))
+  
+  (define (parse-composite separator)
+    (let ((pos (string-find-reversed name separator)))
+      (when pos
+        (call-proc name)
+        (call-proc (substring name 0 pos))
+        (call-proc (substring name (+ pos 1) (string-length name)))
+        #t)))
+  
+  (define (call-proc ref)
+    (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
+      (proc ref)))
+  
+  (or (parse-composite-colon)
+      (parse-composite-period)
+      (parse-composite-tilde)))
+
+
+;;;
+;;;; Parser
+;;;
+
+
 (class Jazz-Parser extends Lisp-Parser
+  
+  
+  (method meta override (reference-searcher target constituent-test)
+    (make-searcher
+      (lambda (seq constituent-test start reversed?)
+        (continuation-capture
+          (lambda (return)
+            (iterate-references seq
+              (lambda (ref)
+                (when (equal? ref target)
+                  (continuation-return return (cons 0 (cardinality seq))))))
+            (contextual-search seq (nextmethod target constituent-test)
+              start: start
+              reversed?: reversed?))))))
   
   
   (method override (text-view-class)
@@ -54,27 +108,5 @@
   
   
   (method override (add-references name <string> adder)
-    (define (parse-composite-colon)
-      (when (string-find-reversed name #\:)
-        (adder name)
-        (for-each adder (split-string name #\:))
-        #t))
-    
-    (define (parse-composite-period)
-      (parse-composite #\.))
-    
-    (define (parse-composite-tilde)
-      (parse-composite #\~))
-    
-    (define (parse-composite separator)
-      (let ((pos (string-find-reversed name separator)))
-        (when pos
-          (adder name)
-          (adder (substring name 0 pos))
-          (adder (substring name (+ pos 1) (string-length name)))
-          #t)))
-    
-    (or (parse-composite-colon)
-        (parse-composite-period)
-        (parse-composite-tilde)
+    (or (iterate-references name adder)
         (nextmethod name adder)))))

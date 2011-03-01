@@ -2329,11 +2329,54 @@
   (slot user-data        <any>        accessors generate))
 
 
-(class package Search-Set extends Object
+(class package Searcher extends Object
+  
+  
+  (slot searcher)
+  
+  
+  (method protected virtual (search seq <Sequence> constituent-test <procedure+> start <fx+> reversed? <bool>)
+    (when searcher
+      (searcher seq constituent-test start reversed?))))
+
+
+(class package Search-Set extends Searcher
   
   
   (slot regexp           <any>        accessors generate)
-  (slot contexts         <list>       accessors generate))
+  (slot contexts         <list>       accessors generate)
+  
+  
+  (method override (search seq <Sequence> constituent-test <procedure+> start <fx+> reversed? <bool>)
+    (let* ((constituent-test (or (get-constituent-test~ (car contexts))
+                                 constituent-test
+                                 word-constituent?))
+           (whole-words? (get-whole-words?~ (car contexts)))
+           (card (cardinality seq))
+           (end (or (and reversed? start) card)))
+      (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
+        (let ((m (irregex-search regexp seq i)))
+          (if (not m)
+              best
+            (let ((from (irregex-match-start-index m 0))
+                  (to (irregex-match-end-index m 0)))
+              (cond
+                ((> to end) best)
+                ((or (not whole-words?)
+                     (let ((before (and (> from 0) (element seq (- from 1))))
+                           (after (and (< to card) (element seq to))))
+                       (or ;; special case for <tag> syntax
+                         (and (eqv? before #\<)
+                              (eqv? after #\>))
+                         (and (or (not before)
+                                  (not (constituent-test before)))
+                              (or (not after)
+                                  (not (constituent-test after))
+                                  ;; special case for method~ syntax
+                                  (eqv? after #\~))))))
+                 (let ((res (cons from to)))
+                   (if reversed? (lp (+ to 1) res) res)))
+                (else (lp to best))))))))))
 
 
 (definition public (->search-context obj)
@@ -2354,7 +2397,7 @@
 
 
 (definition public (->search-set obj)
-  (cond ((is? obj Search-Set) obj)
+  (cond ((is? obj Searcher) obj)
         ((is? obj Search-Context) (make-search-set (search-context-regexp obj) (list obj)))
         ((string? obj) (->search-set (->search-context obj)))
         ((list? obj) (let ((contexts (map ->search-context obj)))
@@ -2363,8 +2406,11 @@
                          contexts)))
         (else (error "Unable to make a search set out of {s}" obj))))
 
+(definition public (make-searcher searcher)
+  (construct Searcher searcher))
+
 (definition public (make-search-set regexp contexts)
-  (construct Search-Set regexp contexts))
+  (construct Search-Set #f regexp contexts))
 
 
 (definition (search-context->sre context <Search-Context>)
@@ -2381,37 +2427,8 @@
 
 
 (definition (contextual-search-impl seq <Sequence> target <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
-  (let* ((search-set (->search-set target))
-         (rx (get-regexp~ search-set))
-         (constituent-test (or (get-constituent-test~ (car (get-contexts~ search-set)))
-                               constituent-test
-                               word-constituent?))
-         (whole-words? (get-whole-words?~ (car (get-contexts~ search-set))))
-         (card (cardinality seq))
-         (end (or (and reversed? start) card)))
-    (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
-      (let ((m (irregex-search rx seq i)))
-        (if (not m)
-            best
-          (let ((from (irregex-match-start-index m 0))
-                (to (irregex-match-end-index m 0)))
-            (cond
-              ((> to end) best)
-              ((or (not whole-words?)
-                   (let ((before (and (> from 0) (element seq (- from 1))))
-                         (after (and (< to card) (element seq to))))
-                     (or ;; special case for <tag> syntax
-                         (and (eqv? before #\<)
-                              (eqv? after #\>))
-                         (and (or (not before)
-                                  (not (constituent-test before)))
-                              (or (not after)
-                                  (not (constituent-test after))
-                                  ;; special case for method~ syntax
-                                  (eqv? after #\~))))))
-               (let ((res (cons from to)))
-                 (if reversed? (lp (+ to 1) res) res)))
-              (else (lp to best)))))))))
+  (let ((search-set (->search-set target)))
+    (search~ search-set seq constituent-test start reversed?)))
 
 
 (definition public (contextual-search seq <Sequence> target <any>

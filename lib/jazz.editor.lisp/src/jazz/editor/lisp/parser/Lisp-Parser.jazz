@@ -46,8 +46,18 @@
 (class Lisp-Parser extends File-Parser
   
   
-  (method override (parse file time)
-    (new Lisp-File-Entry catalog file time (parse-definitions file)))
+  (method meta override (reference-searcher target constituent-test)
+    (make-searcher
+      (lambda (seq constituent-test start reversed?)
+        (if (or (and (tag-string? seq)
+                     (equal? (tag->name seq) target))
+                (equal? seq target))
+            (cons 0 (cardinality seq))
+          #f))))
+  
+  
+  (method override (parse file time dialect)
+    (new Lisp-File-Entry catalog file time dialect (parse-definitions file)))
   
   
   (method (parse-definitions file)
@@ -96,9 +106,11 @@
             #f)
           ;; expression
           (lambda (parent start end mode kind)
-            (when (and parent (memq? kind '(symbol keyword)))
+            (when (and parent (memq? kind '(symbol specifier keyword)))
               (let ((name (get-marked~ expl)))
-                (unless (string=? name Lisp-Period)
+                (unless (or (empty-string? name)
+                            (eqv? (string-ref name 0) #\')
+                            (string=? name Lisp-Period))
                   (add-references name
                                   (lambda (ref)
                                     (unless (empty-string? ref)

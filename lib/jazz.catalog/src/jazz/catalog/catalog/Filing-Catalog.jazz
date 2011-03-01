@@ -347,15 +347,15 @@
     (let ((extension (get-extension~ file))
           (extensions (effective-catalog-extensions (get-extensions))))
       (and (or (not extensions) (member? extension extensions test: ci=?))
-           (get-parser-class extension))))
+           (get-parser-class (get-parser-dialect extension)))))
 
   
   (method protected (scan-file file report?)
     (define (scan file time report?)
       (when report?
         (user-feedback "Parsing {a}" file))
-      (let ((extension (get-extension~ file)))
-        (parse~ (get-parser extension) file time)))
+      (let ((dialect (get-parser-dialect (get-extension~ file))))
+        (parse~ (get-parser dialect) file time dialect)))
     
     (define (unmodified-file-entry file time)
       (let ((actual (get-file-entry file)))
@@ -386,32 +386,8 @@
   ;;;
   
   
-  (definition Parser-Associations
-    (list
-      (list (lambda () jazz.editor.commonlisp.CommonLisp-Parser) "lisp" "el") ;; quick approximation until a dedicated emacs lisp parser
-      (list (lambda () jazz.editor.c.C-Parser) "c" "cpp" "h")
-@wait (list (lambda () jazz.editor.css.CSS-Parser) "css")
-      (list (lambda () jazz.editor.jazz.Jazz-Parser) "jazz")
-@wait (list (lambda () jazz.editor.java.Java-Parser) "java")
-@wait (list (lambda () jazz.editor.javascript.JavaScript-Parser) "js")
-@wait (list (lambda () jazz.editor.lua.Lua-Parser) "lua")
-@wait (list (lambda () jazz.editor.properties.Properties-Parser) "properties")
-@wait (list (lambda () jazz.editor.python.Python-Parser) "py")
-      (list (lambda () jazz.editor.scheme.Scheme-Parser) "scm" "sch" "ss" "gambcini" "jazzini")))
-  
-  
-  (definition (get-parser-class extension)
-    (let ((info
-           (rassociate extension Parser-Associations
-             test: (lambda (ext extensions)
-                     (member? ext extensions test: ci=?)))))
-      (when info
-        (let ((proc (car info)))
-          (proc)))))
-  
-  
-  (method (get-parser extension)
-    (let ((class (get-parser-class extension)))
+  (method (get-parser dialect)
+    (let ((class (get-parser-class dialect)))
       (when class
         (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
 

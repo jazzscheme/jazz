@@ -46,6 +46,54 @@
 
 
 ;;;
+;;;; Parse
+;;;
+
+
+(definition Parser-Dialects
+  '((commonlisp "lisp" "el") ;; quick approximation until a dedicated emacs lisp parser
+    (c "c" "cpp" "h")
+    (css "css")
+    (jazz "jazz")
+    (java "java")
+    (javascript "js")
+    (lua "lua")
+    (properties "properties")
+    (python "py")
+    (scheme "scm" "sch" "ss" "gambcini" "jazzini")))
+
+
+(definition Parser-Classes
+  (list
+    (cons 'commonlisp (lambda () jazz.editor.commonlisp.CommonLisp-Parser))
+    (cons 'c (lambda () jazz.editor.c.C-Parser))
+    @wait (cons 'css (lambda () jazz.editor.css.CSS-Parser))
+    (cons 'jazz (lambda () jazz.editor.jazz.Jazz-Parser))
+    @wait (cons 'java (lambda () jazz.editor.java.Java-Parser))
+    @wait (cons 'javascript (lambda () jazz.editor.javascript.JavaScript-Parser))
+    @wait (cons 'lua (lambda () jazz.editor.lua.Lua-Parser))
+    @wait (cons 'properties (lambda () jazz.editor.properties.Properties-Parser))
+    @wait (cons 'python (lambda () jazz.editor.python.Python-Parser))
+    (cons 'scheme (lambda () jazz.editor.scheme.Scheme-Parser))))
+
+
+(definition public (get-parser-dialect extension)
+  (let ((info
+          (rassociate extension Parser-Dialects
+            test: (lambda (ext extensions)
+                    (member? ext extensions test: ci=?)))))
+    (when info
+      (car info))))
+
+
+(definition public (get-parser-class dialect)
+  (let ((pair (assq dialect Parser-Classes)))
+    (when pair
+      (let ((proc (cdr pair)))
+        (proc)))))
+
+
+;;;
 ;;;; Thread
 ;;;
 

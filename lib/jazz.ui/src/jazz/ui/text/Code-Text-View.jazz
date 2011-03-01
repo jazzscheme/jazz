@@ -340,11 +340,11 @@
             (let* ((item (current-history-item))
                    (form (standardize-form form))
                    (references (get-references~ cataloguer form context: (get-context)))
-                   (target (list (make-search-context (->string form) whole-words?: #t constituent-test: (get-constituent-test)))))
+                   (target (->string form)))
               (case (length references)
                 ((0) (bell))
-                ((1) (add-history~ appl item) (edit-reference~ (car references) target))
-                (else (track-popup-menu (new References-Menu history-item: item target: target definitions: references) pos)))))))))
+                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target (get-constituent-test)))
+                (else (track-popup-menu (new References-Menu history-item: item target: target definitions: references constituent-test: (get-constituent-test)) pos)))))))))
   
   
   (definition (edit-composite appl item form)
@@ -705,7 +705,7 @@
             (unless (string-delimiter? c)
               (when (text-constituent?~ syntax c)
                 (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
-                  (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol keyword string)))
+                  (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol specifier keyword string)))
                     (let ((c (char-backward~ expl 0)))
                       (when (or (not c) (not (string-delimiter? c)))
                         (get-symbol-string~ expl))))))))))))
@@ -990,9 +990,10 @@
 (class References-Menu extends Context-Menu
   
   
-  (property target       accessors generate)
-  (property definitions  accessors generate)
-  (property history-item accessors generate)
+  (property target           accessors generate)
+  (property definitions      accessors generate)
+  (property constituent-test accessors generate)
+  (property history-item     accessors generate)
   
   
   (method override (finish rest)
@@ -1015,4 +1016,4 @@
   
   (method (on-action evt)
     (add-history~ (get-application) history-item)
-    (edit-reference~ (get-property~ evt definition:) target))))
+    (edit-textual-reference~ (get-property~ evt definition:) target constituent-test))))

@@ -194,7 +194,7 @@
       (<Label-Item>     name: paste             title: "Paste" icon: {Image-Resource "Paste"} action-handler: {Action view paste}))))
 
 
-(class Component-Controller extends Component
+(class Component-Controller extends Component implements Grid-Controller
   
   
   (slot designer accessors generate)
@@ -207,7 +207,7 @@
   ;;;
   
   
-  (method (get-tab-stops)
+  (method override (get-tab-stops)
     (let ((grid (get-grid)))
       
       (define (tab-cell row column)
@@ -254,13 +254,13 @@
             (update-active-element val domain))))))
   
   
-  (method public (selection-cell? row column)
+  (method override (selection-cell? row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
         (is? column-data Component-Provider-Selection-Data))))
   
   
-  (method public (cell-editable? row column)
+  (method override (cell-editable? row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
         (and (not (get-read-only?~ column-data))
@@ -274,11 +274,11 @@
     parent)
   
   
-  (method (get-focus-actions)
+  (method override (get-focus-actions)
     (find-actions 'component-controller))
   
   
-  (method (can-rename?)
+  (method public (can-rename?)
     (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
       (and (= 1 (length rows-data))
            (let ((row-data (car rows-data))
@@ -288,7 +288,7 @@
                   (not (get-path~ column-data)))))))
   
   
-  (method (can-insert?)
+  (method public (can-insert?)
     (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
       (and (= 1 (length rows-data))
            (let ((row-data (car rows-data))
@@ -298,12 +298,12 @@
                       (not (element row-data (get-is~ column-data)))))))))
   
   
-  (method (focus-update-actions)
+  (method override (focus-update-actions)
     (set-action-enabled? {Action component-controller insert} (can-insert?))
     (set-action-enabled? {Action component-controller rename} (can-rename?)))
   
   
-  (method (get-context-menu)
+  (method override (get-context-menu)
     (new Component-Controller-Menu client: self))
   
   
@@ -341,41 +341,41 @@
                                                              (second serialization)))))))))
   
   
-  (method public (on-selection-change evt)
+  (method override (on-selection-change evt)
     (set-selection~ editor (selected-components))
     (update-focus-actions~ (get-application)))
   
   
-  (method public (cut-selection)
+  (method override (cut-selection)
     (cut-components~ designer (selected-components)))
   
   
-  (method public (copy-selection)
+  (method override (copy-selection)
     (copy-components~ designer (selected-components)))
   
   
-  (method public (delete-selection)
+  (method override (delete-selection)
     (delete-components~ designer (selected-components)))
   
   
-  (method public (paste-clipboard)
+  (method override (paste-clipboard)
     (let ((parent (determine-unique-paster (selected-components))))
       (paste-parcels~ designer (get-jazz-parcels) parent)))
   
   
-  (method public (can-copy?)
+  (method override (can-copy?)
     (can-copy-components? (selected-components)))
   
   
-  (method public (can-cut?)
+  (method override (can-cut?)
     (can-cut-components? (selected-components)))
   
   
-  (method public (can-paste?)
+  (method override (can-paste?)
     (can-paste-components? (selected-components)))
   
   
-  (method public (can-delete?)
+  (method override (can-delete?)
     (can-delete-components? (selected-components)))
   
   
@@ -408,14 +408,14 @@
     (grid-populate))
   
   
-  (method (grid-populate)
+  (method override (grid-populate)
     (populate~ (get-grid)
       (lambda ()
         (when (and client (not-null? (component-addable-classes client)))
           (insert-client client)))))
   
   
-  (method public (merge? row1-data row2-data column-data)
+  (method override (merge? row1-data row2-data column-data)
     (let ((is (if (is? column-data Component-Provider-Selection-Data) (get-is~ column-data) (get-is-in~ column-data))))
       (eq? (element row1-data is) (element row2-data is))))
   

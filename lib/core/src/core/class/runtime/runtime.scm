@@ -66,8 +66,9 @@
        (jazz.memstring #\. (%%symbol->string symbol))))
 
 
-(define (jazz.compose-name . rest)
-  (%%string->symbol (jazz.join-strings (map symbol->string rest) ".")))
+(define (jazz.reference-name? symbol)
+  (and (%%symbol? symbol)
+       (jazz.memstring #\: (%%symbol->string symbol))))
 
 
 (define (jazz.compose-helper locator suffix)

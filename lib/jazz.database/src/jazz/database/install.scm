@@ -38,4 +38,4 @@
 (unit jazz.database.install
 
 
-(jazz.define-literal Systype jazz.database.literals.construct-systype))
+(jazz.define-literal Systype jazz.database.literals:construct-systype))

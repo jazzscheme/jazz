@@ -38,4 +38,4 @@
 (unit jazz.network.install
 
 
-(jazz.define-literal Host jazz.network.literals.construct-host))
+(jazz.define-literal Host jazz.network.literals:construct-host))

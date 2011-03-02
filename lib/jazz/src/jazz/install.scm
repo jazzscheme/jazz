@@ -43,13 +43,13 @@
 ;;;
 
 
-(jazz.define-literal Point            jazz.literals.construct-point)
-(jazz.define-literal Dimension        jazz.literals.construct-dimension)
-(jazz.define-literal Cell             jazz.literals.construct-cell)
-(jazz.define-literal Rect             jazz.literals.construct-rect)
-(jazz.define-literal Range            jazz.literals.construct-range)
-(jazz.define-literal Exception-Detail jazz.literals.construct-exception-detail)
-(jazz.define-literal Walk-Location    jazz.literals.construct-walk-location)
+(jazz.define-literal Point            jazz.literals:construct-point)
+(jazz.define-literal Dimension        jazz.literals:construct-dimension)
+(jazz.define-literal Cell             jazz.literals:construct-cell)
+(jazz.define-literal Rect             jazz.literals:construct-rect)
+(jazz.define-literal Range            jazz.literals:construct-range)
+(jazz.define-literal Exception-Detail jazz.literals:construct-exception-detail)
+(jazz.define-literal Walk-Location    jazz.literals:construct-walk-location)
 
 
 ;;;

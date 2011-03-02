@@ -767,7 +767,7 @@
 ;;;
 
 
-(define (lower-case-unit-name? unit-name)
+(define (jazz.lower-case-unit-name? unit-name)
   (define (first-char-of-last-name str)
     (let loop ((offset (%%fx- (%%string-length str) 1)))
          (let ((ch (%%string-ref str offset)))
@@ -800,7 +800,7 @@
                  (iter (%%cdr extensions))))))
     
     (if (and (jazz.directory-exists? (jazz.package-root-pathname package path))
-             (lower-case-unit-name? unit-name))
+             (jazz.lower-case-unit-name? unit-name))
         (try (%%string-append path "/_" (jazz.pathname-name path)))
       (try path)))
   
@@ -849,7 +849,7 @@
           #f))
       
       (if (and (jazz.directory-exists? (jazz.package-root-pathname package path))
-               (lower-case-unit-name? unit-name))
+               (jazz.lower-case-unit-name? unit-name))
           (try (%%string-append path "/_" (jazz.pathname-name path)))
         (try path)))
     
@@ -1993,8 +1993,8 @@
   (%%make-table test: eq?))
 
 
-(define (jazz.register-literal-constructor name constructor-name constructor)
-  (%%table-set! jazz.Literal-Constructors name (%%cons constructor-name constructor)))
+(define (jazz.register-literal-constructor name constructor-reference constructor)
+  (%%table-set! jazz.Literal-Constructors name (%%cons constructor-reference constructor)))
 
 
 (define (jazz.require-literal-constructor name)
@@ -2002,12 +2002,13 @@
       (jazz.error "Cannot construct literals of type {s}" name)))
 
 
-(jazz.define-macro (jazz.define-literal name constructor-name)
-  (receive (constructor-module ignore) (jazz.split-composite constructor-name)
-    `(jazz.register-literal-constructor ',name ',constructor-name
-       (lambda (arguments)
-         (jazz.load-unit ',constructor-module)
-         (%%apply (jazz.global-ref ',constructor-name) arguments)))))
+(jazz.define-macro (jazz.define-literal name constructor-reference)
+  (receive (constructor-module constructor-name) (jazz.split-reference constructor-reference)
+    (let ((constructor-locator (jazz.compose-name constructor-module constructor-name)))
+      `(jazz.register-literal-constructor ',name ',constructor-reference
+         (lambda (arguments)
+           (jazz.load-unit ',constructor-module)
+           (%%apply (jazz.global-ref ',constructor-locator) arguments))))))
 
 
 (define (jazz.construct-literal name arguments)
@@ -2019,16 +2020,17 @@
   (%%make-table test: eq?))
 
 
-(define (jazz.register-literal-walker name walker-name walker)
-  (%%table-set! jazz.Literal-Walkers name (%%cons walker-name walker)))
+(define (jazz.register-literal-walker name walker-locator walker)
+  (%%table-set! jazz.Literal-Walkers name (%%cons walker-locator walker)))
 
 
-(jazz.define-macro (jazz.define-literal-walker name walker-name)
-  (receive (walker-module ignore) (jazz.split-composite walker-name)
-    `(jazz.register-literal-walker ',name ',walker-name
-       (lambda (arguments proc)
-         (jazz.load-unit ',walker-module)
-         ((jazz.global-ref ',walker-name) arguments proc)))))
+(jazz.define-macro (jazz.define-literal-walker name walker-reference)
+  (receive (walker-module walker-name) (jazz.split-reference walker-reference)
+    (let ((walker-locator (jazz.compose-name walker-module walker-name)))
+      `(jazz.register-literal-walker ',name ',walker-locator
+         (lambda (arguments proc)
+           (jazz.load-unit ',walker-module)
+           ((jazz.global-ref ',walker-locator) arguments proc))))))
 
 
 (define (jazz.walk-literal name arguments proc)

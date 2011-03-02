@@ -975,7 +975,6 @@
       #f)))
 
 
-
 ;; this heuristic used because we cannot call jazz.resolve-binding at various points
 ;; is not 100% correct if the autoload was obtained through a reexported module...
 (define (jazz.autoload-declaration-locator-heuristic declaration)
@@ -4360,10 +4359,10 @@
           (cond (literal?
                   (let ((name (%%get-literal-name literal/constant))
                         (arguments (%%get-literal-arguments literal/constant)))
-                    (let ((constructor-name (%%car (jazz.require-literal-constructor (%%desourcify name)))))
-                      `(,constructor-name ,@(map (lambda (arg)
-                                                   `(quote ,arg))
-                                                 arguments)))))
+                    (let ((constructor-reference (%%car (jazz.require-literal-constructor (%%desourcify name)))))
+                      `(,constructor-reference ,@(map (lambda (arg)
+                                                        `(quote ,arg))
+                                                      arguments)))))
                 ((%%pair? literal/constant)
                  `(cons ',(%%car literal/constant) ',(%%cdr literal/constant)))
                 (else
@@ -4494,7 +4493,7 @@
 
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
   (define (lookup-composite walker environment symbol)
-    (receive (module-name name) (jazz.split-composite symbol)
+    (receive (module-name name) (jazz.split-reference symbol)
       (let ((exported-module-reference (jazz.outline-module module-name)))
         (let ((decl (jazz.lookup-declaration exported-module-reference name jazz.public-access declaration)))
           (if decl
@@ -4504,7 +4503,7 @@
             (jazz.walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
   
   (define (lookup walker environment symbol)
-    (if (jazz.composite-name? symbol)
+    (if (jazz.reference-name? symbol)
         (lookup-composite walker environment symbol)
       (let ((raw-symbol (unwrap-syntactic-closure symbol)))
         (let lp ((env environment))

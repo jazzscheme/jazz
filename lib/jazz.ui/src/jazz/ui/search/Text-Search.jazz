@@ -52,22 +52,17 @@
   
   (form
     (<install>
-      (<!>                name: domain         title: "Search"
+      (<!>                name: domain      title: "Search"
         (<content~>
-          (<Radio-Button> name: active-window  title: "Active Window" position: {Point 13 14} size: {Dimension 120 18})
-          (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 13 34} size: {Dimension 120 18})
-          (<Radio-Button> name: user-files     title: "User Files" position: {Point 13 54} size: {Dimension 120 18})))))
-  
-
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((pref (preferences)))
-      (let ((label (get-jazz-label~ pref)))
-        (when label
-          (set-title~ (locate 'jazz-files) label)))
-      (let ((label (get-user-label~ pref)))
-        (when label
-          (set-title~ (locate 'user-files) label)))))
+          (<Radio-Button> name: window      title: "Window" position: {Point 13 14} size: {Dimension 120 18} group: domain)
+          @wait
+          (<Radio-Button> name: declaration title: "Declaration" position: {Point 13 34} size: {Dimension 120 18} group: domain)
+          @wait
+          (<Radio-Button> name: selection   title: "Selection" position: {Point 13 54} size: {Dimension 120 18} group: domain)
+          @wait
+          (<Radio-Button> name: text        title: "Text" position: {Point 143 14} size: {Dimension 120 18} group: restriction selected?: #t)
+          @wait
+          (<Radio-Button> name: highlights  title: "Highlights" position: {Point 143 34} size: {Dimension 120 18} group: restriction)))))
   
   
   (method (preferences)
@@ -80,13 +75,15 @@
 
   
   (method override (get-search-domains)
-    '(active-window
-      jazz-files
-      user-files))
+    '(window
+       @wait
+      declaration
+       @wait
+      selection))
   
   
   (method override (get-active-window-domain)
-    'active-window)
+    'window)
 
 
   ;;;
@@ -96,37 +93,8 @@
   
   (method override (search-targets search-set)
     (case (get-search-domain)
-      ((active-window)
-       (search-active-window search-set))
-      (else
-       (thread-start!
-         (new-thread
-           (lambda ()
-             (search-threaded search-set))
-           'search)))))
-  
-  
-  (method synchronized (search-threaded search-set)
-    (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
-           (found (search search-set reporter)))
-      (post-event
-        (lambda ()
-          (let ((results (get-results)))
-            (set-mode~ results 'text)
-            (add-results~ results found (get-search-targets))
-            (select-results~ results))))
-      (user-feedback~ reporter "Done")
-      @activity-manager
-      (when reporter
-        (let ((manager (get-activity-manager)))
-          (unregister-activity~ manager reporter)
-          (close-manager~ manager)))))
-
-
-  (method (search search-set reporter)
-    (case (get-search-domain)
-      ((jazz-files) (search-jazz-files search-set reporter))
-      ((user-files) (search-user-files search-set reporter))))
+      ((window)
+       (search-active-window search-set))))
 
 
   ;;;
@@ -137,89 +105,6 @@
   (method override (set-session-properties config)
     (nextmethod config)
     (set-search-domain (get-active-domain~ config)))
-
-
-  ;;;
-  ;;;; Reporting
-  ;;;
-  
-  
-  (definition Jazz-Count
-    #f)
-  
-  
-  (method (count-jazz-files)
-    (unless Jazz-Count
-      (set! Jazz-Count (count-jazz-directories)))
-    Jazz-Count)
-  
-  
-  (method (count-jazz-directories)
-    (let ((pref (preferences)))
-      (let ((count 0)
-            (directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
-            (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
-        (for-each (lambda (directory)
-                    (iterate-project/directory directory
-                      (lambda (file)
-                        (when (member? (get-extension~ file) extensions test: ci=?)
-                          (increase! count)))))
-                  directories)
-        count)))
-  
-  
-  (definition User-Count
-    #f)
-  
-  
-  (method (count-user-files)
-    (let ((pref (preferences)))
-      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
-            (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
-        (let ((count
-                (lambda ()
-                  (let ((count 0))
-                    (for-each (lambda (directory)
-                                (iterate-project/directory directory
-                                  (lambda (file)
-                                    (when (member? (get-extension~ file) extensions test: ci=?)
-                                      (increase! count)))))
-                              directories)
-                    count))))
-          (unless User-Count
-            (set! User-Count (count)))
-          User-Count))))
-  
-  
-  (method (count-files)
-    (case (get-search-domain)
-      ((jazz-files) (count-jazz-files))
-      ((user-files) (count-user-files))))
-  
-  
-  (definition (filter-existing directories)
-    (collect-if (lambda (project/directory)
-                  (or (symbol? project/directory)
-                      (exists?~ project/directory)))
-                directories))
-  
-  
-  (definition (default-search-directories)
-    (append (if (is-alias? 'Jazz)
-                (list {Directory Jazz})
-              '())
-            (if (is-alias? 'Profiles)
-                (list {Directory Profiles})
-              '())
-            (if (is-alias? 'Projects)
-                (list {Directory Projects})
-              '())))
-  
-  
-  (method override (setup-search-reporter reporter count)
-    (set-range~ reporter (new Range 1 count))
-    (set-pos~ reporter 1)
-    (set-step~ reporter 1))
 
 
   ;;;
@@ -237,22 +122,4 @@
                 (set-caret~ guest (get-start~ guest))
                 (find-forward guest search-set #f)
                 (bring-to-front~ frame)
-                (acquire-focus~ guest))))))))
-  
-  
-  (method (search-jazz-files search-set reporter)
-    (let ((factory (new List-Factory))
-          (pref (preferences)))
-      (let ((directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
-            (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
-        (get-output~ factory))))
-  
-  
-  (method (search-user-files search-set reporter)
-    (let ((factory (new List-Factory))
-          (pref (preferences)))
-      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
-            (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
-        (get-output~ factory))))))
+                (acquire-focus~ guest))))))))))

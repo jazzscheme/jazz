@@ -374,6 +374,8 @@
       ((eq? clock-type time-gc) (tm:current-time-gc))
       (else (tm:time-error 'current-time 'invalid-clock-type clock-type)))))
 
+(define tm-current-time
+  tm:current-time)
 
 
 ;; -- time resolution

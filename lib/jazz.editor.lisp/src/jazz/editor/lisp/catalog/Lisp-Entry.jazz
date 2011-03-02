@@ -131,16 +131,20 @@
       (when (equal? (get-string~ text (get-selection~ text)) name)
         (declaration-range~ text (get-start~ text))))
     
+    (define (fallback-find text)
+      (bell)
+      (or (select-next~ text search-set)
+          (select-previous~ text search-set)))
+    
     (let ((text (get-guest~ (apply edit rest))))
       (let ((range (find-declaration-range text)))
         (if range
             (let ((ranges (highlight-expression~ text range target)))
-              (when (not-null? ranges)
+              (if (null? ranges)
+                  (fallback-find text)
                 (let ((first (car ranges)))
                   (set-selection~ text first ensure-displayed?: 'center-caret))))
-          (unless (or (select-next~ text search-set)
-                      (select-previous~ text search-set))
-            (bell))))))
+          (fallback-find text)))))
   
   
   (method override (edit-textual-reference target constituent-test . rest)

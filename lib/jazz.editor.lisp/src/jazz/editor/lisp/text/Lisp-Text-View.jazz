@@ -758,10 +758,16 @@
   
   
   (method public (highlight-expression range target)
-    (let ((ranges (new-queue)))
+    (let ((ranges (new-queue))
+          (reference-style (get-style 'Reference)))
       (iterate-expression-target range target
         (lambda (found)
-          (apply-style 'Reference (get-start~ found) (get-end~ found))
+          (modify-style found
+            (lambda (s)
+              (unless (inherits?~ s reference-style)
+                (let ((style (extend~ s)))
+                  (set-base~ style (cons 'Reference (get-base~ style)))
+                  style))))
           (enqueue ranges found)))
       (queue-list ranges)))
   
@@ -769,7 +775,13 @@
   (method public (unhighlight-expression range target)
     (iterate-expression-target range target
       (lambda (found)
-        (apply-style default-style (get-start~ found) (get-end~ found)))))
+        (modify-style found
+          (lambda (s)
+            (let ((base (get-base~ s)))
+              (when (memq? 'Reference base)
+                (let ((style (extend~ s)))
+                  (set-base~ style (remove 'Reference (get-base~ style)))
+                  style))))))))
   
   
   (method public (remove-highlights range)

@@ -327,6 +327,19 @@
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
+(define (jazz.split-reference identifier)
+  (let ((str (%%symbol->string identifier)))
+    (let ((n (jazz.string-find-reversed str #\:)))
+      (if (%%not n)
+          (values #f identifier)
+        (values (%%string->symbol (%%substring str 0 n))
+                (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
+
+
+(define (jazz.compose-name . rest)
+  (%%string->symbol (jazz.join-strings (map symbol->string rest) ".")))
+
+
 ;;;
 ;;;; Table
 ;;;

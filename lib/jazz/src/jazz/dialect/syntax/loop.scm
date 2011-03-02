@@ -501,7 +501,7 @@
         (add-binding ptr '<list> ''())
         (add-binding cns '<list+>)
         (add-action (list 'set! cns (list 'cons what ''())) actions)
-        (add-action (list 'if (list 'jazz.null? ptr)
+        (add-action (list 'if (list 'null? ptr)
                           (list 'begin
                                 (list 'set! ptr cns)
                                 (list 'set! res ptr))

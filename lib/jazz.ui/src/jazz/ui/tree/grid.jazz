@@ -148,6 +148,10 @@
     (child 'controller))
   
   
+  (method (get-widget)
+    (find-ascendant Grid-Tree-Widget))
+  
+  
   (method override (focus-actions)
     (cons (get-focus-actions~ (get-controller))
           (nextmethod)))
@@ -196,10 +200,9 @@
     (update-focus-actions~ (get-application)))
   
   
-  (method (editor-arrow-press evt)
-    (let* ((sender (get-sender~ evt))
-           (text? (is? sender Text-View))
-           (next-move (dispatch (class-of sender) (if text? 'arrow-move 'arrow-press))))
+  (method (editor-arrow-press tab-view evt)
+    (let* ((text? (is? tab-view Text-View))
+           (next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press))))
       (let ((direction (get-property~ evt direction:))
             (internal? (if text? (not (get-property~ evt word?:)) (get-control?~ evt))))
         (case direction
@@ -223,8 +226,8 @@
                           ((down)  cell-down)))))
   
   
-  (method (editor-return-press evt)
-    (on-tab-press~ (get-sender~ evt) evt))
+  (method (editor-return-press tab-view evt)
+    (on-tab-press~ tab-view evt))
   
   
   (method override (navigate-tab from backward?)
@@ -295,8 +298,8 @@
   
   (method (prepare-and-focus-entry entry)
     (let ((view-to-focus (tab-view~ entry)))
-      (set-arrow-press-handler~ view-to-focus (new Event-Handler target: self method-name: 'editor-arrow-press))
-      (set-return-press-handler~ view-to-focus (new Event-Handler target: self method-name: 'editor-return-press))
+      (set-arrow-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (editor-arrow-press view-to-focus evt))))
+      (set-return-press-handler~ view-to-focus (new Event-Handler execute: (lambda (evt) (editor-return-press view-to-focus evt))))
       (acquire-focus~ view-to-focus)
       (select-all~ view-to-focus)))
   
@@ -329,9 +332,60 @@
     (update-highlight))
   
   
-  (method (update-highlight)
-    )
+  ;;;
+  ;;;; Highlight
+  ;;;
   
+  
+  (method virtual (update-frame-highlight)
+    (set-border-color~ (get-widget) (get-frame-color~ (get-controller))))
+  
+  
+  (method virtual (update-cell-highlight tree-data cell)
+    (receive (row-data column-data) (cell-data-values cell)
+      (let ((current-color (get-frame-color~ tree-data))
+            (color (get-cell-color~ (get-controller) row-data column-data)))
+        (unless (eq? current-color color)
+          (set-frame-color~ tree-data color)
+          (invalidate-cell cell)))))
+  
+  
+  (method virtual (get-editor-widget editor)
+    (find-ascendant~ child Border-View))
+  
+      
+  (method virtual (update-editor-highlight tree-data cell)
+    (let ((border (get-editor-widget (get-editor~ tree-data))))
+      (receive (row-data column-data) (cell-data-values cell)
+        (let ((current-color (get-border-color~ border))
+              (color (get-editor-color~ (get-controller) row-data column-data)))
+          (unless (eq? current-color color)
+            (set-border-color~ border color))))))
+  
+  
+  (method (update-cells-hightlight)
+    (for-each-visible-row
+      (lambda (row line)
+        (for-each-column
+          (lambda (column col)
+            (let ((tree-data (get-child~ row col))
+                  (cell (new Cell line col)))
+              (typecase child
+                ((Tree-Label)
+                 (update-cell-highlight tree-data cell))
+                ((Tree-Data-View)
+                 (update-editor-highlight tree-data cell)))))))))
+          
+  
+  
+  (method (update-highlight)
+    (update-frame-highlight)
+    (update-cells-hightlight))
+  
+  
+  ;;;
+  ;;;; Merge cells
+  ;;;
   
   (method (merge-column-cells column col)
     (let (iterate-master-rows (master (get-next~ (get-root-row))))

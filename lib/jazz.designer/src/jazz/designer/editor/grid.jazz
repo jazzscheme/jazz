@@ -49,8 +49,8 @@
 
 
 (definition (column-data-component-property row-data column-data fail succeed)
-  (let* ((component (element row-data (get-is-in~ column-data)))
-         (property (and component (category-field (class-of component) (get-path~ column-data)))))
+  (let* ((component (element row-data (get-parent-offset~ column-data)))
+         (property (and component (category-field (class-of component) (get-identifier~ column-data)))))
     (if property
         (succeed component property)
       (fail))))
@@ -61,28 +61,29 @@
     (lambda (rd cd) (column-data-component-property rd cd fail succeed))))
 
 
-(definition (make-class-cell-domain references)
-  (new Enumeration-Domain choices: (zip references
+(definition (make-class-cell-domain class-references)
+  (new Enumeration-Domain choices: (zip class-references
                                         (map get-class-presentation~
-                                             (map resolve-reference~ references)))))
+                                             (map resolve-reference~ class-references)))))
 
 
-(class Component-Provider-Data extends Component
+(class Component-Provider-Data extends Provider-Data
   
   
-  (property read-only? initialize #f accessors generate)
-  (property path       initialize #f accessors generate)
-  (property is-in      initialize #f accessors generate)
+  (property read-only?    initialize #f accessors generate)
+  (property identifier    initialize #f accessors generate)
+  (property parent-offset initialize #f accessors generate)
+  
   
   (method (class-selection?)
-    (eq? path 'class-info)))
+    (eq? identifier 'class-info)))
 
 
 (class Component-Provider-Selection-Data extends Component-Provider-Data
   
   
-  (property is initialize #f accessors generate)
-  (property references initialize '() accessors generate))
+  (property component-offset initialize #f accessors generate)
+  (property class-references       initialize '() accessors generate))
 
 
 (class Component-Provider extends Component implements Data-Provider
@@ -101,25 +102,25 @@
   
   
   (method (column-data-component-class-references row-data column-data fail succeed)
-    (let ((component (element row-data (get-is-in~ column-data))))
+    (let ((component (element row-data (get-parent-offset~ column-data))))
       (if component
-          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-is-in~ column-data)))))
-            (succeed component (get-references~ component-column-data)))
+          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-parent-offset~ column-data)))))
+            (succeed component (get-class-references~ component-column-data)))
         (fail))))
   
   
   (method (get-class-domain row-data column-data)
     (column-data-component-class-references row-data column-data
       (const #f)
-      (lambda (component references)
-        (make-class-cell-domain references))))
+      (lambda (component class-references)
+        (make-class-cell-domain class-references))))
   
   
   (method (get-class-reference row-data column-data fail succeed)
     (column-data-component-class-references row-data column-data
       fail
-      (lambda (component references)
-        (succeed (find references (class-of component) key: resolve-reference~ return: 'item)))))
+      (lambda (component class-references)
+        (succeed (find class-references (class-of component) key: resolve-reference~ return: 'item)))))
   
   
   (method (set-class row-data column-data reference)
@@ -230,9 +231,9 @@
     (define (inactive-cell-background)
       (typecase column-data
         ((Component-Provider-Selection-Data)
-         (let ((is-in (get-is-in~ column-data)))
-           (cond ((not is-in) {Color White})
-                 ((element row-data (get-is-in~ column-data)) {Color White})
+         (let ((parent-offset (get-parent-offset~ column-data)))
+           (cond ((not parent-offset) {Color White})
+                 ((element row-data (get-parent-offset~ column-data)) {Color White})
                  (else {Color Gray}))))
         (else
          {Color Gray})))
@@ -284,8 +285,8 @@
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (element row-data (get-is~ column-data))
-                  (not (get-path~ column-data)))))))
+                  (element row-data (get-component-offset~ column-data))
+                  (not (get-identifier~ column-data)))))))
   
   
   (method public (can-insert?)
@@ -294,8 +295,8 @@
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (or (not (get-path~ column-data))
-                      (not (element row-data (get-is~ column-data)))))))))
+                  (or (not (get-identifier~ column-data))
+                      (not (element row-data (get-component-offset~ column-data)))))))))
   
   
   (method override (focus-update-actions)
@@ -315,8 +316,8 @@
                     (every? (lambda (data) (is? data Component-Provider-Selection-Data)) columns-data)
                   #t))
         (if (is? (car columns-data) Component-Provider-Selection-Data)
-            (map element rows-data (map get-is~ columns-data))
-          (map element rows-data (map get-is-in~ columns-data))))))
+            (map element rows-data (map get-component-offset~ columns-data))
+          (map element rows-data (map get-parent-offset~ columns-data))))))
   
   
   (method public (on-rename-component evt)
@@ -329,9 +330,9 @@
     (receive (rows-data columns-data) (selected-cells-data~ (get-grid))
       (let ((row-data (car rows-data))
             (column-data (car columns-data)))
-        (let ((runtime-reference (get-runtime-reference~ (car (get-references~ column-data))))
-              (parent (let ((is-in (get-is-in~ column-data)))
-                        (if is-in (element row-data is-in) client))))
+        (let ((runtime-reference (get-runtime-reference~ (car (get-class-references~ column-data))))
+              (parent (let ((parent-offset (get-parent-offset~ column-data)))
+                        (if parent-offset (element row-data parent-offset) client))))
           (let* ((brothers (get-children~ parent))
                  (class (resolve-runtime-reference runtime-reference))
                  (name (request-component-presentation class brothers))
@@ -395,8 +396,8 @@
             (for-each-column~ (get-grid)
               (lambda (column column-rank)
                 (let ((column-data (get-provider-data~ column)))
-                  (when (and (eq? (get-name~ property) (get-path~ column-data))
-                             (eq? component (element row-data (get-is-in~ column-data))))
+                  (when (and (eq? (get-name~ property) (get-identifier~ column-data))
+                             (eq? component (element row-data (get-parent-offset~ column-data))))
                     (update-cell~ (get-grid) (new Cell row-rank column-rank)
                       (lambda (row column label)
                         (call-with-row/column-data row column
@@ -416,8 +417,8 @@
   
   
   (method override (merge? row1-data row2-data column-data)
-    (let ((is (if (is? column-data Component-Provider-Selection-Data) (get-is~ column-data) (get-is-in~ column-data))))
-      (eq? (element row1-data is) (element row2-data is))))
+    (let ((component-offset (if (is? column-data Component-Provider-Selection-Data) (get-component-offset~ column-data) (get-parent-offset~ column-data))))
+      (eq? (element row1-data component-offset) (element row2-data component-offset))))
   
   
   (method protected virtual (insert-client component)
@@ -426,9 +427,9 @@
       (if (null? selection-columns)
           '()
         (let* ((column-data (get-provider-data~ (car selection-columns)))
-               (path (get-path~ column-data)))
-          (if path
-              (list (cons (find-child~ component path) (make-rows-data component (cdr selection-columns))))
+               (identifier (get-identifier~ column-data)))
+          (if identifier
+              (list (cons (find-child~ component identifier) (make-rows-data component (cdr selection-columns))))
             (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
                                                 (get-components~ component)
                                                 key: class-of)))
@@ -564,37 +565,37 @@
         (grid-populate~ (get-controller)))))
   
   
-  (method (add-selection-column path is is-in references)
+  (method (add-selection-column identifier component-offset parent-offset class-references)
     (let ((column (add-column~ (get-grid) class: Grid-Tree-Column width: Default-Selection-Width)))
-      (add-child~ column (new Component-Provider-Selection-Data name: 'provider-data path: path is: is is-in: is-in references: references))))
+      (add-child~ column (new Component-Provider-Selection-Data name: 'provider-data identifier: identifier component-offset: component-offset parent-offset: parent-offset class-references: class-references))))
   
   
-  (method (add-class-column is-in)
+  (method (add-class-column parent-offset)
     (let ((column (add-column~ (get-grid) class: Grid-Tree-Column title: "Class" width: Default-Class-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data path: 'class-info is-in: is-in))))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data identifier: 'class-info parent-offset: parent-offset))))
   
   
-  (method (add-property-column is-in path title (read-only? #f))
+  (method (add-property-column parent-offset identifier title (read-only? #f))
     (let ((column (add-column~ (get-grid) class: Grid-Tree-Column title: title width: Default-Property-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data path: path is-in: is-in read-only?: read-only?))))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data identifier: identifier parent-offset: parent-offset read-only?: read-only?))))
   
   
   (method (setup-client-columns)
     
-    (define (setup-class-column references is)
-      (when (> (length references) 1)
-        (add-class-column is)))
+    (define (setup-class-column class-references component-offset)
+      (when (> (length class-references) 1)
+        (add-class-column component-offset)))
     
-    (define (setup-property-columns references is)
+    (define (setup-property-columns class-references component-offset)
       (for-each (lambda (x)
                   (bind (property presentation) x
-                    (add-property-column is (get-name~ property) presentation)))
+                    (add-property-column component-offset (get-name~ property) presentation)))
                 (remove-duplicates
                   (append-map (lambda (class)
                                 (map (lambda (property)
                                        (list property (property-presentation~ class property)))
                                      (class-properties class)))
-                              (map resolve-reference~ references))
+                              (map resolve-reference~ class-references))
                   key: second
                   test: string=?)))
     
@@ -603,27 +604,27 @@
         (setup-context~ ref (new Environment #f (lambda (sym) runtime-reference)))
         ref))
     
-    (define (setup-selection-columns addable-references is add-to)
-      (let ((references (map runtime-reference->reference addable-references)))
-        (add-selection-column #f is add-to references)
-        (add-property-column is 'name-info "Name" #t)
-        (setup-class-column references is)
-        (setup-property-columns references is))
+    (define (setup-selection-columns addable-references component-offset add-to)
+      (let ((class-references (map runtime-reference->reference addable-references)))
+        (add-selection-column #f component-offset add-to class-references)
+        (add-property-column component-offset 'name-info "Name" #t)
+        (setup-class-column class-references component-offset)
+        (setup-property-columns class-references component-offset))
       (let* ((addable-ancestor (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
              (ancestor-descriptor (get-descriptor addable-ancestor))
              (children-descriptor (find-child~ ancestor-descriptor 'children))
              (child-descriptors (get-children~ children-descriptor)))
-        (for-each (lambda (descriptor child-is)
-                    (let ((references (get-classes~ descriptor)))
-                      (add-selection-column (get-target~ descriptor) child-is is references)
-                      (setup-class-column references child-is)
-                      (setup-property-columns references child-is)))
+        (for-each (lambda (descriptor child-component-offset)
+                    (let ((class-references (get-classes~ descriptor)))
+                      (add-selection-column (get-target~ descriptor) child-component-offset component-offset class-references)
+                      (setup-class-column class-references child-component-offset)
+                      (setup-property-columns class-references child-component-offset)))
                   child-descriptors
-                  (iota (length child-descriptors) (+ is 1)))
+                  (iota (length child-descriptors) (+ component-offset 1)))
         (when (get-addable?~ children-descriptor)
           (let ((ancestor-addable-classes (component-get-addable-classes~ (get-descriptor addable-ancestor) #f)))
             (when (not-null? ancestor-addable-classes)
-              (setup-selection-columns ancestor-addable-classes (+ is 1 (length child-descriptors)) is))))))
+              (setup-selection-columns ancestor-addable-classes (+ component-offset 1 (length child-descriptors)) component-offset))))))
     
     (setup-selection-columns (component-addable-classes client) 0 #f))
   

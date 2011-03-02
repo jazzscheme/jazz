@@ -1,0 +1,239 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; User Search
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.search.User-Search jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.search)
+        (jazz.ui.view)
+        (jazz.ui.window))
+
+
+(class undocumented User-Search extends Search-View
+
+  
+  (form
+    (<install>
+      (<!>                name: domain         title: "User"
+        (<content~>
+          (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 13 20} size: {Dimension 120 18})
+          (<Radio-Button> name: user-files     title: "User Files" position: {Point 13 44} size: {Dimension 120 18})))))
+  
+
+  (method override (finish rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (let ((label (get-jazz-label~ pref)))
+        (when label
+          (set-title~ (locate 'jazz-files) label)))
+      (let ((label (get-user-label~ pref)))
+        (when label
+          (set-title~ (locate 'user-files) label)))))
+  
+  
+  (method (preferences)
+    (get-preferences '(tools search-manager user)))
+  
+
+  ;;;
+  ;;;; Domains
+  ;;;
+
+  
+  (method override (get-search-domains)
+    '(jazz-files
+      user-files))
+  
+  
+  (method override (get-active-window-domain)
+    'jazz-files)
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (search-targets search-set)
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (search-threaded search-set))
+        'search)))
+  
+  
+  (method synchronized (search-threaded search-set)
+    (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
+           (found (search search-set reporter)))
+      (post-event
+        (lambda ()
+          (let ((results (get-results)))
+            (set-mode~ results 'text)
+            (add-results~ results found (get-search-targets))
+            (select-results~ results))))
+      (user-feedback~ reporter "Done")
+      @activity-manager
+      (when reporter
+        (let ((manager (get-activity-manager)))
+          (unregister-activity~ manager reporter)
+          (close-manager~ manager)))))
+
+
+  (method (search search-set reporter)
+    (case (get-search-domain)
+      ((jazz-files) (search-jazz-files search-set reporter))
+      ((user-files) (search-user-files search-set reporter))))
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method override (set-session-properties config)
+    (nextmethod config)
+    (set-search-domain (get-active-domain~ config)))
+
+
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (definition Jazz-Count
+    #f)
+  
+  
+  (method (count-jazz-files)
+    (unless Jazz-Count
+      (set! Jazz-Count (count-jazz-directories)))
+    Jazz-Count)
+  
+  
+  (method (count-jazz-directories)
+    (let ((pref (preferences)))
+      (let ((count 0)
+            (directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
+        (for-each (lambda (directory)
+                    (iterate-project/directory directory
+                      (lambda (file)
+                        (when (member? (get-extension~ file) extensions test: ci=?)
+                          (increase! count)))))
+                  directories)
+        count)))
+  
+  
+  (definition User-Count
+    #f)
+  
+  
+  (method (count-user-files)
+    (let ((pref (preferences)))
+      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
+            (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
+        (let ((count
+                (lambda ()
+                  (let ((count 0))
+                    (for-each (lambda (directory)
+                                (iterate-project/directory directory
+                                  (lambda (file)
+                                    (when (member? (get-extension~ file) extensions test: ci=?)
+                                      (increase! count)))))
+                              directories)
+                    count))))
+          (unless User-Count
+            (set! User-Count (count)))
+          User-Count))))
+  
+  
+  (method (count-files)
+    (case (get-search-domain)
+      ((jazz-files) (count-jazz-files))
+      ((user-files) (count-user-files))))
+  
+  
+  (definition (filter-existing directories)
+    (collect-if (lambda (project/directory)
+                  (or (symbol? project/directory)
+                      (exists?~ project/directory)))
+                directories))
+  
+  
+  (definition (default-search-directories)
+    (append (if (is-alias? 'Jazz)
+                (list {Directory Jazz})
+              '())
+            (if (is-alias? 'Profiles)
+                (list {Directory Profiles})
+              '())
+            (if (is-alias? 'Projects)
+                (list {Directory Projects})
+              '())))
+  
+  
+  (method override (setup-search-reporter reporter count)
+    (set-range~ reporter (new Range 1 count))
+    (set-pos~ reporter 1)
+    (set-step~ reporter 1))
+
+
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method (search-jazz-files search-set reporter)
+    (let ((factory (new List-Factory))
+          (pref (preferences)))
+      (let ((directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
+        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
+        (get-output~ factory))))
+  
+  
+  (method (search-user-files search-set reporter)
+    (let ((factory (new List-Factory))
+          (pref (preferences)))
+      (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
+            (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
+        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
+        (get-output~ factory))))))

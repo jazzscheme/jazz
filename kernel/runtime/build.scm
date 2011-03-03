@@ -667,7 +667,11 @@
 (define (jazz:determine-binary-repositories destination-directory)
   (jazz:determine-repositories destination-directory
     (and (jazz:global-bound? 'binary-repositories)
-         ((jazz:global-ref 'binary-repositories)))))
+         (let ((proc (jazz:global-ref 'binary-repositories))
+               (source (if (jazz:global-bound? 'jazz:kernel-source)
+                           (jazz:global-ref 'jazz:kernel-source)
+                         jazz:source)))
+           (proc source)))))
 
 
 (define (jazz:determine-source-repositories destination-directory)

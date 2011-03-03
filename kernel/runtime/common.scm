@@ -318,7 +318,7 @@
   (else))
 
 
-(define (jazz.split-composite identifier)
+(define (jazz.break-identifier identifier)
   (let ((str (%%symbol->string identifier)))
     (let ((n (jazz.string-find-reversed str #\.)))
       (if (%%not n)
@@ -327,7 +327,7 @@
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
-(define (jazz.split-reference identifier)
+(define (jazz.break-reference identifier)
   (let ((str (%%symbol->string identifier)))
     (let ((n (jazz.string-find-reversed str #\:)))
       (if (%%not n)
@@ -336,8 +336,12 @@
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
-(define (jazz.compose-name . rest)
+(define (jazz.compose-identifier . rest)
   (%%string->symbol (jazz.join-strings (map symbol->string rest) ".")))
+
+
+(define (jazz.compose-reference . rest)
+  (%%string->symbol (jazz.join-strings (map symbol->string rest) ":")))
 
 
 ;;;

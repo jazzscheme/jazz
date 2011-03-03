@@ -61,18 +61,18 @@
     (%%string->symbol (%%substring name 0 (%%fx- (%%string-length name) 1)))))
 
 
-(define (jazz.composite-name? symbol)
+(define (jazz.composite-identifier? symbol)
   (and (%%symbol? symbol)
        (jazz.memstring #\. (%%symbol->string symbol))))
 
 
-(define (jazz.reference-name? symbol)
+(define (jazz.composite-reference? symbol)
   (and (%%symbol? symbol)
        (jazz.memstring #\: (%%symbol->string symbol))))
 
 
 (define (jazz.compose-helper locator suffix)
-  (%%string->symbol (%%string-append (%%symbol->string locator) ":" (%%symbol->string suffix))))
+  (%%string->symbol (%%string-append (%%symbol->string locator) "!" (%%symbol->string suffix))))
 
 
 (define (jazz.split-symbol identifier separator)
@@ -82,6 +82,10 @@
 
 (define (jazz.split-identifier identifier)
   (jazz.split-symbol identifier #\.))
+
+
+(define (jazz.split-reference identifier)
+  (jazz.split-symbol identifier #\:))
 
 
 ;;;
@@ -2257,7 +2261,7 @@
 (define (jazz.update-method class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
     (let ((method (%%get-category-field owner method-name))
-          (method-locator (%%compose-name (%%get-category-identifier class) method-name)))
+          (method-locator (%%compose-identifier (%%get-category-identifier class) method-name)))
       (jazz.global-set! method-locator method-implementation)
       (if (%%eq? owner class)
           (case (%%get-method-dispatch-type method)

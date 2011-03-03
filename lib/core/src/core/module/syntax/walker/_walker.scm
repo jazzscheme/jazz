@@ -255,7 +255,7 @@
 (define (jazz.setup-declaration new-declaration)
   (let ((parent (%%get-declaration-parent new-declaration))
         (name (%%get-lexical-binding-name new-declaration)))
-    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-name (%%get-declaration-locator parent) name)))
+    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-identifier (%%get-declaration-locator parent) name)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
 
 
@@ -388,14 +388,14 @@
 (jazz.define-method (jazz.resolve-reference (jazz.Export-Reference declaration-reference) module-declaration)
   (or (%%get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz.parse-exported-symbol module-declaration (%%get-declaration-reference-name declaration-reference))
-        (let ((locator (jazz.compose-name (%%get-lexical-binding-name module-declaration) name)))
+        (let ((locator (jazz.compose-identifier (%%get-lexical-binding-name module-declaration) name)))
           (let ((declaration (jazz.new-export-declaration name #f 'public 'uptodate '() #f locator)))
             (%%set-declaration-reference-declaration declaration-reference declaration)
             declaration)))))
 
 
 (define (jazz.parse-exported-symbol module-declaration name)
-  (if (jazz.composite-name? name)
+  (if (jazz.composite-identifier? name)
       (values (jazz.identifier-name name) name)
     (values name name)))
 
@@ -645,10 +645,10 @@
   
   (define (compose-name root-declaration declaration)
     (let iter ((declaration declaration)
-               (composite-name '()))
+               (composite-identifier '()))
          (if (%%eq? root-declaration declaration)
-             composite-name
-           (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-name)))))
+             composite-identifier
+           (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-identifier)))))
   
   (let ((partition (%%make-table test: eq?)))
     (jazz.iterate-table (%%get-module-declaration-walker-references module-declaration)
@@ -728,7 +728,7 @@
                                            (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
                                              (%%when (%%not (%%table-ref names name #f))
                                                (%%table-set! names name #t)
-                                               (let ((symbol-name (jazz.compose-name unit-name name)))
+                                               (let ((symbol-name (jazz.compose-identifier unit-name name)))
                                                  (jazz.enqueue auto `(jazz.register-autoload ',name ',unit-name
                                                                        (lambda ()
                                                                          (jazz.load-unit ',unit-name)
@@ -978,7 +978,7 @@
 ;; this heuristic used because we cannot call jazz.resolve-binding at various points
 ;; is not 100% correct if the autoload was obtained through a reexported module...
 (define (jazz.autoload-declaration-locator-heuristic declaration)
-  (jazz.compose-name (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
+  (jazz.compose-identifier (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
 
 
 (define (jazz.autoload-locator referenced-declaration)
@@ -2667,99 +2667,105 @@
 (define (syntactic-closure? x)
   (%%class-is? x jazz.Syntactic-Closure))
 
+
 (define (make-syntactic-closure env vars form)
   (if (or (%%symbol? form) (%%pair? form)
-          (and (%%source? form)
-               (or (%%symbol? (%%source-code form))
-                   (%%pair? (%%source-code form)))))
+        (and (%%source? form)
+             (or (%%symbol? (%%source-code form))
+                 (%%pair? (%%source-code form)))))
       (jazz.allocate-syntactic-closure jazz.Syntactic-Closure env vars form)
-      form))
+    form))
+
 
 (define (syntactic-closure-form sc)
   (%%get-syntactic-closure-form sc))
 
+
 (define (unwrap-syntactic-closure x)
-  (cond
-   ((syntactic-closure? x)
-    (unwrap-syntactic-closure (%%get-syntactic-closure-form x)))
-   ((%%source? x)
-    (unwrap-syntactic-closure (%%source-code x)))
-   (else x)))
+  (cond ((syntactic-closure? x)
+         (unwrap-syntactic-closure (%%get-syntactic-closure-form x)))
+        ((%%source? x)
+         (unwrap-syntactic-closure (%%source-code x)))
+        (else x)))
+
 
 (define (strip-syntactic-closures x)
-  (cond
-   ((syntactic-closure? x)
-    (strip-syntactic-closures (%%get-syntactic-closure-form x)))
-   ((%%source? x)
-    (strip-syntactic-closures (%%source-code x)))
-   ((%%pair? x)
-    (cons (strip-syntactic-closures (%%car x))
-          (strip-syntactic-closures (%%cdr x))))
-   ((%%vector? x)
-    (%%list->vector (strip-syntactic-closures (%%vector->list x))))
-   (else x)))
+  (cond ((syntactic-closure? x)
+         (strip-syntactic-closures (%%get-syntactic-closure-form x)))
+        ((%%source? x)
+         (strip-syntactic-closures (%%source-code x)))
+        ((%%pair? x)
+         (cons (strip-syntactic-closures (%%car x))
+               (strip-syntactic-closures (%%cdr x))))
+        ((%%vector? x)
+         (%%list->vector (strip-syntactic-closures (%%vector->list x))))
+        (else x)))
+
 
 (define (strip-source-info x)
-  (cond
-   ((%%source? x)
-    (strip-source-info (%%source-code x)))
-   ((%%pair? x)
-    (cons (strip-source-info (%%car x)) (strip-source-info (%%cdr x))))
-   ((%%vector? x)
-    (%%list->vector (strip-source-info (%%vector->list x))))
-   (else x)))
+  (cond ((%%source? x)
+         (strip-source-info (%%source-code x)))
+        ((%%pair? x)
+         (cons (strip-source-info (%%car x)) (strip-source-info (%%cdr x))))
+        ((%%vector? x)
+         (%%list->vector (strip-source-info (%%vector->list x))))
+        (else x)))
+
 
 (define (identifier? x)
-  (cond
-   ((syntactic-closure? x) (identifier? (syntactic-closure-form x)))
-   ((%%source? x) (identifier? (%%source-code x)))
-   (else (symbol? x))))
+  (cond ((syntactic-closure? x) (identifier? (syntactic-closure-form x)))
+        ((%%source? x) (identifier? (%%source-code x)))
+        (else (symbol? x))))
+
 
 ;; identifiers are equal if they resolve to the same lexical binding
 (define (identifier=? x-env x y-env y)
   (define (lookup-identifier symbol environment)
-    (if (jazz.composite-name? symbol)
+    (if (jazz.composite-identifier? symbol)
         symbol
-        (jazz.find-in (lambda (binding)
-                        (jazz.walk-binding-lookup binding symbol #f))
-                      environment)))
+      (jazz.find-in (lambda (binding)
+                      (jazz.walk-binding-lookup binding symbol #f))
+                    environment)))
   (define (binding-name x)
     (if (%%class-is? x jazz.Lexical-Binding)
         (%%get-lexical-binding-name x)
-        x))
+      x))
+  
   (or (eq? x y)
       (let ((x^ (lookup-identifier (unwrap-syntactic-closure x) x-env))
             (y^ (lookup-identifier (unwrap-syntactic-closure y) y-env)))
         (if x^
             (eq? x^ y^)
-            (and (not y^)
-                 (eq? (unwrap-syntactic-closure x)
-                      (unwrap-syntactic-closure y)))))))
+          (and (not y^)
+               (eq? (unwrap-syntactic-closure x)
+                    (unwrap-syntactic-closure y)))))))
+
 
 (define sc-macro-transformer
   (lambda (f)
     (lambda (expr use-env mac-env)
       (make-syntactic-closure mac-env '() (f expr use-env)))))
 
+
 (define rsc-macro-transformer
   (lambda (f)
     (lambda (expr use-env mac-env)
       (f expr mac-env))))
 
+
 (define er-macro-transformer
   (lambda (f)
     (lambda (expr use-env mac-env)
       (let ((rename
-             (let ((renames '()))
-               (lambda (identifier)
-                 (cond
-                  ((assq identifier renames) => cdr)
-                  (else
-                   (let ((name (make-syntactic-closure mac-env '() identifier)))
-                     (set! renames (cons (cons identifier name) renames))
-                     name))))))
+              (let ((renames '()))
+                (lambda (identifier)
+                  (cond ((assq identifier renames) => cdr)
+                        (else
+                         (let ((name (make-syntactic-closure mac-env '() identifier)))
+                           (set! renames (cons (cons identifier name) renames))
+                           name))))))
             (compare
-             (lambda (x y) (identifier=? use-env x use-env y))))
+              (lambda (x y) (identifier=? use-env x use-env y))))
         (f expr rename compare)))))
 
 
@@ -3785,8 +3791,8 @@
   ;; non-trivial work of changing references to remember how they where obtained
   (define (determine-serialization reference)
     (let ((reified-reference (%%get-reference-reification-reference expression)))
-      (if (jazz.composite-name? reified-reference)
-          (receive (module-name name) (jazz.split-composite reified-reference)
+      (if (jazz.composite-identifier? reified-reference)
+          (receive (module-name name) (jazz.break-reference reified-reference)
             `(module-public ,module-name ,name))
         (let ((module (%%get-declaration-toplevel declaration))
               (binding (%%get-reference-binding reference)))
@@ -4493,7 +4499,7 @@
 
 (define (jazz.lookup-symbol walker resume declaration environment symbol-src)
   (define (lookup-composite walker environment symbol)
-    (receive (module-name name) (jazz.split-reference symbol)
+    (receive (module-name name) (jazz.break-reference symbol)
       (let ((exported-module-reference (jazz.outline-module module-name)))
         (let ((decl (jazz.lookup-declaration exported-module-reference name jazz.public-access declaration)))
           (if decl
@@ -4503,7 +4509,7 @@
             (jazz.walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
   
   (define (lookup walker environment symbol)
-    (if (jazz.reference-name? symbol)
+    (if (jazz.composite-reference? symbol)
         (lookup-composite walker environment symbol)
       (let ((raw-symbol (unwrap-syntactic-closure symbol)))
         (let lp ((env environment))

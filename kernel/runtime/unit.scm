@@ -775,7 +775,7 @@
              ((%%char=? #\. (%%string-ref str offset))
               (if (%%fx< (%%fx+ offset 1) (%%string-length str))
                   (%%string-ref str (%%fx+ 1 offset))
-                (jazz.error "unit name {a} ends with a ." str)))
+                (jazz.error "Unit name {a} ends with a ." str)))
              ((%%fx= offset 0)
               ch)
              (else
@@ -2003,8 +2003,8 @@
 
 
 (jazz.define-macro (jazz.define-literal name constructor-reference)
-  (receive (constructor-module constructor-name) (jazz.split-reference constructor-reference)
-    (let ((constructor-locator (jazz.compose-name constructor-module constructor-name)))
+  (receive (constructor-module constructor-name) (jazz.break-reference constructor-reference)
+    (let ((constructor-locator (jazz.compose-identifier constructor-module constructor-name)))
       `(jazz.register-literal-constructor ',name ',constructor-reference
          (lambda (arguments)
            (jazz.load-unit ',constructor-module)
@@ -2025,8 +2025,8 @@
 
 
 (jazz.define-macro (jazz.define-literal-walker name walker-reference)
-  (receive (walker-module walker-name) (jazz.split-reference walker-reference)
-    (let ((walker-locator (jazz.compose-name walker-module walker-name)))
+  (receive (walker-module walker-name) (jazz.break-reference walker-reference)
+    (let ((walker-locator (jazz.compose-identifier walker-module walker-name)))
       `(jazz.register-literal-walker ',name ',walker-locator
          (lambda (arguments proc)
            (jazz.load-unit ',walker-module)

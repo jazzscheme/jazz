@@ -100,7 +100,7 @@
 
 (define (jazz.method-implementation-name class-name name)
   (let ((name (jazz.last (jazz.split-string (%%symbol->string name) #\.))))
-    (%%string->symbol (%%string-append (%%symbol->string class-name) "." name))))
+    (%%string->symbol (%%string-append (%%symbol->string class-name) "^" name))))
 
 
 (define (jazz.method-rank-name implementation-name)

@@ -43,7 +43,7 @@
   (and (%%pair? parameter)
        (let ((type (%%car parameter)))
          (or (%%pair? type)
-             (jazz.composite-name? type)))
+             (jazz.composite-identifier? type)))
        (%%pair? (%%cdr parameter))))
 
 

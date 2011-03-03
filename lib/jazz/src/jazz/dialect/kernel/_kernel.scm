@@ -467,13 +467,17 @@
 ;;;
 
 
-(native jazz.composite-name?)
-(native jazz.compose-name)
-(native jazz.identifier-unit <symbol>)
-(native jazz.identifier-name <symbol>)
+(native jazz.composite-identifier?)
+(native jazz.composite-reference?)
+(native jazz.compose-identifier)
+(native jazz.compose-reference)
 (native jazz.split-symbol)
 (native jazz.split-identifier)
-(native jazz.split-composite)
+(native jazz.split-reference)
+(native jazz.break-identifier)
+(native jazz.break-reference)
+(native jazz.identifier-unit <symbol>)
+(native jazz.identifier-name <symbol>)
 
 
 ;;;

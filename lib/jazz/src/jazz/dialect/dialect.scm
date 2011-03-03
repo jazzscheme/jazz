@@ -1007,7 +1007,7 @@
 
 
 (define (jazz.expand-declaration-locator walker resume declaration environment)
-  `(quote ,(apply jazz.compose-name (jazz.get-declaration-path declaration))))
+  `(quote ,(apply jazz.compose-identifier (jazz.get-declaration-path declaration))))
 
 
 ;;;

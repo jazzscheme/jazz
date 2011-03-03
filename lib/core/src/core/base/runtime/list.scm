@@ -38,7 +38,7 @@
 (unit protected core.base.runtime.list
 
 
-(define (jazz.find-in proc lst)
+(define (jazz:find-in proc lst)
   (let iter ((scan lst))
     (if (%%null? scan)
         #f
@@ -46,7 +46,7 @@
           (iter (%%cdr scan))))))
 
 
-(define (jazz.find-if predicate lst)
+(define (jazz:find-if predicate lst)
   (let iter ((scan lst))
     (if (%%null? scan)
         #f
@@ -56,7 +56,7 @@
           (iter (%%cdr scan)))))))
 
 
-(define (jazz.getprop plist target)
+(define (jazz:getprop plist target)
   (let iter ((scan plist))
     (cond ((%%null? scan)
            #f)
@@ -66,22 +66,22 @@
            (iter (%%cddr scan))))))
 
 
-(define (jazz.getf plist target #!key (not-found #f))
-  (let ((pair (jazz.getprop plist target)))
+(define (jazz:getf plist target #!key (not-found #f))
+  (let ((pair (jazz:getprop plist target)))
     (if pair
         (%%cadr pair)
       not-found)))
 
 
-(define jazz.reverse!
+(define jazz:reverse!
   reverse)
 
 
-(define (jazz.list-copy lst)
+(define (jazz:list-copy lst)
   (map (lambda (obj) obj) lst))
 
 
-(define (jazz.last-tail lst)
+(define (jazz:last-tail lst)
   (if (%%pair? lst)
       (let iter ((scan lst))
         (let ((tail (%%cdr scan)))
@@ -94,7 +94,7 @@
     lst))
 
 
-(define (jazz.last-pair lst)
+(define (jazz:last-pair lst)
   (if (%%pair? lst)
       (let iter ((scan lst))
         (let ((tail (%%cdr scan)))
@@ -104,11 +104,11 @@
     lst))
 
 
-(define (jazz.last lst)
-  (%%car (jazz.last-pair lst)))
+(define (jazz:last lst)
+  (%%car (jazz:last-pair lst)))
 
 
-(define (jazz.remove-duplicates lst)
+(define (jazz:remove-duplicates lst)
   (let iter ((scan lst))
     (if (%%not-null? scan)
         (let ((value (%%car scan))
@@ -119,7 +119,7 @@
       '())))
 
 
-(define (jazz.partition lst key associate)
+(define (jazz:partition lst key associate)
   (let iter ((scan lst))
     (if (%%null? scan)
         '()
@@ -134,7 +134,7 @@
             partition))))))
 
 
-(define (jazz.rassq obj alist)
+(define (jazz:rassq obj alist)
   (let iter ((rest alist))
     (cond ((%%null? rest)
            #f)
@@ -144,22 +144,22 @@
            (iter (%%cdr rest))))))
 
 
-(define (jazz.butlast lst)
+(define (jazz:butlast lst)
   (if (%%null? (%%cdr lst))
       '()
-    (%%cons (%%car lst) (jazz.butlast (%%cdr lst)))))
+    (%%cons (%%car lst) (jazz:butlast (%%cdr lst)))))
 
 
-(define (jazz.naturals from to)
+(define (jazz:naturals from to)
   (let ((lst '())
         (n from))
     (%%while (%%fx< n to)
       (set! lst (%%cons n lst))
       (set! n (%%fx+ n 1)))
-    (jazz.reverse! lst)))
+    (jazz:reverse! lst)))
 
 
-(define (jazz.remove! target lst)
+(define (jazz:remove! target lst)
   (%%while (and (%%not-null? lst) (%%eqv? target (%%car lst)))
     (set! lst (%%cdr lst)))
   (if (%%null? lst)
@@ -178,5 +178,5 @@
       lst)))
 
 
-(define (jazz.values? obj)
+(define (jazz:values? obj)
   (%%values? obj)))

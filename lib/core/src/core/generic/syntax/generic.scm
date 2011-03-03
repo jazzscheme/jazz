@@ -45,22 +45,22 @@
 (unit protected core.generic.syntax.generic
 
 
-(jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
+(jazz:define-class jazz:Generic jazz:Object () jazz:Object-Class jazz:allocate-generic
   ((locator              %%get-generic-locator              ())
    (name                 %%get-generic-name                 ())
    (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
    (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
 
 
-(jazz.define-class-runtime jazz.Generic)
+(jazz:define-class-runtime jazz:Generic)
 
 
-(jazz.define-macro (jazz.define-generic . rest)
-  (%%apply jazz.expand-define-generic rest))
+(jazz:define-macro (jazz:define-generic . rest)
+  (%%apply jazz:expand-define-generic rest))
 
 
-(jazz.define-macro (%%specific-dispatch generic dynamic-classes)
-  `(%%get-specific-implementation (jazz.dispatch-from-root ,generic ,dynamic-classes)))
+(jazz:define-macro (%%specific-dispatch generic dynamic-classes)
+  `(%%get-specific-implementation (jazz:dispatch-from-root ,generic ,dynamic-classes)))
 
 
-(jazz.encapsulate-class jazz.Generic))
+(jazz:encapsulate-class jazz:Generic))

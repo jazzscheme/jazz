@@ -38,32 +38,32 @@
 (block kernel.expansion
 
 
-(define (jazz.generate-symbol #!optional (prefix "sym"))
-  (let ((for (jazz.generate-symbol-for))
-        (counter (jazz.generate-symbol-counter)))
+(define (jazz:generate-symbol #!optional (prefix "sym"))
+  (let ((for (jazz:generate-symbol-for))
+        (counter (jazz:generate-symbol-counter)))
     (if (not counter)
         (error "Invalid call to generate-symbol without a counter")
       (let ((name (##string-append prefix (or for "^") (##number->string counter))))
-        (jazz.generate-symbol-counter (+ counter 1))
+        (jazz:generate-symbol-counter (+ counter 1))
         (##make-uninterned-symbol name)))))
 
 
-(define (jazz.generate-global-symbol #!optional (prefix "sym"))
-  (let ((for (jazz.generate-symbol-for))
-        (context (jazz.generate-symbol-context))
-        (counter (jazz.generate-symbol-counter)))
+(define (jazz:generate-global-symbol #!optional (prefix "sym"))
+  (let ((for (jazz:generate-symbol-for))
+        (context (jazz:generate-symbol-context))
+        (counter (jazz:generate-symbol-counter)))
     (if (not context)
         (error "Invalid call to generate-global-symbol without a context")
-      (let ((module (jazz.string-replace (##symbol->string context) #\. #\/)))
+      (let ((module (jazz:string-replace (##symbol->string context) #\. #\/)))
         (let ((name (##string-append module "_" prefix (or for "^") (##number->string counter))))
           (if (##find-interned-symbol name)
               (error "Detected invalid state:" name)
             (begin
-              (jazz.generate-symbol-counter (+ counter 1))
+              (jazz:generate-symbol-counter (+ counter 1))
               (##string->symbol name))))))))
 
 
-(define (jazz.simplify-begin form)
+(define (jazz:simplify-begin form)
   (if (and (##pair? form)
            (##eq? (##car form) 'begin)
            (##pair? (##cdr form))
@@ -72,19 +72,19 @@
     form))
 
 
-(define (jazz.with-uniqueness expr proc)
-  (if (##symbol? (jazz.source-code expr))
+(define (jazz:with-uniqueness expr proc)
+  (if (##symbol? (jazz:source-code expr))
       (proc expr)
-    (let ((value (jazz.generate-symbol "val")))
+    (let ((value (jazz:generate-symbol "val")))
       `(let ((,value ,expr))
          ,(proc value)))))
 
 
-(jazz.define-macro (%%force-uniqueness variables code)
+(jazz:define-macro (%%force-uniqueness variables code)
   (if (##null? variables)
       code
     (let ((variable (##car variables)))
-      `(jazz.with-uniqueness ,variable
+      `(jazz:with-uniqueness ,variable
          (lambda (,variable)
            (%%force-uniqueness ,(##cdr variables) ,code))))))
 
@@ -94,67 +94,67 @@
 ;;;
 
 
-(jazz.define-macro (jazz.define-check-macro name test type)
-  `(jazz.define-macro (,name arg pos call code)
-     (if jazz.debug-core?
+(jazz:define-macro (jazz:define-check-macro name test type)
+  `(jazz:define-macro (,name arg pos call code)
+     (if jazz:debug-core?
          `(if (,',test ,arg)
               ,code
-            (jazz.primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
+            (jazz:primitive-type-error ,pos ,',type ',(##car call) (##list ,@(##cdr call))))
        code)))
 
 
-(jazz.define-check-macro %%check-closure
+(jazz:define-check-macro %%check-closure
   ##closure?
   "CLOSURE")
 
-(jazz.define-check-macro %%check-continuation
+(jazz:define-check-macro %%check-continuation
   ##continuation?
   "CONTINUATION")
 
-(jazz.define-check-macro %%check-fixnum
+(jazz:define-check-macro %%check-fixnum
   ##fixnum?
   "FIXNUM")
 
-(jazz.define-check-macro %%check-foreign
+(jazz:define-check-macro %%check-foreign
   ##foreign?
   "FOREIGN")
 
-(jazz.define-check-macro %%check-list
+(jazz:define-check-macro %%check-list
   list?
   "LIST")
 
-(jazz.define-check-macro %%check-locat
+(jazz:define-check-macro %%check-locat
   ##locat?
   "LOCAT")
 
-(jazz.define-check-macro %%check-port
+(jazz:define-check-macro %%check-port
   ##port?
   "PORT")
 
-(jazz.define-check-macro %%check-procedure
+(jazz:define-check-macro %%check-procedure
   ##procedure?
   "PROCEDURE")
 
-(jazz.define-check-macro %%check-readenv
-  jazz.readenv?
+(jazz:define-check-macro %%check-readenv
+  jazz:readenv?
   "READENV")
 
-(jazz.define-check-macro %%check-readtable
+(jazz:define-check-macro %%check-readtable
   ##readtable?
   "READTABLE")
 
-(jazz.define-check-macro %%check-source
+(jazz:define-check-macro %%check-source
   ##source?
   "SOURCE")
 
-(jazz.define-check-macro %%check-string
+(jazz:define-check-macro %%check-string
   ##string?
   "STRING")
 
-(jazz.define-check-macro %%check-symbol
+(jazz:define-check-macro %%check-symbol
   ##symbol?
   "SYMBOL")
 
-(jazz.define-check-macro %%check-table
+(jazz:define-check-macro %%check-table
   table?
   "TABLE"))

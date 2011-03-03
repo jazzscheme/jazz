@@ -39,5 +39,5 @@
 (unit protected core.generic.runtime.specific
 
 
-(define (jazz.new-specific signature-proc implementation)
-  (jazz.allocate-specific jazz.Specific signature-proc implementation '() '())))
+(define (jazz:new-specific signature-proc implementation)
+  (jazz:allocate-specific jazz:Specific signature-proc implementation '() '())))

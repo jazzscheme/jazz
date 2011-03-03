@@ -38,7 +38,7 @@
 (unit protected core.base.runtime.string
 
 
-(define (jazz.memstring char string)
+(define (jazz:memstring char string)
   (let ((len (%%string-length string)))
     (let iter ((n 0))
       (cond ((%%fx= n len)

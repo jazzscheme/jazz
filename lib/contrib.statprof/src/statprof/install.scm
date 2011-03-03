@@ -38,4 +38,4 @@
 (unit statprof.install
 
 
-(jazz.register-service 'statprof 'statprof))
+(jazz:register-service 'statprof 'statprof))

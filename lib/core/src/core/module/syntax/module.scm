@@ -38,13 +38,13 @@
 (unit protected core.module.syntax.module
 
 
-(jazz.define-syntax module
+(jazz:define-syntax module
   (lambda (form-src)
-    (let ((emit (jazz.expand-module-source (%%cdr (jazz.source-code form-src)))))
-      (jazz.save-emit-if emit)
+    (let ((emit (jazz:expand-module-source (%%cdr (jazz:source-code form-src)))))
+      (jazz:save-emit-if emit)
       emit)))
 
 
-(jazz.define-syntax script
+(jazz:define-syntax script
   (lambda (form-src)
-    (jazz.expand-script-source (%%cdr (jazz.source-code form-src))))))
+    (jazz:expand-script-source (%%cdr (jazz:source-code form-src))))))

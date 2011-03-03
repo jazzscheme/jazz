@@ -35,34 +35,34 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz.testing?
+(define jazz:testing?
   (make-parameter #f))
 
-(define jazz.testing
-  (make-parameter #f))
-
-
-(define jazz.generate-symbol-for
-  (make-parameter #f))
-
-(define jazz.generate-symbol-context
-  (make-parameter #f))
-
-(define jazz.generate-symbol-counter
+(define jazz:testing
   (make-parameter #f))
 
 
-(define (jazz.source-code expr)
+(define jazz:generate-symbol-for
+  (make-parameter #f))
+
+(define jazz:generate-symbol-context
+  (make-parameter #f))
+
+(define jazz:generate-symbol-counter
+  (make-parameter #f))
+
+
+(define (jazz:source-code expr)
   (if (##source? expr)
       (##source-code expr)
     expr))
 
 
-(jazz.define-syntax block
+(jazz:define-syntax block
   (lambda (form-src)
-    (let ((name (jazz.source-code (cadr (jazz.source-code form-src))))
-          (body (cddr (jazz.source-code form-src))))
-      (jazz.generate-symbol-context name)
-      (jazz.generate-symbol-counter 0)
+    (let ((name (jazz:source-code (cadr (jazz:source-code form-src))))
+          (body (cddr (jazz:source-code form-src))))
+      (jazz:generate-symbol-context name)
+      (jazz:generate-symbol-counter 0)
       `(begin
          ,@body))))

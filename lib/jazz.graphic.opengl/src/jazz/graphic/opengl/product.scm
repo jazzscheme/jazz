@@ -45,26 +45,26 @@
 
 (cond-expand
   (windows
-    (define (jazz.copy-opengl-files)
-      (let ((build (%%repository-directory jazz.Build-Repository))
-            (source jazz.kernel-source))
+    (define (jazz:copy-opengl-files)
+      (let ((build (%%repository-directory jazz:Build-Repository))
+            (source jazz:kernel-source))
         (define (build-file path)
           (string-append build path))
         
         (define (source-file path)
           (string-append source path))
         
-        (jazz.copy-file (source-file "foreign/opengl/glut/lib/windows/glut32.dll") (build-file "glut32.dll") feedback: jazz.feedback))))
+        (jazz:copy-file (source-file "foreign/opengl/glut/lib/windows/glut32.dll") (build-file "glut32.dll") feedback: jazz:feedback))))
   (else
-    (define (jazz.copy-opengl-files)
+    (define (jazz:copy-opengl-files)
       #f)))
 
 
 (cond-expand
   (windows
-    (define jazz.opengl-units
-      (let ((glut-include-path (jazz.quote-jazz-pathname "foreign/opengl/glut/include"))
-            (glut-lib-path     (jazz.quote-jazz-pathname "foreign/opengl/glut/lib/windows")))
+    (define jazz:opengl-units
+      (let ((glut-include-path (jazz:quote-jazz-pathname "foreign/opengl/glut/include"))
+            (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glut/lib/windows")))
         `((jazz.graphic.opengl.platform.WinOpenGL cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")
           (jazz.graphic.opengl.foreign.gl-header)
           (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
@@ -75,14 +75,14 @@
           (jazz.graphic.opengl.foreign.glut-header)
           (jazz.graphic.opengl.foreign.glut cc-options: ,(string-append "-I" glut-include-path) ld-options: ,(string-append "-L" glut-lib-path " -lopengl32 -lglu32 -lglut32"))))))
   (else
-    (define jazz.opengl-units
+    (define jazz:opengl-units
       '())))
 
 
-(define (jazz.build-opengl descriptor . rest)
-  (let ((unit-specs jazz.opengl-units))
-    (apply jazz.custom-compile/build unit-specs pre-build: jazz.copy-opengl-files rest)
-    (jazz.update-product-descriptor descriptor)))
+(define (jazz:build-opengl descriptor . rest)
+  (let ((unit-specs jazz:opengl-units))
+    (apply jazz:custom-compile/build unit-specs pre-build: jazz:copy-opengl-files rest)
+    (jazz:update-product-descriptor descriptor)))
 
 
 ;;;
@@ -90,5 +90,5 @@
 ;;;
 
 
-(jazz.register-product 'jazz.graphic.opengl
-  build: jazz.build-opengl))
+(jazz:register-product 'jazz.graphic.opengl
+  build: jazz:build-opengl))

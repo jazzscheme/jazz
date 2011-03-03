@@ -40,19 +40,19 @@
 (block kernel.crash
 
 
-(define (jazz.log-backtrace ignore)
+(define (jazz:log-backtrace ignore)
   (continuation-capture
     (lambda (k)
       (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
 
 
-(jazz.set-crash-reporter jazz.log-backtrace)
+(jazz:set-crash-reporter jazz:log-backtrace)
 
 
 (cond-expand
   (windows
-    (c-define (jazz.call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
-      (jazz.crash-reporter ignore))
+    (c-define (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
+      (jazz:crash-reporter ignore))
 
     (c-declare #<<END-OF-DECLARES
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
@@ -71,12 +71,12 @@ END-OF-DECLARES
     
     (c-declare "const DWORD CRASH_PROCESS = (DWORD) 0xE0000001L;")
     
-    (define jazz.crash-process
+    (define jazz:crash-process
       (c-lambda () void
         "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
   (else
-   (c-define (jazz.call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
-     (jazz.crash-reporter ignore))
+   (c-define (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
+     (jazz:crash-reporter ignore))
 
    (c-define (crash_call_exit) () void "crash_call_exit" ""
      (exit 1))
@@ -110,6 +110,6 @@ END-OF-DECLARES
 
    (c-initialize "setup_low_level_unix_crash_handler();")
 
-   (define jazz.crash-process
+   (define jazz:crash-process
      (c-lambda () void
        "raise(SIGSEGV);")))))

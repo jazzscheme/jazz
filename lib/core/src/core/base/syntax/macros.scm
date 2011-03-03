@@ -38,15 +38,15 @@
 (unit protected core.base.syntax.macros
 
 
-(jazz.define-syntax %%boolean
+(jazz:define-syntax %%boolean
   (lambda (src)
-    (let ((expr (%%cadr (jazz.source-code src))))
+    (let ((expr (%%cadr (jazz:source-code src))))
       `(if ,expr #t #f))))
 
 
-(jazz.define-syntax %%not-null?
+(jazz:define-syntax %%not-null?
   (lambda (src)
-    (let ((expr (%%cadr (jazz.source-code src))))
+    (let ((expr (%%cadr (jazz:source-code src))))
       `(%%not (%%null? ,expr)))))
 
 
@@ -55,10 +55,10 @@
 ;;;
 
 
-(jazz.define-syntax %%when
+(jazz:define-syntax %%when
   (lambda (src)
-    (let ((test (%%cadr (jazz.source-code src)))
-          (body (%%cddr (jazz.source-code src))))
+    (let ((test (%%cadr (jazz:source-code src)))
+          (body (%%cddr (jazz:source-code src))))
       `(if ,test
            (begin
              ,@body)
@@ -70,11 +70,11 @@
 ;;;
 
 
-(jazz.define-syntax %%while
+(jazz:define-syntax %%while
   (lambda (src)
-    (let ((test (%%cadr (jazz.source-code src)))
-          (body (%%cddr (jazz.source-code src)))
-          (iter (jazz.generate-symbol "iter")))
+    (let ((test (%%cadr (jazz:source-code src)))
+          (body (%%cddr (jazz:source-code src)))
+          (iter (jazz:generate-symbol "iter")))
       `(let ,iter ()
          (if ,test
              (begin
@@ -87,64 +87,64 @@
 ;;;
 
 
-(jazz.define-syntax %%core-assert
+(jazz:define-syntax %%core-assert
   (lambda (src)
-    (jazz.expand-%%assert jazz.debug-core? src)))
+    (jazz:expand-%%assert jazz:debug-core? src)))
 
 
-(jazz.define-syntax %%core-assertion
+(jazz:define-syntax %%core-assertion
   (lambda (src)
-    (jazz.expand-%%assertion jazz.debug-core? src)))
+    (jazz:expand-%%assertion jazz:debug-core? src)))
 
 
-(jazz.define-syntax %%debug-assert
+(jazz:define-syntax %%debug-assert
   (lambda (src)
-    (jazz.expand-%%assert jazz.debug-user? src)))
+    (jazz:expand-%%assert jazz:debug-user? src)))
 
 
-(jazz.define-syntax %%debug-assertion
+(jazz:define-syntax %%debug-assertion
   (lambda (src)
-    (jazz.expand-%%assertion jazz.debug-user? src)))
+    (jazz:expand-%%assertion jazz:debug-user? src)))
 
 
-(jazz.define-syntax %%assert
+(jazz:define-syntax %%assert
   (lambda (src)
-    (jazz.expand-%%assert #t src)))
+    (jazz:expand-%%assert #t src)))
 
 
-(jazz.define-syntax %%assertion
+(jazz:define-syntax %%assertion
   (lambda (src)
-    (jazz.expand-%%assertion #t src)))
+    (jazz:expand-%%assertion #t src)))
 
 
-(define (jazz.expand-%%assert test? src)
-  (let ((assertion (%%cadr (jazz.source-code src)))
-        (body (%%cddr (jazz.source-code src))))
+(define (jazz:expand-%%assert test? src)
+  (let ((assertion (%%cadr (jazz:source-code src)))
+        (body (%%cddr (jazz:source-code src))))
     (let ((message (let ((port (open-output-string)))
                      (display "Assertion " port)
                      (write (%%desourcify assertion) port)
                      (display " failed" port)
                      (get-output-string port)))
           (effective-body (if (%%null? body) (%%list (%%list '%%unspecified)) body)))
-      (jazz.expand-%%assertion-body test? assertion (%%list 'error message) effective-body))))
+      (jazz:expand-%%assertion-body test? assertion (%%list 'error message) effective-body))))
 
 
-(define (jazz.expand-%%assertion test? src)
-  (let ((assertion (%%cadr (jazz.source-code src)))
-        (action (%%car (%%cddr (jazz.source-code src))))
-        (body (%%cdr (%%cddr (jazz.source-code src)))))
+(define (jazz:expand-%%assertion test? src)
+  (let ((assertion (%%cadr (jazz:source-code src)))
+        (action (%%car (%%cddr (jazz:source-code src))))
+        (body (%%cdr (%%cddr (jazz:source-code src)))))
     (let ((effective-body (if (%%null? body) (%%list (%%list '%%unspecified)) body)))
-      (jazz.expand-%%assertion-body test? assertion action effective-body))))
+      (jazz:expand-%%assertion-body test? assertion action effective-body))))
 
 
-(define (jazz.expand-%%assertion-body test? assertion action body)
+(define (jazz:expand-%%assertion-body test? assertion action body)
   (if test?
       `(if (%%not ,assertion)
            ,action
-         ,(jazz.simplify-begin
+         ,(jazz:simplify-begin
             `(begin
                ,@body)))
-    (jazz.simplify-begin `(begin ,@body))))
+    (jazz:simplify-begin `(begin ,@body))))
 
 
 ;;;
@@ -164,7 +164,7 @@
 ;         (%%list a b c r)))))
 
 
-(jazz.define-macro (jazz.bind bindings tree . body)
+(jazz:define-macro (jazz:bind bindings tree . body)
 
   (define (expand-car bindings tree body)
     (let ((car-binding (%%car bindings)))
@@ -172,9 +172,9 @@
              `((let ((,car-binding (%%car ,tree)))
                  ,@(expand-cdr bindings tree body))))
             ((%%pair? car-binding)
-             (let ((car-symbol (jazz.generate-symbol "car")))
+             (let ((car-symbol (jazz:generate-symbol "car")))
                `((if (%%null? ,tree)
-                     (jazz.error "Unable to bind")
+                     (jazz:error "Unable to bind")
                    (let ((,car-symbol (%%car ,tree)))
                      ,@(expand-car car-binding car-symbol
                          (expand-cdr bindings tree body))))))))))
@@ -187,11 +187,11 @@
              `((let ((,cdr-binding (%%cdr ,tree)))
                  ,@body)))
             ((%%pair? cdr-binding)
-             (let ((cdr-symbol (jazz.generate-symbol "cdr")))
+             (let ((cdr-symbol (jazz:generate-symbol "cdr")))
                `((let ((,cdr-symbol (%%cdr ,tree)))
                    ,@(expand-car cdr-binding cdr-symbol body))))))))
   
-  (let ((tree-symbol (jazz.generate-symbol "tree")))
+  (let ((tree-symbol (jazz:generate-symbol "tree")))
     `(let ((,tree-symbol ,tree))
        ,@(expand-car bindings tree-symbol body))))
 
@@ -201,9 +201,9 @@
 ;;;
 
 
-(jazz.define-macro (%%compose-identifier s1 s2)
+(jazz:define-macro (%%compose-identifier s1 s2)
   `(%%string->symbol (%%string-append (%%symbol->string ,s1) "." (%%symbol->string ,s2))))
 
 
-(jazz.define-macro (%%compose-reference s1 s2)
+(jazz:define-macro (%%compose-reference s1 s2)
   `(%%string->symbol (%%string-append (%%symbol->string ,s1) ":" (%%symbol->string ,s2)))))

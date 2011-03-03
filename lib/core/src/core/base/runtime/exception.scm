@@ -41,10 +41,10 @@
 
 (cond-expand
   (chicken
-    (define jazz.current-exception-handler
+    (define jazz:current-exception-handler
       current-exception-handler)
     
-    (define (jazz.with-exception-handler proc thunk)
+    (define (jazz:with-exception-handler proc thunk)
       (continuation-capture
         (lambda (return)
           (with-exception-handler
@@ -52,31 +52,31 @@
               (continuation-return return (proc exc)))
             thunk))))
     
-    (define (jazz.exception-reason exc)
+    (define (jazz:exception-reason exc)
       (let ((location  ((condition-property-accessor 'exc 'location) exc))
             (message   ((condition-property-accessor 'exc 'message) exc))
             (arguments ((condition-property-accessor 'exc 'arguments) exc)))
         (if (%%not location)
-            (jazz.format "{a}: {l}" message arguments)
-          (jazz.format "({a}) {a}: {l}" location message arguments)))))
+            (jazz:format "{a}: {l}" message arguments)
+          (jazz:format "({a}) {a}: {l}" location message arguments)))))
   
   (gambit
-    (define jazz.current-exception-handler
+    (define jazz:current-exception-handler
       current-exception-handler)
     
-    (define jazz.with-exception-handler
+    (define jazz:with-exception-handler
       with-exception-handler)
     
-    (define jazz.with-exception-catcher
+    (define jazz:with-exception-catcher
       with-exception-catcher)
     
-    (define jazz.display-exception
+    (define jazz:display-exception
       display-exception)
     
-    (define jazz.display-continuation-backtrace
+    (define jazz:display-continuation-backtrace
       display-continuation-backtrace)
     
-    (define (jazz.raise obj)
+    (define (jazz:raise obj)
       (raise obj)))
   
   (else)))

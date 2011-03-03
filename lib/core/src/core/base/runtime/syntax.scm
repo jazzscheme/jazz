@@ -38,27 +38,27 @@
 (unit protected core.base.runtime.syntax
 
 
-(define (jazz.source? obj)
+(define (jazz:source? obj)
   (%%source? obj))
 
 
-(define (jazz.source-code expr)
+(define (jazz:source-code expr)
   (if (%%source? expr)
       (%%source-code expr)
     expr))
 
 
-(define (jazz.source-locat expr)
+(define (jazz:source-locat expr)
   (if (%%source? expr)
       (%%source-locat expr)
     #f))
 
 
-(define (jazz.desourcify expr)
+(define (jazz:desourcify expr)
   (%%desourcify expr))
 
 
-(define (jazz.desourcify-all expr)
+(define (jazz:desourcify-all expr)
   
   (define (desourcify-source src)
     (desourcify-all (%%source-code src)))
@@ -100,38 +100,38 @@
   (desourcify-all expr))
 
 
-(define (jazz.sourcify expr src)
+(define (jazz:sourcify expr src)
   (%%sourcify expr src))
 
 
-(define (jazz.sourcify-if expr src)
-  (if (jazz.source? src)
-      (jazz.sourcify expr src)
+(define (jazz:sourcify-if expr src)
+  (if (jazz:source? src)
+      (jazz:sourcify expr src)
     expr))
 
 
-(define (jazz.sourcify-list lst src)
+(define (jazz:sourcify-list lst src)
   (map (lambda (expr)
-         (jazz.sourcify-if (jazz.desourcify-all expr) src))
+         (jazz:sourcify-if (jazz:desourcify-all expr) src))
        lst))
 
 
-(define (jazz.locat-container locat)
+(define (jazz:locat-container locat)
   (%%locat-container locat))
 
 
-(define (jazz.locat-position locat)
+(define (jazz:locat-position locat)
   (%%locat-position locat))
 
 
-(define (jazz.locat->line/col locat)
+(define (jazz:locat->line/col locat)
   (let ((filepos (%%position->filepos (%%locat-position locat))))
     (let ((line (%%filepos-line filepos))
           (col (%%filepos-col filepos)))
       (%%cons line col))))
 
 
-(define (jazz.locat->file/line/col locat)
+(define (jazz:locat->file/line/col locat)
   (let ((file (and locat (%%container->path (%%locat-container locat)))))
     (if file
         (let ((filepos (%%position->filepos (%%locat-position locat))))
@@ -141,19 +141,19 @@
       #f)))
 
 
-(define (jazz.container->path container)
+(define (jazz:container->path container)
   (%%container->path container))
 
 
-(define (jazz.position->filepos position)
+(define (jazz:position->filepos position)
   (%%position->filepos position))
 
 
-(define (jazz.filepos-line filepos)
+(define (jazz:filepos-line filepos)
   (%%filepos-line filepos))
 
 
-(define (jazz.filepos-col filepos)
+(define (jazz:filepos-col filepos)
   (%%filepos-col filepos))
 
 
@@ -162,12 +162,12 @@
 ;;;
 
 
-(define (jazz.save-emit-if emit)
-  (%%when (and (jazz.save-emit?) (jazz.compiled-source))
-    (parameterize ((current-readtable jazz.scheme-readtable))
-      (call-with-output-file (list path: (jazz.binary-with-extension (jazz.compiled-source) ".scm") eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+(define (jazz:save-emit-if emit)
+  (%%when (and (jazz:save-emit?) (jazz:compiled-source))
+    (parameterize ((current-readtable jazz:scheme-readtable))
+      (call-with-output-file (list path: (jazz:binary-with-extension (jazz:compiled-source) ".scm") eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
         (lambda (port)
-          (pretty-print (jazz.present-source emit) port))))))
+          (pretty-print (jazz:present-source emit) port))))))
 
 
 ;;;
@@ -175,24 +175,24 @@
 ;;;
 
 
-(define (jazz.present-source obj)
+(define (jazz:present-source obj)
   
   (define (present-src src)
-    (let ((code (jazz.source-code src))
+    (let ((code (jazz:source-code src))
           (pos (%%locat-position (%%source-locat src))))
       (%%vector 'source
-                (jazz.present-source code)
+                (jazz:present-source code)
                 (%%fx+ (%%filepos-line pos) 1)
                 (%%fx+ (%%filepos-col pos) 1))))
 
   (define (present-list lst)
     (cond ((%%pair? lst)
-           (%%cons (jazz.present-source (%%car lst))
+           (%%cons (jazz:present-source (%%car lst))
                    (present-list (%%cdr lst))))
           ((%%null? lst)
            '())
           (else
-           (jazz.present-source lst))))
+           (jazz:present-source lst))))
 
   (define (present-vector vect)
     (let* ((len (%%vector-length vect))
@@ -201,7 +201,7 @@
         (if (%%fx< i 0)
             x
           (begin
-            (%%vector-set! x i (jazz.present-source (%%vector-ref vect i)))
+            (%%vector-set! x i (jazz:present-source (%%vector-ref vect i)))
             (loop (%%fx- i 1)))))))
 
   (cond ((%%source? obj)

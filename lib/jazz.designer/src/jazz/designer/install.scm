@@ -38,4 +38,4 @@
 (unit jazz.designer.install
 
 
-(jazz.define-literal Component-Parcel jazz.designer.literals:construct-component-parcel))
+(jazz:define-literal Component-Parcel jazz.designer.literals:construct-component-parcel))

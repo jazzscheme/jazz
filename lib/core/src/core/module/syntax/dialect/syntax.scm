@@ -38,9 +38,9 @@
 (unit protected core.module.syntax.dialect.syntax
 
 
-(jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class ()
+(jazz:define-class jazz:Dialect jazz:Object () jazz:Object-Class ()
   ((bindings %%get-dialect-bindings %%set-dialect-bindings)))
 
 
-(jazz.define-virtual (jazz.dialect-name (jazz.Dialect dialect)))
-(jazz.define-virtual (jazz.dialect-walker (jazz.Dialect dialect))))
+(jazz:define-virtual (jazz:dialect-name (jazz:Dialect dialect)))
+(jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect))))

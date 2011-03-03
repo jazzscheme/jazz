@@ -43,15 +43,15 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Definition)
+(jazz:define-class-runtime jazz:Definition)
 
 
-(define (jazz.new-definition name locator)
-  (jazz.allocate-definition jazz.Definition name locator))
+(define (jazz:new-definition name locator)
+  (jazz:allocate-definition jazz:Definition name locator))
 
 
-(jazz.encapsulate-class jazz.Definition)
+(jazz:encapsulate-class jazz:Definition)
 
 
-(define (jazz.register-definition module-name name locator)
-  (jazz.register-module-entry module-name name (jazz.new-definition name locator))))
+(define (jazz:register-definition module-name name locator)
+  (jazz:register-module-entry module-name name (jazz:new-definition name locator))))

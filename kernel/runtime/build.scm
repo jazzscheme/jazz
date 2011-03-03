@@ -38,7 +38,7 @@
 (block kernel.build
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
 
 
 ;;;
@@ -46,49 +46,49 @@
 ;;;
 
 
-(define (jazz.for-each-jazz-version proc)
-  (for-each proc (jazz.kludged-get-jazz-versions)))
+(define (jazz:for-each-jazz-version proc)
+  (for-each proc (jazz:kludged-get-jazz-versions)))
 
 
-(define (jazz.for-each-higher-jazz-version version proc)
-  (let iter ((jazz-versions (jazz.kludged-get-jazz-versions)))
+(define (jazz:for-each-higher-jazz-version version proc)
+  (let iter ((jazz-versions (jazz:kludged-get-jazz-versions)))
     (if (%%not (%%null? jazz-versions))
         (let ((jazz-version (%%car jazz-versions)))
-          (if (%%fx> (jazz.version-number jazz-version) version)
+          (if (%%fx> (jazz:version-number jazz-version) version)
               (begin
                 (proc jazz-version)
                 (iter (%%cdr jazz-versions))))))))
 
 
-(define (jazz.kernel/product-needs-rebuild? version-file)
-  (receive (version gambit-version gambit-stamp) (jazz.load-version-file version-file)
+(define (jazz:kernel/product-needs-rebuild? version-file)
+  (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
     (if (%%not version)
         #t
-      (or (%%not (jazz.gambit-uptodate? gambit-version gambit-stamp))
+      (or (%%not (jazz:gambit-uptodate? gambit-version gambit-stamp))
           (let ((rebuild? #f))
-            (jazz.for-each-higher-jazz-version version
+            (jazz:for-each-higher-jazz-version version
               (lambda (jazz-version)
-                (if (%%memq (jazz.version-rebuild jazz-version) '(kernel all))
+                (if (%%memq (jazz:version-rebuild jazz-version) '(kernel all))
                     (set! rebuild? #t))))
             rebuild?)))))
 
 
-(define (jazz.kernel/product-architecture-needs-rebuild? version-file)
-  (receive (version gambit-version gambit-stamp) (jazz.load-version-file version-file)
+(define (jazz:kernel/product-architecture-needs-rebuild? version-file)
+  (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
     (if (%%not version)
         #t
-      (or (%%not (jazz.gambit-uptodate? gambit-version gambit-stamp))
+      (or (%%not (jazz:gambit-uptodate? gambit-version gambit-stamp))
           (let ((rebuild-architecture? #f))
-            (jazz.for-each-higher-jazz-version version
+            (jazz:for-each-higher-jazz-version version
               (lambda (jazz-version)
-                (if (or (%%memq (jazz.version-rebuild jazz-version) '(kernel all))
-                        (jazz.version-recompile jazz-version)
-                        (jazz.version-recompile-references jazz-version))
+                (if (or (%%memq (jazz:version-rebuild jazz-version) '(kernel all))
+                        (jazz:version-recompile jazz-version)
+                        (jazz:version-recompile-references jazz-version))
                     (set! rebuild-architecture? #t))))
             rebuild-architecture?)))))
 
 
-(define (jazz.load-version-file version-file)
+(define (jazz:load-version-file version-file)
   (if (file-exists? version-file)
       (call-with-input-file (%%list path: version-file eol-encoding: 'cr-lf)
         (lambda (input)
@@ -99,14 +99,14 @@
     (values #f #f #f)))
 
 
-(define (jazz.manifest-needs-rebuild?-impl manifest)
+(define (jazz:manifest-needs-rebuild?-impl manifest)
   (let ((name (%%manifest-name manifest))
         (version (%%manifest-version manifest)))
     (let ((rebuild? #f))
-      (jazz.for-each-higher-jazz-version version
+      (jazz:for-each-higher-jazz-version version
         (lambda (jazz-version)
-          (let ((rebuild (jazz.version-rebuild jazz-version))
-                (recompile (jazz.version-recompile jazz-version)))
+          (let ((rebuild (jazz:version-rebuild jazz-version))
+                (recompile (jazz:version-recompile jazz-version)))
             (if (or (%%eq? rebuild 'all)
                     (and recompile (%%memq name recompile)))
                 (set! rebuild? #t)))))
@@ -118,49 +118,49 @@
 ;;;
 
 
-(define jazz.*changed-units*
+(define jazz:*changed-units*
   '())
 
 
-(define (jazz.get-changed-units-impl)
-  jazz.*changed-units*)
+(define (jazz:get-changed-units-impl)
+  jazz:*changed-units*)
 
-(define (jazz.push-changed-units-impl unit)
-  (set! jazz.*changed-units* (cons unit jazz.*changed-units*)))
+(define (jazz:push-changed-units-impl unit)
+  (set! jazz:*changed-units* (cons unit jazz:*changed-units*)))
 
-(define (jazz.reset-changed-units-impl)
-  (set! jazz.*changed-units* '()))
+(define (jazz:reset-changed-units-impl)
+  (set! jazz:*changed-units* '()))
 
 
-(define (jazz.build-image-impl product
+(define (jazz:build-image-impl product
           #!key
-          (system jazz.kernel-system)
-          (platform jazz.kernel-platform)
-          (windowing jazz.kernel-windowing)
-          (safety jazz.kernel-safety)
-          (optimize? jazz.kernel-optimize?)
-          (debug-environments? jazz.kernel-debug-environments?)
-          (debug-location? jazz.kernel-debug-location?)
-          (debug-source? jazz.kernel-debug-source?)
-          (mutable-bindings? jazz.kernel-mutable-bindings?)
+          (system jazz:kernel-system)
+          (platform jazz:kernel-platform)
+          (windowing jazz:kernel-windowing)
+          (safety jazz:kernel-safety)
+          (optimize? jazz:kernel-optimize?)
+          (debug-environments? jazz:kernel-debug-environments?)
+          (debug-location? jazz:kernel-debug-location?)
+          (debug-source? jazz:kernel-debug-source?)
+          (mutable-bindings? jazz:kernel-mutable-bindings?)
           (include-compiler? #f)
           (kernel-interpret? #f)
-          (source jazz.kernel-source)
-          (destination jazz.kernel-destination)
-          (destination-directory jazz.kernel-install)
+          (source jazz:kernel-source)
+          (destination jazz:kernel-destination)
+          (destination-directory jazz:kernel-install)
           (resources #f)
           (image #f)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
-          (feedback jazz.feedback))
+          (feedback jazz:feedback))
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
         (gambit-library (if include-compiler? "gambcgsc" "gambc"))
         (library-image? (%%eq? image 'library)))
     (let ((gambit-dir (path-normalize "~~/"))
-          (source-dir (jazz.relativise-directory "./" "./" source))
-          (build-dir (if product (%%repository-directory jazz.Build-Repository) destination-directory))
+          (source-dir (jazz:relativise-directory "./" "./" source))
+          (build-dir (if product (%%repository-directory jazz:Build-Repository) destination-directory))
           (kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/")))
       (define (source-file path)
@@ -189,28 +189,28 @@
       (define (compile-file rebuild? name dir output)
         (let ((src (string-append dir name ".scm"))
               (dst (string-append output name ".c"))
-              (digest (string-append output name "." jazz.Digest-Extension))
-              (mnf (string-append output name "." jazz.Manifest-Extension)))
-          (let ((hash-changed? (%%not (jazz.manifest-uptodate? src (jazz.load-updated-manifest name digest mnf src)))))
-            (if (or rebuild? hash-changed? (%%not (jazz.file-exists? dst)))
+              (digest (string-append output name "." jazz:Digest-Extension))
+              (mnf (string-append output name "." jazz:Manifest-Extension)))
+          (let ((hash-changed? (%%not (jazz:manifest-uptodate? src (jazz:load-updated-manifest name digest mnf src)))))
+            (if (or rebuild? hash-changed? (%%not (jazz:file-exists? dst)))
                 (let ((path (%%string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())
                                  ,@(if debug-location? '(debug-location) '())
                                  ,@(if debug-source? '(debug-source) '()))))
                   ;; standardize path as it will be the path stored in debugging information
-                  (let ((standardized-path (jazz.pathname-standardize (path-normalize path))))
-                    (jazz.push-changed-units path)
+                  (let ((standardized-path (jazz:pathname-standardize (path-normalize path))))
+                    (jazz:push-changed-units path)
                     (feedback-message "; compiling {a}..." path)
-                    (if (not (jazz.dry-run?))
+                    (if (not (jazz:dry-run?))
                         (begin
                           (compile-file-to-c standardized-path options: options output: output)
-                          (jazz.update-manifest-compile-time name digest mnf src #f))))
+                          (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))
       
       (define (with-version-file version-file proc)
-        (let ((rebuild? (jazz.kernel/product-needs-rebuild? version-file))
-              (rebuild-architecture? (jazz.kernel/product-architecture-needs-rebuild? version-file))
+        (let ((rebuild? (jazz:kernel/product-needs-rebuild? version-file))
+              (rebuild-architecture? (jazz:kernel/product-architecture-needs-rebuild? version-file))
               (was-touched? #f))
           (define (touch)
             (if (file-exists? version-file)
@@ -222,9 +222,9 @@
           
           (proc rebuild? rebuild-architecture? touch touched?)
           (if (or was-touched? (%%not (file-exists? version-file)))
-              (call-with-output-file (list path: version-file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+              (call-with-output-file (list path: version-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                 (lambda (output)
-                  (write (jazz.get-jazz-version-number) output)
+                  (write (jazz:get-jazz-version-number) output)
                   (newline output)
                   (write (system-version) output)
                   (newline output)
@@ -235,7 +235,7 @@
       (define (kernel-time)
         (let ((version-file (kernel-file "version")))
           (if (file-exists? version-file)
-              (jazz.file-modification-time version-file)
+              (jazz:file-modification-time version-file)
             #f)))
       
       ;;;
@@ -305,9 +305,9 @@
           (if (or rebuild? rebuild-architecture? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)))
+                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)))
                 #t)
             #f)))
       
@@ -343,7 +343,7 @@
           (let ((link-file (link-file)))
             (if (or rebuild?
                     (%%not (file-exists? link-file))
-                    (or (%%not kernel-time) (< (jazz.file-modification-time link-file) kernel-time))
+                    (or (%%not kernel-time) (< (jazz:file-modification-time link-file) kernel-time))
                     (touched?))
                 (let ((files `(,(kernel-file "_architecture")
                                ,(product-file (product-filename))
@@ -380,7 +380,7 @@
           
           (if (or rebuild?
                   (%%not (file-exists? (image-file)))
-                  (or (%%not kernel-time) (< (jazz.file-modification-time (image-file)) kernel-time))
+                  (or (%%not kernel-time) (< (jazz:file-modification-time (image-file)) kernel-time))
                   (touched?))
               (link-image))))
       
@@ -394,23 +394,23 @@
           (if (or rebuild? (%%not (file-exists? file)))
               (begin
                 (feedback-message "; generating {a}..." file)
-                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz.print-variable 'jazz.product product output)
+                    (jazz:print-variable 'jazz:product product output)
                     (newline output)
-                    (jazz.print-variable 'jazz.image (or image 'executable) output)
+                    (jazz:print-variable 'jazz:image (or image 'executable) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.built (jazz.pathname-normalize destination-directory) output)
+                    (jazz:print-variable 'jazz:built (jazz:pathname-normalize destination-directory) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.gambit-dir (if library-image? (jazz.pathname-normalize gambit-dir) (jazz.relativise-directory destination-directory "./" gambit-dir)) output)
+                    (jazz:print-variable 'jazz:gambit-dir (if library-image? (jazz:pathname-normalize gambit-dir) (jazz:relativise-directory destination-directory "./" gambit-dir)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
+                    (jazz:print-variable 'jazz:source-built (jazz:pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (if library-image? (jazz.pathname-normalize source) (jazz.relativise-directory destination-directory "./" source)) output)
+                    (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:relativise-directory destination-directory "./" source)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.binary-repositories (if library-image? #f (jazz.determine-binary-repositories destination-directory)) output)
+                    (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories destination-directory)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source-repositories (if library-image? #f (jazz.determine-source-repositories destination-directory)) output)))
+                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)))
                 #t)
             #f)))
       
@@ -422,7 +422,7 @@
                 (call-with-output-file (list path: file eol-encoding: 'lf)
                   (lambda (output)
                     (cond (library-image?
-                            (display "(jazz.library-main)" output)
+                            (display "(jazz:library-main)" output)
                             (newline output))
                           (else
                            (display "#!gsi -:darR,t8,f8,-8" output)
@@ -436,12 +436,12 @@
                                  (display maximum-heap output)))
                            (newline output)
                            (newline output)
-                           (display "(define (jazz.main)" output)
+                           (display "(define (jazz:main)" output)
                            (newline output)
-                           (display "  (jazz.executable-main))" output)
+                           (display "  (jazz:executable-main))" output)
                            (newline output)
                            (newline output)
-                           (display "(##main-set! jazz.main)" output)
+                           (display "(##main-set! jazz:main)" output)
                            (newline output)))))
                 #t)
             #f)))
@@ -463,11 +463,11 @@
              (lambda (resources rc res)
                (let ((rcfile (%%string-append resources "/" rc)))
                  (if (or rebuild?
-                         (jazz.file-needs-update? rcfile res))
+                         (jazz:file-needs-update? rcfile res))
                      (begin
-                       (jazz.push-changed-units rcfile)
+                       (jazz:push-changed-units rcfile)
                        (feedback-message "; compiling {a}..." rcfile)
-                       (jazz.call-process "windres" (list rc "-o" res) directory: resources)
+                       (jazz:call-process "windres" (list rc "-o" res) directory: resources)
                        #t)
                    #f)))))
           (else
@@ -478,7 +478,7 @@
           ((windows)
            (with-resources
              (lambda (resources rc res)
-               (%%list (jazz.quote-pathname res platform)))))
+               (%%list (jazz:quote-pathname res platform)))))
           (else
            '())))
       
@@ -488,11 +488,11 @@
            (let ()
              (define (split resources rcname)
                (let ((rc (%%string-append rcname ".rc"))
-                     (res (%%string-append (jazz.pathname-normalize (product-file "")) product-name "res.o")))
+                     (res (%%string-append (jazz:pathname-normalize (product-file "")) product-name "res.o")))
                  (proc resources rc res)))
              
              (if resources
-                 (split (jazz.package-pathname (%%product-package (jazz.get-product product)) resources) product-name)
+                 (split (jazz:package-pathname (%%product-package (jazz:get-product product)) resources) product-name)
                (split (source-file "etc/resources/windows") "jazz"))))
           (else
            #f)))
@@ -525,8 +525,8 @@
              '()))))
       
       (define (link-image)
-        (let ((kernel-dir (jazz.pathname-normalize (jazz.pathname-dir (image-file))))
-              (kernel-name (jazz.pathname-name (image-file)))
+        (let ((kernel-dir (jazz:pathname-normalize (jazz:pathname-dir (image-file))))
+              (kernel-name (jazz:pathname-name (image-file)))
               (c-files `(,(kernel-file "_architecture.c")
                          ,(product-file (string-append (product-filename) ".c"))
                          ,(kernel-file "syntax/header.c")
@@ -553,15 +553,15 @@
                          ,(product-file (string-append (main-filename) ".c"))
                          ,(link-file))))
           (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
-          (jazz.create-directories kernel-dir)
+          (jazz:create-directories kernel-dir)
           (##gambc-cc
             'exe
-            (jazz.pathname-normalize build-dir)
+            (jazz:pathname-normalize build-dir)
             c-files
             (string-append kernel-dir "/" kernel-name)
-            (string-append "-I" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+            (string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
             ""
-            (jazz.join-strings `(,(string-append "-L" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+            (jazz:join-strings `(,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                                  ,@(gambit-link-libraries)
                                  ,@(link-libraries)
                                  ,@(resource-files)
@@ -570,13 +570,13 @@
             #f)
           (case platform
             ((windows)
-             (if (jazz.build-single-objects?)
-                 (jazz.obliterate-PE-timestamp (image-file) 'EXE))))))
+             (if (jazz:build-single-objects?)
+                 (jazz:obliterate-PE-timestamp (image-file) 'EXE))))))
       
       (define (image-file)
         (if library-image?
-            (build-file (jazz.add-extension product-name "o1"))
-          (build-file (jazz.add-extension product-name (jazz.executable-extension platform)))))
+            (build-file (jazz:add-extension product-name "o1"))
+          (build-file (jazz:add-extension product-name (jazz:executable-extension platform)))))
       
       ;;;
       ;;;; Configuration
@@ -586,8 +586,8 @@
         (let ((file (dest-file ".configuration")))
           (if (%%not (file-exists? file))
               (begin
-                (jazz.feedback "; generating {a}..." file)
-                (jazz.save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination file jazz.kernel-platform)))))
+                (jazz:feedback "; generating {a}..." file)
+                (jazz:save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination file jazz:kernel-platform)))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -597,14 +597,14 @@
         (let ((file (dest-file "kernel-interpret")))
           (if (%%not (file-exists? file))
               (begin
-                (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                (jazz:feedback "; generating {a}..." file)
+                (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
                     (print "#!/bin/sh" output)
                     (newline output)
                     (print "REL=$(dirname \"$0\")" output)
                     (newline output)
-                    (let ((gambit-dir (jazz.relativise-directory destination-directory "./" gambit-dir)))
+                    (let ((gambit-dir (jazz:relativise-directory destination-directory "./" gambit-dir)))
                       (print (string-append "GAM=$REL/" gambit-dir) output)
                       (print (string-append "GSC=$REL/" gambit-dir "bin/gsc") output))
                     (print "SCM=$REL/kernel-interpret.scm" output)
@@ -613,8 +613,8 @@
         (let ((file (dest-file "kernel-interpret.scm")))
           (if (%%not (file-exists? file))
               (begin
-                (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file (list path: file eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+                (jazz:feedback "; generating {a}..." file)
+                (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
                     (print "#!gsc -:dar" output)
                     (newline output)
@@ -623,31 +623,31 @@
                     (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
-                    (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
+                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
                     (newline output)
-                    (jazz.print-variable 'jazz.product #f output)
+                    (jazz:print-variable 'jazz:product #f output)
                     (newline output)
-                    (jazz.print-variable 'jazz.image (or image 'executable) output)
+                    (jazz:print-variable 'jazz:image (or image 'executable) output)
                     (newline output)
-                    (jazz.print-expression-variable 'jazz.built 'install-dir output)
+                    (jazz:print-expression-variable 'jazz:built 'install-dir output)
                     (newline output)
-                    (jazz.print-expression-variable 'jazz.gambit-dir `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" gambit-dir)) output)
+                    (jazz:print-expression-variable 'jazz:gambit-dir `(string-append install-dir ,(jazz:relativise-directory destination-directory "./" gambit-dir)) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source-built (jazz.pathname-standardize (path-normalize source)) output)
+                    (jazz:print-variable 'jazz:source-built (jazz:pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz.print-expression-variable 'jazz.source `(string-append install-dir ,(jazz.relativise-directory destination-directory "./" source)) output)
+                    (jazz:print-expression-variable 'jazz:source `(string-append install-dir ,(jazz:relativise-directory destination-directory "./" source)) output)
                     (newline output)
-                    (jazz.print-expression-variable 'jazz.binary-repositories (jazz.determine-binary-repositories destination-directory) output)
+                    (jazz:print-expression-variable 'jazz:binary-repositories (jazz:determine-binary-repositories destination-directory) output)
                     (newline output)
-                    (jazz.print-expression-variable 'jazz.source-repositories (jazz.determine-source-repositories destination-directory) output)
+                    (jazz:print-expression-variable 'jazz:source-repositories (jazz:determine-source-repositories destination-directory) output)
                     (newline output)
                     (newline output)
-                    (display "(load (string-append jazz.source \"kernel/boot\"))" output)
+                    (display "(load (string-append jazz:source \"kernel/boot\"))" output)
                     (newline output)))))))
       
-      (jazz.create-directories product-dir feedback: feedback)
-      (jazz.create-directories (kernel-file "syntax/") feedback: feedback)
-      (jazz.create-directories (kernel-file "runtime/") feedback: feedback)
+      (jazz:create-directories product-dir feedback: feedback)
+      (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
+      (jazz:create-directories (kernel-file "runtime/") feedback: feedback)
       
       (if kernel?
           (generate-configuration))
@@ -664,22 +664,22 @@
 ;;;
 
 
-(define (jazz.determine-binary-repositories destination-directory)
-  (jazz.determine-repositories destination-directory
-    (and (jazz.global-bound? 'binary-repositories)
-         ((jazz.global-ref 'binary-repositories)))))
+(define (jazz:determine-binary-repositories destination-directory)
+  (jazz:determine-repositories destination-directory
+    (and (jazz:global-bound? 'binary-repositories)
+         ((jazz:global-ref 'binary-repositories)))))
 
 
-(define (jazz.determine-source-repositories destination-directory)
-  (jazz.determine-repositories destination-directory
-    (jazz.repositories)))
+(define (jazz:determine-source-repositories destination-directory)
+  (jazz:determine-repositories destination-directory
+    (jazz:repositories)))
 
 
-(define (jazz.determine-repositories destination-directory repositories)
+(define (jazz:determine-repositories destination-directory repositories)
   (if repositories
-      (jazz.collect (lambda (path)
-                      (jazz.relativise-directory destination-directory "./" path))
-                    (jazz.split-string repositories #\;))
+      (jazz:collect (lambda (path)
+                      (jazz:relativise-directory destination-directory "./" path))
+                    (jazz:split-string repositories #\;))
     '()))
 
 
@@ -688,7 +688,7 @@
 ;;;
 
 
-(define (jazz.obliterate-PE-timestamp pathname type)
+(define (jazz:obliterate-PE-timestamp pathname type)
   (define (get-checksum-offset)
     (let ((port (open-input-file pathname)))
       (input-port-byte-position port #x22D)
@@ -730,25 +730,25 @@
 ;;;
 
 
-(define (jazz.pkg-config what libname)
+(define (jazz:pkg-config what libname)
   (let ((string-port (open-output-string))
         (process-port (open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
     (if (%%fx= (process-status process-port) 0)
         (begin
-          (jazz.pipe-no-return process-port string-port)
+          (jazz:pipe-no-return process-port string-port)
           (get-output-string string-port))
-      (jazz.error "failed"))))
+      (jazz:error "failed"))))
 
-(define (jazz.pkg-config-cflags libname)
-  (jazz.pkg-config "--cflags" libname))
+(define (jazz:pkg-config-cflags libname)
+  (jazz:pkg-config "--cflags" libname))
 
-(define (jazz.pkg-config-libs libname)
-  (jazz.pkg-config "--libs" libname))
+(define (jazz:pkg-config-libs libname)
+  (jazz:pkg-config "--libs" libname))
 
-(define (jazz.pkg-config-version libname)
-  (jazz.pkg-config "--modversion" libname))
+(define (jazz:pkg-config-version libname)
+  (jazz:pkg-config "--modversion" libname))
 
-(define (jazz.pipe-no-return input output)
+(define (jazz:pipe-no-return input output)
   (let iterate ()
     (let ((c (read-char input)))
       (if (%%not (or (eof-object? c) (%%eq? #\newline c)))
@@ -762,12 +762,12 @@
 ;;;
 
 
-(define (jazz.build-library-impl product-name descriptor
+(define (jazz:build-library-impl product-name descriptor
           #!key
           (options '())
-          (platform jazz.kernel-platform)
-          (destination-directory jazz.kernel-install)
-          (feedback jazz.feedback))
+          (platform jazz:kernel-platform)
+          (destination-directory jazz:kernel-install)
+          (feedback jazz:feedback))
   
   (define (feedback-message fmt-string . rest)
     (if feedback
@@ -796,17 +796,17 @@
             (let* ((jazz-relative-dir (prefix "~~jazz" dir))
                    (quoted-dir
                      (if jazz-relative-dir
-                         (jazz.quote-jazz-pathname jazz-relative-dir)
-                       (jazz.quote-pathname dir platform))))
+                         (jazz:quote-jazz-pathname jazz-relative-dir)
+                       (jazz:quote-pathname dir platform))))
               (%%list (%%string-append "-L" quoted-dir)))
-          (jazz.error "Ill-formed libdir parameter in product link options")))
+          (jazz:error "Ill-formed libdir parameter in product link options")))
       
       (cond ((%%string? opt)
              (%%list opt))
             (else
              (case (%%car opt)
                ((pkg-config)
-                (jazz.split-string (%%apply jazz.pkg-config (%%cdr opt)) #\space))
+                (jazz:split-string (%%apply jazz:pkg-config (%%cdr opt)) #\space))
                ((libdir)
                 (%%apply expand-libdir (%%cdr opt)))
                (else '())))))
@@ -824,9 +824,9 @@
     (define digest-table (%%make-table test: eq?))
       
     (define (load-image-units-manifest)
-      (if (jazz.file-exists? header)
+      (if (jazz:file-exists? header)
           (begin
-            (set! jazz.register-image-units
+            (set! jazz:register-image-units
                   (lambda (lib-name units)
                     (for-each (lambda (unit)
                                 (%%table-set! digest-table (%%car unit) (%%cadr unit)))
@@ -836,11 +836,11 @@
     (define (unit-uptodate? unit-name)
       (let ((image-unit-compile-time-hash (%%table-ref digest-table unit-name #f)))
         (and image-unit-compile-time-hash
-             (jazz.with-unit-resources unit-name #f
+             (jazz:with-unit-resources unit-name #f
                (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                 (let ((src-pathname (jazz.resource-pathname src)))
-                   (let ((digest (and manifest (jazz.manifest-uptodate? src-pathname manifest))))
-                     (and (%%not (jazz.manifest-needs-rebuild? manifest))
+                 (let ((src-pathname (jazz:resource-pathname src)))
+                   (let ((digest (and manifest (jazz:manifest-uptodate? src-pathname manifest))))
+                     (and (%%not (jazz:manifest-needs-rebuild? manifest))
                           (%%string=? image-unit-compile-time-hash (%%digest-hash digest))))))))))
     
     (define (subunits-uptodate? units)
@@ -852,12 +852,12 @@
     (subunits-uptodate? sub-units))
   
   (define (make-library-header header- library sub-units)
-    (call-with-output-file (list path: header- eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+    (call-with-output-file (list path: header- eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
       (lambda (port)
-        (display (string-append "(jazz.register-image-units '" (%%symbol->string library) " '(") port)
+        (display (string-append "(jazz:register-image-units '" (%%symbol->string library) " '(") port)
         (newline port)
         (for-each (lambda (unit-name)
-                    (jazz.with-unit-resources unit-name #f
+                    (jazz:with-unit-resources unit-name #f
                       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
                         (display (string-append "  (" (%%symbol->string unit-name) " ") port)
                         (write (%%manifest-compile-time-hash manifest) port)
@@ -867,22 +867,22 @@
         (display "))" port)
         (newline port))))
   
-  (let* ((product (jazz.get-product product-name))
+  (let* ((product (jazz:get-product product-name))
          (package (%%product-package product))
-         (update (jazz.cond-expand-each (jazz.ill-formed-field-error "update" product-name)
-                                        (jazz.product-descriptor-update descriptor)))
-         (library-base (jazz.relocate-product-library-name-base jazz.Build-Repository package product-name))
-         (library-dir (jazz.pathname-dir library-base)))
-    (jazz.with-numbered-pathname (string-append library-base "." jazz.Library-Extension) #t 1
+         (update (jazz:cond-expand-each (jazz:ill-formed-field-error "update" product-name)
+                                        (jazz:product-descriptor-update descriptor)))
+         (library-base (jazz:relocate-product-library-name-base jazz:Build-Repository package product-name))
+         (library-dir (jazz:pathname-dir library-base)))
+    (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((linkfile (string-append library-o1 ".c"))
-               (header (string-append library-base "." jazz.Library-Manifest-Extension))
+               (header (string-append library-base "." jazz:Library-Manifest-Extension))
                (header-c (string-append header ".c"))
                (header-o (string-append header ".o"))
-               (sub-units (remove-duplicates (%%apply append (map jazz.get-subunit-names update)))))
+               (sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
           
           (define (build-library)
-            (jazz.create-build-package package)
+            (jazz:create-build-package package)
             (make-library-header header product-name sub-units)
             (compile-file-to-c header output: header-c)
             (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
@@ -890,34 +890,34 @@
             (feedback-message "; creating link file...")
             (link-flat (%%cons header
                                (map (lambda (subunit-name)
-                                      (jazz.with-unit-resources subunit-name #f
+                                      (jazz:with-unit-resources subunit-name #f
                                         (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                          (jazz.resource-pathname obj))))
+                                          (jazz:resource-pathname obj))))
                                     sub-units))
                        output: linkfile
                        warnings?: #f)
             
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
-            (jazz.call-process
+            (jazz:call-process
               "gcc"
               `(,@(case platform
                     ((windows) '("-shared" "-D___DYNAMIC"))
                     (else '("-bundle" "-D___DYNAMIC")))
                 ,header-o
                 ,@(map (lambda (subunit-name)
-                         (jazz.with-unit-resources subunit-name #f
+                         (jazz:with-unit-resources subunit-name #f
                            (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                             (%%string-append (jazz.resource-pathname obj) ".o"))))
+                             (%%string-append (jazz:resource-pathname obj) ".o"))))
                        sub-units)
                 ,linkfile
                 "-o" ,library-o1
-                ,(string-append "-I" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-                ,(string-append "-L" (jazz.quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                ,(string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+                ,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
                 ,@(link-options)))
             (case platform
               ((windows)
-               (if (jazz.build-single-objects?)
-                   (jazz.obliterate-PE-timestamp library-o1 'DLL))))
+               (if (jazz:build-single-objects?)
+                   (jazz:obliterate-PE-timestamp library-o1 'DLL))))
             (map delete-file (%%list header-c header-o linkfile))
             #t)
 
@@ -925,31 +925,31 @@
               (build-library)))))))
 
 
-(define (jazz.print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
-  (jazz.print-variable 'jazz.kernel-system system output)
+(define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
+  (jazz:print-variable 'jazz:kernel-system system output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-platform platform output)
+  (jazz:print-variable 'jazz:kernel-platform platform output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-windowing windowing output)
+  (jazz:print-variable 'jazz:kernel-windowing windowing output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-safety safety output)
+  (jazz:print-variable 'jazz:kernel-safety safety output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-optimize? optimize? output)
+  (jazz:print-variable 'jazz:kernel-optimize? optimize? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-debug-environments? debug-environments? output)
+  (jazz:print-variable 'jazz:kernel-debug-environments? debug-environments? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-debug-location? debug-location? output)
+  (jazz:print-variable 'jazz:kernel-debug-location? debug-location? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-debug-source? debug-source? output)
+  (jazz:print-variable 'jazz:kernel-debug-source? debug-source? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-mutable-bindings? mutable-bindings? output)
+  (jazz:print-variable 'jazz:kernel-mutable-bindings? mutable-bindings? output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-destination destination output)
+  (jazz:print-variable 'jazz:kernel-destination destination output)
   (newline output)
-  (jazz.print-variable 'jazz.kernel-version (jazz.get-jazz-version-number) output))
+  (jazz:print-variable 'jazz:kernel-version (jazz:get-jazz-version-number) output))
 
 
-(define (jazz.print-variable variable value output)
+(define (jazz:print-variable variable value output)
   (display "(define " output)
   (display variable output)
   (newline output)
@@ -962,7 +962,7 @@
   (newline output))
 
 
-(define (jazz.print-expression-variable variable expression output)
+(define (jazz:print-expression-variable variable expression output)
   (display "(define " output)
   (display variable output)
   (newline output)
@@ -977,9 +977,9 @@
 ;;;
 
 
-(set! jazz.manifest-needs-rebuild? jazz.manifest-needs-rebuild?-impl)
-(set! jazz.get-changed-units jazz.get-changed-units-impl)
-(set! jazz.push-changed-units jazz.push-changed-units-impl)
-(set! jazz.reset-changed-units jazz.reset-changed-units-impl)
-(set! jazz.build-image jazz.build-image-impl)
-(set! jazz.build-library jazz.build-library-impl))
+(set! jazz:manifest-needs-rebuild? jazz:manifest-needs-rebuild?-impl)
+(set! jazz:get-changed-units jazz:get-changed-units-impl)
+(set! jazz:push-changed-units jazz:push-changed-units-impl)
+(set! jazz:reset-changed-units jazz:reset-changed-units-impl)
+(set! jazz:build-image jazz:build-image-impl)
+(set! jazz:build-library jazz:build-library-impl))

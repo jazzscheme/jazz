@@ -38,9 +38,9 @@
 (unit protected core.base.runtime.boolean
 
 
-(define (jazz.boolean expr)
+(define (jazz:boolean expr)
   (%%boolean expr))
 
 
-(define (jazz.not-null? expr)
+(define (jazz:not-null? expr)
   (%%not-null? expr)))

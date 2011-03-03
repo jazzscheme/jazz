@@ -45,70 +45,70 @@
 
 (cond-expand
   (gambit
-    (define (jazz.procedure-name procedure)
+    (define (jazz:procedure-name procedure)
       (%%procedure-name procedure))
     
-    (define (jazz.procedure-name-set! proc)
-      (set! jazz.procedure-name proc))
+    (define (jazz:procedure-name-set! proc)
+      (set! jazz:procedure-name proc))
     
-    (define (jazz.procedure-locat procedure)
+    (define (jazz:procedure-locat procedure)
       (%%procedure-locat procedure))
     
     
-    (define (jazz.closure? obj)
+    (define (jazz:closure? obj)
       (%%closure? obj))
     
-    (define (jazz.closure-code closure)
+    (define (jazz:closure-code closure)
       (%%closure-code closure))
     
     
-    (define jazz.hidden-frames
+    (define jazz:hidden-frames
       (%%list
         ##dynamic-env-bind
         ##thread-start-action!))
     
-    (define (jazz.hidden-frame? frame)
-      (%%memq frame jazz.hidden-frames))
+    (define (jazz:hidden-frame? frame)
+      (%%memq frame jazz:hidden-frames))
     
-    (define (jazz.hidden-frame?-set! predicate)
-      (set! jazz.hidden-frame? predicate))
+    (define (jazz:hidden-frame?-set! predicate)
+      (set! jazz:hidden-frame? predicate))
     
     
-    (define (jazz.get-continuation-stack cont depth)
-      (let ((queue (jazz.new-queue)))
+    (define (jazz:get-continuation-stack cont depth)
+      (let ((queue (jazz:new-queue)))
         (let iter ((d 0)
                    (cont cont))
           (if (or (%%not depth) (%%fx< d depth))
               (and cont
                    (begin
-                     (jazz.enqueue queue cont)
+                     (jazz:enqueue queue cont)
                      (iter (%%fx+ d 1)
                            (%%continuation-next-frame cont #f))))))
-        (jazz.queue-list queue)))
+        (jazz:queue-list queue)))
     
     
-    (define (jazz.collect-var-val var val-or-box cte queue)
+    (define (jazz:collect-var-val var val-or-box cte queue)
       (cond ((##var-i? var)
-             (jazz.collect-var-val-aux (##var-i-name var)
+             (jazz:collect-var-val-aux (##var-i-name var)
                                        val-or-box
                                        #t
                                        cte
                                        queue))
             ((##var-c-boxed? var)
-             (jazz.collect-var-val-aux (##var-c-name var)
+             (jazz:collect-var-val-aux (##var-c-name var)
                                        (##unbox val-or-box)
                                        #t
                                        cte
                                        queue))
             (else
-             (jazz.collect-var-val-aux (##var-c-name var)
+             (jazz:collect-var-val-aux (##var-c-name var)
                                        val-or-box
                                        #f
                                        cte
                                        queue))))
     
     
-    (define (jazz.collect-var-val-aux var val mutable? cte queue)
+    (define (jazz:collect-var-val-aux var val mutable? cte queue)
       
       (define (remove-quote val)
         (if (and (pair? val)
@@ -117,11 +117,11 @@
             (##cadr val)
           val))
       
-      (jazz.enqueue queue
+      (jazz:enqueue queue
                     (%%list (##object->string var)
-                            (cond ((jazz.absent-object? val)
+                            (cond ((jazz:absent-object? val)
                                    '<absent>)
-                                  ((jazz.unbound-object? val)
+                                  ((jazz:unbound-object? val)
                                    '<unbound>)
                                   ((##procedure? val)
                                    (remove-quote
@@ -133,7 +133,7 @@
                             mutable?)))
     
     
-    (define (jazz.get-continuation-dynamic-environment cont)
+    (define (jazz:get-continuation-dynamic-environment cont)
       
       (define (collect-parameters lst cte queue)
         (let iter ((lst lst))
@@ -144,22 +144,22 @@
                    (if (%%not (##hidden-parameter? param))
                        (let ((x
                                (##inverse-eval-in-env param cte)))
-                         (jazz.collect-var-val-aux (%%list x) val #t cte queue)))
+                         (jazz:collect-var-val-aux (%%list x) val #t cte queue)))
                    (iter (%%cdr lst))))))
       
-      (let ((queue (jazz.new-queue)))
+      (let ((queue (jazz:new-queue)))
         (and cont
              (collect-parameters
-               (##dynamic-env->list (jazz.continuation-denv cont))
+               (##dynamic-env->list (jazz:continuation-denv cont))
                (if (%%interp-continuation? cont)
                    (let (($code (##interp-continuation-code cont)))
-                     (jazz.code-cte $code))
+                     (jazz:code-cte $code))
                  ##interaction-cte)
                queue))
-        (jazz.queue-list queue)))
+        (jazz:queue-list queue)))
     
     
-    (define (jazz.get-continuation-lexical-environment cont)
+    (define (jazz:get-continuation-lexical-environment cont)
       
       (define (collect-rte cte rte queue)
         (let loop1 ((c cte)
@@ -171,11 +171,11 @@
                      (if (%%pair? vars)
                          (let ((var (%%car vars)))
                            (if (%%not (##hidden-local-var? var))
-                               (jazz.collect-var-val var (%%car vals) c queue))
+                               (jazz:collect-var-val var (%%car vals) c queue))
                            (loop2 (%%cdr vars)
                                   (%%cdr vals)))
                        (loop1 (##cte-parent-cte c)
-                              (jazz.rte-up r)))))
+                              (jazz:rte-up r)))))
                (else
                 (loop1 (##cte-parent-cte c)
                        r)))))
@@ -186,51 +186,51 @@
                  (let* ((var-val (%%car lst))
                         (var (%%car var-val))
                         (val (%%cdr var-val)))
-                   (jazz.collect-var-val var val cte queue)
+                   (jazz:collect-var-val var val cte queue)
                    (iter (%%cdr lst))))))
       
       (define (collect-locals lst cte queue)
         (and lst
              (collect-vars lst cte queue)))
       
-      (let ((queue (jazz.new-queue)))
+      (let ((queue (jazz:new-queue)))
         (and cont
              (if (%%interp-continuation? cont)
                  (let (($code (##interp-continuation-code cont))
                        (rte (##interp-continuation-rte cont)))
-                   (collect-rte (jazz.code-cte $code) rte queue)
-                   (jazz.code-cte $code))
+                   (collect-rte (jazz:code-cte $code) rte queue)
+                   (jazz:code-cte $code))
                (begin
                  (collect-locals (%%continuation-locals cont) ##interaction-cte queue)
                  ##interaction-cte)))
-        (jazz.queue-list queue)))
+        (jazz:queue-list queue)))
     
     
-    (define (jazz.get-continuation-location cont)
-      (jazz.locat->file/line/col (%%continuation-locat cont)))
+    (define (jazz:get-continuation-location cont)
+      (jazz:locat->file/line/col (%%continuation-locat cont)))
     
     
-    (define (jazz.interpreted-continuation? cont)
+    (define (jazz:interpreted-continuation? cont)
       (%%interp-continuation? cont))
     
     
-    (define (jazz.with-repl-context cont thunk)
+    (define (jazz:with-repl-context cont thunk)
       (let ((prev-context (%%thread-repl-context-get!)))
         (let ((context
-                (jazz.make-repl-context
-                  (%%fx+ (jazz.repl-context-level prev-context) 1)
+                (jazz:make-repl-context
+                  (%%fx+ (jazz:repl-context-level prev-context) 1)
                   0
                   cont
                   cont
                   #f
                   prev-context
                   #f)))
-          (jazz.repl-context-bind
+          (jazz:repl-context-bind
             context
             thunk))))
     
     
-    (define (jazz.repl)
+    (define (jazz:repl)
       (begin
         (%%repl)
         #f))
@@ -248,14 +248,14 @@
         (%%continuation-graft-no-winding
           cont
           (lambda ()
-            (jazz.repl-context-bind
+            (jazz:repl-context-bind
               repl-context
               (lambda ()
                 (receiver
                   (let ((rte rte))
                     (runner
                       (lambda ()
-                        (jazz.code-run c rte))))))))))
+                        (jazz:code-run c rte))))))))))
       
       (##define-macro (macro-make-rte-from-list rte lst)
         `(##list->vector (##cons ,rte ,lst)))
@@ -263,7 +263,7 @@
       (let ((src2 (##sourcify src (##make-source #f #f))))
         (cond ((##interp-continuation? cont)
                (let* (($code (##interp-continuation-code cont))
-                      (cte (jazz.code-cte $code))
+                      (cte (jazz:code-cte $code))
                       (rte (##interp-continuation-rte cont)))
                  (run (##compile-inner cte src2) rte)))
               ((##with-no-result-expected-toplevel-continuation? cont)
@@ -276,14 +276,14 @@
                  (run (##compile-inner cte src2) rte))))))
     
     
-    (define (jazz.eval-within-no-winding runner expr cont)
+    (define (jazz:eval-within-no-winding runner expr cont)
       (continuation-capture
         (lambda (return)
           (eval-within-no-winding
             runner
             expr
             cont
-            (jazz.current-repl-context)
+            (jazz:current-repl-context)
             (lambda (results)
               (call-with-values
                 (lambda ()
@@ -292,7 +292,7 @@
                   (%%continuation-return-no-winding return (%%car results)))))))))
     
     
-    (define (jazz.repl-result-history-add result)
+    (define (jazz:repl-result-history-add result)
       (let ((channel (%%thread-repl-channel-get! (%%current-thread))))
         (%%repl-channel-result-history-add channel result)))
     
@@ -302,13 +302,13 @@
     ;;;
     
     
-    (define (jazz.inspect-repl-context context)
+    (define (jazz:inspect-repl-context context)
       `(:repl-context
-        ,(jazz.repl-context-level context)
-        ,(jazz.repl-context-depth context)
-        ,(jazz.repl-context-cont context)
-        ,(jazz.repl-context-initial-cont context)
-        ,(jazz.repl-context-prev-level context)
-        ,(jazz.repl-context-prev-depth context))))
+        ,(jazz:repl-context-level context)
+        ,(jazz:repl-context-depth context)
+        ,(jazz:repl-context-cont context)
+        ,(jazz:repl-context-initial-cont context)
+        ,(jazz:repl-context-prev-level context)
+        ,(jazz:repl-context-prev-depth context))))
   
   (else)))

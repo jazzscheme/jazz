@@ -38,7 +38,7 @@
 (block kernel.install
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
   
 
 (cond-expand
@@ -91,9 +91,9 @@
   (else))
 
 
-(set! jazz.executable-directory
+(set! jazz:executable-directory
       (lambda ()
         (let ((path (platform-executable-path)))
           (if path
-              (jazz.pathname-dir (jazz.pathname-normalize path))
+              (jazz:pathname-dir (jazz:pathname-normalize path))
             #f)))))

@@ -43,76 +43,76 @@
 ;;;
 
 
-(define (jazz.parse-dot-version version)
-  (let ((version (map string->number (jazz.split-string version #\.))))
+(define (jazz:parse-dot-version version)
+  (let ((version (map string->number (jazz:split-string version #\.))))
     (let ((major (%%car version))
           (minor (%%cadr version))
           (build (caddr version)))
       (values major minor build))))
 
 
-(define jazz.types-units
+(define jazz:types-units
   '((jazz.platform.types-syntax)
     (jazz.platform.types)))
 
 
 (cond-expand
   (carbon
-    (define jazz.cairo-units
-      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
+    (define jazz:cairo-units
+      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
         (if (%%fx< minor 4)
-            (jazz.error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
-                (ld-flags (jazz.pkg-config-libs "cairo-ft")))
+            (jazz:error "Cairo 1.4 or higher needed")
+          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
+                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
             `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-carbon   cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (windows
-    (define jazz.cairo-units
-      (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
-            (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
+    (define jazz:cairo-units
+      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/cairo/include"))
+            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/cairo/lib/windows")))
         `((jazz.platform.cairo            cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
           (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
   (x11
-    (define jazz.cairo-units
-      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
+    (define jazz:cairo-units
+      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
         (if (%%fx< minor 4)
-            (jazz.error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
-                (ld-flags (jazz.pkg-config-libs "cairo-ft")))
+            (jazz:error "Cairo 1.4 or higher needed")
+          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
+                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
             `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-x11      cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))))
 
 
-(define (jazz.freetype-units)
-  (let ((cc-flags (jazz.pkg-config-cflags "freetype2"))
-        (ld-flags (string-append (jazz.pkg-config-libs "fontconfig") (jazz.pkg-config-libs "freetype2"))))
+(define (jazz:freetype-units)
+  (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
+        (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") (jazz:pkg-config-libs "freetype2"))))
     `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))
 
 
-(define (jazz.logfont-units)
-  (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
+(define (jazz:logfont-units)
+  (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/cairo/include"))
+        (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/cairo/lib/windows")))
     `((jazz.platform.cairo.cairo-logfont cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo")))))
 
 
 (cond-expand
   (windows
-    (define jazz.font-units
-      (jazz.logfont-units)))
+    (define jazz:font-units
+      (jazz:logfont-units)))
   (else
-    (define jazz.font-units
-      (jazz.freetype-units))))
+    (define jazz:font-units
+      (jazz:freetype-units))))
 
 
-(define jazz.windows-units
-  (let ((cairo-include-path   (jazz.quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path       (jazz.quote-jazz-pathname "foreign/cairo/lib/windows"))
-        (windows-include-path (jazz.quote-jazz-pathname "foreign/windows/include"))
-        (windows-lib-path     (jazz.quote-jazz-pathname "foreign/windows/lib"))
+(define jazz:windows-units
+  (let ((cairo-include-path   (jazz:quote-jazz-pathname "foreign/cairo/include"))
+        (cairo-lib-path       (jazz:quote-jazz-pathname "foreign/cairo/lib/windows"))
+        (windows-include-path (jazz:quote-jazz-pathname "foreign/windows/include"))
+        (windows-lib-path     (jazz:quote-jazz-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
@@ -132,54 +132,54 @@
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 
 
-(define jazz.com-units
+(define jazz:com-units
   '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
 
-(define jazz.x11-units
+(define jazz:x11-units
   '((jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
     (jazz.platform.x11.x11-types)))
 
 
 (cond-expand
   (mac
-   (define jazz.clipboard-units
+   (define jazz:clipboard-units
      '((jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
        (jazz.platform.carbon.clipboard ld-options: "-framework Carbon"))))
   (else
-   (define jazz.clipboard-units
+   (define jazz:clipboard-units
      '())))
 
 
 (cond-expand
   (mac
-   (define jazz.crash-units
+   (define jazz:crash-units
      '((jazz.platform.crash.mac))))
   (unix
-   (define jazz.crash-units
+   (define jazz:crash-units
      '((jazz.platform.crash.unix))))
   (windows
-   (define jazz.crash-units
+   (define jazz:crash-units
      '())))
 
 
 (cond-expand
   (carbon
-    (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           (jazz.platform.crash)
-                          ,@jazz.crash-units
-                          ,@jazz.types-units
-                          ,@jazz.cairo-units
-                          ,@jazz.font-units
-                          ,@jazz.carbon-units
-                          ,@jazz.clipboard-units)))
-        (jazz.custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz.update-product-descriptor descriptor))))
+                          ,@jazz:crash-units
+                          ,@jazz:types-units
+                          ,@jazz:cairo-units
+                          ,@jazz:font-units
+                          ,@jazz:carbon-units
+                          ,@jazz:clipboard-units)))
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+        (jazz:update-product-descriptor descriptor))))
   (windows
-    (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
-      (let ((build (%%repository-directory jazz.Build-Repository))
-            (source jazz.kernel-source))
+    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+      (let ((build (%%repository-directory jazz:Build-Repository))
+            (source jazz:kernel-source))
         (define (build-file path)
           (string-append build path))
         
@@ -187,33 +187,33 @@
           (string-append source path))
         
         (define (copy-platform-files)
-          (jazz.copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (build-file "libcairo-2.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (build-file "libpng13.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (build-file "libpixman-1-0.dll") feedback: jazz.feedback))
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (build-file "libcairo-2.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (build-file "libpng13.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (build-file "libpixman-1-0.dll") feedback: jazz:feedback))
         
         (let ((unit-specs `((jazz.platform)
                             (jazz.platform.crash)
-                            ,@jazz.crash-units
-                            ,@jazz.types-units
-                            ,@jazz.cairo-units
-                            ,@jazz.font-units
-                            ,@jazz.windows-units
-                            ,@jazz.com-units)))
-          (jazz.custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-          (jazz.update-product-descriptor descriptor)))))
+                            ,@jazz:crash-units
+                            ,@jazz:types-units
+                            ,@jazz:cairo-units
+                            ,@jazz:font-units
+                            ,@jazz:windows-units
+                            ,@jazz:com-units)))
+          (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
+          (jazz:update-product-descriptor descriptor)))))
   (x11
-    (define (jazz.build-platform descriptor #!key (unit #f) (force? #f))
+    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           (jazz.platform.crash)
-                          ,@jazz.crash-units
-                          ,@jazz.types-units
-                          ,@jazz.cairo-units
-                          ,@jazz.font-units
-                          ,@jazz.x11-units
-                          ,@jazz.clipboard-units)))
-        (jazz.custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz.update-product-descriptor descriptor)))))
+                          ,@jazz:crash-units
+                          ,@jazz:types-units
+                          ,@jazz:cairo-units
+                          ,@jazz:font-units
+                          ,@jazz:x11-units
+                          ,@jazz:clipboard-units)))
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+        (jazz:update-product-descriptor descriptor)))))
 
 
 ;;;
@@ -221,5 +221,5 @@
 ;;;
 
 
-(jazz.register-product 'jazz.platform
-  build: jazz.build-platform))
+(jazz:register-product 'jazz.platform
+  build: jazz:build-platform))

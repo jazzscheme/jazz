@@ -38,9 +38,9 @@
 (unit jazz.resources
 
 
-(define (jazz.build-resources descriptor #!key (unit #f) (force? #f))
-  (let ((build (%%repository-directory jazz.Build-Repository))
-        (source jazz.kernel-source))
+(define (jazz:build-resources descriptor #!key (unit #f) (force? #f))
+  (let ((build (%%repository-directory jazz:Build-Repository))
+        (source jazz:kernel-source))
     (define (build-file path)
       (string-append build path))
     
@@ -48,7 +48,7 @@
       (string-append source path))
     
     (define (copy-files dir)
-      (jazz.copy-files (source-file dir) (build-file dir) feedback: jazz.feedback))
+      (jazz:copy-files (source-file dir) (build-file dir) feedback: jazz:feedback))
     
     (define (ensure-directory-exists dir)
       (if (not (file-exists? dir))
@@ -62,8 +62,8 @@
       (copy-files "lib/jazz.resources/resources/images")
       (copy-files "lib/jazz.resources/resources/sounds"))
     
-    (jazz.custom-compile/build '() unit: unit pre-build: copy-resource-directories force?: force?)
-    (jazz.update-product-descriptor descriptor)))
+    (jazz:custom-compile/build '() unit: unit pre-build: copy-resource-directories force?: force?)
+    (jazz:update-product-descriptor descriptor)))
 
 
 ;;;
@@ -71,5 +71,5 @@
 ;;;
 
 
-(jazz.register-product 'jazz.resources
-  build: jazz.build-resources))
+(jazz:register-product 'jazz.resources
+  build: jazz:build-resources))

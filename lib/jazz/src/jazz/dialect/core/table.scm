@@ -38,49 +38,49 @@
 (unit protected jazz.dialect.core.table
 
 
-(define (jazz.table-clear table key)
+(define (jazz:table-clear table key)
   (%%debug-assert (%%table? table)
     (%%table-clear table key)))
 
 
-(define (jazz.table-keys table)
+(define (jazz:table-keys table)
   (%%debug-assert (%%table? table)
     (%%table-keys table)))
 
 
-(define (jazz.table-length table)
+(define (jazz:table-length table)
   (%%debug-assert (%%table? table)
     (%%table-length table)))
 
 
-(define (jazz.map-table table proc)
+(define (jazz:map-table table proc)
   (%%debug-assert (%%table? table)
-    (let ((queue (jazz.new-queue)))
-      (jazz.iterate-table table
+    (let ((queue (jazz:new-queue)))
+      (jazz:iterate-table table
         (lambda (key value)
-          (jazz.enqueue queue (proc key value))))
-      (jazz.queue-list queue))))
+          (jazz:enqueue queue (proc key value))))
+      (jazz:queue-list queue))))
 
 
-(define (jazz.list->table alist #!key (test equal?))
+(define (jazz:list->table alist #!key (test equal?))
   (%%list->table alist test: test))
 
 
-(define (jazz.table->list table)
+(define (jazz:table->list table)
   (%%debug-assert (%%table? table)
     (%%table->list table)))
 
 
-(define (jazz.table-entries table)
+(define (jazz:table-entries table)
   (%%debug-assert (%%table? table)
     (%%table-entries table)))
 
 
 (cond-expand
   (gambit
-    (define jazz.eq?-hash eq?-hash)
-    (define jazz.eqv?-hash eqv?-hash)
-    (define jazz.equal?-hash equal?-hash)
-    (define jazz.string=?-hash string=?-hash)
-    (define jazz.string-ci=?-hash string-ci=?-hash))
+    (define jazz:eq?-hash eq?-hash)
+    (define jazz:eqv?-hash eqv?-hash)
+    (define jazz:equal?-hash equal?-hash)
+    (define jazz:string=?-hash string=?-hash)
+    (define jazz:string-ci=?-hash string-ci=?-hash))
   (else)))

@@ -38,7 +38,7 @@
 (unit protected core.base.runtime.reader
 
 
-(define (jazz.read-source-all port #!optional (container #f) (line #f) (col #f))
+(define (jazz:read-source-all port #!optional (container #f) (line #f) (col #f))
   (if container
       (%%input-port-names-set! port (lambda (port) container)))
   (if line
@@ -52,10 +52,10 @@
             (%%current-readtable)
             ##wrap-datum
             ##unwrap-datum
-            (jazz.readtable-start-syntax (%%current-readtable))
+            (jazz:readtable-start-syntax (%%current-readtable))
             #t)))
     (%%cdr (%%source-code (%%vector-ref begin-vector 1)))))
 
 
-(define (jazz.read-source-first port #!optional (container #f) (line #f) (col #f))
-  (%%car (jazz.read-source-all port container line col))))
+(define (jazz:read-source-first port #!optional (container #f) (line #f) (col #f))
+  (%%car (jazz:read-source-all port container line col))))

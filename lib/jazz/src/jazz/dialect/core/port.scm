@@ -43,8 +43,8 @@
 ;;;
 
 
-(define jazz.system-format
-  jazz.format)
+(define jazz:system-format
+  jazz:format)
 
 
 ;;;
@@ -54,9 +54,9 @@
 
 (cond-expand
   (gambit
-    (define jazz.close-port close-port)
-    (define jazz.input-port-timeout-set! input-port-timeout-set!)
-    (define jazz.output-port-timeout-set! output-port-timeout-set!))
+    (define jazz:close-port close-port)
+    (define jazz:input-port-timeout-set! input-port-timeout-set!)
+    (define jazz:output-port-timeout-set! output-port-timeout-set!))
   
   (else))
 
@@ -72,7 +72,7 @@
 (set! jazz.dialect.language.debug.get-console-port #f)
 
 
-(define (jazz.get-console-port)
+(define (jazz:get-console-port)
   (if jazz.dialect.language.debug.get-console-port
       (jazz.dialect.language.debug.get-console-port)
     #f)))

@@ -45,14 +45,14 @@
 ;;;
 
 
-(define (jazz.get-exception-hook)
+(define (jazz:get-exception-hook)
   ##primordial-exception-handler-hook)
 
-(define (jazz.set-exception-hook hook)
+(define (jazz:set-exception-hook hook)
   (set! ##primordial-exception-handler-hook hook))
 
 
-(define (jazz.invoke-exception-hook hook exc)
+(define (jazz:invoke-exception-hook hook exc)
   (hook exc ##thread-end-with-uncaught-exception!))
 
 
@@ -61,7 +61,7 @@
 ;;;
 
 
-(define (jazz.system-exception-hook exc other)
+(define (jazz:system-exception-hook exc other)
   (##repl-exception-handler-hook exc other))
 
 
@@ -70,11 +70,11 @@
 ;;;
 
 
-(define (jazz.set-terminal-title)
+(define (jazz:set-terminal-title)
   (display "\033]0;Terminal\007" (repl-output-port)))
 
-(define (jazz.bring-terminal-to-front)
+(define (jazz:bring-terminal-to-front)
   (display "\033[5t" (repl-output-port)))
 
-(define (jazz.clear-terminal)
+(define (jazz:clear-terminal)
   (display "\033[H\033[J" (repl-output-port))))

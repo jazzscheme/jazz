@@ -38,7 +38,7 @@
 (block kernel.syntax
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
 
 
 ;;;
@@ -46,9 +46,9 @@
 ;;;
 
 
-(jazz.define-macro (jazz.define-setting name . rest)
+(jazz:define-macro (jazz:define-setting name . rest)
   (let ((expr (if (%%null? rest) #f (%%car rest)))
-        (global (jazz.generate-symbol (symbol->string name))))
+        (global (jazz:generate-symbol (symbol->string name))))
     `(begin
        (define ,global ,expr)
        (define (,name . rest)
@@ -62,7 +62,7 @@
 ;;;
 
 
-(jazz.define-macro (jazz.define-variable name . rest)
+(jazz:define-macro (jazz:define-variable name . rest)
   (let ((expr (if (%%null? rest) #f (%%car rest))))
     `(begin
        (define ,name #f)
@@ -75,33 +75,33 @@
 
 
 ;; A repository is where packages are located. The system comes with the following already
-;; present repositories: build and jazz. Note that repository order is important as it
+;; present repositories: build and jazz: Note that repository order is important as it
 ;; defines search precedence.
 
 
-(jazz.define-macro (%%make-repository name directory library-root library-directory binary?)
+(jazz:define-macro (%%make-repository name directory library-root library-directory binary?)
   `(%%vector 'repository ,name ,directory ,library-root ,library-directory ,binary? #f))
 
 
-(jazz.define-macro (%%repository-name repository)
+(jazz:define-macro (%%repository-name repository)
   `(%%vector-ref ,repository 1))
 
-(jazz.define-macro (%%repository-directory repository)
+(jazz:define-macro (%%repository-directory repository)
   `(%%vector-ref ,repository 2))
 
-(jazz.define-macro (%%repository-library-root repository)
+(jazz:define-macro (%%repository-library-root repository)
   `(%%vector-ref ,repository 3))
 
-(jazz.define-macro (%%repository-library-directory repository)
+(jazz:define-macro (%%repository-library-directory repository)
   `(%%vector-ref ,repository 4))
 
-(jazz.define-macro (%%repository-binary? repository)
+(jazz:define-macro (%%repository-binary? repository)
   `(%%vector-ref ,repository 5))
 
-(jazz.define-macro (%%repository-packages-table repository)
+(jazz:define-macro (%%repository-packages-table repository)
   `(%%vector-ref ,repository 6))
 
-(jazz.define-macro (%%repository-packages-table-set! repository packages-table)
+(jazz:define-macro (%%repository-packages-table-set! repository packages-table)
   `(%%vector-set! ,repository 6 ,packages-table))
 
 
@@ -114,47 +114,47 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project)
+(jazz:define-macro (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project)
   `(%%vector 'package ,repository ,name ,parent ,library-root ,library-path ,units-root ,units-path ,install ,char-encoding ,products ,profiles ,project (%%make-table test: eq?)))
 
 
-(jazz.define-macro (%%package-repository package)
+(jazz:define-macro (%%package-repository package)
   `(%%vector-ref ,package 1))
 
-(jazz.define-macro (%%package-name package)
+(jazz:define-macro (%%package-name package)
   `(%%vector-ref ,package 2))
 
-(jazz.define-macro (%%package-parent package)
+(jazz:define-macro (%%package-parent package)
   `(%%vector-ref ,package 3))
 
-(jazz.define-macro (%%package-library-root package)
+(jazz:define-macro (%%package-library-root package)
   `(%%vector-ref ,package 4))
 
-(jazz.define-macro (%%package-library-path package)
+(jazz:define-macro (%%package-library-path package)
   `(%%vector-ref ,package 5))
 
-(jazz.define-macro (%%package-units-root package)
+(jazz:define-macro (%%package-units-root package)
   `(%%vector-ref ,package 6))
 
-(jazz.define-macro (%%package-units-path package)
+(jazz:define-macro (%%package-units-path package)
   `(%%vector-ref ,package 7))
 
-(jazz.define-macro (%%package-install package)
+(jazz:define-macro (%%package-install package)
   `(%%vector-ref ,package 8))
 
-(jazz.define-macro (%%package-char-encoding package)
+(jazz:define-macro (%%package-char-encoding package)
   `(%%vector-ref ,package 9))
 
-(jazz.define-macro (%%package-products package)
+(jazz:define-macro (%%package-products package)
   `(%%vector-ref ,package 10))
 
-(jazz.define-macro (%%package-profiles package)
+(jazz:define-macro (%%package-profiles package)
   `(%%vector-ref ,package 11))
 
-(jazz.define-macro (%%package-profiles-set! package profiles)
+(jazz:define-macro (%%package-profiles-set! package profiles)
   `(%%vector-set! ,package 11 profiles))
 
-(jazz.define-macro (%%package-project package)
+(jazz:define-macro (%%package-project package)
   `(%%vector-ref ,package 12))
 
 
@@ -166,37 +166,37 @@
 ;; A product is the runtime implementation of some user level entity that can be run and updated / built.
 
 
-(jazz.define-macro (%%make-product name title icon run test update build build-library package descriptor)
+(jazz:define-macro (%%make-product name title icon run test update build build-library package descriptor)
   `(%%vector 'product ,name ,title ,icon ,run ,test ,update ,build ,build-library ,package ,descriptor))
 
-(jazz.define-macro (%%product-name product)
+(jazz:define-macro (%%product-name product)
   `(%%vector-ref ,product 1))
 
-(jazz.define-macro (%%product-title product)
+(jazz:define-macro (%%product-title product)
   `(%%vector-ref ,product 2))
 
-(jazz.define-macro (%%product-icon product)
+(jazz:define-macro (%%product-icon product)
   `(%%vector-ref ,product 3))
 
-(jazz.define-macro (%%product-run product)
+(jazz:define-macro (%%product-run product)
   `(%%vector-ref ,product 4))
 
-(jazz.define-macro (%%product-test product)
+(jazz:define-macro (%%product-test product)
   `(%%vector-ref ,product 5))
 
-(jazz.define-macro (%%product-update product)
+(jazz:define-macro (%%product-update product)
   `(%%vector-ref ,product 6))
 
-(jazz.define-macro (%%product-build product)
+(jazz:define-macro (%%product-build product)
   `(%%vector-ref ,product 7))
 
-(jazz.define-macro (%%product-build-library product)
+(jazz:define-macro (%%product-build-library product)
   `(%%vector-ref ,product 8))
 
-(jazz.define-macro (%%product-package product)
+(jazz:define-macro (%%product-package product)
   `(%%vector-ref ,product 9))
  
-(jazz.define-macro (%%product-descriptor product)
+(jazz:define-macro (%%product-descriptor product)
   `(%%vector-ref ,product 10))
 
  
@@ -210,17 +210,17 @@
 ;; build subdir of the architecture directory to enable a cross-compilation scheme.
 
 
-(jazz.define-macro (%%make-resource package path extension)
+(jazz:define-macro (%%make-resource package path extension)
   `(%%vector 'resource ,package ,path ,extension))
 
 
-(jazz.define-macro (%%resource-package resource)
+(jazz:define-macro (%%resource-package resource)
   `(%%vector-ref ,resource 1))
 
-(jazz.define-macro (%%resource-path resource)
+(jazz:define-macro (%%resource-path resource)
   `(%%vector-ref ,resource 2))
 
-(jazz.define-macro (%%resource-extension resource)
+(jazz:define-macro (%%resource-extension resource)
   `(%%vector-ref ,resource 3))
 
 
@@ -229,13 +229,13 @@
 ;;;
 
   
-(jazz.define-macro (%%make-image-unit load-proc compile-time-hash)
+(jazz:define-macro (%%make-image-unit load-proc compile-time-hash)
   `(%%vector 'image-unit ,load-proc ,compile-time-hash))
 
-(jazz.define-macro (%%image-unit-load-proc image-unit)
+(jazz:define-macro (%%image-unit-load-proc image-unit)
   `(%%vector-ref ,image-unit 1))
 
-(jazz.define-macro (%%image-unit-compile-time-hash image-unit)
+(jazz:define-macro (%%image-unit-compile-time-hash image-unit)
   `(%%vector-ref ,image-unit 2))
 
 
@@ -244,26 +244,26 @@
 ;;;
 
 
-(jazz.define-macro (%%make-digest pathname hash time)
+(jazz:define-macro (%%make-digest pathname hash time)
   `(%%vector 'digest ,pathname ,hash ,time))
 
 
-(jazz.define-macro (%%digest-pathname digest)
+(jazz:define-macro (%%digest-pathname digest)
   `(%%vector-ref ,digest 1))
 
-(jazz.define-macro (%%digest-pathname-set! digest pathname)
+(jazz:define-macro (%%digest-pathname-set! digest pathname)
   `(%%vector-set! ,digest 1 ,pathname))
 
-(jazz.define-macro (%%digest-hash digest)
+(jazz:define-macro (%%digest-hash digest)
   `(%%vector-ref ,digest 2))
 
-(jazz.define-macro (%%digest-hash-set! digest hash)
+(jazz:define-macro (%%digest-hash-set! digest hash)
   `(%%vector-set! ,digest 2 ,hash))
 
-(jazz.define-macro (%%digest-time digest)
+(jazz:define-macro (%%digest-time digest)
   `(%%vector-ref ,digest 3))
 
-(jazz.define-macro (%%digest-time-set! digest time)
+(jazz:define-macro (%%digest-time-set! digest time)
   `(%%vector-set! ,digest 3 ,time))
 
 
@@ -272,35 +272,35 @@
 ;;;
 
 
-(jazz.define-macro (%%make-manifest name version compile-time-hash source-digests references)
+(jazz:define-macro (%%make-manifest name version compile-time-hash source-digests references)
   `(%%vector 'manifest ,name ,version ,compile-time-hash ,source-digests ,references))
 
 
-(jazz.define-macro (%%manifest-name manifest)
+(jazz:define-macro (%%manifest-name manifest)
   `(%%vector-ref ,manifest 1))
 
-(jazz.define-macro (%%manifest-version manifest)
+(jazz:define-macro (%%manifest-version manifest)
   `(%%vector-ref ,manifest 2))
 
-(jazz.define-macro (%%manifest-version-set! manifest version)
+(jazz:define-macro (%%manifest-version-set! manifest version)
   `(%%vector-set! ,manifest 2 ,version))
 
-(jazz.define-macro (%%manifest-compile-time-hash manifest)
+(jazz:define-macro (%%manifest-compile-time-hash manifest)
   `(%%vector-ref ,manifest 3))
 
-(jazz.define-macro (%%manifest-compile-time-hash-set! manifest compile-time-hash)
+(jazz:define-macro (%%manifest-compile-time-hash-set! manifest compile-time-hash)
   `(%%vector-set! ,manifest 3 ,compile-time-hash))
 
-(jazz.define-macro (%%manifest-source-digests manifest)
+(jazz:define-macro (%%manifest-source-digests manifest)
   `(%%vector-ref ,manifest 4))
 
-(jazz.define-macro (%%manifest-source-digests-set! manifest source-digests)
+(jazz:define-macro (%%manifest-source-digests-set! manifest source-digests)
   `(%%vector-set! ,manifest 4 ,source-digests))
 
-(jazz.define-macro (%%manifest-references manifest)
+(jazz:define-macro (%%manifest-references manifest)
   `(%%vector-ref ,manifest 5))
 
-(jazz.define-macro (%%manifest-references-set! manifest references)
+(jazz:define-macro (%%manifest-references-set! manifest references)
   `(%%vector-set! ,manifest 5 ,references))
 
 
@@ -309,11 +309,11 @@
 ;;;
 
 
-(jazz.define-syntax unit
+(jazz:define-syntax unit
   (lambda (form-src)
-    (jazz.expand-unit-source (%%cdr (jazz.source-code form-src)))))
+    (jazz:expand-unit-source (%%cdr (jazz:source-code form-src)))))
 
 
-(jazz.define-syntax require
+(jazz:define-syntax require
   (lambda (form-src)
-    (jazz.expand-require (%%cdr (jazz.source-code form-src))))))
+    (jazz:expand-require (%%cdr (jazz:source-code form-src))))))

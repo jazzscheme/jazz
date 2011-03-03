@@ -40,24 +40,24 @@
 
 (cond-expand
   (gambit
-    (jazz.define-macro (jazz.kernel-declares)
-      `(declare ,@(if (or jazz.debug-core? jazz.kernel-mutable-bindings?)
+    (jazz:define-macro (jazz:kernel-declares)
+      `(declare ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
                       '()
                     '((block)))
                 
-                ,@(if jazz.kernel-mutable-bindings?
+                ,@(if jazz:kernel-mutable-bindings?
                       '()
                     '((standard-bindings)
                       (extended-bindings)))
                 
                 (not inline)
                 
-                ,@(if jazz.kernel-optimize?
+                ,@(if jazz:kernel-optimize?
                        '()
                      '((not proper-tail-calls)
                        (not optimize-dead-local-variables)))
                 
-                ,@(if jazz.debug-user?
+                ,@(if jazz:debug-user?
                       '()
                     '((not safe))))))
   
@@ -66,16 +66,16 @@
 
 (cond-expand
   (gambit
-    (define (jazz.declares kind)
+    (define (jazz:declares kind)
       `((declare ;; block is only really usefull for units coded in a
                  ;; style where control remains mostly inside the unit
                  ,@(if (and (eq? kind 'unit)
-                            (eq? jazz.kernel-safety 'release)
-                            (not jazz.kernel-mutable-bindings?))
+                            (eq? jazz:kernel-safety 'release)
+                            (not jazz:kernel-mutable-bindings?))
                        '((block))
                      '())
                  
-                 ,@(if jazz.kernel-mutable-bindings?
+                 ,@(if jazz:kernel-mutable-bindings?
                        '()
                      '((standard-bindings)
                        (extended-bindings)))
@@ -90,12 +90,12 @@
                  ;; performance between a built debug and a built release
                  ;; (at the moment the difference is around 8 times due
                  ;; mainly to the safe declare)
-                 ,@(if jazz.kernel-optimize?
+                 ,@(if jazz:kernel-optimize?
                        '()
                      '((not proper-tail-calls)
                        (not optimize-dead-local-variables)))
                  
-                 ,@(if jazz.debug-user?
+                 ,@(if jazz:debug-user?
                        ;; safe and inlining primitives at the same time
                        ;; is really costly on compilation time
                        '((not inline-primitives))

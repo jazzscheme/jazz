@@ -46,17 +46,17 @@
 ;;;
 
 
-(jazz.define-setting default-profiler
+(jazz:define-setting default-profiler
   'statprof)
 
-(jazz.define-setting default-profiler-ignored-procedures
+(jazz:define-setting default-profiler-ignored-procedures
   (%%list
     ##dynamic-env-bind
     ##call-with-values
     ##thread-start-action!
     ##primordial-exception-handler-hook))
 
-(jazz.define-setting default-profiler-ignored-modules
+(jazz:define-setting default-profiler-ignored-modules
   '())
 
 
@@ -198,7 +198,7 @@
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f) (performance-frequency #f))
-  (let ((profiler (or profiler (jazz.require-service (default-profiler)))))
+  (let ((profiler (or profiler (jazz:require-service (default-profiler)))))
     (let ((depth (or depth (profiler-default-depth profiler)))
           (performance-frequency (or performance-frequency (profiler-performance-frequency))))
       (make-profile label profiler depth performance-frequency))))
@@ -221,7 +221,7 @@
 
 (define (get-profile-names)
   (let ((names '()))
-    (jazz.iterate-table *profiles*
+    (jazz:iterate-table *profiles*
       (lambda (name profile)
         (set! names (%%cons name names))))
     names))
@@ -435,17 +435,17 @@
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (let ((creator-name (jazz.procedure-name creator)))
+    (let ((creator-name (jazz:procedure-name creator)))
       (let loop ((current-cont (%%continuation-next cont)))
            (if current-cont
                (let ((current-creator (continuation-creator current-cont)))
-                 (if (%%eq? creator-name (jazz.procedure-name current-creator))
+                 (if (%%eq? creator-name (jazz:procedure-name current-creator))
                      (loop (%%continuation-next current-cont))
                    current-cont))
              #f))))
   
   (define (identify-location locat)
-    ;; copy of jazz.locat->file/line/col
+    ;; copy of jazz:locat->file/line/col
     (let ((container (and locat (%%locat-container locat))))
       (if container
           (let ((filepos (%%position->filepos (%%locat-position locat))))

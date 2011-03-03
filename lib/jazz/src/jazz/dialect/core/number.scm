@@ -45,15 +45,15 @@
 
 ;; not very efficient but have to test for now
 
-(define (jazz.fixnum->flonum n)
+(define (jazz:fixnum->flonum n)
   (if (%%fixnum? n)
       (##fixnum->flonum n)
-    (jazz.type-error n jazz.Fixnum)))
+    (jazz:type-error n jazz:Fixnum)))
 
-(define (jazz.flonum->fixnum n)
+(define (jazz:flonum->fixnum n)
   (if (%%flonum? n)
       (##flonum->fixnum n)
-    (jazz.type-error n jazz.Flonum)))
+    (jazz:type-error n jazz:Flonum)))
 
 
 ;;;
@@ -61,10 +61,10 @@
 ;;;
 
 
-(define jazz.+infinity
+(define jazz:+infinity
   +inf.0)
 
-(define jazz.-infinity
+(define jazz:-infinity
   -inf.0)
 
 
@@ -75,10 +75,10 @@
 
 (cond-expand
   (gambit
-    (define jazz.random-integer random-integer)
-    (define jazz.random-real random-real)
-    (define jazz.random-source-randomize! random-source-randomize!)
-    (define jazz.random-source-pseudo-randomize! random-source-pseudo-randomize!)
-    (define jazz.default-random-source default-random-source))
+    (define jazz:random-integer random-integer)
+    (define jazz:random-real random-real)
+    (define jazz:random-source-randomize! random-source-randomize!)
+    (define jazz:random-source-pseudo-randomize! random-source-pseudo-randomize!)
+    (define jazz:default-random-source default-random-source))
   
   (else)))

@@ -35,22 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz.Macros
+(define jazz:Macros
   (make-table test: eq?))
 
 
-(define (jazz.register-macro name macro)
-  (table-set! jazz.Macros name macro))
+(define (jazz:register-macro name macro)
+  (table-set! jazz:Macros name macro))
 
 
-(define (jazz.get-macro name)
-  (table-ref jazz.Macros name #f))
+(define (jazz:get-macro name)
+  (table-ref jazz:Macros name #f))
 
 
-(define (jazz.need-macro name)
-  (or (jazz.get-macro name)
-      (jazz.error "Unable to find macro: {s}" name)))
+(define (jazz:need-macro name)
+  (or (jazz:get-macro name)
+      (jazz:error "Unable to find macro: {s}" name)))
 
 
-(define (jazz.expand-macro form)
-  (apply (jazz.need-macro (car form)) (cdr form)))
+(define (jazz:expand-macro form)
+  (apply (jazz:need-macro (car form)) (cdr form)))

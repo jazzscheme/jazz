@@ -43,8 +43,8 @@
 ;;;
 
 
-(define-macro (jazz.install-features)
-  (let ((features `(jazz Jazz JAZZ jazzscheme JazzScheme JAZZSCHEME ,jazz.kernel-system ,jazz.kernel-platform ,jazz.kernel-windowing ,jazz.kernel-safety)))
+(define-macro (jazz:install-features)
+  (let ((features `(jazz Jazz JAZZ jazzscheme JazzScheme JAZZSCHEME ,jazz:kernel-system ,jazz:kernel-platform ,jazz:kernel-windowing ,jazz:kernel-safety)))
     (for-each (lambda (feature)
                 (if feature
                     (set! ##cond-expand-features (append ##cond-expand-features (list feature)))))
@@ -55,7 +55,7 @@
                ',features)))
 
 
-(jazz.install-features)
+(jazz:install-features)
 
 
 ;;;
@@ -63,8 +63,8 @@
 ;;;
 
 
-(define jazz.debug-core?
-  (eq? jazz.kernel-safety 'core))
+(define jazz:debug-core?
+  (eq? jazz:kernel-safety 'core))
 
-(define jazz.debug-user?
-  (not (eq? jazz.kernel-safety 'release))))
+(define jazz:debug-user?
+  (not (eq? jazz:kernel-safety 'release))))

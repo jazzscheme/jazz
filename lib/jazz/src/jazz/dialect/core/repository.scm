@@ -43,22 +43,22 @@
 ;;;
 
 
-(define (jazz.repository-name repository)
+(define (jazz:repository-name repository)
   (%%repository-name repository))
 
-(define (jazz.repository-title repository)
+(define (jazz:repository-title repository)
   (%%symbol->string (%%repository-name repository)))
 
-(define (jazz.repository-directory repository)
+(define (jazz:repository-directory repository)
   (%%repository-directory repository))
 
-(define (jazz.repository-library-root repository)
+(define (jazz:repository-library-root repository)
   (%%repository-library-root repository))
 
-(define (jazz.repository-library-directory repository)
+(define (jazz:repository-library-directory repository)
   (%%repository-library-directory repository))
 
-(define (jazz.repository-binary? repository)
+(define (jazz:repository-binary? repository)
   (%%repository-binary? repository))
 
 
@@ -67,23 +67,23 @@
 ;;;
 
 
-(define (jazz.package-repository package)
+(define (jazz:package-repository package)
   (%%package-repository package))
 
-(define (jazz.package-name package)
+(define (jazz:package-name package)
   (%%package-name package))
 
-(define (jazz.package-directory package)
-  (jazz.package-root-pathname package ""))
+(define (jazz:package-directory package)
+  (jazz:package-root-pathname package ""))
 
-(define (jazz.package-products package)
+(define (jazz:package-products package)
   (%%package-products package))
 
-(define (jazz.package-profiles package)
+(define (jazz:package-profiles package)
   (%%package-profiles package))
 
-(define (jazz.package-profiles-set! package profiles)
+(define (jazz:package-profiles-set! package profiles)
   (%%package-profiles-set! package profiles))
 
-(define (jazz.package-project package)
+(define (jazz:package-project package)
   (%%package-project package)))

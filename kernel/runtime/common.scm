@@ -38,7 +38,7 @@
 (block kernel.common
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
 
 
 ;;;
@@ -48,13 +48,13 @@
 
 (cond-expand
   (gambit
-    (define (jazz.load pathname . rest)
+    (define (jazz:load pathname . rest)
       (let ((quiet? (if (%%null? rest) #f (%%car rest))))
         (%%load pathname (lambda rest #f) #f #t quiet?))
       (void)))
   
   (else
-    (define (jazz.load pathname . rest)
+    (define (jazz:load pathname . rest)
       (load pathname))))
 
 
@@ -63,57 +63,57 @@
 ;;;
 
 
-(jazz.define-variable jazz.debugger
+(jazz:define-variable jazz:debugger
   #f)
 
-(jazz.define-variable jazz.compile-options
-  `(,@(if jazz.kernel-debug-environments? '(debug-environments) '())
-    ,@(if jazz.kernel-debug-location? '(debug-location) '())
-    ,@(if jazz.kernel-debug-source? '(debug-source) '())))
+(jazz:define-variable jazz:compile-options
+  `(,@(if jazz:kernel-debug-environments? '(debug-environments) '())
+    ,@(if jazz:kernel-debug-location? '(debug-location) '())
+    ,@(if jazz:kernel-debug-source? '(debug-source) '())))
 
-(jazz.define-variable jazz.link
+(jazz:define-variable jazz:link
   #f)
 
-(jazz.define-variable jazz.link-options
+(jazz:define-variable jazz:link-options
   #f)
 
-(jazz.define-variable jazz.jobs
+(jazz:define-variable jazz:jobs
   #f)
 
-(jazz.define-variable jazz.warnings
+(jazz:define-variable jazz:warnings
   #f)
 
-(define (jazz.link-objects?)
-  (%%memq 'objects jazz.link-options))
+(define (jazz:link-objects?)
+  (%%memq 'objects jazz:link-options))
 
-(define (jazz.link-libraries?)
-  (%%memq 'libraries jazz.link-options))
+(define (jazz:link-libraries?)
+  (%%memq 'libraries jazz:link-options))
 
-(define jazz.jazzini
+(define jazz:jazzini
   ".jazzini")
 
-(define jazz.buildini
+(define jazz:buildini
   ".buildini")
 
 
-(define (jazz.load-configuration-files filename install?)
+(define (jazz:load-configuration-files filename install?)
   (define (load-if-exists file)
     (if (file-exists? file)
-        (jazz.load file)))
+        (jazz:load file)))
   
-  (let ((global (%%string-append jazz.jazz-settings-directory filename))
+  (let ((global (%%string-append jazz:jazz-settings-directory filename))
         (local filename))
     (if install?
-        (load-if-exists (jazz.install-path filename)))
+        (load-if-exists (jazz:install-path filename)))
     (load-if-exists global)
     (load-if-exists local)))
 
 
-(define (jazz.process-jazzini install?)
-  (jazz.load-configuration-files jazz.jazzini install?))
+(define (jazz:process-jazzini install?)
+  (jazz:load-configuration-files jazz:jazzini install?))
 
-(define (jazz.process-buildini install?)
-  (jazz.load-configuration-files jazz.buildini install?))
+(define (jazz:process-buildini install?)
+  (jazz:load-configuration-files jazz:buildini install?))
 
 
 ;;;
@@ -121,15 +121,15 @@
 ;;;
 
 
-(jazz.define-variable jazz.manifest-needs-rebuild?
+(jazz:define-variable jazz:manifest-needs-rebuild?
   (lambda rest
     #f))
 
-(jazz.define-variable jazz.get-changed-units #f)
-(jazz.define-variable jazz.push-changed-units #f)
-(jazz.define-variable jazz.reset-changed-units #f)
-(jazz.define-variable jazz.build-image #f)
-(jazz.define-variable jazz.build-library #f)
+(jazz:define-variable jazz:get-changed-units #f)
+(jazz:define-variable jazz:push-changed-units #f)
+(jazz:define-variable jazz:reset-changed-units #f)
+(jazz:define-variable jazz:build-image #f)
+(jazz:define-variable jazz:build-library #f)
 
 
 ;;;
@@ -137,18 +137,18 @@
 ;;;
 
 
-(define (jazz.custom-compile/build unit-specs #!key (unit #f) (pre-build #f) (force? #f))
-  (jazz.load-unit 'core.unit.builder)
+(define (jazz:custom-compile/build unit-specs #!key (unit #f) (pre-build #f) (force? #f))
+  (jazz:load-unit 'core.unit.builder)
   (if unit
       (let ((compile-args (assq unit unit-specs)))
         (if compile-args
-            (apply jazz.compile-unit `(,@compile-args force?: ,force?))
-          (jazz.error "Custom compile failed")))
+            (apply jazz:compile-unit `(,@compile-args force?: ,force?))
+          (jazz:error "Custom compile failed")))
     (begin
       (if pre-build
           (pre-build))
       (for-each (lambda (compile-args)
-                  (apply jazz.compile-unit `(,@compile-args force?: ,force?)))
+                  (apply jazz:compile-unit `(,@compile-args force?: ,force?)))
                 unit-specs))))
 
 
@@ -157,8 +157,8 @@
 ;;;
 
 
-(define jazz.build-feedback
-  jazz.feedback)
+(define jazz:build-feedback
+  jazz:feedback)
 
 
 ;;;
@@ -166,13 +166,13 @@
 ;;;
 
 
-(define (jazz.listify obj)
+(define (jazz:listify obj)
   (if (or (%%null? obj) (%%pair? obj))
       obj
     (%%list obj)))
 
 
-(define (jazz.collect-if predicate lst)
+(define (jazz:collect-if predicate lst)
   (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
@@ -183,7 +183,7 @@
       '())))
 
 
-(define (jazz.collect test lst)
+(define (jazz:collect test lst)
   (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
@@ -194,7 +194,7 @@
       '())))
 
 
-(define (jazz.remove item lst)
+(define (jazz:remove item lst)
   (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%not (%%null? scan))
@@ -210,7 +210,7 @@
 ;;;
 
 
-(define (jazz.string-find str c #!optional (start 0))
+(define (jazz:string-find str c #!optional (start 0))
   (declare (proper-tail-calls))
   (let ((len (%%string-length str)))
     (let iter ((n start))
@@ -222,7 +222,7 @@
              (iter (%%fx+ n 1)))))))
 
 
-(define (jazz.string-find-reversed str c)
+(define (jazz:string-find-reversed str c)
   (declare (proper-tail-calls))
   (let iter ((n (%%fx- (%%string-length str) 1)))
     (cond ((%%fx< n 0)
@@ -233,28 +233,28 @@
            (iter (%%fx- n 1))))))
 
 
-(define (jazz.string-starts-with? str target)
+(define (jazz:string-starts-with? str target)
   (let ((sl (%%string-length str))
         (tl (%%string-length target)))
     (and (%%fx>= sl tl)
          (%%string=? (%%substring str 0 tl) target))))
 
 
-(define (jazz.string-starts-with-ci? str target)
+(define (jazz:string-starts-with-ci? str target)
   (let ((sl (%%string-length str))
         (tl (%%string-length target)))
     (and (%%fx>= sl tl)
          (%%string-ci=? (%%substring str 0 tl) target))))
 
 
-(define (jazz.string-ends-with? str target)
+(define (jazz:string-ends-with? str target)
   (let ((sl (%%string-length str))
         (tl (%%string-length target)))
     (and (%%fx>= sl tl)
          (%%string=? (%%substring str (%%fx- sl tl) sl) target))))
 
 
-(define (jazz.string-numeric? str)
+(define (jazz:string-numeric? str)
   (let iter ((n (%%fx- (%%string-length str) 1)))
        (if (%%fx>= n 0)
            (let ((c (%%string-ref str n)))
@@ -264,7 +264,7 @@
          #t)))
 
 
-(define (jazz.split-string str separator)
+(define (jazz:split-string str separator)
   (declare (proper-tail-calls))
   (let ((lst '())
         (end (%%string-length str)))
@@ -279,7 +279,7 @@
         (%%cons (%%substring str 0 end) lst))))
 
 
-(define (jazz.join-strings strings separator)
+(define (jazz:join-strings strings separator)
   (let ((output (open-output-string)))
     (display (%%car strings) output)
     (for-each (lambda (string)
@@ -298,50 +298,50 @@
   (chicken
     (require 'lolevel)
 
-    (define (jazz.global-bound? symbol)
+    (define (jazz:global-bound? symbol)
       (global-bound? symbol))
     
-    (define (jazz.global-ref symbol)
+    (define (jazz:global-ref symbol)
       (global-ref symbol)))
   
   (gambit
-    (define (jazz.global-bound? symbol)
+    (define (jazz:global-bound? symbol)
       (and (%%global-var? symbol)
            (%%not (%%unbound? (%%global-var-ref symbol)))))
     
-    (define (jazz.global-ref symbol)
+    (define (jazz:global-ref symbol)
       (%%global-var-ref symbol))
     
-    (define (jazz.global-set! symbol value)
+    (define (jazz:global-set! symbol value)
       (%%global-var-set! symbol value)))
   
   (else))
 
 
-(define (jazz.break-identifier identifier)
+(define (jazz:break-identifier identifier)
   (let ((str (%%symbol->string identifier)))
-    (let ((n (jazz.string-find-reversed str #\.)))
+    (let ((n (jazz:string-find-reversed str #\.)))
       (if (%%not n)
           (values #f identifier)
         (values (%%string->symbol (%%substring str 0 n))
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
-(define (jazz.break-reference identifier)
+(define (jazz:break-reference identifier)
   (let ((str (%%symbol->string identifier)))
-    (let ((n (jazz.string-find-reversed str #\:)))
+    (let ((n (jazz:string-find-reversed str #\:)))
       (if (%%not n)
           (values #f identifier)
         (values (%%string->symbol (%%substring str 0 n))
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
-(define (jazz.compose-identifier . rest)
-  (%%string->symbol (jazz.join-strings (map symbol->string rest) ".")))
+(define (jazz:compose-identifier . rest)
+  (%%string->symbol (jazz:join-strings (map symbol->string rest) ".")))
 
 
-(define (jazz.compose-reference . rest)
-  (%%string->symbol (jazz.join-strings (map symbol->string rest) ":")))
+(define (jazz:compose-reference . rest)
+  (%%string->symbol (jazz:join-strings (map symbol->string rest) ":")))
 
 
 ;;;
@@ -349,11 +349,11 @@
 ;;;
 
 
-(define (jazz.iterate-table table proc)
+(define (jazz:iterate-table table proc)
   (%%table-for-each proc table))
 
 
-(define (jazz.iterate-table-safe table proc)
+(define (jazz:iterate-table-safe table proc)
   (for-each (lambda (pair)
               (proc (%%car pair) (%%cdr pair)))
             (%%table->list table)))
@@ -364,51 +364,51 @@
 ;;;
 
 
-(jazz.define-variable jazz.executable-directory
+(jazz:define-variable jazz:executable-directory
   #f)
 
 
-(define (jazz.pathname-name pathname)
-  (let ((pos (jazz.string-find-reversed pathname #\/))
+(define (jazz:pathname-name pathname)
+  (let ((pos (jazz:string-find-reversed pathname #\/))
         (len (%%string-length pathname)))
     (cond ((%%not pos)
            pathname)
           ((%%fx= pos (%%fx- len 1))
-           (jazz.pathname-name (%%substring pathname 0 pos)))
+           (jazz:pathname-name (%%substring pathname 0 pos)))
           (else
            (%%substring pathname (%%fx+ pos 1) len)))))
 
 
-(define (jazz.pathname-base pathname)
-  (let ((name (jazz.pathname-name pathname)))
-    (let ((pos (jazz.string-find-reversed name #\.)))
+(define (jazz:pathname-base pathname)
+  (let ((name (jazz:pathname-name pathname)))
+    (let ((pos (jazz:string-find-reversed name #\.)))
       (if pos
           (%%substring name 0 pos)
         name))))
 
 
-(define (jazz.pathname-extension pathname)
-  (let ((name (jazz.pathname-name pathname)))
-    (let ((pos (jazz.string-find-reversed name #\.)))
+(define (jazz:pathname-extension pathname)
+  (let ((name (jazz:pathname-name pathname)))
+    (let ((pos (jazz:string-find-reversed name #\.)))
       (if pos
           (%%substring name (%%fx+ pos 1) (%%string-length name))
         #f))))
 
 
-(define (jazz.extension? extension target)
+(define (jazz:extension? extension target)
   (or (and (%%not extension) (%%not target))
       (and extension
            target
            (%%string=? extension target))))
 
 
-(define (jazz.numeric-extension? extension prefix)
+(define (jazz:numeric-extension? extension prefix)
   (and extension
-       (jazz.string-starts-with? extension prefix)
-       (jazz.string-numeric? (%%substring extension (%%string-length prefix) (%%string-length extension)))))
+       (jazz:string-starts-with? extension prefix)
+       (jazz:string-numeric? (%%substring extension (%%string-length prefix) (%%string-length extension)))))
 
 
-(define (jazz.executable-extension platform)
+(define (jazz:executable-extension platform)
   (case platform
     ((windows)
      "exe")
@@ -416,25 +416,25 @@
      #f)))
 
 
-(define (jazz.pathname-dir pathname)
-  (let ((pos (jazz.string-find-reversed pathname #\/)))
+(define (jazz:pathname-dir pathname)
+  (let ((pos (jazz:string-find-reversed pathname #\/)))
     (if (%%not pos)
         #f
       (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
-(define (jazz.file-modification-time pathname)
+(define (jazz:file-modification-time pathname)
   (time->seconds (file-last-modification-time pathname)))
 
 
-(define (jazz.add-extension filename extension)
+(define (jazz:add-extension filename extension)
   (if (%%not extension)
       filename
     (%%string-append filename "." extension)))
 
 
-(define (jazz.copy-file src dst #!key (feedback #f))
-  (if (jazz.file-needs-update? src dst)
+(define (jazz:copy-file src dst #!key (feedback #f))
+  (if (jazz:file-needs-update? src dst)
       (begin
         (if feedback
             (feedback "; copying {a}..." src))
@@ -443,7 +443,7 @@
         (copy-file src dst))))
 
 
-(define (jazz.copy-files src dst #!key (feedback #f))
+(define (jazz:copy-files src dst #!key (feedback #f))
   (if (not (file-exists? dst))
       (begin
         (if feedback
@@ -454,20 +454,20 @@
                     (dst-pathname (string-append dst "/" file)))
                 (case (file-info-type (file-info src-pathname))
                   ((regular)
-                   (jazz.copy-file src-pathname dst-pathname feedback: #f)))))
+                   (jazz:copy-file src-pathname dst-pathname feedback: #f)))))
             (directory-files src)))
 
 
-(define (jazz.file-needs-update? src dst)
+(define (jazz:file-needs-update? src dst)
   (or (%%not (file-exists? dst))
-      (> (jazz.file-modification-time src)
-         (jazz.file-modification-time dst))))
+      (> (jazz:file-modification-time src)
+         (jazz:file-modification-time dst))))
 
 
-(define (jazz.relativise-directory basedir rootdir targdir)
-  (let ((targdir (jazz.pathname-normalize targdir))
-        (basedir (jazz.pathname-normalize basedir))
-        (rootdir (jazz.pathname-normalize rootdir)))
+(define (jazz:relativise-directory basedir rootdir targdir)
+  (let ((targdir (jazz:pathname-normalize targdir))
+        (basedir (jazz:pathname-normalize basedir))
+        (rootdir (jazz:pathname-normalize rootdir)))
     (let ((targlen (%%string-length targdir))
           (baselen (%%string-length basedir))
           (rootlen (%%string-length rootdir)))
@@ -487,14 +487,14 @@
         targdir))))
 
 
-(define (jazz.absolutize-directory basedir reldir)
-  (if (or (jazz.string-starts-with? reldir "./")
-          (jazz.string-starts-with? reldir "../"))
-      (jazz.pathname-normalize (%%string-append basedir reldir) #f)
-    (jazz.pathname-normalize reldir #f)))
+(define (jazz:absolutize-directory basedir reldir)
+  (if (or (jazz:string-starts-with? reldir "./")
+          (jazz:string-starts-with? reldir "../"))
+      (jazz:pathname-normalize (%%string-append basedir reldir) #f)
+    (jazz:pathname-normalize reldir #f)))
 
 
-(define (jazz.quote-pathname pathname #!optional (platform jazz.kernel-platform))
+(define (jazz:quote-pathname pathname #!optional (platform jazz:kernel-platform))
   (case platform
     ((windows)
      (string-append "\"" pathname "\""))
@@ -503,13 +503,13 @@
      pathname)))
 
 
-(define (jazz.quote-jazz-pathname suffix)
-  (jazz.quote-pathname (path-expand (string-append jazz.kernel-source suffix))))
+(define (jazz:quote-jazz-pathname suffix)
+  (jazz:quote-pathname (path-expand (string-append jazz:kernel-source suffix))))
 
 
 (cond-expand
   (gambit
-    (define jazz.file-exists?
+    (define jazz:file-exists?
       file-exists?))
   
   (else))
@@ -520,8 +520,8 @@
 ;;;
 
 
-(define (jazz.updated-digest-source? digest src-filepath)
-  (let ((time (jazz.file-modification-time src-filepath)))
+(define (jazz:updated-digest-source? digest src-filepath)
+  (let ((time (jazz:file-modification-time src-filepath)))
     (if (= time (%%digest-time digest))
         #f
       (begin
@@ -535,15 +535,15 @@
 ;;;
 
 
-(define jazz.Manifest-Extension
+(define jazz:Manifest-Extension
   "mnf")
 
-(define jazz.Digest-Extension
+(define jazz:Digest-Extension
   "dgs")
 
 
-(define (jazz.load-source-digests digest-filepath)
-  (if (jazz.file-exists? digest-filepath)
+(define (jazz:load-source-digests digest-filepath)
+  (if (jazz:file-exists? digest-filepath)
       (call-with-input-file (%%list path: digest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
           (let ((digest-forms (read input)))
@@ -556,8 +556,8 @@
     '()))
 
 
-(define (jazz.load-manifest digest-filepath manifest-filepath)
-  (if (jazz.file-exists? manifest-filepath)
+(define (jazz:load-manifest digest-filepath manifest-filepath)
+  (if (jazz:file-exists? manifest-filepath)
       (call-with-input-file (%%list path: manifest-filepath eol-encoding: 'cr-lf)
         (lambda (input)
           (let ((form (read input)))
@@ -568,18 +568,18 @@
               (let (;; test is for backward compatibility and could be removed in the future
                     (version (if version-form (%%cadr version-form) #f))
                     (compile-time-hash (%%cadr digest-form))
-                    (source-digests (jazz.load-source-digests digest-filepath))
+                    (source-digests (jazz:load-source-digests digest-filepath))
                     (references (if references-form (%%cdr references-form) #f)))
                 (%%make-manifest name version compile-time-hash source-digests references))))))
     #f))
 
 
-(define (jazz.save-manifest filepath manifest)
+(define (jazz:save-manifest filepath manifest)
   (let ((name (%%manifest-name manifest))
         (version (%%manifest-version manifest))
         (references (%%manifest-references manifest)))
-    (jazz.create-directories (jazz.pathname-dir filepath))
-    (call-with-output-file (list path: filepath eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+    (jazz:create-directories (jazz:pathname-dir filepath))
+    (call-with-output-file (list path: filepath eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
       (lambda (output)
         (display "(manifest " output)
         (display name output)
@@ -618,21 +618,21 @@
         (filter proc (%%cdr lst))))))
 
 
-(define (jazz.save-digest filepath manifest)
+(define (jazz:save-digest filepath manifest)
   (define (delete-digest-file)
     (if (file-exists? filepath)
         (delete-file filepath)))
   
   (define (save-digest digests)
-    (jazz.create-directories (jazz.pathname-dir filepath))
-    (call-with-output-file (list path: filepath eol-encoding: (jazz.platform-eol-encoding jazz.kernel-platform))
+    (jazz:create-directories (jazz:pathname-dir filepath))
+    (call-with-output-file (list path: filepath eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
       (lambda (output)
         (display "(digest" output)
         (newline output)
         (for-each (lambda (digest)
                     (newline output)
                     (display "  (file " output)
-                    (write (jazz.pathname-normalize (%%digest-pathname digest)) output)
+                    (write (jazz:pathname-normalize (%%digest-pathname digest)) output)
                     (display " " output)
                     (write (%%digest-hash digest) output)
                     (display " " output)
@@ -650,54 +650,54 @@
       (save-digest existing-files-digests))))
 
 
-(define (jazz.find-source-digest src-pathname manifest)
+(define (jazz:find-source-digest src-pathname manifest)
   (define (find-digest)
-    (let ((pathname (jazz.pathname-normalize src-pathname)))
+    (let ((pathname (jazz:pathname-normalize src-pathname)))
       (let iter ((digests (%%manifest-source-digests manifest)))
            (if (%%pair? digests)
                (let ((digest (%%car digests)))
-                 (if (jazz.path=? pathname (%%digest-pathname digest))
+                 (if (jazz:path=? pathname (%%digest-pathname digest))
                      digest
                    (iter (%%cdr digests))))
              #f))))
   
   (define (new-digest)
-    (let ((digest (%%make-digest (jazz.pathname-normalize src-pathname) "" 0)))
+    (let ((digest (%%make-digest (jazz:pathname-normalize src-pathname) "" 0)))
       (%%manifest-source-digests-set! manifest (%%cons digest (%%manifest-source-digests manifest)))
       digest))
   
   (or (find-digest) (new-digest)))
 
 
-(define (jazz.manifest-uptodate? src-pathname manifest)
-  (let ((digest (jazz.find-source-digest (jazz.pathname-normalize src-pathname) manifest)))
+(define (jazz:manifest-uptodate? src-pathname manifest)
+  (let ((digest (jazz:find-source-digest (jazz:pathname-normalize src-pathname) manifest)))
     (and (%%string=? (%%digest-hash digest) (%%manifest-compile-time-hash manifest))
          digest)))
 
 
-(define (jazz.load/create-manifest name digest-filepath manifest-filepath)
-  (or (jazz.load-manifest digest-filepath manifest-filepath)
-      (%%make-manifest name jazz.kernel-version "" '() #f)))
+(define (jazz:load/create-manifest name digest-filepath manifest-filepath)
+  (or (jazz:load-manifest digest-filepath manifest-filepath)
+      (%%make-manifest name jazz:kernel-version "" '() #f)))
 
 
-(define (jazz.load-updated-manifest name digest-filepath manifest-filepath src-filepath)
-  (let ((manifest (jazz.load/create-manifest name digest-filepath manifest-filepath)))
-    (let ((digest (and src-filepath (jazz.find-source-digest src-filepath manifest))))
+(define (jazz:load-updated-manifest name digest-filepath manifest-filepath src-filepath)
+  (let ((manifest (jazz:load/create-manifest name digest-filepath manifest-filepath)))
+    (let ((digest (and src-filepath (jazz:find-source-digest src-filepath manifest))))
       (if (and digest
-               (jazz.updated-digest-source? digest src-filepath))
-          (jazz.save-digest digest-filepath manifest))
+               (jazz:updated-digest-source? digest src-filepath))
+          (jazz:save-digest digest-filepath manifest))
       manifest)))
 
 
-(define (jazz.update-manifest-compile-time name digest-filepath manifest-filepath src-filepath updated-references)
-  (let ((manifest (jazz.load/create-manifest name digest-filepath manifest-filepath)))
-    (%%manifest-version-set! manifest jazz.kernel-version)
-    (let ((digest (jazz.find-source-digest src-filepath manifest)))
-      (jazz.updated-digest-source? digest src-filepath)
+(define (jazz:update-manifest-compile-time name digest-filepath manifest-filepath src-filepath updated-references)
+  (let ((manifest (jazz:load/create-manifest name digest-filepath manifest-filepath)))
+    (%%manifest-version-set! manifest jazz:kernel-version)
+    (let ((digest (jazz:find-source-digest src-filepath manifest)))
+      (jazz:updated-digest-source? digest src-filepath)
       (if updated-references
           (%%manifest-references-set! manifest updated-references))
       (%%manifest-compile-time-hash-set! manifest (%%digest-hash digest))
-      (jazz.save-manifest manifest-filepath manifest))))
+      (jazz:save-manifest manifest-filepath manifest))))
 
 
 ;;;
@@ -705,5 +705,5 @@
 ;;;
 
 
-(define jazz.Library-Extension "l")
-(define jazz.Library-Manifest-Extension "lmf"))
+(define jazz:Library-Extension "l")
+(define jazz:Library-Manifest-Extension "lmf"))

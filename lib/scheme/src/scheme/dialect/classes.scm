@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-define-declaration
+(jazz:define-class jazz:Define-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-declaration
   ((signature %%get-define-declaration-signature ())
    (value     %%get-define-declaration-value     %%set-define-declaration-value)))
 
@@ -53,7 +53,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Special-Form-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-define-special-form-declaration
+(jazz:define-class jazz:Define-Special-Form-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-special-form-declaration
   ((signature %%get-define-special-form-signature %%set-define-special-form-signature)
    (body      %%get-define-special-form-body      %%set-define-special-form-body)))
 
@@ -63,7 +63,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-define-macro-declaration
+(jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-macro-declaration
   ((signature %%get-define-macro-signature %%set-define-macro-signature)
    (body      %%get-define-macro-body      %%set-define-macro-body)))
 
@@ -73,7 +73,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Dialect jazz.Dialect (bindings) jazz.Object-Class jazz.allocate-scheme-dialect
+(jazz:define-class jazz:Scheme-Dialect jazz:Dialect (bindings) jazz:Object-Class jazz:allocate-scheme-dialect
   ())
 
 
@@ -82,5 +82,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-scheme-walker
+(jazz:define-class jazz:Scheme-Walker jazz:Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-scheme-walker
   ()))

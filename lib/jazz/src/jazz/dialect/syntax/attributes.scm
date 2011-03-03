@@ -41,8 +41,8 @@
 (import (jazz.dialect.kernel))
 
 
-(native private jazz.getf)
-(native private jazz.system-format)
+(native private jazz:getf)
+(native private jazz:system-format)
 
 
 ; @macro

@@ -45,20 +45,20 @@
 
 (cond-expand
   (gambit
-    (define (jazz.make-jazz-readtable)
+    (define (jazz:make-jazz-readtable)
       (let ((readtable (readtable-max-unescaped-char-set (%%readtable-copy ##main-readtable) #\U0010ffff)))
-        (jazz.jazzify-readtable! readtable)
+        (jazz:jazzify-readtable! readtable)
         readtable))
     
     
-    (define (jazz.jazzify-readtable! readtable)
-      (jazz.readtable-named-char-table-set! readtable (%%append (jazz.readtable-named-char-table readtable) jazz.named-chars))
-      (%%readtable-char-class-set! readtable #\{ #t jazz.read-literal)
-      (%%readtable-char-class-set! readtable #\@ #t jazz.read-comment)
-      (%%readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
+    (define (jazz:jazzify-readtable! readtable)
+      (jazz:readtable-named-char-table-set! readtable (%%append (jazz:readtable-named-char-table readtable) jazz:named-chars))
+      (%%readtable-char-class-set! readtable #\{ #t jazz:read-literal)
+      (%%readtable-char-class-set! readtable #\@ #t jazz:read-comment)
+      (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string))
     
     
-    (define jazz.named-chars
+    (define jazz:named-chars
       '(("nul"                  . #\x00)
         ("home"                 . #\x01)
         ("enter"                . #\x03)
@@ -106,51 +106,51 @@
         ("copyright"            . #\xA9)))
     
     
-    (define jazz.in-expression-comment?
+    (define jazz:in-expression-comment?
       (make-parameter #f))
     
     
-    (define jazz.read-literal-hook
+    (define jazz:read-literal-hook
       (make-parameter #f))
     
     
-    (define (jazz.read-literal re c)
-      (let ((port (jazz.readenv-port re))
+    (define (jazz:read-literal re c)
+      (let ((port (jazz:readenv-port re))
             (start-pos (%%readenv-current-filepos re)))
         (read-char port)
         (if (%%eqv? (peek-char port) #\@)
-            (jazz.error "Trying to read an unreadable literal")
+            (jazz:error "Trying to read an unreadable literal")
           (let ((lst (%%build-list re #t start-pos #\})))
-            (jazz.readenv-wrap re
+            (jazz:readenv-wrap re
               (cond ;; do not read
-                    ((or (%%not (jazz.read-literals?)) (jazz.in-expression-comment?))
+                    ((or (%%not (jazz:read-literals?)) (jazz:in-expression-comment?))
                      #f)
                     ;; empty literal
                     ((%%null? lst)
                      (%%unspecified))
                     ;; walk
-                    ((jazz.walk-for)
-                     (jazz.new-literal (%%car lst) (%%cdr lst)))
+                    ((jazz:walk-for)
+                     (jazz:new-literal (%%car lst) (%%cdr lst)))
                     ;; read
                     (else
                      (let ((name (%%car lst))
                            (arguments (%%cdr lst))
-                           (hook (jazz.read-literal-hook)))
+                           (hook (jazz:read-literal-hook)))
                        (or (and hook (hook name arguments))
-                           (jazz.construct-literal name arguments))))))))))
+                           (jazz:construct-literal name arguments))))))))))
     
     
-    (define (jazz.read-comment re c)
-      (let ((port (jazz.readenv-port re)))
-        (parameterize ((jazz.in-expression-comment? #t))
+    (define (jazz:read-comment re c)
+      (let ((port (jazz:readenv-port re)))
+        (parameterize ((jazz:in-expression-comment? #t))
           (read-char port)
           (read port)   ; comment name
           (read port))  ; commented expr
         (%%read-datum-or-label-or-none-or-dot re)))
     
     
-    (define (jazz.read-delimited-string re next start-pos)
-      (let ((port (jazz.readenv-port re)))
+    (define (jazz:read-delimited-string re next start-pos)
+      (let ((port (jazz:readenv-port re)))
         (read-char port)
         (let ((output (open-output-string)))
           (let iter ()
@@ -172,24 +172,24 @@
                     ((and (%%eqv? c #\")
                           (%%eqv? (peek-char port) #\#))
                      (read-char port)
-                     (jazz.readenv-wrap re (get-output-string output)))
+                     (jazz:readenv-wrap re (get-output-string output)))
                     (else
                      (write-char c output)
                      (iter))))))))
     
     
-    (define jazz.jazz-readtable
-      (jazz.make-jazz-readtable))
+    (define jazz:jazz-readtable
+      (jazz:make-jazz-readtable))
     
     
-    (define (jazz.with-jazz-readtable thunk)
-      (parameterize ((current-readtable jazz.jazz-readtable))
+    (define (jazz:with-jazz-readtable thunk)
+      (parameterize ((current-readtable jazz:jazz-readtable))
         (thunk)))
     
     
-    (define (jazz.char-symbol char)
-      (let ((table (jazz.readtable-named-char-table jazz.jazz-readtable)))
-        (let ((res (jazz.rassq char table)))
+    (define (jazz:char-symbol char)
+      (let ((table (jazz:readtable-named-char-table jazz:jazz-readtable)))
+        (let ((res (jazz:rassq char table)))
           (and res (%%car res))))))
   
   
@@ -203,18 +203,18 @@
 
 (cond-expand
   (gambit
-    (define (jazz.eof-object)
+    (define (jazz:eof-object)
       #!eof)
     
-    (define jazz.read-u8 read-u8)
-    (define jazz.write-u8 write-u8)
-    (define jazz.read-subu8vector read-subu8vector)
-    (define jazz.write-subu8vector write-subu8vector)
+    (define jazz:read-u8 read-u8)
+    (define jazz:write-u8 write-u8)
+    (define jazz:read-subu8vector read-subu8vector)
+    (define jazz:write-subu8vector write-subu8vector)
     
-    (define jazz.read-line
+    (define jazz:read-line
       read-line)
     
-    (define (jazz.read-proper-line port)
+    (define (jazz:read-proper-line port)
       (let ((line (read-line port #\newline #t)))
         (if (eof-object? line)
             (values #f #f)
@@ -223,42 +223,42 @@
                 (values (%%string-shrink! line (%%fx- len 1)) #t)
               (values line #f))))))
     
-    (define jazz.read-all
+    (define jazz:read-all
       read-all)
     
-    (define (jazz.with-readtable readtable thunk)
+    (define (jazz:with-readtable readtable thunk)
       (parameterize ((current-readtable readtable))
         (thunk))))
   
   (else))
 
 
-(define (jazz.skip-whitespace port)
+(define (jazz:skip-whitespace port)
   (%%while (char-whitespace? (peek-char port))
     (read-char port)))
 
 
-(define (jazz.read-delimited port delimiter)
-  (let ((queue (jazz.new-queue)))
-    (jazz.skip-whitespace port)
+(define (jazz:read-delimited port delimiter)
+  (let ((queue (jazz:new-queue)))
+    (jazz:skip-whitespace port)
     (%%while (%%not (%%eqv? (peek-char port) delimiter))
-      (jazz.enqueue queue (read port))
-      (jazz.skip-whitespace port))
+      (jazz:enqueue queue (read port))
+      (jazz:skip-whitespace port))
     (read-char port)
-    (jazz.queue-list queue)))
+    (jazz:queue-list queue)))
 
 
-(define (jazz.read-until test port)
+(define (jazz:read-until test port)
   (let ((expr '())
-        (queue (jazz.new-queue))
+        (queue (jazz:new-queue))
         (done? #f))
     (%%while (%%not done?)
       (let ((expr (read port)))
         (if (test expr)
             (set! done? #t)
-          (jazz.enqueue queue expr))))
-    (jazz.queue-list queue)))
+          (jazz:enqueue queue expr))))
+    (jazz:queue-list queue)))
 
 
-(define (jazz.read-content port)
-  (jazz.read-until eof-object? port)))
+(define (jazz:read-content port)
+  (jazz:read-until eof-object? port)))

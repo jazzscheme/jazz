@@ -43,24 +43,24 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Type-Declaration)
+(jazz:define-class-runtime jazz:C-Type-Declaration)
 
 
-(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion base-type inclusions c-to-scheme scheme-to-c declare)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type #f access compatibility attributes #f parent #f #f kind expansion base-type '() inclusions c-to-scheme scheme-to-c declare)))
-    (jazz.setup-declaration new-declaration)
+(define (jazz:new-c-type-declaration name type access compatibility attributes parent kind expansion base-type inclusions c-to-scheme scheme-to-c declare)
+  (let ((new-declaration (jazz:allocate-c-type-declaration jazz:C-Type-Declaration name type #f access compatibility attributes #f parent #f #f kind expansion base-type '() inclusions c-to-scheme scheme-to-c declare)))
+    (jazz:setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.get-declaration-inclusions (jazz.C-Type-Declaration declaration))
+(jazz:define-method (jazz:get-declaration-inclusions (jazz:C-Type-Declaration declaration))
   (%%get-c-type-declaration-inclusions declaration))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.C-Type-Declaration declaration) environment)
+(jazz:define-method (jazz:emit-declaration (jazz:C-Type-Declaration declaration) environment)
   `(begin))
 
 
-(jazz.define-method (jazz.expand-referenced-declaration (jazz.C-Type-Declaration declaration))
+(jazz:define-method (jazz:expand-referenced-declaration (jazz:C-Type-Declaration declaration))
   (let ((locator (%%get-declaration-locator declaration))
         (expansion (%%get-c-type-declaration-expansion declaration))
         (c-to-scheme (%%get-c-type-declaration-c-to-scheme declaration))
@@ -70,11 +70,11 @@
                                             '()))))
 
 
-(jazz.define-method (jazz.fold-declaration (jazz.C-Type-Declaration expression) f k s)
+(jazz:define-method (jazz:fold-declaration (jazz:C-Type-Declaration expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Type-Declaration)
+(jazz:encapsulate-class jazz:C-Type-Declaration)
 
 
 ;;;
@@ -82,22 +82,22 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Definition-Declaration)
+(jazz:define-class-runtime jazz:C-Definition-Declaration)
 
 
-(define (jazz.new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
-  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type #f access compatibility attributes #f parent #f #f signature parameter-types result-type c-name scope #f)))
-    (jazz.setup-declaration new-declaration)
+(define (jazz:new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
+  (let ((new-declaration (jazz:allocate-c-definition-declaration jazz:C-Definition-Declaration name type #f access compatibility attributes #f parent #f #f signature parameter-types result-type c-name scope #f)))
+    (jazz:setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.C-Definition-Declaration declaration) walker resume source-declaration operator arguments form-src)
+(jazz:define-method (jazz:walk-binding-validate-call (jazz:C-Definition-Declaration declaration) walker resume source-declaration operator arguments form-src)
   (let ((signature (%%get-c-definition-declaration-signature declaration)))
     (if signature
-        (jazz.validate-arguments walker resume source-declaration declaration signature arguments form-src))))
+        (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.C-Definition-Declaration declaration) environment)
+(jazz:define-method (jazz:emit-declaration (jazz:C-Definition-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-c-definition-declaration-signature declaration))
         (parameter-types (%%get-c-definition-declaration-parameter-types declaration))
@@ -105,29 +105,29 @@
         (c-name (%%get-c-definition-declaration-c-name declaration))
         (scope (%%get-c-definition-declaration-scope declaration))
         (body (%%get-c-definition-declaration-body declaration)))
-    (jazz.with-annotated-frame (jazz.annotate-signature signature)
+    (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          (jazz.sourcify-if
-            `(c-define ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment)) ,parameter-types ,result-type ,c-name ,scope
-               ,@(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment)))
+          (jazz:sourcify-if
+            `(c-define ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment)) ,parameter-types ,result-type ,c-name ,scope
+               ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment)))
             (%%get-declaration-source declaration)))))))
 
 
-(jazz.define-method (jazz.emit-binding-reference (jazz.C-Definition-Declaration declaration) source-declaration environment)
-  (jazz.new-code
+(jazz:define-method (jazz:emit-binding-reference (jazz:C-Definition-Declaration declaration) source-declaration environment)
+  (jazz:new-code
     (%%get-declaration-locator declaration)
-    jazz.Any
+    jazz:Any
     #f))
 
 
-(jazz.define-method (jazz.fold-declaration (jazz.C-Definition-Declaration declaration) f k s)
+(jazz:define-method (jazz:fold-declaration (jazz:C-Definition-Declaration declaration) f k s)
   (f declaration
-     (k (jazz.fold-statement (%%get-c-definition-declaration-body declaration) f k s)
+     (k (jazz:fold-statement (%%get-c-definition-declaration-body declaration) f k s)
         s)))
 
 
-(jazz.encapsulate-class jazz.C-Definition-Declaration)
+(jazz:encapsulate-class jazz:C-Definition-Declaration)
 
 
 ;;;
@@ -135,26 +135,26 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Include)
+(jazz:define-class-runtime jazz:C-Include)
 
 
-(define (jazz.new-c-include name)
-  (jazz.allocate-c-include jazz.C-Include #f #f name))
+(define (jazz:new-c-include name)
+  (jazz:allocate-c-include jazz:C-Include #f #f name))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Include expression) declaration environment)
+(jazz:define-method (jazz:emit-expression (jazz:C-Include expression) declaration environment)
   (let ((name (%%get-c-include-name expression)))
-    (jazz.new-code
+    (jazz:new-code
       `(c-declare ,(%%string-append "#include " name))
-      jazz.Any
+      jazz:Any
       #f)))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.C-Include expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:C-Include expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Include)
+(jazz:encapsulate-class jazz:C-Include)
 
 
 ;;;
@@ -162,26 +162,26 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Declare)
+(jazz:define-class-runtime jazz:C-Declare)
 
 
-(define (jazz.new-c-declare code)
-  (jazz.allocate-c-declare jazz.C-Declare #f #f code))
+(define (jazz:new-c-declare code)
+  (jazz:allocate-c-declare jazz:C-Declare #f #f code))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Declare expression) declaration environment)
+(jazz:define-method (jazz:emit-expression (jazz:C-Declare expression) declaration environment)
   (let ((code (%%get-c-declare-code expression)))
-    (jazz.new-code
+    (jazz:new-code
       `(c-declare ,code)
-      jazz.Any
+      jazz:Any
       #f)))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.C-Declare expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:C-Declare expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Declare)
+(jazz:encapsulate-class jazz:C-Declare)
 
 
 ;;;
@@ -189,29 +189,29 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Named-Declare-Declaration)
+(jazz:define-class-runtime jazz:C-Named-Declare-Declaration)
 
 
-(define (jazz.new-c-named-declare-declaration name type access compatibility attributes parent code)
-  (let ((new-declaration (jazz.allocate-c-named-declare-declaration jazz.C-Named-Declare-Declaration name type #f access compatibility attributes #f parent #f #f code)))
-    (jazz.setup-declaration new-declaration)
+(define (jazz:new-c-named-declare-declaration name type access compatibility attributes parent code)
+  (let ((new-declaration (jazz:allocate-c-named-declare-declaration jazz:C-Named-Declare-Declaration name type #f access compatibility attributes #f parent #f #f code)))
+    (jazz:setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.C-Named-Declare-Declaration declaration) environment)
+(jazz:define-method (jazz:emit-declaration (jazz:C-Named-Declare-Declaration declaration) environment)
   `(begin))
 
 
-(jazz.define-method (jazz.expand-referenced-declaration (jazz.C-Named-Declare-Declaration declaration))
+(jazz:define-method (jazz:expand-referenced-declaration (jazz:C-Named-Declare-Declaration declaration))
   (let ((code (%%get-c-named-declare-declaration-code declaration)))
     `(c-declare ,code)))
 
 
-(jazz.define-method (jazz.fold-declaration (jazz.C-Named-Declare-Declaration expression) f k s)
+(jazz:define-method (jazz:fold-declaration (jazz:C-Named-Declare-Declaration expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Named-Declare-Declaration)
+(jazz:encapsulate-class jazz:C-Named-Declare-Declaration)
 
 
 ;;;
@@ -219,26 +219,26 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Initialize)
+(jazz:define-class-runtime jazz:C-Initialize)
 
 
-(define (jazz.new-c-initialize code)
-  (jazz.allocate-c-initialize jazz.C-Initialize #f #f code))
+(define (jazz:new-c-initialize code)
+  (jazz:allocate-c-initialize jazz:C-Initialize #f #f code))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Initialize expression) declaration environment)
+(jazz:define-method (jazz:emit-expression (jazz:C-Initialize expression) declaration environment)
   (let ((code (%%get-c-initialize-code expression)))
-    (jazz.new-code
+    (jazz:new-code
       `(c-initialize ,code)
-      jazz.Any
+      jazz:Any
       #f)))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.C-Initialize expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:C-Initialize expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Initialize)
+(jazz:encapsulate-class jazz:C-Initialize)
 
 
 ;;;
@@ -246,22 +246,22 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.C-Function)
+(jazz:define-class-runtime jazz:C-Function)
 
 
-(define (jazz.new-c-function expansion)
-  (jazz.allocate-c-function jazz.C-Function #f #f expansion))
+(define (jazz:new-c-function expansion)
+  (jazz:allocate-c-function jazz:C-Function #f #f expansion))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Function expression) declaration environment)
-  (jazz.new-code
+(jazz:define-method (jazz:emit-expression (jazz:C-Function expression) declaration environment)
+  (jazz:new-code
     (%%get-c-function-expansion expression)
-    jazz.Any
+    jazz:Any
     #f))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.C-Function expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:C-Function expression) f k s)
   (f expression s))
 
 
-(jazz.encapsulate-class jazz.C-Function))
+(jazz:encapsulate-class jazz:C-Function))

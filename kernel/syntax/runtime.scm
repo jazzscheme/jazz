@@ -38,7 +38,7 @@
 (block kernel.runtime
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
 
 
 ;;;
@@ -46,21 +46,21 @@
 ;;;
 
 
-(define (jazz.expand-unit-source rest)
+(define (jazz:expand-unit-source rest)
   (define (parse rest proc)
-    (let ((first (jazz.source-code (%%car rest))))
+    (let ((first (jazz:source-code (%%car rest))))
       (if (%%memq first '(protected public))
-          (proc (jazz.source-code (%%cadr rest)) first (%%cddr rest))
-        (proc (jazz.source-code (%%car rest)) 'public (%%cdr rest)))))
+          (proc (jazz:source-code (%%cadr rest)) first (%%cddr rest))
+        (proc (jazz:source-code (%%car rest)) 'public (%%cdr rest)))))
   
   (parse rest
     (lambda (name access body)
       (if (%%not (%%symbol? name))
-          (jazz.error "Unit name must be a symbol: {s}" name)
-        (if (and (jazz.requested-unit-name) (%%neq? name (jazz.requested-unit-name)))
-            (jazz.error "Unit at {s} is defining {s}" (jazz.requested-unit-name) name)
+          (jazz:error "Unit name must be a symbol: {s}" name)
+        (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
+            (jazz:error "Unit at {s} is defining {s}" (jazz:requested-unit-name) name)
           `(begin
-             ,@(jazz.declares 'unit)
+             ,@(jazz:declares 'unit)
              ,@body))))))
 
 
@@ -69,20 +69,20 @@
 ;;;
 
 
-(define (jazz.expand-require rest)
-  (jazz.simplify-begin
+(define (jazz:expand-require rest)
+  (jazz:simplify-begin
     `(begin
        ,@(map (lambda (require)
-                (jazz.parse-require (jazz.listify require)
+                (jazz:parse-require (jazz:listify require)
                   (lambda (unit-name feature-requirement phase)
                     #; ;; buggy
                     (if (%%eq? phase 'syntax)
-                        (jazz.load-unit unit-name))
-                    `(jazz.load-unit ',unit-name))))
-              (jazz.filter-features (map (lambda (src) (%%desourcify src)) rest))))))
+                        (jazz:load-unit unit-name))
+                    `(jazz:load-unit ',unit-name))))
+              (jazz:filter-features (map (lambda (src) (%%desourcify src)) rest))))))
 
 
-(define (jazz.parse-require require proc)
+(define (jazz:parse-require require proc)
   (let ((name (%%car require))
         (scan (%%cdr require))
         (feature-requirement #f)
@@ -104,7 +104,7 @@
           phase)))
 
 
-(define (jazz.filter-features invoices)
+(define (jazz:filter-features invoices)
   (define (extract-feature-requirement invoice)
     (if (and (%%pair? invoice)
              (%%not (%%null? (%%cdr invoice)))
@@ -118,14 +118,14 @@
                   (let ((feature-requirement (extract-feature-requirement invoice)))
                     (cond ((%%not feature-requirement)
                            (%%list invoice))
-                          ((jazz.feature-satisfied? feature-requirement)
+                          ((jazz:feature-satisfied? feature-requirement)
                            (%%list (%%cons (%%car invoice) (%%cddr invoice))))
                           (else
                            '()))))
                 invoices)))
 
 
-(define (jazz.feature-satisfied? feature-requirement)
+(define (jazz:feature-satisfied? feature-requirement)
   (if (%%symbol? feature-requirement)
       (%%memq feature-requirement ##cond-expand-features)
     (error "Features can only be symbols for now"))))

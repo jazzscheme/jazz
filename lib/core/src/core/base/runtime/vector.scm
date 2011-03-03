@@ -38,7 +38,7 @@
 (unit protected core.base.runtime.vector
 
 
-(define (jazz.vector-for-each proc vector)
+(define (jazz:vector-for-each proc vector)
   (let ((len (%%vector-length vector)))
     (let iter ((n 0))
       (if (%%fx< n len)
@@ -47,7 +47,7 @@
             (iter (%%fx+ n 1)))))))
 
 
-(define (jazz.vector-memq? obj vector)
+(define (jazz:vector-memq? obj vector)
   (let ((len (%%vector-length vector)))
     (let iter ((n 0))
       (if (%%fx< n len)
@@ -57,7 +57,7 @@
         #f))))
 
 
-(define (jazz.resize-vector vector size)
+(define (jazz:resize-vector vector size)
   (let ((new-vector (%%make-vector size #f)))
     (let iter ((offset (%%fx- (min size (%%vector-length vector)) 1)))
       (%%when (%%fx>= offset 0)

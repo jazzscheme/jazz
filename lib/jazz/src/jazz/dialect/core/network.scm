@@ -40,11 +40,11 @@
 
 (cond-expand
   (gambit
-    (define jazz.open-tcp-client open-tcp-client)
-    (define jazz.open-tcp-server open-tcp-server)
-    (define jazz.tcp-server-socket-info tcp-server-socket-info)
+    (define jazz:open-tcp-client open-tcp-client)
+    (define jazz:open-tcp-server open-tcp-server)
+    (define jazz:tcp-server-socket-info tcp-server-socket-info)
     
-    (define (jazz.call-with-tcp-client settings proc)
+    (define (jazz:call-with-tcp-client settings proc)
       (let ((port #f))
         (dynamic-wind
           (lambda ()
@@ -55,7 +55,7 @@
             (if port
                 (close-port port))))))
     
-    (define jazz.socket-info-address socket-info-address)
-    (define jazz.socket-info-port-number socket-info-port-number))
+    (define jazz:socket-info-address socket-info-address)
+    (define jazz:socket-info-port-number socket-info-port-number))
   
   (else)))

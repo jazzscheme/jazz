@@ -39,33 +39,33 @@
 
 
 ;; should be turned automatically off in production level
-(define jazz.instances-statistics?
+(define jazz:instances-statistics?
   #t)
 
 
-(define jazz.instances-statistics
-  (if jazz.instances-statistics?
+(define jazz:instances-statistics
+  (if jazz:instances-statistics?
       (%%make-table test: eq?)
     #f))
 
 
-(define (jazz.register-instance class obj)
-  (let ((keep (jazz.keep-instances-statistics)))
+(define (jazz:register-instance class obj)
+  (let ((keep (jazz:keep-instances-statistics)))
     (if keep
         (let ((name (if class (##vector-ref class 1) #f)))
           (case keep
             ((count)
-             (%%table-set! jazz.instances-statistics name
-               (%%fx+ (%%table-ref jazz.instances-statistics name 0)
+             (%%table-set! jazz:instances-statistics name
+               (%%fx+ (%%table-ref jazz:instances-statistics name 0)
                       1)))
             ((list)
-             (%%table-set! jazz.instances-statistics name
-               (%%cons obj (%%table-ref jazz.instances-statistics name '())))))))))
+             (%%table-set! jazz:instances-statistics name
+               (%%cons obj (%%table-ref jazz:instances-statistics name '())))))))))
 
 
-(jazz.define-macro (%%register-instance class obj)
-  (if jazz.instances-statistics?
-      `(jazz.register-instance ,class ,obj)
+(jazz:define-macro (%%register-instance class obj)
+  (if jazz:instances-statistics?
+      `(jazz:register-instance ,class ,obj)
     #f))
 
 
@@ -76,105 +76,105 @@
   
   (else
    (define %%object-marker
-     'jazz.object)
+     'jazz:object)
    
    (define %%object-content
      1)))
 
 
-(define jazz.object-class
+(define jazz:object-class
   %%object-content)
 
 
-(define jazz.object-size
-  (%%fx+ jazz.object-class 1))
+(define jazz:object-size
+  (%%fx+ jazz:object-class 1))
 
 
 (cond-expand
   (gambit
-    (jazz.define-macro (%%subtype-jazz)
+    (jazz:define-macro (%%subtype-jazz)
       7)
     
-    (jazz.define-macro (%%object? expr)
+    (jazz:define-macro (%%object? expr)
       `(##jazz? ,expr))
     
-    (jazz.define-macro (%%object class . rest)
-      (jazz.with-uniqueness class
+    (jazz:define-macro (%%object class . rest)
+      (jazz:with-uniqueness class
         (lambda (cls)
-          (if jazz.instances-statistics?
-              (let ((obj (jazz.generate-symbol "obj")))
+          (if jazz:instances-statistics?
+              (let ((obj (jazz:generate-symbol "obj")))
                 `(let ((,obj (##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz))))
                    (%%register-instance ,cls ,obj)
                    ,obj))
             `(##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz))))))
     
-    (jazz.define-macro (%%make-object class size)
-      (jazz.with-uniqueness class
+    (jazz:define-macro (%%make-object class size)
+      (jazz:with-uniqueness class
         (lambda (cls)
-          (let ((obj (jazz.generate-symbol "obj")))
+          (let ((obj (jazz:generate-symbol "obj")))
             `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
                (%%set-object-class ,obj ,cls)
                (%%register-instance ,cls ,obj)
                ,obj)))))
     
-    (jazz.define-macro (%%object-length object)
-      (if jazz.debug-core?
-          (jazz.with-uniqueness object
+    (jazz:define-macro (%%object-length object)
+      (if jazz:debug-core?
+          (jazz:with-uniqueness object
             (lambda (obj)
-              `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+              `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
                  (##vector-length ,obj))))
         `(##vector-length ,object)))
     
-    (jazz.define-macro (%%object-ref object n)
-      (if jazz.debug-core?
-          (jazz.with-uniqueness object
+    (jazz:define-macro (%%object-ref object n)
+      (if jazz:debug-core?
+          (jazz:with-uniqueness object
             (lambda (obj)
-              (jazz.with-uniqueness n
+              (jazz:with-uniqueness n
                 (lambda (rnk)
-                  `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+                  `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
                      (##vector-ref ,obj ,n)
                      #; ;; costly test for a very low probability class of bugs
-                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
+                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
                        (##vector-ref ,obj ,n)))))))
         `(##vector-ref ,object ,n)))
     
-    (jazz.define-syntax %%object-set!
+    (jazz:define-syntax %%object-set!
       (lambda (src)
         (let ((object (%%cadr (%%source-code src)))
               (n (%%car (%%cddr (%%source-code src))))
               (value (%%cadr (%%cddr (%%source-code src)))))
-          (if jazz.debug-core?
-              (jazz.with-uniqueness object
+          (if jazz:debug-core?
+              (jazz:with-uniqueness object
                 (lambda (obj)
-                  (jazz.with-uniqueness n
+                  (jazz:with-uniqueness n
                     (lambda (rnk)
-                      `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+                      `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
                          (##vector-set! ,obj ,n ,value)
                          #; ;; costly test for a very low probability class of bugs
-                         (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
+                         (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
                            (##vector-set! ,obj ,n ,value)))))))
             `(##vector-set! ,object ,n ,value))))))
   
   (else
-   (jazz.define-macro (%%object? expr)
+   (jazz:define-macro (%%object? expr)
      `(and (%%vector? ,expr)
            (%%fx> (%%object-length ,expr) 0)
            (%%eq? (%%object-ref expr 0) %%object-marker)))
    
-   (jazz.define-macro (%%object . rest)
+   (jazz:define-macro (%%object . rest)
      `(%%vector %%object-marker ,@rest))
    
-   (jazz.define-macro (%%make-object size)
-     (let ((object (jazz.generate-symbol "object")))
+   (jazz:define-macro (%%make-object size)
+     (let ((object (jazz:generate-symbol "object")))
        `(let ((,object (%%make-vector ,size (%%unspecified))))
           (%%object-set! ,object 0 %%object-marker)
           ,object)))
    
-   (jazz.define-macro (%%object-length vector)
+   (jazz:define-macro (%%object-length vector)
      `(%%vector-length ,vector))
    
-   (jazz.define-macro (%%object-ref vector n)
+   (jazz:define-macro (%%object-ref vector n)
      `(%%vector-ref ,vector ,n))
    
-   (jazz.define-macro (%%object-set! vector n value)
+   (jazz:define-macro (%%object-set! vector n value)
      `(%%vector-set! ,vector ,n ,value)))))

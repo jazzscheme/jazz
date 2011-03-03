@@ -38,4 +38,4 @@
 (unit protected core.module.initialize
 
 
-(jazz.initialize-primitive-patterns))
+(jazz:initialize-primitive-patterns))

@@ -38,22 +38,22 @@
 (unit protected core.module.syntax.dialect
 
 
-(jazz.define-class-runtime jazz.Dialect)
+(jazz:define-class-runtime jazz:Dialect)
 
 
-(jazz.define-virtual-runtime (jazz.dialect-name (jazz.Dialect dialect)))
-(jazz.define-virtual-runtime (jazz.dialect-walker (jazz.Dialect dialect)))
+(jazz:define-virtual-runtime (jazz:dialect-name (jazz:Dialect dialect)))
+(jazz:define-virtual-runtime (jazz:dialect-walker (jazz:Dialect dialect)))
 
 
-(jazz.define-method (jazz.dialect-name (jazz.Dialect dialect))
+(jazz:define-method (jazz:dialect-name (jazz:Dialect dialect))
   #f)
 
 
-(jazz.define-method (jazz.dialect-walker (jazz.Dialect dialect))
+(jazz:define-method (jazz:dialect-walker (jazz:Dialect dialect))
   #f)
 
 
-(jazz.encapsulate-class jazz.Dialect)
+(jazz:encapsulate-class jazz:Dialect)
 
 
 ;;;
@@ -61,25 +61,25 @@
 ;;;
 
 
-(define jazz.Dialects
+(define jazz:Dialects
   (%%make-table test: eq?))
 
 
-(define (jazz.get-dialect name)
-  (%%table-ref jazz.Dialects name #f))
+(define (jazz:get-dialect name)
+  (%%table-ref jazz:Dialects name #f))
 
 
-(define (jazz.require-dialect name)
-  (or (jazz.get-dialect name)
-      (jazz.error "Unknown dialect: {s}" name)))
+(define (jazz:require-dialect name)
+  (or (jazz:get-dialect name)
+      (jazz:error "Unknown dialect: {s}" name)))
 
 
-(define (jazz.register-dialect name dialect)
-  (%%table-set! jazz.Dialects name dialect))
+(define (jazz:register-dialect name dialect)
+  (%%table-set! jazz:Dialects name dialect))
 
 
-(jazz.define-macro (jazz.define-dialect name dialect)
-  `(jazz.register-dialect ',name ,dialect))
+(jazz:define-macro (jazz:define-dialect name dialect)
+  `(jazz:register-dialect ',name ,dialect))
 
 
 ;;;
@@ -87,18 +87,18 @@
 ;;;
 
 
-(define (jazz.register-binding dialect-name binding)
-  (let ((dialect (jazz.get-dialect dialect-name)))
+(define (jazz:register-binding dialect-name binding)
+  (let ((dialect (jazz:get-dialect dialect-name)))
     (%%set-dialect-bindings dialect (%%cons binding (%%get-dialect-bindings dialect)))))
 
 
-(jazz.define-macro (jazz.define-walker-special name dialect-name method)
-  `(jazz.register-binding ',dialect-name (jazz.new-special-form ',name ,method)))
+(jazz:define-macro (jazz:define-walker-special name dialect-name method)
+  `(jazz:register-binding ',dialect-name (jazz:new-special-form ',name ,method)))
 
 
-(jazz.define-macro (jazz.define-walker-syntax name dialect-name method)
-  `(jazz.register-binding ',dialect-name (jazz.new-syntax-form ',name ,method)))
+(jazz:define-macro (jazz:define-walker-syntax name dialect-name method)
+  `(jazz:register-binding ',dialect-name (jazz:new-syntax-form ',name ,method)))
 
 
-(jazz.define-macro (jazz.define-walker-macro name dialect-name method)
-  `(jazz.register-binding ',dialect-name (jazz.new-macro-form ',name ,method))))
+(jazz:define-macro (jazz:define-walker-macro name dialect-name method)
+  `(jazz:register-binding ',dialect-name (jazz:new-macro-form ',name ,method))))

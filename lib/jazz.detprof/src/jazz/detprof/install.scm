@@ -38,4 +38,4 @@
 (unit jazz.detprof.install
 
 
-(jazz.register-service 'detprof 'jazz.detprof))
+(jazz:register-service 'detprof 'jazz.detprof))

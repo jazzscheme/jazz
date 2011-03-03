@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz.Kernel
+(define jazz:Kernel
   (list
     "kernel/syntax/header"
     "kernel/syntax/macro"
@@ -56,16 +56,16 @@
     "kernel/runtime/setup"))
 
 
-(define jazz.load-kernel
+(define jazz:load-kernel
   (let ((loaded? #f))
     (lambda ()
       (if (not loaded?)
           (begin
             (for-each (lambda (path)
-                        (load (string-append jazz.source path)))
-                      jazz.Kernel)
+                        (load (string-append jazz:source path)))
+                      jazz:Kernel)
             (set! loaded? #t))))))
 
 
-(jazz.load-kernel)
-(jazz.executable-main)
+(jazz:load-kernel)
+(jazz:executable-main)

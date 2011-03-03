@@ -43,22 +43,22 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Gambit-Dialect)
+(jazz:define-class-runtime jazz:Gambit-Dialect)
 
 
-(define (jazz.new-gambit-dialect)
-  (jazz.allocate-gambit-dialect jazz.Gambit-Dialect '()))
+(define (jazz:new-gambit-dialect)
+  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect '()))
 
 
-(jazz.define-method (jazz.dialect-name (jazz.Gambit-Dialect dialect))
+(jazz:define-method (jazz:dialect-name (jazz:Gambit-Dialect dialect))
   'gambit)
 
 
-(jazz.define-method (jazz.dialect-walker (jazz.Gambit-Dialect dialect))
-  (jazz.new-gambit-walker))
+(jazz:define-method (jazz:dialect-walker (jazz:Gambit-Dialect dialect))
+  (jazz:new-gambit-walker))
 
 
-(jazz.encapsulate-class jazz.Gambit-Dialect)
+(jazz:encapsulate-class jazz:Gambit-Dialect)
 
 
 ;;;
@@ -66,14 +66,14 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Gambit-Walker)
+(jazz:define-class-runtime jazz:Gambit-Walker)
 
 
-(define (jazz.new-gambit-walker)
-  (jazz.allocate-gambit-walker jazz.Gambit-Walker '() '() '() (jazz.new-queue) (%%make-table test: eq?) '()))
+(define (jazz:new-gambit-walker)
+  (jazz:allocate-gambit-walker jazz:Gambit-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
-(jazz.encapsulate-class jazz.Gambit-Walker)
+(jazz:encapsulate-class jazz:Gambit-Walker)
 
 
 ;;;
@@ -81,8 +81,8 @@
 ;;;
 
 
-(jazz.define-method (jazz.walker-bindings (jazz.Gambit-Walker walker))
-  (append (%%get-dialect-bindings (jazz.get-dialect 'gambit))
+(jazz:define-method (jazz:walker-bindings (jazz:Gambit-Walker walker))
+  (append (%%get-dialect-bindings (jazz:get-dialect 'gambit))
           (nextmethod walker)))
 
 
@@ -91,5 +91,5 @@
 ;;;
 
 
-(jazz.define-dialect gambit
-  (jazz.new-gambit-dialect)))
+(jazz:define-dialect gambit
+  (jazz:new-gambit-dialect)))

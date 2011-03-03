@@ -43,39 +43,39 @@
     (declare (proper-tail-calls))
     
     
-    (define (jazz.continuation? obj)
+    (define (jazz:continuation? obj)
       (%%continuation? obj))
     
     
-    (define (jazz.continuation-capture proc)
+    (define (jazz:continuation-capture proc)
       (%%continuation-capture proc))
     
     
-    (define (jazz.continuation-graft cont proc)
+    (define (jazz:continuation-graft cont proc)
       (%%continuation-graft cont proc))
     
     
-    (define jazz.continuation-return
+    (define jazz:continuation-return
       continuation-return)
     
     
-    (define (jazz.continuation-checkpoint before thunk after)
+    (define (jazz:continuation-checkpoint before thunk after)
       (%%continuation-checkpoint before thunk after))
     
     
-    (define (jazz.continuation-parent cont)
+    (define (jazz:continuation-parent cont)
       (%%continuation-parent cont))
     
     
-    (define (jazz.continuation-creator cont)
+    (define (jazz:continuation-creator cont)
       (%%continuation-creator cont))
     
     
-    (define (jazz.continuation-locat cont)
+    (define (jazz:continuation-locat cont)
       (%%continuation-locat cont))
     
     
-    (define (jazz.continuation-next cont)
+    (define (jazz:continuation-next cont)
       (%%continuation-next cont)))
   
   (else)))

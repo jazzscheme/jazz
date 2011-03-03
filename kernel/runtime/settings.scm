@@ -38,7 +38,7 @@
 (block kernel.settings
 
 
-(jazz.kernel-declares)
+(jazz:kernel-declares)
 
 
 ;;;
@@ -46,16 +46,16 @@
 ;;;
 
 
-(jazz.define-setting jazz.build-repository
+(jazz:define-setting jazz:build-repository
   #f)
 
-(jazz.define-setting jazz.jazz-repository
+(jazz:define-setting jazz:jazz-repository
   #f)
 
-(jazz.define-setting jazz.repositories
+(jazz:define-setting jazz:repositories
   #f)
 
-(jazz.define-setting jazz.source-access?
+(jazz:define-setting jazz:source-access?
   #t)
 
 
@@ -64,13 +64,13 @@
 ;;;
 
 
-(jazz.define-setting jazz.load-verbose?
+(jazz:define-setting jazz:load-verbose?
   #f)
 
-(jazz.define-setting jazz.outline-verbose?
+(jazz:define-setting jazz:outline-verbose?
   #f)
 
-(jazz.define-setting jazz.done-verbose?
+(jazz:define-setting jazz:done-verbose?
   #f)
 
 
@@ -79,7 +79,7 @@
 ;;;
 
 
-(jazz.define-setting jazz.warn-interpreted?
+(jazz:define-setting jazz:warn-interpreted?
   #f)
 
 
@@ -89,11 +89,11 @@
 
 
 ;; code walker warnings
-(jazz.define-setting jazz.warnings?
+(jazz:define-setting jazz:warnings?
   #f)
 
 ;; set to #f to debug the walker itself
-(jazz.define-setting jazz.delay-reporting?
+(jazz:define-setting jazz:delay-reporting?
   #t)
 
 
@@ -103,7 +103,7 @@
 
 
 ;; print Jazz objects by calling their print method
-(jazz.define-setting jazz.use-print?
+(jazz:define-setting jazz:use-print?
   #t)
 
 
@@ -112,22 +112,22 @@
 ;;;
 
 
-(jazz.define-setting jazz.debug-build?
+(jazz:define-setting jazz:debug-build?
   #f)
 
-(jazz.define-setting jazz.build-single-objects?
+(jazz:define-setting jazz:build-single-objects?
   #f)
 
-(jazz.define-setting jazz.build-link
+(jazz:define-setting jazz:build-link
   'objects)
 
-(jazz.define-setting jazz.build-jobs
+(jazz:define-setting jazz:build-jobs
   1)
 
-(jazz.define-setting jazz.dry-run?
+(jazz:define-setting jazz:dry-run?
   #f)
 
-(jazz.define-setting jazz.save-emit?
+(jazz:define-setting jazz:save-emit?
   #f)
 
 
@@ -138,22 +138,22 @@
 
 (cond-expand
   (release
-   (jazz.define-setting jazz.inline-definitions?
+   (jazz:define-setting jazz:inline-definitions?
      #t))
   (else
-   (jazz.define-setting jazz.inline-definitions?
+   (jazz:define-setting jazz:inline-definitions?
       #f)))
 
 
-(jazz.define-setting jazz.debug-specializers
+(jazz:define-setting jazz:debug-specializers
   '())
 
 
-(jazz.define-setting jazz.force-interpreted?
+(jazz:define-setting jazz:force-interpreted?
   #f)
 
 
-(jazz.define-setting jazz.use-debugger?
+(jazz:define-setting jazz:use-debugger?
   #t)
 
 
@@ -162,7 +162,7 @@
 ;;;
 
 
-(jazz.define-setting jazz.profile-walker?
+(jazz:define-setting jazz:profile-walker?
   #f)
 
 
@@ -171,5 +171,5 @@
 ;;;
 
 
-(jazz.define-setting jazz.keep-instances-statistics
+(jazz:define-setting jazz:keep-instances-statistics
   #f))

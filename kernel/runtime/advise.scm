@@ -40,7 +40,7 @@
 ;;;
 
 
-(define (jazz.advise symbol advice)
+(define (jazz:advise symbol advice)
   (advice symbol
           (lambda ()
             (##global-var-ref symbol))
@@ -53,56 +53,56 @@
 ;;;
 
 
-(define jazz.debugging-table-scan
+(define jazz:debugging-table-scan
   (make-parameter #f))
 
 
-(define (jazz.debug-table-assert name table)
-  (if (eq? (jazz.debugging-table-scan) table)
-      (jazz.error "Calling prohibited {a} while scanning table: {a}" name table)))
+(define (jazz:debug-table-assert name table)
+  (if (eq? (jazz:debugging-table-scan) table)
+      (jazz:error "Calling prohibited {a} while scanning table: {a}" name table)))
 
 
-(define (jazz.debug-table-find rest)
+(define (jazz:debug-table-find rest)
   (let loop ((rest rest))
        (cond ((null? rest)
-              (jazz.error "Unable to find table in arguments"))
+              (jazz:error "Unable to find table in arguments"))
              ((table? (car rest))
               (car rest))
              (else
               (loop (cdr rest))))))
 
 
-(define (jazz.debugging-table-advice symbol ref set)
+(define (jazz:debugging-table-advice symbol ref set)
   (let ((original (ref)))
     (set (lambda rest
-           (let ((table (jazz.debug-table-find rest)))
-             (jazz.debug-table-assert symbol table)
-             (parameterize ((jazz.debugging-table-scan table))
+           (let ((table (jazz:debug-table-find rest)))
+             (jazz:debug-table-assert symbol table)
+             (parameterize ((jazz:debugging-table-scan table))
                (apply original rest)))))))
 
 
-(define (jazz.debug-table-advice symbol ref set)
+(define (jazz:debug-table-advice symbol ref set)
   (let ((original (ref)))
     (set (lambda rest
-           (let ((table (jazz.debug-table-find rest)))
-             (jazz.debug-table-assert symbol table)
+           (let ((table (jazz:debug-table-find rest)))
+             (jazz:debug-table-assert symbol table)
              (apply original rest))))))
 
 
-(define (jazz.debug-table-scan)
-  (jazz.advise 'table-for-each   jazz.debugging-table-advice)
-  (jazz.advise '##table-for-each jazz.debugging-table-advice)
-  (jazz.advise 'table-ref        jazz.debug-table-advice)
-  (jazz.advise '##table-ref      jazz.debug-table-advice)
-  (jazz.advise 'table-set!       jazz.debug-table-advice)
-  (jazz.advise '##table-set!     jazz.debug-table-advice)
-  (jazz.advise 'table-search     jazz.debug-table-advice)
-  (jazz.advise '##table-search   jazz.debug-table-advice)
-  (jazz.advise 'table-copy       jazz.debug-table-advice)
-  (jazz.advise '##table-copy     jazz.debug-table-advice)
-  (jazz.advise 'table-merge      jazz.debug-table-advice)
-  (jazz.advise '##table-merge    jazz.debug-table-advice)
-  (jazz.advise 'table-merge!     jazz.debug-table-advice)
-  (jazz.advise '##table-merge!   jazz.debug-table-advice)
-  (jazz.advise 'table->list      jazz.debug-table-advice)
-  (jazz.advise '##table->list    jazz.debug-table-advice))
+(define (jazz:debug-table-scan)
+  (jazz:advise 'table-for-each   jazz:debugging-table-advice)
+  (jazz:advise '##table-for-each jazz:debugging-table-advice)
+  (jazz:advise 'table-ref        jazz:debug-table-advice)
+  (jazz:advise '##table-ref      jazz:debug-table-advice)
+  (jazz:advise 'table-set!       jazz:debug-table-advice)
+  (jazz:advise '##table-set!     jazz:debug-table-advice)
+  (jazz:advise 'table-search     jazz:debug-table-advice)
+  (jazz:advise '##table-search   jazz:debug-table-advice)
+  (jazz:advise 'table-copy       jazz:debug-table-advice)
+  (jazz:advise '##table-copy     jazz:debug-table-advice)
+  (jazz:advise 'table-merge      jazz:debug-table-advice)
+  (jazz:advise '##table-merge    jazz:debug-table-advice)
+  (jazz:advise 'table-merge!     jazz:debug-table-advice)
+  (jazz:advise '##table-merge!   jazz:debug-table-advice)
+  (jazz:advise 'table->list      jazz:debug-table-advice)
+  (jazz:advise '##table->list    jazz:debug-table-advice))

@@ -42,8 +42,8 @@
         (scheme.syntax-rules (phase syntax)))
 
 
-(native private jazz.->string)
-(native private jazz.error)
+(native private jazz:->string)
+(native private jazz:error)
 
 
 (macro public (submodule name . body)

@@ -40,20 +40,20 @@
 
 (cond-expand
   (gambit
-    (define jazz.open-process open-process)
-    (define jazz.process-status process-status)
-    (define jazz.exit exit)
-    (define jazz.add-exit-job! ##add-exit-job!))
+    (define jazz:open-process open-process)
+    (define jazz:process-status process-status)
+    (define jazz:exit exit)
+    (define jazz:add-exit-job! ##add-exit-job!))
   
   (else))
 
 
-(define (jazz.switch? arg)
+(define (jazz:switch? arg)
   (and (%%fx> (%%string-length arg) 0)
        (%%eqv? (%%string-ref arg 0) #\-)))
 
 
-(define (jazz.switch-name arg)
+(define (jazz:switch-name arg)
   (let ((len (%%string-length arg)))
     (let ((start (if (and (%%fx>= len 2) (%%equal? (%%substring arg 0 2) "--"))
                      2
@@ -61,38 +61,38 @@
       (%%substring arg start len))))
 
 
-(define jazz.kernel-runtime-options-with-no-args
+(define jazz:kernel-runtime-options-with-no-args
   '("nosource"))
 
 
-(define (jazz.command-argument name)
-  (if (eq? jazz.image 'executable)
+(define (jazz:command-argument name)
+  (if (eq? jazz:image 'executable)
       (let ((all (%%cdr (command-line))))
         (let iter ((arguments all))
           (if (%%null? arguments)
               #f
             (let ((arg (%%car arguments)))
-              (cond ((%%member (jazz.switch-name arg) jazz.kernel-runtime-options-with-no-args)
+              (cond ((%%member (jazz:switch-name arg) jazz:kernel-runtime-options-with-no-args)
                      (iter (%%cdr arguments)))
-                    ((or (%%not (jazz.switch? arg))
+                    ((or (%%not (jazz:switch? arg))
                          (%%null? (%%cdr arguments)))
-                     (jazz.error "Unable to parse command line: {a}" all))
-                    ((%%equal? name (jazz.switch-name arg))
+                     (jazz:error "Unable to parse command line: {a}" all))
+                    ((%%equal? name (jazz:switch-name arg))
                      (%%cadr arguments))
                     (else
                      (iter (%%cddr arguments))))))))
     #f))
 
 
-(define (jazz.command-argument? name)
-  (if (eq? jazz.image 'executable)
+(define (jazz:command-argument? name)
+  (if (eq? jazz:image 'executable)
       (let ((all (%%cdr (command-line))))
         (let iter ((arguments all))
           (if (%%null? arguments)
               #f
             (let ((arg (%%car arguments)))
-              (if (and (jazz.switch? arg)
-                       (%%equal? name (jazz.switch-name arg)))
+              (if (and (jazz:switch? arg)
+                       (%%equal? name (jazz:switch-name arg)))
                   #t
                 (iter (%%cdr arguments)))))))
     #f)))

@@ -39,63 +39,63 @@
 (unit protected core.generic.syntax.expander
 
 
-(define (jazz.dynamic-parameter? parameter)
+(define (jazz:dynamic-parameter? parameter)
   (and (%%pair? parameter)
        (let ((type (%%car parameter)))
          (or (%%pair? type)
-             (jazz.composite-identifier? type)))
+             (jazz:composite-identifier? type)))
        (%%pair? (%%cdr parameter))))
 
 
-(define (jazz.dynamic-parameter-type parameter)
+(define (jazz:dynamic-parameter-type parameter)
   (let ((type (%%car parameter)))
-    (if (jazz.specifier? type)
-        (jazz.specifier->name type)
+    (if (jazz:specifier? type)
+        (jazz:specifier->name type)
       type)))
 
 
-(define (jazz.dynamic-parameter-types parameters)
+(define (jazz:dynamic-parameter-types parameters)
   (let iterate ((parameters parameters))
        (if (and (%%pair? parameters)
-                (jazz.dynamic-parameter? (%%car parameters)))
-           (%%cons (jazz.dynamic-parameter-type (%%car parameters))
+                (jazz:dynamic-parameter? (%%car parameters)))
+           (%%cons (jazz:dynamic-parameter-type (%%car parameters))
                    (iterate (%%cdr parameters)))
          '())))
 
 
-(define (jazz.dynamic-parameter-name parameter)
+(define (jazz:dynamic-parameter-name parameter)
   (%%cadr parameter))
 
 
-(define (jazz.dynamic-parameter-names parameters)
+(define (jazz:dynamic-parameter-names parameters)
   (let iterate ((parameters parameters))
        (if (and (%%pair? parameters)
-                (jazz.dynamic-parameter? (%%car parameters)))
-           (%%cons (jazz.dynamic-parameter-name (%%car parameters))
+                (jazz:dynamic-parameter? (%%car parameters)))
+           (%%cons (jazz:dynamic-parameter-name (%%car parameters))
                    (iterate (%%cdr parameters)))
          '())))
 
 
-(define (jazz.generic-parameters parameters)
+(define (jazz:generic-parameters parameters)
   (let iterate ((parameters parameters)
                 (result '()))
        (if (%%pair? parameters)
            (let ((parameter (%%car parameters)))
-             (cond ((jazz.dynamic-parameter? parameter)
-                    (iterate (%%cdr parameters) (%%cons (jazz.dynamic-parameter-name parameter) result)))
+             (cond ((jazz:dynamic-parameter? parameter)
+                    (iterate (%%cdr parameters) (%%cons (jazz:dynamic-parameter-name parameter) result)))
                    ((%%symbol? parameter)
                     (iterate (%%cdr parameters) (%%cons parameter result)))
                    (else ; #!xxx -> parsing delayed to specific
-                    (values (jazz.reverse! result) parameters))))
-         (values (jazz.reverse! result) parameters))))
+                    (values (jazz:reverse! result) parameters))))
+         (values (jazz:reverse! result) parameters))))
 
 
-(define (jazz.specific-parameters parameters)
+(define (jazz:specific-parameters parameters)
   (let iterate ((parameters parameters))
        (if (%%pair? parameters)
            (let ((parameter (%%car parameters)))
-             (cond ((jazz.dynamic-parameter? parameter)
-                    (%%cons (jazz.dynamic-parameter-name parameter) (iterate (%%cdr parameters))))
+             (cond ((jazz:dynamic-parameter? parameter)
+                    (%%cons (jazz:dynamic-parameter-name parameter) (iterate (%%cdr parameters))))
                    (else
                     parameters)))
          parameters)))
@@ -106,43 +106,43 @@
 ;;;
 
 
-(define (jazz.expand-define-generic signature . body)
+(define (jazz:expand-define-generic signature . body)
   (let* ((generic-method-locator (%%car signature))
          (parameters (%%cdr signature))
-         (dynamic-signature (jazz.dynamic-parameter-types parameters))
-         (formal-signature (jazz.specific-parameters parameters))
-         (specific-implementation-locator (jazz.implementation-locator generic-method-locator dynamic-signature))
-         (generic-locator (jazz.generic-object-locator generic-method-locator))
-         (gensym-generic (jazz.generate-symbol "generic"))
-         (gensym-specific (jazz.generate-symbol "specific")))
-    (receive (mandatory-parameters extra-parameters) (jazz.generic-parameters parameters)
-      (let ((gensym-rest (if (%%null? extra-parameters) '() (jazz.generate-symbol "rest"))))
+         (dynamic-signature (jazz:dynamic-parameter-types parameters))
+         (formal-signature (jazz:specific-parameters parameters))
+         (specific-implementation-locator (jazz:implementation-locator generic-method-locator dynamic-signature))
+         (generic-locator (jazz:generic-object-locator generic-method-locator))
+         (gensym-generic (jazz:generate-symbol "generic"))
+         (gensym-specific (jazz:generate-symbol "specific")))
+    (receive (mandatory-parameters extra-parameters) (jazz:generic-parameters parameters)
+      (let ((gensym-rest (if (%%null? extra-parameters) '() (jazz:generate-symbol "rest"))))
         `(begin
            (define ,specific-implementation-locator
              ,(if (%%null? body)
                   `(lambda ,formal-signature
-                     (jazz.error "Generic {a} is abstract" ,generic-method-locator))
+                     (jazz:error "Generic {a} is abstract" ,generic-method-locator))
                 `(lambda ,formal-signature
                    ,@body)))
            (define ,generic-locator
              ;; we do not reprocess generic - aka you must restart to change its signature
-             (if (jazz.global-bound? ',generic-locator)
-                 (let ((,gensym-generic (jazz.global-ref ',generic-locator)))
-                   (jazz.generic-reset ,gensym-generic ,specific-implementation-locator)
+             (if (jazz:global-bound? ',generic-locator)
+                 (let ((,gensym-generic (jazz:global-ref ',generic-locator)))
+                   (jazz:generic-reset ,gensym-generic ,specific-implementation-locator)
                    ,gensym-generic)
-               (jazz.new-generic ',generic-method-locator (lambda () (%%list ,@dynamic-signature)) ,specific-implementation-locator)))
+               (jazz:new-generic ',generic-method-locator (lambda () (%%list ,@dynamic-signature)) ,specific-implementation-locator)))
            (define ,generic-method-locator
              (lambda (,@mandatory-parameters . ,gensym-rest)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
-                 (jazz.process-pending-specifics ,generic-locator))
-               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(jazz.class-of ,parameter))
-                                                                                            (jazz.dynamic-parameter-names parameters))))))
+                 (jazz:process-pending-specifics ,generic-locator))
+               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(jazz:class-of ,parameter))
+                                                                                            (jazz:dynamic-parameter-names parameters))))))
                  ,(if (%%null? extra-parameters)
                       `(,gensym-specific ,@mandatory-parameters)
                     `(apply ,gensym-specific ,@mandatory-parameters ,gensym-rest))))))))))
 
 
-(define (jazz.generic-object-locator locator)
+(define (jazz:generic-object-locator locator)
   (%%string->symbol (%%string-append (%%symbol->string locator) "!generic")))
 
 
@@ -151,30 +151,30 @@
 ;;;
 
 
-(define (jazz.expand-define-specific signature modifier . body)
+(define (jazz:expand-define-specific signature modifier . body)
   (let* ((root? (%%eq? modifier 'root))
          (generic-method-locator (%%car signature))
          (parameters (%%cdr signature))
-         (dynamic-signature (jazz.dynamic-parameter-types parameters))
-         (formal-signature (jazz.specific-parameters parameters))
-         (specific-implementation-locator (jazz.implementation-locator generic-method-locator dynamic-signature))
-         (generic-locator (jazz.generic-object-locator generic-method-locator))
-         (gensym-specific (jazz.generate-symbol "specific"))
-         (gensym-lambda (jazz.generate-symbol "lambda"))
+         (dynamic-signature (jazz:dynamic-parameter-types parameters))
+         (formal-signature (jazz:specific-parameters parameters))
+         (specific-implementation-locator (jazz:implementation-locator generic-method-locator dynamic-signature))
+         (generic-locator (jazz:generic-object-locator generic-method-locator))
+         (gensym-specific (jazz:generate-symbol "specific"))
+         (gensym-lambda (jazz:generate-symbol "lambda"))
          (nextmethod-bindings (if root? (%%list) (%%list `(nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific))))))))
     `(define ,specific-implementation-locator
-       (let* ((,gensym-specific (jazz.new-specific (lambda () (%%list ,@dynamic-signature)) #f))
+       (let* ((,gensym-specific (jazz:new-specific (lambda () (%%list ,@dynamic-signature)) #f))
               (,gensym-lambda (lambda ,formal-signature
                                 (let (,@nextmethod-bindings)
                                   ,@body))))
          (%%set-specific-implementation ,gensym-specific ,gensym-lambda)
-         (jazz.register-specific ,generic-locator ,gensym-specific)
+         (jazz:register-specific ,generic-locator ,gensym-specific)
          ,gensym-lambda))))
 
 
-(define (jazz.implementation-locator generic-locator dynamic-signature)
+(define (jazz:implementation-locator generic-locator dynamic-signature)
   (let ((generic-string (%%symbol->string generic-locator))
         (dynamic-signature-strings (map (lambda (class/call)
                                           (%%symbol->string (if (%%pair? class/call) (%%car class/call) class/call)))
                                         dynamic-signature)))
-    (%%string->symbol (%%string-append generic-string ":implementation:" (jazz.join-strings dynamic-signature-strings "/"))))))
+    (%%string->symbol (%%string-append generic-string ":implementation:" (jazz:join-strings dynamic-signature-strings "/"))))))

@@ -43,7 +43,7 @@
 ;;;
 
 
-(define-runtime-macro (jazz.define-macro pattern . rest)
+(define-runtime-macro (jazz:define-macro pattern . rest)
 
   (define (form-size parms)
     (let loop ((lst parms) (n 1))
@@ -70,7 +70,7 @@
           ',(form-size (cdr pattern))
           ,src
           #f))
-       (jazz.register-macro ',(car pattern)
+       (jazz:register-macro ',(car pattern)
          ,src))))
 
 
@@ -79,7 +79,7 @@
 ;;;
 
 
-(define-runtime-macro (jazz.define-syntax name expander)
+(define-runtime-macro (jazz:define-syntax name expander)
   `(begin
      (##define-syntax ,name
        ,expander)
@@ -91,7 +91,7 @@
         -1
         ,expander
         #f))
-     (jazz.register-macro ',name
+     (jazz:register-macro ',name
        ,expander)))
 
 
@@ -100,29 +100,29 @@
 ;;;
 
 
-(define jazz.subtype-vector       (macro-subtype-vector))
-(define jazz.subtype-pair         (macro-subtype-pair))
-(define jazz.subtype-ratnum       (macro-subtype-ratnum))
-(define jazz.subtype-cpxnum       (macro-subtype-cpxnum))
-(define jazz.subtype-symbol       (macro-subtype-symbol))
-(define jazz.subtype-keyword      (macro-subtype-keyword))
-(define jazz.subtype-continuation (macro-subtype-continuation))
-(define jazz.subtype-procedure    (macro-subtype-procedure))
-(define jazz.subtype-string       (macro-subtype-string))
-(define jazz.subtype-flonum       (macro-subtype-flonum))
-(define jazz.subtype-bignum       (macro-subtype-bignum))
-(define jazz.subtype-foreign      (macro-subtype-foreign))
-(define jazz.subtype-s8vector     (macro-subtype-s8vector))
-(define jazz.subtype-u8vector     (macro-subtype-u8vector))
-(define jazz.subtype-s16vector    (macro-subtype-s16vector))
-(define jazz.subtype-u16vector    (macro-subtype-u16vector))
-(define jazz.subtype-s32vector    (macro-subtype-s32vector))
-(define jazz.subtype-u32vector    (macro-subtype-u32vector))
-(define jazz.subtype-s64vector    (macro-subtype-s64vector))
-(define jazz.subtype-u64vector    (macro-subtype-u64vector))
-(define jazz.subtype-f32vector    (macro-subtype-f32vector))
-(define jazz.subtype-f64vector    (macro-subtype-f64vector))
-(define jazz.subtype-boxvalues    (macro-subtype-boxvalues))
+(define jazz:subtype-vector       (macro-subtype-vector))
+(define jazz:subtype-pair         (macro-subtype-pair))
+(define jazz:subtype-ratnum       (macro-subtype-ratnum))
+(define jazz:subtype-cpxnum       (macro-subtype-cpxnum))
+(define jazz:subtype-symbol       (macro-subtype-symbol))
+(define jazz:subtype-keyword      (macro-subtype-keyword))
+(define jazz:subtype-continuation (macro-subtype-continuation))
+(define jazz:subtype-procedure    (macro-subtype-procedure))
+(define jazz:subtype-string       (macro-subtype-string))
+(define jazz:subtype-flonum       (macro-subtype-flonum))
+(define jazz:subtype-bignum       (macro-subtype-bignum))
+(define jazz:subtype-foreign      (macro-subtype-foreign))
+(define jazz:subtype-s8vector     (macro-subtype-s8vector))
+(define jazz:subtype-u8vector     (macro-subtype-u8vector))
+(define jazz:subtype-s16vector    (macro-subtype-s16vector))
+(define jazz:subtype-u16vector    (macro-subtype-u16vector))
+(define jazz:subtype-s32vector    (macro-subtype-s32vector))
+(define jazz:subtype-u32vector    (macro-subtype-u32vector))
+(define jazz:subtype-s64vector    (macro-subtype-s64vector))
+(define jazz:subtype-u64vector    (macro-subtype-u64vector))
+(define jazz:subtype-f32vector    (macro-subtype-f32vector))
+(define jazz:subtype-f64vector    (macro-subtype-f64vector))
+(define jazz:subtype-boxvalues    (macro-subtype-boxvalues))
 
 
 ;;;
@@ -135,10 +135,10 @@
      ((##vector-ref $$code 1) $$code ,rte)))
 
 
-(define (jazz.code-cte c)
+(define (jazz:code-cte c)
   (macro-code-cte c))
 
-(define (jazz.code-run c rte)
+(define (jazz:code-run c rte)
   (macro-code-run-fixed c rte))
 
 
@@ -147,7 +147,7 @@
 ;;;
 
 
-(define (jazz.rte-up r)
+(define (jazz:rte-up r)
   (macro-rte-up r))
 
 
@@ -156,7 +156,7 @@
 ;;;
 
 
-(define (jazz.repl-context-bind val thunk)
+(define (jazz:repl-context-bind val thunk)
   (macro-dynamic-bind repl-context val thunk))
 
 
@@ -165,7 +165,7 @@
 ;;;
 
 
-(define (jazz.continuation-denv cont)
+(define (jazz:continuation-denv cont)
   (macro-continuation-denv cont))
 
 
@@ -174,28 +174,28 @@
 ;;;
 
 
-(define (jazz.current-repl-context)
+(define (jazz:current-repl-context)
   (macro-current-repl-context))
 
-(define (jazz.repl-context-level context)
+(define (jazz:repl-context-level context)
   (macro-repl-context-level context))
 
-(define (jazz.repl-context-depth context)
+(define (jazz:repl-context-depth context)
   (macro-repl-context-depth context))
 
-(define (jazz.repl-context-cont context)
+(define (jazz:repl-context-cont context)
   (macro-repl-context-cont context))
 
-(define (jazz.repl-context-initial-cont context)
+(define (jazz:repl-context-initial-cont context)
   (macro-repl-context-initial-cont context))
 
-(define (jazz.repl-context-prev-level context)
+(define (jazz:repl-context-prev-level context)
   (macro-repl-context-prev-level context))
 
-(define (jazz.repl-context-prev-depth context)
+(define (jazz:repl-context-prev-depth context)
   (macro-repl-context-prev-depth context))
 
-(define (jazz.make-repl-context level depth cont initial-cont reason prev-level prev-depth)
+(define (jazz:make-repl-context level depth cont initial-cont reason prev-level prev-depth)
   (macro-make-repl-context level depth cont initial-cont reason prev-level prev-depth))
 
 
@@ -204,13 +204,13 @@
 ;;;
 
 
-(define (jazz.readtable-named-char-table rt)
+(define (jazz:readtable-named-char-table rt)
   (macro-readtable-named-char-table rt))
 
-(define (jazz.readtable-named-char-table-set! rt nc)
+(define (jazz:readtable-named-char-table-set! rt nc)
   (macro-readtable-named-char-table-set! rt nc))
 
-(define (jazz.readtable-start-syntax rt)
+(define (jazz:readtable-start-syntax rt)
   (macro-readtable-start-syntax rt))
 
 
@@ -219,13 +219,13 @@
 ;;;
 
 
-(define (jazz.readenv? obj)
+(define (jazz:readenv? obj)
   (macro-readenv? obj))
 
-(define (jazz.readenv-port re)
+(define (jazz:readenv-port re)
   (macro-readenv-port re))
 
-(define (jazz.readenv-wrap re x)
+(define (jazz:readenv-wrap re x)
   (macro-readenv-wrap re x))
 
 
@@ -234,10 +234,10 @@
 ;;;
 
 
-(define (jazz.writeenv-port we)
+(define (jazz:writeenv-port we)
   (macro-writeenv-port we))
 
-(define (jazz.writeenv-style we)
+(define (jazz:writeenv-style we)
   (macro-writeenv-style we))
 
 
@@ -246,7 +246,7 @@
 ;;;
 
 
-(define (jazz.btq-owner mutex)
+(define (jazz:btq-owner mutex)
   (macro-btq-owner mutex))
 
 
@@ -255,9 +255,9 @@
 ;;;
 
 
-(define (jazz.absent-object? obj)
+(define (jazz:absent-object? obj)
   (##eq? obj (macro-absent-obj)))
 
 
-(define (jazz.unbound-object? obj)
+(define (jazz:unbound-object? obj)
   (##eq? obj #!unbound))

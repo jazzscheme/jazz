@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Definition-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-definition-declaration
+(jazz:define-class jazz:Definition-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-definition-declaration
   ((expansion %%get-definition-declaration-expansion ())
    (signature %%get-definition-declaration-signature %%set-definition-declaration-signature)
    (value     %%get-definition-declaration-value     %%set-definition-declaration-value)))
@@ -54,7 +54,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Specialize jazz.Expression (type source) jazz.Object-Class jazz.allocate-specialize
+(jazz:define-class jazz:Specialize jazz:Expression (type source) jazz:Object-Class jazz:allocate-specialize
   ())
 
 
@@ -63,7 +63,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Generic-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-generic-declaration
+(jazz:define-class jazz:Generic-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-generic-declaration
   ((dispatch-types %%get-generic-declaration-dispatch-types ())
    (signature      %%get-generic-declaration-signature      %%set-generic-declaration-signature)
    (body           %%get-generic-declaration-body           %%set-generic-declaration-body)))
@@ -74,7 +74,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Specific-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-specific-declaration
+(jazz:define-class jazz:Specific-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-specific-declaration
   ((generic   %%get-specific-declaration-generic   ())
    (signature %%get-specific-declaration-signature ())
    (body      %%get-specific-declaration-body      %%set-specific-declaration-body)
@@ -86,7 +86,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Category-Declaration jazz.Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body) jazz.Object-Class ()
+(jazz:define-class jazz:Category-Declaration jazz:Namespace-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body) jazz:Object-Class ()
   ((implementor %%get-category-declaration-implementor ())
    (metaclass   %%get-category-declaration-metaclass   ())))
 
@@ -96,7 +96,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body implementor metaclass) jazz.Object-Class jazz.allocate-class-declaration
+(jazz:define-class jazz:Class-Declaration jazz:Category-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body implementor metaclass) jazz:Object-Class jazz:allocate-class-declaration
   ((ascendant          %%get-class-declaration-ascendant          ())
    (ascendant-relation %%get-class-declaration-ascendant-relation ())
    (ascendant-base     %%get-class-declaration-ascendant-base     ())
@@ -108,7 +108,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Category-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body implementor metaclass) jazz.Object-Class jazz.allocate-interface-declaration
+(jazz:define-class jazz:Interface-Declaration jazz:Category-Declaration (name type hits access compatibility attributes toplevel parent locator source lookups children body implementor metaclass) jazz:Object-Class jazz:allocate-interface-declaration
   ((ascendants %%get-interface-declaration-ascendants ())))
 
 
@@ -117,7 +117,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Field-Declaration jazz.Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class ()
+(jazz:define-class jazz:Field-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class ()
   ())
 
 
@@ -126,7 +126,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Slot-Declaration jazz.Field-Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-slot-declaration
+(jazz:define-class jazz:Slot-Declaration jazz:Field-Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-slot-declaration
   ((initialize  %%get-slot-declaration-initialize  %%set-slot-declaration-initialize)
    (getter-name %%get-slot-declaration-getter-name ())
    (setter-name %%get-slot-declaration-setter-name ())))
@@ -137,7 +137,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Property-Declaration jazz.Slot-Declaration (name type hits access compatibility attributes toplevel parent locator source initialize getter-name setter-name) jazz.Object-Class jazz.allocate-property-declaration
+(jazz:define-class jazz:Property-Declaration jazz:Slot-Declaration (name type hits access compatibility attributes toplevel parent locator source initialize getter-name setter-name) jazz:Object-Class jazz:allocate-property-declaration
   ((getter %%get-property-declaration-getter %%set-property-declaration-getter)
    (setter %%get-property-declaration-setter %%set-property-declaration-setter)))
 
@@ -147,7 +147,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Method-Declaration jazz.Field-Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz.Object-Class jazz.allocate-method-declaration
+(jazz:define-class jazz:Method-Declaration jazz:Field-Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-method-declaration
   ((root         %%get-method-declaration-root         ())
    (propagation  %%get-method-declaration-propagation  ())
    (abstraction  %%get-method-declaration-abstraction  ())
@@ -163,7 +163,7 @@
 ;;;
 
 
-(jazz.define-class jazz.With-Self jazz.Expression (type source) jazz.Object-Class jazz.allocate-with-self
+(jazz:define-class jazz:With-Self jazz:Expression (type source) jazz:Object-Class jazz:allocate-with-self
   ((body %%get-with-self-body ())))
 
 
@@ -172,7 +172,7 @@
 ;;;
 
 
-(jazz.define-class jazz.With-Dynamic-Self jazz.Expression (type source) jazz.Object-Class jazz.allocate-with-dynamic-self
+(jazz:define-class jazz:With-Dynamic-Self jazz:Expression (type source) jazz:Object-Class jazz:allocate-with-dynamic-self
   ((code %%get-with-dynamic-self-code ())
    (body %%get-with-dynamic-self-body ())))
 
@@ -182,7 +182,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Cast jazz.Expression (type source) jazz.Object-Class jazz.allocate-cast
+(jazz:define-class jazz:Cast jazz:Expression (type source) jazz:Object-Class jazz:allocate-cast
   ((expression %%get-cast-expression ())))
 
 
@@ -191,7 +191,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Construct jazz.Expression (type source) jazz.Object-Class jazz.allocate-construct
+(jazz:define-class jazz:Construct jazz:Expression (type source) jazz:Object-Class jazz:allocate-construct
   ((class  %%get-construct-class  ())
    (values %%get-construct-values ())))
 
@@ -201,7 +201,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Dispatch jazz.Expression (type source) jazz.Object-Class jazz.allocate-dispatch
+(jazz:define-class jazz:Dispatch jazz:Expression (type source) jazz:Object-Class jazz:allocate-dispatch
   ((name      %%get-dispatch-name      ())
    (arguments %%get-dispatch-arguments ())))
 
@@ -211,7 +211,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Jazz-Dialect jazz.Dialect (bindings) jazz.Object-Class jazz.allocate-jazz-dialect
+(jazz:define-class jazz:Jazz-Dialect jazz:Dialect (bindings) jazz:Object-Class jazz:allocate-jazz-dialect
   ())
 
 
@@ -220,5 +220,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-jazz-walker
+(jazz:define-class jazz:Jazz-Walker jazz:Scheme-Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-jazz-walker
   ()))

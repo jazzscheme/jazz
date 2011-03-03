@@ -38,25 +38,25 @@
 (unit protected jazz.dialect.core.structure
 
 
-(define (jazz.kind? obj)
+(define (jazz:kind? obj)
   (##type? obj))
 
-(define (jazz.kind-id type)
+(define (jazz:kind-id type)
   (##type-id type))
 
-(define (jazz.kind-name type)
+(define (jazz:kind-name type)
   (##type-name type))
 
-(define (jazz.kind-flags type)
+(define (jazz:kind-flags type)
   (##type-flags type))
 
-(define (jazz.kind-super type)
+(define (jazz:kind-super type)
   (##type-super type))
 
-(define (jazz.kind-length type)
+(define (jazz:kind-length type)
   (##type-field-count type))
 
-(define (jazz.kind-fields type)
+(define (jazz:kind-fields type)
   (let loop ((i 1)
              (lst (%%vector->list (##type-fields type)))
              (alist '()))
@@ -71,17 +71,17 @@
                    rest
                    (%%cons (%%list name i options val)
                            alist)))
-         (jazz.reverse! alist))))
+         (jazz:reverse! alist))))
 
 
-(define (jazz.structure? obj)
+(define (jazz:structure? obj)
   (##structure? obj))
 
-(define (jazz.structure-kind obj)
+(define (jazz:structure-kind obj)
   (##structure-type obj))
 
-(define (jazz.structure-ref obj i type)
+(define (jazz:structure-ref obj i type)
   (##structure-ref obj i type #f))
 
-(define (jazz.structure-set! obj val i type)
+(define (jazz:structure-set! obj val i type)
   (##structure-set! obj val i type #f)))

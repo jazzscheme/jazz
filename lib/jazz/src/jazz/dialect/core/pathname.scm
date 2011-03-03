@@ -40,21 +40,21 @@
 
 (cond-expand
   (gambit
-    (define jazz.pathname-expand path-expand)
-    (define jazz.file-rename rename-file)
-    (define jazz.directory-delete delete-directory)
+    (define jazz:pathname-expand path-expand)
+    (define jazz:file-rename rename-file)
+    (define jazz:directory-delete delete-directory)
     
-    (define (jazz.current-directory)
+    (define (jazz:current-directory)
       (let ((dir (current-directory)))
-        (jazz.pathname-normalize
-          (if (jazz.pathname-exists? dir)
+        (jazz:pathname-normalize
+          (if (jazz:pathname-exists? dir)
               dir
             "~"))))
     
-    (define (jazz.current-directory-set! dir)
+    (define (jazz:current-directory-set! dir)
       (current-directory dir))
     
-    (define (jazz.with-current-directory dir thunk)
+    (define (jazz:with-current-directory dir thunk)
       (parameterize ((current-directory dir))
         (thunk))))
   

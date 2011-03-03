@@ -43,4 +43,4 @@
 ;;;
 
 
-(define jazz.vector-copy vector-copy))
+(define jazz:vector-copy vector-copy))

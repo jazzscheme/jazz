@@ -40,36 +40,36 @@
 
 (cond-expand
   (chicken
-    (define (jazz.keyword? obj)
+    (define (jazz:keyword? obj)
       (keyword? obj))
     
-    (define (jazz.keyword->string keyword)
+    (define (jazz:keyword->string keyword)
       (keyword->string keyword))
     
-    (define (jazz.string->keyword string)
+    (define (jazz:string->keyword string)
       (string->keyword string)))
   
   (gambit
-    (define (jazz.keyword? obj)
+    (define (jazz:keyword? obj)
       (%%keyword? obj))
     
-    (define (jazz.keyword->string keyword)
+    (define (jazz:keyword->string keyword)
       (%%keyword->string keyword))
     
-    (define (jazz.string->keyword string)
+    (define (jazz:string->keyword string)
       (%%string->keyword string)))
   
   (else
-   (define (jazz.keyword? obj)
+   (define (jazz:keyword? obj)
      (and (%%symbol? obj)
           (let ((str (%%symbol->string obj)))
             (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\:))))
    
    
-   (define (jazz.keyword->string keyword)
+   (define (jazz:keyword->string keyword)
      (let ((str (%%symbol->string keyword)))
        (%%substring str 0 (%%fx- (%%length str) 1))))
    
    
-   (define (jazz.string->keyword string)
+   (define (jazz:string->keyword string)
      (%%string->symbol (%%string-append string ":"))))))

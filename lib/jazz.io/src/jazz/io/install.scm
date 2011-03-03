@@ -38,5 +38,5 @@
 (unit jazz.io.install
 
 
-(jazz.define-literal File      jazz.io.literals:construct-file)
-(jazz.define-literal Directory jazz.io.literals:construct-directory))
+(jazz:define-literal File      jazz.io.literals:construct-file)
+(jazz:define-literal Directory jazz.io.literals:construct-directory))

@@ -38,9 +38,9 @@
 (module scheme.syntax-rules scheme
 
 
-(native private jazz.generate-symbol)
-(native private jazz.source?)
-(native private jazz.error)
+(native private jazz:generate-symbol)
+(native private jazz:source?)
+(native private jazz:error)
 
 
 (define-syntax public syntax-rules

@@ -38,13 +38,13 @@
 (unit protected core.base.runtime.unspecified
 
 
-(define (jazz.unspecified)
+(define (jazz:unspecified)
   (%%unspecified))
 
 
-(define (jazz.unspecified? expr)
+(define (jazz:unspecified? expr)
   (%%unspecified? expr))
 
 
-(define (jazz.specified? expr)
+(define (jazz:specified? expr)
   (%%not (%%unspecified? expr))))

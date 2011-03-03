@@ -43,19 +43,19 @@
 ;;;
 
 
-(define (jazz.identifier-unit identifier)
+(define (jazz:identifier-unit identifier)
   (%%assert (%%symbol? identifier)
     (let* ((str (%%symbol->string identifier))
-           (pos (jazz.string-find-reversed str #\.)))
+           (pos (jazz:string-find-reversed str #\.)))
       (if (%%not pos)
           #f
         (%%string->symbol (%%substring str 0 pos))))))
 
 
-(define (jazz.identifier-name identifier)
+(define (jazz:identifier-name identifier)
   (%%assert (%%symbol? identifier)
     (let* ((str (%%symbol->string identifier))
-           (pos (jazz.string-find-reversed str #\.)))
+           (pos (jazz:string-find-reversed str #\.)))
       (if (%%not pos)
           identifier
         (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str)))))))
@@ -66,19 +66,19 @@
 ;;;
 
 
-(define (jazz.reference-unit reference)
+(define (jazz:reference-unit reference)
   (%%assert (%%symbol? reference)
     (let* ((str (%%symbol->string reference))
-           (pos (jazz.string-find-reversed str #\:)))
+           (pos (jazz:string-find-reversed str #\:)))
       (if (%%not pos)
           #f
         (%%string->symbol (%%substring str 0 pos))))))
 
 
-(define (jazz.reference-name reference)
+(define (jazz:reference-name reference)
   (%%assert (%%symbol? reference)
     (let* ((str (%%symbol->string reference))
-           (pos (jazz.string-find-reversed str #\:)))
+           (pos (jazz:string-find-reversed str #\:)))
       (if (%%not pos)
           reference
         (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str)))))))
@@ -89,7 +89,7 @@
 ;;;
 
 
-(define (jazz.specifier? expr)
+(define (jazz:specifier? expr)
   (and (%%symbol? expr)
        (let ((str (%%symbol->string expr)))
          (let ((len (%%string-length str)))
@@ -98,22 +98,22 @@
                 (%%eqv? (%%string-ref str (%%fx- len 1)) #\>))))))
 
 
-(define (jazz.specifier->name specifier)
+(define (jazz:specifier->name specifier)
   (let ((extract
           (lambda (string)
             (%%substring string 1 (%%fx- (%%string-length string) 1)))))
     (%%string->symbol (extract (%%symbol->string specifier)))))
 
 
-(define (jazz.name->specifier name)
+(define (jazz:name->specifier name)
   (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
 
 
-(define (jazz.binding-specifier binding)
-  (let ((cdr-binding (%%cdr (jazz.source-code binding))))
+(define (jazz:binding-specifier binding)
+  (let ((cdr-binding (%%cdr (jazz:source-code binding))))
     (and (%%pair? cdr-binding)
-         (jazz.specifier? (jazz.source-code (%%car cdr-binding)))
-         (jazz.source-code (%%car cdr-binding)))))
+         (jazz:specifier? (jazz:source-code (%%car cdr-binding)))
+         (jazz:source-code (%%car cdr-binding)))))
 
 
 ;;;
@@ -121,15 +121,15 @@
 ;;;
 
 
-(define (jazz.enumerator? obj)
+(define (jazz:enumerator? obj)
   (and (%%symbol? obj)
        (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:)))
 
 
-(define (jazz.enumerator->symbol enumerator)
+(define (jazz:enumerator->symbol enumerator)
   (let ((name (%%symbol->string enumerator)))
     (%%string->symbol (%%substring name 1 (%%string-length name)))))
 
 
-(define (jazz.symbol->enumerator symbol)
+(define (jazz:symbol->enumerator symbol)
   (%%string->symbol (%%string-append ":" (%%symbol->string symbol)))))

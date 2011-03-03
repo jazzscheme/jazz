@@ -38,28 +38,28 @@
 (unit protected core.exception.runtime.error
 
 
-(jazz.define-class-runtime jazz.Error)
+(jazz:define-class-runtime jazz:Error)
 
 
-(define (jazz.new-error message)
-  (jazz.allocate-error jazz.Error message))
+(define (jazz:new-error message)
+  (jazz:allocate-error jazz:Error message))
 
 
-(jazz.define-method (jazz.get-message (jazz.Error error))
+(jazz:define-method (jazz:get-message (jazz:Error error))
   (%%get-error-message error))
 
 
-(jazz.define-method (jazz.present-exception (jazz.Error error))
+(jazz:define-method (jazz:present-exception (jazz:Error error))
   (%%get-error-message error))
 
 
-(jazz.encapsulate-class jazz.Error)
+(jazz:encapsulate-class jazz:Error)
 
 
-(define (jazz.raise-jazz-error fmt-string . rest)
+(define (jazz:raise-jazz-error fmt-string . rest)
   (declare (proper-tail-calls))
-  (let ((message (apply jazz.format fmt-string rest)))
-    (raise (jazz.new-error message))))
+  (let ((message (apply jazz:format fmt-string rest)))
+    (raise (jazz:new-error message))))
 
 
-(set! jazz.error jazz.raise-jazz-error))
+(set! jazz:error jazz:raise-jazz-error))

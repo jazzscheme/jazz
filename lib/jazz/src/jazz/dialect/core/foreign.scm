@@ -40,19 +40,19 @@
 
 (cond-expand
   (gambit
-    (define jazz.foreign? foreign?)
-    (define jazz.foreign-address foreign-address)
-    (define jazz.foreign-release! foreign-release!)
-    (define jazz.foreign-released? foreign-released?)
-    (define jazz.foreign-tags foreign-tags)
+    (define jazz:foreign? foreign?)
+    (define jazz:foreign-address foreign-address)
+    (define jazz:foreign-release! foreign-release!)
+    (define jazz:foreign-released? foreign-released?)
+    (define jazz:foreign-tags foreign-tags)
     
-    ;(define (jazz.still-obj-refcount foreign)
+    ;(define (jazz:still-obj-refcount foreign)
     ;  (%%still-obj-refcount foreign))
     
-    (define (jazz.still-obj-refcount-dec! foreign)
+    (define (jazz:still-obj-refcount-dec! foreign)
       (%%still-obj-refcount-dec! foreign))
     
-    (define (jazz.still-obj-refcount-inc! foreign)
+    (define (jazz:still-obj-refcount-inc! foreign)
       (%%still-obj-refcount-inc! foreign)))
   
   (else)))

@@ -42,7 +42,7 @@
 (import (jazz.dialect.kernel))
 
 
-(native private jazz.error)
+(native private jazz:error)
 
 
 ; @syntax (typecase target (a 1) ((b c) 2) (else 3))

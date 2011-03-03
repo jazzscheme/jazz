@@ -42,40 +42,40 @@
 (unit protected core.module.runtime.autoload
 
 
-(define jazz.Autoloads
+(define jazz:Autoloads
   (%%make-table test: eq?))
 
 
-(define (jazz.get-autoloads)
-  jazz.Autoloads)
+(define (jazz:get-autoloads)
+  jazz:Autoloads)
 
 
-(define (jazz.get-autoload name)
-  (%%table-ref jazz.Autoloads name #f))
+(define (jazz:get-autoload name)
+  (%%table-ref jazz:Autoloads name #f))
 
 
-(define (jazz.set-autoload name unit-name loader)
-  (%%table-set! jazz.Autoloads name (%%cons unit-name loader)))
+(define (jazz:set-autoload name unit-name loader)
+  (%%table-set! jazz:Autoloads name (%%cons unit-name loader)))
 
 
-(define (jazz.require-autoload name)
-  (or (jazz.get-autoload name)
-      (jazz.error "Unable to find autoload {s}" name)))
+(define (jazz:require-autoload name)
+  (or (jazz:get-autoload name)
+      (jazz:error "Unable to find autoload {s}" name)))
 
 
-(define (jazz.register-autoload name unit-name loader)
-  (let ((actual (jazz.get-autoload name)))
+(define (jazz:register-autoload name unit-name loader)
+  (let ((actual (jazz:get-autoload name)))
     (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
-        (jazz.set-autoload name unit-name loader)
-      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name))))
+        (jazz:set-autoload name unit-name loader)
+      (jazz:error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name))))
 
 
-(define (jazz.autoload name)
-  (let ((autoload-info (jazz.require-autoload name)))
+(define (jazz:autoload name)
+  (let ((autoload-info (jazz:require-autoload name)))
     ((%%cdr autoload-info))))
 
 
-(define (jazz.autoreload name)
-  (let ((autoload-info (jazz.require-autoload name)))
-    (jazz.reload-unit (%%car autoload-info))
+(define (jazz:autoreload name)
+  (let ((autoload-info (jazz:require-autoload name)))
+    (jazz:reload-unit (%%car autoload-info))
     ((%%cdr autoload-info)))))

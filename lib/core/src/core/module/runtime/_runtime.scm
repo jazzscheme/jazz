@@ -43,21 +43,21 @@
 ;;;
 
 
-(jazz.define-class jazz.Module jazz.Object () jazz.Object-Class jazz.allocate-module
+(jazz:define-class jazz:Module jazz:Object () jazz:Object-Class jazz:allocate-module
   ((name    %%get-module-name    ())
    (access  %%get-module-access  ())
    (exports %%get-module-exports ())
    (entries %%get-module-entries ())))
 
 
-(jazz.define-class-runtime jazz.Module)
+(jazz:define-class-runtime jazz:Module)
 
 
-(define (jazz.new-module name access)
-  (jazz.allocate-module jazz.Module name access (%%make-table test: eq?) (%%make-table test: eq?)))
+(define (jazz:new-module name access)
+  (jazz:allocate-module jazz:Module name access (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
-(jazz.encapsulate-class jazz.Module)
+(jazz:encapsulate-class jazz:Module)
 
 
 ;;;
@@ -65,22 +65,22 @@
 ;;;
 
 
-(jazz.define-class jazz.Native jazz.Field (name) jazz.Object-Class jazz.allocate-native
+(jazz:define-class jazz:Native jazz:Field (name) jazz:Object-Class jazz:allocate-native
   ((symbol %%get-native-symbol ())))
 
 
-(jazz.define-class-runtime jazz.Native)
+(jazz:define-class-runtime jazz:Native)
 
 
-(define (jazz.new-native name symbol)
-  (jazz.allocate-native jazz.Native name symbol))
+(define (jazz:new-native name symbol)
+  (jazz:allocate-native jazz:Native name symbol))
 
 
-(jazz.encapsulate-class jazz.Native)
+(jazz:encapsulate-class jazz:Native)
 
 
-(define (jazz.register-native module-name name symbol)
-  (jazz.register-module-entry module-name name (jazz.new-native name symbol)))
+(define (jazz:register-native module-name name symbol)
+  (jazz:register-module-entry module-name name (jazz:new-native name symbol)))
 
 
 ;;;
@@ -88,44 +88,44 @@
 ;;;
 
 
-(jazz.define-class jazz.Runtime-Reference jazz.Object () jazz.Object-Class jazz.allocate-runtime-reference
+(jazz:define-class jazz:Runtime-Reference jazz:Object () jazz:Object-Class jazz:allocate-runtime-reference
   ((resolver      %%get-runtime-reference-resolver      ())
    (serialization %%get-runtime-reference-serialization ())))
 
 
-(jazz.define-class-runtime jazz.Runtime-Reference)
+(jazz:define-class-runtime jazz:Runtime-Reference)
 
 
-(define (jazz.new-runtime-reference resolver serialization)
-  (jazz.allocate-runtime-reference jazz.Runtime-Reference resolver serialization))
+(define (jazz:new-runtime-reference resolver serialization)
+  (jazz:allocate-runtime-reference jazz:Runtime-Reference resolver serialization))
 
 
-(jazz.encapsulate-class jazz.Runtime-Reference)
+(jazz:encapsulate-class jazz:Runtime-Reference)
 
 
-(define (jazz.resolve-runtime-reference runtime-reference)
-  (%%debug-assert (%%is? runtime-reference jazz.Runtime-Reference)
+(define (jazz:resolve-runtime-reference runtime-reference)
+  (%%debug-assert (%%is? runtime-reference jazz:Runtime-Reference)
     (let ((resolver (%%get-runtime-reference-resolver runtime-reference)))
       (resolver))))
 
 
-(define (jazz.serialize-runtime-reference runtime-reference)
-  (%%debug-assert (%%is? runtime-reference jazz.Runtime-Reference)
+(define (jazz:serialize-runtime-reference runtime-reference)
+  (%%debug-assert (%%is? runtime-reference jazz:Runtime-Reference)
     (%%get-runtime-reference-serialization runtime-reference)))
 
 
-(define (jazz.deserialize-runtime-reference serialization)
+(define (jazz:deserialize-runtime-reference serialization)
   (define (deserialize-module-private)
-    (jazz.new-runtime-reference (lambda ()
+    (jazz:new-runtime-reference (lambda ()
                                   (let ((locator (%%cadr serialization)))
-                                    (jazz.global-ref locator)))
+                                    (jazz:global-ref locator)))
                                 serialization))
   
   (define (deserialize-module-public)
-    (jazz.new-runtime-reference (lambda ()
+    (jazz:new-runtime-reference (lambda ()
                                   (let ((module-name (%%cadr serialization))
                                         (name (%%car (%%cddr serialization))))
-                                    (jazz.module-ref module-name name)))
+                                    (jazz:module-ref module-name name)))
                                 serialization))
   
   (or (if (%%pair? serialization)
@@ -134,7 +134,7 @@
             ((module-public) (deserialize-module-public))
             (else #f))
         #f)
-      (jazz.error "Unable to deserialize runtime reference: {s}" serialization)))
+      (jazz:error "Unable to deserialize runtime reference: {s}" serialization)))
 
 
 ;;;
@@ -142,19 +142,19 @@
 ;;;
 
 
-(define jazz.Modules
+(define jazz:Modules
   (%%make-table test: eq?))
 
 
-(define (jazz.get-modules)
-  jazz.Modules)
+(define (jazz:get-modules)
+  jazz:Modules)
 
 
-(define (jazz.register-module name access exported-modules exported-symbols)
-  (let ((module (or (jazz.get-module name) (jazz.new-module name access))))
+(define (jazz:register-module name access exported-modules exported-symbols)
+  (let ((module (or (jazz:get-module name) (jazz:new-module name access))))
     (let ((exports (%%get-module-exports module)))
       (for-each (lambda (module-name)
-                  (jazz.iterate-table (%%get-module-exports (jazz.require-module module-name))
+                  (jazz:iterate-table (%%get-module-exports (jazz:require-module module-name))
                     (lambda (name info)
                       (%%table-set! exports name info))))
                 exported-modules)
@@ -163,61 +163,61 @@
                         (info (%%cdr pair)))
                     (%%table-set! exports name info)))
                 exported-symbols)
-      (%%table-set! jazz.Modules name module)
+      (%%table-set! jazz:Modules name module)
       module)))
 
 
-(define (jazz.get-module name)
-  (%%table-ref jazz.Modules name #f))
+(define (jazz:get-module name)
+  (%%table-ref jazz:Modules name #f))
 
 
-(define (jazz.require-module name)
-  (jazz.load-unit name)
-  (or (jazz.get-module name)
-      (jazz.error "Unknown module: {s}" name)))
+(define (jazz:require-module name)
+  (jazz:load-unit name)
+  (or (jazz:get-module name)
+      (jazz:error "Unknown module: {s}" name)))
 
 
-(define (jazz.get-module-entry module-name entry-name)
-  (%%table-ref (%%get-module-entries (jazz.get-module module-name)) entry-name #f))
+(define (jazz:get-module-entry module-name entry-name)
+  (%%table-ref (%%get-module-entries (jazz:get-module module-name)) entry-name #f))
 
-(define (jazz.set-module-entry module-name entry-name entry)
-  (%%table-set! (%%get-module-entries (jazz.get-module module-name)) entry-name entry))
+(define (jazz:set-module-entry module-name entry-name entry)
+  (%%table-set! (%%get-module-entries (jazz:get-module module-name)) entry-name entry))
 
-(define (jazz.register-module-entry module-name entry-name entry)
-  (jazz.set-module-entry module-name entry-name entry))
+(define (jazz:register-module-entry module-name entry-name entry)
+  (jazz:set-module-entry module-name entry-name entry))
 
 
-(define (jazz.module-get module-name name #!key (not-found #f))
-  (let ((module (jazz.require-module module-name)))
+(define (jazz:module-get module-name name #!key (not-found #f))
+  (let ((module (jazz:require-module module-name)))
     (let ((info (%%table-ref (%%get-module-exports module) name #f)))
       (if info
           (if (%%symbol? info)
-              (jazz.global-ref info)
-            (jazz.bind (unit-name . locator) info
-              (jazz.load-unit unit-name)
-              (jazz.global-ref locator)))
+              (jazz:global-ref info)
+            (jazz:bind (unit-name . locator) info
+              (jazz:load-unit unit-name)
+              (jazz:global-ref locator)))
         not-found))))
 
 
-(define jazz.module-ref
+(define jazz:module-ref
   (let ((not-found (box #f)))
     (lambda (module-name name)
-      (let ((obj (jazz.module-get module-name name not-found: not-found)))
+      (let ((obj (jazz:module-get module-name name not-found: not-found)))
         (if (%%eq? obj not-found)
-            (jazz.error "Unable to find '{s} in: {s}" name module-name)
+            (jazz:error "Unable to find '{s} in: {s}" name module-name)
           obj)))))
 
 
-(define (jazz.module-set! module-name name value)
-  (let ((module (jazz.require-module module-name)))
+(define (jazz:module-set! module-name name value)
+  (let ((module (jazz:require-module module-name)))
     (let ((info (%%table-ref (%%get-module-exports module) name #f)))
       (if info
           (if (%%symbol? info)
-              (jazz.global-set! info value)
-            (jazz.bind (unit-name . locator) info
-              (jazz.load-unit unit-name)
-              (jazz.global-set! locator value)))
-        (jazz.error "Unable to find '{s} in: {s}" name module-name)))))
+              (jazz:global-set! info value)
+            (jazz:bind (unit-name . locator) info
+              (jazz:load-unit unit-name)
+              (jazz:global-set! locator value)))
+        (jazz:error "Unable to find '{s} in: {s}" name module-name)))))
 
 
 ;;;
@@ -225,9 +225,9 @@
 ;;;
 
 
-(define (jazz.type-error value type)
-  (jazz.error "{s} expected: {s}" type value))
+(define (jazz:type-error value type)
+  (jazz:error "{s} expected: {s}" type value))
 
 
-(define (jazz.dispatch-error field value category)
-  (jazz.error "Inconsistent dispatch on method {a}: {s} is not of the expected {s} type" (%%get-field-name field) value (%%get-category-identifier category))))
+(define (jazz:dispatch-error field value category)
+  (jazz:error "Inconsistent dispatch on method {a}: {s} is not of the expected {s} type" (%%get-field-name field) value (%%get-category-identifier category))))

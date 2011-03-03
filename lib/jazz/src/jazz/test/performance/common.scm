@@ -158,29 +158,29 @@
          (not safe))
 
 
-(jazz.define-class X jazz.Object () jazz.Object-Class allocate-x
+(jazz:define-class X jazz:Object () jazz:Object-Class allocate-x
   ())
 
-(jazz.define-class-runtime X)
+(jazz:define-class-runtime X)
 
-(jazz.encapsulate-class X)
+(jazz:encapsulate-class X)
 
 
 (define (new-x)
   (allocate-x X))
 
 
-(jazz.define-generic (f-generic (X x) n))
+(jazz:define-generic (f-generic (X x) n))
 
-(jazz.define-specific (f-generic (X x) n)
+(jazz:define-specific (f-generic (X x) n)
   (if (%%fx= n 0)
       0
     (g-generic x (%%fx- n 1))))
 
 
-(jazz.define-generic (g-generic (X x) n))
+(jazz:define-generic (g-generic (X x) n))
 
-(jazz.define-specific (g-generic (X x) n)
+(jazz:define-specific (g-generic (X x) n)
   (if (%%fx= n 0)
       0
     (f-generic x (%%fx- n 1))))
@@ -191,47 +191,47 @@
 ;;;
 
 
-(jazz.define-class-runtime Z)
+(jazz:define-class-runtime Z)
 
 
-(jazz.define-virtual-runtime (f-vtable (Z z) n))
-(jazz.define-virtual-runtime (g-vtable (Z z) n))
+(jazz:define-virtual-runtime (f-vtable (Z z) n))
+(jazz:define-virtual-runtime (g-vtable (Z z) n))
 
 
 (define (new-z)
   (allocate-z Z))
 
 
-(jazz.define-method (f-vtable (Z z) n)
+(jazz:define-method (f-vtable (Z z) n)
   (if (%%fx= n 0)
       0
     (g-vtable z (%%fx- n 1))))
 
 
-(jazz.define-method (g-vtable (Z z) n)
+(jazz:define-method (g-vtable (Z z) n)
   (if (%%fx= n 0)
       0
     (f-vtable z (%%fx- n 1))))
 
 
-(jazz.encapsulate-class Z)
+(jazz:encapsulate-class Z)
 
 
-(jazz.define-class-runtime W)
+(jazz:define-class-runtime W)
 
 
-(jazz.define-method (f-vtable (W w) n)
+(jazz:define-method (f-vtable (W w) n)
   #f)
 
 
-(jazz.define-virtual-runtime (h (W w)))
+(jazz:define-virtual-runtime (h (W w)))
 
 
-(jazz.define-method (h (W w))
+(jazz:define-method (h (W w))
   #f)
 
 
-(jazz.encapsulate-class W)
+(jazz:encapsulate-class W)
 
 
 ;;;

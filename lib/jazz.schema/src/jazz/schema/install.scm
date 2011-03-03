@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-literal Datatype jazz.schema.literals:construct-datatype)
+(jazz:define-literal Datatype jazz.schema.literals:construct-datatype)
 
 
 ;;;
@@ -51,13 +51,13 @@
 ;;;
 
 
-(jazz.define-literal Data-Schema      jazz.schema.literals:construct-data-schema)
-(jazz.define-literal Data-Table       jazz.schema.literals:construct-data-table)
-(jazz.define-literal Data-Column      jazz.schema.literals:construct-data-column)
-(jazz.define-literal Data-Primary-Key jazz.schema.literals:construct-data-primary-key)
-(jazz.define-literal Data-Index       jazz.schema.literals:construct-data-index)
-(jazz.define-literal Data-Constraint  jazz.schema.literals:construct-data-constraint)
-(jazz.define-literal Data-Procedure   jazz.schema.literals:construct-data-procedure)
-(jazz.define-literal Data-Relation    jazz.schema.literals:construct-data-relation)
-(jazz.define-literal Data-Trigger     jazz.schema.literals:construct-data-trigger)
-(jazz.define-literal Data-View        jazz.schema.literals:construct-data-view))
+(jazz:define-literal Data-Schema      jazz.schema.literals:construct-data-schema)
+(jazz:define-literal Data-Table       jazz.schema.literals:construct-data-table)
+(jazz:define-literal Data-Column      jazz.schema.literals:construct-data-column)
+(jazz:define-literal Data-Primary-Key jazz.schema.literals:construct-data-primary-key)
+(jazz:define-literal Data-Index       jazz.schema.literals:construct-data-index)
+(jazz:define-literal Data-Constraint  jazz.schema.literals:construct-data-constraint)
+(jazz:define-literal Data-Procedure   jazz.schema.literals:construct-data-procedure)
+(jazz:define-literal Data-Relation    jazz.schema.literals:construct-data-relation)
+(jazz:define-literal Data-Trigger     jazz.schema.literals:construct-data-trigger)
+(jazz:define-literal Data-View        jazz.schema.literals:construct-data-view))

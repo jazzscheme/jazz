@@ -43,37 +43,37 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Exception)
+(jazz:define-class-runtime jazz:Exception)
 
 
-(jazz.define-method (jazz.print-object (jazz.Exception exception) output detail)
-  (let ((message (jazz.get-message exception)))
-    (jazz.format output "#<exception #{a}" (jazz.object->serial exception))
+(jazz:define-method (jazz:print-object (jazz:Exception exception) output detail)
+  (let ((message (jazz:get-message exception)))
+    (jazz:format output "#<exception #{a}" (jazz:object->serial exception))
     (if message
-        (jazz.format output " {s}" message))
-    (jazz.format output ">")))
+        (jazz:format output " {s}" message))
+    (jazz:format output ">")))
 
 
-(jazz.define-virtual-runtime (jazz.present-exception (jazz.Exception exception)))
-(jazz.define-virtual-runtime (jazz.get-message (jazz.Exception exception)))
-(jazz.define-virtual-runtime (jazz.get-detail (jazz.Exception exception)))
+(jazz:define-virtual-runtime (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual-runtime (jazz:get-message (jazz:Exception exception)))
+(jazz:define-virtual-runtime (jazz:get-detail (jazz:Exception exception)))
 
 
-(jazz.define-method (jazz.present-exception (jazz.Exception exception))
+(jazz:define-method (jazz:present-exception (jazz:Exception exception))
   (let ((output (open-output-string)))
-    (jazz.format output "This exception was raised: {s}" exception)
+    (jazz:format output "This exception was raised: {s}" exception)
     (get-output-string output)))
 
 
-(jazz.define-method (jazz.get-message (jazz.Exception exception))
+(jazz:define-method (jazz:get-message (jazz:Exception exception))
   #f)
 
 
-(jazz.define-method (jazz.get-detail (jazz.Exception exception))
+(jazz:define-method (jazz:get-detail (jazz:Exception exception))
   #f)
 
 
-(jazz.encapsulate-class jazz.Exception)
+(jazz:encapsulate-class jazz:Exception)
 
 
 ;;;
@@ -81,14 +81,14 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Exception-Detail)
+(jazz:define-class-runtime jazz:Exception-Detail)
 
 
-(define (jazz.new-exception-detail icon title location children)
-  (jazz.allocate-exception-detail jazz.Exception-Detail icon title location children))
+(define (jazz:new-exception-detail icon title location children)
+  (jazz:allocate-exception-detail jazz:Exception-Detail icon title location children))
 
 
-(jazz.encapsulate-class jazz.Exception-Detail)
+(jazz:encapsulate-class jazz:Exception-Detail)
 
 
 ;;;
@@ -96,14 +96,14 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.System-Exception)
+(jazz:define-class-runtime jazz:System-Exception)
 
 
-(jazz.define-method (jazz.present-exception (jazz.System-Exception exception))
-  (jazz.exception-reason (%%get-system-exception-exception exception)))
+(jazz:define-method (jazz:present-exception (jazz:System-Exception exception))
+  (jazz:exception-reason (%%get-system-exception-exception exception)))
 
 
-(jazz.encapsulate-class jazz.System-Exception)
+(jazz:encapsulate-class jazz:System-Exception)
 
 
 ;;;
@@ -111,9 +111,9 @@
 ;;;
 
 
-(define (jazz.exception-reason exc)
+(define (jazz:exception-reason exc)
   (let ((output (open-output-string)))
-    (jazz.display-exception exc output)
+    (jazz:display-exception exc output)
     (let ((str (get-output-string output)))
       (let ((len (string-length str)))
         (if (and (%%fx> len 0)
@@ -122,14 +122,14 @@
           str)))))
 
 
-(define (jazz.exception-detail exc)
+(define (jazz:exception-detail exc)
   (if (and (%%object? exc)
-           (%%is? exc jazz.Exception))
-      (jazz.get-detail exc)
+           (%%is? exc jazz:Exception))
+      (jazz:get-detail exc)
     #f))
 
 
-(define (jazz.exception-location exc cont)
+(define (jazz:exception-location exc cont)
   (##exception->locat exc cont))
 
 
@@ -142,9 +142,9 @@
   (set! ##display-exception-hook
         (lambda (exc port)
           (if (and (%%object? exc)
-                   (%%is? exc jazz.Exception))
+                   (%%is? exc jazz:Exception))
               (begin
-                (display (jazz.present-exception exc) port)
+                (display (jazz:present-exception exc) port)
                 (newline port))
             (previous-hook exc port)))))
 
@@ -154,7 +154,7 @@
 ;;;
 
 
-(define (jazz.with-exception-filter filter catcher thunk)
+(define (jazz:with-exception-filter filter catcher thunk)
   (let ((previous-handler (current-exception-handler)))
     (%%continuation-capture
       (lambda (catcher-cont)
@@ -179,7 +179,7 @@
 ;;;
 
 
-(define (jazz.with-exception-propagater handler thunk)
+(define (jazz:with-exception-propagater handler thunk)
   ;; Calls thunk and returns whatever thunk returns, unless
   ;; it raises an exception. In that case handler is called
   ;; with 2 arguments:

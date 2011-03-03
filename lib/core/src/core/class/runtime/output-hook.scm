@@ -40,16 +40,16 @@
 
 (cond-expand
   (gambit
-    (define jazz.print-hook
+    (define jazz:print-hook
       #f)
     
-    (set! jazz.print-hook #f)
+    (set! jazz:print-hook #f)
     
     
     (set! ##wr
           (lambda (we obj)
-            (cond ((and (##jazz? obj) jazz.print-hook)
-                   (jazz.print-hook obj (jazz.writeenv-port we) (jazz.writeenv-style we)))
+            (cond ((and (##jazz? obj) jazz:print-hook)
+                   (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
                   (else (##default-wr we obj))))))
   
   (else)))

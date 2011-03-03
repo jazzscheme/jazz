@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Gambit-Dialect jazz.Scheme-Dialect (bindings) jazz.Object-Class jazz.allocate-gambit-dialect
+(jazz:define-class jazz:Gambit-Dialect jazz:Scheme-Dialect (bindings) jazz:Object-Class jazz:allocate-gambit-dialect
   ())
 
 
@@ -52,5 +52,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Gambit-Walker jazz.Scheme-Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-gambit-walker
+(jazz:define-class jazz:Gambit-Walker jazz:Scheme-Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-gambit-walker
   ()))

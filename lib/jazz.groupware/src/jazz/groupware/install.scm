@@ -38,6 +38,6 @@
 (unit jazz.groupware.install
 
 
-(jazz.register-service 'Compare-Files 'jazz.groupware.services)
-(jazz.register-service 'Compare-Directories 'jazz.groupware.services)
-(jazz.register-service 'Compare-Databases 'jazz.groupware.services))
+(jazz:register-service 'Compare-Files 'jazz.groupware.services)
+(jazz:register-service 'Compare-Directories 'jazz.groupware.services)
+(jazz:register-service 'Compare-Databases 'jazz.groupware.services))

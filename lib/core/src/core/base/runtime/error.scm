@@ -38,7 +38,7 @@
 (unit protected core.base.runtime.error
 
 
-(define (jazz.unimplemented . rest)
+(define (jazz:unimplemented . rest)
   (if (%%null? rest)
-      (jazz.error "Unimplemented functionality")
-    (jazz.error "The following functionality is unimplemented: {a}" (%%car rest)))))
+      (jazz:error "Unimplemented functionality")
+    (jazz:error "The following functionality is unimplemented: {a}" (%%car rest)))))

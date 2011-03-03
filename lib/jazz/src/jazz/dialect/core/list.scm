@@ -38,9 +38,9 @@
 (unit protected jazz.dialect.core.list
 
 
-(define (jazz.proper-list lst)
-  (let ((proper (jazz.new-queue)))
+(define (jazz:proper-list lst)
+  (let ((proper (jazz:new-queue)))
     (%%while (%%pair? lst)
-      (jazz.enqueue proper (%%car lst))
+      (jazz:enqueue proper (%%car lst))
       (set! lst (%%cdr lst)))
-    (jazz.queue-list proper))))
+    (jazz:queue-list proper))))

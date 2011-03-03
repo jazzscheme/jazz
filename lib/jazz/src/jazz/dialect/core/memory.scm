@@ -38,15 +38,15 @@
 (unit protected jazz.dialect.core.memory
 
 
-(define (jazz.gc)
+(define (jazz:gc)
   (%%gc))
 
 
-(define (jazz.gc-report-set! flag)
+(define (jazz:gc-report-set! flag)
   (gc-report-set! flag))
 
 
-(define (jazz.gc-count)
+(define (jazz:gc-count)
   (inexact->exact (f64vector-ref (##process-statistics) 6)))
 
 
@@ -55,7 +55,7 @@
 ;;;
 
 
-(define (jazz.process-memory)
+(define (jazz:process-memory)
   (let ((vec (##process-statistics)))
     (let ((heap       (f64vector-ref vec 15))
           (alloc      (f64vector-ref vec 16))
@@ -69,7 +69,7 @@
               (inexact->exact nonmovable)))))
 
 
-(define (jazz.symbols-memory)
+(define (jazz:symbols-memory)
   (let ((count 0)
         (chars 0))
     (for-each (lambda (lst)
@@ -91,37 +91,37 @@
 ;;;
 
 
-(define (jazz.classes-statistics)
+(define (jazz:classes-statistics)
   (let ((nb-classes 0) (sz-classes 0)
         (nb-interfaces 0) (sz-interfaces 0)
         (nb-slots 0) (sz-slots 0)
         (nb-methods 0) (sz-methods 0))
     (define (process-class class)
       (set! nb-classes (%%fx+ nb-classes 1))
-      (set! sz-classes (%%fx+ sz-classes (fx+ (jazz.vector-size class)
-                                              (jazz.table-size (%%get-category-fields class))
-                                              (jazz.vector-size (%%get-category-ancestors class))
-                                              (jazz.list-size (%%get-category-descendants class))
-                                              (jazz.list-size (%%get-class-interfaces class))
-                                              (jazz.list-size (%%get-class-instance-slots class))
-                                              (jazz.vector-size (%%get-class-core-vtable class))
-                                              (jazz.vector-vector-size (%%get-class-class-table class))
-                                              (jazz.vector-vector-size (%%get-class-interface-table class)))))
-      (jazz.iterate-table (%%get-category-fields class)
+      (set! sz-classes (%%fx+ sz-classes (fx+ (jazz:vector-size class)
+                                              (jazz:table-size (%%get-category-fields class))
+                                              (jazz:vector-size (%%get-category-ancestors class))
+                                              (jazz:list-size (%%get-category-descendants class))
+                                              (jazz:list-size (%%get-class-interfaces class))
+                                              (jazz:list-size (%%get-class-instance-slots class))
+                                              (jazz:vector-size (%%get-class-core-vtable class))
+                                              (jazz:vector-vector-size (%%get-class-class-table class))
+                                              (jazz:vector-vector-size (%%get-class-interface-table class)))))
+      (jazz:iterate-table (%%get-category-fields class)
         (lambda (name field)
-          (cond ((jazz.is? field jazz.Slot) (process-slot field))
-                ((jazz.is? field jazz.Method) (process-method field)))))
+          (cond ((jazz:is? field jazz:Slot) (process-slot field))
+                ((jazz:is? field jazz:Method) (process-method field)))))
       (for-each process-class (%%get-category-descendants class)))
     
     (define (process-slot slot)
       (set! nb-slots (%%fx+ nb-slots 1))
-      (set! sz-slots (%%fx+ sz-slots (jazz.vector-size slot))))
+      (set! sz-slots (%%fx+ sz-slots (jazz:vector-size slot))))
     
     (define (process-method method)
       (set! nb-methods (%%fx+ nb-methods 1))
-      (set! sz-methods (%%fx+ sz-methods (jazz.vector-size method))))
+      (set! sz-methods (%%fx+ sz-methods (jazz:vector-size method))))
     
-    (process-class jazz.Object)
+    (process-class jazz:Object)
     
     (values
       nb-classes sz-classes
@@ -135,18 +135,18 @@
 ;;;
 
 
-(define (jazz.class-instances-count class)
+(define (jazz:class-instances-count class)
   (let ((count 0))
     (let iter ((class class))
-      (set! count (%%fx+ count (%%table-ref jazz.instances-statistics (%%get-category-identifier class) 0)))
+      (set! count (%%fx+ count (%%table-ref jazz:instances-statistics (%%get-category-identifier class) 0)))
       (for-each iter (%%get-category-descendants class)))
     count))
 
 
-(define (jazz.class-instances-size class)
+(define (jazz:class-instances-size class)
   (let ((size 0))
     (let iter ((class class))
-      (set! size (%%fx+ size (%%fx* (%%table-ref jazz.instances-statistics (%%get-category-identifier class) 0)
+      (set! size (%%fx+ size (%%fx* (%%table-ref jazz:instances-statistics (%%get-category-identifier class) 0)
                                     (%%get-class-instance-size class))))
       (for-each iter (%%get-category-descendants class)))
     size))
@@ -157,41 +157,41 @@
 ;;;
 
 
-(define jazz.word-bytes   4)
-(define jazz.f64-bytes    8)
-(define jazz.pair-bytes  12)
-(define jazz.table-bytes 32)
+(define jazz:word-bytes   4)
+(define jazz:f64-bytes    8)
+(define jazz:pair-bytes  12)
+(define jazz:table-bytes 32)
 
 
-(define (jazz.vector-size v)
-  (%%fx+ jazz.word-bytes (%%fx* jazz.word-bytes (%%vector-length v))))
+(define (jazz:vector-size v)
+  (%%fx+ jazz:word-bytes (%%fx* jazz:word-bytes (%%vector-length v))))
 
-(define (jazz.safe-vector-size v)
+(define (jazz:safe-vector-size v)
   (if (%%vector? v)
-      (jazz.vector-size v)
+      (jazz:vector-size v)
     0))
 
-(define (jazz.f64vector-size v)
-  (%%fx+ jazz.word-bytes (%%fx* jazz.f64-bytes (f64vector-length v))))
+(define (jazz:f64vector-size v)
+  (%%fx+ jazz:word-bytes (%%fx* jazz:f64-bytes (f64vector-length v))))
 
-(define (jazz.vector-vector-size v)
+(define (jazz:vector-vector-size v)
   (if (%%not v)
       0
-    (%%fx+ (jazz.vector-size v)
+    (%%fx+ (jazz:vector-size v)
            (let iter ((n 0) (size 0))
                 (if (%%fx< n (%%vector-length v))
                     (let ((v (%%vector-ref v n)))
-                      (iter (%%fx+ n 1) (%%fx+ size (if v (jazz.vector-size v) 0))))
+                      (iter (%%fx+ n 1) (%%fx+ size (if v (jazz:vector-size v) 0))))
                   size)))))
 
-(define (jazz.list-size l)
-  (%%fx* jazz.pair-bytes (%%length l)))
+(define (jazz:list-size l)
+  (%%fx* jazz:pair-bytes (%%length l)))
 
-(define (jazz.table-size t)
+(define (jazz:table-size t)
   (let ((gcht1 (%%vector-ref t 3))
         (gcht2 (%%vector-ref t 5))
         (floats (%%vector-ref t 4)))
-    (%%fx* jazz.word-bytes
+    (%%fx* jazz:word-bytes
            (fx+ 1 (%%vector-length t)
              ;; 1 (%%vector-length floats)
              (if (##gc-hash-table? gcht1) (%%fx+ 1 (%%vector-length gcht1)) 0)

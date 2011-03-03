@@ -47,19 +47,19 @@
 ;;;
 
 
-(define (jazz.parse unit-name)
-  (let ((src (jazz.find-unit-src unit-name #f)))
-    (let ((form-src (jazz.read-toplevel-form src)))
+(define (jazz:parse unit-name)
+  (let ((src (jazz:find-unit-src unit-name #f)))
+    (let ((form-src (jazz:read-toplevel-form src)))
       (pretty-print
-        (jazz.desourcify-all form-src)))))
+        (jazz:desourcify-all form-src)))))
 
 
-(define (jazz.parse-source unit-name)
-  (parameterize ((jazz.walk-for 'interpret))
-    (let* ((src (jazz.find-unit-src unit-name #f))
-           (form-src (jazz.read-toplevel-form src)))
+(define (jazz:parse-source unit-name)
+  (parameterize ((jazz:walk-for 'interpret))
+    (let* ((src (jazz:find-unit-src unit-name #f))
+           (form-src (jazz:read-toplevel-form src)))
       (pretty-print
-        (jazz.present-source form-src)))))
+        (jazz:present-source form-src)))))
 
 
 ;;;
@@ -67,43 +67,43 @@
 ;;;
 
 
-(define (jazz.expand-unit unit-name #!key (walk-for #f))
-  (parameterize ((jazz.walk-for (or walk-for 'walk)))
-    (let* ((src (jazz.find-unit-src unit-name #f))
-           (form (jazz.read-toplevel-form src))
-           (kind (jazz.source-code (car (jazz.source-code form))))
-           (rest (cdr (jazz.source-code form))))
-      (parameterize ((jazz.requested-unit-name unit-name)
-                     (jazz.requested-unit-resource src)
-                     (jazz.generate-symbol-for "%")
-                     (jazz.generate-symbol-context unit-name)
-                     (jazz.generate-symbol-counter 0))
+(define (jazz:expand-unit unit-name #!key (walk-for #f))
+  (parameterize ((jazz:walk-for (or walk-for 'walk)))
+    (let* ((src (jazz:find-unit-src unit-name #f))
+           (form (jazz:read-toplevel-form src))
+           (kind (jazz:source-code (car (jazz:source-code form))))
+           (rest (cdr (jazz:source-code form))))
+      (parameterize ((jazz:requested-unit-name unit-name)
+                     (jazz:requested-unit-resource src)
+                     (jazz:generate-symbol-for "%")
+                     (jazz:generate-symbol-context unit-name)
+                     (jazz:generate-symbol-counter 0))
         (case kind
-          ((unit) (jazz.expand-unit-source rest))
-          ((module) (jazz.expand-module-source rest)))))))
+          ((unit) (jazz:expand-unit-source rest))
+          ((module) (jazz:expand-module-source rest)))))))
 
 
-(define (jazz.expand unit-name . rest)
-  (apply jazz.expand-to-port unit-name (current-output-port) rest))
+(define (jazz:expand unit-name . rest)
+  (apply jazz:expand-to-port unit-name (current-output-port) rest))
 
 
-(define (jazz.expand-to-port unit-name port . rest)
+(define (jazz:expand-to-port unit-name port . rest)
   (pretty-print
-    (jazz.desourcify-all (apply jazz.expand-unit unit-name rest))
+    (jazz:desourcify-all (apply jazz:expand-unit unit-name rest))
     port))
 
 
-(define (jazz.expand-to-file unit-name #!key (file #f) #!rest rest)
-  (parameterize ((current-readtable jazz.scheme-readtable))
+(define (jazz:expand-to-file unit-name #!key (file #f) #!rest rest)
+  (parameterize ((current-readtable jazz:scheme-readtable))
     (call-with-output-file (or file "x.scm")
       (lambda (port)
-        (apply jazz.expand-to-port unit-name port rest)))))
+        (apply jazz:expand-to-port unit-name port rest)))))
 
 
-(define (jazz.expand-source unit-name . rest)
+(define (jazz:expand-source unit-name . rest)
   (pretty-print
-    (jazz.present-source
-      (apply jazz.expand-unit unit-name rest))))
+    (jazz:present-source
+      (apply jazz:expand-unit unit-name rest))))
 
 
 ;;;
@@ -111,5 +111,5 @@
 ;;;
 
 
-(define (jazz.lookup module-name name access)
-  (jazz.lookup-declaration (jazz.walk-unit module-name) name access #f)))
+(define (jazz:lookup module-name name access)
+  (jazz:lookup-declaration (jazz:walk-unit module-name) name access #f)))

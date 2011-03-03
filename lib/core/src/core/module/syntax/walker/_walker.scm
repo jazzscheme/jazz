@@ -255,7 +255,7 @@
 (define (jazz.setup-declaration new-declaration)
   (let ((parent (%%get-declaration-parent new-declaration))
         (name (%%get-lexical-binding-name new-declaration)))
-    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-identifier (%%get-declaration-locator parent) name)))
+    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-reference (%%get-declaration-locator parent) name)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
 
 
@@ -388,7 +388,7 @@
 (jazz.define-method (jazz.resolve-reference (jazz.Export-Reference declaration-reference) module-declaration)
   (or (%%get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz.parse-exported-symbol module-declaration (%%get-declaration-reference-name declaration-reference))
-        (let ((locator (jazz.compose-identifier (%%get-lexical-binding-name module-declaration) name)))
+        (let ((locator (jazz.compose-reference (%%get-lexical-binding-name module-declaration) name)))
           (let ((declaration (jazz.new-export-declaration name #f 'public 'uptodate '() #f locator)))
             (%%set-declaration-reference-declaration declaration-reference declaration)
             declaration)))))
@@ -569,7 +569,7 @@
         (autoload (%%get-export-invoice-autoload module-invoice)))
     (cond (only
            (for-each (lambda (declaration-reference)
-                       (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference)))
+                       (let ((name (jazz.reference-name (%%get-declaration-reference-name declaration-reference)))
                              (declaration (jazz.resolve-reference declaration-reference module-declaration)))
                          (%%table-set! public name declaration)
                          (add-to-module-references declaration)))
@@ -577,7 +577,7 @@
           (autoload
            (let ((exported-module-reference (%%get-module-invoice-module module-invoice)))
              (for-each (lambda (declaration-reference)
-                         (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference)))
+                         (let ((name (jazz.reference-name (%%get-declaration-reference-name declaration-reference)))
                                (declaration (jazz.resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
                            (%%table-set! public name declaration)
                            (add-to-module-references declaration)))
@@ -725,10 +725,10 @@
                            (%%when autoload
                              (let ((unit-name (%%get-declaration-reference-name (%%get-module-invoice-module module-invoice))))
                                (for-each (lambda (decl)
-                                           (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
+                                           (let ((name (jazz.reference-name (%%get-declaration-reference-name decl))))
                                              (%%when (%%not (%%table-ref names name #f))
                                                (%%table-set! names name #t)
-                                               (let ((symbol-name (jazz.compose-identifier unit-name name)))
+                                               (let ((symbol-name (jazz.compose-reference unit-name name)))
                                                  (jazz.enqueue auto `(jazz.register-autoload ',name ',unit-name
                                                                        (lambda ()
                                                                          (jazz.load-unit ',unit-name)
@@ -978,7 +978,7 @@
 ;; this heuristic used because we cannot call jazz.resolve-binding at various points
 ;; is not 100% correct if the autoload was obtained through a reexported module...
 (define (jazz.autoload-declaration-locator-heuristic declaration)
-  (jazz.compose-identifier (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
+  (jazz.compose-reference (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
 
 
 (define (jazz.autoload-locator referenced-declaration)
@@ -2721,7 +2721,7 @@
 ;; identifiers are equal if they resolve to the same lexical binding
 (define (identifier=? x-env x y-env y)
   (define (lookup-identifier symbol environment)
-    (if (jazz.composite-identifier? symbol)
+    (if (jazz.composite-reference? symbol)
         symbol
       (jazz.find-in (lambda (binding)
                       (jazz.walk-binding-lookup binding symbol #f))
@@ -3791,7 +3791,7 @@
   ;; non-trivial work of changing references to remember how they where obtained
   (define (determine-serialization reference)
     (let ((reified-reference (%%get-reference-reification-reference expression)))
-      (if (jazz.composite-identifier? reified-reference)
+      (if (jazz.composite-reference? reified-reference)
           (receive (module-name name) (jazz.break-reference reified-reference)
             `(module-public ,module-name ,name))
         (let ((module (%%get-declaration-toplevel declaration))
@@ -4384,7 +4384,10 @@
       ;; this way of getting a reference to the literal's class is a quick solution
       (let ((literal-type (if literal?
                               (%%desourcify (%%get-literal-name literal/constant))
-                            (jazz.identifier-name (%%get-category-identifier (jazz.class-of literal/constant))))))
+                            (let ((name (%%get-category-identifier (jazz.class-of literal/constant))))
+                              (if (jazz.composite-reference? name)
+                                  (jazz.reference-name name)
+                                (jazz.identifier-name name))))))
         (jazz.new-constant locator (jazz.lookup-reference walker resume declaration environment literal-type))))))
 
 

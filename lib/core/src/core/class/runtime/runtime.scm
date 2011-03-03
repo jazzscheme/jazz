@@ -2261,7 +2261,7 @@
 (define (jazz.update-method class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
     (let ((method (%%get-category-field owner method-name))
-          (method-locator (%%compose-identifier (%%get-category-identifier class) method-name)))
+          (method-locator (%%compose-reference (%%get-category-identifier class) method-name)))
       (jazz.global-set! method-locator method-implementation)
       (if (%%eq? owner class)
           (case (%%get-method-dispatch-type method)

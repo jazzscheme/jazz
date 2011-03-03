@@ -478,6 +478,8 @@
 (native jazz.break-reference)
 (native jazz.identifier-unit <symbol>)
 (native jazz.identifier-name <symbol>)
+(native jazz.reference-unit <symbol>)
+(native jazz.reference-name <symbol>)
 
 
 ;;;

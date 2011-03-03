@@ -62,6 +62,29 @@
 
 
 ;;;
+;;;; Reference
+;;;
+
+
+(define (jazz.reference-unit reference)
+  (%%assert (%%symbol? reference)
+    (let* ((str (%%symbol->string reference))
+           (pos (jazz.string-find-reversed str #\:)))
+      (if (%%not pos)
+          #f
+        (%%string->symbol (%%substring str 0 pos))))))
+
+
+(define (jazz.reference-name reference)
+  (%%assert (%%symbol? reference)
+    (let* ((str (%%symbol->string reference))
+           (pos (jazz.string-find-reversed str #\:)))
+      (if (%%not pos)
+          reference
+        (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str)))))))
+
+
+;;;
 ;;;; Specifier
 ;;;
 

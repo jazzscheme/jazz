@@ -446,7 +446,7 @@
       (let* ((core-class-ascendant (%%get-class-ascendant core-class))
              (core-class-ascendant-name (if (%%not core-class-ascendant) '() (jazz.identifier-name (%%get-category-identifier core-class-ascendant))))
              (declaration-ascendant (%%get-class-declaration-ascendant declaration))
-             (declaration-ascendant-name (if (%%not declaration-ascendant) '() (jazz.identifier-name (%%get-declaration-locator declaration-ascendant)))))
+             (declaration-ascendant-name (if (%%not declaration-ascendant) '() (jazz.reference-name (%%get-declaration-locator declaration-ascendant)))))
         (%%when (%%not (%%eq? core-class-ascendant-name declaration-ascendant-name))
           (jazz.error "Inconsistant core-class/class ascendant for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-ascendant-name declaration-ascendant-name))))
     
@@ -1007,7 +1007,7 @@
 
 
 (define (jazz.expand-declaration-locator walker resume declaration environment)
-  `(quote ,(apply jazz.compose-identifier (jazz.get-declaration-path declaration))))
+  `(quote ,(apply jazz.compose-reference (jazz.get-declaration-path declaration))))
 
 
 ;;;
@@ -1039,7 +1039,7 @@
 (set! jazz.emit-specialized-locator
       (lambda (locator arguments environment)
         (case locator
-          ((jazz.dialect.kernel.class-of)
+          ((jazz.dialect.kernel:class-of)
            (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
              (jazz.emit-specialized-class-of (%%car arguments) environment)))
           (else
@@ -1063,7 +1063,7 @@
 
 (set! jazz.emit-primitive-new-call
       (lambda (operator locator arguments arguments-codes declaration environment)
-        (if (%%eq? locator 'jazz.dialect.kernel.new)
+        (if (%%eq? locator 'jazz.dialect.kernel:new)
             (%%assert (%%pair? arguments)
               (let ((class-expression (%%car arguments)))
                 (if (%%class-is? class-expression jazz.Binding-Reference)
@@ -1548,7 +1548,7 @@
       (let ((new-declaration (jazz.require-declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
           ;; adding source information for parameters (default for optional and keyword may be source code)
-          ;; jazz.find-annotated fails on first keyword at jazz.dialect.language.functional.minimum
+          ;; jazz.find-annotated fails on first keyword at jazz.dialect.language.functional:minimum
           ;; because (eq? variable annotated-variable) -> one points to a stale value
           (let ((new-environment (if #f #; parameters
                                    (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)

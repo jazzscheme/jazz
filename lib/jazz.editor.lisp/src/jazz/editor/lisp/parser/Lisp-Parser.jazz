@@ -46,14 +46,39 @@
 (class Lisp-Parser extends File-Parser
   
   
-  (method meta override (reference-searcher target constituent-test)
+  (method meta protected virtual (iterate-references name <string> proc <procedure>)
+    (define (parse-tag)
+      (when (tag-string? name)
+        (call-proc name)
+        (call-proc (tag->name name))))
+    
+    (define (parse-composite-colon)
+      (let ((parts (split-string name #\:)))
+        (when (and (>= (length parts) 2)
+                   ;; quick temp patch
+                   (not (equal? (car parts) "jazz")))
+          (for-each call-proc parts)
+          #t)))
+    
+    (define (call-proc ref)
+      (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
+        (proc ref)))
+    
+    (or (parse-tag)
+        (parse-composite-colon)
+        (proc name)))
+  
+  
+  (method meta override (reference-searcher target <string> constituent-test <procedure>)
     (make-searcher
       (lambda (seq constituent-test start reversed?)
-        (if (or (and (tag-string? seq)
-                     (equal? (tag->name seq) target))
-                (equal? seq target))
-            (cons 0 (cardinality seq))
-          #f))))
+        (continuation-capture
+          (lambda (return)
+            (iterate-references seq
+              (lambda (ref)
+                (when (equal? ref target)
+                  (continuation-return return (cons 0 (cardinality seq))))))
+            #f)))))
   
   
   (method override (parse file time dialect)
@@ -111,10 +136,10 @@
                 (unless (or (empty-string? name)
                             (eqv? (string-ref name 0) #\')
                             (string=? name Lisp-Period))
-                  (add-references name
-                                  (lambda (ref)
-                                    (unless (empty-string? ref)
-                                      (add-reference~ parent ref)))))))
+                  (iterate-references~ (class-of self) name
+                    (lambda (ref)
+                      (unless (empty-string? ref)
+                        (add-reference~ parent ref)))))))
             parent)
           #f)
         (get-output~ fact))))
@@ -125,9 +150,4 @@
   
   
   (method protected virtual (explorer-class file)
-    )
-  
-  
-  (method protected virtual (add-references name <string> adder)
-    (cond ((tag-string? name) (adder (tag->name name)))
-          (else (adder name))))))
+    )))

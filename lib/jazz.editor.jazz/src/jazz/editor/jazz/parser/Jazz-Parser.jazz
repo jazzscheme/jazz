@@ -43,66 +43,28 @@
         (jazz.editor.lisp))
 
 
-;;;
-;;;; Iterate
-;;;
-
-
-(definition (iterate-references name proc)
-  (define (parse-composite-colon)
-    (when (string-find-reversed name #\:)
-      (call-proc name)
-      (for-each call-proc (split-string name #\:))
-      #t))
-  
-  (define (parse-composite-period)
-    (when (split-identifiers?)
-      (parse-composite #\.)))
-  
-  (define (parse-composite-tilde)
-    (parse-composite #\~))
-  
-  (define (parse-composite separator)
-    (let ((pos (string-find-reversed name separator)))
-      (when pos
-        (let ((head (substring name 0 pos))
-              (tail (substring name (+ pos 1) (string-length name))))
-          (unless (or (empty-string? head)
-                      (empty-string? tail))
-            (call-proc name))
-          (call-proc head)
-          (call-proc tail))
-        #t)))
-  
-  (define (call-proc ref)
-    (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
-      (proc ref)))
-  
-  (or (parse-composite-colon)
-      (parse-composite-period)
-      (parse-composite-tilde)))
-
-
-;;;
-;;;; Parser
-;;;
-
-
 (class Jazz-Parser extends Lisp-Parser
   
   
-  (method meta override (reference-searcher target constituent-test)
-    (make-searcher
-      (lambda (seq constituent-test start reversed?)
-        (continuation-capture
-          (lambda (return)
-            (iterate-references seq
-              (lambda (ref)
-                (when (equal? ref target)
-                  (continuation-return return (cons 0 (cardinality seq))))))
-            (contextual-search seq (nextmethod target constituent-test)
-              start: start
-              reversed?: reversed?))))))
+  (method meta override (iterate-references name <string> proc <procedure>)
+    (define (parse-tilde)
+      (let ((pos (string-find-reversed name #\~)))
+        (when pos
+          (let ((head (substring name 0 pos))
+                (tail (substring name (+ pos 1) (string-length name))))
+            (unless (or (empty-string? head)
+                        (empty-string? tail))
+              (call-proc name))
+            (call-proc head)
+            (call-proc tail))
+          #t)))
+    
+    (define (call-proc ref)
+      (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
+        (proc ref)))
+    
+    (or (parse-tilde)
+        (nextmethod name proc)))
   
   
   (method override (text-view-class)
@@ -110,9 +72,4 @@
   
   
   (method override (explorer-class file)
-    Jazz-Explorer)
-  
-  
-  (method override (add-references name <string> adder)
-    (or (iterate-references name adder)
-        (nextmethod name adder)))))
+    Jazz-Explorer)))

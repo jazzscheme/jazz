@@ -4718,12 +4718,21 @@
   pretty-print)
 
 
-(definition public (present-identifier identifier)
-  (let ((names (split (symbol->string identifier) ".")))
-    (if (null? (cdr names))
-        (car names)
-      (let ((reversed (reverse! names)))
-        (system-format "{a}.{a}" (element reversed 1) (element reversed 0))))))
+(definition public (present-reference reference)
+  (define (present-identifier identifier)
+    (let ((names (split (symbol->string identifier) ".")))
+      (if (null? (cdr names))
+          (car names)
+        (let ((reversed (reverse! names)))
+          (system-format "{a}.{a}" (element reversed 1) (element reversed 0))))))
+  
+  (receive (identifier referee) (break-reference reference)
+    (if (not referee)
+        (symbol->string identifier)
+      (let ((referee-name (->string referee)))
+        (if (string-find-reversed referee-name #\:)
+            referee-name
+          (system-format "{a}:{a}" (present-identifier identifier) referee-name))))))
 
 
 (definition public (write-line line . rest)

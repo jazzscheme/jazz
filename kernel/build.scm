@@ -1197,7 +1197,7 @@
   (let ((lst '())
         (end (string-length str)))
     (let iter ((pos (- end 1)))
-      (if (> pos 0)
+      (if (>= pos 0)
           (begin
             (if (eqv? (string-ref str pos) separator)
                 (begin

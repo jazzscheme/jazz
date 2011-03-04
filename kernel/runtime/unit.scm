@@ -1054,7 +1054,7 @@
 
 (define (jazz:load-debuggee)
   (jazz:load-debuggee-units)
-  (jazz:load-unit 'jazz.debuggee:setup))
+  (jazz:load-unit 'jazz.debuggee.setup))
 
 
 (define (jazz:load-debuggee-units)
@@ -1066,8 +1066,8 @@
   (jazz:load-unit 'jazz.debuggee.Debuggee-Stop)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Thread)
   (jazz:load-unit 'jazz.debuggee.stub)
-  (jazz:load-unit 'jazz.debugger.jazz:stub)
-  (jazz:load-unit 'jazz.debugger.jazz:stub-autoload))
+  (jazz:load-unit 'jazz.debugger.jazz.stub)
+  (jazz:load-unit 'jazz.debugger.jazz.stub-autoload))
 
 
 ;;;

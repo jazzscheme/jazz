@@ -43,15 +43,6 @@
 ;;;
 
 
-(define (jazz:identifier-unit identifier)
-  (%%assert (%%symbol? identifier)
-    (let* ((str (%%symbol->string identifier))
-           (pos (jazz:string-find-reversed str #\.)))
-      (if (%%not pos)
-          #f
-        (%%string->symbol (%%substring str 0 pos))))))
-
-
 (define (jazz:identifier-name identifier)
   (%%assert (%%symbol? identifier)
     (let* ((str (%%symbol->string identifier))

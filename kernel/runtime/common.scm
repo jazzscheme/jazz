@@ -318,15 +318,6 @@
   (else))
 
 
-(define (jazz:break-identifier identifier)
-  (let ((str (%%symbol->string identifier)))
-    (let ((n (jazz:string-find-reversed str #\.)))
-      (if (%%not n)
-          (values #f identifier)
-        (values (%%string->symbol (%%substring str 0 n))
-                (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
-
-
 (define (jazz:break-reference identifier)
   (let ((str (%%symbol->string identifier)))
     (let ((n (jazz:string-find str #\:)))

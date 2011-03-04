@@ -973,6 +973,8 @@
 
 
 (native jazz:string-find-reversed)
+(native jazz:string-starts-with?)
+(native jazz:string-ends-with?)
 (native jazz:split-string)
 (native jazz:join-strings)
 

@@ -269,7 +269,7 @@
   (let ((lst '())
         (end (%%string-length str)))
     (let iter ((pos (%%fx- end 1)))
-      (if (%%fx> pos 0)
+      (if (%%fx>= pos 0)
           (begin
             (if (%%eqv? (%%string-ref str pos) separator)
                 (begin

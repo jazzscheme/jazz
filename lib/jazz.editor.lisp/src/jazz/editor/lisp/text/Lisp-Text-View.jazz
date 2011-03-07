@@ -739,6 +739,21 @@
                 (highlight-expression declaration-range target))))))))
   
   
+  (method (on-highlight-current evt)
+    (define (single-line str)
+      (let ((pos (find str #\newline)))
+        (if (not pos)
+            str
+          (substring str 0 pos))))
+    
+    (let ((declaration-range (declaration-range (get-start)))
+          (range (current-expr-range)))
+      (if (or (not declaration-range) (not range))
+          (select-command-search~ (get-application) 'forward #f)
+        (let ((current (single-line (get-string range))))
+          (select-command-highlight~ (get-application) 'forward range current (get-start~ declaration-range) (get-end~ declaration-range))))))
+
+  
   (method (on-remove-highlights evt)
     (let ((range (declaration-range (get-start))))
       (if (not range)
@@ -753,6 +768,10 @@
           (lambda (found)
             (continuation-return return found)))
         #f)))
+  
+  
+  (method public (highlight-reference declaration-range target)
+    (select-command-highlight~ (get-application) 'forward #f target (get-start~ declaration-range) (get-end~ declaration-range)))
   
   
   (method public (highlight-expression range target)

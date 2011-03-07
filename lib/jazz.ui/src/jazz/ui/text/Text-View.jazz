@@ -1467,7 +1467,7 @@
           (region (new Region)))
       (keep-rectangles~ region)
       (for-each-logical-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (with ((sub (range-region~ paragraph left-padding start end dh dv sc)))
             (combine!~ region sub 'or))))
       (let ((root-clipper (get-root-clipper)))
@@ -1525,25 +1525,27 @@
     (or (get-inactive-selection-color~ (get-look)) {Color Unfocused-Selection}))
   
   
-  (method (for-each-logical-range range <Range$Cell$> proc)
+  (method public (for-each-logical-range range <Range$Cell$> proc)
     (let ((start (get-start~ range))
           (end (get-end~ range)))
       (when (/= start end)
         (if (= (get-line~ start) (get-line~ end))
-            (proc (get-paragraph (get-line~ start)) (get-col~ start) (get-col~ end))
+            (let ((line (get-line~ start)))
+              (proc line (get-paragraph line) (get-col~ start) (get-col~ end)))
           (let ((beginning (get-line~ start))
                 (limit (get-line~ end)))
             (loop (for line from beginning to limit)
                   (let ((paragraph (get-paragraph line)))
-                    (cond ((= line beginning) (proc paragraph (get-col~ start) #f))
-                          ((= line limit) (proc paragraph #f (get-col~ end)))
-                          (else (proc paragraph #f #f))))))))))
+                    (cond ((= line beginning) (proc line paragraph (get-col~ start) #f))
+                          ((= line limit) (proc line paragraph #f (get-col~ end)))
+                          (else (proc line paragraph #f #f))))))))))
   
   
-  (method (for-each-range range <Range$Cell$> proc)
+  (method public (for-each-range range <Range$Cell$> proc)
     (for-each-logical-range range
-      (lambda (paragraph start end)
-        (proc paragraph
+      (lambda (line paragraph start end)
+        (proc line
+              paragraph
               (or start 0)
               (or end (get-length~ paragraph))))))
   
@@ -3451,7 +3453,7 @@
   (method public (set-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph '() paragraph)))
       (set-modified? #t)
@@ -3461,7 +3463,7 @@
   
   (method public (modify-style range <Range$Cell$> proc)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (modify-style~ paragraph start end proc)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3473,7 +3475,7 @@
   
   (method public (set-text-alignment range <Range$Cell$> alignment)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -3483,7 +3485,7 @@
   
   (method public (set-text-font range <Range$Cell$> font <Font>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-font~ paragraph start end font)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -3494,7 +3496,7 @@
   (method public (set-text-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph '() paragraph)
           (invalidate-drawing~ paragraph)))
@@ -3503,7 +3505,7 @@
   
   (method public (set-text-color range <Range$Cell$> color <Color>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3512,7 +3514,7 @@
   
   (method public (set-highlight-color range <Range$Cell$> color <Color+>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-highlight-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3521,7 +3523,7 @@
   
   (method public (set-frame-color range <Range$Cell$> color <Color+>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-frame-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3530,7 +3532,7 @@
   
   (method public (toggle-bold range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-bold~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3538,7 +3540,7 @@
   
   (method public (toggle-italic range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-italic~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3546,7 +3548,7 @@
   
   (method public (toggle-underline range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-underline~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -4194,7 +4196,7 @@
   
   (method public (set-selection-font-name name)
     (for-each-range (get-selection)
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-font-name~ paragraph start end name)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -4204,7 +4206,7 @@
   
   (method public (set-selection-point-size size)
     (for-each-range (get-selection)
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-point-size~ paragraph start end size)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -4524,7 +4526,7 @@
   (method public (text-contextual-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test))
           (search-set (->search-set search-context)))
-      ;; Quick solution to multi-line string search
+      ;; quick solution to multi-line string search
       (if (some? (lambda (context)
                    (search (get-target~ context) "\n"))
                  (get-contexts~ search-set))
@@ -4534,13 +4536,16 @@
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
         (let ((pos (or start (if reversed? (text-ending) (text-beginning))))
-              (end (or end (get-limit))))
+              (end (or end (if reversed? (text-beginning) (text-ending)))))
           (let ((line (get-line~ pos))
-                (col (get-col~ pos)))
+                (col (get-col~ pos))
+                (end-line (get-line~ end))
+                (end-col (get-col~ end)))
             (let (iter (n line) (start col))
-              (if (if reversed? (>= n 0) (<= n end))
-                  (let ((string (paragraph-string n)))
-                    (let ((found (contextual-search string search-set constituent-test: constituent-test start: start reversed?: reversed?)))
+              (if (if reversed? (>= n end-line) (<= n end-line))
+                  (let ((string (paragraph-string n))
+                        (end (if (= n end-line) end-col #f)))
+                    (let ((found (contextual-search string search-set constituent-test: constituent-test start: start end: end reversed?: reversed?)))
                       (if found
                           (bind (from . to) found
                             (cons (new Cell n from) (new Cell n to)))
@@ -4551,16 +4556,16 @@
   (method public (text-contextual-search-all search-context (start: start #f) (end: end #f))
     (let ((queue (new-queue))
           (constituent-test (get-constituent-test))
-          (search-set (->search-set search-context)))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (let ((str (get-string~ paragraph)))
+          (search-set (->search-set search-context))
+          (start (or start (text-beginning)))
+          (end (or end (text-ending))))
+      (for-each-range (new-range start end)
+        (lambda (line paragraph <Paragraph> start end)
+          (let ((str (substring (get-string~ paragraph) start end)))
             (for-each (lambda (found)
                         (bind (from . to) found
                           (enqueue queue (cons (new Cell line from) (new Cell line to)))))
-                      (contextual-search-all str search-set constituent-test: constituent-test))))
-        start: start
-        end: end)
+                      (contextual-search-all str search-set constituent-test: constituent-test)))))
       (queue-list queue)))
   
   

@@ -200,8 +200,16 @@
   ;;;
   
   
-  (method public (select-search direction range initial again? whole-words?)
-    (set-mode-search direction)
+  (method public (select-search direction range initial (again?: again? #f) (whole-words?: whole-words? #f) (beginning: beginning #f) (ending: ending #f))
+    (select-mode-search Search-Mode direction range initial again? whole-words? beginning ending))
+  
+  
+  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? #f) (beginning: beginning #f) (ending: ending #f))
+    (select-mode-search Highlight-Mode direction range initial again? whole-words? beginning ending))
+  
+  
+  (method public (select-mode-search class direction range initial again? whole-words? beginning ending)
+    (set-mode-search class direction beginning ending)
     (setup-search-client)
     (acquire-focus)
     (prepare-search~ mode range)
@@ -209,10 +217,10 @@
       (set-text initial)
       (select-all)
       (search~ mode direction again? whole-words?: whole-words?)))
-    
   
-  (method (set-mode-search direction)
-    (set! mode (new Search-Mode self direction))
+  
+  (method (set-mode-search class direction beginning ending)
+    (set! mode (new (or class Search-Mode) self direction beginning ending))
     (user-message "Search..."))
   
   
@@ -340,15 +348,19 @@
   
   
   (slot direction       initialize #f)
+  (slot beginning       initialize #f)
+  (slot ending          initialize #f)
   (slot context         initialize (make-search-context "" ignore-case?: #t))
   (slot ranges          initialize '())
   (slot found-style     initialize #f)
   (slot highlight-style initialize #f)
   
   
-  (method override (initialize text direction)
+  (method override (initialize text direction beginning ending)
     (nextmethod text)
-    (set! direction~self direction))
+    (set! direction~self direction)
+    (set! beginning~self beginning)
+    (set! ending~self ending))
   
   
   (method (prepare-search range)
@@ -389,6 +401,10 @@
     (set-ignore-case?~ context ignore-case?))
   
   
+  (method (select-regexp? regexp?)
+    (set-regexp?~ context regexp?))
+  
+  
   (method (on-whole-words evt)
     (select-whole-words? (not (get-whole-words?~ context)))
     (user-message "Search whole-words {a}" (if (get-whole-words?~ context) "on" "off"))
@@ -398,6 +414,12 @@
   (method (on-ignore-case evt)
     (select-ignore-case? (not (get-ignore-case?~ context)))
     (user-message "Search ignore-case {a}" (if (get-ignore-case?~ context) "on" "off"))
+    (rehighlight-target))
+  
+  
+  (method (on-regexp evt)
+    (select-regexp? (not (get-regexp?~ context)))
+    (user-message "Search regexp {a}" (if (get-regexp?~ context) "on" "off"))
     (rehighlight-target))
   
   
@@ -477,7 +499,7 @@
           (set-target~ context target)
           (set-regexp~ context #f)
           (set-whole-words?~ context whole-words?)
-          (let ((found (text-contextual-search~ client (list context) start: pos reversed?: reversed?)))
+          (let ((found (text-contextual-search~ client (list context) start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
             (define (update-range range)
               (if (not key)
                   (let ((pair (last-pair ranges)))
@@ -501,7 +523,7 @@
                         (let ((range (new Range$Cell$ start end)))
                           (unless (nu=? range found-range)
                             (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                    (text-contextual-search-all~ client (list context)))))
+                    (text-contextual-search-all~ client (list context) start: beginning end: ending))))
       (add-highlight~ client (new Text-Highlight found-range found-style))
       (set-selection~ client found-range))
     
@@ -555,6 +577,22 @@
         (unless lose-focus?
           (acquire-focus~ client))))
     (clear-user-message)))
+
+
+;;;
+;;;; Highlight-Mode
+;;;
+
+
+(class Highlight-Mode extends Search-Mode
+  
+  
+  (method override (mode-actions)
+    (find-actions 'command-highlight))
+  
+  
+  (method (on-highlight evt)
+    (cancel)))
 
 
 ;;;

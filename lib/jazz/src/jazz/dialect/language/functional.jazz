@@ -2335,9 +2335,9 @@
   (slot searcher)
   
   
-  (method protected virtual (search seq <Sequence> constituent-test <procedure+> start <fx+> reversed? <bool>)
+  (method protected virtual (search seq <Sequence> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
     (when searcher
-      (searcher seq constituent-test start reversed?))))
+      (searcher seq constituent-test start end reversed?))))
 
 
 (class package Search-Set extends Searcher
@@ -2347,21 +2347,22 @@
   (slot contexts         <list>       accessors generate)
   
   
-  (method override (search seq <Sequence> constituent-test <procedure+> start <fx+> reversed? <bool>)
+  (method override (search seq <Sequence> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
     (let* ((constituent-test (or (get-constituent-test~ (car contexts))
                                  constituent-test
                                  word-constituent?))
            (whole-words? (get-whole-words?~ (car contexts)))
            (card (cardinality seq))
-           (end (or (and reversed? start) card)))
-      (let (lp (i (or (and (not reversed?) start) 0)) (best #f))
+           (start (or start (if reversed? card 0)))
+           (end (or end (if reversed? 0 card))))
+      (let (lp (i (if reversed? 0 start)) (best #f))
         (let ((m (irregex-search regexp seq i)))
           (if (not m)
               best
             (let ((from (irregex-match-start-index m 0))
                   (to (irregex-match-end-index m 0)))
               (cond
-                ((> to end) best)
+                ((if reversed? (or (< from end) (> to start)) (> to end)) best)
                 ((or (not whole-words?)
                      (let ((before (and (> from 0) (element seq (- from 1))))
                            (after (and (< to card) (element seq to))))
@@ -2426,27 +2427,29 @@
         rx)))
 
 
-(definition (contextual-search-impl seq <Sequence> target <any> constituent-test <procedure+> start <fx+> reversed? <bool>)
+(definition (contextual-search-impl seq <Sequence> target <any> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
   (let ((search-set (->search-set target)))
-    (search~ search-set seq constituent-test start reversed?)))
+    (search~ search-set seq constituent-test start end reversed?)))
 
 
 (definition public (contextual-search seq <Sequence> target <any>
                      (constituent-test: constituent-test #f)
                      (start: start #f)
+                     (end: end #f)
                      (reversed?: reversed? #f))
-  (contextual-search-impl seq target constituent-test start reversed?))
+  (contextual-search-impl seq target constituent-test start end reversed?))
 
 
 (definition public (contextual-search-all seq <Sequence> target <any>
                      (constituent-test: constituent-test #f)
                      (start: start #f)
+                     (end: end #f)
                      (reversed?: reversed? #f))
   (let ((len (cardinality seq))
         (queue (new-queue))
         (search-set (->search-set target)))
     (let (iter (pos <fx> (or start (if reversed? len 0))))
-      (let ((found (contextual-search-impl seq search-set constituent-test pos reversed?)))
+      (let ((found (contextual-search-impl seq search-set constituent-test pos end reversed?)))
         (if found
             (begin
               (enqueue queue found)
@@ -2456,6 +2459,7 @@
 
 (definition public (search seq <Sequence> target <Object>
                      (start: start #f)
+                     (end: end #f)
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
@@ -2464,7 +2468,7 @@
   (let ((search-set (->search-set (if (string? target)
                                       (construct-search-context target whole-words? ignore-case? regexp? #f #f)
                                     target))))
-    (let ((found (contextual-search-impl seq search-set constituent-test start reversed?)))
+    (let ((found (contextual-search-impl seq search-set constituent-test start end reversed?)))
       (if found
           (car found)
         #f))))

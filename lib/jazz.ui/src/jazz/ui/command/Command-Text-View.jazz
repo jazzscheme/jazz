@@ -200,23 +200,30 @@
   ;;;
   
   
-  (method public (select-search direction range initial (again?: again? #f) (whole-words?: whole-words? #f) (beginning: beginning #f) (ending: ending #f))
-    (select-mode-search Search-Mode direction range initial again? whole-words? beginning ending))
+  (method public (select-search direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (beginning: beginning #f) (ending: ending #f))
+    (select-mode-search Search-Mode direction range initial again? whole-words? ignore-case? regexp? beginning ending))
   
   
-  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? #f) (beginning: beginning #f) (ending: ending #f))
-    (select-mode-search Highlight-Mode direction range initial again? whole-words? beginning ending))
+  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (beginning: beginning #f) (ending: ending #f))
+    (select-mode-search Highlight-Mode direction range initial again? whole-words? ignore-case? regexp? beginning ending))
   
   
-  (method public (select-mode-search class direction range initial again? whole-words? beginning ending)
+  (method public (select-mode-search class direction range initial again? whole-words? ignore-case? regexp? beginning ending)
     (set-mode-search class direction beginning ending)
     (setup-search-client)
     (acquire-focus)
     (prepare-search~ mode range)
     (when initial
-      (set-text initial)
+      (if (string? initial)
+          (set-text initial)
+        (unless (neq? whole-words? 'keep)
+          (set! whole-words? (get-whole-words?~ initial)))
+        (unless (neq? ignore-case? 'keep)
+          (set! ignore-case? (get-ignore-case?~ initial)))
+        (set! regexp? #t)
+        (set-text (get-target~ initial)))
       (select-all)
-      (search~ mode direction again? whole-words?: whole-words?)))
+      (search~ mode direction again? whole-words?: whole-words? ignore-case?: ignore-case? regexp?: regexp?)))
   
   
   (method (set-mode-search class direction beginning ending)
@@ -481,7 +488,7 @@
     (cancel))
 
   
-  (method (search direction again? (whole-words?: whole-words? 'keep))
+  (method (search direction again? (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep))
     (define (reset-prefix len)
       (set-target~ context (subseq (get-target~ context) 0 len))
       (set-regexp~ context #f)
@@ -529,8 +536,6 @@
     
     (let ((client (get-client)))
       (when (is? client Text-View)
-        (unless (eq? whole-words? 'keep)
-          (select-whole-words? whole-words?))
         (let ((content (first-line~ text))
               (target (get-target~ context)))
           (let ((prefix (prefix (list content target))))
@@ -543,6 +548,12 @@
                              (search-key client key #f)))
                   (when again?
                     (search-key client #f whole-words?))))
+              (unless (eq? whole-words? 'keep)
+                (select-whole-words? whole-words?))
+              (unless (eq? ignore-case? 'keep)
+                (select-ignore-case? ignore-case?))
+              (unless (eq? regexp? 'keep)
+                (select-regexp? regexp?))
               (highlight-target client (last ranges))))))))
   
   

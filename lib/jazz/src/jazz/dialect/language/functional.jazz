@@ -2324,6 +2324,7 @@
   (slot whole-words?     <bool>       accessors generate)
   (slot ignore-case?     <bool>       accessors generate)
   (slot regexp?          <bool>       accessors generate)
+  (slot match-test       <procedure+> accessors generate)
   (slot constituent-test <procedure+> accessors generate)
   (slot regexp           <any>        accessors generate)
   (slot user-data        <any>        accessors generate))
@@ -2335,7 +2336,7 @@
   (slot searcher)
   
   
-  (method protected virtual (search seq <Sequence> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
+  (method protected virtual (search seq <Sequence> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
     (when searcher
       (searcher seq constituent-test start end reversed?))))
 
@@ -2347,34 +2348,34 @@
   (slot contexts         <list>       accessors generate)
   
   
-  (method override (search seq <Sequence> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
-    (let* ((constituent-test (or (get-constituent-test~ (car contexts))
+  (method override (search seq <Sequence> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
+    (let* ((first-context (car contexts))
+           (whole-words? (get-whole-words?~ first-context))
+           (match-test (or (get-match-test~ first-context)
+                           match-test))
+           (constituent-test (or (get-constituent-test~ first-context)
                                  constituent-test
                                  word-constituent?))
-           (whole-words? (get-whole-words?~ (car contexts)))
            (card (cardinality seq))
            (start (or start (if reversed? card 0)))
            (end (or end (if reversed? 0 card))))
       (let (lp (i (if reversed? 0 start)) (best #f))
-        (let ((m (irregex-search regexp seq i)))
-          (if (not m)
+        (let ((match (irregex-search regexp seq i)))
+          (if (not match)
               best
-            (let ((from (irregex-match-start-index m 0))
-                  (to (irregex-match-end-index m 0)))
+            (let ((from (irregex-match-start-index match 0))
+                  (to (irregex-match-end-index match 0)))
               (cond
                 ((if reversed? (or (< from end) (> to start)) (> to end)) best)
-                ((or (not whole-words?)
-                     (let ((before (and (> from 0) (element seq (- from 1))))
-                           (after (and (< to card) (element seq to))))
-                       (or ;; special case for <tag> syntax
-                         (and (eqv? before #\<)
-                              (eqv? after #\>))
+                ((if match-test
+                     (match-test self seq whole-words? constituent-test from to)
+                   (or (not whole-words?)
+                       (let ((before (and (> from 0) (element seq (- from 1))))
+                             (after (and (< to card) (element seq to))))
                          (and (or (not before)
                                   (not (constituent-test before)))
                               (or (not after)
-                                  (not (constituent-test after))
-                                  ;; special case for method~ syntax
-                                  (eqv? after #\~))))))
+                                  (not (constituent-test after)))))))
                  (let ((res (cons from to)))
                    (if reversed? (lp (+ to 1) res) res)))
                 (else (lp to best))))))))))
@@ -2390,12 +2391,13 @@
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
+                     (match-test: match-test #f)
                      (constituent-test: constituent-test #f)
                      (user-data: user-data #f))
-  (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data))
+  (construct-search-context target whole-words? ignore-case? regexp? match-test constituent-test user-data))
 
-(definition inline (construct-search-context target whole-words? ignore-case? regexp? constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? regexp? constituent-test #f user-data))
+(definition inline (construct-search-context target whole-words? ignore-case? regexp? match-test constituent-test user-data)
+  (construct Search-Context target whole-words? ignore-case? regexp? match-test constituent-test #f user-data))
 
 
 (definition public (->search-set obj)
@@ -2428,29 +2430,31 @@
         rx)))
 
 
-(definition (regular-search-impl seq <Sequence> target <any> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
+(definition (regular-search-impl seq <Sequence> target <any> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
   (let ((search-set (->search-set target)))
-    (search~ search-set seq constituent-test start end reversed?)))
+    (search~ search-set seq match-test constituent-test start end reversed?)))
 
 
 (definition public (regular-search seq <Sequence> target <any>
-                     (constituent-test: constituent-test #f)
                      (start: start #f)
                      (end: end #f)
-                     (reversed?: reversed? #f))
-  (regular-search-impl seq target constituent-test start end reversed?))
+                     (reversed?: reversed? #f)
+                     (match-test: match-test #f)
+                     (constituent-test: constituent-test #f))
+  (regular-search-impl seq target match-test constituent-test start end reversed?))
 
 
 (definition public (regular-search-all seq <Sequence> target <any>
-                     (constituent-test: constituent-test #f)
                      (start: start #f)
                      (end: end #f)
-                     (reversed?: reversed? #f))
+                     (reversed?: reversed? #f)
+                     (match-test: match-test #f)
+                     (constituent-test: constituent-test #f))
   (let ((len (cardinality seq))
         (queue (new-queue))
         (search-set (->search-set target)))
     (let (iter (pos <fx> (or start (if reversed? len 0))))
-      (let ((found (regular-search-impl seq search-set constituent-test pos end reversed?)))
+      (let ((found (regular-search-impl seq search-set match-test constituent-test pos end reversed?)))
         (if found
             (begin
               (enqueue queue found)
@@ -2465,11 +2469,12 @@
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
+                     (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <int+>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f)
+                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f #f)
                                     target))))
-    (let ((found (regular-search-impl seq search-set constituent-test start end reversed?)))
+    (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
       (if found
           (car found)
         #f))))
@@ -2477,17 +2482,22 @@
 
 (definition public (search-all seq <Sequence> target <Object>
                      (start: start #f)
+                     (end: end #f)
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
                      (regexp?: regexp? #f)
+                     (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <list>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f)
+                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f #f)
                                     target))))
     (map car (regular-search-all seq search-set
                start: start
-               reversed?: reversed?))))
+               end: end
+               reversed?: reversed?
+               match-test: match-test
+               constituent-test: constituent-test))))
 
 
 (definition public (split seq <Object> separator <Object>) <list>

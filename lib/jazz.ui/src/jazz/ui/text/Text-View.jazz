@@ -2410,6 +2410,10 @@
     (text-constituent?~ syntax char))
   
   
+  (method public virtual (get-match-test)
+    (get-match-test~ syntax))
+  
+  
   ;;;
   ;;;; Move
   ;;;
@@ -4469,6 +4473,7 @@
       (make-search-context string
         whole-words?: (get-whole-words?~ appl)
         ignore-case?: (get-ignore-case?~ appl)
+        match-test: (get-match-test)
         constituent-test: (get-constituent-test))))
   
   
@@ -4524,14 +4529,15 @@
   
   
   (method public (text-regular-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
-    (let ((constituent-test (get-constituent-test))
+    (let ((match-test (get-match-test))
+          (constituent-test (get-constituent-test))
           (search-set (->search-set search-context)))
       ;; quick solution to multi-line string search
       (if (some? (lambda (context)
                    (search (get-target~ context) "\n"))
                  (get-contexts~ search-set))
           (let ((content (get-string-content)))
-            (let ((found (regular-search content search-set constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
+            (let ((found (regular-search content search-set match-test: match-test constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
@@ -4545,7 +4551,7 @@
               (if (if reversed? (>= n end-line) (<= n end-line))
                   (let ((string (paragraph-string n))
                         (end (if (= n end-line) end-col #f)))
-                    (let ((found (regular-search string search-set constituent-test: constituent-test start: start end: end reversed?: reversed?)))
+                    (let ((found (regular-search string search-set match-test: match-test constituent-test: constituent-test start: start end: end reversed?: reversed?)))
                       (if found
                           (bind (from . to) found
                             (cons (new Cell n from) (new Cell n to)))
@@ -4555,6 +4561,7 @@
   
   (method public (text-regular-search-all search-context (start: start #f) (end: end #f))
     (let ((queue (new-queue))
+          (match-test (get-match-test))
           (constituent-test (get-constituent-test))
           (search-set (->search-set search-context))
           (start (or start (text-beginning)))
@@ -4565,7 +4572,7 @@
             (for-each (lambda (found)
                         (bind (from . to) found
                           (enqueue queue (cons (new Cell line from) (new Cell line to)))))
-                      (regular-search-all str search-set constituent-test: constituent-test)))))
+                      (regular-search-all str search-set match-test: match-test constituent-test: constituent-test)))))
       (queue-list queue)))
   
   

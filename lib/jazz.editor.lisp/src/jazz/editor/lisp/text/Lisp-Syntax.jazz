@@ -101,6 +101,42 @@
   
   
   ;;;
+  ;;;; Constituent
+  ;;;
+  
+  
+  (method override (get-match-test)
+    (lambda (search seq whole-words? constituent-test from to)
+      (or (not whole-words?)
+          (let ((card (cardinality seq)))
+            (define (extend-before from)
+              (let ((previous (- from 1)))
+                (if (and (>= previous 0) (constituent-test (element seq previous)))
+                    (extend-before previous)
+                  from)))
+            
+            (define (extend-after to)
+              (let ((after (+ to 1)))
+                (if (and (<= after card) (constituent-test (element seq (- after 1))))
+                    (extend-after after)
+                  to)))
+            
+            (let ((before (extend-before from))
+                  (after (extend-after to)))
+              (or (and (= from before)
+                       (= to after))
+                  (let ((parser-class (parser-class))
+                        (found (subseq seq from to)))
+                    (continuation-capture
+                      (lambda (return)
+                        (iterate-references~ parser-class (subseq seq before after)
+                          (lambda (ref)
+                            (when (equal? ref found)
+                              (continuation-return return #t))))
+                        #f)))))))))
+  
+  
+  ;;;
   ;;;; Comment
   ;;;
   

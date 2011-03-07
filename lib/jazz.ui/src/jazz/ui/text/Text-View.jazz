@@ -3782,7 +3782,7 @@
     (let ((headers (get-headers)))
       (if (not headers)
           '()
-        (let ((occurences (text-contextual-search-all (map make-search-context headers)))
+        (let ((occurences (text-regular-search-all (map make-search-context headers)))
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
@@ -4489,7 +4489,7 @@
   
   
   (method public virtual (select-next search-context)
-    (let ((found (text-contextual-search search-context start: (get-end) reversed?: #f)))
+    (let ((found (text-regular-search search-context start: (get-end) reversed?: #f)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4499,7 +4499,7 @@
   
   
   (method public virtual (select-previous search-context)
-    (let ((found (text-contextual-search search-context start: (get-start) reversed?: #t)))
+    (let ((found (text-regular-search search-context start: (get-start) reversed?: #t)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4523,7 +4523,7 @@
   ;;;
   
   
-  (method public (text-contextual-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
+  (method public (text-regular-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
     (let ((constituent-test (get-constituent-test))
           (search-set (->search-set search-context)))
       ;; quick solution to multi-line string search
@@ -4531,7 +4531,7 @@
                    (search (get-target~ context) "\n"))
                  (get-contexts~ search-set))
           (let ((content (get-string-content)))
-            (let ((found (contextual-search content search-set constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
+            (let ((found (regular-search content search-set constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
@@ -4545,7 +4545,7 @@
               (if (if reversed? (>= n end-line) (<= n end-line))
                   (let ((string (paragraph-string n))
                         (end (if (= n end-line) end-col #f)))
-                    (let ((found (contextual-search string search-set constituent-test: constituent-test start: start end: end reversed?: reversed?)))
+                    (let ((found (regular-search string search-set constituent-test: constituent-test start: start end: end reversed?: reversed?)))
                       (if found
                           (bind (from . to) found
                             (cons (new Cell n from) (new Cell n to)))
@@ -4553,7 +4553,7 @@
                 #f)))))))
 
   
-  (method public (text-contextual-search-all search-context (start: start #f) (end: end #f))
+  (method public (text-regular-search-all search-context (start: start #f) (end: end #f))
     (let ((queue (new-queue))
           (constituent-test (get-constituent-test))
           (search-set (->search-set search-context))
@@ -4565,19 +4565,19 @@
             (for-each (lambda (found)
                         (bind (from . to) found
                           (enqueue queue (cons (new Cell line from) (new Cell line to)))))
-                      (contextual-search-all str search-set constituent-test: constituent-test)))))
+                      (regular-search-all str search-set constituent-test: constituent-test)))))
       (queue-list queue)))
   
   
   (method public (text-search context . rest)
-    (let ((found (apply text-contextual-search context rest)))
+    (let ((found (apply text-regular-search context rest)))
       (if found
           (car found)
         #f)))
   
   
   (method public (text-search-all context . rest)
-    (map car (apply text-contextual-search-all context rest)))
+    (map car (apply text-regular-search-all context rest)))
 
   
   (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))

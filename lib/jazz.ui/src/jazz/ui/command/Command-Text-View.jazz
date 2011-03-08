@@ -212,8 +212,9 @@
     (select-mode-search Search-Mode direction range initial again? whole-words? ignore-case? regexp? beginning ending))
   
   
-  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (beginning: beginning #f) (ending: ending #f))
-    (select-mode-search Highlight-Mode direction range initial again? whole-words? ignore-case? regexp? beginning ending))
+  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (highlight?: highlight? #t) (beginning: beginning #f) (ending: ending #f))
+    (let ((class (if highlight? Highlight-Mode Search-Mode)))
+      (select-mode-search class direction range initial again? whole-words? ignore-case? regexp? beginning ending)))
   
   
   (method public (select-mode-search class direction range initial again? whole-words? ignore-case? regexp? beginning ending)
@@ -584,12 +585,11 @@
                 (set! ranges (append ranges (list range)))))
             
             (if (not found)
-                (begin
-                  (update-range last-range)
-                  (bell))
+                (update-range last-range)
               (bind (from . to) found
                 (let ((range (new Range$Cell$ from to)))
-                  (update-range range))))))))
+                  (update-range range))))
+            found))))
     
     (define (highlight-boundary client)
       (define (add-boundary-highlight range)
@@ -608,7 +608,7 @@
                         (let ((range (new Range$Cell$ start end)))
                           (unless (nu=? range found-range)
                             (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                    (text-regular-search-all~ client (list context) start: beginning end: ending))))
+                    (text-regular-search-all~ client context start: beginning end: ending))))
       (add-highlight~ client (new Text-Highlight found-range found-style))
       (set-selection~ client found-range))
     
@@ -621,26 +621,29 @@
             (let ((previous (get-previous-search~ text)))
               (when previous
                 (set-string-content~ text previous)
+                (set-caret~ text (text-ending~ text))
                 (set! content (first-line~ text))
                 (set! again? #f))))
-          (let ((prefix (prefix (list content target))))
+          (let ((prefix (prefix (list content target)))
+                (whole-words? (if (neq? whole-words? 'keep) whole-words? (get-whole-words?~ context)))
+                (ignore-case? (if (neq? ignore-case? 'keep) ignore-case? (get-ignore-case?~ context)))
+                (regexp? (if (neq? regexp? 'keep) regexp? (get-regexp?~ context))))
             (reset-prefix (cardinality prefix))
             (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
               (when (or again? (not (empty-string? suffix)))
-                (let ((whole-words? (get-whole-words?~ context)))
+                (let ((found #f))
                   (iterate suffix
                            (lambda (key)
-                             (search-key client key #f)))
+                             (set! found (search-key client key whole-words?))))
                   (when again?
-                    (search-key client #f whole-words?))))
-              (unless (eq? whole-words? 'keep)
-                (select-whole-words? whole-words?))
-              (unless (eq? ignore-case? 'keep)
-                (select-ignore-case? ignore-case?))
-              (unless (eq? regexp? 'keep)
-                (select-regexp? regexp?))
-              (set-match-test~ context (get-match-test~ text))
-              (set-constituent-test~ context (get-constituent-test~ text))
+                    (set! found (search-key client #f whole-words?)))
+                  (unless found
+                    (bell))))
+              (select-whole-words? whole-words?)
+              (select-ignore-case? ignore-case?)
+              (select-regexp? regexp?)
+              (set-match-test~ context (get-match-test~ client))
+              (set-constituent-test~ context (get-constituent-test~ client))
               (remove-highlights)
               (highlight-boundary client)
               (highlight-target client (last ranges))))))))

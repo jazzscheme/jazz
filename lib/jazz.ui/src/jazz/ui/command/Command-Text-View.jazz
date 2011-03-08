@@ -480,6 +480,32 @@
     (finish))
   
   
+  (method (on-highlight evt)
+    (highlight-current))
+  
+  
+  (method (on-persist-highlights evt)
+    (persist-highlights))
+  
+  
+  (method protected virtual (highlight-current)
+    (persist-highlights)
+    (cancel))
+  
+  
+  (method protected virtual (persist-highlights)
+    (let ((client (get-client)))
+      (let ((reference-style (get-style~ client 'Reference)))
+        (for-each (lambda (highlight)
+                    (modify-style~ client (get-range~ highlight)
+                      (lambda (s)
+                        (unless (inherits?~ s reference-style)
+                          (let ((style (extend~ s)))
+                            (set-base~ style (cons 'Reference (get-base~ style)))
+                            style)))))
+                  (get-highlights~ client)))))
+  
+  
   (method (on-finish evt)
     (finish))
   
@@ -604,8 +630,13 @@
     (find-actions 'highlight-mode))
   
   
-  (method (on-highlight evt)
-    (cancel)))
+  (method override (highlight-current)
+    (cancel))
+  
+  
+  (method override (finish)
+    (persist-highlights)
+    (cleanup)))
 
 
 ;;;

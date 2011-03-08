@@ -59,6 +59,7 @@
   (slot client-selection initialize #f getter generate)
   (slot client-position  initialize #f getter generate)
   (slot client-restore   initialize #f accessors generate)
+  (slot previous-search  initialize #f accessors generate)
   
   
   (form
@@ -115,6 +116,11 @@
       (set! client-restore #f)))
   
   
+  (method (preserve-search)
+    (let ((content (get-string-content)))
+      (set! previous-search (if (empty-string? content) #f content))))
+  
+  
   ;;;
   ;;;; Focus
   ;;;
@@ -124,7 +130,9 @@
     (nextmethod)
     (cleanup~ mode #t)
     (cleanup-client)
-    (set-mode-execute))
+    (set-mode-execute)
+    (clear-user-message)
+    (empty-text))
   
   
   (method override (focus-actions)
@@ -608,6 +616,13 @@
       (when (is? client Text-View)
         (let ((content (first-line~ text))
               (target (get-target~ context)))
+          (when (and (empty-string? content)
+                     (empty-string? target))
+            (let ((previous (get-previous-search~ text)))
+              (when previous
+                (set-string-content~ text previous)
+                (set! content (first-line~ text))
+                (set! again? #f))))
           (let ((prefix (prefix (list content target))))
             (reset-prefix (cardinality prefix))
             (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
@@ -656,6 +671,7 @@
   
   (method override (cleanup (lose-focus? #f))
     (restore-client~ text)
+    (preserve-search~ text)
     (let ((client (get-client)))
       (when client
         (remove-highlights)

@@ -360,6 +360,7 @@
   (slot context         initialize (make-search-context "" ignore-case?: #t))
   (slot ranges          initialize '())
   (slot found-style     initialize #f)
+  (slot boundary-style  initialize #f)
   (slot highlight-style initialize #f)
   
   
@@ -377,6 +378,7 @@
       (let ((text? (and client (is? client Text-View))))
         (set! ranges (if text? (list (or range client-selection)) '()))
         (set! found-style (if text? (add-style~ client 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Found})) #f))
+        (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f))
         (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f)))))
   
   
@@ -547,8 +549,16 @@
                 (let ((range (new Range$Cell$ from to)))
                   (update-range range))))))))
     
+    (define (highlight-boundary client)
+      (define (add-boundary-highlight range)
+        (add-highlight~ client (new Text-Highlight range boundary-style)))
+      
+      (when beginning
+        (add-boundary-highlight (new Range$Cell$ beginning (next-cell~ client beginning))))
+      (when ending
+        (add-boundary-highlight (new Range$Cell$ (previous-cell~ client ending) ending))))
+    
     (define (highlight-target client found-range)
-      (remove-highlights)
       (let ((target (get-target~ context)))
         (unless (empty-string? target)
           (for-each (lambda (found)
@@ -582,6 +592,8 @@
                 (select-regexp? regexp?))
               (set-match-test~ context (get-match-test~ text))
               (set-constituent-test~ context (get-constituent-test~ text))
+              (remove-highlights)
+              (highlight-boundary client)
               (highlight-target client (last ranges))))))))
   
   

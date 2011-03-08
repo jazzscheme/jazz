@@ -106,11 +106,6 @@
       (show-arguments)))
 
 
-  (method override (select-outer)
-    (end-completion)
-    (nextmethod))
-
-
   (method override (context-menu pos)
     (receive (shift? control? alt?) (modifiers-down)
       (let ((move-caret
@@ -290,16 +285,17 @@
   
   
   (method (standardize-form form)
-    (if (or completion-active? (empty-selection?))
-        (let ((target (cond ((string? form) form)
-                            ((symbol? form) (symbol->string form))
-                            ((keyword? form) (string-append (keyword->string form) ":"))
-                            (else (error "Unable to standardize: {s}" form)))))
+    (let ((target (cond ((string? form) form)
+                        ((symbol? form) (symbol->string form))
+                        ((keyword? form) (string-append (keyword->string form) ":"))
+                        (else (error "Unable to standardize: {s}" form)))))
+      ;; quick solution
+      (if (or completion-active? (empty-selection?))
           (cond ((tag-string? target) (tag->name target))
                 ((dispatch-string? target) (dispatch->name target))
                 ((reference-string? target) (reference->name target))
-                (else target)))
-      form))
+                (else target))
+        target)))
 
 
   (method protected virtual (expr-at pos)

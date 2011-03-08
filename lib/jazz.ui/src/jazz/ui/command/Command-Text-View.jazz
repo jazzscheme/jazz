@@ -360,8 +360,8 @@
   (slot context         initialize (make-search-context "" ignore-case?: #t))
   (slot ranges          initialize '())
   (slot found-style     initialize #f)
-  (slot boundary-style  initialize #f)
   (slot highlight-style initialize #f)
+  (slot boundary-style  initialize #f)
   
   
   (method override (initialize text direction beginning ending)
@@ -378,8 +378,8 @@
       (let ((text? (and client (is? client Text-View))))
         (set! ranges (if text? (list (or range client-selection)) '()))
         (set! found-style (if text? (add-style~ client 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Found})) #f))
-        (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f))
-        (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f)))))
+        (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f))
+        (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f)))))
   
   
   (method override (mode-actions)
@@ -456,8 +456,40 @@
                 (search direction #f whole-words?: #f))))))))
   
   
-  (method (on-select-outer evt)
-    (select-outer~ (get-client)))
+  (method (on-outer-boundaries evt)
+    (let ((client (get-client)))
+      (let ((range (if (and beginning ending)
+                       (new Range$Cell$ beginning ending)
+                     (get-selection~ client))))
+        (let ((outer (outer-range~ client range)))
+          (if (not outer)
+              (bell)
+            (set! beginning (get-start~ outer))
+            (set! ending (get-end~ outer))
+            (rehighlight-target)
+            (user-message "Boundaries set to range"))))))
+  
+  
+  (method (on-declaration-boundaries evt)
+    (let ((client (get-client)))
+      (let ((range (if (and beginning ending)
+                       (new Range$Cell$ beginning ending)
+                     (get-selection~ client))))
+        (let ((outer (outer-declaration-range~ client range)))
+          (if (not outer)
+              (bell)
+            (receive (range name declaration-name) outer
+              (set! beginning (get-start~ range))
+              (set! ending (get-end~ range))
+              (rehighlight-target)
+              (user-message "Boundaries set to ({a} {a})" name declaration-name)))))))
+  
+  
+  (method (on-buffer-boundaries evt)
+    (set! beginning #f)
+    (set! ending #f)
+    (rehighlight-target)
+    (user-message "Boundaries set to buffer"))
   
   
   (method (on-center-caret evt)
@@ -499,12 +531,14 @@
     (let ((client (get-client)))
       (let ((reference-style (get-style~ client 'Reference)))
         (for-each (lambda (highlight)
-                    (modify-style~ client (get-range~ highlight)
-                      (lambda (s)
-                        (unless (inherits?~ s reference-style)
-                          (let ((style (extend~ s)))
-                            (set-base~ style (cons 'Reference (get-base~ style)))
-                            style)))))
+                    (when (or (inherits?~ (get-style~ highlight) found-style)
+                              (inherits?~ (get-style~ highlight) highlight-style))
+                      (modify-style~ client (get-range~ highlight)
+                        (lambda (s)
+                          (unless (inherits?~ s reference-style)
+                            (let ((style (extend~ s)))
+                              (set-base~ style (cons 'Reference (get-base~ style)))
+                              style))))))
                   (get-highlights~ client)))))
   
   

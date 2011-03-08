@@ -125,28 +125,27 @@
   ;;;
 
   
-  (method override (edit-reference target search-set . rest)
+  (method override (edit-reference target . rest)
     (define (find-declaration-range text)
       (when (equal? (reference->name (get-string~ text (get-selection~ text))) name)
         (declaration-range~ text (get-start~ text))))
     
     (define (fallback-find text)
       (bell)
-      (or (select-next~ text search-set)
-          (select-previous~ text search-set)))
+      (or (select-next~ text target)
+          (select-previous~ text target)))
     
     (let ((text (get-guest~ (apply edit rest))))
       (let ((range (find-declaration-range text)))
         (if range
-            (highlight-reference~ text range search-set)
+            (highlight-reference~ text range target)
           (fallback-find text)))))
   
   
   (method override (edit-textual-reference target constituent-test . rest)
     (let ((parser-class (get-parser-class (get-dialect~ file-definition))))
-      (let ((target (reference-searcher~ parser-class target constituent-test))
-            (search-set (->search-set (list (make-search-context target whole-words?: #t constituent-test: constituent-test)))))
-        (apply edit-reference target search-set rest))))
+      (let ((target (->search-set (list (make-search-context target whole-words?: #t match-test: (get-match-test~ parser-class) constituent-test: constituent-test)))))
+        (apply edit-reference target rest))))
   
   
   ;;;

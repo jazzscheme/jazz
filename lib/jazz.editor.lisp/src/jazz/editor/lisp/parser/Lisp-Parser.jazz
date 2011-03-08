@@ -69,16 +69,34 @@
         (call-proc name)))
   
   
-  (method meta override (reference-searcher target <string> constituent-test <procedure>)
-    (make-searcher
-      (lambda (seq match-test constituent-test start end reversed?)
-        (continuation-capture
-          (lambda (return)
-            (iterate-references seq
-              (lambda (ref)
-                (when (equal? ref target)
-                  (continuation-return return (cons 0 (cardinality seq))))))
-            #f)))))
+  (method meta protected (get-match-test)
+    (lambda (seq whole-words? constituent-test from to)
+      (or (not whole-words?)
+          (let ((card (cardinality seq)))
+            (define (extend-before from)
+              (let ((previous (- from 1)))
+                (if (and (>= previous 0) (constituent-test (element seq previous)))
+                    (extend-before previous)
+                  from)))
+            
+            (define (extend-after to)
+              (let ((after (+ to 1)))
+                (if (and (<= after card) (constituent-test (element seq (- after 1))))
+                    (extend-after after)
+                  to)))
+            
+            (let ((before (extend-before from))
+                  (after (extend-after to)))
+              (or (and (= from before)
+                       (= to after))
+                  (let ((found (subseq seq from to)))
+                    (continuation-capture
+                      (lambda (return)
+                        (iterate-references (subseq seq before after)
+                          (lambda (ref)
+                            (when (equal? ref found)
+                              (continuation-return return #t))))
+                        #f)))))))))
   
   
   (method override (parse file time dialect)

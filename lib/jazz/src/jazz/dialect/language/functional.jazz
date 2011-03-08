@@ -2330,55 +2330,11 @@
   (slot user-data        <any>        accessors generate))
 
 
-(class package Searcher extends Object
-  
-  
-  (slot searcher)
-  
-  
-  (method protected virtual (search seq <Sequence> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
-    (when searcher
-      (searcher seq constituent-test start end reversed?))))
-
-
-(class package Search-Set extends Searcher
+(class package Search-Set extends Object
   
   
   (slot regexp           <any>        accessors generate)
-  (slot contexts         <list>       accessors generate)
-  
-  
-  (method override (search seq <Sequence> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
-    (let* ((first-context (car contexts))
-           (whole-words? (get-whole-words?~ first-context))
-           (match-test (or (get-match-test~ first-context)
-                           match-test))
-           (constituent-test (or (get-constituent-test~ first-context)
-                                 constituent-test
-                                 word-constituent?))
-           (card (cardinality seq))
-           (start (or start (if reversed? card 0)))
-           (end (or end (if reversed? 0 card))))
-      (let (lp (i (if reversed? 0 start)) (best #f))
-        (let ((match (irregex-search regexp seq i)))
-          (if (not match)
-              best
-            (let ((from (irregex-match-start-index match 0))
-                  (to (irregex-match-end-index match 0)))
-              (cond
-                ((if reversed? (or (< from end) (> to start)) (> to end)) best)
-                ((if match-test
-                     (match-test self seq whole-words? constituent-test from to)
-                   (or (not whole-words?)
-                       (let ((before (and (> from 0) (element seq (- from 1))))
-                             (after (and (< to card) (element seq to))))
-                         (and (or (not before)
-                                  (not (constituent-test before)))
-                              (or (not after)
-                                  (not (constituent-test after)))))))
-                 (let ((res (cons from to)))
-                   (if reversed? (lp (+ to 1) res) res)))
-                (else (lp to best))))))))))
+  (slot contexts         <list>       accessors generate))
 
 
 (definition public (->search-context obj)
@@ -2401,7 +2357,7 @@
 
 
 (definition public (->search-set obj)
-  (cond ((is? obj Searcher) obj)
+  (cond ((is? obj Search-Set) obj)
         ((is? obj Search-Context) (make-search-set (search-context-regexp obj) (list obj)))
         ((string? obj) (->search-set (->search-context obj)))
         ((list? obj) (let ((contexts (map ->search-context obj)))
@@ -2410,11 +2366,8 @@
                          contexts)))
         (else (error "Unable to make a search set out of {s}" obj))))
 
-(definition public (make-searcher searcher)
-  (construct Searcher searcher))
-
 (definition public (make-search-set regexp contexts)
-  (construct Search-Set #f regexp contexts))
+  (construct Search-Set regexp contexts))
 
 
 (definition (search-context->sre context <Search-Context>)
@@ -2431,8 +2384,38 @@
 
 
 (definition (regular-search-impl seq <Sequence> target <any> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
-  (let ((search-set (->search-set target)))
-    (search~ search-set seq match-test constituent-test start end reversed?)))
+  (let* ((search-set (->search-set target))
+         (first-context (car (get-contexts~ search-set)))
+         (whole-words? (get-whole-words?~ first-context))
+         (match-test (or (get-match-test~ first-context)
+                         match-test))
+         (constituent-test (or (get-constituent-test~ first-context)
+                               constituent-test
+                               word-constituent?))
+         (regexp (get-regexp~ search-set))
+         (card (cardinality seq))
+         (start (or start (if reversed? card 0)))
+         (end (or end (if reversed? 0 card))))
+    (let (lp (i (if reversed? 0 start)) (best #f))
+      (let ((match (irregex-search regexp seq i)))
+        (if (not match)
+            best
+          (let ((from (irregex-match-start-index match 0))
+                (to (irregex-match-end-index match 0)))
+            (cond
+              ((if reversed? (or (< from end) (> to start)) (> to end)) best)
+              ((if match-test
+                   (match-test seq whole-words? constituent-test from to)
+                 (or (not whole-words?)
+                     (let ((before (and (> from 0) (element seq (- from 1))))
+                           (after (and (< to card) (element seq to))))
+                       (and (or (not before)
+                                (not (constituent-test before)))
+                            (or (not after)
+                                (not (constituent-test after)))))))
+               (let ((res (cons from to)))
+                 (if reversed? (lp (+ to 1) res) res)))
+              (else (lp to best)))))))))
 
 
 (definition public (regular-search seq <Sequence> target <any>

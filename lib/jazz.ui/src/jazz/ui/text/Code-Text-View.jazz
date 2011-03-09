@@ -260,8 +260,7 @@
 
   
   (method (on-edit-definitions evt)
-    (let ((sel? (has-selection?))
-          (form (current-expr))
+    (let ((form (current-expr))
           (appl (get-application)))
       (when form
         (cond ((string? form)
@@ -270,9 +269,9 @@
                (edit-document~ appl form workspace: (edition-workspace)))
               (else
                (let ((item (current-history-item)))
-                 (if (and sel? (composite-reference? form))
+                 (if (and (has-effective-selection?) (composite-reference? form))
                      (edit-composite-reference appl item form)
-                   (let ((target (standardize-form form)))
+                   (let ((target (standardize-form form #t)))
                      (edit-definitions~ appl target workspace: (edition-workspace) history-item: item context: (get-context))))))))))
 
   
@@ -280,19 +279,21 @@
     (let ((form (current-expr))
           (appl (get-application)))
       (when form
-        (let ((target (standardize-form form)))
+        (let ((target (standardize-form form (empty-effective-selection?))))
           (edit-references~ appl target constituent-test: (get-constituent-test) history-item: (current-history-item) context: (get-context))))))
   
   
-  (method (standardize-form form)
+  (method (standardize-form form extract?)
     (let ((target (cond ((string? form) form)
                         ((symbol? form) (symbol->string form))
                         ((keyword? form) (string-append (keyword->string form) ":"))
                         (else (error "Unable to standardize: {s}" form)))))
-      (cond ((tag-string? target) (tag->name target))
-            ((dispatch-string? target) (dispatch->name target))
-            ((reference-string? target) (reference->name target))
-            (else target))))
+      (if (not extract?)
+          target
+        (cond ((tag-string? target) (tag->name target))
+              ((dispatch-string? target) (dispatch->name target))
+              ((reference-string? target) (reference->name target))
+              (else target)))))
 
 
   (method protected virtual (expr-at pos)
@@ -315,7 +316,7 @@
                       (cataloguer (get-cataloguer~ appl)))
                  (when cataloguer
                    (let ((item (current-history-item))
-                         (target (standardize-form form)))
+                         (target (standardize-form form #t)))
                      (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
                        (case (length definitions)
                          ((0) (bell))
@@ -330,7 +331,7 @@
                (cataloguer (get-cataloguer~ appl)))
           (when cataloguer
             (let* ((item (current-history-item))
-                   (target (standardize-form form))
+                   (target (standardize-form form (empty-effective-selection?)))
                    (references (get-references~ cataloguer target context: (get-context))))
               (case (length references)
                 ((0) (bell))

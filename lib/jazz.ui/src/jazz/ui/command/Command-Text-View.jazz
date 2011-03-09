@@ -208,35 +208,19 @@
   ;;;
   
   
-  (method public (select-search direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (beginning: beginning #f) (ending: ending #f))
-    (select-mode-search Search-Mode direction range initial again? whole-words? ignore-case? regexp? beginning ending))
-  
-  
-  (method public (select-highlight direction range initial (again?: again? #f) (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep) (highlight?: highlight? #t) (beginning: beginning #f) (ending: ending #f))
-    (let ((class (if highlight? Highlight-Mode Search-Mode)))
-      (select-mode-search class direction range initial again? whole-words? ignore-case? regexp? beginning ending)))
-  
-  
-  (method public (select-mode-search class direction range initial again? whole-words? ignore-case? regexp? beginning ending)
-    (set-mode-search class direction beginning ending)
+  (method public (select-search direction range initial (highlight?: highlight? #f) (again?: again? #f) (beginning: beginning #f) (ending: ending #f))
+    (set-mode-search (if highlight? Highlight-Mode Search-Mode) direction beginning ending)
     (setup-search-client)
     (acquire-focus)
     (prepare-search~ mode range)
-    (when initial
-      (if (string? initial)
-          (set-text initial)
-        (unless (neq? whole-words? 'keep)
-          (set! whole-words? (get-whole-words?~ initial)))
-        (unless (neq? ignore-case? 'keep)
-          (set! ignore-case? (get-ignore-case?~ initial)))
-        (set! regexp? #t)
-        (set-text (get-target~ initial)))
-      (select-all)
-      (search~ mode direction again? whole-words?: whole-words? ignore-case?: ignore-case? regexp?: regexp?)))
+    (set-text (get-target~ initial))
+    (select-all)
+    (set-context~ mode initial)
+    (search~ mode direction initial?: #t again?: again?))
   
   
   (method (set-mode-search class direction beginning ending)
-    (set! mode (new (or class Search-Mode) self direction beginning ending))
+    (set! mode (new class self direction beginning ending))
     (user-message "Search..."))
   
   
@@ -366,8 +350,9 @@
   (slot direction       initialize #f)
   (slot beginning       initialize #f)
   (slot ending          initialize #f)
-  (slot context         initialize (make-search-context "" ignore-case?: #t))
-  (slot ranges          initialize '())
+  (slot context         initialize #f)
+  (slot last-range      initialize #f)
+  (slot prefixes        initialize (make-table test: equal?))
   (slot found-style     initialize #f)
   (slot highlight-style initialize #f)
   (slot boundary-style  initialize #f)
@@ -381,11 +366,10 @@
   
   
   (method (prepare-search range)
-    (set-target~ context "")
     (let ((client (get-client))
           (client-selection (get-client-selection)))
       (let ((text? (and client (is? client Text-View))))
-        (set! ranges (if text? (list (or range client-selection)) '()))
+        (set! last-range (if text? (or range client-selection) #f))
         (set! found-style (if text? (add-style~ client 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Found})) #f))
         (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f))
         (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f)))))
@@ -396,19 +380,23 @@
   
   
   (method override (key-press key)
-    (search direction #f whole-words?: #f))
+    (search direction))
   
   
   (method override (backspace-press key (word?: word? #f))
-    (search direction #f whole-words?: #f))
+    (search direction prefix?: #t))
   
   
   (method override (next-page)
-    (search 'forward #t))
+    (search 'forward again?: #t))
   
   
   (method override (prior-page)
-    (search 'backward #t))
+    (search 'backward again?: #t))
+  
+  
+  (method (set-context ctx)
+    (set! context ctx))
   
   
   (method (select-whole-words? whole-words?)
@@ -442,11 +430,23 @@
   
   
   (method (on-forward evt)
-    (search 'forward #t))
+    (let ((again? (not (select-empty-search))))
+      (search 'forward again?: again?)))
   
   
   (method (on-backward evt)
-    (search 'backward #t))
+    (let ((again? (not (select-empty-search))))
+      (search 'backward again?: again?)))
+  
+  
+  (method (select-empty-search)
+    (when (empty-string? (get-target~ context))
+      (let ((previous (get-previous-search~ text)))
+        (when previous
+          (set-previous-search~ text #f)
+          (set-string-content~ text previous)
+          (set-caret~ text (text-ending~ text))
+          #t))))
   
   
   (method (on-current evt)
@@ -462,7 +462,7 @@
               (if (empty-string? add)
                   (bell)
                 (insert-string~ text add)
-                (search direction #f whole-words?: #f))))))))
+                (search direction))))))))
   
   
   (method (on-outer-boundaries evt)
@@ -559,37 +559,33 @@
     (cancel))
 
   
-  (method (search direction again? (whole-words?: whole-words? 'keep) (ignore-case?: ignore-case? 'keep) (regexp?: regexp? 'keep))
-    (define (reset-prefix len)
-      (set-target~ context (subseq (get-target~ context) 0 len))
-      (set-regexp~ context #f)
-      (set! ranges (subseq ranges 0 (+ len 1))))
-    
-    (define (search-key client key whole-words?)
-      (let ((target (if (not key)
-                        (get-target~ context)
-                      (concatenate (get-target~ context) (format "{c}" key))))
-            (last-range (last ranges)))
+  (method (search direction (initial?: initial? #f) (prefix?: prefix? #t) (again?: again? #f))
+    (define (search-target client target again?)
+      (let ((range (or (and prefix? (table-ref prefixes target #f)) last-range)))
         (let ((pos (case direction
-                     ((forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
-                     ((backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
+                     ((forward) (if again? (get-end~ range) (get-start~ range)))
+                     ((backward) (if again? (get-start~ range) (nu+ (get-start~ range) (cardinality target))))))
               (reversed? (eq? direction 'backward)))
           (set-target~ context target)
           (set-regexp~ context #f)
-          (set-whole-words?~ context whole-words?)
           (let ((found (text-regular-search~ client (list context) start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
-            (define (update-range range)
-              (if (not key)
-                  (let ((pair (last-pair ranges)))
-                    (set-car! pair range))
-                (set! ranges (append ranges (list range)))))
+            (define (add-prefix range)
+              (reset-prefixes)
+              (table-set! prefixes target range))
             
-            (if (not found)
-                (update-range last-range)
+            (define (reset-prefixes)
+              (let ((card (cardinality target)))
+                (iterate-table-safe prefixes
+                  (lambda (prefix range)
+                    (when (>= (cardinality prefix) card)
+                      (table-clear prefixes prefix))))))
+            
+            (when found
               (bind (from . to) found
                 (let ((range (new Range$Cell$ from to)))
-                  (update-range range))))
-            found))))
+                  (add-prefix range)
+                  (set! last-range range)))
+              found)))))
     
     (define (highlight-boundary client)
       (define (add-boundary-highlight range)
@@ -600,57 +596,34 @@
       (when ending
         (add-boundary-highlight (new Range$Cell$ (previous-cell~ client ending) ending))))
     
-    (define (highlight-target client found-range)
-      (let ((target (get-target~ context)))
-        (unless (empty-string? target)
-          (for-each (lambda (found)
-                      (bind (start . end) found
-                        (let ((range (new Range$Cell$ start end)))
-                          (unless (nu=? range found-range)
-                            (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                    (text-regular-search-all~ client context start: beginning end: ending))))
-      (add-highlight~ client (new Text-Highlight found-range found-style))
-      (set-selection~ client found-range))
+    (define (highlight-target client)
+      (unless (empty-string? (get-target~ context))
+        (for-each (lambda (found)
+                    (bind (start . end) found
+                      (let ((range (new Range$Cell$ start end)))
+                        (unless (nu=? range last-range)
+                          (add-highlight~ client (new Text-Highlight range highlight-style))))))
+                  (text-regular-search-all~ client context start: beginning end: ending)))
+      (add-highlight~ client (new Text-Highlight last-range found-style))
+      (set-selection~ client last-range))
     
     (let ((client (get-client)))
       (when (is? client Text-View)
         (let ((content (first-line~ text))
               (target (get-target~ context)))
-          (when (and (empty-string? content)
-                     (empty-string? target))
-            (let ((previous (get-previous-search~ text)))
-              (when previous
-                (set-string-content~ text previous)
-                (set-caret~ text (text-ending~ text))
-                (set! content (first-line~ text))
-                (set! again? #f))))
-          (let ((prefix (prefix (list content target)))
-                (whole-words? (if (neq? whole-words? 'keep) whole-words? (get-whole-words?~ context)))
-                (ignore-case? (if (neq? ignore-case? 'keep) ignore-case? (get-ignore-case?~ context)))
-                (regexp? (if (neq? regexp? 'keep) regexp? (get-regexp?~ context))))
-            (reset-prefix (cardinality prefix))
-            (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
-              (when (or again? (not (empty-string? suffix)))
-                (let ((found #f))
-                  (iterate suffix
-                           (lambda (key)
-                             (set! found (search-key client key whole-words?))))
-                  (when again?
-                    (set! found (search-key client #f whole-words?)))
-                  (unless found
-                    (bell))))
-              (select-whole-words? whole-words?)
-              (select-ignore-case? ignore-case?)
-              (select-regexp? regexp?)
-              (set-match-test~ context (get-match-test~ client))
-              (set-constituent-test~ context (get-constituent-test~ client))
-              (remove-highlights)
-              (highlight-boundary client)
-              (highlight-target client (last ranges))))))))
+          (let ((found #f))
+            (set! found (search-target client content #f))
+            (when again?
+              (set! found (search-target client content #t)))
+            (when (not found)
+              (bell)))
+          (remove-highlights)
+          (highlight-boundary client)
+          (highlight-target client)))))
   
   
   (method (rehighlight-target)
-    (search direction #f))
+    (search direction))
   
   
   (method (remove-highlights)

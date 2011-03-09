@@ -4437,12 +4437,12 @@
   
   (method (on-search-forward-mode evt)
     (select-command-search~ (get-application) 'forward
-      (and (has-selection?) (get-string (get-selection)))))
+      (search-context (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-backward-mode evt)
     (select-command-search~ (get-application) 'backward
-      (and (has-selection?) (get-string (get-selection)))))
+      (search-context (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-current evt)
@@ -4454,9 +4454,9 @@
     
     (let ((range (current-expr-range)))
       (if (not range)
-          (select-command-search~ (get-application) 'forward #f)
+          (select-command-search~ (get-application) 'forward (search-context #f ignore-case?: #t))
         (let ((current (single-line (get-string range))))
-          (select-command-search-current~ (get-application) 'forward range current)))))
+          (select-command-search-current~ (get-application) 'forward range (search-context current ignore-case?: #t))))))
 
   
   ;;;
@@ -4617,6 +4617,18 @@
            (found (search-expressions~ expl mode string position #f #f)))
       (when found
         (car found))))
+  
+  
+  (method protected (search-context obj
+                                    (whole-words?: whole-words? #f)
+                                    (ignore-case?: ignore-case? #f))
+    (cond ((is? obj Search-Context) obj)
+          ((is? obj Search-Set) (car (get-contexts~ obj)))
+          (else (make-search-context (or obj "")
+                                     whole-words?: whole-words?
+                                     ignore-case?: ignore-case?
+                                     match-test: (get-match-test)
+                                     constituent-test: (get-constituent-test)))))
   
   
   ;;;

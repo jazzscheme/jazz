@@ -737,10 +737,8 @@
   
   
   (method (reference-search-context target)
-    (make-search-context (standardize-form target (empty-effective-selection?))
-      whole-words?: #t
-      match-test: (get-match-test)
-      constituent-test: (get-constituent-test)))
+    (search-context (and target (standardize-form target (empty-effective-selection?)))
+      whole-words?: #t))
   
   
   (method (on-highlight-selection evt)
@@ -768,9 +766,9 @@
     (let ((declaration-range (declaration-range (get-start)))
           (range (current-expr-range)))
       (if (or (not declaration-range) (not range))
-          (select-command-search~ (get-application) 'forward #f)
-        (let ((current (standardize-form (single-line (get-string range)) (empty-effective-selection?))))
-          (select-command-highlight~ (get-application) 'forward range current (get-start~ declaration-range) (get-end~ declaration-range))))))
+          (select-command-search~ (get-application) 'forward (reference-search-context #f))
+        (let ((target (reference-search-context (single-line (get-string range)))))
+          (select-command-highlight~ (get-application) 'forward range target (get-start~ declaration-range) (get-end~ declaration-range) highlight?: #t)))))
 
   
   (method (on-remove-highlights evt)
@@ -790,7 +788,7 @@
   
   
   (method public (highlight-reference declaration-range target)
-    (select-command-highlight~ (get-application) 'forward #f (->search-context target) (get-start~ declaration-range) (get-end~ declaration-range) highlight?: #f))
+    (select-command-highlight~ (get-application) 'forward #f (search-context target) (get-start~ declaration-range) (get-end~ declaration-range)))
   
   
   (method public (highlight-expression range target)

@@ -272,7 +272,7 @@
                  (if (and (has-effective-selection?) (composite-reference? form))
                      (edit-composite-reference appl item form)
                    (let ((target (standardize-form form #t)))
-                     (edit-definitions~ appl target workspace: (edition-workspace) history-item: item context: (get-context))))))))))
+                     (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item)))))))))
 
   
   (method (on-edit-references evt)
@@ -280,7 +280,7 @@
           (appl (get-application)))
       (when form
         (let ((target (standardize-form form (empty-effective-selection?))))
-          (edit-references~ appl target constituent-test: (get-constituent-test) history-item: (current-history-item) context: (get-context))))))
+          (edit-references~ appl target context: (get-context) history-item: (current-history-item))))))
   
   
   (method (standardize-form form extract?)
@@ -321,7 +321,7 @@
                        (case (length definitions)
                          ((0) (bell))
                          ((1) (add-history~ appl item) (edit~ (car definitions)))
-                         (else (track-popup-menu (new Definitions-Menu history-item: item definitions: definitions) pos))))))))))))
+                         (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos))))))))))))
 
 
   (method protected (edit-references pos)
@@ -335,8 +335,8 @@
                    (references (get-references~ cataloguer target context: (get-context))))
               (case (length references)
                 ((0) (bell))
-                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target (get-constituent-test)))
-                (else (track-popup-menu (new References-Menu history-item: item target: target definitions: references constituent-test: (get-constituent-test)) pos)))))))))
+                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
+                (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))
   
   
   (definition (edit-composite-reference appl item form)
@@ -982,10 +982,9 @@
 (class References-Menu extends Context-Menu
   
   
-  (property target           accessors generate)
-  (property definitions      accessors generate)
-  (property constituent-test accessors generate)
-  (property history-item     accessors generate)
+  (property target       accessors generate)
+  (property definitions  accessors generate)
+  (property history-item accessors generate)
   
   
   (method override (finish rest)
@@ -1008,4 +1007,4 @@
   
   (method (on-action evt)
     (add-history~ (get-application) history-item)
-    (edit-textual-reference~ (get-property~ evt definition:) target constituent-test))))
+    (edit-textual-reference~ (get-property~ evt definition:) target))))

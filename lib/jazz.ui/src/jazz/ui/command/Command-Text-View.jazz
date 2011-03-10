@@ -73,6 +73,20 @@
       tooltip-text: "Command Shell"))
   
   
+  (method override (preferences)
+    (get-preferences '(documents command-text)))
+  
+  
+  (method override (propagate-styles?)
+    #f)
+  
+  
+  (method override (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style 'Separator (get-separator-style~ pref))))
+  
+  
   (method override (finish rest)
     (nextmethod rest)
     (set! mode (new Execute-Mode self)))
@@ -117,7 +131,7 @@
   
   
   (method (preserve-search)
-    (let ((content (get-string-content)))
+    (let ((content (first-content)))
       (set! previous-search (if (empty-string? content) #f content))))
   
   
@@ -153,6 +167,10 @@
   (method override (backspace-press key (word?: word? #f))
     (nextmethod key word?: word?)
     (backspace-press~ mode key word?: word?))
+  
+  
+  (method override (tab-press key modifiers)
+    (navigate-field (shift-key? modifiers)))
   
   
   (method override (next-page evt)
@@ -201,6 +219,103 @@
   (method override (symbol-completions name)
     (or (symbol-completions~ mode name)
         (nextmethod name)))
+
+  
+  ;;;
+  ;;;; Fields
+  ;;;
+  
+  
+  (method (navigate-field backward?)
+    (let ((fields (collect-fields)))
+      (let ((rank (caret-rank fields)))
+        (let ((next (modulo ((if backward? - +) rank 1) (length fields))))
+          (set-selection (element fields next))))))
+  
+  
+  (method (first-field)
+    (first (collect-fields)))
+  
+  
+  (method (second-field)
+    (second (collect-fields)))
+  
+  
+  (method (first-content)
+    (field-content (first-field)))
+  
+  
+  (method (second-content)
+    (field-content (second-field)))
+  
+  
+  (method (field-content field)
+    (get-string field))
+  
+  
+  (method (goto-field field)
+    (set-selection field))
+  
+  
+  (method (goto-first-field)
+    (set-selection (first-field)))
+  
+  
+  (method (goto-second-field)
+    (let ((fields (collect-fields)))
+      (if (>= (length fields) 2)
+          (goto-field (second fields))
+        (set-caret (text-ending))
+        (insert-separator))))
+  
+  
+  (method (collect-fields)
+    (let ((line (first-line))
+          (fields (new-queue)))
+      (define (forward-style pos predicate)
+        (let ((card (cardinality line)))
+          (let (iterate (pos pos))
+            (if (>= pos card)
+                pos
+              (let ((next (+ pos 1)))
+                (let ((run (get-run-at (new Cell 0 next))))
+                  (if (or (not run) (predicate (get-style~ run)))
+                      (iterate next)
+                    pos)))))))
+      
+      (define (text-style? style)
+        (not (separator-style? style)))
+      
+      (define (separator-style? style)
+        (inherits?~ style 'Separator))
+      
+      (define (new-field start end)
+        (new-range (new Cell 0 start) (new Cell 0 end)))
+      
+      (let (iter (pos 0))
+        (let ((text-end (forward-style pos text-style?)))
+          (enqueue fields (new-field pos text-end))
+          (let ((separator-end (forward-style text-end separator-style?)))
+            (when (/= separator-end text-end)
+              (iter separator-end)))))
+      (queue-list fields)))
+  
+  
+  (method (field-rank fields pos)
+    (let (iter (fields fields) (rank 0))
+      (let ((field (car fields)))
+        (if (between? pos (get-col~ (get-start~ field)) (get-col~ (get-end~ field)))
+            rank
+          (iter (cdr fields) (+ rank 1))))))
+  
+  
+  (method (caret-rank fields)
+    (let ((pos (get-col~ (get-caret))))
+      (field-rank fields pos)))
+  
+  
+  (method (insert-separator)
+    (insert-styled "/" 'Separator))
 
   
   ;;;
@@ -551,7 +666,14 @@
                   (get-highlights~ client)))))
   
   
+  (method (on-replace evt)
+    (goto-second-field~ text))
+  
+  
   (method (on-finish evt)
+    (let ((fields (collect-fields~ text)))
+      (when (= (caret-rank~ text fields) 1)
+        (replace-all (second-content~ text))))
     (finish))
   
   
@@ -568,7 +690,7 @@
               (reversed? (eq? direction 'backward)))
           (set-target~ context target)
           (set-regexp~ context #f)
-          (let ((found (text-regular-search~ client (list context) start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
+          (let ((found (text-regular-search~ client context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
             (define (add-prefix range)
               (reset-prefixes)
               (table-set! prefixes target range))
@@ -609,7 +731,7 @@
     
     (let ((client (get-client)))
       (when (is? client Text-View)
-        (let ((content (first-line~ text))
+        (let ((content (first-content~ text))
               (target (get-target~ context)))
           (let ((found #f))
             (set! found (search-target client content #f))
@@ -620,6 +742,17 @@
           (remove-highlights)
           (highlight-boundary client)
           (highlight-target client)))))
+  
+  
+  (method (replace-all repl)
+    (let ((client (get-client)))
+      (with-atomic-undo~ (get-undoer~ client)
+        (lambda ()
+          (for-each-reversed (lambda (found)
+                               (bind (start . end) found
+                                 (let ((range (new Range$Cell$ start end)))
+                                   (replace~ client range (list repl)))))
+                             (text-regular-search-all~ client context start: beginning end: ending))))))
   
   
   (method (rehighlight-target)
@@ -909,7 +1042,7 @@
   
   
   (method override (finish)
-    (let ((filename (first-line~ text)))
+    (let ((filename (first-content~ text)))
       (if (and (file-exists? filename)
                (eq? (pathname-type filename) 'regular))
           (let ((file (anchorize~ (new File (tokenise-filename (pathname-normalize filename))))))
@@ -970,7 +1103,7 @@
                                    (continuation-return return file)))))))
           #f)))
     
-    (let ((filename (first-line~ text)))
+    (let ((filename (first-content~ text)))
       (let ((file (find-file filename)))
         (if file
             (edit-document~ (get-application) file)
@@ -999,7 +1132,7 @@
                  (string-ci=? (present-title view) name))
                (all-views)))
     
-    (let ((name (first-line~ text)))
+    (let ((name (first-content~ text)))
       (if (empty-string? name)
           (let ((views (all-frames)))
             (if (>= (length views) 2)

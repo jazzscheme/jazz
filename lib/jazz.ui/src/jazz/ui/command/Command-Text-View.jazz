@@ -230,7 +230,7 @@
     (let ((fields (collect-fields)))
       (let ((rank (caret-rank fields)))
         (let ((next (modulo ((if backward? - +) rank 1) (length fields))))
-          (set-selection (element fields next))))))
+          (goto-field (element fields next))))))
   
   
   (method (first-field)
@@ -238,7 +238,9 @@
   
   
   (method (second-field)
-    (second (collect-fields)))
+    (let ((fields (collect-fields)))
+      (when (>= (length fields) 2)
+        (second fields))))
   
   
   (method (first-content)
@@ -246,7 +248,9 @@
   
   
   (method (second-content)
-    (field-content (second-field)))
+    (let ((field (second-field)))
+      (when field
+        (field-content field))))
   
   
   (method (field-content field)
@@ -258,13 +262,13 @@
   
   
   (method (goto-first-field)
-    (set-selection (first-field)))
+    (goto-field (first-field)))
   
   
   (method (goto-second-field)
-    (let ((fields (collect-fields)))
-      (if (>= (length fields) 2)
-          (goto-field (second fields))
+    (let ((field (second-field)))
+      (if field
+          (goto-field field)
         (set-caret (text-ending))
         (insert-separator))))
   
@@ -470,6 +474,7 @@
   (slot prefixes        initialize (make-table test: equal?))
   (slot found-style     initialize #f)
   (slot highlight-style initialize #f)
+  (slot replace-style   initialize #f)
   (slot boundary-style  initialize #f)
   
   
@@ -487,6 +492,7 @@
         (set! last-range (if text? (or range client-selection) #f))
         (set! found-style (if text? (add-style~ client 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Found})) #f))
         (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f))
+        (set! replace-style (if text? (add-style~ client 'Replace (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Light-Red} frame: {Color Replace})) #f))
         (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f)))))
   
   
@@ -729,9 +735,20 @@
       (add-highlight~ client (new Text-Highlight last-range found-style))
       (set-selection~ client last-range))
     
+    (define (highlight-replace client repl)
+      (unless (empty-string? repl)
+        ;; quicky to test
+        (let ((target (make-search-context repl whole-words?: #t)))
+          (for-each (lambda (found)
+                      (bind (start . end) found
+                        (let ((range (new Range$Cell$ start end)))
+                          (add-highlight~ client (new Text-Highlight range replace-style)))))
+                    (text-regular-search-all~ client target start: beginning end: ending)))))
+    
     (let ((client (get-client)))
       (when (is? client Text-View)
         (let ((content (first-content~ text))
+              (repl (second-content~ text))
               (target (get-target~ context)))
           (let ((found #f))
             (set! found (search-target client content #f))
@@ -741,7 +758,9 @@
               (bell)))
           (remove-highlights)
           (highlight-boundary client)
-          (highlight-target client)))))
+          (highlight-target client)
+          (when repl
+            (highlight-replace client repl))))))
   
   
   (method (replace-all repl)

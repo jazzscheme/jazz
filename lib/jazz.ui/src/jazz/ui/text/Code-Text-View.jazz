@@ -106,11 +106,6 @@
       (show-arguments)))
 
 
-  (method override (select-outer)
-    (end-completion)
-    (nextmethod))
-
-
   (method override (context-menu pos)
     (receive (shift? control? alt?) (modifiers-down)
       (let ((move-caret
@@ -265,8 +260,7 @@
 
   
   (method (on-edit-definitions evt)
-    (let ((sel? (has-selection?))
-          (form (current-expr))
+    (let ((form (current-expr))
           (appl (get-application)))
       (when form
         (cond ((string? form)
@@ -275,29 +269,31 @@
                (edit-document~ appl form workspace: (edition-workspace)))
               (else
                (let ((item (current-history-item)))
-                 (if (and sel? (composite-reference? form))
+                 (if (and (has-effective-selection?) (composite-reference? form))
                      (edit-composite-reference appl item form)
-                   (let ((target (standardize-form form)))
-                     (edit-definitions~ appl target workspace: (edition-workspace) history-item: item context: (get-context))))))))))
+                   (let ((target (standardize-form form #t)))
+                     (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item)))))))))
 
   
   (method (on-edit-references evt)
     (let ((form (current-expr))
           (appl (get-application)))
       (when form
-        (let ((target (standardize-form form)))
-          (edit-references~ appl target constituent-test: (get-constituent-test) history-item: (current-history-item) context: (get-context))))))
+        (let ((target (standardize-form form (empty-effective-selection?))))
+          (edit-references~ appl target context: (get-context) history-item: (current-history-item))))))
   
   
-  (method (standardize-form form)
+  (method (standardize-form form extract?)
     (let ((target (cond ((string? form) form)
                         ((symbol? form) (symbol->string form))
                         ((keyword? form) (string-append (keyword->string form) ":"))
                         (else (error "Unable to standardize: {s}" form)))))
-      (cond ((tag-string? target) (tag->name target))
-            ((dispatch-string? target) (dispatch->name target))
-            ((reference-string? target) (reference->name target))
-            (else target))))
+      (if (not extract?)
+          target
+        (cond ((tag-string? target) (tag->name target))
+              ((dispatch-string? target) (dispatch->name target))
+              ((reference-string? target) (reference->name target))
+              (else target)))))
 
 
   (method protected virtual (expr-at pos)
@@ -320,12 +316,12 @@
                       (cataloguer (get-cataloguer~ appl)))
                  (when cataloguer
                    (let ((item (current-history-item))
-                         (target (standardize-form form)))
+                         (target (standardize-form form #t)))
                      (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
                        (case (length definitions)
                          ((0) (bell))
                          ((1) (add-history~ appl item) (edit~ (car definitions)))
-                         (else (track-popup-menu (new Definitions-Menu history-item: item definitions: definitions) pos))))))))))))
+                         (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos))))))))))))
 
 
   (method protected (edit-references pos)
@@ -335,12 +331,12 @@
                (cataloguer (get-cataloguer~ appl)))
           (when cataloguer
             (let* ((item (current-history-item))
-                   (target (standardize-form form))
+                   (target (standardize-form form (empty-effective-selection?)))
                    (references (get-references~ cataloguer target context: (get-context))))
               (case (length references)
                 ((0) (bell))
-                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target (get-constituent-test)))
-                (else (track-popup-menu (new References-Menu history-item: item target: target definitions: references constituent-test: (get-constituent-test)) pos)))))))))
+                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
+                (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))
   
   
   (definition (edit-composite-reference appl item form)
@@ -487,7 +483,7 @@
     (cdr found)
     @irregex-to-convert
     (when recolorize?
-      (let ((found (text-contextual-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
+      (let ((found (text-regular-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
         (when found
           (bind (pos . (target type)) found
             (when (eq? type 'open)
@@ -530,7 +526,7 @@
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
-        (let ((opening (text-contextual-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
+        (let ((opening (text-regular-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
           (when opening
             (bind (start . (target type)) opening
               (when (eq? type 'open)
@@ -986,10 +982,9 @@
 (class References-Menu extends Context-Menu
   
   
-  (property target           accessors generate)
-  (property definitions      accessors generate)
-  (property constituent-test accessors generate)
-  (property history-item     accessors generate)
+  (property target       accessors generate)
+  (property definitions  accessors generate)
+  (property history-item accessors generate)
   
   
   (method override (finish rest)
@@ -1012,4 +1007,4 @@
   
   (method (on-action evt)
     (add-history~ (get-application) history-item)
-    (edit-textual-reference~ (get-property~ evt definition:) target constituent-test))))
+    (edit-textual-reference~ (get-property~ evt definition:) target))))

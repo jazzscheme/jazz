@@ -656,9 +656,8 @@
   
   
   (method (current-declaration-range)
-    (if (and (not completion-active?) (has-selection?))
-        (get-selection)
-      (declaration-range (get-end))))
+    (or (effective-selection)
+        (declaration-range (get-end))))
   
   
   (method public (declaration-range pos)
@@ -681,6 +680,19 @@
                    new-range)
                   (else
                    (iterate new-range))))))))
+  
+  
+  (method public (outer-declaration-range range)
+    (let ((expl <Text-Explorer> (new (explorer-class) self range: range)))
+      (let (iterate (range range))
+        (if (not (outer-expr~ expl))
+            #f
+          (let ((new-range (get-range~ expl))
+                (name (form-expr~ expl)))
+            (if (and (declaration-name?~ expl name)
+                     (not (inner-name?~ expl name)))
+                (values new-range name (declaration-name~ expl))
+              (iterate new-range)))))))
   
   
   (method override (info-message)
@@ -724,6 +736,11 @@
         (keyword? expr)))
   
   
+  (method (reference-search-context target)
+    (search-context (and target (standardize-form target (empty-effective-selection?)))
+      whole-words?: #t))
+  
+  
   (method (on-highlight-selection evt)
     (let ((declaration-range (declaration-range (get-start)))
           (expr-range (current-expr-range)))
@@ -732,12 +749,35 @@
         (let ((constant (range-expr expr-range)))
           (if (not (constant? constant))
               (bell)
-            (let ((target (reference-searcher~ (parser-class~ syntax) (standardize-form constant) (get-constituent-test)))
+            (let ((target (reference-search-context constant))
                   (style (get-style-at (get-end~ expr-range))))
               (if (highlight-style? style)
                   (unhighlight-expression declaration-range target)
                 (highlight-expression declaration-range target))))))))
   
+  
+  (method (on-highlight-declaration evt)
+    (define (single-line str)
+      (let ((pos (find str #\newline)))
+        (if (not pos)
+            str
+          (substring str 0 pos))))
+    
+    (let ((range (current-expr-range)))
+      (if (not range)
+          (bell)
+        (let ((target (reference-search-context (single-line (get-string range)))))
+          (highlight-declaration range target)))))
+  
+  
+  (method public (highlight-declaration range target)
+    (let ((declaration-range (declaration-range (get-start))))
+      (if (not declaration-range)
+          (begin
+            (bell)
+            (select-command-search~ (get-application) 'forward target))
+        (select-command-highlight~ (get-application) 'forward range target (get-start~ declaration-range) (get-end~ declaration-range) highlight?: #t))))
+
   
   (method (on-remove-highlights evt)
     (let ((range (declaration-range (get-start))))
@@ -753,6 +793,11 @@
           (lambda (found)
             (continuation-return return found)))
         #f)))
+  
+  
+  
+  (method public (highlight-reference declaration-range target)
+    (select-command-highlight~ (get-application) 'forward #f (search-context target) (get-start~ declaration-range) (get-end~ declaration-range)))
   
   
   (method public (highlight-expression range target)
@@ -801,7 +846,7 @@
           (when (constant?~ expl)
             (let ((seq (get-marked~ expl)))
               (unless (eqv? (string-ref seq 0) #\')
-                (let ((found (contextual-search seq target)))
+                (let ((found (regular-search seq target)))
                   (when found
                     (let ((start (nu+ (get-start~ expl) (car found))))
                       (let ((end (nu+ start (- (cdr found) (car found)))))

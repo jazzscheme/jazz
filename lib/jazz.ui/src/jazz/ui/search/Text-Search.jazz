@@ -55,9 +55,7 @@
       (<!>                name: domain      title: "Search"
         (<content~>
           (<Radio-Button> name: window      title: "Window" position: {Point 13 14} size: {Dimension 120 18} group: domain)
-          @wait
           (<Radio-Button> name: declaration title: "Declaration" position: {Point 13 34} size: {Dimension 120 18} group: domain)
-          @wait
           (<Radio-Button> name: selection   title: "Selection" position: {Point 13 54} size: {Dimension 120 18} group: domain)
           @wait
           (<Radio-Button> name: text        title: "Text" position: {Point 143 14} size: {Dimension 120 18} group: restriction selected?: #t)
@@ -76,9 +74,7 @@
   
   (method override (get-search-domains)
     '(window
-       @wait
       declaration
-       @wait
       selection))
   
   
@@ -94,7 +90,11 @@
   (method override (search-targets search-set)
     (case (get-search-domain)
       ((window)
-       (search-active-window search-set))))
+       (search-active-window search-set))
+      ((declaration)
+       (search-active-declaration search-set))
+      ((selection)
+       (search-active-selection search-set))))
 
 
   ;;;
@@ -113,13 +113,33 @@
   
   
   (method (search-active-window search-set)
+    (let ((text (active-text)))
+      (if (not text)
+          (bell)
+        (set-caret~ text (get-start~ text))
+        (find-forward text search-set #f)
+        (acquire-focus~ text))))
+  
+  
+  (method (search-active-declaration search-set)
+    (let ((text (active-text)))
+      (if (not text)
+          (bell)
+        )))
+  
+  
+  (method (search-active-selection search-set)
+    (let ((text (active-text)))
+      (if (not text)
+          (bell)
+        )))
+  
+  
+  (define (active-text)
     (let ((frames (all-frames)))
       (when (>= (length frames) 1)
         (let ((frame (car frames)))
           (when (is? frame Frame-Host)
             (let ((guest (get-guest~ frame)))
               (when (is? guest Text-View)
-                (set-caret~ guest (get-start~ guest))
-                (find-forward guest search-set #f)
-                (bring-to-front~ frame)
-                (acquire-focus~ guest))))))))))
+                guest)))))))))

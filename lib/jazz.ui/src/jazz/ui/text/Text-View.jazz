@@ -119,7 +119,7 @@
   (slot protected contiguous-undo-range  initialize #f)
   (slot protected mouse-copy-selection   initialize #f)
   (slot protected mouse-copy-destination initialize #f)
-  (slot protected highlights             initialize '())
+  (slot protected highlights             initialize '()                   getter generate)
   (slot protected text-actions           initialize #f)
   
   
@@ -343,6 +343,7 @@
   
   
   (method protected virtual (select-outer)
+    (end-completion)
     (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
       (with-safe-explore
         (lambda ()
@@ -655,6 +656,10 @@
   
   (method override (set-content lst)
     (set-unformatted-content lst))
+  
+  
+  (method public (empty-text)
+    (set-content (empty-content)))
   
   
   (method (set-unformatted-content lst)
@@ -1467,7 +1472,7 @@
           (region (new Region)))
       (keep-rectangles~ region)
       (for-each-logical-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (with ((sub (range-region~ paragraph left-padding start end dh dv sc)))
             (combine!~ region sub 'or))))
       (let ((root-clipper (get-root-clipper)))
@@ -1525,25 +1530,27 @@
     (or (get-inactive-selection-color~ (get-look)) {Color Unfocused-Selection}))
   
   
-  (method (for-each-logical-range range <Range$Cell$> proc)
+  (method public (for-each-logical-range range <Range$Cell$> proc)
     (let ((start (get-start~ range))
           (end (get-end~ range)))
       (when (/= start end)
         (if (= (get-line~ start) (get-line~ end))
-            (proc (get-paragraph (get-line~ start)) (get-col~ start) (get-col~ end))
+            (let ((line (get-line~ start)))
+              (proc line (get-paragraph line) (get-col~ start) (get-col~ end)))
           (let ((beginning (get-line~ start))
                 (limit (get-line~ end)))
             (loop (for line from beginning to limit)
                   (let ((paragraph (get-paragraph line)))
-                    (cond ((= line beginning) (proc paragraph (get-col~ start) #f))
-                          ((= line limit) (proc paragraph #f (get-col~ end)))
-                          (else (proc paragraph #f #f))))))))))
+                    (cond ((= line beginning) (proc line paragraph (get-col~ start) #f))
+                          ((= line limit) (proc line paragraph #f (get-col~ end)))
+                          (else (proc line paragraph #f #f))))))))))
   
   
-  (method (for-each-range range <Range$Cell$> proc)
+  (method public (for-each-range range <Range$Cell$> proc)
     (for-each-logical-range range
-      (lambda (paragraph start end)
-        (proc paragraph
+      (lambda (line paragraph start end)
+        (proc line
+              paragraph
               (or start 0)
               (or end (get-length~ paragraph))))))
   
@@ -2151,8 +2158,8 @@
     (get-string~ paragraph))
   
   
-  (method public (first-line)
-    (paragraph-string 0))
+  (method public (first-paragraph)
+    (get-paragraph 0))
   
   
   ;;;
@@ -2406,6 +2413,10 @@
   
   (method public virtual (text-constituent? char)
     (text-constituent?~ syntax char))
+  
+  
+  (method public virtual (get-match-test)
+    (get-match-test~ syntax))
   
   
   ;;;
@@ -3451,7 +3462,7 @@
   (method public (set-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph '() paragraph)))
       (set-modified? #t)
@@ -3461,7 +3472,7 @@
   
   (method public (modify-style range <Range$Cell$> proc)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (modify-style~ paragraph start end proc)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3473,7 +3484,7 @@
   
   (method public (set-text-alignment range <Range$Cell$> alignment)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -3483,7 +3494,7 @@
   
   (method public (set-text-font range <Range$Cell$> font <Font>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-font~ paragraph start end font)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -3494,7 +3505,7 @@
   (method public (set-text-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
-        (lambda (paragraph start end)
+        (lambda (line paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph '() paragraph)
           (invalidate-drawing~ paragraph)))
@@ -3503,7 +3514,7 @@
   
   (method public (set-text-color range <Range$Cell$> color <Color>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-text-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3512,7 +3523,7 @@
   
   (method public (set-highlight-color range <Range$Cell$> color <Color+>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-highlight-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3521,7 +3532,7 @@
   
   (method public (set-frame-color range <Range$Cell$> color <Color+>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-frame-color~ paragraph start end color)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3530,7 +3541,7 @@
   
   (method public (toggle-bold range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-bold~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3538,7 +3549,7 @@
   
   (method public (toggle-italic range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-italic~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3546,7 +3557,7 @@
   
   (method public (toggle-underline range <Range$Cell$>)
     (for-each-range range
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (toggle-underline~ paragraph start end)
         (wrap-paragraph '() paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3780,7 +3791,7 @@
     (let ((headers (get-headers)))
       (if (not headers)
           '()
-        (let ((occurences (text-contextual-search-all (map make-search-context headers)))
+        (let ((occurences (text-regular-search-all (map make-search-context headers)))
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
@@ -3832,9 +3843,8 @@
   
   
   (method public virtual (current-expr-range)
-    (if (and (not completion-active?) (has-selection?))
-        (get-selection)
-      (expr-range (get-end))))
+    (or (effective-selection)
+        (expr-range (get-end))))
   
   
   (method public (current-expr-string)
@@ -3851,6 +3861,12 @@
     (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
       (outer-expr~ expl)
       (get-range~ expl)))
+  
+  
+  (method public (outer-range range)
+    (let ((expl <Text-Explorer> (new (explorer-class) self range: range)))
+      (when (outer-expr~ expl)
+        (get-range~ expl))))
   
   
   ;;;
@@ -4194,7 +4210,7 @@
   
   (method public (set-selection-font-name name)
     (for-each-range (get-selection)
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-font-name~ paragraph start end name)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -4204,7 +4220,7 @@
   
   (method public (set-selection-point-size size)
     (for-each-range (get-selection)
-      (lambda (paragraph start end)
+      (lambda (line paragraph start end)
         (set-point-size~ paragraph start end size)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
@@ -4236,6 +4252,19 @@
   
   (method protected (has-completion?)
     (and completion-active? (has-selection?)))
+  
+  
+  (method protected (has-effective-selection?)
+    (and (not completion-active?) (has-selection?)))
+  
+  
+  (method protected (empty-effective-selection?)
+    (or completion-active? (empty-selection?)))
+  
+  
+  (method protected (effective-selection)
+    (when (has-effective-selection?)
+      (get-selection)))
 
 
   (method protected (set-completion range)
@@ -4408,12 +4437,12 @@
   
   (method (on-search-forward-mode evt)
     (select-command-search~ (get-application) 'forward
-      (and (has-selection?) (get-string (get-selection)))))
+      (search-context (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-backward-mode evt)
     (select-command-search~ (get-application) 'backward
-      (and (has-selection?) (get-string (get-selection)))))
+      (search-context (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-current evt)
@@ -4425,9 +4454,9 @@
     
     (let ((range (current-expr-range)))
       (if (not range)
-          (select-command-search~ (get-application) 'forward #f)
+          (select-command-search~ (get-application) 'forward (search-context #f ignore-case?: #t))
         (let ((current (single-line (get-string range))))
-          (select-command-search-current~ (get-application) 'forward range current)))))
+          (select-command-search-current~ (get-application) 'forward range (search-context current ignore-case?: #t))))))
 
   
   ;;;
@@ -4437,7 +4466,7 @@
 
   (method package (on-find-forward evt)
     (let ((appl (get-application)))
-      (let ((search (active-search~ appl)))
+      (let ((search (active-search-view~ appl)))
         (if (not search)
             (let ((search-set (get-find-targets~ appl)))
               (unless (select-next search-set)
@@ -4447,7 +4476,7 @@
 
   (method package (on-find-backward evt)
     (let ((appl (get-application)))
-      (let ((search (active-search~ appl)))
+      (let ((search (active-search-view~ appl)))
         (if (not search)
             (let ((search-set (get-find-targets~ appl)))
               (unless (select-previous search-set)
@@ -4467,6 +4496,7 @@
       (make-search-context string
         whole-words?: (get-whole-words?~ appl)
         ignore-case?: (get-ignore-case?~ appl)
+        match-test: (get-match-test)
         constituent-test: (get-constituent-test))))
   
   
@@ -4487,7 +4517,7 @@
   
   
   (method public virtual (select-next search-context)
-    (let ((found (text-contextual-search search-context start: (get-end) reversed?: #f)))
+    (let ((found (text-regular-search search-context start: (get-end) reversed?: #f)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4497,7 +4527,7 @@
   
   
   (method public virtual (select-previous search-context)
-    (let ((found (text-contextual-search search-context start: (get-start) reversed?: #t)))
+    (let ((found (text-regular-search search-context start: (get-start) reversed?: #t)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4521,26 +4551,30 @@
   ;;;
   
   
-  (method public (text-contextual-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
-    (let ((constituent-test (get-constituent-test))
+  (method public (text-regular-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
+    (let ((match-test (get-match-test))
+          (constituent-test (get-constituent-test))
           (search-set (->search-set search-context)))
-      ;; Quick solution to multi-line string search
+      ;; quick solution to multi-line string search
       (if (some? (lambda (context)
                    (search (get-target~ context) "\n"))
                  (get-contexts~ search-set))
           (let ((content (get-string-content)))
-            (let ((found (contextual-search content search-set constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
+            (let ((found (regular-search content search-set match-test: match-test constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
               (when found
                 (bind (from . to) found
                   (cons (offset-position from) (offset-position to))))))
         (let ((pos (or start (if reversed? (text-ending) (text-beginning))))
-              (end (or end (get-limit))))
+              (end (or end (if reversed? (text-beginning) (text-ending)))))
           (let ((line (get-line~ pos))
-                (col (get-col~ pos)))
+                (col (get-col~ pos))
+                (end-line (get-line~ end))
+                (end-col (get-col~ end)))
             (let (iter (n line) (start col))
-              (if (if reversed? (>= n 0) (<= n end))
-                  (let ((string (paragraph-string n)))
-                    (let ((found (contextual-search string search-set constituent-test: constituent-test start: start reversed?: reversed?)))
+              (if (if reversed? (>= n end-line) (<= n end-line))
+                  (let ((string (paragraph-string n))
+                        (end (if (= n end-line) end-col #f)))
+                    (let ((found (regular-search string search-set match-test: match-test constituent-test: constituent-test start: start end: end reversed?: reversed?)))
                       (if found
                           (bind (from . to) found
                             (cons (new Cell n from) (new Cell n to)))
@@ -4548,31 +4582,32 @@
                 #f)))))))
 
   
-  (method public (text-contextual-search-all search-context (start: start #f) (end: end #f))
+  (method public (text-regular-search-all search-context (start: start #f) (end: end #f))
     (let ((queue (new-queue))
+          (match-test (get-match-test))
           (constituent-test (get-constituent-test))
-          (search-set (->search-set search-context)))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (let ((str (get-string~ paragraph)))
+          (search-set (->search-set search-context))
+          (start (or start (text-beginning)))
+          (end (or end (text-ending))))
+      (for-each-range (new-range start end)
+        (lambda (line paragraph <Paragraph> start end)
+          (let ((str (substring (get-string~ paragraph) start end)))
             (for-each (lambda (found)
                         (bind (from . to) found
-                          (enqueue queue (cons (new Cell line from) (new Cell line to)))))
-                      (contextual-search-all str search-set constituent-test: constituent-test))))
-        start: start
-        end: end)
+                          (enqueue queue (cons (new Cell line (+ start from)) (new Cell line (+ start to))))))
+                      (regular-search-all str search-set match-test: match-test constituent-test: constituent-test)))))
       (queue-list queue)))
   
   
   (method public (text-search context . rest)
-    (let ((found (apply text-contextual-search context rest)))
+    (let ((found (apply text-regular-search context rest)))
       (if found
           (car found)
         #f)))
   
   
   (method public (text-search-all context . rest)
-    (map car (apply text-contextual-search-all context rest)))
+    (map car (apply text-regular-search-all context rest)))
 
   
   (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))
@@ -4582,6 +4617,18 @@
            (found (search-expressions~ expl mode string position #f #f)))
       (when found
         (car found))))
+  
+  
+  (method protected (search-context obj
+                                    (whole-words?: whole-words? #f)
+                                    (ignore-case?: ignore-case? #f))
+    (cond ((is? obj Search-Context) obj)
+          ((is? obj Search-Set) (car (get-contexts~ obj)))
+          (else (make-search-context (or obj "")
+                                     whole-words?: whole-words?
+                                     ignore-case?: ignore-case?
+                                     match-test: (get-match-test)
+                                     constituent-test: (get-constituent-test)))))
   
   
   ;;;

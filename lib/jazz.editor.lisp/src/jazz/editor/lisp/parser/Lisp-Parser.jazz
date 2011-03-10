@@ -46,18 +46,29 @@
 (class Lisp-Parser extends File-Parser
   
   
+  ;;;
+  ;;;; Iterate
+  ;;;
+  
+  
   (method meta protected virtual (iterate-references name <string> proc <procedure>)
     (define (parse-tag)
       (when (tag-string? name)
         (call-proc name)
-        (call-proc (tag->name name))))
+        (call-proc (tag->name name))
+        #t))
     
     (define (parse-composite-colon)
       (let ((parts (split-string name #\:)))
         (when (and (not (null? (cdr parts)))
                    (not (empty-string? (first parts)))
                    (not (empty-string? (last parts))))
-          (for-each call-proc parts)
+          (call-proc name)
+          (let ((effective-parts
+                  (if (equal? (first parts) "jazz")
+                      (cdr parts)
+                    parts)))
+            (for-each call-proc effective-parts))
           #t)))
     
     (define (call-proc ref)
@@ -69,16 +80,49 @@
         (call-proc name)))
   
   
-  (method meta override (reference-searcher target <string> constituent-test <procedure>)
-    (make-searcher
-      (lambda (seq constituent-test start reversed?)
-        (continuation-capture
-          (lambda (return)
-            (iterate-references seq
-              (lambda (ref)
-                (when (equal? ref target)
-                  (continuation-return return (cons 0 (cardinality seq))))))
-            #f)))))
+  ;;;
+  ;;;; Constituent
+  ;;;
+  
+  
+  (method meta override (get-match-test)
+    (lambda (seq whole-words? constituent-test from to)
+      (or (not whole-words?)
+          (let ((card (cardinality seq)))
+            (define (extend-before from)
+              (let ((previous (- from 1)))
+                (if (and (>= previous 0) (constituent-test (element seq previous)))
+                    (extend-before previous)
+                  from)))
+            
+            (define (extend-after to)
+              (let ((after (+ to 1)))
+                (if (and (<= after card) (constituent-test (element seq (- after 1))))
+                    (extend-after after)
+                  to)))
+            
+            (let ((before (extend-before from))
+                  (after (extend-after to)))
+              (or (and (= from before)
+                       (= to after))
+                  (let ((found (subseq seq from to)))
+                    (continuation-capture
+                      (lambda (return)
+                        (iterate-references (subseq seq before after)
+                          (lambda (ref)
+                            (when (equal? ref found)
+                              (continuation-return return #t))))
+                        #f)))))))))
+  
+  
+  ;; first approximation
+  (method meta override (get-constituent-test)
+    scheme-constituent?)
+  
+  
+  ;;;
+  ;;;; Parse
+  ;;;
   
   
   (method override (parse file time dialect)
@@ -143,6 +187,11 @@
             parent)
           #f)
         (get-output~ fact))))
+  
+  
+  ;;;
+  ;;;; Explorer
+  ;;;
   
   
   (method protected virtual (text-view-class)

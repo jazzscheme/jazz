@@ -254,7 +254,9 @@
   
   
   (method (field-content field)
-    (get-string field))
+    (substring (get-string~ (first-paragraph))
+               (get-start~ field)
+               (get-end~ field)))
   
   
   (method (goto-field field)
@@ -274,15 +276,15 @@
   
   
   (method (collect-fields)
-    (let ((line (first-line))
+    (let ((paragraph (first-paragraph))
           (fields (new-queue)))
       (define (forward-style pos predicate)
-        (let ((card (cardinality line)))
+        (let ((card (get-length~ paragraph)))
           (let (iterate (pos pos))
             (if (>= pos card)
                 pos
               (let ((next (+ pos 1)))
-                (let ((run (get-run-at (new Cell 0 next))))
+                (let ((run (get-run~ paragraph next)))
                   (if (or (not run) (predicate (get-style~ run)))
                       (iterate next)
                     pos)))))))
@@ -294,7 +296,7 @@
         (inherits?~ style 'Separator))
       
       (define (new-field start end)
-        (new-range (new Cell 0 start) (new Cell 0 end)))
+        (new Range start end))
       
       (let (iter (pos 0))
         (let ((text-end (forward-style pos text-style?)))
@@ -308,7 +310,7 @@
   (method (field-rank fields pos)
     (let (iter (fields fields) (rank 0))
       (let ((field (car fields)))
-        (if (between? pos (get-col~ (get-start~ field)) (get-col~ (get-end~ field)))
+        (if (between? pos (get-start~ field) (get-end~ field))
             rank
           (iter (cdr fields) (+ rank 1))))))
   

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Search Results Tree Actions
+;;;; File Search Location
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,18 +35,53 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.search.Search-Results-Tree-Actions jazz
+(module jazz.ui.search.File-Search-Location jazz
 
 
-(import (jazz.jml)
-        (jazz.library)
+(import (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
-(class undocumented Search-Results-Tree-Actions extends Actions
+(class File-Search-Location extends Search-Location
   
   
-  (form
-    (<install>
-      (<Action-Item> name: action           action-handler: {Event-Handler :focus on-action} shortcut: {Shortcut :control Return})
-      (<Action-Item> name: edit-definitions action-handler: {Event-Handler :focus on-edit-definitions} shortcut: {Shortcut F12} alternate-shortcut: {Shortcut :alt #\.})))))
+  (slot target getter generate)
+  (slot file   getter generate)
+  (slot range  getter generate)
+  
+  
+  (method override (initialize target file (position: position #f) (range: range #f))
+    (nextmethod)
+    (set! target~self target)
+    (set! file~self file)
+    (set! range~self (or range (and position (new Range$Cell$ position position)))))
+  
+  
+  (method override (get-icon)
+    {Image-Resource "TypeFile"})
+  
+  
+  (method override (present-name)
+    (present-name~ file))
+  
+  
+  (method override (present-location)
+    (present-location~ file))
+  
+  
+  (method override (present-type)
+    "")
+  
+  
+  (method override (edit forward? focus? visible?)
+    (let ((appl (get-application)))
+      (receive (frame new?) (edit-document~ appl file visible?: #f return-new?: #t)
+        (let ((guest (get-guest~ frame)))
+          (when (is? guest Text-View)
+            (if range
+                (set-selection~ guest range)
+              (select-expr~ guest target (if forward? 'forward 'backward))))
+          (when visible?
+            (focus-host~ frame))
+          (values frame new?)))))))

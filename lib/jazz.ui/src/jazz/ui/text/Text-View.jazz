@@ -52,6 +52,7 @@
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
+        (jazz.ui.search)
         (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window))
@@ -4465,23 +4466,21 @@
 
 
   (method package (on-find-forward evt)
-    (let ((appl (get-application)))
-      (let ((search (active-search-view~ appl)))
-        (if (not search)
-            (let ((search-set (get-find-targets~ appl)))
-              (unless (select-next search-set)
-                (bell)))
-          (on-find-forward~ search evt)))))
+    (let ((search (active-search)))
+      (if search
+          (let ((search-set (get-find~ search)))
+            (unless (select-next search-set)
+              (bell)))
+        (bell))))
 
 
   (method package (on-find-backward evt)
-    (let ((appl (get-application)))
-      (let ((search (active-search-view~ appl)))
-        (if (not search)
-            (let ((search-set (get-find-targets~ appl)))
-              (unless (select-previous search-set)
-                (bell)))
-          (on-find-backward~ search evt)))))
+    (let ((search (active-search)))
+      (if search
+          (let ((search-set (get-find~ search)))
+            (unless (select-previous search-set)
+              (bell)))
+        (bell))))
   
   
   (method (find-context)
@@ -4536,7 +4535,13 @@
           #t))))
   
   
-  (method public virtual (select-expr search-context)
+  (method public virtual (select-expr search-context direction)
+    (case direction
+      ((forward) (select-expr-forward search-context))
+      ((backward) (select-expr-backward search-context))))
+  
+  
+  (method public virtual (select-expr-forward search-context)
     (set-caret (text-beginning))
     (select-next search-context))
   

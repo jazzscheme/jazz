@@ -47,6 +47,8 @@
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.search)
         (jazz.ui.view)
         (jazz.ui.window))
 
@@ -54,28 +56,28 @@
 (class undocumented Search-Results extends Navigable-Results
 
 
-  (slot mode            initialize #f accessors generate)
-  (slot context         initialize #f accessors generate)
-  (slot current-results initialize #f)
-  (slot results-stack   initialize '() getter generate)
+  (slot mode           initialize #f accessors generate)
+  (slot context        initialize #f accessors generate)
+  (slot current-result initialize #f)
+  (slot result-stack   initialize '() getter generate)
 
 
   (form
     (<install>
       (<!>                           name: tools
-        (<!>                         name: clear    tooltip-text: "Pop Results")
-        (<Separator>                                size: {Dimension 4 0})
-        (<Layout-View>                              size: {Dimension 120 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
-          (<Border-View>                            border-color: {Color Dark}
-            (<Stack-Combo>           name: stack))))
+        (<!>                         name: clear     tooltip-text: "Pop Results")
+        (<Separator>                                 size: {Dimension 4 0})
+        (<Layout-View>                               size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+          (<Border-View>                             border-color: {Color Dark}
+            (<Results-Combo>         name: results))))
       (<!>                           name: scroller
         (<!>                         name: content
           (<!>                       name: header
             (<!>                     name: content
-              (<!>                   name: results  filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
-                (<Tree-Node-Column>  name: name     title: "Name" width: 200)
-                (<Tree-Label-Column> name: location title: "Location" width: 337)
-                (<Tree-Label-Column> name: type     title: "Type" width: 100))))))))
+              (<!>                   name: locations filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
+                (<Tree-Node-Column>  name: name      title: "Name" width: 200)
+                (<Tree-Label-Column> name: location  title: "Location" width: 337)
+                (<Tree-Label-Column> name: type      title: "Type" width: 100))))))))
   
   
   (method meta override (external-name . rest)
@@ -84,7 +86,7 @@
   
   (method override (form-model form)
     (case (get-name~ form)
-      ((results) Search-Results-Tree)
+      ((locations) Search-Results-Tree)
       (else (nextmethod form))))
 
   
@@ -119,12 +121,6 @@
   
   (method override (get-context-menu)
     (new Found-Menu))
-  
-  
-  (method override (clear-results)
-    (if (<= (length results-stack) 1)
-        (bell)
-      (pop-results)))
 
   
   ;;;
@@ -134,70 +130,43 @@
 
   (method override (edit-selection forward?)
     (let ((selection (get-selection~ (get-tree))))
-      (define (edit)
-        (for-each (lambda (item)
-                    (edit-item item forward? #t #t))
-                  selection))
-      
-      (case (length selection)
-        ((0))
-        ((1) (edit))
-        (else (with-locked-update
-                (lambda ()
-                  (edit)))))))
+      (for-each (lambda (item)
+                    (edit-location item forward? #t #t))
+                  selection)))
+  
 
-
-  (method public (edit-item item forward? focus? visible?)
-    (let ((definition (get-user-data~ (get-row~ (get-tree) item))))
-      (edit-document definition forward? focus? visible?)))
-
-
-  ;;;
-  ;;;; Edition
-  ;;;
-
-
-  (method (edit-document info forward? focus? visible?)
-    (define (edit-source source results targets)
-      (let* ((appl (get-application)))
-        (receive (frame new?) (edit-document~ appl source visible?: #f return-new?: #t)
-          (let ((guest (get-guest~ frame)))
-            (when (and targets (is? guest Text-View))
-              (if (number? targets)
-                  (set-caret~ guest (new Cell results targets))
-                (if forward?
-                    (select-expr~ guest targets)
-                  (select-expr-backward~ guest targets))))
-            (when visible?
-              (focus-host~ frame))
-            (values frame new?)))))
-    
-    (define (edit-reference entry target)
-      (if (string? target)
-          (edit-textual-reference~ entry target activate-focus?: focus?)
-        (edit-reference~ entry target activate-focus?: focus?)))
-    
+  (method public (edit-location item forward? focus? visible?)
     (with-cursor :wait
       (lambda ()
-        (cond ((is? info Catalog-Entry)
-               (case mode
-                 ((references)
-                  (edit-reference info (get-references-target)))
-                 (else
-                  (edit~ info activate-focus?: focus?))))
-              ((and (pair? info) (is? (car info) Catalog-Entry))
-               (bind (entry . target) info
-                 (case mode
-                   ((references)
-                    (edit-reference entry target))
-                   (else
-                    (edit~ entry activate-focus?: focus?)))))
-              ((is? (car info) Moniker)
-               (bind (source results targets) info
-                 (edit-source source results targets)))
-              (else
-               (bind (class source results targets) info
-                 (edit-source source results targets)))))))
+        (set-active-search (new Search context #f))
+        (let ((location (get-user-data~ (get-row~ (get-tree) item))))
+          (edit~ location forward? focus? visible?)))))
+
+
+  ;;;
+  ;;;; Result
+  ;;;
+
+
+  (method public (add-result locations targets)
+    (let ((result (new Search-Result locations targets)))
+      (preserve-current-selection)
+      (set! current-result result)
+      (set! result-stack (cons current-result result-stack))
+      (update-result)
+      (update-results-combo)))
+  
+  
+  (method (set-result result)
+    (preserve-current-selection)
+    (set! current-result result)
+    (update-result)
+    (update-results-combo))
+  
+  
+  (method (preserve-current-selection)
+    (when current-result
+      (set-selection~ current-result (get-selection~ (get-tree)))))
 
 
   ;;;
@@ -205,169 +174,159 @@
   ;;;
   
   
-  (method protected virtual (item-icon info)
-    (cond ((is? info Class-Entry)         {Image-Resource "Class"})
-          ((is? info Interface-Entry)     {Image-Resource "TypeInterface"})
-          ((is? info Static-Init-Entry)   {Image-Resource "StaticInit"})
-          ((is? info Instance-Init-Entry) {Image-Resource "InstanceInit"})
-          ((is? info Variable-Entry)      {Image-Resource "ClassVariable"})
-          ((is? info Constructor-Entry)   {Image-Resource "ClassConstructor"})
-          ((is? info Method-Entry)        {Image-Resource "ClassMethod"})
-          (else                           {Image-Resource "TypeFile"})))
-  
-  
-  (method protected virtual (item-moniker info)
-    (cond ((is? info Catalog-Entry)
-           (get-moniker~ info))
-          ((is? (car info) Moniker)
-           (car info))
-          (else
-           (cadr info))))
-  
-  
-  (method protected virtual (item-location info)
-    (let ((moniker (item-moniker info)))
-      (if (not moniker)
-          ""
-        (present-location~ moniker))))
-  
-  
-  (method protected virtual (item-type info)
-    (cond ((is? info Class-Entry) "Class")
-          ((is? info Interface-Entry) "Interface")
-          ((is? info Static-Init-Entry) "Static Init")
-          ((is? info Instance-Init-Entry) "Instance Init")
-          ((is? info Variable-Entry) "Variable")
-          ((is? info Constructor-Entry) "Constructor")
-          ((is? info Method-Entry) "Method")
-          (else "")))
-
-
-  (method public (present-info info)
-    (cond ((is? info Catalog-Entry)
-           (present~ info))
-          ((is? (car info) Moniker)
-           (bind (moniker pos target) info
-             (present-name~ moniker)))
-          (else
-           (->string (car info)))))
-
-
-  (method public (add-results results targets (target #f))
-    (preserve-current-selection)
-    (set! current-results (list results targets target #f))
-    (set! results-stack (cons current-results results-stack))
-    (update-results)
-    (update-stack-combo))
-  
-  
   (method (pop-results)
-    (set! results-stack (cdr results-stack))
-    (set! current-results (car results-stack))
-    (update-search-targets)
-    (update-results)
-    (update-stack-combo))
+    (set! current-result (car result-stack))
+    (set! result-stack (cdr result-stack))
+    (update-result)
+    (update-results-combo))
   
   
-  (method (set-results info)
-    (preserve-current-selection)
-    (set! current-results info)
-    (update-search-targets)
-    (update-results)
-    (update-stack-combo))
+  (method override (clear-results)
+    (if (<= (length result-stack) 1)
+        (bell)
+      (pop-results)))
   
   
-  (method (get-references-target)
-    (third current-results))
-  
-  
-  (method (preserve-current-selection)
-    (when current-results
-      (set-fourth! current-results (get-selection~ (get-tree)))))
-  
-  
-  (method (update-search-targets)
-    (bind (results targets target) current-results
-      (let ((appl (get-application)))
-        (end-search-edition~ appl)
-        (set-search-targets~ appl targets))))
-  
-  
-  (method (update-stack-combo)
-    (let ((combo (locate 'stack)))
-      (set-choices~ combo (map (lambda (info)
-                                 (bind (results targets target) info
-                                   (list info (join (map first targets) ", "))))
-                               results-stack))
-      (set-value~ combo current-results)))
+  (method (update-results-combo)
+    (let ((combo (locate 'results)))
+      (set-choices~ combo (map (lambda (result)
+                                 (let ((targets (get-targets~ result)))
+                                   (list result (join (map first targets) ", "))))
+                               result-stack))
+      (set-value~ combo current-result)))
 
 
-  (method (update-results)
-    (bind (results targets target selection) current-results
-      (let ((appl (get-application))
-            (tree (get-tree)))
-        (remove-every-row~ tree)
-        (with-update-locked~ tree
-          (lambda ()
-            (let ((flag
-                   (case mode
-                     ((references) #t)
-                     (else #f))))
-              (set-toplevel-controls?~ (get-node-column~ tree) flag))
-            (for-each (lambda (info)
-                        (add-item info target: target))
-                      (sort string<? results key: present-info))))
-        (when (and results (> (get-visible-count~ tree) 0))
-          (set-selection~ tree (or selection (list 0))))
-        (with-locked-update
-          (lambda ()
-            (select-docked Search-Results)))
-        (update-search-actions~ appl))))
-  
-  
-  (method (add-item info (father: father #f) (target: target #f))
-    (let ((tree (get-tree))
-          (state (if (eq? mode 'references) 'dynamic 'collapsed))
-          (node (new Tree-Node title: (present-info info) image: (item-icon info)))
-          (location (new Tree-Label title: (item-location info)))
-          (type (new Tree-Label title: (item-type info)))
-          (user-data (if target (cons info target) info)))
-      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data)))
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method (update-result)
+    (let ((appl (get-application))
+          (tree (get-tree))
+          (locations (get-locations~ current-result))
+          (selection (get-selection~ current-result)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (let ((flag
+                  (case mode
+                    ((references) #t)
+                    (else #f))))
+            (set-toplevel-controls?~ (get-node-column~ tree) flag))
+          (for-each add-location (sort string<? locations key: present-name~))))
+      (when (and locations (> (get-visible-count~ tree) 0))
+        (set-selection~ tree (or selection (list 0))))
+      (with-locked-update
+        (lambda ()
+          (select-docked Search-Results)))
+      (update-search-actions~ appl)))
 
   
-  (method protected (update-tree-row row)
+  (method (update-tree-row row)
     (case mode
       ((references)
-        (bind (entry . target) (get-user-data~ row)
-          (let* ((name (get-name~ entry))
-                 (appl (get-application))
-                 (cataloguer (get-cataloguer~ appl))
-                 (definitions (get-references~ cataloguer name context: context)))
-            (for-each (lambda (info)
-                        (add-item info father: row target: (list (make-search-context (->string name) whole-words?: #t))))
-                      (sort string<? definitions key: present-info)))))))
+       (let ((location (get-user-data~ row)))
+         (let* ((name (get-name~ (get-entry~ location)))
+                (appl (get-application))
+                (cataloguer (get-cataloguer~ appl))
+                (references (get-references~ cataloguer name context: context)))
+           (for-each (lambda (location)
+                       (add-location location father: row))
+                     (sort string<? (make-reference-search-locations references name) key: present-name~)))))))
   
   
-  (method (selected-files)
-    (let* ((tree (locate 'results))
-           (selection (get-selection~ tree)))
-      (collect (lambda (rank)
-                 (let ((info (get-user-data~ (get-row~ tree rank))))
-                   (when (and (is? info Pair) (is? (car info) File))
-                     (car info))))
-               selection))))
+  (method (add-location location (father: father #f))
+    (let ((tree (get-tree))
+          (state (if (eq? mode 'references) 'dynamic 'collapsed))
+          (node (new Tree-Node title: (present-name~ location) image: (get-icon~ location)))
+          (loc (new Tree-Label title: (present-location~ location)))
+          (type (new Tree-Label title: (present-type~ location)))
+          (user-data location))
+      (add-row~ tree father: father state: state children: (list node loc type) user-data: user-data))))
 
 
 ;;;
-;;;; Stack-Combo
+;;;; Search-Results-Tree
 ;;;
 
 
-(class Stack-Combo extends Combo-Box
+(class Search-Results-Tree extends Tree-View
+          
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (focus-actions)
+    (cons (find-actions 'search-results-tree)
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-search)
+    (find-ascendant Search-Results))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (return-press key)
+    (edit-selection~ (get-search) #t))
+  
+  
+  (method override (copy-selection)
+    (set-clipboard-text
+      (format "{l detail: :human}"
+        (map (lambda (n)
+               (let ((location (get-user-data~ (get-row n))))
+                 (present-name~ location)))
+             (get-selection)))))
+  
+  
+  (method override (select-all . rest)
+    )
+  
+  
+  (method (on-edit-definitions evt)
+    (edit-selection~ (get-search) #t))
+  
+  
+  (method override (update-row row)
+    (update-tree-row~ (get-search) row)))
+
+
+;;;
+;;;; Search-Results-Tree-Actions
+;;;
+
+
+(class Search-Results-Tree-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: action           action-handler: {Event-Handler :focus on-action} shortcut: {Shortcut :control Return})
+      (<Action-Item> name: edit-definitions action-handler: {Event-Handler :focus on-edit-definitions} shortcut: {Shortcut F12} alternate-shortcut: {Shortcut :alt #\.}))))
+
+
+;;;
+;;;; Results-Combo
+;;;
+
+
+(class Results-Combo extends Combo-Box
   
   
   (method override (content-change origin)
-    (set-results~ (get-creator~ parent) (get-value))))
+    (set-result~ (get-creator~ parent) (get-value))))
 
 
 ;;;

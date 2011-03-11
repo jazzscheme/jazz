@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Search Results Tree
+;;;; Reference Search Location
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,59 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.search.Search-Results-Tree jazz
+(module jazz.ui.search.Reference-Search-Location jazz
 
 
-(import (jazz.ui)
-        (jazz.ui.clipboard))
+(import (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.search))
 
 
-(class undocumented Search-Results-Tree extends Tree-View
-          
-
-  ;;;
-  ;;;; Actions
-  ;;;
-  
-
-  (method override (focus-actions)
-    (cons (find-actions 'search-results-tree)
-          (nextmethod)))
+(class Reference-Search-Location extends Definition-Search-Location
   
   
-  ;;;
-  ;;;; Access
-  ;;;
+  (slot target getter generate)
   
   
-  (method (get-search)
-    (find-ascendant Search-Results))
+  (method override (initialize entry target)
+    (nextmethod entry)
+    (set! target~self target))
   
   
-  ;;;
-  ;;;; Events
-  ;;;
-  
-  
-  (method override (return-press key)
-    (edit-selection~ (get-search) #t))
-  
-  
-  (method override (copy-selection)
-    (set-clipboard-text
-      (format "{l detail: :human}"
-        (map (lambda (n)
-               (present-info~ (get-search) (get-user-data~ (get-row n))))
-             (get-selection)))))
-  
-  
-  (method override (select-all . rest)
-    )
-  
-  
-  (method (on-edit-definitions evt)
-    (edit-selection~ (get-search) #t))
-  
-  
-  (method override (update-row row)
-    (update-tree-row~ (get-search) row))))
+  (method override (edit forward? focus? visible?)
+    (if (string? target)
+        (edit-textual-reference~ entry target activate-focus?: focus?)
+      (edit-reference~ entry target activate-focus?: focus?)))))

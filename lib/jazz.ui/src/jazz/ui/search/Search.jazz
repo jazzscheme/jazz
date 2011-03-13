@@ -38,14 +38,148 @@
 (module jazz.ui.search.Search jazz
 
 
+(import (jazz.system)
+        (irregex))
+
+
 (class Search extends Object
   
   
-  (slot find    getter generate)
-  (slot replace getter generate)
+  (slot find-set                      accessors generate)
+  (slot replace-list                  accessors generate)
+  (slot preserve-case?  initialize #f accessors generate)
+  (slot play-recording? initialize #f accessors generate)
+  (slot expression?     initialize #f accessors generate)
   
   
   (method override (initialize find replace)
     (nextmethod)
-    (set! find~self find)
-    (set! replace~self replace))))
+    (set! find-set (->search-set find))
+    (set! replace-list replace))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public (present)
+    (join (map get-target~ (collect-find)) ", "))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (collect-find)
+    (get-contexts~ find-set))
+  
+  
+  (method (collect-replace)
+    replace-list)
+  
+  
+  (method public (empty?)
+    (null? (collect-find)))
+  
+  
+  ;;;
+  ;;;; Find
+  ;;;
+  
+  
+  (method package (find-forward text (next? #t))
+    (or (select-next~ text find-set)
+        (let ((results (get-results)))
+          (when (and next? (same-search? results))
+            (edit-next~ results)))))
+  
+  
+  (method package (find-backward text (previous? #t))
+    (or (select-previous~ text find-set)
+        (let ((results (get-results)))
+          (when (and previous? (same-search? results))
+            (edit-previous~ results)))))
+  
+  
+  (method protected (get-results)
+    (get-search-results~ (get-application)))
+  
+  
+  (method protected (same-search? results)
+    (let ((search-result (get-current-result~ results)))
+      (and search-result
+           (eq? (get-search~ search-result) self))))
+  
+  
+  ;;;
+  ;;;; Replace
+  ;;;
+  
+  
+  (method (replace text)
+    (let ((find-list (collect-find))
+          (repl-list (collect-replace)))
+      (define (determine-case str)
+        (if (or (empty-string? str) (lower-case? (element str 0)))
+            'lower-case
+          (if (or (= (cardinality str) 1) (upper-case? (element str 1)))
+              'upper-case
+            'capitalized)))
+      
+      (define (convert-case str cs)
+        (case cs
+          ((lower-case)  (downcase str))
+          ((upper-case)  (upcase str))
+          ((capitalized) (capitalize str))))
+      
+      (define (get-replacement str find-list repl-list)
+        (and (pair? find-list)
+             (pair? repl-list)
+             (let ((m (irregex-match (search-context-regexp (car find-list)) str)))
+               (if m
+                   (if (get-regexp?~ (car find-list))
+                       (expand-replacement str m (car repl-list))
+                     (car repl-list))
+                 (get-replacement str (cdr find-list) (cdr repl-list))))))
+      
+      (define (expand-replacement str m repl)
+        (let ((end (- (string-length repl) 1)))
+          (let (lp (from 0) (i 0) (res '()))
+            (define (collect) (if (= i from) res (cons (substring repl from i) res)))
+            (cond
+              ((>= i end) (apply string-append (reverse (collect))))
+              ((eqv? #\\ (string-ref repl i))
+               (lp (+ i 2)
+                   (+ i 2)
+                   (cons
+                     (case (string-ref repl (+ i 1))
+                       ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+                        (or (irregex-match-substring m (- (char->integer (string-ref repl (+ i 1))) (char->integer #\0))) ""))
+                       ((#\n) "\n") ((#\t) "\t") ((#\r) "\r")
+                       (else (substring repl (+ i 1) (+ i 2))))
+                     (collect))))
+              (else (lp from (+ i 1) res))))))
+      
+      (let* ((str (get-selected-string~ text))
+             (repl (and str (if expression? (car repl-list) (get-replacement str find-list repl-list)))))
+        (when repl
+          (if (not play-recording?)
+              (insert-string~ text (if preserve-case? (convert-case repl (determine-case str)) repl))
+            ;; temp... should not be necessary. play-recording should be
+            ;; made to work even if the window doesn't have the focus.
+            (acquire-focus~ text)
+            (play-current-recording~ (get-recorder~ (get-application))))
+          #t))))
+  
+  
+  (method (replace&find-forward text (next? #t))
+    (replace text)
+    (find-forward text next?))
+  
+  
+  (method (replace-all text)
+    (replace text)
+    (while (find-forward text #f)
+      (replace text)))))

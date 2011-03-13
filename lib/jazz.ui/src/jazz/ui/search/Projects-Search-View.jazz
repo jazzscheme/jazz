@@ -119,57 +119,59 @@
   ;;;
   ;;;; Search
   ;;;
+  
+  
+  (method override (current-search-class)
+    Projects-Search)
 
   
-  (method override (search-targets search-set)
+  (method override (search-targets search)
     (define (search-targets-files)
       (let ((appl (get-application)))
         (let ((project (selected-project))
               (cataloguer (get-cataloguer~ appl))
-              (expression? (get-expression?~ appl))
               (factory (new List-Factory))
               (reporter (new User-Reporter)))
-          (let ((results (search-project project cataloguer expression? factory reporter)))
+          (let ((results (search-project project cataloguer factory reporter)))
             (post-event
               (lambda ()
                 (let ((results (get-results)))
                   (set-mode~ results 'text)
-                  (add-result~ results (get-output~ factory) (get-search-targets))
+                  (add-result~ results search (get-output~ factory))
                   (select-results~ results)))))
           (user-feedback~ reporter "Done"))))
     
-    (define (search-project project cataloguer expression? factory reporter)
+    (define (search-project project cataloguer factory reporter)
       (for-each-project~ project
         (lambda (project)
           (iterate-files~ project
             (lambda (file)
-              (search-in-file search-set file expression? factory reporter))))))
+              (search-in-file search file factory reporter))))))
     
     (define (search-targets-definitions)
       (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
-        (let ((definitions (search-definitions~ cataloguer search-set context: project)))
+        (let ((definitions (search-definitions~ cataloguer (get-find-set~ search) context: project)))
           (if (null? definitions)
               (message-box "No search results found")
             (case (length definitions)
               ((1) (edit~ (car definitions)))
               (else (let ((results (get-results)))
                       (set-mode~ results 'definitions)
-                      (add-result~ results (make-definition-search-locations definitions) (get-search-targets))
+                      (add-result~ results search (make-definition-search-locations search definitions))
                       (select-results~ results))))))))
     
     (define (search-targets-references)
       (let ((project (selected-project))
             (cataloguer (get-cataloguer~ (get-application))))
-        (let ((references (search-references~ cataloguer search-set context: project)))
+        (let ((references (search-references~ cataloguer (get-find-set~ search) context: project)))
           (if (null? references)
               (message-box "No search results found")
             (case (length references)
-              ((1) (edit-reference~ (car references) search-set))
+              ((1) (edit-reference~ (car references) search))
               (else (let ((results (get-results)))
                       (set-mode~ results 'references)
-                      (set-context~ results #f)
-                      (add-result~ results (make-reference-search-locations references search-set) (get-search-targets))
+                      (add-result~ results search (make-reference-search-locations search references))
                       (select-results~ results))))))))
     
     (case (get-selected-element~ (get-content~ (locate 'domain)))

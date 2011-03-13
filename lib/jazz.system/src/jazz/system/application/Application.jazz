@@ -59,6 +59,7 @@
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
         (jazz.ui.picker)
+        (jazz.ui.search)
         (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window)
@@ -1807,7 +1808,7 @@
   (method public (active-search-view)
     (let ((manager (get-search-manager)))
       (when manager
-        (get-search~ (get-guest~ manager)))))
+        (get-search~ manager))))
   
   
   ;; This needs cleanup as it cannot be done for every application
@@ -1860,9 +1861,9 @@
     (let* ((focus (get-focus))
            (internal? (is? focus Tree-Embedded-Search-Text-View))
            (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) #f))
-           (palette (get-search-manager))
+           (manager (get-search-manager))
+           (palette (get-host~ manager))
            (player (get-player~ palette))
-           (manager (get-guest~ palette))
            (tab-view (locate~ manager 'tab))
            (same-tab? (eq? tab (get-selection-name~ tab-view))))
       (if (and (not domain)
@@ -1889,10 +1890,7 @@
   
   
   (method public (end-search-edition)
-    (let* ((palette (get-search-manager))
-           (manager (get-guest~ palette))
-           (search (get-search~ manager))
-           (tree (get-targets-tree~ search)))
+    (let ((tree (get-targets-tree~ (get-search~ (get-search-manager)))))
       (end-edition~ tree)))
 
 
@@ -1913,51 +1911,51 @@
 
 
   (method package (on-find-forward evt)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-frame)))))
-            (let ((search-set (get-find-targets)))
-              (unless (select-next~ text search-set)
-                (bell))))
-        (on-find-forward~ search evt))))
+    (let ((search (active-search))
+          (text (get-target-text)))
+      (unless (and search text (find-forward~ search text))
+        (bell))))
 
 
   (method package (on-find-backward evt)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (let ((text (get-text-view~ (get-guest~ (first-frame)))))
-            (let ((search-set (get-find-targets)))
-              (unless (select-previous~ text search-set)
-                (bell))))
-        (on-find-backward~ search evt))))
+    (let ((search (active-search))
+          (text (get-target-text)))
+      (unless (and search text (find-backward~ search text))
+        (bell))))
 
 
   (method package (on-replace evt)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (bell)
-        (on-replace~ search evt))))
+    (let ((search (active-search))
+          (text (get-target-text)))
+      (unless (and search text (replace~ search text))
+        (bell))))
 
 
   (method package (on-replace&find-forward evt)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (bell)
-        (on-replace&find-forward~ search evt))))
+    (let ((search (active-search))
+          (text (get-target-text)))
+      (unless (and search text (replace&find-forward~ search text))
+        (bell))))
 
 
   (method package (on-replace-all evt)
-    (let ((search (active-search-view)))
-      (if (not search)
+    (let ((search (active-search))
+          (text (get-target-text)))
+      (if (or (not search) (not text))
           (bell)
-        (on-replace-all~ search evt))))
-
-
+        (replace-all~ search text))))
+  
+  
   (method package (on-replace-selected evt)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (bell)
-        (on-replace-selected~ search evt))))
+    (replace-selected~ (get-search-results)))
+
+
+  (method (get-target-text)
+    (let ((frame (first-frame)))
+      (when (is? frame Frame-Host)
+        (let ((guest (get-guest~ frame)))
+          (when (is? guest Document)
+            (get-text-view~ guest))))))
 
   
   ;;;
@@ -2029,79 +2027,6 @@
   
   (method public (select-command-execute)
     (select-execute~ (require-unzoomed-command-text)))
-
-
-  ;;;
-  ;;;; Search Context
-  ;;;
-
-
-  (method public undocumented (get-search-targets)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Targets)
-        (get-search-targets~ search))))
-  
-  
-  (method public undocumented (set-search-targets targets)
-    (let ((search (active-search-view)))
-      (if (not search)
-          #f @convert (set-setting 'Search-Targets targets)
-        (set-search-targets~ search targets))))
-
-
-  (method public undocumented (get-find-targets)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (->search-set
-            (map (lambda (target)
-                   (make-search-context (first target)
-                     whole-words?: (get-whole-words?)
-                     ignore-case?: (get-ignore-case?)))
-                 (get-search-targets)))
-        (get-find-targets~ search))))
-
-
-  (method public undocumented (get-replace-targets)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (map second (get-search-targets))
-        (get-replace-targets~ search))))
-
-  
-  (method public undocumented (get-whole-words?)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Whole-Words?)
-        (get-whole-words?~ search))))
-    
-  
-  (method public undocumented (get-ignore-case?)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Ignore-Case?)
-        (get-ignore-case?~ search))))
-    
-  
-  (method public undocumented (get-preserve-case?)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Preserve-Case?)
-        (get-preserve-case?~ search))))
-    
-  
-  (method public undocumented (get-play-recording?)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Play-Recording?)
-        (get-play-recording?~ search))))
-
-  
-  (method public undocumented (get-expression?)
-    (let ((search (active-search-view)))
-      (if (not search)
-          (get-setting 'Search-Expression?)
-        (get-expression?~ search))))
 
 
   ;;;

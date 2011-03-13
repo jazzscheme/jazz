@@ -49,6 +49,7 @@
         (jazz.system)
         (jazz.ui)
         (jazz.ui.activity)
+        (jazz.ui.search)
         (jazz.ui.view)
         (jazz.ui.window)
         (irregex))
@@ -109,37 +110,12 @@
 
 
   ;;;
-  ;;;; Session
-  ;;;
-  
-  
-  (method public virtual (get-session-properties)
-    (list
-      'domain          (get-search-domain)
-      'targets         (get-search-targets)
-      'whole-words?    (get-whole-words?)
-      'ignore-case?    (get-ignore-case?)
-      'preserve-case?  (get-preserve-case?)
-      'play-recording? (get-play-recording?)
-      'expression?     (get-expression?)))
-  
-  
-  (method public virtual (set-session-properties config)
-    (set-search-targets  (get-targets~ config))
-    (set-whole-words?    (get-whole-words?~ config))
-    (set-ignore-case?    (get-ignore-case?~ config))
-    (set-preserve-case?  (get-preserve-case?~ config))
-    (set-play-recording? (get-play-recording?~ config))
-    (set-expression?     (get-expression?~ config)))
-
-
-  ;;;
   ;;;; Manager
   ;;;
   
   
   (method (get-manager)
-    (child 3))
+    (find-ascendant Search-Manager))
     
 
   ;;;
@@ -288,10 +264,6 @@
   
   (method public virtual (get-search-domains)
     '())
-  
-  
-  (method public virtual (get-active-window-domain)
-    #f)
 
 
   ;;;
@@ -300,17 +272,7 @@
   
   
   (method package (on-search evt)
-    (hide~ (get-player))
-    (let ((targets (locate 'targets)))
-      (end-edition~ targets)
-      (let ((search-set (get-find-targets)))
-        (if (null? (get-contexts~ search-set))
-            (bell)
-          (search-targets search-set)))))
-  
-  
-  (method protected virtual (search-targets targets)
-    )
+    (search))
 
 
   (method override (resize dh dv)
@@ -336,112 +298,6 @@
     
   (method override (on-return-press evt)
     (on-search evt))
-  
-  
-  (method package (on-find-forward evt)
-    (let ((search-set (get-find-targets)))
-      (unless (null? (get-contexts~ search-set))
-        (let ((target (get-target-text))
-              (domain (get-search-domain)))
-          (unless (and target (find-forward target search-set (follow-search-results? domain)))
-            (bell))))))
-  
-  
-  (method package (on-find-backward evt)
-    (let ((search-set (get-find-targets)))
-      (unless (null? (get-contexts~ search-set))
-        (let ((target (get-target-text))
-              (domain (get-search-domain)))
-          (unless (and target (find-backward target search-set (follow-search-results? domain)))
-            (bell))))))
-  
-  
-  (method package (on-replace evt)
-    (let* ((find (get-contexts~ (get-find-targets)))
-           (repl (get-replace-targets))
-           (appl (get-application))
-           (ignore-case? (get-ignore-case?~ appl))
-           (case? (get-preserve-case?~ appl))
-           (play? (get-play-recording?~ appl))
-           (expression? (get-expression?~ appl))
-           (target (get-target-text)))
-      (unless (and target (replace target find repl ignore-case? case? play? expression?))
-        (bell))))
-  
-  
-  (method package (on-replace&find-forward evt)
-    (let* ((find (get-contexts~ (get-find-targets)))
-           (repl (get-replace-targets))
-           (domain (get-search-domain))
-           (appl (get-application))
-           (ignore-case? (get-ignore-case?~ appl))
-           (case? (get-preserve-case?~ appl))
-           (play? (get-play-recording?~ appl))
-           (expression? (get-expression?~ appl))
-           (next? (follow-search-results? domain))
-           (target (get-target-text)))
-      (unless (and target (replace&find-forward target find repl ignore-case? case? play? expression? next?))
-        (bell))))
-  
-  
-  (method package (on-replace-all evt)
-    (let* ((find (get-contexts~ (get-find-targets)))
-           (repl (get-replace-targets))
-           (appl (get-application))
-           (ignore-case? (get-ignore-case?~ appl))
-           (case? (get-preserve-case?~ appl))
-           (play? (get-play-recording?~ appl))
-           (expression? (get-expression?~ appl))
-           (target (get-target-text)))
-      (if (not target)
-          (bell)
-        (replace-all target find repl ignore-case? case? play? expression?))))
-  
-  
-  (method package (on-replace-selected evt)
-    (let ((code (message-box "Automatically save & close files that are not currently edited?" type: 'confirmation)))
-      (if (eq? code 'cancel)
-          (throw-cancel)
-        (let* ((auto-save/close? (eq? code 'yes))
-               (find (get-contexts~ (get-find-targets)))
-               (repl (get-replace-targets))
-               (appl (get-application))
-               (ignore-case? (get-ignore-case?~ appl))
-               (case? (get-preserve-case?~ appl))
-               (play? (get-play-recording?~ appl))
-               (expression? (get-expression?~ appl))
-               (results (get-results))
-               (tree (locate~ results 'results))
-               (selection (get-selection~ tree))
-               (modified-count 0))
-          (for-each (lambda (item)
-                      (receive (frame new?) (edit-location~ results item #t #f #f)
-                        (let* ((guest (get-guest~ frame))
-                               (target (get-text-view~ guest))
-                               (moniker (get-moniker~ (get-controller~ target))))
-                          (user-feedback "Processing {a}..." (get-name~ moniker))
-                          (replace-all target find repl ignore-case? case? play? expression?)
-                          (when (and auto-save/close? new?)
-                            (when (get-modified?~ target)
-                              (save~ guest)
-                              (increase! modified-count))
-                            (close~ frame)))))
-                    selection)
-          (when auto-save/close?
-            (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
-          (user-feedback "Done")))))
-
-
-  (method (get-target-text)
-    (let ((frame (first-frame)))
-      (when (is? frame Frame-Host)
-        (let ((guest (get-guest~ frame)))
-          (when (is? guest Document)
-            (get-text-view~ guest))))))
-  
-  
-  (method (follow-search-results? domain)
-    (or (not domain) (neq? domain (get-active-window-domain))))
 
 
   ;;;
@@ -460,137 +316,78 @@
   (method protected virtual (setup-search-reporter reporter count)
     )
 
-  
-  ;;;
-  ;;;; Menu
-  ;;;
-  
-  
-  (method (replace target find-list repl-list ignore-case? case? play? expression?)
-    (define (determine-case str)
-      (if (or (empty-string? str) (lower-case? (element str 0)))
-          'lower-case
-        (if (or (= (cardinality str) 1) (upper-case? (element str 1)))
-            'upper-case
-          'capitalized)))
-    
-    (define (convert-case str cs)
-      (case cs
-        ((lower-case)  (downcase str))
-        ((upper-case)  (upcase str))
-        ((capitalized) (capitalize str))))
-    
-    (define (get-replacement str find-list repl-list)
-      (and (pair? find-list)
-           (pair? repl-list)
-           (let ((m (irregex-match (search-context-regexp (car find-list)) str)))
-             (if m
-                 (if (get-regexp?~ (car find-list))
-                     (expand-replacement str m (car repl-list))
-                   (car repl-list))
-               (get-replacement str (cdr find-list) (cdr repl-list))))))
-    
-    (define (expand-replacement str m repl)
-      (let ((end (- (string-length repl) 1)))
-        (let (lp (from 0) (i 0) (res '()))
-          (define (collect) (if (= i from) res (cons (substring repl from i) res)))
-          (cond
-            ((>= i end) (apply string-append (reverse (collect))))
-            ((eqv? #\\ (string-ref repl i))
-             (lp (+ i 2)
-                 (+ i 2)
-                 (cons
-                   (case (string-ref repl (+ i 1))
-                     ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-                      (or (irregex-match-substring m (- (char->integer (string-ref repl (+ i 1))) (char->integer #\0))) ""))
-                     ((#\n) "\n") ((#\t) "\t") ((#\r) "\r")
-                     (else (substring repl (+ i 1) (+ i 2))))
-                   (collect))))
-            (else (lp from (+ i 1) res))))))
-
-    (let* ((str (get-selected-string~ target))
-           (repl (and str (if expression? (car repl-list) (get-replacement str find-list repl-list)))))
-      (when repl
-        (if (not play?)
-            (insert-string~ target (if case? (convert-case repl (determine-case str)) repl))
-          ;; temp... should not be necessary. play-recording should be
-          ;; made to work even if the window doesn't have the focus.
-          (acquire-focus~ target)
-          (play-current-recording~ (get-recorder~ (get-application))))
-        #t)))
-  
-  
-  (method (replace&find-forward target find repl ignore-case? case? play? expression? (next? #t))
-    (replace target find repl ignore-case? case? play? expression?)
-    (unless (null? find)
-      (find-forward target find next?)))
-  
-  
-  (method (replace-all target find repl ignore-case? case? play? expression?)
-    (replace target find repl ignore-case? case? play? expression?)
-    (while (find-forward target find #f)
-      (replace target find repl ignore-case? case? play? expression?)))
-  
-  
-  (method protected (find-forward target search-set (next? #t))
-    (or (select-next~ target search-set)
-        (and next? (edit-next~ (get-results)))))
-  
-  
-  (method protected (find-backward target search-set (previous? #t))
-    (or (select-previous~ target search-set)
-        (and previous? (edit-previous~ (get-results)))))
-
 
   ;;;
   ;;;; Search
   ;;;
+  
+  
+  (method (search)
+    (hide~ (get-player))
+    (let ((targets (locate 'targets)))
+      (end-edition~ targets)
+      (let ((search (current-search)))
+        (if (empty?~ search)
+            (bell)
+          (set-active-search search)
+          (search-targets search)))))
+  
+  
+  (method protected virtual (current-search)
+    (new (current-search-class) (get-find-targets) (get-replace-targets)))
+  
+  
+  (method protected virtual (current-search-class)
+    Search)
+  
+  
+  (method protected virtual (search-targets search)
+    )
 
 
-  (method (search-in-file search-set file expression? factory reporter)
+  (method (search-in-file search file factory reporter)
     (unless (and reporter (cancel-requested?~ reporter))
       (when reporter
         (user-feedback~ reporter "Searching {a}" (get-name~ file))
         (step-it~ reporter))
-      (let ((found (search-file file search-set expression?)))
+      (let ((found (search-file file search)))
         (when found
-          (put~ factory (new File-Search-Location search-set file))))))
+          (put~ factory (new File-Search-Location search file))))))
   
   
-  (method protected (search-in-directories search-set directories extensions expression? factory reporter)
+  (method protected (search-in-directories search directories extensions factory reporter)
     (for-each (lambda (directory)
-                (search-in-directory search-set directory extensions expression? factory reporter))
+                (search-in-directory search directory extensions factory reporter))
               directories))
   
 
-  (method protected (search-in-directory search-set directory extensions expression? factory reporter)
+  (method protected (search-in-directory search directory extensions factory reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
       (iterate-project/directory directory
         (lambda (file)
           (let ((ext (get-extension~ file)))
-            (cond ;; very quick and dirty solution
-              ((and all-extensions? (not (member? ext '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe") test: ci=?)) @convert (<= (get-size~ file) 512000))
-               (search-in-file search-set file expression? factory reporter))
-              ((member? ext extensions test: ci=?)
-               (search-in-file search-set file expression? factory reporter))))))))
+            (cond ((and all-extensions? (not (member? ext Binary-Extensions test: ci=?)) @convert (<= (get-size~ file) 512000))
+                   (search-in-file search file factory reporter))
+                  ((member? ext extensions test: ci=?)
+                   (search-in-file search file factory reporter))))))))
 
 
-  (method (search-file file search-set expression?)
+  (method (search-file file search)
     (when (exists?~ file)
       (let ((ext (get-extension~ file)))
-        (if (not expression?)
+        (if (not (get-expression?~ search))
             (call-with-input-file (path-settings file char-encoding-errors: #f eol-encoding: 'cr-lf)
               (lambda (input)
                 (let ((content (read-content-string input))
                       (match-test (extension-match-test ext))
                       (constituent-test (extension-constituent-test ext)))
-                  (regular-search content search-set match-test: match-test constituent-test: constituent-test))))
+                  (regular-search content (get-find-set~ search) match-test: match-test constituent-test: constituent-test))))
           (let ((text (new Jazz-Text-View)))
             (set-moniker~ text file)
             (let* ((beginning (text-beginning~ text))
                    (expl (new Jazz-Explorer text start: beginning end: beginning))
                    (mode (if (ci=? ext "jazz") 'code 'quotation)))
-              (search-expressions~ expl mode search-set beginning)))))))
+              (search-expressions~ expl mode search beginning)))))))
   
   
   (method protected (iterate-project/directory project/directory proc)

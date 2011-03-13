@@ -52,10 +52,10 @@
   
   (form
     (<install>
-      (<!>                name: domain         title: "User"
+      (<!>                name: domain     title: "User"
         (<content~>
-          (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 13 20} size: {Dimension 120 18})
-          (<Radio-Button> name: user-files     title: "User Files" position: {Point 13 44} size: {Dimension 120 18})))))
+          (<Radio-Button> name: jazz-files title: "Jazz Files" position: {Point 13 20} size: {Dimension 120 18} selected?: #t)
+          (<Radio-Button> name: user-files title: "User Files" position: {Point 13 44} size: {Dimension 120 18})))))
   
 
   (method override (finish rest)
@@ -81,33 +81,35 @@
   (method override (get-search-domains)
     '(jazz-files
       user-files))
-  
-  
-  (method override (get-active-window-domain)
-    'jazz-files)
 
 
   ;;;
-  ;;;; Events
+  ;;;; Search
   ;;;
   
   
-  (method override (search-targets search-set)
+  (method override (current-search-class)
+    User-Search)
+  
+  
+  (method override (search-targets search)
     (thread-start!
       (new-thread
         (lambda ()
-          (search-threaded search-set))
+          (search-threaded search))
         'search)))
   
   
-  (method synchronized (search-threaded search-set)
+  (method synchronized (search-threaded search)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
-           (found (search search-set reporter)))
+           (found (case (get-search-domain)
+                    ((jazz-files) (search-jazz-files search reporter))
+                    ((user-files) (search-user-files search reporter)))))
       (post-event
         (lambda ()
           (let ((results (get-results)))
             (set-mode~ results 'text)
-            (add-result~ results found (get-search-targets))
+            (add-result~ results search found)
             (select-results~ results))))
       (user-feedback~ reporter "Done")
       @activity-manager
@@ -115,22 +117,6 @@
         (let ((manager (get-activity-manager)))
           (unregister-activity~ manager reporter)
           (close-manager~ manager)))))
-
-
-  (method (search search-set reporter)
-    (case (get-search-domain)
-      ((jazz-files) (search-jazz-files search-set reporter))
-      ((user-files) (search-user-files search-set reporter))))
-
-
-  ;;;
-  ;;;; Session
-  ;;;
-  
-  
-  (method override (set-session-properties config)
-    (nextmethod config)
-    (set-search-domain (get-active-domain~ config)))
 
 
   ;;;
@@ -221,19 +207,19 @@
   ;;;
   
   
-  (method (search-jazz-files search-set reporter)
+  (method (search-jazz-files search reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
       (let ((directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
             (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
+        (search-in-directories search directories extensions factory reporter)
         (get-output~ factory))))
   
   
-  (method (search-user-files search-set reporter)
+  (method (search-user-files search reporter)
     (let ((factory (new List-Factory))
           (pref (preferences)))
       (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
             (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search-set directories extensions (get-expression?) factory reporter)
+        (search-in-directories search directories extensions factory reporter)
         (get-output~ factory))))))

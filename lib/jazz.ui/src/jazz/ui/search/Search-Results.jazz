@@ -57,8 +57,7 @@
 
 
   (slot mode           initialize #f accessors generate)
-  (slot context        initialize #f accessors generate)
-  (slot current-result initialize #f)
+  (slot current-result initialize #f  getter generate)
   (slot result-stack   initialize '() getter generate)
 
 
@@ -124,23 +123,59 @@
 
   
   ;;;
-  ;;;; Navigation
+  ;;;; Edit
   ;;;
   
 
   (method override (edit-selection forward?)
     (let ((selection (get-selection~ (get-tree))))
-      (for-each (lambda (item)
-                    (edit-location item forward? #t #t))
+      (for-each (lambda (rank)
+                    (edit-location rank forward? #t #t))
                   selection)))
   
 
-  (method public (edit-location item forward? focus? visible?)
+  (method public (edit-location rank forward? focus? visible?)
     (with-cursor :wait
       (lambda ()
-        (set-active-search (new Search context #f))
-        (let ((location (get-user-data~ (get-row~ (get-tree) item))))
+        (set-active-search (get-search~ current-result))
+        (let ((location (get-user-data~ (get-row~ (get-tree) rank))))
           (edit~ location forward? focus? visible?)))))
+  
+  
+  ;;;
+  ;;;; Replace
+  ;;;
+  
+  
+  (method public (replace-selected)
+    (let ((search (get-search~ current-result)))
+      (if (not search)
+          (bell)
+        (if (not (every? (lambda (location)
+                           (is? location File-Search-Location))
+                         (get-locations~ current-result)))
+            (message-box "Replace selected currently only supports file searches")
+          (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
+            (if (eq? code 'cancel)
+                (throw-cancel)
+              (let ((auto-save/close? (eq? code 'yes))
+                    (selection (get-selection~ (get-tree)))
+                    (modified-count 0))
+                (for-each (lambda (rank)
+                            (receive (frame new?) (edit-location rank #t #f #f)
+                              (let* ((guest (get-guest~ frame))
+                                     (text (get-text-view~ guest)))
+                                (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
+                                (replace-all~ search text)
+                                (when (and auto-save/close? new?)
+                                  (when (get-modified?~ text)
+                                    (save~ guest)
+                                    (increase! modified-count))
+                                  (close~ frame)))))
+                          selection)
+                (when auto-save/close?
+                  (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
+                (user-feedback "Done"))))))))
 
 
   ;;;
@@ -148,8 +183,8 @@
   ;;;
 
 
-  (method public (add-result locations targets)
-    (let ((result (new Search-Result locations targets)))
+  (method public (add-result search locations)
+    (let ((result (new Search-Result search locations)))
       (preserve-current-selection)
       (set! current-result result)
       (set! result-stack (cons current-result result-stack))
@@ -190,8 +225,8 @@
   (method (update-results-combo)
     (let ((combo (locate 'results)))
       (set-choices~ combo (map (lambda (result)
-                                 (let ((targets (get-targets~ result)))
-                                   (list result (join (map first targets) ", "))))
+                                 (let ((search (get-search~ result)))
+                                   (list result (if (not search) "" (present~ search)))))
                                result-stack))
       (set-value~ combo current-result)))
 
@@ -228,12 +263,13 @@
       ((references)
        (let ((location (get-user-data~ row)))
          (let* ((name (get-name~ (get-entry~ location)))
+                (search (new Search (->search-set name) #f))
                 (appl (get-application))
                 (cataloguer (get-cataloguer~ appl))
-                (references (get-references~ cataloguer name context: context)))
+                (references (get-references~ cataloguer name)))
            (for-each (lambda (location)
                        (add-location location father: row))
-                     (sort string<? (make-reference-search-locations references name) key: present-name~)))))))
+                     (sort string<? (make-reference-search-locations search references) key: present-name~)))))))
   
   
   (method (add-location location (father: father #f))

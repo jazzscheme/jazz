@@ -77,7 +77,6 @@
   (slot local-debugger    initialize #f)
   (slot snapshot-debugger initialize #f)
   (slot cataloguer        initialize (new Workbench-Cataloguer))
-  (slot search            initialize #f)
   (slot recorder          initialize (new Macro-Recorder))
   
   
@@ -262,12 +261,8 @@
   
   
   ;;;
-  ;;;; Utilities
+  ;;;; History
   ;;;
-
-
-  (method override (get-search-manager)
-    search)
 
 
   (method public (get-history-manager)
@@ -635,23 +630,25 @@
     (define (filter-entries entries class)
       entries)
     
-    (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object context: context) class)))
-      (if (null? definitions)
-          (bell)
-        (add-history history-item)
-        (case (length definitions)
-          ((1) (edit~ (car definitions) workspace: workspace))
-          (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
+    (let ((name (->string object)))
+      (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) name context: context) class)))
+        (if (null? definitions)
+            (bell)
+          (add-history history-item)
+          (case (length definitions)
+            ((1) (edit~ (car definitions) workspace: workspace))
+            (else (edit-definitions~ (get-search-manager) (new Search name #f) definitions)))))))
 
   
   (method override (edit-references object (context: context #f) (history-item: history-item #f))
-    (let ((definitions (get-references~ (get-cataloguer) object context: context)))
-      (if (null? definitions)
-          (bell)
-        (add-history history-item)
-        (case (length definitions)
-          ((1) (edit-textual-reference~ (car definitions) (->string object)))
-          (else (edit-references~ (get-guest~ (get-search-manager)) object definitions context))))))
+    (let ((name (->string object)))
+      (let ((definitions (get-references~ (get-cataloguer) name context: context)))
+        (if (null? definitions)
+            (bell)
+          (add-history history-item)
+          (case (length definitions)
+            ((1) (edit-textual-reference~ (car definitions) name))
+            (else (edit-references~ (get-search-manager) (new Search name #f) definitions)))))))
 
 
   ;;;

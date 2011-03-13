@@ -69,34 +69,36 @@
   
 
   ;;;
-  ;;;; Events
+  ;;;; Search
   ;;;
+  
+  
+  (method override (current-search-class)
+    Directories-Search)
 
   
-  (method override (search-targets search-set)
+  (method override (search-targets search)
     (thread-start!
       (new-thread
         (lambda ()
-          (search-threaded search-set))
+          (search-threaded search))
         'search)))
 
   
-  (method synchronized (search-threaded search-set)
-    (let* ((appl (get-application))
-           (reporter (new User-Reporter) @convert (get-search-reporter #f))
+  (method synchronized (search-threaded search)
+    (let* ((reporter (new User-Reporter) @convert (get-search-reporter #f))
            (directories (map (lambda (list)
                                (new Directory list))
                              (read-delimited-string (get-string-content~ (locate 'directories)) #\comma)))
            (extensions (map ->string (apply append! (read-delimited-string (get-string-content~ (locate 'extensions)) #\comma))))
            (effective-extensions (if (not-null? extensions) extensions (default-search-extensions)))
-           (expression? (get-expression?~ appl))
            (factory (new List-Factory)))
-      (search-in-directories search-set directories effective-extensions expression? factory reporter)
+      (search-in-directories search directories effective-extensions factory reporter)
       (post-event
         (lambda ()
           (let ((results (get-results)))
             (set-mode~ results 'text)
-            (add-result~ results (get-output~ factory) (get-search-targets))
+            (add-result~ results search (get-output~ factory))
             (select-results~ results))))
       (user-feedback~ reporter "Done")
       @activity-manager

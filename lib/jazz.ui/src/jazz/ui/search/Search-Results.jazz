@@ -56,7 +56,6 @@
 (class undocumented Search-Results extends Navigable-Results
 
 
-  (slot mode           initialize #f accessors generate)
   (slot current-result initialize #f  getter generate)
   (slot result-stack   initialize '() getter generate)
 
@@ -241,16 +240,13 @@
   (method (update-result)
     (let ((appl (get-application))
           (tree (get-tree))
+          (search (get-search~ current-result))
           (locations (get-locations~ current-result))
           (selection (get-selection~ current-result)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (let ((flag
-                  (case mode
-                    ((references) #t)
-                    (else #f))))
-            (set-toplevel-controls?~ (get-node-column~ tree) flag))
+          (set-toplevel-controls?~ (get-node-column~ tree) (supports-drill-down?~ search))
           (for-each add-location (sort string<? locations key: present-name~))))
       (when (and locations (> (get-visible-count~ tree) 0))
         (set-selection~ tree (or selection (list 0))))
@@ -261,22 +257,15 @@
 
   
   (method (update-tree-row row)
-    (case mode
-      ((references)
-       (let ((location (get-user-data~ row)))
-         (let* ((name (get-name~ (get-entry~ location)))
-                (search (new Search (->search-set name) #f))
-                (appl (get-application))
-                (cataloguer (get-cataloguer~ appl))
-                (references (get-references~ cataloguer name)))
-           (for-each (lambda (location)
-                       (add-location location father: row))
-                     (sort string<? (make-reference-search-locations search references) key: present-name~)))))))
+    (let ((location (get-user-data~ row)))
+      (for-each (lambda (location)
+                  (add-location location father: row))
+                (drill-down~ location))))
   
   
   (method (add-location location (father: father #f))
     (let ((tree (get-tree))
-          (state (if (eq? mode 'references) 'dynamic 'collapsed))
+          (state (if (supports-drill-down?~ (get-search~ location)) 'dynamic 'collapsed))
           (node (new Tree-Node title: (present-name~ location) image: (get-icon~ location)))
           (loc (new Tree-Label title: (present-location~ location)))
           (type (new Tree-Label title: (present-type~ location)))

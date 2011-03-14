@@ -59,7 +59,7 @@
   (slot client-selection initialize #f getter generate)
   (slot client-position  initialize #f getter generate)
   (slot client-restore   initialize #f accessors generate)
-  (slot previous-search  initialize #f accessors generate)
+  (slot previous-mode    initialize #f accessors generate)
   
   
   (form
@@ -130,9 +130,8 @@
       (set! client-restore #f)))
   
   
-  (method (preserve-search)
-    (let ((content (first-content)))
-      (set! previous-search (if (empty-string? content) #f content))))
+  (method (preserve-mode)
+    (set! previous-mode mode))
   
   
   ;;;
@@ -518,6 +517,10 @@
     (search 'backward again?: #t))
   
   
+  (method (get-context)
+    context)
+  
+  
   (method (set-context ctx)
     (set! context ctx))
   
@@ -564,11 +567,13 @@
   
   (method (select-empty-search)
     (when (empty-string? (get-target~ context))
-      (let ((previous (get-previous-search~ text)))
-        (when previous
-          (set-previous-search~ text #f)
-          (set-string-content~ text previous)
-          (set-caret~ text (text-ending~ text))
+      (let ((previous (get-previous-mode~ text)))
+        (when (is? previous Search-Mode)
+          (let ((context (get-context~ previous)))
+            (set-previous-mode~ text #f)
+            (set-context context)
+            (set-string-content~ text (get-target~ context))
+            (set-caret~ text (text-ending~ text)))
           #t))))
   
   
@@ -801,7 +806,7 @@
   
   (method override (cleanup (lose-focus? #f))
     (restore-client~ text)
-    (preserve-search~ text)
+    (preserve-mode~ text)
     (let ((client (get-client)))
       (when client
         (remove-highlights)

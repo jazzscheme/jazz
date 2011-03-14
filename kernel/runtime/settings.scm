@@ -115,6 +115,12 @@
 (jazz:define-setting jazz:debug-build?
   #f)
 
+(jazz:define-setting jazz:build-setup
+  #f)
+
+(jazz:define-setting jazz:build-binary-repositories
+  #f)
+
 (jazz:define-setting jazz:build-single-objects?
   #f)
 

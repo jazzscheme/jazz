@@ -645,6 +645,8 @@
                     (display "(load (string-append jazz:source \"kernel/boot\"))" output)
                     (newline output)))))))
       
+      (jazz:invoke-build-setup platform safety optimize? source destination-directory)
+      
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
       (jazz:create-directories (kernel-file "runtime/") feedback: feedback)
@@ -664,25 +666,26 @@
 ;;;
 
 
-(define (jazz:determine-binary-repositories destination-directory)
-  (jazz:determine-repositories destination-directory
-    (and (jazz:global-bound? 'binary-repositories)
-         (let ((proc (jazz:global-ref 'binary-repositories))
-               (source (if (jazz:global-bound? 'jazz:kernel-source)
-                           (jazz:global-ref 'jazz:kernel-source)
-                         jazz:source)))
-           (proc source)))))
+(define (jazz:invoke-build-setup platform safety optimize? source destination)
+  (let ((proc (jazz:build-setup)))
+    (if proc
+        (proc platform safety optimize? source destination))))
 
 
-(define (jazz:determine-source-repositories destination-directory)
-  (jazz:determine-repositories destination-directory
+(define (jazz:determine-binary-repositories destination)
+  (jazz:determine-repositories destination
+    (jazz:build-binary-repositories)))
+
+
+(define (jazz:determine-source-repositories destination)
+  (jazz:determine-repositories destination
     (jazz:repositories)))
 
 
-(define (jazz:determine-repositories destination-directory repositories)
+(define (jazz:determine-repositories destination repositories)
   (if repositories
       (jazz:collect (lambda (path)
-                      (jazz:relativise-directory destination-directory "./" path))
+                      (jazz:relativise-directory destination "./" path))
                     (jazz:split-string repositories #\;))
     '()))
 

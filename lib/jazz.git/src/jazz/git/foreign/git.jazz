@@ -1,0 +1,340 @@
+;;;
+;;;; Libgit2 Jazz Bindings
+;;;
+
+(module protected jazz.git.foreign.git jazz
+
+
+(import (jazz.platform.types-syntax (phase syntax))
+        (jazz.platform.types))
+
+
+(c-include "<time.h>")
+(c-include "<git2.h>")
+
+
+;;;
+;;;; Constants
+;;;
+
+
+(c-constant GIT_IDXENTRY_NAMEMASK #x0fff)
+(c-constant GIT_IDXENTRY_STAGEMASK #x3000)
+(c-constant GIT_IDXENTRY_EXTENDED #x4000)
+(c-constant GIT_IDXENTRY_VALID #x8000)
+(c-constant GIT_IDXENTRY_STAGESHIFT 12)
+(c-constant GIT_OID_RAWSZ 20)
+(c-constant GIT_OID_HEXSZ (* GIT_OID_RAWSZ 2))
+(c-constant GIT_SORT_NONE 0)
+(c-constant GIT_SORT_TOPOLOGICAL 1)
+(c-constant GIT_SORT_TIME 2)
+(c-constant GIT_SORT_REVERSE 4)
+
+
+;;;
+;;;; Error Constants
+;;;
+
+(c-constant GIT_SUCCESS 0)
+(c-constant GIT_ERROR -1)
+(c-constant GIT_ENOTOID (- GIT_ERROR 1))
+(c-constant GIT_ENOTFOUND (- GIT_ERROR 2))
+(c-constant GIT_ENOMEM (- GIT_ERROR 3))
+(c-constant GIT_EOSERR (- GIT_ERROR 4))
+(c-constant GIT_EOBJTYPE (- GIT_ERROR 5))
+(c-constant GIT_EOBJCORRUPTED (- GIT_ERROR 6))
+(c-constant GIT_ENOTAREPO (- GIT_ERROR 7))
+(c-constant GIT_EINVALIDTYPE (- GIT_ERROR 8))
+(c-constant GIT_EMISSINGOBJDATA (- GIT_ERROR 9))
+(c-constant GIT_EPACKCORRUPTED (- GIT_ERROR 10))
+(c-constant GIT_EFLOCKFAIL (- GIT_ERROR 11))
+(c-constant GIT_EZLIB (- GIT_ERROR 12))
+(c-constant GIT_EBUSY (- GIT_ERROR 13))
+(c-constant GIT_EBAREINDEX (- GIT_ERROR 14))
+
+
+;;;
+;;;; Enumerations
+;;;
+
+
+(c-enumeration git_otype
+  (GIT_OBJ_ANY      -2)
+  (GIT_OBJ_BAD      -1)
+  (GIT_OBJ_EXT1      0)
+  (GIT_OBJ_COMMIT    1)
+  (GIT_OBJ_TREE      2)
+  (GIT_OBJ_BLOB      3)
+  (GIT_OBJ_TAG       4)
+  (GIT_OBJ_EXT2      5)
+  (GIT_OBJ_OFS_DELTA 6)
+  (GIT_OBJ_REF_DELTA 7))
+
+
+;;;
+;;;; Types
+;;;
+
+
+(c-type time_t (native "time_t"))
+(c-type git_otype int)
+(c-type git_odb (native "git_odb"))
+(c-type git_odb* (pointer git_odb))
+(c-type git_odb** (pointer git_odb*))
+(c-type git_odb_backend (native "git_odb_backend"))
+(c-type git_odb_backend* (pointer git_odb_backend))
+(c-type git_repository (native "git_repository"))
+(c-type git_repository* (pointer git_repository))
+(c-type git_repository** (pointer git_repository*))
+(c-type git_object (native "git_object"))
+(c-type git_object* (pointer git_object))
+(c-type git_object** (pointer git_object*))
+(c-type git_revwalk (native "git_revwalk"))
+(c-type git_revwalk* (pointer git_revwalk))
+(c-type git_revwalk** (pointer git_revwalk*))
+(c-type git_tag (native "git_tag"))
+(c-type git_tag* (pointer git_tag))
+(c-type git_tag** (pointer git_tag*))
+(c-type git_blob (native "git_blob"))
+(c-type git_blob* (pointer git_blob))
+(c-type git_blob** (pointer git_blob*))
+(c-type git_commit (native "git_commit"))
+(c-type git_commit* (pointer git_commit))
+(c-type git_commit** (pointer git_commit*))
+(c-type git_tree_entry (native "git_tree_entry"))
+(c-type git_tree_entry* (pointer git_tree_entry))
+(c-type git_tree_entry** (pointer git_tree_entry*))
+(c-type git_tree (native "git_tree"))
+(c-type git_tree* (pointer git_tree))
+(c-type git_tree** (pointer git_tree*))
+(c-type git_index (native "git_index"))
+(c-type git_index* (pointer git_index))
+(c-type git_index** (pointer git_index*))
+(c-type git_person (native "git_person"))
+(c-type git_person* (pointer git_person))
+(c-type git_person** (pointer git_person))
+(c-type git_index_entry (native "git_index_entry"))
+(c-type git_index_entry* (pointer git_index_entry))
+(c-type size_t* (pointer size_t))
+
+;;;
+;;;; Structures
+;;;            
+
+
+(c-structure git_oid
+  (uchar id GIT_OID_RAWSZ)) 
+
+
+(c-structure git_index_time
+  (time_t seconds)
+  (time_t nanoseconds))
+
+
+(c-structure git_index_entry
+  (git_index_time ctime)
+  (git_index_time mtime)
+  (uint dev)
+  (uint ino)
+  (uint mode)
+  (uint uid)
+  (uint gid)
+  (size_t file_size)
+  (git_oid oid)
+  (ushort flags)
+  (ushort flags_extended)
+  (UTF-8-string path))
+
+
+(c-structure git_rawobj
+  (void* data)
+  (size_t len)
+  (git_otype type))
+
+
+;;;
+;;;; Blobs
+;;;
+
+(c-external int (git_blob_lookup git_blob** git_repository* git_oid*))
+(c-external int (git_blob_new git_blob** git_repository*))
+(c-external int (git_blob_set_rawcontent_fromfile git_blob* UTF-8-string))
+(c-external int (git_blob_set_rawcontent git_blob* void* size_t))
+(c-external UTF-8-string (git_blob_rawcontent git_blob*))
+(c-external int (git_blob_rawsize git_blob*))
+(c-external int (git_blob_writefile git_oid* git_repository* UTF-8-string))
+
+
+;;;
+;;;; Commits
+;;;
+
+(c-external int (git_commit_lookup git_commit** git_repository* git_oid*))
+(c-external int (git_commit_new git_commit** git_repository*))
+(c-external git_oid* (git_commit_id git_commit*))
+(c-external UTF-8-string (git_commit_message_short git_commit*))
+(c-external UTF-8-string (git_commit_message git_commit*))
+(c-external time_t (git_commit_time git_commit*))
+(c-external git_person* (git_commit_committer git_commit*))
+(c-external git_person* (git_commit_author git_commit*))
+(c-external git_tree* (git_commit_tree git_commit*))
+(c-external uint (git_commit_parentcount git_commit*))
+(c-external git_commit* (git_commit_parent git_commit* uint))
+(c-external int (git_commit_add_parent git_commit* git_commit*))
+(c-external void (git_commit_set_message git_commit* UTF-8-string))
+(c-external void (git_commit_set_committer git_commit* UTF-8-string UTF-8-string time_t))
+(c-external void (git_commit_set_author git_commit* UTF-8-string UTF-8-string time_t))
+(c-external void (git_commit_set_tree git_commit* git_tree*))
+
+
+;;;
+;;;; Common
+;;;
+
+(c-external UTF-8-string (git_person_name git_person*))
+(c-external UTF-8-string (git_person_email git_person*))
+(c-external time_t (git_person_time git_person*))
+
+
+;;;
+;;;; Indexes
+;;;
+
+(c-external int (git_index_open_bare git_index** UTF-8-string))
+(c-external int (git_index_open_inrepo git_index** git_repository*))
+(c-external void (git_index_clear git_index*))
+(c-external void (git_index_free git_index*))
+(c-external int (git_index_read git_index*))
+(c-external int (git_index_write git_index*))
+(c-external int (git_index_find git_index* UTF-8-string))
+(c-external int (git_index_add git_index* UTF-8-string int))
+(c-external int (git_index_remove git_index* int))
+(c-external int (git_index_insert git_index* git_index_entry*))
+(c-external git_index_entry* (git_index_get git_index* int))
+(c-external uint (git_index_entrycount git_index*))
+
+
+;;;
+;;;; Object Management
+;;;
+
+(c-external int (git_object_write git_object*))
+(c-external git_oid* (git_object_id git_object*))
+(c-external git_otype (git_object_type git_object*))
+(c-external git_repository* (git_object_owner git_object*))
+(c-external void (git_object_free git_object*))
+(c-external UTF-8-string (git_object_type2string git_otype))
+(c-external git_otype (git_object_string2type UTF-8-string))
+(c-external int (git_object_typeisloose git_otype))
+
+
+;;;
+;;;; Object Database Routines
+;;;
+
+(c-external int (git_odb_new git_odb**))
+(c-external int (git_odb_open git_odb** UTF-8-string))
+(c-external int (git_odb_add_backend git_odb* git_odb_backend*))
+(c-external void (git_odb_close git_odb*))
+(c-external int (git_odb_read git_rawobj* git_odb* git_oid*))
+(c-external int (git_odb_read_header git_rawobj* git_odb git_oid*))
+(c-external int (git_odb_write git_oid* git_odb* git_rawobj*))
+(c-external int (git_odb_exists git_odb* git_oid*))
+(c-external int (git_rawobj_hash git_odb* git_oid*))
+(c-external void (git_rawobj_close git_rawobj*))
+
+
+;;;
+;;;; Object ID routines
+;;;
+
+(c-external int (git_oid_mkstr git_oid* UTF-8-string))
+;;(c-external void (git_oid)raw git_oid* CONST-UNSIGNED_CHAR*))
+(c-external void (git_oid_fmt UTF-8-string git_oid*))
+(c-external void (git_oid_pathfmt UTF-8-string git_oid*))
+(c-external UTF-8-string (git_oid_allocfmt git_oid*))
+(c-external UTF-8-string (git_oid_to_string UTF-8-string size_t git_oid*))
+(c-external void (git_oid_cpy git_oid* git_oid*))
+(c-external int (git_oid_cmp git_oid* git_oid*))
+
+
+;;;
+;;;; Repository management
+;;;
+
+(c-external int (git_repository_open git_repository** UTF-8-string))
+(c-external int (git_repository_open2 git_repository** UTF-8-string UTF-8-string UTF-8-string UTF-8-string))
+(c-external int (git_repository_lookup git_object** git_repository* git_oid* git_otype))
+(c-external git_odb* (git_repository_database git_repository*))
+(c-external git_index* (git_repository_index git_repository*))
+(c-external int (git_repository_newobject git_object** git_repository* git_otype))
+(c-external void (git_repository_free git_repository*))
+
+
+;;;
+;;;; Revision traversal
+;;;
+
+(c-external int (git_revwalk_new git_revwalk** git_repository*))
+(c-external void (git_revwalk_reset git_revwalk*))
+(c-external int (git_revwalk_push git_revwalk* git_commit*))
+(c-external int (git_revwalk_hide git_revwalk* git_commit*))
+(c-external git_commit* (git_revwalk_next git_revwalk*))
+(c-external int (git_revwalk_sorting git_revwalk* uint))
+(c-external void (git_revwalk_free git_revwalk*))
+(c-external git_repository* (git_revwalk_repository git_revwalk*))
+
+
+;;;
+;;;; Tag management
+;;;
+
+(c-external int (git_tag_lookup git_tag** git_repository* git_oid*))
+(c-external int (git_tag_new git_tag** git_repository*))
+(c-external git_oid* (git_tag_id git_tag*))
+(c-external git_object* (git_tag_target git_tag*))
+(c-external git_otype (git_tag_type git_tag*))
+(c-external UTF-8-string (git_tag_name git_tag*))
+(c-external git_person* (git_tag_tagger git_tag*))
+(c-external UTF-8-string (git_tag_message git_tag*))
+(c-external void (git_tag_set_target git_tag* git_object*))
+(c-external void (git_tag_set_name git_tag* UTF-8-string))
+(c-external void (git_tag_set_tagger git_tag* UTF-8-string UTF-8-string time_t))
+(c-external void (git_tag_set_message git_tag* UTF-8-string))
+
+
+;;;
+;;;; Tree parsing and loading
+;;;
+
+
+(c-external int (git_tree_lookup git_tree** git_repository* git_oid*))
+(c-external int (git_tree_new git_tree** git_repository*))
+(c-external git_oid* (git_tree_id git_tree*))
+(c-external size_t (git_tree_entrycount git_tree*))
+(c-external git_tree_entry* (git_tree_byname git_tree* UTF-8-string))
+(c-external git_tree_entry* (git_tree_byindex git_tree* int))
+(c-external uint (git_tree_entry_attributes git_tree_entry*))
+(c-external UTF-8-string (git_tree_entry_name git_tree_entry*))
+(c-external git_oid* (git_tree_entry_id git_tree_entry*))
+(c-external int (git_tree_entry_2object git_object** git_tree_entry*))
+(c-external int (git_tree_add_entry git_tree* git_oid* UTF-8-string int))
+(c-external int (git_tree_remove_entry_byindex git_tree* int))
+(c-external int (git_tree_remove_entry_byname git_tree* UTF-8-string))
+(c-external void (git_tree_entry_set_id git_tree_entry* git_oid*))
+(c-external void (git_tree_entry_set_name git_tree_entry* UTF-8-string))
+(c-external void (git_tree_entry_set_attribute git_tree_entry* int))
+
+
+;;;
+;;;; Testing
+;;;
+(define (test-libgit) 
+  (lambda ()
+    @wait(let ((repo '()))
+      (if (= (git_repository_open repo UTF-8-string) GIT_SUCCESS)
+          (begin 
+            (display 'Connected)
+            (git_repository_free repo))
+        (display 'Error))
+      ))))

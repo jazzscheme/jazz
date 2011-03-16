@@ -45,17 +45,15 @@
 (class Search extends Object
   
   
-  (slot find-set                      getter generate)
-  (slot replace-list                  getter generate)
-  (slot preserve-case?  initialize #f accessors generate)
-  (slot play-recording? initialize #f accessors generate)
-  (slot expression?     initialize #f accessors generate)
+  (slot find                      getter generate)
+  (slot replace                   getter generate)
+  (slot expression? initialize #f accessors generate)
   
   
   (method override (initialize find replace)
     (nextmethod)
-    (set-find-set find)
-    (set-replace-list replace))
+    (set-find find)
+    (set-replace replace))
   
   
   ;;;
@@ -72,24 +70,20 @@
   ;;;
   
   
-  (method protected (set-find-set find)
-    (set! find-set (->search-set find)))
+  (method protected (set-find obj)
+    (set! find (->search-set obj)))
   
   
-  (method protected (set-replace-list replace)
-    (set! replace-list replace))
+  (method protected (set-replace repl)
+    (set! replace repl))
   
   
   (method protected (collect-find)
-    (map get-target~ (get-contexts~ find-set)))
-  
-  
-  (method protected (collect-replace)
-    replace-list)
+    (map get-target~ (get-contexts~ find)))
   
   
   (method public (empty?)
-    (null? (get-contexts~ find-set)))
+    (null? (get-contexts~ find)))
   
   
   ;;;
@@ -98,14 +92,14 @@
   
   
   (method protected virtual (find-forward text (next? #t))
-    (or (select-next~ text find-set)
+    (or (select-next~ text find)
         (let ((results (get-results)))
           (when (and next? (same-search? results))
             (edit-next~ results)))))
   
   
   (method protected virtual (find-backward text (previous? #t))
-    (or (select-previous~ text find-set)
+    (or (select-previous~ text find)
         (let ((results (get-results)))
           (when (and previous? (same-search? results))
             (edit-previous~ results)))))
@@ -134,9 +128,11 @@
   ;;;
   
   
-  (method (replace text)
-    (let ((find-list (get-contexts~ find-set))
-          (repl-list (collect-replace)))
+  (method (replace-selection text)
+    (let ((find-list (get-contexts~ find))
+          (repl-list (get-replace-list~ replace))
+          (preserve-case? (get-preserve-case?~ replace))
+          (play-recording? (get-play-recording?~ replace)))
       (define (determine-case str)
         (if (or (empty-string? str) (lower-case? (element str 0)))
             'lower-case
@@ -190,12 +186,12 @@
           #t))))
   
   
-  (method (replace&find-forward text (next? #t))
-    (replace text)
+  (method (replace-selection&find-forward text (next? #t))
+    (replace-selection text)
     (find-forward text next?))
   
   
   (method (replace-all text)
-    (replace text)
+    (replace-selection text)
     (while (find-forward text #f)
-      (replace text)))))
+      (replace-selection text)))))

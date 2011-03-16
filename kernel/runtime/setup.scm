@@ -275,7 +275,8 @@
           (if build-repository (jazz:build-repository build-repository))
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
-          (jazz:source-access? (not nosource?))
+          (if nosource?
+              (set! jazz:source-access? #f))
           (jazz:prepare-repositories)
           (jazz:setup-repositories))
           

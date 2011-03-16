@@ -55,9 +55,6 @@
 (jazz:define-setting jazz:repositories
   #f)
 
-(jazz:define-setting jazz:source-access?
-  #t)
-
 
 ;;;
 ;;;; Verbose
@@ -120,6 +117,9 @@
 
 (jazz:define-setting jazz:build-binary-repositories
   #f)
+
+(jazz:define-setting jazz:build-source-access?
+  #t)
 
 (jazz:define-setting jazz:build-single-objects?
   #f)

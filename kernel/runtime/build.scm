@@ -410,7 +410,9 @@
                     (newline output)
                     (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories destination-directory)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)))
+                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)))
                 #t)
             #f)))
       
@@ -641,11 +643,13 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source-repositories (jazz:determine-source-repositories destination-directory) output)
                     (newline output)
+                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
+                    (newline output)
                     (newline output)
                     (display "(load (string-append jazz:source \"kernel/boot\"))" output)
                     (newline output)))))))
       
-      (jazz:invoke-build-setup platform safety optimize? source destination-directory)
+      (jazz:invoke-build-setup platform safety optimize? source destination)
       
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
@@ -672,20 +676,20 @@
         (proc platform safety optimize? source destination))))
 
 
-(define (jazz:determine-binary-repositories destination)
-  (jazz:determine-repositories destination
+(define (jazz:determine-binary-repositories destination-directory)
+  (jazz:determine-repositories destination-directory
     (jazz:build-binary-repositories)))
 
 
-(define (jazz:determine-source-repositories destination)
-  (jazz:determine-repositories destination
+(define (jazz:determine-source-repositories destination-directory)
+  (jazz:determine-repositories destination-directory
     (jazz:repositories)))
 
 
-(define (jazz:determine-repositories destination repositories)
+(define (jazz:determine-repositories destination-directory repositories)
   (if repositories
       (jazz:collect (lambda (path)
-                      (jazz:relativise-directory destination "./" path))
+                      (jazz:relativise-directory destination-directory "./" path))
                     (jazz:split-string repositories #\;))
     '()))
 

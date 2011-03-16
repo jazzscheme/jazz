@@ -103,7 +103,7 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (let ((tree (locate 'targets)))
+    (let ((tree (get-targets)))
       (for-each (lambda (column)
                   (set-justification~ column '(1 1)))
                 (get-columns~ tree))))
@@ -127,12 +127,12 @@
     (get-search-results~ (get-application)))
   
   
-  (method public (get-targets-tree)
+  (method public (get-targets)
     (locate 'targets))
   
   
   (method public (get-search-targets)
-    (let* ((tree (locate 'targets))
+    (let* ((tree (get-targets))
            (height (get-visible-count~ tree))
            (fact (new List-Factory)))
       ;; to-convert temp patch
@@ -148,7 +148,7 @@
 
 
   (method public (set-search-targets targets)
-    (let ((tree (locate 'targets))
+    (let ((tree (get-targets))
           (count (length targets)))
       (ensure-visible-count~ tree count)
       (let ((width (get-columns-count~ tree))
@@ -324,24 +324,15 @@
   
   (method (search)
     (hide~ (get-player))
-    (let ((targets (locate 'targets)))
-      (end-edition~ targets)
-      (let ((search (current-search)))
-        (if (empty?~ search)
-            (bell)
-          (set-active-search search)
-          (search-targets search)))))
+    (end-edition~ (get-targets))
+    (let ((find (get-find-targets))
+          (replace (get-replace-targets)))
+      (if (null? find)
+          (bell)
+        (search-targets find replace))))
   
   
-  (method protected virtual (current-search)
-    (new (current-search-class) (get-find-targets) (get-replace-targets)))
-  
-  
-  (method protected virtual (current-search-class)
-    Search)
-  
-  
-  (method protected virtual (search-targets search)
+  (method protected virtual (search-targets find replace)
     )
 
 
@@ -402,7 +393,7 @@
             (iterate-files~ project
               proc)))
       (iterate-directory~ project/directory proc
-        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "gambit"))))
+        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "deploy" "gambit"))))
 
 
   ;;;
@@ -411,7 +402,7 @@
 
 
   (method public virtual (select-search)
-    (let ((targets (locate 'targets)))
+    (let ((targets (get-targets)))
       (select-cell~ targets {Cell 0 0})))
   
   

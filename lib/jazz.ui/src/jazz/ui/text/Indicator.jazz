@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Text Search
+;;;; Indicators
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,51 +35,55 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.search.Text-Search jazz
+(module protected jazz.ui.text.Indicator jazz
 
 
-(import (jazz.ui))
+(import (jazz.io)
+        (jazz.runtime)
+        (jazz.system))
 
 
-(class Text-Search extends Search
+(class Indicator extends Object
   
   
-  (slot client    getter generate)
-  (slot beginning getter generate)
-  (slot ending    getter generate)
+  (slot color)
+  (slot active-text     initialize #f)
+  (slot active-position initialize #f)
   
   
-  (method override (initialize find replace (client: client #f) (beginning: beginning #f) (ending: ending #f))
-    (nextmethod find replace)
-    (set! client~self client)
-    (set! beginning~self beginning)
-    (set! ending~self ending))
+  (method override (initialize color)
+    (nextmethod)
+    (set! color~self color))
   
   
   ;;;
-  ;;;; Find
+  ;;;; Edition
   ;;;
-  
-  
-  (method override (find-forward text (next? #t))
-    (if (not client)
-        (nextmethod text next?)
-      (when (eq? text client)
-        (select-next~ text find-set end: ending))))
-  
-  
-  (method override (find-backward text (previous? #t))
-    (if (not client)
-        (nextmethod text previous?)
-      (when (eq? text client)
-        (select-previous~ text find-set end: beginning))))
-  
-  
-  (method override (install-indicators beginning-indicator ending-indicator)
-    (define (install indicator position)
-      (if (not position)
-          (reset~ indicator)
-        (edit~ indicator client position ensure-displayed?: #f)))
+
+
+  (method public (edit text position (ensure-displayed?: ensure-displayed? #t) (select?: select? #f))
+    (define (install-indicator)
+      (fill~ text color position)
+      (when ensure-displayed?
+        (ensure-cell-displayed~ text position))
+      (set! active-text text)
+      (set! active-position position)
+      (reset-tooltip~ text)
+      (focus-host~ (get-host~ text))
+      (when select?
+        (set-caret~ text position)))
     
-    (install beginning-indicator beginning)
-    (install ending-indicator (and ending (previous-pos~ client ending 1))))))
+    (define (uninstall-indicator)
+      (unfill~ active-text active-position)
+      (reset-tooltip~ active-text)
+      (set! active-text #f)
+      (set! active-position #f))
+    
+    (when active-text
+      (uninstall-indicator))
+    (when text
+      (install-indicator)))
+  
+  
+  (method public (reset)
+    (edit #f #f))))

@@ -1426,7 +1426,6 @@
       (mutex-unlock! output-mutex))
     
     (define (end-port/echo port/echo)
-      (send-command (current-output-port) 'end-port/echo)
       (close-port (%%car port/echo))
       (thread-join! (%%cdr port/echo)))
     
@@ -1460,7 +1459,6 @@
                        (echo-thread (thread-start! (make-thread (lambda ()
                                                                   (let iter ()
                                                                        (let ((line (read-line process)))
-                                                                         (send-command (current-output-port) (list 'read-line (eof-object? line) line))
                                                                          (if (not (eof-object? line))
                                                                              (begin
                                                                                (atomic-output line)
@@ -1476,7 +1474,6 @@
     (define (build name)
       (let ((port/echo (grab-build-process)))
         (define (build-process-died)
-          (send-command (current-output-port) 'build-process-died)
           (mutex-lock! process-mutex)
           (set! active-processes (jazz:remove port/echo active-processes))
           (set! stop-build? #t)
@@ -1484,7 +1481,6 @@
           (condition-variable-signal! process-condition))
         
         (define (build-process-ended changes)
-          (send-command (current-output-port) 'build-process-ended)
           (mutex-lock! process-mutex)
           (if (and (key-product? name) (%%not (%%null? changes)))
               (set! outdated-processes active-processes))
@@ -1546,7 +1542,6 @@
     (parameterize ((current-user-interrupt-handler
                      (lambda ()
                        (set! stop-build? #t)
-                       (send-command (current-output-port) 'fail)
                        (for-each end-port/echo active-processes)
                        (for-each end-port/echo free-processes)
                        (exit))))
@@ -1564,10 +1559,16 @@
              (if (not (eof-object? product))
                  (begin
                    (jazz:reset-changed-units)
-                   (jazz:build-product product)
-                   (write (jazz:get-changed-units) established-port)
-                   (newline established-port)
-                   (force-output established-port)
+                   (with-exception-handler
+                     (lambda (exc)
+                       (display-exception exc)
+                       (force-output)
+                       (exit))
+                     (lambda ()
+                       (jazz:build-product product)
+                       (write (jazz:get-changed-units) established-port)
+                       (newline established-port)
+                       (force-output established-port)))
                    (iter))))))))
 
 

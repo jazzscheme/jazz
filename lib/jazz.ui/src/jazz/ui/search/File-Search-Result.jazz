@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Reference Search Location
+;;;; File Search Result
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,26 +35,61 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.search.Reference-Search-Location jazz
+(module jazz.ui.search.File-Search-Result jazz
 
 
 (import (jazz.library)
         (jazz.system)
-        (jazz.ui)
-        (jazz.ui.search))
+        (jazz.ui))
 
 
-(class Reference-Search-Location extends Definition-Search-Location
+(class File-Search-Result extends Search-Result
+  
+  
+  (slot file  getter generate)
+  (slot range getter generate)
+  
+  
+  (method override (initialize search file (position: position #f) (range: range #f))
+    (nextmethod search)
+    (set! file~self file)
+    (set! range~self (or range (and position (new Range$Cell$ position position)))))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (get-icon)
+    {Image-Resource "TypeFile"})
+  
+  
+  (method override (present-name)
+    (present-name~ file))
+  
+  
+  (method override (present-location)
+    (present-location~ file))
+  
+  
+  (method override (present-type)
+    "")
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
   
   
   (method override (edit forward? focus? visible?)
-    (edit-reference~ entry (get-find~ search) activate-focus?: focus?))
-  
-  
-  (method override (drill-down)
-    (let* ((name (get-name~ entry))
-           (search (new Projects-Search 'references (->search-set name) #f))
-           (appl (get-application))
-           (cataloguer (get-cataloguer~ appl))
-           (references (get-references~ cataloguer name)))
-      (sort string<? (make-reference-search-locations search references) key: present-name~)))))
+    (let ((appl (get-application)))
+      (receive (frame new?) (edit-document~ appl file visible?: #f return-new?: #t)
+        (let ((guest (get-guest~ frame)))
+          (when (is? guest Text-View)
+            (if range
+                (set-selection~ guest range)
+              (select-expr~ guest (get-find~ search) (if forward? 'forward 'backward))))
+          (when visible?
+            (focus-host~ frame))
+          (values frame new?)))))))

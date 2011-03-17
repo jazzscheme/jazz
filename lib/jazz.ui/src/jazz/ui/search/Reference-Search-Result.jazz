@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Definition Search Location
+;;;; Reference Search Result
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,43 +35,26 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.search.Definition-Search-Location jazz
+(module jazz.ui.search.Reference-Search-Result jazz
 
 
 (import (jazz.library)
         (jazz.system)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.search))
 
 
-(class Definition-Search-Location extends Search-Location
-  
-  
-  (slot entry getter generate)
-  
-  
-  (method override (initialize search entry)
-    (nextmethod search)
-    (set! entry~self entry))
-  
-  
-  (method override (get-icon)
-    (get-image~ entry))
-  
-  
-  (method override (present-name)
-    (present~ entry))
-  
-  
-  (method override (present-location)
-    (let ((moniker (get-moniker~ entry)))
-      (if (not moniker)
-          ""
-        (present-location~ moniker))))
-  
-  
-  (method override (present-type)
-    "")
+(class Reference-Search-Result extends Definition-Search-Result
   
   
   (method override (edit forward? focus? visible?)
-    (edit~ entry activate-focus?: focus?))))
+    (edit-reference~ entry (get-find~ search) activate-focus?: focus?))
+  
+  
+  (method override (drill-down)
+    (let* ((name (get-name~ entry))
+           (search (new Projects-Search 'references (->search-set name) #f))
+           (appl (get-application))
+           (cataloguer (get-cataloguer~ appl))
+           (references (get-references~ cataloguer name)))
+      (sort string<? (make-reference-search-results search references) key: present-name~)))))

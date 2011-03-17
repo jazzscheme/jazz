@@ -845,7 +845,7 @@
 
 (define (jazz:clean-toplevel-file? file level)
   (define ignored-toplevel-files
-    '(".gitignore" ".jazzini"))
+    '(".gitignore"))
   
   (not (member (jazz:pathname-name file) ignored-toplevel-files)))
 

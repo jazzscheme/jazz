@@ -317,13 +317,14 @@
             (%%list jazz)
           '())))
   
-  (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
-        (jazz (and (jazz:source-access?) (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
-        (binary-repositories (or (and (jazz:source-access?) jazz:kernel-binary-repositories) '()))
-        (source-repositories (or (and (jazz:source-access?) jazz:kernel-source-repositories) '()))
-        (repositories (jazz:repositories)))
-    (set! jazz:Build-Repository build)
-    (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build jazz binary-repositories source-repositories repositories)))))
+  (let ((source-access? (or jazz:source-access? (not jazz:product))))
+    (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
+          (jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
+          (binary-repositories (or (and source-access? jazz:kernel-binary-repositories) '()))
+          (source-repositories (or (and source-access? jazz:kernel-source-repositories) '()))
+          (repositories (jazz:repositories)))
+      (set! jazz:Build-Repository build)
+      (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build jazz binary-repositories source-repositories repositories))))))
 
 
 (define (jazz:make-repository name library directory #!key (binary? #f) (create? #f))

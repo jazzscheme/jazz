@@ -410,7 +410,9 @@
                     (newline output)
                     (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories destination-directory)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)))
+                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)))
                 #t)
             #f)))
       
@@ -641,9 +643,13 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source-repositories (jazz:determine-source-repositories destination-directory) output)
                     (newline output)
+                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
+                    (newline output)
                     (newline output)
                     (display "(load (string-append jazz:source \"kernel/boot\"))" output)
                     (newline output)))))))
+      
+      (jazz:invoke-build-setup platform safety optimize? source destination)
       
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
@@ -664,14 +670,15 @@
 ;;;
 
 
+(define (jazz:invoke-build-setup platform safety optimize? source destination)
+  (let ((proc (jazz:build-setup)))
+    (if proc
+        (proc platform safety optimize? source destination))))
+
+
 (define (jazz:determine-binary-repositories destination-directory)
   (jazz:determine-repositories destination-directory
-    (and (jazz:global-bound? 'binary-repositories)
-         (let ((proc (jazz:global-ref 'binary-repositories))
-               (source (if (jazz:global-bound? 'jazz:kernel-source)
-                           (jazz:global-ref 'jazz:kernel-source)
-                         jazz:source)))
-           (proc source)))))
+    (jazz:build-binary-repositories)))
 
 
 (define (jazz:determine-source-repositories destination-directory)

@@ -701,12 +701,24 @@
   
   
   (method public (verify-reloads)
-    (for-each (lambda (view)
-                (when (is? view Frame-Host)
-                  (let ((guest (get-guest~ view)))
-                    (when (is? guest Document)
-                      (verify-reload~ (get-controller~ guest))))))
-              (all-frames include-invisibles?: #t)))
+    (define (collect-reloads)
+      (collect (lambda (view)
+                 (when (is? view Frame-Host)
+                   (let ((guest (get-guest~ view)))
+                     (when (is? guest Document)
+                       (let ((controller (get-controller~ guest)))
+                         (when (needs-reload?~ controller)
+                           controller))))))
+               (all-frames include-invisibles?: #t)))
+    
+    (let ((reloads (collect-reloads)))
+      (when (not-null? reloads)
+        (let ((code (message-box (format "Files have been modified. Do you want to reload them?")
+                                 title: "File Status"
+                                 type: 'question)))
+          (for-each (lambda (controller)
+                      (propose-reload-action~ controller code))
+                    reloads)))))
   
   
   (method public (verify-reload moniker)

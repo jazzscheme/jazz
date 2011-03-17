@@ -1426,8 +1426,12 @@
       (mutex-unlock! output-mutex))
     
     (define (end-port/echo port/echo)
-      (close-port (%%car port/echo))
-      (thread-join! (%%cdr port/echo)))
+      (let ((established-port (%%car port/echo))
+            (echo-thread (%%cdr port/echo)))
+        (write '() established-port)
+        (force-output established-port)
+        (close-port established-port)
+        (thread-join! echo-thread)))
     
     (define (grab-build-process)
       (mutex-lock! process-mutex)
@@ -1442,7 +1446,7 @@
                (let ((process (open-process
                                 (list
                                   path: (jazz:install-path "kernel")
-                                  arguments: `("-:dq-" "-subbuild"
+                                  arguments: `("-:daqQ-" "-subbuild"
                                                "-link" ,(%%symbol->string jazz:link)
                                                ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
@@ -1550,26 +1554,23 @@
 
 
 (define (jazz:subprocess-build-products port)
-  (parameterize ((current-user-interrupt-handler
-                   (lambda ()
-                     (exit))))
-    (let ((established-port (open-tcp-client port)))
-      (let iter ()
-           (let ((product (read established-port)))
-             (if (not (eof-object? product))
-                 (begin
-                   (jazz:reset-changed-units)
-                   (with-exception-handler
-                     (lambda (exc)
-                       (display-exception exc)
-                       (force-output)
-                       (exit))
-                     (lambda ()
-                       (jazz:build-product product)
-                       (write (jazz:get-changed-units) established-port)
-                       (newline established-port)
-                       (force-output established-port)))
-                   (iter))))))))
+  (let ((established-port (open-tcp-client port)))
+    (let iter ()
+         (let ((product (read established-port)))
+           (if (or (eof-object? product)
+                   (null? product))
+               (close-port established-port)
+             (with-exception-handler
+               (lambda (exc)
+                 (display-exception exc)
+                 (force-output)
+                 (exit))
+               (lambda ()
+                 (jazz:reset-changed-units)
+                 (jazz:build-product product)
+                 (write (jazz:get-changed-units) established-port)
+                 (force-output established-port)
+                 (iter))))))))
 
 
 ;;;

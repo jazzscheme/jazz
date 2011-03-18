@@ -63,7 +63,8 @@
   (form
     (<install>
       (<!>                           name: tools
-        (<!>                         name: clear     tooltip-text: "Pop Resultset")
+        (<Separator>                                 size: {Dimension 4 0})
+        (<Push-Tool>                 name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
         (<Separator>                                 size: {Dimension 4 0})
         (<Layout-View>                               size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
           (<Border-View>                             border-color: {Color Dark}
@@ -119,6 +120,10 @@
   
   (method override (get-context-menu)
     (new Found-Menu))
+  
+  
+  (method (on-pop-resultset evt)
+    (pop-resultset))
 
   
   ;;;
@@ -194,13 +199,6 @@
     (select-resultset))
   
   
-  (method (set-resultset resultset)
-    (preserve-current-selection)
-    (set! current-resultset resultset)
-    (update-resultset)
-    (update-resultset-combo))
-  
-  
   (method (preserve-current-selection)
     (when current-resultset
       (set-selection~ current-resultset (get-selection~ (get-tree)))))
@@ -211,17 +209,22 @@
   ;;;
   
   
-  (method (pop-resultset)
-    (set! resultset-stack (cdr resultset-stack))
-    (set! current-resultset (car resultset-stack))
+  (method (set-resultset resultset)
+    (preserve-current-selection)
+    (set! current-resultset resultset)
     (update-resultset)
-    (update-resultset-combo))
+    (update-resultset-combo)
+    (set-active-search (get-search~ current-resultset)))
   
   
-  (method override (clear-resultset)
+  (method (pop-resultset)
     (if (<= (length resultset-stack) 1)
         (bell)
-      (pop-resultset)))
+      (set! resultset-stack (cdr resultset-stack))
+      (set! current-resultset (car resultset-stack))
+      (update-resultset)
+      (update-resultset-combo)
+      (set-active-search (get-search~ current-resultset))))
   
   
   (method (update-resultset-combo)
@@ -251,9 +254,6 @@
           (for-each add-result (sort string<? results key: present-name~))))
       (when (and results (> (get-visible-count~ tree) 0))
         (set-selection~ tree (or selection (list 0))))
-      (with-locked-update
-        (lambda ()
-          (select-docked Search-Results)))
       (update-search-actions~ appl)))
 
   
@@ -268,10 +268,10 @@
     (let ((tree (get-tree))
           (state (if (supports-drill-down?~ (get-search~ result)) 'dynamic 'collapsed))
           (node (new Tree-Node title: (present-name~ result) image: (get-icon~ result)))
-          (loc (new Tree-Label title: (present-result~ result)))
+          (location (new Tree-Label title: (present-location~ result)))
           (type (new Tree-Label title: (present-type~ result)))
           (user-data result))
-      (add-row~ tree father: father state: state children: (list node loc type) user-data: user-data))))
+      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data))))
 
 
 ;;;

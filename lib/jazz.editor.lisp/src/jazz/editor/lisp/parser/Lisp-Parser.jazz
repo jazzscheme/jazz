@@ -54,8 +54,8 @@
   (method meta protected virtual (iterate-references name <string> proc <procedure>)
     (define (parse-tag)
       (when (tag-string? name)
-        (call-proc name)
-        (call-proc (tag->name name))
+        (call-proc name 0)
+        (call-proc (tag->name name) 1)
         #t))
     
     (define (parse-composite-colon)
@@ -63,21 +63,24 @@
         (when (and (not (null? (cdr parts)))
                    (not (empty-string? (first parts)))
                    (not (empty-string? (last parts))))
-          (call-proc name)
-          (let ((effective-parts
-                  (if (equal? (first parts) "jazz")
-                      (cdr parts)
-                    parts)))
-            (for-each call-proc effective-parts))
+          (call-proc name 0)
+          (let ((pos 0))
+            (when (equal? (first parts) "jazz")
+              (set! parts (cdr parts))
+              (set! pos (+ (cardinality "jazz") 1)))
+            (for-each (lambda (part)
+                        (call-proc part pos)
+                        (increase! pos (+ (cardinality part) 1)))
+                      parts))
           #t)))
     
-    (define (call-proc ref)
+    (define (call-proc ref pos)
       (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
-        (proc ref)))
+        (proc ref pos)))
     
     (or (parse-tag)
         (parse-composite-colon)
-        (call-proc name)))
+        (call-proc name 0)))
   
   
   ;;;
@@ -109,8 +112,8 @@
                     (continuation-capture
                       (lambda (return)
                         (iterate-references (subseq seq before after)
-                          (lambda (ref)
-                            (when (equal? ref found)
+                          (lambda (ref pos)
+                            (when (and (= from (+ before pos)) (equal? ref found))
                               (continuation-return return #t))))
                         #f)))))))))
   
@@ -181,7 +184,7 @@
                             (eqv? (string-ref name 0) #\')
                             (string=? name Lisp-Period))
                   (iterate-references~ (class-of self) name
-                    (lambda (ref)
+                    (lambda (ref pos)
                       (unless (empty-string? ref)
                         (add-reference~ parent ref)))))))
             parent)

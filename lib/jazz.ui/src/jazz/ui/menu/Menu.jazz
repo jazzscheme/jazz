@@ -87,6 +87,18 @@
   ;;;
   
   
+  (method protected (parent-menu)
+    (and item (get-parent~ item)))
+  
+  
+  (method protected (parent-menubar)
+    (let (iter (menu self))
+      (when menu
+        (if (is? menu Menubar)
+            menu
+          (iter (parent-menu~ menu))))))
+  
+  
   (method public (get-popped)
     popped)
   
@@ -182,11 +194,22 @@
   
   
   (method override (right-arrow-press modifiers)
-    (navigate-open))
+    (or (navigate-open)
+        (let ((menubar (parent-menubar)))
+          (when menubar
+            (close-all-popups)
+            (navigate-next~ menubar)
+            (navigate-open~ menubar)))))
   
   
   (method override (left-arrow-press modifiers)
-    (navigate-close))
+    (let ((parent (parent-menu)))
+      (if (is? parent Menubar)
+          (begin
+            (close-all-popups)
+            (navigate-previous~ parent)
+            (navigate-open~ parent))
+        (navigate-close))))
   
   
   (method override (return-press key)
@@ -231,12 +254,16 @@
           (process-action~ item item)))))
   
   
-  (method protected (navigate-open)
+  (method protected (navigate-open (highlight-last? #f))
     (when highlighted
       (let ((content (get-content~ highlighted)))
         (when content
           (popup-content~ highlighted)
-          (set-highlighted~ content (first-child~ content))))))
+          (set-highlighted~ content
+            (if highlight-last?
+                (last-child~ content)
+              (first-child~ content)))
+          #t))))
   
   
   (method protected (navigate-close)

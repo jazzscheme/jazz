@@ -393,9 +393,10 @@
                       (let ((src-content (if (exists?~ src-directory) (get-content~ src-directory nodes?: #t leaves?: #f) '())))
                         (when (not-null? src-content)
                           (let ((src-component (import-pathname project-component src-directory project-component #t recursive?: #f)))
-                            (for-each (lambda (dir)
-                                        (import-pathname project-component dir src-component #t))
-                                      src-content)))))
+                            (when src-component
+                              (for-each (lambda (dir)
+                                          (import-pathname project-component dir src-component #t))
+                                        src-content))))))
                     (save~ (get-project-designer~ designer project-component))
                     (update-project-catalog project-component)
                     (acquire-focus~ tree)
@@ -534,7 +535,11 @@
               sort?: #t
               recursive?: #f
               ignored-directories: Ignored-Directories))
-          subgroup)))
+          (if (or (not descendant?)
+                  (not-null? (get-children~ subgroup)))
+              subgroup
+            (remove-child~ designer subgroup design-events?: (not descendant?))
+            #f))))
     
     (define (import-file file parent descendant?)
       (let ((reference (extension-reference (get-extension~ file))))

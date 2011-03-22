@@ -486,6 +486,7 @@
   (slot beginning       initialize #f)
   (slot ending          initialize #f)
   (slot last-range      initialize #f)
+  (slot last-found?     initialize #t)
   (slot prefixes        initialize (make-table test: equal?))
   (slot found-style     initialize #f)
   (slot highlight-style initialize #f)
@@ -802,12 +803,13 @@
         (add-boundary-highlight (new Range$Cell$ (previous-cell~ client ending) ending))))
     
     (define (highlight-find client all)
-      (for-each (lambda (found)
-                  (bind (start . end) found
-                    (let ((range (new Range$Cell$ start end)))
-                      (unless (nu=? range last-range)
-                        (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                all)
+      (when all
+        (for-each (lambda (found)
+                    (bind (start . end) found
+                      (let ((range (new Range$Cell$ start end)))
+                        (unless (nu=? range last-range)
+                          (add-highlight~ client (new Text-Highlight range highlight-style))))))
+                  all))
       (add-highlight~ client (new Text-Highlight last-range found-style))
       (set-selection~ client last-range))
     
@@ -830,8 +832,11 @@
               (set! found (search-target client content #f))
               (when again?
                 (set! found (search-target client content #t)))
-              (when (not found)
-                (bell))
+              (if found
+                  (set! last-found? #t)
+                (when (or last-found? again?)
+                  (set! last-found? #f)
+                  (bell)))
               (if (not all)
                   (clear-status~ text)
                 (let ((rank (and last-range (find all (cons (get-start~ last-range)

@@ -461,6 +461,9 @@
   (definition MaxFiles-Warning
     100)
   
+  (definition Ignored-Directories
+    '(".git" ".hg"))
+  
   
   (definition (import-filter? project file)
     (let ((ext (get-extension~ file))
@@ -478,7 +481,7 @@
            (directory (with-import-directory current-directory? parent
                         (lambda (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
+           (count (count-files~ directory ignored-directories: Ignored-Directories filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
@@ -521,14 +524,16 @@
               files?: #f
               directories?: #t
               sort?: #t
-              recursive?: #f)
+              recursive?: #f
+              ignored-directories: Ignored-Directories)
             (iterate-directory~ dir
               (lambda (pathname)
                 (import-pathname project pathname subgroup #t))
               files?: #t
               directories?: #f
               sort?: #t
-              recursive?: #f))
+              recursive?: #f
+              ignored-directories: Ignored-Directories))
           subgroup)))
     
     (define (import-file file parent descendant?)
@@ -671,7 +676,8 @@
                  files?: #t
                  directories?: #t
                  sort?: #t
-                 recursive?: #f))
+                 recursive?: #f
+                 ignored-directories: Ignored-Directories))
               ((File)
                (when (import-filter? project pathname)
                  (let ((model (extension-model (get-extension~ pathname))))

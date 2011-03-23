@@ -47,11 +47,11 @@
 
 
 (define (jazz:for-each-jazz-version proc)
-  (for-each proc (jazz:kludged-get-jazz-versions)))
+  (for-each proc (jazz:get-jazz-versions)))
 
 
 (define (jazz:for-each-higher-jazz-version version proc)
-  (let iter ((jazz-versions (jazz:kludged-get-jazz-versions)))
+  (let iter ((jazz-versions (jazz:get-jazz-versions)))
     (if (%%not (%%null? jazz-versions))
         (let ((jazz-version (%%car jazz-versions)))
           (if (%%fx> (jazz:version-number jazz-version) version)
@@ -412,7 +412,9 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)))
+                    (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:jazz-updates (jazz:get-jazz-updates) output)))
                 #t)
             #f)))
       
@@ -644,6 +646,8 @@
                     (jazz:print-variable 'jazz:source-repositories (jazz:determine-source-repositories destination-directory) output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:jazz-updates (jazz:get-jazz-updates) output)
                     (newline output)
                     (newline output)
                     (display "(load (string-append jazz:source \"kernel/boot\"))" output)

@@ -522,7 +522,7 @@
 
 (define default-dispatcher
   (lambda (connection method uri parameters headers content)
-    (reply connecton "404 NOT FOUND" "Server not configured." '())))
+    (reply connection "404 NOT FOUND" "Server not configured." '())))
 
 (define http-server-start!
   (lambda (server)

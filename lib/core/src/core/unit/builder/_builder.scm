@@ -226,7 +226,7 @@
     (jazz:for-each-numbered-pathname (string-append bin-pathname-base ".o") 1 delete-o1-file))
   
   (define (determine-o1)
-    (if (jazz:build-single-objects?)
+    (if jazz:single-objects?
         (begin
           (delete-o1-files)
           (string-append bin-pathname-base ".o1"))
@@ -250,11 +250,11 @@
               (jazz:error "C compilation failed while linking module"))
           (case platform
             ((windows)
-             (if (jazz:build-single-objects?)
+             (if jazz:single-objects?
                  (jazz:obliterate-PE-timestamp bin-o1 'DLL))))
           (delete-file linkfile)))))
   
-  (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not (jazz:build-single-objects?)))))))
+  (let ((will-link? (and update-bin? (or (jazz:link-objects?) (and bin (not jazz:single-objects?))))))
     (let ((will-compile? (and update-obj? (or will-link? (jazz:link-libraries?))))
           (dry? (jazz:dry-run?)))
       (if (or will-compile? will-link?)

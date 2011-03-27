@@ -262,7 +262,8 @@
       (if (and file (file-exists? file))
           (call-with-input-file (list path: file eol-encoding: 'cr-lf)
             (lambda (input)
-              (jazz:list->updates (read-all input read)))))))
+              (jazz:list->updates (read-all input read))))
+        '())))
   
   (if (not jazz:jazz-updates)
       (set! jazz:jazz-updates (load-updates)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Definition Search Result
+;;;; Text Search-Result
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,53 +35,64 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.search.Definition-Search-Result jazz
+(module protected jazz.ui.search.Text-Search-Result jazz
 
 
 (import (jazz.library)
-        (jazz.system)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class Definition-Search-Result extends Search-Result
+(class Text-Search-Result extends Search-Result
   
   
-  (slot entry getter generate)
+  (slot client    getter generate)
+  (slot beginning getter generate)
+  (slot ending    getter generate)
   
   
-  (method override (initialize resultset entry)
+  (method override (initialize resultset (client: client #f) (beginning: beginning #f) (ending: ending #f))
     (nextmethod resultset)
-    (set! entry~self entry))
+    (set! client~self client)
+    (set! beginning~self beginning)
+    (set! ending~self ending))
   
   
   ;;;
-  ;;;; Presentation
+  ;;;; Client
   ;;;
   
   
-  (method override (get-icon)
-    (get-image~ entry))
+  (method override (effective-client)
+    (or client (get-target-text)))
   
-  
-  (method override (present-name)
-    (present~ entry))
-  
-  
-  (method override (present-location)
-    (let ((moniker (get-moniker~ entry)))
-      (if (not moniker)
-          ""
-        (present-location~ moniker))))
-  
-  
-  (method override (present-type)
-    "")
+
+  (method (get-target-text)
+    (let ((frame (first-frame)))
+      (when (is? frame Frame-Host)
+        (let ((guest (get-guest~ frame)))
+          (when (is? guest Document)
+            (get-text-view~ guest))))))
   
   
   ;;;
-  ;;;; Edition
+  ;;;; Find
   ;;;
   
   
-  (method override (edit forward? focus? visible?)
-    (edit~ entry activate-focus?: focus?))))
+  (method override (find-next client)
+    (select-next~ client (get-find~ search) end: ending))
+  
+  
+  (method override (find-previous client)
+    (select-previous~ client (get-find~ search) end: beginning))
+  
+  
+  (method override (install-indicators beginning-indicator ending-indicator)
+    (define (install indicator position)
+      (if (not position)
+          (reset~ indicator)
+        (edit~ indicator client position ensure-displayed?: #f)))
+    
+    (install beginning-indicator beginning)
+    (install ending-indicator (and ending (previous-pos~ client ending 1))))))

@@ -131,19 +131,22 @@
   ;;;
   
 
-  (method override (edit-selection forward?)
+  (method override (edit-selection select)
     (let ((selection (get-selection~ (get-tree))))
       (for-each (lambda (rank)
-                    (edit-result rank forward? #t #t))
+                    (edit-result (rank->result rank) select #t #t))
                   selection)))
   
 
-  (method public (edit-result rank forward? focus? visible?)
+  (method public (edit-result result select focus? visible?)
     (with-cursor :wait
       (lambda ()
-        (set-active-search (get-search~ current-resultset))
-        (let ((result (get-user-data~ (get-row~ (get-tree) rank))))
-          (edit~ result forward? focus? visible?)))))
+        (set-active-search-result result)
+        (edit~ result select focus? visible?))))
+  
+  
+  (method (rank->result rank)
+    (get-user-data~ (get-row~ (get-tree) rank)))
   
   
   ;;;
@@ -152,35 +155,29 @@
   
   
   (method public (replace-selected)
-    (let ((search (get-search~ current-resultset)))
-      (if (not search)
-          (bell)
-        (if (not (every? (lambda (result)
-                           (is? result File-Search-Result))
-                         (get-results~ current-resultset)))
-            (message-box "Replace selected currently only supports file searches")
-          (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
-            (if (eq? code 'cancel)
-                (throw-cancel)
-              (set-active-search search)
-              (let ((auto-save/close? (eq? code 'yes))
-                    (selection (get-selection~ (get-tree)))
-                    (modified-count 0))
-                (for-each (lambda (rank)
-                            (receive (frame new?) (edit-result rank #t #f #f)
-                              (let* ((guest (get-guest~ frame))
-                                     (text (get-text-view~ guest)))
-                                (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
-                                (replace-all~ search text)
-                                (when (and auto-save/close? new?)
-                                  (when (get-modified?~ text)
-                                    (save~ guest)
-                                    (increase! modified-count))
-                                  (close~ frame)))))
-                          selection)
-                (when auto-save/close?
-                  (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
-                (user-feedback "Done"))))))))
+    (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
+      (if (eq? code 'cancel)
+          (throw-cancel)
+        (let ((auto-save/close? (eq? code 'yes))
+              (selection (get-selection~ (get-tree)))
+              (modified-count 0))
+          (for-each (lambda (rank)
+                      (let ((result (rank->result rank)))
+                        (receive (frame new?) (edit-result result 'forward #f #f)
+                          (let* ((guest (get-guest~ frame))
+                                 (text (get-text-view~ guest)))
+                            (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
+                            (set-active-search-result result)
+                            (replace-all~ result text)
+                            (when (and auto-save/close? new?)
+                              (when (get-modified?~ text)
+                                (save~ guest)
+                                (increase! modified-count))
+                              (close~ frame))))))
+                    selection)
+          (when auto-save/close?
+            (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
+          (user-feedback "Done")))))
 
 
   ;;;
@@ -188,14 +185,13 @@
   ;;;
 
 
-  (method public (select-results search results)
-    (let ((resultset (new Search-Resultset search results)))
-      (preserve-current-selection)
-      (set! current-resultset resultset)
-      (set! resultset-stack (cons current-resultset resultset-stack))
-      (update-resultset)
-      (update-resultset-combo))
-    (set-active-search search)
+  (method public (select-results resultset)
+    (preserve-current-selection)
+    (set! current-resultset resultset)
+    (set! resultset-stack (cons current-resultset resultset-stack))
+    (update-resultset)
+    (update-resultset-combo)
+    (set-active-search-result (new Search-Result resultset))
     (select-resultset))
   
   
@@ -214,7 +210,7 @@
     (set! current-resultset resultset)
     (update-resultset)
     (update-resultset-combo)
-    (set-active-search (get-search~ current-resultset)))
+    (set-active-search-result (new Search-Result current-resultset)))
   
   
   (method (pop-resultset)
@@ -224,7 +220,7 @@
       (set! current-resultset (car resultset-stack))
       (update-resultset)
       (update-resultset-combo)
-      (set-active-search (get-search~ current-resultset))))
+      (set-active-search-result (new Search-Result current-resultset))))
   
   
   (method (update-resultset-combo)
@@ -261,7 +257,7 @@
     (let ((result (get-user-data~ row)))
       (for-each (lambda (result)
                   (add-result result father: row))
-                (drill-down~ result))))
+                (get-results~ (drill-down~ result)))))
   
   
   (method (add-result result (father: father #f))

@@ -1829,19 +1829,19 @@
   (method public (update-search-actions)
     (let* ((frames (all-frames))
            (count (length frames))
-           (search (active-search))
+           (result (active-search-result))
            (results (get-search-results))
            (results-count (get-visible-count~ (get-tree~ results))))
-      (set-action-enabled? {Action application find-forward} (and search (>= count 1)))
-      (set-action-enabled? {Action application find-backward} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace&find-forward} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace-all} (and search (>= count 1)))
+      (set-action-enabled? {Action application find-forward} (and result (>= count 1)))
+      (set-action-enabled? {Action application find-backward} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace&find-forward} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace-all} (and result (>= count 1)))
       (set-action-enabled? {Action application edit-next} (>= results-count 1))
       (set-action-enabled? {Action application edit-previous} (>= results-count 1))
       (set-action-enabled? {Action application edit-current} (>= results-count 1))
       (set-action-enabled? {Action application replace-selected} (>= results-count 1))
-      (set-action-enabled? {Action application previous-search} search)))
+      (set-action-enabled? {Action application previous-search} result)))
 
 
   ;;;
@@ -1920,39 +1920,34 @@
 
 
   (method package (on-find-forward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (find-forward~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (find-forward~ result))
         (bell))))
 
 
   (method package (on-find-backward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (find-backward~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (find-backward~ result))
         (bell))))
 
 
   (method package (on-replace evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (replace-selection~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection~ result))
         (bell))))
 
 
   (method package (on-replace&find-forward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (replace-selection&find-forward~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection&find-forward~ result))
         (bell))))
 
 
   (method package (on-replace-all evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (if (or (not search) (not text))
+    (let ((result (active-search-result)))
+      (if (not result)
           (bell)
-        (replace-all~ search text))))
+        (replace-all~ result))))
   
   
   (method package (on-replace-selected evt)
@@ -1960,21 +1955,12 @@
 
 
   (method package (on-previous-search evt)
-    (let ((search (active-search))
+    (let ((result (active-search-result))
           (results (get-search-results)))
       (let ((resultset (get-current-resultset~ results)))
-        (let ((results-search (and resultset (get-search~ resultset))))
-          (if (and results-search (eq? search results-search))
-              (pop-resultset~ results)
-            (set-active-search results-search))))))
-
-
-  (method (get-target-text)
-    (let ((frame (first-frame)))
-      (when (is? frame Frame-Host)
-        (let ((guest (get-guest~ frame)))
-          (when (is? guest Document)
-            (get-text-view~ guest))))))
+        (if (eq? (get-current-resultset~ results) (get-resultset~ result))
+            (pop-resultset~ results)
+          (set-active-search-result (new Search-Result resultset))))))
 
   
   ;;;

@@ -93,20 +93,19 @@
       (new-thread
         (lambda ()
           (let ((search (new Directories-Search find replace)))
-            (set-active-search search)
             (search-threaded search)))
         'search)))
   
   
   (method synchronized (search-threaded search)
     (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
-           (found (case (get-search-domain)
-                    ((jazz-files) (search-jazz-files search reporter))
-                    ((user-files) (search-user-files search reporter)))))
+           (resultset (case (get-search-domain)
+                        ((jazz-files) (search-jazz-files search reporter))
+                        ((user-files) (search-user-files search reporter)))))
       (post-event
         (lambda ()
           (let ((results (get-results)))
-            (select-results~ results search found))))
+            (select-results~ results resultset))))
       (user-feedback~ reporter "Done")
       @activity-manager
       (when reporter
@@ -204,18 +203,18 @@
   
   
   (method (search-jazz-files search reporter)
-    (let ((factory (new List-Factory))
+    (let ((resultset (new Search-Resultset search))
           (pref (preferences)))
       (let ((directories (filter-existing (or (get-jazz-directories~ pref) (default-search-directories))))
             (extensions (effective-extensions (or (get-jazz-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search directories extensions factory reporter)
-        (get-output~ factory))))
+        (search-in-directories search directories extensions resultset reporter)
+        resultset)))
   
   
   (method (search-user-files search reporter)
-    (let ((factory (new List-Factory))
+    (let ((resultset (new Search-Resultset search))
           (pref (preferences)))
       (let ((directories (filter-existing (or (get-user-directories~ pref) (default-search-directories))))
             (extensions (effective-extensions (or (get-user-extensions~ pref) (default-search-extensions)))))
-        (search-in-directories search directories extensions factory reporter)
-        (get-output~ factory))))))
+        (search-in-directories search directories extensions resultset reporter)
+        resultset)))))

@@ -299,10 +299,10 @@
 
 ;; until proper call site casting of native calls
 
-(native undocumented ##fl+ <fl^fl:fl>)
-(native undocumented ##fl- <fl^fl:fl>)
-(native undocumented ##fl* <fl^fl:fl>)
-(native undocumented ##fl/ <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl+ <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl- <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl* <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl/ <fl^fl:fl>)
 
 
 ;;;

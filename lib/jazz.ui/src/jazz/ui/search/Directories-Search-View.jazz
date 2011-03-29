@@ -71,17 +71,15 @@
   ;;;
   ;;;; Search
   ;;;
-  
-  
-  (method override (current-search-class)
-    Directories-Search)
 
   
-  (method override (search-targets search)
+  (method override (search-targets find replace)
     (thread-start!
       (new-thread
         (lambda ()
-          (search-threaded search))
+          (let ((search (new Directories-Search find replace)))
+            (set-active-search search)
+            (search-threaded search)))
         'search)))
 
   
@@ -97,7 +95,7 @@
       (post-event
         (lambda ()
           (let ((results (get-results)))
-            (select-result~ results search (get-output~ factory)))))
+            (select-results~ results search (get-output~ factory)))))
       (user-feedback~ reporter "Done")
       @activity-manager
       (when reporter

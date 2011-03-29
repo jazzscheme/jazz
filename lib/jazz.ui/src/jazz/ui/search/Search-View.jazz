@@ -103,7 +103,7 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (let ((tree (locate 'targets)))
+    (let ((tree (get-targets)))
       (for-each (lambda (column)
                   (set-justification~ column '(1 1)))
                 (get-columns~ tree))))
@@ -127,12 +127,12 @@
     (get-search-results~ (get-application)))
   
   
-  (method public (get-targets-tree)
+  (method public (get-targets)
     (locate 'targets))
   
   
   (method public (get-search-targets)
-    (let* ((tree (locate 'targets))
+    (let* ((tree (get-targets))
            (height (get-visible-count~ tree))
            (fact (new List-Factory)))
       ;; to-convert temp patch
@@ -148,7 +148,7 @@
 
 
   (method public (set-search-targets targets)
-    (let ((tree (locate 'targets))
+    (let ((tree (get-targets))
           (count (length targets)))
       (ensure-visible-count~ tree count)
       (let ((width (get-columns-count~ tree))
@@ -187,7 +187,9 @@
   
   
   (method (get-replace-targets)
-    (map second (get-search-targets)))
+    (new Replace (map second (get-search-targets))
+         preserve-case?: (get-preserve-case?)
+         play-recording?: (get-play-recording?)))
   
   
   (method public (get-search-domain)
@@ -324,24 +326,15 @@
   
   (method (search)
     (hide~ (get-player))
-    (let ((targets (locate 'targets)))
-      (end-edition~ targets)
-      (let ((search (current-search)))
-        (if (empty?~ search)
-            (bell)
-          (set-active-search search)
-          (search-targets search)))))
+    (end-edition~ (get-targets))
+    (let ((find (get-find-targets))
+          (replace (get-replace-targets)))
+      (if (null? find)
+          (bell)
+        (search-targets find replace))))
   
   
-  (method protected virtual (current-search)
-    (new (current-search-class) (get-find-targets) (get-replace-targets)))
-  
-  
-  (method protected virtual (current-search-class)
-    Search)
-  
-  
-  (method protected virtual (search-targets search)
+  (method protected virtual (search-targets find replace)
     )
 
 
@@ -352,7 +345,7 @@
         (step-it~ reporter))
       (let ((found (search-file file search)))
         (when found
-          (put~ factory (new File-Search-Location search file))))))
+          (put~ factory (new File-Search-Result search file))))))
   
   
   (method protected (search-in-directories search directories extensions factory reporter)
@@ -366,9 +359,9 @@
       (iterate-project/directory directory
         (lambda (file)
           (let ((ext (get-extension~ file)))
-            (cond ((and all-extensions? (not (member? ext Binary-Extensions test: ci=?)) @convert (<= (get-size~ file) 512000))
+            (cond ((and all-extensions? (not (member? ext Binary-Extensions test: extension=?)) @convert (<= (get-size~ file) 512000))
                    (search-in-file search file factory reporter))
-                  ((member? ext extensions test: ci=?)
+                  ((member? ext extensions test: extension=?)
                    (search-in-file search file factory reporter))))))))
 
 
@@ -381,12 +374,12 @@
                 (let ((content (read-content-string input))
                       (match-test (extension-match-test ext))
                       (constituent-test (extension-constituent-test ext)))
-                  (regular-search content (get-find-set~ search) match-test: match-test constituent-test: constituent-test))))
+                  (regular-search content (get-find~ search) match-test: match-test constituent-test: constituent-test))))
           (let ((text (new Jazz-Text-View)))
             (set-moniker~ text file)
             (let* ((beginning (text-beginning~ text))
                    (expl (new Jazz-Explorer text start: beginning end: beginning))
-                   (mode (if (ci=? ext "jazz") 'code 'quotation)))
+                   (mode (if (extension=? ext "jazz") 'code 'quotation)))
               (search-expressions~ expl mode search beginning)))))))
   
   
@@ -402,7 +395,7 @@
             (iterate-files~ project
               proc)))
       (iterate-directory~ project/directory proc
-        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "gambit"))))
+        ignored-toplevel-directories: '(".git" ".hg" "bin" "build" "bootstrap" "deploy" "gambit"))))
 
 
   ;;;
@@ -411,7 +404,7 @@
 
 
   (method public virtual (select-search)
-    (let ((targets (locate 'targets)))
+    (let ((targets (get-targets)))
       (select-cell~ targets {Cell 0 0})))
   
   

@@ -182,13 +182,6 @@
   jazz:jazz-versions)
 
 
-;; because the kernel/versions file is not available to applications
-;; we should probably burn the content or some other format in the image
-;; although probably only the kernel/updates file needs to be burned in
-(define (jazz:kludged-get-jazz-versions)
-  (or (jazz:get-jazz-versions) '()))
-
-
 (define (jazz:get-jazz-version-number)
   (jazz:load-jazz-versions)
   jazz:jazz-version-number)
@@ -259,35 +252,22 @@
   #f)
 
 
-(define jazz:load-jazz-updates
-  (let ((loaded? #f))
-    (lambda ()
-      (define (determine-jazz-updates-file)
-        (or jazz:jazz-updates-file
-            (and jazz:jazz-source (string-append jazz:jazz-source "kernel/updates"))))
-      
-      (define (load-updates)
-        (let ((file (determine-jazz-updates-file)))
-          (if (and file (file-exists? file))
-              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
-                (lambda (input)
-                  (set! jazz:jazz-updates (jazz:list->updates (read-all input read))))))))
-      
-      (if (not loaded?)
-          (begin
-            (load-updates)
-            (set! loaded? #t))))))
-
-
 (define (jazz:get-jazz-updates)
-  (jazz:load-jazz-updates)
+  (define (determine-jazz-updates-file)
+    (or jazz:jazz-updates-file
+        (and jazz:jazz-source (string-append jazz:jazz-source "kernel/updates"))))
+  
+  (define (load-updates)
+    (let ((file (determine-jazz-updates-file)))
+      (if (and file (file-exists? file))
+          (call-with-input-file (list path: file eol-encoding: 'cr-lf)
+            (lambda (input)
+              (jazz:list->updates (read-all input read))))
+        '())))
+  
+  (if (not jazz:jazz-updates)
+      (set! jazz:jazz-updates (load-updates)))
   jazz:jazz-updates)
-
-
-;; because the kernel/updates file is not available to applications
-;; we should probably burn the content or some other format in the image
-(define (jazz:kludged-get-jazz-updates)
-  (or (jazz:get-jazz-updates) '()))
 
 
 (define (jazz:list->updates lst)
@@ -376,8 +356,8 @@
 
 
 (define (jazz:setup-settings)
-  (set! jazz:jazz-settings-directory (jazz:versioned-directory "~/.jazz/" 'settings (jazz:kludged-get-jazz-updates) jazz:convert-settings))
-  (set! jazz:jazz-settings-version (jazz:versioned-version 'settings (jazz:kludged-get-jazz-updates)))
+  (set! jazz:jazz-settings-directory (jazz:versioned-directory "~/.jazz/" 'settings (jazz:get-jazz-updates) jazz:convert-settings))
+  (set! jazz:jazz-settings-version (jazz:versioned-version 'settings (jazz:get-jazz-updates)))
   (set! jazz:named-configurations-file (string-append jazz:jazz-settings-directory ".configurations")))
 
 

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Frame Indicator
+;;;; Location Indicator
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.debugger.debugger.Frame-Indicator jazz
+(module protected jazz.debugger.debugger.Location-Indicator jazz
 
 
 (import (jazz.io)
         (jazz.runtime)
-        (jazz.system))
+        (jazz.system)
+        (jazz.ui))
 
 
-(class Frame-Indicator extends Object
-  
-  
-  (slot color)
-  (slot location initialize #f)
-  
-  
-  (method override (initialize (color: color #f))
-    (nextmethod)
-    (set! color~self color))
+(class Location-Indicator extends Indicator
   
   
   ;;;
@@ -60,39 +52,18 @@
   ;;;
 
 
-  (method public (edit loc (select?: select? #f))
-    (define (install-indicator loc)
-      (receive (frame text range) (find-location loc)
-        (let ((start (get-start~ range)))
-          (fill~ text color start)
-          (ensure-cell-displayed~ text start)
-          (set! location loc)
-          (reset-tooltip~ text)
-          (focus-host~ frame)
-          (when select?
-            (set-caret~ text start)))))
-    
-    (define (uninstall-indicator loc)
-      (receive (frame text range) (find-location loc)
-        (unfill~ text (get-start~ range))
-        (reset-tooltip~ text)))
-    
-    (define (uninstall-active-indicator)
-      (when location
-        (uninstall-indicator location)
-        (set! location #f)))
-    
-    (define (find-location loc)
-      (bind (container line col) loc
+  (method public (edit-location location (select?: select? #f))
+    (define (find-location)
+      (bind (container line col) location
         (let ((file (if (symbol? container)
                         (find-unit-source container)
                       (anchorize~ (new File (tokenise-filename container)))))
               (start (new Cell line col))
               (end (new Cell line (+ col 1))))
-          (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
-                (range (new Range$Cell$ start end)))
-            (values frame (get-guest~ frame) range)))))
+          (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f)))
+            (values (get-guest~ frame) start)))))
     
-    (uninstall-active-indicator)
-    (when loc
-      (install-indicator loc)))))
+    (if (not location)
+        (edit #f #f)
+      (receive (text position) (find-location)
+        (edit text position))))))

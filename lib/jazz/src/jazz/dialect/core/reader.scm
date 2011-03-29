@@ -46,7 +46,7 @@
 (cond-expand
   (gambit
     (define (jazz:make-jazz-readtable)
-      (let ((readtable (readtable-max-unescaped-char-set (%%readtable-copy ##main-readtable) #\U0010ffff)))
+      (let ((readtable (readtable-max-unescaped-char-set (%%make-standard-readtable) #\U0010ffff)))
         (jazz:jazzify-readtable! readtable)
         readtable))
     
@@ -194,6 +194,42 @@
   
   
   (else))
+
+
+;;;
+;;;; Readtable
+;;;
+
+
+(define (jazz:readtable? obj)
+  (%%readtable? obj))
+
+(define (jazz:make-standard-readtable)
+  (%%make-standard-readtable))
+
+(define (jazz:readtable-copy readtable)
+  (%%readtable-copy readtable))
+
+(define (jazz:readtable-char-delimiter? readtable c)
+  (%%readtable-char-delimiter? readtable c))
+
+(define (jazz:readtable-char-delimiter?-set! readtable c delimiter?)
+  (%%readtable-char-delimiter?-set! readtable c delimiter?))
+
+(define (jazz:readtable-char-handler readtable c)
+  (%%readtable-char-handler readtable c))
+
+(define (jazz:readtable-char-handler-set! readtable c handler)
+  (%%readtable-char-handler-set! readtable c handler))
+
+(define (jazz:readtable-char-sharp-handler readtable c)
+  (%%readtable-char-sharp-handler readtable c))
+
+(define (jazz:readtable-char-sharp-handler-set! readtable c handler)
+  (%%readtable-char-sharp-handler-set! readtable c handler))
+
+(define (jazz:readtable-char-class-set! readtable c delimiter? handler)
+  (%%readtable-char-class-set! readtable c delimiter? handler))
 
 
 ;;;

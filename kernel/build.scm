@@ -1081,7 +1081,7 @@
   (jazz:call-process
      (string-append (jazz:configuration-directory configuration) "kernel")
      `("-make"
-       ,(symbol->string product)
+       ,(symbol->string product) "-:daqD"
        ,@(if link `("-link" ,(symbol->string link)) '())
        ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))
 

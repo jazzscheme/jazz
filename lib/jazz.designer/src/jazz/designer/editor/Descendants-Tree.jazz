@@ -292,37 +292,40 @@
   (method (presentation-change component presentation)
     (unless (or (and group? (is-not? component Group))
                 (and (not show-traits?) (is? component Trait)))
-      (let* ((row (find-row component))
-             (line (row->line row))
-             (node (first-child~ row)))
-        (when node
-          (set-title~ node presentation)
-          (when line
-            (let ((cell (new Cell line 0)))
-              (invalidate-cell cell)))))))
+      (let ((row (find-row component)))
+        (when row
+          (let ((line (row->line row))
+                (node (first-child~ row)))
+            (when node
+              (set-title~ node presentation)
+              (when line
+                (let ((cell (new Cell line 0)))
+                  (invalidate-cell cell)))))))))
   
   
   (method (child-add child parent descendant?)
     (unless (or (and group? (is-not? child Group))
                 (and (not show-traits?) (is? child Trait)))
-      (let* ((row (find-row (parent-relocation parent)))
-             (level (if row (get-level~ row) 0))
-             (state (if (not descendant?) 'expanded 'collapsed)))
-        (with-update-locked
-          (lambda ()
-            (insert-component row child #f #f level state: state)
-            (when (not descendant?)
-              (reorder-component child)
-              (expand row)))))))
+      (let ((row (find-row (parent-relocation parent))))
+        (when row
+          (let ((level (get-level~ row))
+                (state (if (not descendant?) 'expanded 'collapsed)))
+            (with-update-locked
+              (lambda ()
+                (insert-component row child #f #f level state: state)
+                (when (not descendant?)
+                  (reorder-component child)
+                  (expand row)))))))))
   
   
   (method (child-remove child)
     (unless (or (and group? (is-not? child Group))
                 (and (not show-traits?) (is? child Trait)))
       (let ((row (find-row child)))
-        (with-update-locked
-          (lambda ()
-            (remove-row row))))))
+        (when row
+          (with-update-locked
+            (lambda ()
+              (remove-row row)))))))
   
   
   (method (send-before-target child parent target)

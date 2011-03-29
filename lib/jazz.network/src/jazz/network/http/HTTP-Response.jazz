@@ -40,21 +40,14 @@
 
 (import (jazz.network))
 
-;;; TODO:
-;; fix cookie output
 
 (class HTTP-Response extends HTTP-Message
   
   
-  (slot code    getter generate)
+  (slot code               getter generate)
+
   
-  
-  (slot cookie-header-name initialize "Cookie-Out")
-  
-  
-  (method override (initialize 
-                     (code: code #f)
-                     (content: content #f))
+  (method override (initialize (code: code #f) (content: content #f))
     (nextmethod)
     (set! code~self (or code 'ok))
     (set! content~self content))
@@ -130,25 +123,15 @@ Set-Cookie: SessionID=nil
   
   
   (method override (send port)
-    (output-control port)
-    (print-headers port)
-    ;; (output-cookies "Set-Cookie" port) fixme
-    (output-content port))
-  
-  
-  (method (output-control output)
     (bind (code number text) (response-code-info code)
-      (format output "HTTP/1.1 {a} {a}" number text))
-    (crlf output))
-  
-  
-  (method (output-content output)
-    ;;(format output "{%}{%}")
-    (crlf output)
+      (format port "HTTP/1.1 {a} {a}" number text))
+    (crlf! port)
+    (print-headers port)
+    (iterate-table cookies (lambda (name cookie)
+                             (format port "Set-Cookie: {a}={s};" name (get-value~ cookie))
+                             (crlf! port)))
+    (crlf! port)
     (when content
       (if (list? content)
-          (write-u8-content content output)
-        (format output "{a}" content))))
-  )
-)
-
+          (write-u8-content content port)
+        (format port "{a}" content))))))

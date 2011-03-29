@@ -46,39 +46,40 @@
 
 ;;; TODO:
 ;; session timeout
-;; make thread-safe
-;; 
 
 
 (class Session-Manager extends Object
   
   
-  (slot id-counter        initialize 0    accessors generate)
-  (slot sessions          initialize '()  accessors generate)
-  ;; (slot session-timeout   initialize 3600 accessors generate)
-  ;; (slot session-list-lock initialize '()) ;; FIXME
+  (slot id-counter        initialize 0    getter generate)
+  (slot sessions          initialize '())
+
+  (slot session-manager-lock initialize (make-mutex "session manager lock"))
   
 
   (method public (new-session) ;; signature should be: (request port reply)
+    (mutex-lock! session-manager-lock)
     (let ((session (new Session id-counter)))
       (set! sessions (cons session sessions))
       (increase! id-counter)
+      (mutex-unlock! session-manager-lock)
       session))
 
 
   (method public (end-session session)
-    (set! sessions (remove! session sessions)))
+    (mutex-lock! session-manager-lock)
+    (set! sessions (remove! session sessions))
+    (mutex-unlock! session-manager-lock)
+    (end-session~ session)
+    #f)
 
 
   (method public (get-session request port)
-    @fixme
-    (let ((session-id
-            0)) ;; fixme
-      (find-if (lambda (session)
-                 (= (get-id~ session) session-id))
-               sessions))
-    #f
-    )
-  
-  )
-)
+    (let ((session-id 0)) ;; fixme
+      (let ((session (find-if (lambda (session)
+                                (= (get-id~ session) session-id))
+                              sessions)))
+        (when session
+          (if (expired?~ session)
+              (end-session session)
+              session)))))))

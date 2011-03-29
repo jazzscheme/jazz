@@ -1,0 +1,174 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JSON
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.json jazz
+
+
+(import (jazz.io))
+
+
+;;;
+;;;; Readtable
+;;;
+
+
+(definition (make-json-readtable)
+  (let ((readtable (make-standard-readtable)))
+    (readtable-char-handler-set! readtable #\: (readtable-char-handler readtable #\space))
+    (readtable-char-handler-set! readtable #\, (readtable-char-handler readtable #\space))
+    (readtable-bracket-keyword-set! readtable :array)
+    (readtable-brace-keyword-set! readtable :object)
+    (readtable-paren-keyword-set! readtable :invalid)
+    readtable))
+
+
+(definition public json-readtable
+  (make-json-readtable))
+
+
+;;;
+;;;; Read
+;;;
+
+
+(definition public (read-json port)
+  (define (convert obj)
+    (cond ((string? obj) obj)
+          ((number? obj) obj)
+          ((pair? obj) (convert-pair obj))
+          ((symbol? obj) (convert-symbol obj))
+          (else (invalid))))
+  
+  (define (convert-pair obj)
+    (define (convert-object members)
+      (list->table (map-property (lambda (key value)
+                                   (if (string? key)
+                                       (cons key (convert value))
+                                     (invalid)))
+                                 members)))
+    
+    (define (convert-array elements)
+      (map convert elements))
+    
+    (case (car obj)
+      ((:object) (convert-object (cdr obj)))
+      ((:array) (convert-array (cdr obj)))
+      (else (invalid))))
+  
+  (define (convert-symbol sym)
+    (case sym
+      ((true) #t)
+      ((false) #f)
+      ((null) '())
+      (else (invalid))))
+  
+  (define (invalid)
+    (error "Invalid JSON syntax"))
+  
+  (convert (read port)))
+
+
+;;;
+;;;; Print
+;;;
+
+
+(definition public (print-json json port)
+  (define (print obj depth)
+    (cond ((eq? obj #f) (display "false" port))
+          ((eq? obj #t) (display "true" port))
+          ((null? obj) (display "null" port))
+          ((string? obj) (write obj port))
+          ((number? obj) (write obj port))
+          ((pair? obj) (print-array obj depth))
+          ((table? obj) (print-object obj depth))))
+  
+  (define (print-array obj depth)
+    (display "[" port)
+    (let ((first? #t))
+      (for-each (lambda (element)
+                  (if first?
+                      (set! first? #f)
+                    (display ", " port))
+                  (print element depth))
+                obj))
+    (display "]" port))
+  
+  (define (print-object obj depth)
+    (display "{" port)
+    (loop (for pair in (sort string<? (table->list obj) key: car) remainder remain)
+          (bind (key . value) pair
+            (newline port)
+            (format port "{& :v}" (+ depth 1))
+            (write key port)
+            (display ": " port)
+            (print value (+ depth 1))
+            (when (not-null? remain)
+              (display "," port))))
+    (newline port)
+    (format port "{& :v}" depth)
+    (display "}" port))
+  
+  (print json 0))
+
+
+;;;
+;;;; Utilities
+;;;
+
+
+(definition public (load-json file)
+  (call-with-input-file (path-settings file readtable: json-readtable)
+    read-json))
+
+
+(definition public (save-json json file)
+  (call-with-output-file (path-settings file)
+    (lambda (output)
+      (print-json json output)
+      (newline output))))
+
+
+(definition public (string->json str)
+  (call-with-input-string (list init: str readtable: json-readtable)
+    read-json))
+
+
+(definition public (json->string json)
+  (let ((output (open-output-string)))
+    (print-json json output)
+    (get-output-string output))))

@@ -1946,6 +1946,16 @@
       (get-string (get-selection))))
   
   
+  (method public (get-selected-strings)
+    (get-range-strings (get-selection)))
+  
+  
+  (method public (get-range-strings range)
+    (if (empty?~ range)
+        '()
+      (range-strings range)))
+  
+  
   (method public (next-pos pos <Cell> offset <fx>) <Cell+>
     (let ((pos (copy pos)))
       (let (iterate (offset offset))
@@ -4447,16 +4457,15 @@
   
   
   (method (on-search-current evt)
-    (define (single-line str)
-      (let ((pos (find str #\newline)))
-        (if (not pos)
-            str
-          (substring str 0 pos))))
+    (define (single-line strings)
+      (if (null? strings)
+          ""
+        (car strings)))
     
     (let ((range (current-expr-range)))
       (if (not range)
           (select-command-search~ (get-application) 'forward (search-context #f ignore-case?: #t))
-        (let ((current (single-line (get-string range))))
+        (let ((current (single-line (get-range-strings range))))
           (select-command-search-current~ (get-application) 'forward range (search-context current ignore-case?: #t))))))
 
   
@@ -4477,8 +4486,8 @@
         (bell))))
   
   
-  (method public virtual (select-next search-context)
-    (let ((found (text-regular-search search-context start: (get-end) reversed?: #f)))
+  (method public virtual (select-next search-context (end: end #f))
+    (let ((found (text-regular-search search-context start: (get-end) end: end reversed?: #f)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4487,8 +4496,8 @@
           #t))))
   
   
-  (method public virtual (select-previous search-context)
-    (let ((found (text-regular-search search-context start: (get-start) reversed?: #t)))
+  (method public virtual (select-previous search-context (end: end #f))
+    (let ((found (text-regular-search search-context start: (get-start) end: end reversed?: #t)))
       (when found
         (bind (from . to) found
           (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
@@ -4580,7 +4589,7 @@
   (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))
     (let* ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
            (moniker (get-moniker))
-           (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
+           (mode (if (or (not moniker) (extension=? (get-extension~ moniker) "jazz")) 'code 'quotation))
            (found (search-expressions~ expl mode string position #f #f)))
       (when found
         (car found))))

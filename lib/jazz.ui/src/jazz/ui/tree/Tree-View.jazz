@@ -2363,20 +2363,23 @@
           (with ((clipper (new Region root-clipper)))
             (combine!~ region clipper 'and))))
       region))
-    
+  
   
   (method override (selection-row-rect line)
-    (let* ((row (get-row line))
-           (node-left (and node-column (row-text-left~ node-column row)))
-           (columns-left (and (> (length columns-borders) 1) (car (second columns-borders))))
-           (left (cond ((and node-left columns-left)
-                        (min node-left columns-left))
-                       (node-left node-left)
-                       (columns-left columns-left)
-                       (else (error "Invalid columns pattern"))))
-           (top (get-v~ (get-position~ row)))
-           (right columns-right))
-      (new Rect (- left 3) top right (+ top (get-height~ row)))))
+    (define (left-with-node row)
+      (let* ((node-left (row-text-left~ node-column row))
+             (columns-left (if (> (length columns-borders) 1)
+                               (car (second columns-borders))
+                             node-left)))
+        (min node-left columns-left)))
+    
+    (define (left-without-node)
+      (car (first columns-borders)))
+    
+    (let ((row (get-row line)))
+      (let ((left   (if node-column (left-with-node row) (left-without-node)))
+            (top    (get-v~ (get-position~ row))))
+        (new Rect (- left 3) top columns-right (+ top (get-height~ row))))))
   
   
   (method (selection-row element)

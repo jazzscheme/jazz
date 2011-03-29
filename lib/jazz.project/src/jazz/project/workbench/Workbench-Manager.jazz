@@ -393,9 +393,10 @@
                       (let ((src-content (if (exists?~ src-directory) (get-content~ src-directory nodes?: #t leaves?: #f) '())))
                         (when (not-null? src-content)
                           (let ((src-component (import-pathname project-component src-directory project-component #t recursive?: #f)))
-                            (for-each (lambda (dir)
-                                        (import-pathname project-component dir src-component #t))
-                                      src-content)))))
+                            (when src-component
+                              (for-each (lambda (dir)
+                                          (import-pathname project-component dir src-component #t))
+                                        src-content))))))
                     (save~ (get-project-designer~ designer project-component))
                     (update-project-catalog project-component)
                     (acquire-focus~ tree)
@@ -461,14 +462,15 @@
   (definition MaxFiles-Warning
     100)
   
+  (definition Ignored-Directories
+    '(".git" ".hg"))
+  
   
   (definition (import-filter? project file)
     (let ((ext (get-extension~ file))
           (extensions (effective-include-extensions (get-include-extensions~ project))))
       (if extensions
-          (or (member? ext extensions test: ci=?)
-              ;; special case for those annoying extensionless files
-              (member? (get-name~ file) '("README" "INSTALL")))
+          (member? ext extensions test: extension=?)
         (known-extension-frame-class~ (get-application) ext))))
   
   
@@ -478,7 +480,7 @@
            (directory (with-import-directory current-directory? parent
                         (lambda (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
+           (count (count-files~ directory ignored-directories: Ignored-Directories filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
@@ -521,15 +523,22 @@
               files?: #f
               directories?: #t
               sort?: #t
-              recursive?: #f)
+              recursive?: #f
+              ignored-directories: Ignored-Directories)
             (iterate-directory~ dir
               (lambda (pathname)
                 (import-pathname project pathname subgroup #t))
               files?: #t
               directories?: #f
               sort?: #t
-              recursive?: #f))
-          subgroup)))
+              recursive?: #f
+              ignored-directories: Ignored-Directories))
+          (if (or (not recursive?)
+                  (not descendant?)
+                  (not-null? (get-children~ subgroup)))
+              subgroup
+            (remove-child~ designer subgroup design-events?: (not descendant?))
+            #f))))
     
     (define (import-file file parent descendant?)
       (let ((reference (extension-reference (get-extension~ file))))
@@ -554,9 +563,10 @@
            (import-dir pathname parent descendant?))))
       ((File)
        (when (or (not descendant?) (import-filter? project pathname))
-         (if (string-ci=? (get-extension~ pathname) "project")
-             (install-project pathname parent descendant?)
-           (import-file pathname parent descendant?))))))
+         (let ((ext (get-extension~ pathname)))
+           (if (and ext (string-ci=? ext "project"))
+               (install-project pathname parent descendant?)
+             (import-file pathname parent descendant?)))))))
   
   
   (definition (default-import-directory object (must-exist?: must-exist? #t))
@@ -585,14 +595,14 @@
   
   
   (definition (extension-reference ext)
-    (cond ((member? ext '("jazz") test: ci=?)    '(module-public jazz.editor.jazz Jazz-File))
-    @wait ((member? ext '("java") test: ci=?)    '(module-public jazz.editor.java Java-File))
-          ((member? ext '("c" "cpp") test: ci=?) '(module-public jazz.editor.c C-File))
-          ((member? ext '("bmp") test: ci=?)     '(module-public jazz.project Bitmap-File))
-          ((member? ext '("cur") test: ci=?)     '(module-public jazz.project Cursor-File))
-          ((member? ext '("ico") test: ci=?)     '(module-public jazz.project Icon-File))
-          ((member? ext '("wav") test: ci=?)     '(module-public jazz.project Sound-File))
-          (else                                  '(module-public jazz.project Project-File))))
+    (cond ((member? ext '("jazz") test: extension=?)    '(module-public jazz.editor.jazz Jazz-File))
+    @wait ((member? ext '("java") test: extension=?)    '(module-public jazz.editor.java Java-File))
+          ((member? ext '("c" "cpp") test: extension=?) '(module-public jazz.editor.c C-File))
+          ((member? ext '("bmp") test: extension=?)     '(module-public jazz.project Bitmap-File))
+          ((member? ext '("cur") test: extension=?)     '(module-public jazz.project Cursor-File))
+          ((member? ext '("ico") test: extension=?)     '(module-public jazz.project Icon-File))
+          ((member? ext '("wav") test: extension=?)     '(module-public jazz.project Sound-File))
+          (else                                         '(module-public jazz.project Project-File))))
   
   
   (method protected (ascendant-project component)
@@ -671,7 +681,8 @@
                  files?: #t
                  directories?: #t
                  sort?: #t
-                 recursive?: #f))
+                 recursive?: #f
+                 ignored-directories: Ignored-Directories))
               ((File)
                (when (import-filter? project pathname)
                  (let ((model (extension-model (get-extension~ pathname))))
@@ -962,7 +973,7 @@
                   (let ((output (get-output-log))
                         (timer (new Timer)))
                     (clear-results~ output)
-                    (select-results~ output)
+                    (select-resultset~ output)
                     (select-docked Output-Log)
                     (preprocess~ file project #f #f output force?: #t)
                     (user-message "Preprocessing done in {a}" (cpu-duration~ timer)))))))
@@ -1023,7 +1034,7 @@
            (left         (project-distribution~ project))
            (right        (project-distribution-directory~ project))
            (content      (project-distribution-list~ project))
-           (ignored-dirs (list ".git" ".hg" "bin" "build" "bootstrap" "gambit"))
+           (ignored-dirs (list ".git" ".hg" "bin" "build" "bootstrap" "deploy" "gambit"))
            (files        (list "vssver.scc"))
            (extensions   (list))
            (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: #f)))

@@ -796,20 +796,48 @@
     (jazz:define-macro (%%current-readtable)
       `(##current-readtable))
     
+    (jazz:define-macro (%%make-standard-readtable)
+      `(##make-standard-readtable))
+    
     (jazz:define-macro (%%readtable-copy readtable)
       (%%force-uniqueness (readtable)
         `(%%check-readtable ,readtable 1 (%%readtable-copy ,readtable)
            (##readtable-copy ,readtable))))
     
-    (jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
-      (%%force-uniqueness (readtable c delimiter? handler)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
-           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler))))
+    (jazz:define-macro (%%readtable-char-delimiter? readtable c)
+      (%%force-uniqueness (readtable c)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter? ,readtable ,c)
+           (##readtable-char-delimiter? ,readtable ,c))))
+    
+    (jazz:define-macro (%%readtable-char-delimiter?-set! readtable c delimiter?)
+      (%%force-uniqueness (readtable c delimiter?)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter?-set! ,readtable ,c ,delimiter?)
+           (##readtable-char-delimiter?-set! ,readtable ,c ,delimiter?))))
+    
+    (jazz:define-macro (%%readtable-char-handler readtable c)
+      (%%force-uniqueness (readtable c)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-handler ,readtable ,c)
+           (##readtable-char-handler ,readtable ,c))))
+    
+    (jazz:define-macro (%%readtable-char-handler-set! readtable c handler)
+      (%%force-uniqueness (readtable c handler)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-handler-set! ,readtable ,c ,handler)
+           (##readtable-char-handler-set! ,readtable ,c ,handler))))
+    
+    (jazz:define-macro (%%readtable-char-sharp-handler readtable c)
+      (%%force-uniqueness (readtable c)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler ,readtable ,c)
+           (##readtable-char-sharp-handler ,readtable ,c))))
     
     (jazz:define-macro (%%readtable-char-sharp-handler-set! readtable c handler)
       (%%force-uniqueness (readtable c handler)
         `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler-set! ,readtable ,c ,handler)
-           (##readtable-char-sharp-handler-set! ,readtable ,c ,handler)))))
+           (##readtable-char-sharp-handler-set! ,readtable ,c ,handler))))
+    
+    (jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
+      (%%force-uniqueness (readtable c delimiter? handler)
+        `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
+           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)))))
 
   (else))
 

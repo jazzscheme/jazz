@@ -56,23 +56,24 @@
 (class undocumented Search-Results extends Navigable-Results
 
 
-  (slot current-result initialize #f  getter generate)
-  (slot result-stack   initialize '() getter generate)
+  (slot current-resultset initialize #f  getter generate)
+  (slot resultset-stack   initialize '() getter generate)
 
 
   (form
     (<install>
       (<!>                           name: tools
-        (<!>                         name: clear     tooltip-text: "Pop Results")
+        (<Separator>                                 size: {Dimension 4 0})
+        (<Push-Tool>                 name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
         (<Separator>                                 size: {Dimension 4 0})
         (<Layout-View>                               size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
           (<Border-View>                             border-color: {Color Dark}
-            (<Results-Combo>         name: results))))
+            (<Resultset-Combo>       name: resultset))))
       (<!>                           name: scroller
         (<!>                         name: content
           (<!>                       name: header
             (<!>                     name: content
-              (<!>                   name: locations filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
+              (<!>                   name: results   filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
                 (<Tree-Node-Column>  name: name      title: "Name" width: 200)
                 (<Tree-Label-Column> name: location  title: "Location" width: 337)
                 (<Tree-Label-Column> name: type      title: "Type" width: 100))))))))
@@ -84,7 +85,7 @@
   
   (method override (form-model form)
     (case (get-name~ form)
-      ((locations) Search-Results-Tree)
+      ((results) Search-Results-Tree)
       (else (nextmethod form))))
 
   
@@ -119,6 +120,10 @@
   
   (method override (get-context-menu)
     (new Found-Menu))
+  
+  
+  (method (on-pop-resultset evt)
+    (pop-resultset))
 
   
   ;;;
@@ -129,16 +134,16 @@
   (method override (edit-selection forward?)
     (let ((selection (get-selection~ (get-tree))))
       (for-each (lambda (rank)
-                    (edit-location rank forward? #t #t))
+                    (edit-result rank forward? #t #t))
                   selection)))
   
 
-  (method public (edit-location rank forward? focus? visible?)
+  (method public (edit-result rank forward? focus? visible?)
     (with-cursor :wait
       (lambda ()
-        (set-active-search (get-search~ current-result))
-        (let ((location (get-user-data~ (get-row~ (get-tree) rank))))
-          (edit~ location forward? focus? visible?)))))
+        (set-active-search (get-search~ current-resultset))
+        (let ((result (get-user-data~ (get-row~ (get-tree) rank))))
+          (edit~ result forward? focus? visible?)))))
   
   
   ;;;
@@ -147,21 +152,22 @@
   
   
   (method public (replace-selected)
-    (let ((search (get-search~ current-result)))
+    (let ((search (get-search~ current-resultset)))
       (if (not search)
           (bell)
-        (if (not (every? (lambda (location)
-                           (is? location File-Search-Location))
-                         (get-locations~ current-result)))
+        (if (not (every? (lambda (result)
+                           (is? result File-Search-Result))
+                         (get-results~ current-resultset)))
             (message-box "Replace selected currently only supports file searches")
           (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
             (if (eq? code 'cancel)
                 (throw-cancel)
+              (set-active-search search)
               (let ((auto-save/close? (eq? code 'yes))
                     (selection (get-selection~ (get-tree)))
                     (modified-count 0))
                 (for-each (lambda (rank)
-                            (receive (frame new?) (edit-location rank #t #f #f)
+                            (receive (frame new?) (edit-result rank #t #f #f)
                               (let* ((guest (get-guest~ frame))
                                      (text (get-text-view~ guest)))
                                 (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
@@ -182,54 +188,52 @@
   ;;;
 
 
-  (method public (select-result search locations)
-    (let ((result (new Search-Result search locations)))
+  (method public (select-results search results)
+    (let ((resultset (new Search-Resultset search results)))
       (preserve-current-selection)
-      (set! current-result result)
-      (set! result-stack (cons current-result result-stack))
-      (update-result)
-      (update-results-combo))
+      (set! current-resultset resultset)
+      (set! resultset-stack (cons current-resultset resultset-stack))
+      (update-resultset)
+      (update-resultset-combo))
     (set-active-search search)
-    (select-results))
-  
-  
-  (method (set-result result)
-    (preserve-current-selection)
-    (set! current-result result)
-    (update-result)
-    (update-results-combo))
+    (select-resultset))
   
   
   (method (preserve-current-selection)
-    (when current-result
-      (set-selection~ current-result (get-selection~ (get-tree)))))
+    (when current-resultset
+      (set-selection~ current-resultset (get-selection~ (get-tree)))))
 
 
   ;;;
-  ;;;; Results
+  ;;;; Resultset
   ;;;
   
   
-  (method (pop-results)
-    (set! current-result (car result-stack))
-    (set! result-stack (cdr result-stack))
-    (update-result)
-    (update-results-combo))
+  (method (set-resultset resultset)
+    (preserve-current-selection)
+    (set! current-resultset resultset)
+    (update-resultset)
+    (update-resultset-combo)
+    (set-active-search (get-search~ current-resultset)))
   
   
-  (method override (clear-results)
-    (if (<= (length result-stack) 1)
+  (method (pop-resultset)
+    (if (<= (length resultset-stack) 1)
         (bell)
-      (pop-results)))
+      (set! resultset-stack (cdr resultset-stack))
+      (set! current-resultset (car resultset-stack))
+      (update-resultset)
+      (update-resultset-combo)
+      (set-active-search (get-search~ current-resultset))))
   
   
-  (method (update-results-combo)
-    (let ((combo (locate 'results)))
+  (method (update-resultset-combo)
+    (let ((combo (locate 'resultset)))
       (set-choices~ combo (map (lambda (result)
                                  (let ((search (get-search~ result)))
                                    (list result (if (not search) "" (present~ search)))))
-                               result-stack))
-      (set-value~ combo current-result)))
+                               resultset-stack))
+      (set-value~ combo current-resultset)))
 
 
   ;;;
@@ -237,40 +241,37 @@
   ;;;
 
 
-  (method (update-result)
+  (method (update-resultset)
     (let ((appl (get-application))
           (tree (get-tree))
-          (search (get-search~ current-result))
-          (locations (get-locations~ current-result))
-          (selection (get-selection~ current-result)))
+          (search (get-search~ current-resultset))
+          (results (get-results~ current-resultset))
+          (selection (get-selection~ current-resultset)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
           (set-toplevel-controls?~ (get-node-column~ tree) (supports-drill-down?~ search))
-          (for-each add-location (sort string<? locations key: present-name~))))
-      (when (and locations (> (get-visible-count~ tree) 0))
+          (for-each add-result (sort string<? results key: present-name~))))
+      (when (and results (> (get-visible-count~ tree) 0))
         (set-selection~ tree (or selection (list 0))))
-      (with-locked-update
-        (lambda ()
-          (select-docked Search-Results)))
       (update-search-actions~ appl)))
 
   
   (method (update-tree-row row)
-    (let ((location (get-user-data~ row)))
-      (for-each (lambda (location)
-                  (add-location location father: row))
-                (drill-down~ location))))
+    (let ((result (get-user-data~ row)))
+      (for-each (lambda (result)
+                  (add-result result father: row))
+                (drill-down~ result))))
   
   
-  (method (add-location location (father: father #f))
+  (method (add-result result (father: father #f))
     (let ((tree (get-tree))
-          (state (if (supports-drill-down?~ (get-search~ location)) 'dynamic 'collapsed))
-          (node (new Tree-Node title: (present-name~ location) image: (get-icon~ location)))
-          (loc (new Tree-Label title: (present-location~ location)))
-          (type (new Tree-Label title: (present-type~ location)))
-          (user-data location))
-      (add-row~ tree father: father state: state children: (list node loc type) user-data: user-data))))
+          (state (if (supports-drill-down?~ (get-search~ result)) 'dynamic 'collapsed))
+          (node (new Tree-Node title: (present-name~ result) image: (get-icon~ result)))
+          (location (new Tree-Label title: (present-location~ result)))
+          (type (new Tree-Label title: (present-type~ result)))
+          (user-data result))
+      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data))))
 
 
 ;;;
@@ -313,8 +314,8 @@
     (set-clipboard-text
       (format "{l detail: :human}"
         (map (lambda (n)
-               (let ((location (get-user-data~ (get-row n))))
-                 (present-name~ location)))
+               (let ((result (get-user-data~ (get-row n))))
+                 (present-name~ result)))
              (get-selection)))))
   
   
@@ -345,15 +346,15 @@
 
 
 ;;;
-;;;; Results-Combo
+;;;; Resultset-Combo
 ;;;
 
 
-(class Results-Combo extends Combo-Box
+(class Resultset-Combo extends Combo-Box
   
   
   (method override (content-change origin)
-    (set-result~ (get-creator~ parent) (get-value))))
+    (set-resultset~ (get-creator~ parent) (get-value))))
 
 
 ;;;

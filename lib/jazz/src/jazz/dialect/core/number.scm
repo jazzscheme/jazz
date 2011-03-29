@@ -57,6 +57,17 @@
 
 
 ;;;
+;;;; Flownum
+;;;
+
+
+(define jazz:sharp/sharp/fl+ ##fl+)
+(define jazz:sharp/sharp/fl- ##fl-)
+(define jazz:sharp/sharp/fl* ##fl*)
+(define jazz:sharp/sharp/fl/ ##fl/)
+
+
+;;;
 ;;;; Infinity
 ;;;
 

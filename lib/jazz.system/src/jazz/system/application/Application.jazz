@@ -154,7 +154,9 @@
     (define (create-profile)
       (with-safe-execution "loading the profile"
         (lambda ()
-          (set! profile (new (load-profile-class profile-class))))
+          (set! profile (if (find-repository 'Jazz)
+                            (new (load-profile-class profile-class))
+                          (new Me))))
         continue-text: (list (format "to bypass this problem by using a generic profile class"))
         continue-handler:
         (lambda (err)
@@ -1827,21 +1829,19 @@
   (method public (update-search-actions)
     (let* ((frames (all-frames))
            (count (length frames))
+           (search (active-search))
            (results (get-search-results))
-           (result-count (get-visible-count~ (get-tree~ results)))
-           (result-stack-count (length (get-result-stack~ results)))
-           (in-modal? (in-modal?)))
-      (set-action-enabled? {Action application edit-next} (>= result-count 1))
-      (set-action-enabled? {Action application edit-previous} (>= result-count 1))
-      (set-action-enabled? {Action application edit-current} (>= result-count 1))
-      @wait
-      (set-action-enabled? {Action application pop-results} (> result-stack-count 1))
-      (set-action-enabled? {Action application find-forward} (>= count 1))
-      (set-action-enabled? {Action application find-backward} (>= count 1))
-      (set-action-enabled? {Action application replace} (>= count 1))
-      (set-action-enabled? {Action application replace&find-forward} (>= count 1))
-      (set-action-enabled? {Action application replace-all} (>= count 1))
-      (set-action-enabled? {Action application replace-selected} (>= result-count 1))))
+           (results-count (get-visible-count~ (get-tree~ results))))
+      (set-action-enabled? {Action application find-forward} (and search (>= count 1)))
+      (set-action-enabled? {Action application find-backward} (and search (>= count 1)))
+      (set-action-enabled? {Action application replace} (and search (>= count 1)))
+      (set-action-enabled? {Action application replace&find-forward} (and search (>= count 1)))
+      (set-action-enabled? {Action application replace-all} (and search (>= count 1)))
+      (set-action-enabled? {Action application edit-next} (>= results-count 1))
+      (set-action-enabled? {Action application edit-previous} (>= results-count 1))
+      (set-action-enabled? {Action application edit-current} (>= results-count 1))
+      (set-action-enabled? {Action application replace-selected} (>= results-count 1))
+      (set-action-enabled? {Action application previous-search} search)))
 
 
   ;;;
@@ -1872,7 +1872,8 @@
   (method (update-search tab (domain: domain #f) (selector: selector #f))
     (let* ((focus (get-focus))
            (internal? (is? focus Tree-Embedded-Search-Text-View))
-           (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) #f))
+           (strings (and (not internal?) (is? focus Text-View) (get-selected-strings~ focus)))
+           (string (and strings (= (length strings) 1) (car strings)))
            (manager (get-search-manager))
            (palette (get-host~ manager))
            (player (get-player~ palette))
@@ -1902,7 +1903,7 @@
   
   
   (method public (end-search-edition)
-    (let ((tree (get-targets-tree~ (get-search~ (get-search-manager)))))
+    (let ((tree (get-targets~ (get-search~ (get-search-manager)))))
       (end-edition~ tree)))
 
 
@@ -1916,10 +1917,6 @@
 
   (method package (on-edit-current evt)
     (edit-current~ (get-active-results)))
-
-
-  (method package (on-pop-results evt)
-    (clear-results~ (get-search-results)))
 
 
   (method package (on-find-forward evt)
@@ -1939,14 +1936,14 @@
   (method package (on-replace evt)
     (let ((search (active-search))
           (text (get-target-text)))
-      (unless (and search text (replace~ search text))
+      (unless (and search text (replace-selection~ search text))
         (bell))))
 
 
   (method package (on-replace&find-forward evt)
     (let ((search (active-search))
           (text (get-target-text)))
-      (unless (and search text (replace&find-forward~ search text))
+      (unless (and search text (replace-selection&find-forward~ search text))
         (bell))))
 
 
@@ -1960,6 +1957,16 @@
   
   (method package (on-replace-selected evt)
     (replace-selected~ (get-search-results)))
+
+
+  (method package (on-previous-search evt)
+    (let ((search (active-search))
+          (results (get-search-results)))
+      (let ((resultset (get-current-resultset~ results)))
+        (let ((results-search (and resultset (get-search~ resultset))))
+          (if (and results-search (eq? search results-search))
+              (pop-resultset~ results)
+            (set-active-search results-search))))))
 
 
   (method (get-target-text)

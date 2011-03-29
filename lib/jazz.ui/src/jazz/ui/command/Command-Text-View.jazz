@@ -99,6 +99,18 @@
       (else (nextmethod name))))
   
   
+  (method (status-label)
+    (child~ creator 'status))
+  
+  
+  (method (set-status title)
+    (set-title~ (status-label) title))
+  
+  
+  (method (clear-status)
+    (set-status ""))
+  
+  
   ;;;
   ;;;; Client
   ;;;
@@ -146,6 +158,7 @@
     (cleanup-client)
     (set-mode-execute)
     (clear-user-message)
+    (clear-status)
     (empty-text))
   
   
@@ -473,6 +486,7 @@
   (slot beginning       initialize #f)
   (slot ending          initialize #f)
   (slot last-range      initialize #f)
+  (slot last-found?     initialize #t)
   (slot prefixes        initialize (make-table test: equal?))
   (slot found-style     initialize #f)
   (slot highlight-style initialize #f)
@@ -528,11 +542,11 @@
   
   (method (get-context)
     ;; fow now get first one
-    (car (get-contexts~ (get-find-set~ search))))
+    (car (get-contexts~ (get-find~ search))))
   
   
   (method (set-context context)
-    (set-find-set~ search context))
+    (set-find~ search context))
   
   
   (method (get-whole-words?)
@@ -736,7 +750,7 @@
   (method (select-replace)
     (let ((replace (second-content~ text)))
       (when replace
-        (set-replace-list~ search (list replace)))))
+        (set-replace~ search (new Replace (list replace))))))
   
   
   (method (on-finish evt)
@@ -788,17 +802,16 @@
       (when ending
         (add-boundary-highlight (new Range$Cell$ (previous-cell~ client ending) ending))))
     
-    (define (highlight-find client)
-      (let ((context (get-context)))
-        (unless (empty-string? (get-target~ context))
-          (for-each (lambda (found)
-                      (bind (start . end) found
-                        (let ((range (new Range$Cell$ start end)))
-                          (unless (nu=? range last-range)
-                            (add-highlight~ client (new Text-Highlight range highlight-style))))))
-                    (text-regular-search-all~ client context start: beginning end: ending)))
-        (add-highlight~ client (new Text-Highlight last-range found-style))
-        (set-selection~ client last-range)))
+    (define (highlight-find client all)
+      (when all
+        (for-each (lambda (found)
+                    (bind (start . end) found
+                      (let ((range (new Range$Cell$ start end)))
+                        (unless (nu=? range last-range)
+                          (add-highlight~ client (new Text-Highlight range highlight-style))))))
+                  all))
+      (add-highlight~ client (new Text-Highlight last-range found-style))
+      (set-selection~ client last-range))
     
     (define (highlight-replace client repl)
       (unless (empty-string? repl)
@@ -812,18 +825,34 @@
     (let ((client (get-client)))
       (when (is? client Text-View)
         (let ((content (first-content~ text))
-              (repl (second-content~ text)))
-          (let ((found #f))
-            (set! found (search-target client content #f))
-            (when again?
-              (set! found (search-target client content #t)))
-            (when (not found)
-              (bell)))
-          (remove-highlights)
-          (highlight-boundary client)
-          (highlight-find client)
-          (when repl
-            (highlight-replace client repl))))))
+              (repl (second-content~ text))
+              (context (get-context)))
+          (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ client context start: beginning end: ending))))
+            (let ((found #f))
+              (set! found (search-target client content #f))
+              (when again?
+                (set! found (search-target client content #t)))
+              (if found
+                  (set! last-found? #t)
+                (when (or last-found? again?)
+                  (set! last-found? #f)
+                  (bell)))
+              (if (not all)
+                  (clear-status~ text)
+                (let ((rank (and last-range (find all (cons (get-start~ last-range)
+                                                            (get-end~ last-range))
+                                              test: (lambda (x y)
+                                                      (and (cell=? (car x) (car y))
+                                                           (cell=? (cdr x) (cdr y)))))))
+                      (total (length all)))
+                  (set-status~ text (if rank
+                                        (format "{a} of {a}" (+ rank 1) total)
+                                      (format "{a}" total))))))
+            (remove-highlights)
+            (highlight-boundary client)
+            (highlight-find client all)
+            (when repl
+              (highlight-replace client repl)))))))
   
   
   (method (replace-all repl)

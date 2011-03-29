@@ -210,6 +210,15 @@
 (define (jazz:readtable-named-char-table-set! rt nc)
   (macro-readtable-named-char-table-set! rt nc))
 
+(define (jazz:readtable-paren-keyword-set! rt key)
+  (macro-readtable-paren-keyword-set! rt key))
+
+(define (jazz:readtable-bracket-keyword-set! rt key)
+  (macro-readtable-bracket-keyword-set! rt key))
+
+(define (jazz:readtable-brace-keyword-set! rt key)
+  (macro-readtable-brace-keyword-set! rt key))
+
 (define (jazz:readtable-start-syntax rt)
   (macro-readtable-start-syntax rt))
 

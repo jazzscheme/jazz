@@ -299,10 +299,10 @@
 
 ;; until proper call site casting of native calls
 
-(native undocumented ##fl+ <fl^fl:fl>)
-(native undocumented ##fl- <fl^fl:fl>)
-(native undocumented ##fl* <fl^fl:fl>)
-(native undocumented ##fl/ <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl+ <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl- <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl* <fl^fl:fl>)
+(native undocumented jazz:sharp/sharp/fl/ <fl^fl:fl>)
 
 
 ;;;
@@ -852,7 +852,22 @@
 ;;;
 
 
+(native jazz:readtable?)
 (native current-readtable)
+(native jazz:make-standard-readtable)
+(native jazz:readtable-copy)
+(native jazz:readtable-char-delimiter?)
+(native jazz:readtable-char-delimiter?-set!)
+(native jazz:readtable-char-handler)
+(native jazz:readtable-char-handler-set!)
+(native jazz:readtable-char-sharp-handler)
+(native jazz:readtable-char-sharp-handler-set!)
+(native jazz:readtable-char-class-set!)
+(native jazz:readtable-paren-keyword-set!)
+(native jazz:readtable-bracket-keyword-set!)
+(native jazz:readtable-brace-keyword-set!)
+(native jazz:readtable-named-char-table)
+(native jazz:readtable-named-char-table-set!)
 (native jazz:with-readtable)
 (native jazz:scheme-readtable)
 (native jazz:jazz-readtable)

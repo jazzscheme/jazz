@@ -395,9 +395,12 @@
 
 
 (define (jazz:parse-exported-symbol module-declaration name)
-  (if (jazz:composite-reference? name)
-      (values (jazz:reference-name name) name)
-    (values name name)))
+  (cond ((jazz:composite-namespace? name)
+         (values (jazz:namespace-name name) name))
+        ((jazz:composite-reference? name)
+         (values (jazz:reference-name name) name))
+        (else
+         (values name name))))
 
 
 (jazz:encapsulate-class jazz:Export-Reference)

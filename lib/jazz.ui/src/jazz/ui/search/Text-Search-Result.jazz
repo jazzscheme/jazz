@@ -46,16 +46,12 @@
 (class Text-Search-Result extends Search-Result
   
   
-  (slot client    getter generate)
-  (slot beginning getter generate)
-  (slot ending    getter generate)
+  (slot client getter generate)
   
   
   (method override (initialize resultset (client: client #f) (beginning: beginning #f) (ending: ending #f))
-    (nextmethod resultset)
-    (set! client~self client)
-    (set! beginning~self beginning)
-    (set! ending~self ending))
+    (nextmethod resultset beginning: beginning ending: ending)
+    (set! client~self client))
   
   
   ;;;
@@ -64,28 +60,19 @@
   
   
   (method override (effective-client)
+    (define (get-target-text)
+      (let ((frame (first-frame)))
+        (when (is? frame Frame-Host)
+          (let ((guest (get-guest~ frame)))
+            (when (is? guest Document)
+              (get-text-view~ guest))))))
+    
     (or client (get-target-text)))
-  
-
-  (method (get-target-text)
-    (let ((frame (first-frame)))
-      (when (is? frame Frame-Host)
-        (let ((guest (get-guest~ frame)))
-          (when (is? guest Document)
-            (get-text-view~ guest))))))
   
   
   ;;;
   ;;;; Find
   ;;;
-  
-  
-  (method override (find-next client)
-    (select-next~ client (get-find~ search) end: ending))
-  
-  
-  (method override (find-previous client)
-    (select-previous~ client (get-find~ search) end: beginning))
   
   
   (method override (install-indicators beginning-indicator ending-indicator)

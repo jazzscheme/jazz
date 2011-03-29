@@ -1831,6 +1831,7 @@
            (count (length frames))
            (result (active-search-result))
            (results (get-search-results))
+           (resultset (get-current-resultset~ results))
            (results-count (get-visible-count~ (get-tree~ results))))
       (set-action-enabled? {Action application find-forward} (and result (>= count 1)))
       (set-action-enabled? {Action application find-backward} (and result (>= count 1)))
@@ -1841,7 +1842,7 @@
       (set-action-enabled? {Action application edit-previous} (>= results-count 1))
       (set-action-enabled? {Action application edit-current} (>= results-count 1))
       (set-action-enabled? {Action application replace-selected} (>= results-count 1))
-      (set-action-enabled? {Action application previous-search} result)))
+      (set-action-enabled? {Action application previous-search} (and result resultset))))
 
 
   ;;;
@@ -1921,13 +1922,21 @@
 
   (method package (on-find-forward evt)
     (let ((result (active-search-result)))
-      (unless (and result (find-forward~ result))
+      (if result
+          (if (find-forward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-forward~ result)
+              (bell)))
         (bell))))
 
 
   (method package (on-find-backward evt)
     (let ((result (active-search-result)))
-      (unless (and result (find-backward~ result))
+      (if result
+          (if (find-backward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-backward~ result)
+              (bell)))
         (bell))))
 
 
@@ -2022,8 +2031,8 @@
     (select-search~ (require-unzoomed-command-text) direction range initial again?: #f))
   
   
-  (method public (select-command-highlight direction range initial beginning ending (highlight?: highlight? #f))
-    (select-search~ (require-unzoomed-command-text) direction range initial again?: #f highlight?: highlight? beginning: beginning ending: ending))
+  (method public (select-command-highlight direction range search-result client (highlight?: highlight? #f))
+    (select-search~ (require-unzoomed-command-text) direction range #f search-result: search-result client: client highlight?: highlight? again?: #f))
   
   
   (method public (select-command-extended)
@@ -2096,8 +2105,8 @@
                                 (char-encoding: char-encoding #f)
                                 (wrap?: wrap? #f)
                                 (force-new?: force-new? #f)
-                                (activate-focus?: activate-focus? #t)
                                 (visible?: visible? #t)
+                                (activate-focus?: activate-focus? #t)
                                 (return-new?: return-new? #f))
     (when moniker
       (if (not (exists?~ moniker))

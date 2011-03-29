@@ -47,6 +47,7 @@
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.search)
         (jazz.ui.view))
 
 
@@ -776,7 +777,8 @@
           (begin
             (bell)
             (select-command-search~ (get-application) 'forward target))
-        (select-command-highlight~ (get-application) 'forward range target (get-start~ declaration-range) (get-end~ declaration-range) highlight?: #t))))
+        (let ((search-result (make-text-search-result target self (get-start~ declaration-range) (get-end~ declaration-range))))
+          (select-command-highlight~ (get-application) 'forward range search-result self highlight?: #t)))))
 
   
   (method (on-remove-highlights evt)
@@ -795,21 +797,15 @@
         #f)))
   
   
-  (method public (highlight-reference declaration-range target)
-    (select-command-highlight~ (get-application) 'forward #f (search-context target) (get-start~ declaration-range) (get-end~ declaration-range)))
+  (method public (highlight-reference search-result)
+    (select-command-highlight~ (get-application) 'forward #f search-result self))
   
   
   (method public (highlight-expression range target)
-    (let ((ranges (new-queue))
-          (reference-style (get-style 'Reference)))
+    (let ((ranges (new-queue)))
       (iterate-expression-target range target
         (lambda (found)
-          (modify-style found
-            (lambda (s)
-              (unless (inherits?~ s reference-style)
-                (let ((style (extend~ s)))
-                  (set-base~ style (cons 'Reference (get-base~ style)))
-                  style))))
+          (push-style found 'Reference)
           (enqueue ranges found)))
       (queue-list ranges)))
   
@@ -817,13 +813,7 @@
   (method public (unhighlight-expression range target)
     (iterate-expression-target range target
       (lambda (found)
-        (modify-style found
-          (lambda (s)
-            (let ((base (get-base~ s)))
-              (when (memq? 'Reference base)
-                (let ((style (extend~ s)))
-                  (set-base~ style (remove 'Reference (get-base~ style)))
-                  style))))))))
+        (pop-style found 'Reference))))
   
   
   (method public (remove-highlights range)

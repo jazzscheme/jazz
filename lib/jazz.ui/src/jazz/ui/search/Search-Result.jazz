@@ -48,12 +48,16 @@
   
   (slot resultset getter generate)
   (slot search    getter generate)
+  (slot beginning accessors generate)
+  (slot ending    accessors generate)
   
   
-  (method override (initialize resultset)
+  (method override (initialize resultset (beginning: beginning #f) (ending: ending #f))
     (nextmethod)
     (set! resultset~self resultset)
-    (set! search~self (get-search~ resultset)))
+    (set! search~self (get-search~ resultset))
+    (set! beginning~self beginning)
+    (set! ending~self ending))
   
   
   ;;;
@@ -86,7 +90,7 @@
   ;;;
   
   
-  (method protected virtual (edit select focus? visible?)
+  (method protected virtual (edit select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
     )
   
   
@@ -100,8 +104,18 @@
   
   
   (method public virtual (effective-client)
-    (receive (frame new?) (edit #f #f #f)
+    (receive (frame new?) (edit #f visible?: #f activate-focus?: #f)
       (get-text-view~ (get-guest~ frame))))
+  
+  
+  ;;;
+  ;;;; Boundaries
+  ;;;
+  
+  
+  (method public (get-boundaries)
+    (when (and beginning ending)
+      (new Range$Cell$ beginning ending)))
   
   
   ;;;
@@ -109,30 +123,40 @@
   ;;;
   
   
-  (method protected (find-forward (text: text #f) (follow?: follow? #t))
-    (let ((client (or text (effective-client))))
-      (or (find-next client)
-          (let ((results (get-results)))
-            (if (and follow? (same-search? results))
-                (edit-next~ results)
-              (bell))))))
+  (method protected (find-forward (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client))))
+      (if (find-next client)
+          #t
+        (when follow?
+          (follow-forward)))))
   
   
-  (method protected (find-backward (text: text #f) (follow?: follow? #t))
-    (let ((client (or text (effective-client))))
-      (or (find-previous client)
-          (let ((results (get-results)))
-            (if (and follow? (same-search? results))
-                (edit-previous~ results)
-              (bell))))))
+  (method protected (find-backward (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client))))
+      (if (find-previous client)
+          #t
+        (when follow?
+          (follow-backward)))))
   
   
-  (method protected virtual (find-next client)
-    (select-next~ client (get-find~ search)))
+  (method protected (find-next client)
+    (select-next~ client (get-find~ search) end: ending))
   
   
-  (method protected virtual (find-previous client)
-    (select-previous~ client (get-find~ search)))
+  (method protected (find-previous client)
+    (select-previous~ client (get-find~ search) end: beginning))
+  
+  
+  (method protected (follow-forward)
+    (let ((results (get-results)))
+      (when (same-search? results)
+        (edit-next~ results))))
+  
+  
+  (method protected (follow-backward)
+    (let ((results (get-results)))
+      (when (same-search? results)
+        (edit-previous~ results))))
   
   
   (method protected virtual (install-indicators beginning-indicator ending-indicator)

@@ -126,21 +126,27 @@
   ;;;
 
   
-  (method override (edit-reference target . rest)
+  (method override (edit-reference search-result . rest)
     (define (find-declaration-range text)
       (when (equal? (reference->name (get-string~ text (get-selection~ text))) name)
         (declaration-range~ text (get-start~ text))))
     
     (define (fallback-find text)
       (user-message "Unable to find definition")
-      (or (select-next~ text target)
-          (select-previous~ text target)))
+      (let ((target (get-find~ (get-search~ search-result))))
+        (or (select-next~ text target)
+            (select-previous~ text target))))
     
-    (let ((text (get-guest~ (apply edit rest))))
-      (let ((range (find-declaration-range text)))
-        (if range
-            (highlight-reference~ text range target)
-          (fallback-find text)))))
+    (receive (frame new?) (apply edit return-new?: #t rest)
+      (let ((text (get-guest~ frame)))
+        (let ((range (find-declaration-range text)))
+          (if range
+              (begin
+                (set-beginning~ search-result (get-start~ range))
+                (set-ending~ search-result (get-end~ range))
+                (highlight-reference~ text search-result))
+            (fallback-find text))))
+      (values frame new?)))
   
   
   ;;;

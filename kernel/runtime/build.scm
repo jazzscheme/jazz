@@ -414,6 +414,8 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
                     (newline output)
+                    (jazz:print-variable 'jazz:single-objects? (jazz:build-single-objects?) output)
+                    (newline output)
                     (jazz:print-variable 'jazz:jazz-updates (jazz:get-jazz-updates) output)))
                 #t)
             #f)))
@@ -646,6 +648,8 @@
                     (jazz:print-variable 'jazz:source-repositories (jazz:determine-source-repositories destination-directory) output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:single-objects? (jazz:build-single-objects?) output)
                     (newline output)
                     (jazz:print-variable 'jazz:jazz-updates (jazz:get-jazz-updates) output)
                     (newline output)
@@ -931,7 +935,7 @@
                 ,@(link-options)))
             (case platform
               ((windows)
-               (if (jazz:build-single-objects?)
+               (if jazz:single-objects?
                    (jazz:obliterate-PE-timestamp library-o1 'DLL))))
             (map delete-file (%%list header-c header-o linkfile))
             #t)

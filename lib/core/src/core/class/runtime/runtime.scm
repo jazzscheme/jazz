@@ -75,17 +75,37 @@
   (%%string->symbol (%%string-append (%%symbol->string locator) "!" (%%symbol->string suffix))))
 
 
-(define (jazz:split-symbol identifier separator)
-  (%%debug-assert (%%symbol? identifier)
-    (map string->symbol (jazz:split-string (%%symbol->string identifier) separator))))
+(define (jazz:split-symbol symbol separator)
+  (%%debug-assert (%%symbol? symbol)
+    (map string->symbol (jazz:split-string (%%symbol->string symbol) separator))))
 
 
-(define (jazz:split-identifier identifier)
-  (jazz:split-symbol identifier #\.))
+(define (jazz:split-identifier symbol)
+  (jazz:split-symbol symbol #\.))
 
 
-(define (jazz:split-reference identifier)
-  (jazz:split-symbol identifier #\:))
+(define (jazz:split-reference symbol)
+  (jazz:split-symbol symbol #\:))
+
+
+(define (jazz:composite-namespace? symbol)
+  (and (%%symbol? symbol)
+       (jazz:memstring #\# (%%symbol->string symbol))))
+
+
+(define (jazz:break-namespace symbol)
+  (let ((str (%%symbol->string symbol)))
+    (let ((n (jazz:string-find-reversed str #\#)))
+      (if (%%not n)
+          (values #f symbol)
+        (let ((next (%%fx+ n 1)))
+          (values (%%string->symbol (%%substring str 0 next))
+                  (%%string->symbol (%%substring str next (%%string-length str)))))))))
+
+
+(define (jazz:namespace-name symbol)
+  (receive (namespace name) (jazz:break-namespace symbol)
+    name))
 
 
 ;;;

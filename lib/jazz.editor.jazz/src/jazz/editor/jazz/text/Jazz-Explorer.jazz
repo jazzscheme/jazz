@@ -392,7 +392,7 @@
       ((:c-type)          walk-c-type)
       ((:c-structure)     walk-c-structure)
       ((:c-definition)    walk-c-define)
-      ((:c-external)      walk-external)
+      ((:c-external)      walk-c-external)
       ((:com-external)    walk-com-external)
       ((:datacontainer)   walk-datacontainer)
       (else               (nextmethod name))))
@@ -654,18 +654,17 @@
       entry))
 
   
-  (method (walk-external context symbol form declaration keyword expression doc)
+  (method (walk-c-external context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (forward-expr)
-        (let ((entered? (enter-list)))
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context 'external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-          (when entered?
-            (walk-parameters entry declaration keyword expression doc))
-          (when entered?
-            (exit-list))))
+      (let ((entered? (enter-list)))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (when entered?
+          (walk-parameters entry declaration keyword expression doc))
+        (when entered?
+          (exit-list)))
       (walk-expressions entry expression)
       entry))
 
@@ -674,14 +673,13 @@
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (forward-expr)
-        (let ((entered? (enter-list)))
-          (when (and (forward-expr) (eq? kind 'symbol))
-            (declaration context 'com-external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-          (when entered?
-            (walk-parameters entry declaration keyword expression doc))
-          (when entered?
-            (exit-list))))
+      (let ((entered? (enter-list)))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'com-external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (when entered?
+          (walk-parameters entry declaration keyword expression doc))
+        (when entered?
+          (exit-list)))
       (walk-expressions entry expression)
       entry))
   
@@ -690,6 +688,6 @@
     (let ((entry context))
       (keyword context start end)
       (when (forward-expr)
-        (declaration context 'datacontainer symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (set! entry (declaration context 'datacontainer symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (walk-expressions entry expression)
       entry))))

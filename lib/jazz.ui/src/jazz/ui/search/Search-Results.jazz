@@ -58,25 +58,28 @@
 
   (slot current-resultset initialize #f  getter generate)
   (slot resultset-stack   initialize '() getter generate)
+  (slot categorized?      initialize #f)
 
 
   (form
     (<install>
-      (<!>                           name: tools
-        (<Separator>                                 size: {Dimension 4 0})
-        (<Push-Tool>                 name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
-        (<Separator>                                 size: {Dimension 4 0})
-        (<Layout-View>                               size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
-          (<Border-View>                             border-color: {Color Dark}
-            (<Resultset-Combo>       name: resultset))))
-      (<!>                           name: scroller
-        (<!>                         name: content
-          (<!>                       name: header
-            (<!>                     name: content
-              (<!>                   name: results   filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
-                (<Tree-Node-Column>  name: name      title: "Name" width: 200)
-                (<Tree-Label-Column> name: location  title: "Location" width: 337)
-                (<Tree-Label-Column> name: type      title: "Type" width: 100))))))))
+      (<!>                              name: tools
+        (<Toggle-Tool>                                  size: {Dimension 22 22} before: edit location: tail tooltip?: #t tooltip-text: "Display Flat / Categorized" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :guest on-categorize})
+        (<Separator>                                    size: {Dimension 8 0} before: edit)
+        (<Separator>                                    size: {Dimension 4 0})
+        (<Push-Tool>                    name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
+        (<Separator>                                    size: {Dimension 4 0})
+        (<Layout-View>                                  size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+          (<Border-View>                                border-color: {Color Dark}
+            (<Resultset-Combo>          name: resultset))))
+      (<!>                              name: scroller
+        (<!>                            name: content
+          (<!>                          name: header
+            (<!>                        name: content
+              (<!>                      name: results   filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
+                (<Tree-Node-Column>     name: name      title: "Name" width: 200)
+                (<Tree-Location-Column> name: location  title: "Location" width: 337)
+                (<Tree-Label-Column>    name: type      title: "Type" width: 100))))))))
   
   
   (method meta override (external-name . rest)
@@ -120,6 +123,11 @@
   
   (method override (get-context-menu)
     (new Found-Menu))
+  
+  
+  (method (on-categorize evt)
+    (set! categorized? (not categorized?))
+    (update-resultset))
   
   
   (method (on-pop-resultset evt)
@@ -247,8 +255,8 @@
       (with-update-locked~ tree
         (lambda ()
           (set-toplevel-controls?~ (get-node-column~ tree) (supports-drill-down?~ search))
-          (for-each add-result (sort string<? results key: present-name~))))
-      (when (and results (> (get-visible-count~ tree) 0))
+          (install-results~ search self results categorized?)))
+      (when (> (get-visible-count~ tree) 0)
         (set-selection~ tree (or selection (list 0))))
       (update-search-actions~ appl)))
 
@@ -262,7 +270,7 @@
   
   (method (add-result result (father: father #f))
     (let ((tree (get-tree))
-          (state (if (supports-drill-down?~ (get-search~ result)) 'dynamic 'collapsed))
+          (state (if (dynamic-search?~ (get-search~ result) categorized?) 'dynamic 'collapsed))
           (node (new Tree-Node title: (present-name~ result) image: (get-icon~ result)))
           (location (new Tree-Label title: (present-location~ result)))
           (type (new Tree-Label title: (present-type~ result)))
@@ -339,6 +347,18 @@
     (<install>
       (<Action-Item> name: action         action-handler: {Event-Handler :focus on-action} shortcut: {Shortcut :control Return})
       (<Action-Item> name: edit-selection action-handler: {Event-Handler :focus on-edit-selection} shortcut: {Shortcut F12} alternate-shortcut: {Shortcut :alt #\.}))))
+
+
+;;;
+;;;; Tree-Location-Column
+;;;
+
+
+(class Tree-Location-Column extends Tree-Label-Column
+  
+  
+  (method override (sort-value row data)
+    (location-sort-value~ (get-user-data~ row))))
 
 
 ;;;

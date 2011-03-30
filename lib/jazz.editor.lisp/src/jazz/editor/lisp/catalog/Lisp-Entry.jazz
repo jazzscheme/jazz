@@ -126,7 +126,7 @@
   ;;;
 
   
-  (method override (edit-reference search-result . rest)
+  (method override (edit-reference direction search-result . rest)
     (define (find-declaration-range text)
       (when (equal? (reference->name (get-string~ text (get-selection~ text))) name)
         (declaration-range~ text (get-start~ text))))
@@ -141,10 +141,14 @@
       (let ((text (get-guest~ frame)))
         (let ((range (find-declaration-range text)))
           (if range
-              (begin
-                (set-beginning~ search-result (get-start~ range))
-                (set-ending~ search-result (get-end~ range))
-                (highlight-reference~ text search-result))
+              (let ((start (get-start~ range))
+                    (end (get-end~ range)))
+                (set-beginning~ search-result start)
+                (set-ending~ search-result end)
+                (let ((range (case direction
+                               ((forward) (new Range$Cell$ start start))
+                               ((backward) (new Range$Cell$ end end)))))
+                  (highlight-reference~ text direction range search-result)))
             (fallback-find text))))
       (values frame new?)))
   

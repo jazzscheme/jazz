@@ -2446,9 +2446,9 @@
 ;;;
 
 
-;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+;; (com-external 22 (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)) VT_HRESULT)
 #;
-(define (jazz:expand-com-external walker resume declaration environment offset result-type signature)
+(define (jazz:expand-com-external walker resume declaration environment offset signature result-type)
   (let ((name (%%car signature))
         (resolve-declaration (lambda (type) (if (%%symbol? type)
                                                 (jazz:resolve-c-type-reference walker resume declaration environment type)
@@ -2493,8 +2493,8 @@
 ;;;
 
 
-;; (com-external 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
-(define (jazz:expand-com-external walker resume declaration environment result-type signature com-interface offset)
+;; (com-external (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)) VT_HRESULT)
+(define (jazz:expand-com-external walker resume declaration environment signature result-type com-interface offset)
   (let* ((name (%%car signature))
          (param-types (map cadr (%%cdr signature)))
          (resolve-declaration (lambda (type) (if (%%symbol? type)
@@ -3122,31 +3122,12 @@
 ;;;
 
 
-(define (jazz:expand-c-external walker resume declaration environment type signature . rest)
+(define (jazz:expand-c-external walker resume declaration environment signature type . rest)
   (let* ((s-name (%%car signature))
          (params (%%cdr signature))
          (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
     `(definition public ,s-name
        (c-function ,params ,type ,c-name))))
-
-
-;; tofix : risk of segmentation fault if passing an bad string size
-(define (jazz:expand-c-external-so walker resume declaration environment type arg signature . rest)
-  (let* ((s-name (%%car signature))
-         (ext-s-name (%%string->symbol (%%string-append (%%symbol->string s-name) "_EXT")))
-         (params (%%cdr signature))
-         (new-params (map (lambda (param) (jazz:generate-symbol (%%symbol->string param))) params))
-         (string-param (list-ref new-params arg))
-         (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
-    `(begin
-       (c-external ,type ,(%%cons ext-s-name params) ,c-name)
-       (definition public (,s-name ,@new-params)
-         (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
-           (WCHAR-copy pt ,string-param (string-length ,string-param))
-           (let* ((,string-param pt)
-                  (result (,ext-s-name ,@new-params)))
-             (values result (WCHAR-string ,string-param))))))))
-
 
 
 ;;;
@@ -3257,7 +3238,6 @@
 (jazz:define-walker-macro   c-structure          jazz jazz:expand-c-structure)
 (jazz:define-walker-macro   c-union              jazz jazz:expand-c-union)
 (jazz:define-walker-macro   c-external           jazz jazz:expand-c-external)
-(jazz:define-walker-macro   c-external-so        jazz jazz:expand-c-external-so)
 (jazz:define-walker-macro   com-external         jazz jazz:expand-com-external)
 (jazz:define-walker-macro   declaration-path     jazz jazz:expand-declaration-path)
 (jazz:define-walker-macro   declaration-locator  jazz jazz:expand-declaration-locator)

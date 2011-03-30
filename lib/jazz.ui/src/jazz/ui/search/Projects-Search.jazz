@@ -54,6 +54,61 @@
   
   
   ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method override (install-results results-view results categorized?)
+    (define (install-references)
+      (let ((entries (make-table test: eq?))
+            (nodes (make-table test: eq?))
+            (root (list #f)))
+        (define (prepare-entries)
+          (for-each (lambda (result)
+                      (let ((entry (get-entry~ result)))
+                        (table-set! entries entry result)))
+                    results))
+        
+        (define (prepare-references)
+          (for-each prepare-reference results))
+        
+        (define (prepare-reference result)
+          (let ((entry (get-entry~ result)))
+            (or (table-ref nodes entry #f)
+                (let ((ascendant-node (or (prepare-ascendant (get-parent~ entry)) root))
+                      (node (list result)))
+                  (table-set! nodes entry node)
+                  (set-cdr! ascendant-node (cons node (cdr ascendant-node)))
+                  node))))
+        
+        (define (prepare-ascendant entry)
+          (when entry
+            (let ((result (table-ref entries entry #f)))
+              (if result
+                  (prepare-reference result)
+                (prepare-ascendant (get-parent~ entry))))))
+        
+        (define (install-nodes father nodes)
+          (for-each (lambda (node)
+                      (install-node father node))
+                    (sort string<? nodes key: (lambda (node)
+                                                (present-name~ (car node))))))
+        
+        (define (install-node father node)
+          (bind (result . children) node
+            (let ((father (add-result~ results-view result father: father)))
+              (install-nodes father children))))
+        
+        (prepare-entries)
+        (prepare-references)
+        (install-nodes #f (cdr root))))
+    
+    (if (and (eq? domain 'references) categorized?)
+        (install-references)
+      (nextmethod results-view results categorized?)))
+  
+  
+  ;;;
   ;;;; Presentation
   ;;;
   
@@ -70,4 +125,9 @@
   
   
   (method override (supports-drill-down?)
-    (eq? domain 'references))))
+    (eq? domain 'references))
+  
+  
+  (method override (dynamic-search? categorized?)
+    (and (supports-drill-down?)
+         (not categorized?)))))

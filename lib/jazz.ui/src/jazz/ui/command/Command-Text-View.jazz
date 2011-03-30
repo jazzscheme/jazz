@@ -717,13 +717,19 @@
   
   (method (on-goto-replace evt)
     (goto-second-field~ text))
+  
+  
+  (method (reset-search range)
+    (set! last-range range)
+    (set! last-found? #t)
+    (set! prefixes (make-table test: equal?)))
 
 
   (method (on-find-forward evt)
     (let ((client (get-client)))
       (if (find-forward~ search-result client: client follow?: #f)
           (begin
-            (set! last-range (get-selection~ client))
+            (reset-search (get-selection~ client))
             (rehighlight-search))
         (unless (follow-forward~ search-result)
           (bell)))))
@@ -733,33 +739,41 @@
     (let ((client (get-client)))
       (if (find-backward~ search-result client: client follow?: #f)
           (begin
-            (set! last-range (get-selection~ client))
+            (reset-search (get-selection~ client))
             (rehighlight-search))
         (unless (follow-backward~ search-result)
           (bell)))))
   
   
   (method (on-replace evt)
+    (unimplemented-replace)
     (select-replace)
     (with-rehighlight-search
       (lambda ()
-        (unless (replace~ search-result client: (get-client))
+        (unless (replace-selection~ search-result client: (get-client))
           (bell)))))
   
   
   (method (on-replace&find-forward evt)
+    (unimplemented-replace)
     (select-replace)
     (with-rehighlight-search
       (lambda ()
-        (unless (replace&find-forward~ search-result client: (get-client))
+        (unless (replace-selection&find-forward~ search-result client: (get-client))
           (bell)))))
   
   
   (method (on-replace-all evt)
+    (unimplemented-replace)
     (select-replace)
     (with-rehighlight-search
       (lambda ()
         (replace-all~ search-result client: (get-client)))))
+  
+  
+  (method (unimplemented-replace)
+    (message-box "Unimplemented functionality")
+    (throw-cancel))
   
   
   (method (select-replace)
@@ -779,7 +793,7 @@
     (cancel))
 
   
-  (method (search-client direction (initial?: initial? #f) (prefix?: prefix? #t) (again?: again? #f) (yo?: yo? #f))
+  (method (search-client direction (initial?: initial? #f) (prefix?: prefix? #t) (again?: again? #f))
     (define (setup-context target)
       (let ((context (get-context)))
         (set-target~ context target)
@@ -787,7 +801,7 @@
     
     (define (search-target client beginning ending target again?)
       (let ((context (get-context))
-            (range (or (and prefix? (not yo?) (table-ref prefixes target #f)) last-range)))
+            (range (or (and prefix? (table-ref prefixes target #f)) last-range)))
         (let ((pos (case direction
                      ((forward) (if again? (get-end~ range) (get-start~ range)))
                      ((backward) (if again? (get-start~ range) (nu+ (get-start~ range) (cardinality target))))))
@@ -892,12 +906,13 @@
   
   
   (method (rehighlight-search)
-    (search-client direction yo?: #t))
+    (search-client direction))
   
   
   (method (with-rehighlight-search proc)
     (remove-highlights)
     (proc)
+    (reset-search (get-selection~ (get-client)))
     (rehighlight-search))
   
   

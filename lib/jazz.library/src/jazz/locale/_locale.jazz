@@ -39,6 +39,34 @@
 
 
 ;;;
+;;;; Locale
+;;;
+
+
+(class Locale extends Object
+  
+  
+  (slot name   getter generate)
+  (slot titles getter generate)
+  
+  
+  (method override (initialize name titles)
+    (nextmethod)
+    (set! name~self name)
+    (set! titles~self titles))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" name))))
+  
+  
+  (method public (present)
+    (or (getf titles (get-locale)) (second titles))))
+
+
+;;;
 ;;;; Locales
 ;;;
 
@@ -79,19 +107,30 @@
     (or (getf locales locale) (second locales))))
 
 
-(definition Active-Locales
-  '(english:))
+(definition *locale-table*
+  (make-table test: eq?))
 
-(definition Active-Locale
+(definition *active-locale*
   english:)
 
 
 (definition public (get-locales)
-  Active-Locales)
+  (sort string<? (table-keys *locale-table*) key: keyword->string))
+
+(definition public (registered-locale name)
+  (table-ref *locale-table* name #f))
+
+(definition public (register-locale locale)
+  (let ((name (get-name~ locale)))
+    (table-set! *locale-table* name locale)))
+
+(definition public (unregister-locale locale)
+  (let ((name (get-name~ locale)))
+    (table-clear *locale-table* name)))
 
 
 (definition public (get-locale)
-  Active-Locale)
+  *active-locale*)
 
 
 (definition public (set-locale loc (update?: update? #t))
@@ -107,8 +146,8 @@
               locale-changes))
   
   (let ((loc (standardize-locale loc)))
-    (when (neq? loc Active-Locale)
-      (set! Active-Locale loc)
+    (when (neq? loc *active-locale*)
+      (set! *active-locale* loc)
       (call-locale-changes loc update?))))
 
 
@@ -124,7 +163,7 @@
 
 (definition public (localize object)
   (if (is? object Locales)
-      (localize~ object Active-Locale)
+      (localize~ object *active-locale*)
     object))
 
 
@@ -135,5 +174,4 @@
 
 
 (definition public (present-locale locale)
-  (case locale
-    ((english:) "English"))))
+  (present~ (registered-locale locale))))

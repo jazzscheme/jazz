@@ -169,6 +169,7 @@
   
   (method override (finish-environment)
     (nextmethod)
+    (register-locale (new Locale english: '(english: "English")))
     (register-locale-change locale-change)
     (add-save-environment-listener self)
     (when profile
@@ -657,7 +658,7 @@
                (list "Send comments, suggestions, bugs,... to:")
                (list email))
            '()))
-        title: (format "About {a}" name))))
+        title: (format "{a} {a}" (localize {Locales english: "About" french: "À propos de"}) name))))
 
 
   ;;;
@@ -1467,9 +1468,24 @@
   
   
   (method public (locale-update)
+    (define (update-menubar)
+      (let ((menubar (find-menubar)))
+        (layout-menu~ menubar)
+        (for-each (lambda (child)
+                    (when (is? child Label-Item)
+                      (let ((content (get-content~ child)))
+                        (when (is? content Menu)
+                          (layout-menu~ content)))))
+                  (get-children~ menubar))))
+    
+    (define (update-toplevel)
+      (let ((toplevel (get-toplevel)))
+        (invalidate-title~ toplevel)
+        (redraw-window~ toplevel)))
+    
     ;; All this should of course be event based but it will do for now...
-    (layout-menu~ (find-menubar))
-    (redraw-window~ (get-toplevel)))
+    (update-menubar)
+    (update-toplevel))
   
   
   ;;;

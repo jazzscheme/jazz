@@ -73,18 +73,14 @@
   
   (method meta override (external-name . rest)
     'jazz-text)
+
   
-  
-  (method override (default-extension)
-    "jazz")
-  
-  
-  (method override (extensions)
-    '(("Jazz Texts" . "jazz")))
+  (method override (preferences)
+    (get-preferences '(documents jazz-text)))
     
   
   (method override (new-syntax)
-    (new Jazz-Syntax))
+    (new Jazz-Syntax model))
 
 
   ;;;
@@ -163,7 +159,7 @@
     #f
     @convert
     (let* ((pos (view->text view))
-           (expl (new Jazz-Explorer self start: pos end: pos)))
+           (expl (new Jazz-Explorer model start: pos end: pos)))
       (catch (Explore-Error err #f)
         (when (outer-expr~ expl atomic?: #t explore-whitespace?: #f)
           (let ((kind (get-kind~ expl)))
@@ -183,57 +179,6 @@
   
   
   ;;;
-  ;;;; Coloring
-  ;;;
-
-  
-  (method override (preferences)
-    (get-preferences '(documents jazz-text)))
-  
-  
-  (method override (declaration-style documented?)
-    (if documented?
-        'Documented-Declaration
-      'Undocumented-Declaration))
-  
-  
-  (method override (colorize-tag colorizer start end)
-    (apply-coloring colorizer start end 'Tag))
-  
-  
-  (method override (colorize-specifier colorizer start end)
-    (apply-coloring colorizer start end 'Specifier))
-  
-  
-  (method (recolorize-named-comments line)
-    (let* ((str (paragraph-string line))
-           (len (cardinality str))
-           (col 0)
-           (done? #f))
-      (while (not done?)
-        (let ((comment (search str "@" start: col)))
-          (if (not comment)
-              (set! done? #t)
-            (unless (and (> comment 0) (eqv? (element str (- comment 1)) #\,))
-              (let* ((pos (new Cell line (+ comment 1)))
-                     (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
-                     (kind (forward-expr~ expl))
-                     (end (get-end~ expl)))
-                (when (and (eq? kind 'symbol) (= (get-line~ end) line))
-                  (apply-style 'Named-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
-            (set! col (+ comment 1)))))))
-  
-  
-  ;;;
-  ;;;; Reading
-  ;;;
-  
-  
-  (method override (get-readtable)
-    jazz-readtable)
-  
-  
-  ;;;
   ;;;; Evaluation
   ;;;
   
@@ -241,7 +186,7 @@
   (method override (prepare-expressions range)
     (define (collect-namespaces)
       (let ((namespaces '())
-            (expl (new Jazz-Explorer self range: range)))
+            (expl (new Jazz-Explorer model range: range)))
         (while (outer-expr~ expl)
           (when (namespace-expr?~ expl)
             (let ((namespace (namespace-declaration-range~ expl include-invoices?: #t)))
@@ -346,7 +291,7 @@
   
   @unused
   (method (position->location pos)
-    (let ((expl (new Jazz-Explorer self start: pos end: pos)))
+    (let ((expl (new Jazz-Explorer model start: pos end: pos)))
       (when (outer-expr~ expl outer-composite?: #f)
         (let ((range (get-range~ expl)))
           (range-location range)))))
@@ -393,7 +338,7 @@
 
 
   (method (range-location range)
-    (let ((expl (new Jazz-Explorer self start: (get-start~ range) end: (get-end~ range)))
+    (let ((expl (new Jazz-Explorer model start: (get-start~ range) end: (get-end~ range)))
           (location #f)
           (previous-def? #f)
           (done? #f))
@@ -414,7 +359,7 @@
 
 
   (method public (location-range location (toplevel-location: toplevel-location #f))
-    (let ((expl (new Jazz-Explorer self end: (text-beginning))))
+    (let ((expl (new Jazz-Explorer model end: (text-beginning))))
       (forward-location~ expl location toplevel-location: toplevel-location)
       (get-range~ expl)))
 
@@ -529,20 +474,11 @@
                (format output ". {a}" parameters)))))
     
     (when (empty-selection?)
-      (let ((expl (new Jazz-Explorer self start: (get-start) end: (get-end))))
+      (let ((expl (new Jazz-Explorer model start: (get-start) end: (get-end))))
         (when (and (backward-expr~ expl)
                    (= (get-kind~ expl) 'symbol))
           (case (char-backward~ expl 0)
             ((#\open-parenthesis) (show-declaration-arguments expl)))))))
-   
-
-  ;;;
-  ;;;; Explorer
-  ;;;
-
-
-  (method override (explorer-class)
-    Jazz-Explorer)
 
   
   ;;;
@@ -558,7 +494,7 @@
   
   
   (method (toplevel-expr pos)
-    (let ((expl (new Jazz-Explorer self start: pos end: pos))
+    (let ((expl (new Jazz-Explorer model start: pos end: pos))
           (range #f))
       (while (outer-expr~ expl)
         (set! range (get-range~ expl)))

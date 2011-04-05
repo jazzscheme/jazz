@@ -44,15 +44,15 @@
 (class undocumented Text-Colorizer extends Object
   
   
-  (slot text <Text-View>)
-  (slot row  <Integer+>     initialize #f)
-  (slot col  <fx>)
-  (slot runs <List-Factory>)
+  (slot model <Text-Model>)
+  (slot row   <Integer+>     initialize #f)
+  (slot col   <fx>)
+  (slot runs  <List-Factory>)
   
   
-  (method override (initialize t <Object>)
+  (method override (initialize mdl <Object>)
     (nextmethod)
-    (set! text t)
+    (set! model mdl)
     (set! col 0)
     (set! runs (new List-Factory)))
   
@@ -64,7 +64,7 @@
         (set! row n)
         (set! col 0)
         (reset~ runs))
-      (let* ((paragraph <Paragraph> (get-paragraph~ text row))
+      (let* ((paragraph <Paragraph> (get-paragraph~ model row))
              (string (get-string~ paragraph)))
         (when (> start col)
           (let ((from 0))
@@ -88,7 +88,7 @@
       (let ((beginning (get-line~ start))
             (limit (get-line~ end)))
         (loop (for n from beginning to limit)
-              (let ((paragraph <Paragraph> (get-paragraph~ text n)))
+              (let ((paragraph <Paragraph> (get-paragraph~ model n)))
                 (cond ((= n beginning) (add-run n (get-col~ start) (cardinality (get-string~ paragraph)) style))
                       ((= n limit) (add-run n 0 (get-col~ end) style))
                       (else (add-run n 0 (cardinality (get-string~ paragraph)) style)))))))
@@ -98,7 +98,7 @@
     
     (let ((sl (get-line~ start))
           (el (get-line~ end))
-          (style (intern-style~ text (get-style~ text name/style))))
+          (style (intern-style~ model (get-style~ model name/style))))
       (if (= sl el)
           (add-run sl (get-col~ start) (get-col~ end) style)
         (add-runs start end style))))
@@ -106,11 +106,11 @@
   
   (method public (finish-current)
     (when (and row runs)
-      (let* ((paragraph <Paragraph> (get-paragraph~ text row))
+      (let* ((paragraph <Paragraph> (get-paragraph~ model row))
              (string (get-string~ paragraph))
              (len <fx> (cardinality string)))
         (when (> len col)
-          (put~ runs (new Run (subseq! string col len) (get-default-style~ text))))
+          (put~ runs (new Run (subseq! string col len) (get-default-style~ model))))
         (let ((runs (get-output~ runs)))
           (set-runs~ paragraph runs)
-          (wrap-paragraph~ text #f paragraph)))))))
+          (wrap-paragraph~ model #f paragraph)))))))

@@ -38,10 +38,17 @@
 (module protected jazz.editor.c.syntax.C-Syntax jazz
 
 
-(import (jazz.ui))
+(import (jazz.editor.c)
+        (jazz.editor.clike)
+        (jazz.system)
+        (jazz.ui))
 
 
-(class C-Syntax extends Code-Syntax
+(class C-Syntax extends CLike-Syntax
+  
+  
+  (method override (preferences)
+    (get-preferences '(documents c-text)))
   
   
   ;;;
@@ -62,4 +69,145 @@
     (or (eqv? key #\_)
         (and (upper-case? key)
              (and last (lower-case? last)))
-        (not (text-constituent? key))))))
+        (not (text-constituent? key))))
+
+
+  (method override (favorite-completions)
+    (get-completions~ (preferences)))
+
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method override (explorer-class)
+    C-Explorer)
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("#pragma"
+      "#include"
+      "#define"
+      "#undef"
+      "#if"
+      "#ifdef"
+      "#ifndef"
+      "#elif"
+      "#else"
+      "#endif"
+      "static"
+      "class"
+      "struct"
+      "namespace"
+      "const"
+      "enum"
+      "extern"
+      "new"
+      "delete"
+      "operator"
+      "sizeof"
+      "this"
+      "inline"
+      "typedef"
+      "public"
+      "protected"
+      "private"
+      "virtual"
+      "if"
+      "else"
+      "while"
+      "for"
+      "do"
+      "switch"
+      "case"
+      "default"
+      "break"
+      "continue"
+      "return"
+      "try"
+      "catch"
+      "throw"
+      "true"
+      "false"
+      "void"
+      "bool"
+      "char"
+      "int"
+      "long"
+      "short"
+      "unsigned"
+      "float"
+      "double"
+      "size_t"
+      "wchar_t"
+      "NULL"))
+  
+  
+  (method override (get-keywords)
+    Keywords)
+    
+  
+  ;;;
+  ;;;; Profile
+  ;;;
+
+  
+  (method override (get-profile-macros profile)
+    (get-macros~ (get-preferences '(documents c-text))))
+
+  
+  (method override (get-profile-keywords profile)
+    (get-keywords~ (get-preferences '(documents c-text))))
+
+  
+  (method override (get-profile-types profile)
+    (get-types~ (get-preferences '(documents c-text))))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (definition Syntax-Targets
+    #f)
+  
+  (definition Syntax-Automata
+    #f)
+  
+  
+  (method override (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method override (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method override (colorize-entries)
+    )
+  
+  
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (definition Comment-Styles
+    '(Title Line-Comment Balanced-Comment))
+  
+  
+  (method override (comment-style? style)
+    (some? (lambda (style-name)
+             (inherits?~ style style-name))
+           Comment-Styles))))

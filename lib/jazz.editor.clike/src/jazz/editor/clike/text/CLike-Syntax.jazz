@@ -1,0 +1,118 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; CLike Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.editor.clike.text.CLike-Syntax jazz
+
+
+(import (jazz.library)
+        (jazz.library.automata)
+        (jazz.system)
+        (jazz.ui))
+
+
+(class CLike-Syntax extends Code-Syntax
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (method protected virtual (get-keywords)
+    )
+      
+  
+  ;;;
+  ;;;; Profile
+  ;;;
+
+  
+  (method protected virtual (get-profile-macros profile)
+    )
+  
+  
+  (method protected virtual (get-profile-keywords profile)
+    )
+  
+  
+  (method protected virtual (get-profile-types profile)
+    )
+
+  
+  ;;;
+  ;;;; Expression
+  ;;;
+  
+  
+  (method override (name-at range)
+    (when range
+      (let ((name (get-string~ model range)))
+        (if (eqv? (element name 0) #\open-brace)
+            (read-string-element name)
+          name))))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method override (compute-syntax-targets)
+    (let ((profile (get-profile~ (get-application))))
+      (append (list (list "/*" 'balanced-comment #f))
+              (list (list "*/" 'balanced-comment-backward #f))
+              (list (list "//" 'line-comment #f))
+              (map (lambda (str) (list str 'keyword)) (get-keywords))
+              (map (lambda (str) (list str 'profile-macro)) (get-profile-macros profile))
+              (map (lambda (str) (list str 'profile-keyword)) (get-profile-keywords profile))
+              (map (lambda (str) (list str 'profile-type)) (get-profile-types profile)))))
+  
+  
+  (method override (compute-syntax-automata)
+    (build-search-automata (syntax-targets) #t #f c-constituent?))
+
+  
+  (method override (colorize-type found type start end colorizer recolorize?)
+    (case type
+      ((balanced-comment)          (colorize-balanced-comment          found start end colorizer 'Balanced-Comment))
+      ((balanced-comment-backward) (colorize-balanced-comment-backward found start end colorizer 'Balanced-Comment recolorize?))
+      ((line-comment)              (colorize-line-comment              found start end colorizer 'Line-Comment 'Title #\slash))
+      ((keyword)                   (colorize-keyword                   found start end colorizer 'Keyword))
+      ((profile-macro)             (colorize-keyword                   found start end colorizer 'Profile-Macro))
+      ((profile-keyword)           (colorize-keyword                   found start end colorizer 'Profile-Keyword))
+      ((profile-type)              (colorize-keyword                   found start end colorizer 'Profile-Type))
+      (else (nextmethod found type start end colorizer recolorize?))))))

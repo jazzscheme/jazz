@@ -78,12 +78,9 @@
     (get-preferences '(documents command-text)))
   
   
-  (method override (propagate-styles?)
-    #f)
-  
-  
   (method override (install rest)
     (nextmethod rest)
+    (set-propagate-styles?~ model #f)
     (let ((pref (preferences)))
       (add-style 'Separator (get-separator-style~ pref))))
   
@@ -159,7 +156,7 @@
     (set-mode-execute)
     (clear-user-message)
     (clear-status)
-    (empty-text))
+    (empty-text~ model))
   
   
   (method override (focus-actions)
@@ -349,7 +346,7 @@
     (prepare-search~ mode range)
     (let ((search-result (or search-result (make-text-search-result initial (get-client) #f #f))))
       (set-search-result~ mode search-result)
-      (set-text (get-target~ (search-context (get-find~ (get-search~ search-result))))))
+      (set-text~ model (get-target~ (search-context~ model (get-find~ (get-search~ search-result))))))
     (select-all)
     (search-client~ mode direction initial?: #t again?: again?))
   
@@ -501,12 +498,12 @@
   (method (prepare-search range)
     (let ((client (get-client))
           (client-selection (get-client-selection)))
-      (let ((text? (and client (is? client Text-View))))
-        (set! last-range (if text? (or range client-selection) #f))
-        (set! found-style (if text? (add-style~ client 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Found})) #f))
-        (set! highlight-style (if text? (add-style~ client 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Highlight})) #f))
-        (set! replace-style (if text? (add-style~ client 'Replace (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Light-Red} frame: {Color Replace})) #f))
-        (set! boundary-style (if text? (add-style~ client 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ client) highlight: {Color Boundary})) #f)))))
+      (let ((model (and (is? client Text-View) (get-model~ client))))
+        (set! last-range (if model (or range client-selection) #f))
+        (set! found-style (if model (add-style~ model 'Found (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Found})) #f))
+        (set! highlight-style (if model (add-style~ model 'Highlight (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Highlight})) #f))
+        (set! replace-style (if model (add-style~ model 'Replace (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Light-Red} frame: {Color Replace})) #f))
+        (set! boundary-style (if model (add-style~ model 'Boundary (new Text-Style base: 'Base domain: (get-styles-domain~ model) highlight: {Color Boundary})) #f)))))
   
   
   (method override (mode-actions)
@@ -799,14 +796,14 @@
         (set-target~ context target)
         (set-regexp~ context #f)))
     
-    (define (search-target client beginning ending target again?)
+    (define (search-target model beginning ending target again?)
       (let ((context (get-context))
             (range (or (and prefix? (table-ref prefixes target #f)) last-range)))
         (let ((pos (case direction
                      ((forward) (if again? (get-end~ range) (get-start~ range)))
                      ((backward) (if again? (get-start~ range) (nu+ (get-start~ range) (cardinality target))))))
               (reversed? (eq? direction 'backward)))
-          (let ((found (text-regular-search~ client context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
+          (let ((found (text-regular-search~ model context start: pos end: (if reversed? beginning ending) reversed?: reversed?)))
             (define (add-prefix range)
               (reset-prefixes)
               (table-set! prefixes target range))
@@ -827,7 +824,7 @@
     
     (define (highlight-boundary client beginning ending)
       (define (add-boundary-highlight range)
-        (add-highlight~ client (new Text-Highlight range boundary-style)))
+        (add-highlight~ client (new Text-Highlight client range boundary-style)))
       
       (when beginning
         (add-boundary-highlight (new Range$Cell$ beginning (next-cell~ client beginning))))
@@ -840,9 +837,9 @@
                     (bind (start . end) found
                       (let ((range (new Range$Cell$ start end)))
                         (unless (nu=? range last-range)
-                          (add-highlight~ client (new Text-Highlight range highlight-style))))))
+                          (add-highlight~ client (new Text-Highlight client range highlight-style))))))
                   all))
-      (add-highlight~ client (new Text-Highlight last-range found-style))
+      (add-highlight~ client (new Text-Highlight client last-range found-style))
       (set-selection~ client last-range))
     
     (define (highlight-replace client beginning ending repl)
@@ -851,22 +848,23 @@
           (for-each (lambda (found)
                       (bind (start . end) found
                         (let ((range (new Range$Cell$ start end)))
-                          (add-highlight~ client (new Text-Highlight range replace-style)))))
+                          (add-highlight~ client (new Text-Highlight client range replace-style)))))
                     (text-regular-search-all~ client target start: beginning end: ending)))))
     
     (let ((client (get-client)))
       (when (is? client Text-View)
-        (let ((content (first-content~ text))
+        (let ((model (get-model~ client))
+              (content (first-content~ text))
               (repl (second-content~ text))
               (context (get-context))
               (beginning (get-beginning~ search-result))
               (ending (get-ending~ search-result)))
           (setup-context content)
-          (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ client context start: beginning end: ending))))
+          (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ model context start: beginning end: ending))))
             (let ((found #f))
-              (set! found (search-target client beginning ending content #f))
+              (set! found (search-target model beginning ending content #f))
               (when again?
-                (set! found (search-target client beginning ending content #t)))
+                (set! found (search-target model beginning ending content #t)))
               (if found
                   (set! last-found? #t)
                 (when (or last-found? again?)

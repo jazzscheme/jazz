@@ -319,7 +319,7 @@
   
   
   (method protected (modify-style start <fx> end <fx> proc)
-    (let* ((text <Text-View> parent)
+    (let* ((model <Text-Model> parent)
            (start <fx> (or start 0))
            (end <fx> (or end (cardinality string)))
            (fact (new List-Factory))
@@ -330,7 +330,7 @@
             (lambda (run <Run> s <fx> e <fx>)
               (let* ((style (get-style~ run))
                      (new-style (or (proc style) style)))
-                (new Run (subseq! string s e) (intern-style~ text new-style))))))
+                (new Run (subseq! string s e) (intern-style~ model new-style))))))
       (for-each-range-run start end
         (lambda (where run offset limit)
           (case where
@@ -352,8 +352,7 @@
 
 
   (method protected (remove-coloring default-style <Style>)
-    (let ((text <Text-View> parent)
-          (modified? #f))
+    (let ((modified? #f))
       (for-each (lambda (run <Run>)
                   (let ((style (get-style~ run)))
                     (when (and (is? style Text-Style) (get-color~ style))
@@ -391,15 +390,15 @@
   
   
   (method protected (wrap context width <fx>) <void>
-    (let* ((text <Text-View> parent)
+    (let* ((model <Text-Model> parent)
            (rank 0)
            (offset 0)
            (justification (get-justification~ format))
            (margin (get-left-margin~ format))
-           (spacing (get-paragraph-spacing~ text))
+           (spacing (get-paragraph-spacing~ model))
            (left margin)
            (top 0)
-           (tabs (get-tabs~ text))
+           (tabs (get-tabs~ model))
            (lines (new List-Factory))
            (lruns (new List-Factory))
            (place (lambda (run)
@@ -408,7 +407,7 @@
             (lambda (right)
               (let* ((runs (get-output~ lruns))
                      (line-left (case justification ((#f left) 0) ((center) (center right width)) ((right) (justify right width 'tail))))
-                     (line (new Line text runs rank offset line-left top right))
+                     (line (new Line model runs rank offset line-left top right))
                      (height (get-height~ line)))
                 (for-each (lambda (run <Run>) (height-update~ run height)) runs)
                 (put~ lines line)
@@ -450,8 +449,8 @@
           (set! size 7))
         (ellipse~ surface (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
     
-    (let* ((text <Text-View> parent)
-           (tabs (get-tabs~ text))
+    (let* ((model <Text-Model> parent)
+           (tabs (get-tabs~ model))
            (left-margin (get-left-margin~ format))
            (right-margin (get-right-margin~ format))
            (background (get-background~ format))
@@ -484,7 +483,7 @@
                              runs)
           (get-default-style~ parent))))
     
-    (let* ((text <Text-View> parent)
+    (let* ((model <Text-Model> parent)
            (inserted <fx> (cardinality str))
            (end <fx> (or end (cardinality string)))
            (new-end (+ start inserted))
@@ -492,9 +491,9 @@
            (before (range-runs 0 start))
            (after (range-runs end (get-length)))
            (style (if (and (not-null? before)
-                           (propagate-styles?~ text))
+                           (get-propagate-styles?~ model))
                       (find-propagatable-style before)
-                    (get-default-style~ text))))
+                    (get-default-style~ model))))
       (set! string (replace-subseq! string start end str))
       (let* ((replacement (new Run (subseq! string start new-end) style))
              (replacement-list (if (> (get-length~ replacement) 0) (list replacement) '())))

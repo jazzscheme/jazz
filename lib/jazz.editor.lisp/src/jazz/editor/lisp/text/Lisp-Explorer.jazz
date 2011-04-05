@@ -38,7 +38,8 @@
 (module protected jazz.editor.lisp.text.Lisp-Explorer jazz
 
 
-(import (jazz.editor.lisp)
+(import (jazz.editor.jazz)
+        (jazz.editor.lisp)
         (jazz.library)
         (jazz.ui))
 
@@ -91,9 +92,9 @@
   
   
   (method (explore-error message start end)
-    (let ((source (get-moniker~ text))
-          (start (or start (text-beginning~ text)))
-          (end (or end (text-ending~ text))))
+    (let ((source (get-moniker~ model))
+          (start (or start (text-beginning~ model)))
+          (end (or end (text-ending~ model))))
       (signal (new Explore-Error source start: start end: end message: message))))
   
   
@@ -153,7 +154,7 @@
           (let ((found (backward-simple-expr)))
             (when found
               (while (backward-quote))
-              (if (and (eq? (get-syntax) 'jazz) (eqv? (get-char start) #\at))
+              (if (and (is? (get-syntax) Jazz-Syntax) (eqv? (get-char start) #\at))
                   'name-comment
                 found)))))))
 
@@ -279,7 +280,7 @@
   
   
   (method private (forward-named-comment)
-    (if (neq? (get-syntax) 'jazz)
+    (if (is-not? (get-syntax) Jazz-Syntax)
         (forward-constituent)
       (forward)
       (forward-expr)
@@ -925,7 +926,7 @@
   
   (method public (for-each-comment proc <procedure> (start-line: start-line #f) (end-line: end-line #f))
     (let* ((previous-line #f)
-           (title-comment (title-comment-string~ (get-syntax~ text)))
+           (title-comment (title-comment-string~ syntax))
            (title-comment-size (string-length title-comment))
            (start-line (or start-line 0))
            (end-line (or end-line limit)))
@@ -934,16 +935,16 @@
                         (col (get-col~ pos)))
                     (when (or (not previous-line) (/= line previous-line))
                       (let ((string (paragraph-string line))
-                            (style (get-style-at~ text pos))
+                            (style (get-style-at~ model pos))
                             (start pos))
-                        (unless (or (inherits?~ style 'Expr-Comment) (inherits?~ style 'Named-Comment) (string-style?~ text style))
+                        (unless (or (inherits?~ style 'Expr-Comment) (inherits?~ style 'Named-Comment) (string-style?~ syntax style))
                           (set! previous-line (get-line~ pos))
                           (set-end pos)
                           (paragraph-end)
                           (proc start end (and (< (+ col title-comment-size) (cast <fx> (cardinality string))) (string=? (subseq string col (+ col title-comment-size)) title-comment))))))))
                 (let ((start (new Cell start-line 0))
                       (end (new Cell end-line (paragraph-length end-line))))
-                  (text-search-all~ text (comment-string~ (get-syntax~ text)) start: start end: end)))))
+                  (text-search-all~ model (comment-string~ syntax) start: start end: end)))))
 
 
   ;;;

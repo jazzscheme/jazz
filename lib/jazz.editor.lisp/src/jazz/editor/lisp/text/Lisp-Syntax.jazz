@@ -39,7 +39,11 @@
 
 
 (import (jazz.editor.lisp)
-        (jazz.ui))
+        (jazz.library)
+        (jazz.library.automata)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class Lisp-Syntax extends Code-Syntax
@@ -100,6 +104,201 @@
   
   
   ;;;
+  ;;;; Expression
+  ;;;
+  
+  
+  (method override (range-expr range)
+    (with-readtable (get-readtable)
+      (lambda ()
+        (read-string-element (get-string~ model range)))))
+  
+  
+  (method override (expr-at pos)
+    (let ((string (get-string~ model (expr-range pos))))
+      (with-readtable (get-readtable)
+        (lambda ()
+          (read-string-element string)))))
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method override (colorize-syntax (recoloring?: recoloring? #f))
+    (define (colorize proc)
+      (let ((expl <Text-Explorer> (new (explorer-class) model start: (text-beginning~ model) end: (text-beginning~ model)))
+            (colorizer (and (not recoloring?) (new-colorizer~ model))))
+        (proc expl colorizer)
+        (when colorizer
+          (finish-current~ colorizer))))
+    
+    (nextmethod entries?: #f)
+    (with-safe-explore
+      (lambda ()
+        (colorize colorize-declarations)
+        (colorize colorize-comments))))
+  
+  
+  (definition Syntax-Targets
+    #f)
+  
+  (definition Syntax-Automata
+    #f)
+  
+  
+  (method override (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method override (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method override (compute-syntax-targets)
+    Syntax-Targets)
+  
+  
+  (method override (compute-syntax-automata)
+    (let ((targets (syntax-targets)))
+      (when targets
+        (build-search-automata targets #t #f text-constituent?))))
+  
+  
+  (method override (colorize-type found type start end colorizer recolorize?)
+    )
+  
+  
+  (method override (colorize-declarations expl colorizer)
+    (walk-declarations~ expl
+      #f
+      ;; declaration
+      (lambda (context kind symbol start end marked documented?)
+        (when (and marked (not (memq? kind '(script anonymous))) (not (memq? symbol '(getter setter))))
+          (apply-coloring colorizer start end (declaration-style documented?))))
+      ;; keyword
+      (lambda (context start end)
+        (apply-coloring colorizer start end 'Declaration-Keyword))
+      ;; expression
+      (lambda (context start end mode kind)
+        (case kind
+          ((symbol)
+           @wait-no-easy-way-to-recolorize-when-on-multiple-lines
+           (when (memq? mode '(quote quasiquote))
+             (apply-coloring #f start end 'Quotation)))
+          ((keyword)
+           ;; This test doesn't work because of our use of a Colorizer
+           @wait-fix
+           (when (eq? (get-name~ (get-style-at start)) 'Base)
+             (apply-coloring colorizer start end 'Keyword)))
+          ((tag)
+           (colorize-tag colorizer start end))
+          ((specifier)
+           (colorize-specifier colorizer start end))
+          ((char)
+           (apply-coloring colorizer start end 'Char))
+          ((number)
+           @wait-this-is-too-much
+           (apply-coloring colorizer start end 'Number))
+          ((boolean)
+           (apply-coloring colorizer start end 'Boolean))
+          ((string)
+           (apply-coloring colorizer start end 'String))
+          ((delimited-string)
+           (apply-coloring colorizer start end 'Delimited-String))
+          ((named-string)
+           (apply-coloring colorizer start end 'Named-String))
+          ((expr-comment)
+           (apply-coloring colorizer start end 'Expr-Comment))
+          ((named-comment)
+           (apply-coloring colorizer start end 'Named-Comment))
+          ((literal)
+           @wait-buggy-because-of-coloring-within-coloring
+           (apply-coloring colorizer start end 'Literal))
+          ((feature)
+           (apply-coloring colorizer start end 'Feature))))
+      (get-documentation-cataloguer~ (get-application))))
+  
+  
+  (method protected virtual (colorize-tag colorizer start end)
+    )
+  
+  
+  (method protected virtual (colorize-specifier colorizer start end)
+    )
+  
+  
+  (method protected virtual (declaration-style documented?)
+    )
+  
+  
+  (method override (colorize-comments expl colorizer (start: start #f) (end: end #f))
+    (for-each-comment~ expl
+      (lambda (start <Cell> end <Cell> title?)
+        (let* ((line (get-line~ start))
+               (len (paragraph-length~ model line))
+               (end (new Cell line len)))
+          (if (not title?)
+              (apply-coloring colorizer start end 'Comment)
+            (apply-coloring colorizer start (+ start 4) 'Comment)
+            (apply-coloring colorizer (+ start 4) end 'Title))))
+      start-line: start
+      end-line: end))
+
+  
+  (method override (recolorize-text start end-line)
+    (define (recolorize-declarations start-line end-line)
+      (define (explorer)
+        (let* ((str (paragraph-string~ model start-line))
+               (col (skip-whitespace str))
+               (pos (new Cell start-line col)))
+          (new (explorer-class) model start: pos end: pos)))
+      
+      (catch Explore-Error
+        (let ((expl <Text-Explorer> (explorer))
+              (colorizer (new-colorizer~ model)))
+          (continuation-capture
+            (lambda (exit)
+              (set-line-hook~ expl
+                (lambda (expl)
+                  (when (> (get-line~ (get-end~ expl)) end-line)
+                    (continuation-return exit))))
+              (let (iterate)
+                (colorize-declarations expl colorizer)
+                (when (exit-list~ expl)
+                  (iterate)))))
+          (finish-current~ colorizer))))
+    
+    (define (recolorize-comments start-line end-line)
+      (define (explorer)
+        (let* ((str (paragraph-string~ model start-line))
+               (col (skip-whitespace str))
+               (pos (new Cell start-line col)))
+          (new (explorer-class) model start: pos end: pos)))
+      
+      (catch Explore-Error
+        (let ((expl <Text-Explorer> (explorer))
+              (colorizer (new-colorizer~ model)))
+          (continuation-capture
+            (lambda (exit)
+              (set-line-hook~ expl
+                (lambda (expl)
+                  (when (> (get-line~ (get-end~ expl)) end-line)
+                    (continuation-return exit))))
+              (colorize-comments expl colorizer start: start-line end: end-line)))
+          (finish-current~ colorizer))))
+    
+    (nextmethod start end-line)
+    (recolorize-declarations (get-line~ start) end-line)
+    (recolorize-comments (get-line~ start) end-line))
+  
+  
+  ;;;
   ;;;; Comment
   ;;;
   
@@ -144,4 +343,33 @@
   
   
   (method override (auto-complete-characters)
-    Auto-Complete-Characters)))
+    Auto-Complete-Characters)
+  
+  
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (definition Comment-Styles
+    '(Title Comment))
+  
+  (definition String-Styles
+    '(String Delimited-String Named-String))
+  
+  
+  (method override (comment-style? style)
+    (some? (lambda (style-name)
+             (inherits?~ style style-name))
+           Comment-Styles))
+  
+  
+  (method override (string-style? style)
+    (some? (lambda (style-name)
+             (inherits?~ style style-name))
+           String-Styles))
+  
+  
+  (method override (textual-style? style)
+    (or (comment-style? style)
+        (string-style? style)))))

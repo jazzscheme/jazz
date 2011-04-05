@@ -61,79 +61,39 @@
 (class Text-View extends Outline-View implements Document
   
   
-  ;;;
-  ;;;; Lexicon
-  ;;;
+  (property protected selectable?               initialize #t accessors generate)
+  (property protected editable?                 initialize #t accessors generate)
+  (property protected accepts-returns?          initialize #t accessors generate)
+  (property protected focus-selects-all?        initialize #f accessors generate)
+  (property protected show-unfocused-selection? initialize #t accessors generate)
+  (property protected force-tab-navigate?       initialize #f accessors generate)
   
   
-  ;; line -> numerical value of paragraph rank
-  ;; col  -> character offset into a paragraph string
-  
-  
-  ;; a user friendly textual input format that is saved as is
-  (property protected text                           initialize #f                       accessors explicit)
-  ;; the text content automaticaly saved in a canonical form when the text is visually edited
-  (property protected text-content                   initialize #f                       accessors explicit)
-  (property protected selectable?                    initialize #t                       accessors generate)
-  (property protected editable?                      initialize #t                       accessors generate)
-  (property protected wrap?                          initialize #f                       accessors generate)
-  (property protected base-format                    initialize #f                       accessors generate)
-  (property protected default-format                 initialize #f                       accessors explicit)
-  (property protected base-style                     initialize #f                       accessors generate)
-  (property protected default-style                  initialize #f                       accessors explicit)
-  (property protected paragraph-spacing         <fx> initialize 0                        accessors generate)
-  (property protected accepts-returns?               initialize #t                       accessors generate)
-  (property protected focus-selects-all?             initialize #f                       accessors generate)
-  (property protected show-unfocused-selection?      initialize #t                       accessors generate)
-  (property protected char-encoding                  initialize #f                       accessors generate)
-  (property protected eol-encoding                   initialize #f                       accessors generate)
-  ;; this property is a temp optimization because the lisp explorer does its job by creating a jazz text-view
-  ;; and colorizing a hidden text is kinda braindead!!!
-  (property protected colorize?                      initialize #t                       accessors generate)
-  (property protected force-tab-navigate?            initialize #f                       accessors generate)
-  
-  
-  (slot protected syntax                 initialize #f                    accessors generate)
+  (slot protected syntax                 initialize #f accessors generate)
+  (slot protected controller             initialize #f)
   (slot protected selection-anchor       initialize #f)
   (slot protected locked-anchor?         initialize #f)
   (slot protected mouse-selecting?       initialize #f)
   (slot protected selection-mode         initialize 'char)
   (slot protected special-mode           initialize #f)
   (slot protected virtual-h              initialize #f)
-  (slot protected caret-position         initialize #f)
   (slot protected caret-pulse            initialize #f)
-  (slot protected caret-visible?         initialize #f)
   (slot protected caret-pulse?           initialize #t)
+  (slot protected caret-visible?         initialize #f)
   (slot protected completion-active?     initialize #f)
-  (slot protected text-listeners         initialize '())
-  (slot protected undoer                 initialize (new Undoer self)     getter generate)
-  (slot protected user-tabs              initialize '())
-  (slot protected tabs                   initialize '()                   accessors generate)
-  (slot protected mark                   initialize #f                    accessors generate)
-  (slot protected formats                initialize (make-formats))
-  (slot protected styles                 initialize (make-styles))
-  (slot protected controller             initialize #f)
+  (slot protected mark                   initialize #f accessors generate)
+  (slot protected marks                  initialize '())
   (slot protected previous-position      initialize #f)
   (slot protected autoscroll-pulse       initialize #f)
-  (slot protected wrap-width             initialize #f                    accessors generate)
-  (slot protected wrap-patch             initialize #f)
-  (slot protected contiguous-undo-range  initialize #f)
   (slot protected mouse-copy-selection   initialize #f)
   (slot protected mouse-copy-destination initialize #f)
-  (slot protected highlights             initialize '()                   getter generate)
+  (slot protected highlights             initialize '() getter generate)
   (slot protected text-actions           initialize #f)
+  (slot protected text-listeners         initialize '())
   
   
   (form
-    ;; the default-row-height: 16 is a try for a quick fix. all the default-row-height related stuff needs cleanup
-    (<install> background: {Color Text-Background} left-padding: 12 default-row-height: 16))
-  
-  
-  (definition (make-formats)
-    (new Exemplar-Domain name: 'formats intern?: #t chained: (list (formats-domain))))
-  
-  (definition (make-styles)
-    (new Exemplar-Domain name: 'styles intern?: #t chained: (list (styles-domain))))
+    (<install> background: {Color Text-Background}))
 
   
   (method override (verify-reload));;abstract
@@ -144,21 +104,34 @@
     (new Text-Preferences))
   
   
+  (method override (new-model)
+    (new Text-Model))
+  
+  
+  (method override (setup-model mdl)
+    (nextmethod mdl)
+    (let ((pref (preferences)))
+      (when pref
+        (let ((base (or (get-base-format~ model) (get-base-format~ pref))))
+          (add-format 'Base base)
+          (set-default-format~ model (intern-format~ model (or (get-default-format~ pref) (new Format base: 'Base)))))
+        (let ((base (or (get-base-style~ model) (get-base-style~ pref))))
+          (add-style 'Base base)
+          (set-default-style~ model (intern-style~ model (or (get-default-style~ pref) (new Text-Style base: 'Base)))))
+        (register-children~ (child~ pref 'styles) (get-styles~ model))
+        (register-children~ (child~ pref 'formats) (get-formats~ model)))))
+  
+  
   (method override (prepare rest)
-    (define (new-default-format)
-      (new Format domain: formats base: 'Text-Base))
-    
-    (define (new-default-style)
-      (new Text-Style domain: styles base: 'Text-Base))
-    
-    (nextmethod rest)
-    (set! default-format (new-default-format))
-    (set! default-style (new-default-style)))
+    (set! selection (new Text-Mark self (empty-selection) strict?: #f change-proc: selection-change))
+    (set! selection-anchor (new Text-Mark self (empty-selection) strict?: #f))
+    (nextmethod rest))
   
   
   (method override (install rest)
     (nextmethod rest)
     (set! syntax (new-syntax))
+    (set-syntax~ model syntax)
     (let ((pref (preferences)))
       (when pref
         (let ((background (get-background~ pref)))
@@ -170,36 +143,17 @@
   (method override (install-child form creator creator-branch restore-form)
     (case (get-model~ form)
       ;; until Form <-> Node unification
-      ((text) (set-text (form->node form)))
+      ((text) (set-text~ model (form->node form)))
       (else (nextmethod form creator creator-branch restore-form))))
-
-  
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((pref (preferences)))
-      (when pref
-        (let ((base (or base-format (get-base-format~ pref))))
-          (add-format 'Base base)
-          (set-default-format (intern-format (or (get-default-format~ pref) (new Format base: 'Base)))))
-        (let ((base (or base-style (get-base-style~ pref))))
-          (add-style 'Base base)
-          (set-default-style (intern-style (or (get-default-style~ pref) (new Text-Style base: 'Base)))))
-        (register-children~ (child~ pref 'styles) styles)
-        (register-children~ (child~ pref 'formats) formats)))
-    (when (not text)
-      (set-content (empty-content)))
-    (set! tabs (make-tabs)))
   
   
   (method override (destroy)
-    (when controller
-      (close~ controller))
     (show-text-cursor)
     (nextmethod))
   
   
   (method protected virtual (new-syntax) <Text-Syntax>
-    (new Text-Syntax))
+    (new Text-Syntax model))
   
   
   (method override (get-text-view) <Text-View>
@@ -212,11 +166,11 @@
   
   
   (method protected (get-paragraphs) <Axis>
-    (get-sons~ root-row))
+    (get-paragraphs~ model))
   
   
   (method protected (set-paragraphs lst)
-    (set-sons~ root-row lst))
+    (set-paragraphs~ model lst))
   
   
   ;;;
@@ -231,6 +185,12 @@
   (method override (install-in-host host)
     (nextmethod host)
     (install-in-host~ (get-controller) host))
+  
+  
+  (method override (split-view)
+    (let ((host (new-frame (class-of self))))
+      (let ((editor (get-guest~ host)))
+        (set-model~ editor model))))
   
   
   ;;;
@@ -330,13 +290,66 @@
     (compare-saved~ (get-controller)))
   
   
+  (method override (install-scroller?)
+    #t)
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+  
+  
+  (method public (get-string-content) <string>
+    (get-string-content~ model))
+  
+  
+  (method public (set-string-content content <string>) <void>
+    (set-string-content~ model content))
+  
+  
+  (method override (default-extension)
+    (default-extension~ syntax))
+  
+  
+  (method override (extensions)
+    (extensions~ syntax))
+  
+  
+  (method override (load-content moniker)
+    (load-content~ model moniker))
+  
+  
+  (method override (save-content moniker)
+    (save-content~ model moniker))
+  
+  
+  (method override (save-to moniker)
+    (save-to~ model moniker))
+  
+  
+  (method override (reload-moniker moniker)
+    (reload-moniker~ model moniker))
+  
+  
+  @mvc
+  (method protected (reload-content lst)
+    (let ((line (get-line~ (get-start))))
+      (reload-content~ model lst)
+      (set-caret (new Cell (min line (cardinality (get-paragraphs))) 0))
+      (set-modified?~ model #f)))
+  
+  
+  (method override (compare-moniker moniker)
+    (compare-moniker~ model moniker))
+  
+  
   ;;;
   ;;;; Explorer
   ;;;
   
   
   (method public virtual (explorer-class)
-    Text-Explorer)
+    (explorer-class~ syntax))
   
   
   (method (on-select-outer evt)
@@ -345,7 +358,7 @@
   
   (method protected virtual (select-outer)
     (end-completion)
-    (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model range: (get-selection))))
       (with-safe-explore
         (lambda ()
           (when (outer-expr~ expl)
@@ -365,7 +378,7 @@
     (when focus-selects-all?
       (select-all))
     (when (has-selection?)
-      (invalidate-selection selection))
+      (invalidate-selection (get-selection)))
     (invalidate-non-showed-highlights))
   
   
@@ -379,7 +392,7 @@
   (method override (focus-lost)
     (nextmethod)
     (when (has-selection?)
-      (invalidate-selection selection))
+      (invalidate-selection (get-selection)))
     (invalidate-non-showed-highlights))
   
   
@@ -414,31 +427,31 @@
   (method (on-bulleted evt)
     (for-each-selected-paragraph
       (lambda (line paragraph)
-        (toggle-bulleted line))))
+        (toggle-bulleted~ model line))))
   
   
   (method (on-decrease-indent evt)
     (for-each-selected-paragraph
       (lambda (line paragraph)
-        (indent-paragraph line paragraph -32))))
+        (indent-paragraph~ model line paragraph -32))))
   
   
   (method (on-increase-indent evt)
     (for-each-selected-paragraph
       (lambda (line paragraph)
-        (indent-paragraph line paragraph 32))))
+        (indent-paragraph~ model line paragraph 32))))
   
   
   (method (on-justify evt)
     (let ((justification (get-property~ evt justification:)))
       (for-each-selected-paragraph
         (lambda (line paragraph)
-          (set-justification line paragraph justification)))))
+          (set-justification~ model line paragraph justification)))))
   
   
   (method (on-alignment evt)
     (let ((alignment (get-property~ evt alignment:)))
-      (set-text-alignment (get-selection) alignment)))
+      (set-text-alignment~ model (get-selection) alignment)))
   
   
   (method (on-text-style evt)
@@ -452,7 +465,7 @@
            (current (and run (get-font~ (get-style~ run))))
            (font (choose-font initial-font: current)))
       (close-popups)
-      (set-text-font (get-selection) font)))
+      (set-text-font~ model (get-selection) font)))
   
   
   (method (on-text-color evt)
@@ -461,7 +474,7 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color Black})))
-      (set-text-color (get-selection) color)))
+      (set-text-color~ model (get-selection) color)))
   
   
   (method (on-pick-text-color evt)
@@ -474,7 +487,7 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color White})))
-      (set-highlight-color (get-selection) color)))
+      (set-highlight-color~ model (get-selection) color)))
   
   
   (method (on-pick-highlight-color evt)
@@ -487,7 +500,7 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color White})))
-      (set-frame-color (get-selection) color)))
+      (set-frame-color~ model (get-selection) color)))
   
   
   (method (on-pick-frame-color evt)
@@ -517,6 +530,15 @@
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   text-listeners))))
+  
+  
+  ;;;
+  ;;;; Model
+  ;;;
+  
+  
+  (method protected (model-update)
+    (remove-all-text-actions))
   
   
   ;;;
@@ -576,7 +598,7 @@
               (if (not actual)
                   (replace-clipboard)
                 (append-clipboard actual))))
-          (delete-range range)))))
+          (delete-range~ model range)))))
   
   
   (method (on-open-line evt)
@@ -621,156 +643,6 @@
       (case kind
         ((:key :char) (call-key-press content))
         ((:string) (insert-string content)))))
-  
-  
-  ;;;
-  ;;;; Input/Output
-  ;;;
-  
-  
-  (method override (install-scroller?)
-    #t)
-  
-  
-  (method override (default-extension)
-    "txt")
-  
-  
-  (method override (extensions)
-    '(("Texts" . "txt")))
-  
-  
-  (method override (load-content moniker)
-    (if (not moniker)
-        (set-content #f)
-      (read-content moniker))
-    (update-status))
-  
-  
-  (method protected virtual (empty-content)
-    (new Text paragraphs: (list "")))
-  
-  
-  (method override (get-content)
-    (accumulate (get-paragraphs) paragraph->string List))
-  
-  
-  (method override (set-content lst)
-    (set-unformatted-content lst))
-  
-  
-  (method public (empty-text)
-    (set-content (empty-content)))
-  
-  
-  (method (set-unformatted-content lst)
-    (let* ((lst (or lst (empty-content)))
-           (lst (if (null/pair? lst) lst (get-paragraphs~ lst)))
-           (count <fx> 0)
-           (height <fx> 0)
-           (previous root-row)
-           (rows (map (lambda (string)
-                        (let ((paragraph (make-string-paragraph #f string)))
-                          (set-previous~ paragraph previous)
-                          (set-next~ previous paragraph)
-                          (set! previous paragraph)
-                          (wrap-paragraph '() paragraph)
-                          (increase! count)
-                          (increase! height (get-row-height~ paragraph))
-                          paragraph))
-                      lst)))
-      (complete-setup rows count height)))
-  
-  
-  (method public (get-string-content) <string>
-    (join-lines (get-content)))
-  
-  
-  (method public (set-string-content content <string>) <void>
-    (set-content (parse-string-content content))
-    (colorize-syntax)
-    (call-content-change #f))
-  
-  
-  (method (make-string-paragraph format string <string>) <Paragraph>
-    (make-paragraph
-     format
-     string
-     (if (empty-string? string)
-         '()
-       (list (new Run (subseq! string 0 (cast <fx> (cardinality string))) (get-default-style))))))
-  
-  
-  (method (make-paragraph format string <string> runs)
-    (let ((paragraph (new Paragraph)))
-      (set-parent~ paragraph self)
-      (set-format~ paragraph (or format (get-default-format)))
-      (set-string~ paragraph string)
-      (set-runs~ paragraph runs)
-      (set-father~ paragraph root-row)
-      (set-level~ paragraph 0)
-      (set-row-height~ paragraph (get-height~ (get-metrics~ (get-font~ (get-default-style)))))
-      (fix-view-style-parent paragraph)
-      paragraph))
-  
-  
-  (method public virtual (read-content moniker)
-    (set-content (read-moniker moniker))
-    (update-moniker-time moniker)
-    (when colorize?
-      (colorize-syntax)))
-  
-  
-  (method protected virtual (read-moniker moniker)
-    (load-lines~ moniker char-encoding: char-encoding char-encoding-errors: (if char-encoding #t #f)))
-  
-  
-  (method override (save-content moniker)
-    (save-to moniker)
-    (update-moniker-time moniker)
-    (if (not (get-modified?))
-        (update-status)
-      (set-modified? #f)
-      (reset-save-depth~ undoer)))
-  
-  
-  (method override (save-to moniker)
-    (let ((content (get-content)))
-      (save-lines~ moniker content char-encoding: char-encoding eol-encoding: eol-encoding)))
-  
-  
-  (method override (reload-moniker moniker)
-    (when moniker
-      (reload-content (read-moniker moniker))
-      (update-moniker-time moniker)))
-  
-  
-  (method public (reload-content lst)
-    (let ((line (get-line~ (get-start))))
-      (remove-every-row)
-      (set-content lst)
-      (colorize-syntax)
-      (set-caret (new Cell (min line (cardinality (get-paragraphs))) 0))
-      (set-modified? #f)
-      (update-status)))
-  
-  
-  (method override (compare-moniker moniker)
-    (when moniker
-      (let ((frame (new-frame (require-service 'Compare-Files) host-visible?: #f)))
-        (compare-monikers~ (get-guest~ frame) (new Document-Moniker moniker) moniker)
-        (focus-host~ frame))))
-  
-  
-  ;;;
-  ;;;; Container
-  ;;;
-  
-  
-  (method override (content-size-change size <Dimension>)
-    (set! visible-width (get-width~ size))
-    (when wrap?
-      (wrap-content '())))
   
   
   ;;;
@@ -842,21 +714,12 @@
     (when (and player editable? (has-focus?))
       (if (has-selection?)
           (hide-caret)
-        (set-caret-position (get-start))
         (show-caret))))
-  
-  
-  (method (set-caret-position pos)
-    (when (nu/=? pos caret-position)
-      (without-caret
-        (lambda ()
-          (set! caret-position pos)))))
   
   
   (method (invalidate-caret)
     (when editable?
-      (fit-caret)
-      (let ((rect (caret-rect caret-position 1)))
+      (let ((rect (caret-rect (get-caret) 1)))
         (when rect
           (invalidate-rect rect)))))
   
@@ -945,7 +808,7 @@
           (lambda ()
             (get-selected-string)))
         (if mouse-copy-selection
-            (let ((range (if (has-selection?) selection (expr-range (get-start)))))
+            (let ((range (if (has-selection?) (get-selection) (expr-range (get-start)))))
               (when range
                 (let ((copy (get-string range)))
                   (set-selection mouse-copy-selection ensure-displayed?: #f)
@@ -965,11 +828,11 @@
       ;; patch to manage the line selection border
       (when (and pos
                  (< (get-h~ view) (paragraph-left~ (get-paragraph (get-line~ pos))))
-                 (cell>=? pos (get-end~ selection-anchor)))
+                 (cell>=? pos (get-end-anchor)))
         (set! pos (get-end~ (selection-line (get-line~ pos)))))
       (when (and pos #t @parameterized-fix-me (/= pos previous-position))
         (let* ((range (selection-range pos))
-               (parts (range-difference range selection))
+               (parts (range-difference range (get-selection)))
                (player (get-player))
                (root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
@@ -988,7 +851,7 @@
                (par (get-paragraph (get-line~ pos))))
           (if (< (get-h~ view) (paragraph-left~ par))
               (select-paragraph (get-line~ pos))
-            (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
               (with-safe-explore
                 (lambda ()
                   (when (outer-expr~ expl)
@@ -1062,32 +925,33 @@
   
   
   (method (selection-range pos)
-    (define (selection-range-from-anchor)
-      (cond ((before?~ selection-anchor pos)
-             (new Range$Cell$ pos (get-end~ selection-anchor)))
-            ((after?~ selection-anchor pos)
-             (new Range$Cell$ (get-start~ selection-anchor) pos))
-            ;; else pos is inside selection-anchor
-            (else
-             selection-anchor)))
-    
-    (case selection-mode
-      ((char)
-       (selection-range-from-anchor))
-      ((word)
-       (if (inside?~ selection-anchor pos)
-           (selection-range-from-anchor)
-         (let* ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
-                (kind (outer-expr~ expl explore-whitespace?: #f))
-                (range (and kind (get-range~ expl))))
-           (cond ((not range)
-                  (selection-range-from-anchor))
-                 ((before?~ selection-anchor pos)
-                  (new Range$Cell$ (get-start~ range) (maximum (list (get-end~ range) (get-end~ selection-anchor)))))
-                 ;; else pos is after selection-anchor
-                 (else
-                  (new Range$Cell$ (minimum (list (get-start~ range) (get-start~ selection-anchor))) (get-end~ range)))))))
-      (else (selection-range-from-anchor))))
+    (let ((anchor (get-selection-anchor)))
+      (define (selection-range-from-anchor)
+        (cond ((before?~ anchor pos)
+               (new Range$Cell$ pos (get-end~ anchor)))
+              ((after?~ anchor pos)
+               (new Range$Cell$ (get-start~ anchor) pos))
+              ;; else pos is inside anchor
+              (else
+               anchor)))
+      
+      (case selection-mode
+        ((char)
+         (selection-range-from-anchor))
+        ((word)
+         (if (inside?~ anchor pos)
+             (selection-range-from-anchor)
+           (let* ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos))
+                  (kind (outer-expr~ expl explore-whitespace?: #f))
+                  (range (and kind (get-range~ expl))))
+             (cond ((not range)
+                    (selection-range-from-anchor))
+                   ((before?~ anchor pos)
+                    (new Range$Cell$ (get-start~ range) (maximum (list (get-end~ range) (get-end~ anchor)))))
+                   ;; else pos is after anchor
+                   (else
+                    (new Range$Cell$ (minimum (list (get-start~ range) (get-start~ anchor))) (get-end~ range)))))))
+        (else (selection-range-from-anchor)))))
   
   
   (definition (range-difference x <Range$Cell$> y <Range$Cell$>)
@@ -1277,12 +1141,12 @@
   (method (on-widen-forward evt)
     (let ((start (get-start))
           (end (get-end)))
-      (let ((extend (next-word end)))
+      (let ((extend (next-word~ model end)))
         (set-selection (new Range$Cell$ start extend)))))
   
   
   (method (reset-mode-on-anchor)
-    (if (and (has-selection?) (nu=? (get-start) (get-start~ selection-anchor)) (nu=? (get-end) (get-end~ selection-anchor)))
+    (if (and (has-selection?) (nu=? (get-start) (get-start-anchor)) (nu=? (get-end) (get-end-anchor)))
         (reset-mode)
       (reset-mode keep: 'virtual)))
   
@@ -1353,10 +1217,10 @@
   (method public (transpose-movements forward backward)
     (if (has-selection?)
         (bell)
-      (with-atomic-undo~ undoer
+      (with-atomic-undo~ (get-undoer~ model)
         (lambda ()
-          (let ((left-expl <Text-Explorer> (new (explorer-class) self))
-                (right-expl <Text-Explorer> (new (explorer-class) self)))
+          (let ((left-expl <Text-Explorer> (new (explorer-class) model))
+                (right-expl <Text-Explorer> (new (explorer-class) model)))
             (set-pos~ left-expl (get-start))
             (backward left-expl)
             (set-pos~ right-expl (get-end))
@@ -1367,8 +1231,8 @@
                   (bell)
                 (let ((ls (range-strings left))
                       (rs (range-strings right)))
-                  (replace right ls)
-                  (replace left rs)))))
+                  (replace~ model right ls)
+                  (replace~ model left rs)))))
           (set-modified? #t)))))
   
   
@@ -1414,16 +1278,16 @@
   
   
   (method (selection-tail direction) <Cell>
-    (cond
-     ((after?~ selection-anchor  (get-end))
-      (get-end))
-     ((before?~ selection-anchor (get-start))
-      (get-start))
-     ;; else the selection is the same as the selection-anchor
-     (else
-      (case direction
-        ((backward) (get-start))
-        ((forward)  (get-end))))))
+    (let ((anchor (get-selection-anchor)))
+      (cond ((after?~ anchor  (get-end))
+             (get-end))
+            ((before?~ anchor (get-start))
+             (get-start))
+            ;; else the selection is the same as the selection-anchor
+            (else
+             (case direction
+               ((backward) (get-start))
+               ((forward)  (get-end)))))))
   
   
   (method package (on-remove-spaces evt)
@@ -1433,16 +1297,16 @@
   
   
   (method public (remove-spaces pos (keep: keep 'one/none))
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
       (backward-whitespaces~ expl)
       (forward-whitespaces~ expl)
       (let* ((range (get-range~ expl))
              (one-left? (and (= (get-line~ (get-start~ range)) (get-line~ (get-end~ range))) (= (+ (get-col~ (get-start~ range)) 1) (get-col~ (get-end~ range))))))
-        (replace (get-range~ expl)
-                 (case keep
-                   ((none) (list ""))
-                   ((one) (list " "))
-                   ((one/none) (if one-left? (list "") (list " "))))))))
+        (replace~ model (get-range~ expl)
+          (case keep
+            ((none) (list ""))
+            ((one) (list " "))
+            ((one/none) (if one-left? (list "") (list " "))))))))
   
   
   (method package (on-display-info evt)
@@ -1460,7 +1324,7 @@
   (method package (on-user-code evt)
     (let* ((appl (get-application))
            (profile (get-profile~ appl)))
-      (user-code~ profile self)))
+      (text-macro~ profile self)))
   
   
   ;;;
@@ -1514,7 +1378,7 @@
   
   ;; this should be unified with selection-region
   (method (text-selection-region dh dv sc top bottom)
-    (range-region selection dh dv sc top: top bottom: bottom))
+    (range-region (get-selection) dh dv sc top: top bottom: bottom))
   
   
   (method (selection-region-all dh dv sc)
@@ -1557,35 +1421,16 @@
   
   
   ;;;
-  ;;;; Tabs
-  ;;;
-  
-  
-  ;; Tabs should really grow as needed...
-  ;; For now a big number of tabs will do!
-  (method (make-tabs)
-    (make-tabs-from 0 32 512))
-  
-  
-  (method public (make-tabs-from from tab-size number)
-    (let ((stop from))
-      (map (lambda (n)
-             (prog1 stop
-               (increase! stop tab-size)))
-           (naturals 0 number))))
-  
-  
-  ;;;
   ;;;; Edition
   ;;;
   
   
   (method override (can-undo?)
-    (can-undo?~ undoer))
+    (can-undo?~ model))
   
   
   (method override (can-redo?)
-    (can-redo?~ undoer))
+    (can-redo?~ model))
   
   
   (method override (can-cut?)
@@ -1609,12 +1454,12 @@
   
   
   (method override (undo)
-    (undo~ undoer)
+    (undo~ model)
     (update-focus-actions~ (get-application)))
   
   
   (method override (redo)
-    (redo~ undoer)
+    (redo~ model)
     (update-focus-actions~ (get-application)))
   
   
@@ -1656,7 +1501,7 @@
   
   
   (method override (delete-selection)
-    (replace-selection (list "")))
+   (replace-selection (list "")))
   
   
   (method override (select-all . rest)
@@ -1674,7 +1519,7 @@
   
   
   (method package (on-set-mark evt)
-    (set-mark selection)
+    (set-mark (get-selection))
     (user-message "Marked"))
   
   
@@ -1682,11 +1527,34 @@
     (when mark
       (if (or locked-anchor? (get-property~ evt extend?:))
           (set-selection (new Range$Cell$
-                           (minimum (list (get-start~ selection-anchor) (get-start~ mark)))
-                           (maximum (list (get-end~ selection-anchor) (get-end~ mark)))))
+                           (minimum (list (get-start-anchor) (get-start~ mark)))
+                           (maximum (list (get-end-anchor) (get-end~ mark)))))
         (let ((new-mark mark))
           (set-mark (get-selection))
           (set-selection new-mark)))))
+  
+  
+  ;;;
+  ;;;; Marks
+  ;;;
+  
+  
+  (method public (get-marks)
+    marks)
+  
+  
+  (method public (add-mark mark)
+    (set! marks (cons mark marks)))
+  
+  
+  (method public (remove-mark mark)
+    (set! marks (remove! mark marks)))
+  
+  
+  (method protected (adjust-marks range caret)
+    (for-each (lambda (mark)
+                (adjust~ mark (get-start~ range) (get-end~ range) caret))
+              marks))
   
   
   ;;;
@@ -1727,38 +1595,38 @@
   
   
   (method public inline (get-start) <Cell>
-    (get-start~ (cast <Range$Cell$> selection)))
+    (get-start~ selection))
   
   
   (method public inline (get-end) <Cell>
-    (get-end~ (cast <Range$Cell$> selection)))
+    (get-end~ selection))
   
   
   (method inline override (get-selection) <Range$Cell$>
-    selection)
+    (get-range~ selection))
   
   
   (method override (set-selection range <Range$Cell$> (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
     (validate-range range)
-    (when (and range (/= (cast <Range$Cell$> selection) range))
-      (when (or set-anchor? (not selection-anchor))
+    (when (and range (/= (cast <Range$Cell$> (get-selection)) range))
+      (hide-caret)
+      (when set-anchor?
         (set-selection-anchor range))
       (update-selection range)
       (update-caret)
       (when (and ensure-displayed? (not mouse-selecting?))
         (ensure-displayed center?: (eq? ensure-displayed? 'center-caret)))
       (unless (and mouse-down? (eq? (get-mouse-in) self))
-        (update-focus-actions~ (get-application)))
-      (selection-change)))
+        (update-focus-actions~ (get-application)))))
   
   
   (method public (update-selection range <Range$Cell$>)
     (if (not (view-visible?))
-        (set! selection range)
+        (set-range~ selection range)
       (let ((root (get-root)))
         (receive (dh dv sc) (get-delta~ root self)
           (with ((old (selection-region-all dh dv sc)))
-            (set! selection range)
+            (set-range~ selection range)
             (with ((new (selection-region-all dh dv sc)))
               (if (and old new)
                   (begin
@@ -1771,8 +1639,7 @@
   
   
   (method public (reset-selection pos <Cell>)
-    (let ((range (new Range$Cell$ pos pos)))
-      (set-selection range set-anchor?: #t)))
+    (set-selection (new Range$Cell$ pos pos)))
   
   
   (method (fit-range range <Range$Cell$>)
@@ -1785,24 +1652,20 @@
         (new Range$Cell$ (or s start) (or e end)))))
   
   
-  (method (fit-selection)
-    (let ((range (fit-range (get-selection))))
-      (when range
-        (set-selection range))))
-  
-  
-  (method (fit-anchor)
-    (let ((range (fit-range selection-anchor)))
-      (when range
-        (set! selection-anchor range))))
-  
-  
   (method public (get-selection-anchor)
-    selection-anchor)
+    (get-range~ selection-anchor))
+  
+  
+  (method public (get-start-anchor)
+    (get-start~ selection-anchor))
+  
+  
+  (method public (get-end-anchor)
+    (get-end~ selection-anchor))
   
   
   (method public (set-selection-anchor range)
-    (set! selection-anchor (copy range)))
+    (set-range~ selection-anchor (copy range)))
   
   
   (method public (lock-anchor)
@@ -1817,18 +1680,6 @@
   (method public (change-selection pos . rest)
     (bind-keywords ((set-anchor? #f) . others) rest
       (when pos (apply set-selection (selection-range pos) set-anchor?: set-anchor? others))))
-  
-  
-  (method (fit-caret)
-    (when caret-position
-      (let ((line (get-line~ caret-position))
-            (col (get-col~ caret-position))
-            (count (cardinality (get-paragraphs))))
-        (if (>= line count)
-            (set! caret-position (new Cell (- count 1) 0))
-          (let ((len (paragraph-length line)))
-            (when (> col len)
-              (set! caret-position (new Cell line len))))))))
   
   
   (method public (get-caret) <Cell>
@@ -1878,6 +1729,13 @@
            (end (get-end))
            (end-line (if (= (get-col~ end) 0) (- (get-line~ end) 1) (get-line~ end))))
       (naturals (get-line~ start) (+ end-line 1))))
+  
+  
+  (method public (for-each-selected-paragraph proc)
+    (let ((selection (get-selection)))
+      (for-each-paragraph~ model proc
+        start: (get-line~ (get-start~ selection))
+        end: (get-line~ (get-end~ selection)))))
   
   
   (method override (invalidate-selection sel)
@@ -1938,7 +1796,7 @@
   
   
   (method (selection-lines)
-    (range-strings selection))
+    (range-strings (get-selection)))
   
   
   (method public (get-selected-string) <string+>
@@ -1983,12 +1841,6 @@
       (while (memq? (get-char pos) '(#\space #\tab))
         (increase! pos))
       (get-col~ pos)))
-  
-  
-  (method public virtual (current-name)
-    (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
-      (when (outer-expr~ expl)
-        (get-marked~ expl))))
   
   
   (method (on-goto-line evt)
@@ -2099,45 +1951,19 @@
   
   
   (method override (scrollee-width)
-    (if wrap?
-        (or wrap-width (if (and scroller fit-in-scroller?)
-                           (max (get-display-width) visible-width)
-                         visible-width))
-      (let ((width (if (dynamic-scrollee-width?)
-                       (+ left-padding (calculate-scrollee-width) left-padding)
-                     4000)))
-        (if (and scroller fit-in-scroller?)
-            (max (get-display-width) width)
-          width))))
-  
-  
-  (method override (scrollee-content-width)
-    (+ left-padding (calculate-scrollee-width) left-padding))
+    (let ((width (scrollee-width~ model)))
+      (if (and scroller fit-in-scroller?)
+          (max (get-display-width) width)
+        width)))
   
   
   ;; until we maintain it incrementally
   (method protected virtual (dynamic-scrollee-width?)
-    (<= visible-count 16))
+    (<= (get-visible-count~ model) 16))
   
   
-  (method (calculate-scrollee-width)
-    (let ((width 0))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (let ((paragraph-width (compute-width~ paragraph)))
-            (when (> paragraph-width width)
-              (set! width paragraph-width)))))
-      width))
-  
-  
-  ;;;
-  ;;;; Update
-  ;;;
-  
-  
-  (method override (invalidate-update)
-    (nextmethod)
-    (wrap-content '()))
+  (method override (scrollee-content-width)
+    (scrollee-content-width~ model))
   
   
   ;;;
@@ -2146,31 +1972,31 @@
 
 
   (method public (get-length) <fx>
-    (cardinality (get-paragraphs)))
+    (get-length~ model))
   
   
   (method public (get-limit) <fx>
-    (- (get-length) 1))
+    (get-limit~ model))
   
   
   (method public (get-paragraph line <fx>) <Paragraph>
-    (element (get-paragraphs) line))
+    (get-paragraph~ model line))
   
   
   (method public (paragraph-string line <fx>) <string>
-    (get-string~ (get-paragraph line)))
+    (paragraph-string~ model line))
   
   
   (method public (paragraph-length line <fx>) <fx>
-    (cardinality (paragraph-string line)))
+    (paragraph-length~ model line))
   
   
   (method (paragraph->string paragraph <Paragraph>) <string>
-    (get-string~ paragraph))
+    (paragraph->string~ model paragraph))
   
   
   (method public (first-paragraph)
-    (get-paragraph 0))
+    (first-paragraph~ model))
   
   
   ;;;
@@ -2179,57 +2005,22 @@
   
   
   (method override (get-print-area context)
-    (new Rect 0 0 800 (scrollee-height)))
+    (get-print-area~ model context))
   
   
   (method override (paginate page-width page-height)
-    (let* ((selected? #f @tmp (has-selection?))
-           (start (if selected? (get-line~ (get-start)) 0))
-           (end (+ (if selected? (get-line~ (get-end)) (get-limit)) 1))
-           (pages (new List-Factory))
-           (page 0)
-           (top 0)
-           (bottom 0)
-           (together #f))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (when (and (>= line start) (< line end))
-            (let* ((paragraph-top bottom)
-                   (string (get-string~ paragraph))
-                   (format (get-format~ paragraph))
-                   (height (get-height~ paragraph))
-                   (bot (+ bottom height)))
-              (if (<= bot (+ top page-height))
-                  (set! bottom bot)
-                (let ((effective-bottom (or together bottom)))
-                  (put~ pages (new Rect 0 top page-width effective-bottom))
-                  (set! top effective-bottom))
-                (set! bottom bot))
-              (when (and together (not (empty-string? string)))
-                (set! together #f))
-              (when (and (not together) (get-keep-with-next?~ format))
-                (set! together paragraph-top))))))
-      (put~ pages (new Rect 0 top page-width bottom))
-      (get-output~ pages)))
+    (let ((selected? #f @tmp (has-selection?)))
+      (let ((start (if selected? (get-line~ (get-start)) 0))
+            (end (+ (if selected? (get-line~ (get-end)) (get-limit)) 1)))
+        (paginate-range~ model start end page-width page-height))))
   
   
   (method override (setup-printing)
-    (let ((width wrap-width))
-      (set! wrap-width 800)
-      ;; this is a necessary (hopefully temporary) patch buffer because currently we get and memorize
-      ;; character sizes at no scaling and of course round of errors accumulate when in higher scaling
-      (set! wrap-patch 50)
-      (layout-scrollee)
-      (wrap-content '())
-      (cons :wrap-width (cons width (nextmethod)))))
+    (setup-printing~ model))
   
   
   (method override (restore-printing preserved)
-    (nextmethod preserved)
-    (set! wrap-width (getf preserved :wrap-width))
-    (set! wrap-patch #f)
-    (layout-scrollee)
-    (wrap-content '()))
+    (restore-printing~ model preserved))
   
   
   ;;;
@@ -2249,9 +2040,10 @@
             (nextmethod context)))))
   
   
-  (method override (draw-outline surface context clipper lh lv sh sv sc sc?)
+  (method override (draw-children surface nodes context lh lv sh sv sc sc?)
     (define (draw-highlights)
-      (let ((focus? (has-focus?)))
+      (let ((focus? (has-focus?))
+            (tabs (get-tabs~ model)))
         (for-each (lambda (highlight)
                     (when (or focus? (get-show-unfocused?~ highlight))
                       (let ((range (get-range~ highlight))
@@ -2275,7 +2067,7 @@
           (printing? (getf context printing?:)))
       (unless printing?
         (draw-selection surface top bottom))
-      (nextmethod surface context clipper lh lv sh sv sc sc?)
+      (nextmethod surface nodes context lh lv sh sv sc sc?)
       (draw-highlights)
       (unless printing?
         (draw-caret surface sc sc?))))
@@ -2325,8 +2117,9 @@
   
   
   (method override (ensure-displayed . rest)
-    (when selection
-      (apply ensure-range-displayed selection rest)))
+    (let ((selection (get-selection)))
+      (when selection
+        (apply ensure-range-displayed selection rest))))
   
   
   (method public (ensure-cell-displayed pos <Cell>)
@@ -2393,27 +2186,6 @@
   
   
   ;;;
-  ;;;; Word
-  ;;;
-  
-  
-  (method public (next-word pos (constituent-test: constituent-test #f))
-    (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (or constituent-test alphanumeric?)))
-      (forward-until~ expl (lambda (c) (test c)))
-      (forward-until~ expl (lambda (c) (not (test c))))
-      (get-end~ expl)))
-  
-  
-  (method public (previous-word pos (constituent-test: constituent-test #f))
-    (let ((expl (new Text-Explorer self start: pos end: pos))
-          (test (or constituent-test alphanumeric?)))
-      (backward-until~ expl (lambda (c) (test c)))
-      (backward-until~ expl (lambda (c) (not (test c))))
-      (get-start~ expl)))
-  
-  
-  ;;;
   ;;;; Constituent
   ;;;
   
@@ -2436,13 +2208,11 @@
   
   
   (method public (move-forward pos word?)
-    (when pos
-      (if word? (next-word pos) (next-cell pos))))
+    (move-forward~ model pos word?))
   
   
   (method public (move-backward pos word?)
-    (when pos
-      (if word? (previous-word pos) (previous-cell pos))))
+    (move-backward~ model pos word?))
   
   
   ;;;
@@ -2451,25 +2221,25 @@
   
   
   (method public (insert-char c)
-    (insert-string (string c)))
+    (caret-update (insert-char~ model (get-selection) c)))
   
   
   (method public (insert-string str)
-    (replace-selection (split-lines str)))
+    (caret-update (insert-string~ model (get-selection) str)))
   
   
   (method public (insert-styled string style)
     (let ((start (get-start))
-          (style (cond ((is? style Style) style) ((not style) default-style) (else (get-style style)))))
+          (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
       (insert-string string)
-      (set-style (new Range$Cell$ start (get-start)) style)))
+      (set-style~ model (new Range$Cell$ start (get-start)) style)))
   
   
   (method public (replace-styled range strings style)
     (let ((start (get-start~ range))
-          (style (cond ((is? style Style) style) ((not style) default-style) (else (get-style style)))))
-      (replace range strings)
-      (set-style (new Range$Cell$ start (get-start)) style)))
+          (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+      (replace~ model range strings)
+      (set-style~ model (new Range$Cell$ start (get-start)) style)))
   
   
   (method public (insert-line line (proper? #t))
@@ -2479,7 +2249,7 @@
   (method public (insert-bulleted-line line)
     (let ((line (get-line~ (get-start))))
       (insert-line line)
-      (toggle-bulleted line)))
+      (toggle-bulleted~ model line)))
   
   
   (method public (insert-newline)
@@ -2508,64 +2278,6 @@
   
   
   ;;;
-  ;;;; Table
-  ;;;
-  
-  
-  (method public (create-table (size: size #f) (header?: header? #t) (node-column?: node-column? #f) (columns: columns '()) (row-count: row-count #f))
-    (define (setup-columns tree <Tree-View> node-column? columns)
-      (let ((first? #t))
-        (for-each (lambda (column)
-                    (let* ((node?  (and first? node-column?))
-                           (class  (if node? Tree-Node-Column Tree-Label-Column))
-                           (title  (getf column title:))
-                           (width  (getf column width:))
-                           (others (if node? (list :display-images? #f) '())))
-                      (set! first? #f)
-                      (apply (~ add-column tree) class: class title: title width: width others)))
-                  columns)))
-    
-    (define (setup-rows tree <Tree-View> header? columns row-count)
-      (when row-count
-        (let ((height (get-height~ tree)))
-          ;; time to patch!
-          (when (not header?)
-            (increase! height 16))
-          (let ((row-height (quotient height (cast <fx> row-count))))
-            (for-each (lambda (line)
-                        (let ((children (map (lambda (column)
-                                               (new Formatted-Text-View))
-                                             columns)))
-                          (add-row~ tree row-height: row-height children: children)))
-                      (naturals 0 row-count))))))
-    
-    (let* ((border (new Table-Border))
-           (tree (locate~ border 'tree)))
-      (when size
-        (set-size~ border size))
-      (when (not header?)
-        (set-shown?~ (locate~ border 'header) #f))
-      (setup-columns tree node-column? columns)
-      (setup-rows tree header? columns row-count)
-      border))
-  
-  
-  (method public (insert-table . rest)
-    (let ((table (apply create-table rest)))
-      (insert-view table)
-      table))
-  
-  
-  ;;;
-  ;;;; Table Of Content
-  ;;;
-  
-  
-  (method public virtual (insert-table-of-content)
-    )
-  
-  
-  ;;;
   ;;;; Replace
   ;;;
   
@@ -2575,7 +2287,7 @@
       (unless (at-beginning?)
         (if (has-selection?)
             (delete-selection)
-          (delete-range (new Range$Cell$ (move-backward (get-start) word?) (get-end)))))))
+          (caret-update (delete-range~ model (new Range$Cell$ (move-backward (get-start) word?) (get-end))))))))
   
   
   (method public virtual (delete-char)
@@ -2591,334 +2303,58 @@
       (unless (at-end?)
         (if (has-selection?)
             (delete-selection)
-          (delete-range (new Range$Cell$ (get-start) (move-forward (get-end) word?)))))))
-  
-  
-  (method public (delete-range range)
-    (replace range (list "")))
-  
-  
-  (method public (replace-selection strings)
-    (replace selection strings))
+          (caret-update (delete-range~ model (new Range$Cell$ (get-start) (move-forward (get-end) word?))))))))
   
   
   (method public (replace range <Range$Cell$> strings)
-    (let ((caret (replace-text range strings)))
-      (when caret
-        (set-caret caret)
-        (update-caret))))
-  
-  
-  (method protected (replace-text range <Range$Cell$> strings)
     (when (write-allowed?)
       (without-caret
         (lambda ()
-          (let* ((start (get-start~ range))
-                 (end   (get-end~ range))
-                 (count (length strings))
-                 (old   (range-strings range))
-                 (ufd?  (<= (get-line~ start) (get-first-displayed-line~ outline)))
-                 (caret (replace-range range strings))
-                 (appl  (get-application))
-                 (old-selection (copy selection))
-                 (inserting-single-char? (and (= count 1) (= (cardinality (cast <string> (car strings))) 1) (= start end))))
-            ;; note: we have to get ufd? before replace-range calls layout-scrollee
-            ;; todo: would < be sufficient for ufd?
-            (when ufd?
-              (update-displayed)
-              @todo-replace-the-update-displayed-with-incremental-behavior
-              (set! first-displayed (get-paragraph first-displayed-line)))
-            (fit-selection)
-            (fit-anchor)
-            (fit-caret)
-            (recolorize-text start (- (+ (get-line~ start) count) 1))
-            (set-modified? #t)
-            (if #f @commented-because-buggy-with-multiple-undo inserting-single-char?
-                (if (not contiguous-undo-range)
-                    (let ((range (new Range$Cell$ start caret)))
-                      (set! contiguous-undo-range range)
-                      (register-undo~ undoer
-                        (lambda ()
-                          (delete-range range))))
-                  (if (= (get-end~ contiguous-undo-range) (- caret 1))
-                      (set-end~ contiguous-undo-range caret)
-                    (set! contiguous-undo-range #f)))
-                (set! contiguous-undo-range #f)
-                (register-undo~ undoer
-                  (let ((range (new Range$Cell$ start caret)))
-                    (lambda ()
-                      (replace range old)
-                      (set-selection old-selection)))))
-            (call-content-change #f)
-            (when appl
-              (update-focus-actions~ appl))
-            caret)))))
+          (caret-update (replace~ model range strings))))))
   
   
-  (method (replace-range range <Range$Cell$> strings)
-    (define (replace-paragraph line <fx> start <fx> end <fx> string <string>)
-      (let* ((paragraph (get-paragraph line))
-             (inserted <fx> (cardinality string))
-             (top (get-bottom~ paragraph)))
-        (replace-range~ paragraph start end string)
-        (invalidate-replacement paragraph top)
-        (new Cell line (+ start inserted))))
-    
-    (define (replace-paragraphs range <Range$Cell$> strings)
-      (let* ((start       (get-start~ range))
-             (end         (get-end~ range))
-             (sl          (get-line~ start))
-             (el          (get-line~ end))
-             (replaced    (+ (- el sl) 1))
-             (inserted    (length strings))
-             (before      (range-height sl el))
-             (first-par   (get-paragraph sl))
-             (last-par    (get-paragraph el))
-             (bottom      (get-bottom~ last-par))
-             (paragraphs  (strings->paragraphs first-par strings))
-             (first-runs  (range-runs~ first-par 0 (get-col~ start)))
-             (last-runs   (range-runs~ last-par (get-col~ end) (get-length~ last-par)))
-             (last-length (cardinality (cast <string> (last strings))))
-             (caret-line  (+ sl inserted -1))
-             (caret-col   (+ (if (= inserted 1) (get-col~ start) 0) last-length)))
-        (replace-sons~ root-row paragraphs first-par sl (get-next~ last-par) (+ el 1))
-        (replace-beginning~ (get-paragraph sl) first-runs)
-        (replace-ending~ (get-paragraph caret-line) last-runs)
-        (invalidate-replacements paragraphs replaced inserted bottom before)
-        (new Cell caret-line caret-col)))
-    
-    (define (invalidate-replacement paragraph top)
-      (let ((delta (wrap-paragraph '() paragraph)))
-        ;; this has to be done, but possibly the right approach is
-        ;; to have an invalid scrollee flag... set by the various row methods...
-        ;; or maybe the fucking row-height can all be cleaned up!!!
-        (when (or wrap? (dynamic-scrollee-width?))
-          (layout-scrollee))
-        (when (/= delta 0)
-          (let ((size (get-size)))
-            (let ((rect (new Rect 0 top (get-width~ size) (get-height~ size))))
-              (scroll-view 0 delta rect))))
-        (invalidate-paragraph paragraph)))
-    
-    (define (invalidate-replacements paragraphs replaced inserted bottom before)
-      (define (paragraphs-height paragraphs)
-        (let (iterate (paragraphs paragraphs)
-                      (sum 0))
-          (if (null? paragraphs)
-              sum
-            (iterate (cdr paragraphs) (+ sum (paragraph-height (car paragraphs)))))))
-      
-      (for-each (lambda (paragraph)
-                  (wrap-paragraph-lowlevel '() paragraph))
-                paragraphs)
-      (let* ((after (paragraphs-height paragraphs))
-             (delta (- after before)))
-        (increase! visible-count (- inserted replaced))
-        (increase! visible-height delta)
-        (layout-scrollee)
-        (when (/= delta 0)
-          (let ((size (get-size)))
-            (let ((rect (new Rect 0 bottom (get-width~ size) (get-height~ size))))
-              (scroll-view 0 delta rect))))
-        (for-each invalidate-paragraph paragraphs)))
-    
-    (define (range-height start end)
-      (loop (with row = (get-row start))
-            (for n from start to end)
-            (sum (paragraph-height row))
-            (do (set! row (get-next~ row)))))
-    
-    (define (paragraph-height paragraph)
-      (get-row-height~ paragraph))
-    
-    (define (strings->paragraphs first-par strings)
-      (let ((last-format (get-format~ first-par)))
-        (map (lambda (string)
-               (make-string-paragraph last-format string))
-             strings)))
-    
-    (let ((start (get-start~ range))
-          (end   (get-end~ range))
-          (count (length strings)))
-      (remove-all-text-actions)
-      (set! highlights '())
-      (if (and (= (get-line~ start) (get-line~ end)) (= 1 count))
-          (replace-paragraph (get-line~ start) (get-col~ start) (get-col~ end) (car strings))
-        (if (<= count (- (get-line~ end) (get-line~ start)))
-            (with-update-locked
-              (lambda ()
-                (replace-paragraphs range strings)))
-          (replace-paragraphs range strings)))))
+  (method protected (replace-text range <Range$Cell$> strings)
+    (caret-update (replace-text~ model range strings)))
   
   
-  (method (invalidate-paragraph paragraph)
-    (invalidate-drawing~ paragraph))
+  (method public (replace-selection strings)
+    (caret-update (replace~ model (get-selection) strings)))
+  
+  
+  (method (caret-update caret)
+    (when caret
+      (set-caret caret)
+      (update-caret)))
   
   
   ;;;
-  ;;;; Coloring
+  ;;;; Formatted
   ;;;
   
   
-  (method protected virtual (colorize-syntax . rest)
-    )
+  (method (copy-formatted-selection)
+    (if (empty-selection?)
+        (bell)
+      (let ((output (open-output-string)))
+        (print-formatted~ model output (get-selection))
+        (let ((text (get-output-string output)))
+          (set-clipboard-text text format: 'jazz-formatted-text)))))
   
   
-  (method protected virtual (colorize-comments . rest)
-    )
+  (method (paste-formatted-clipboard)
+    (if (clipboard-format-available? 'jazz-formatted-text)
+        (let* ((text (get-clipboard-text format: 'jazz-formatted-text))
+               (info (with-jazz-readtable (lambda () (read-string-element text)))))
+          (replace-formatted~ model (get-selection) info))
+      (let ((strings (split-lines (get-clipboard-text))))
+        (replace-selection strings))))
   
   
-  (method protected virtual (colorize-declarations . rest)
-    )
-  
-  
-  (method protected virtual (recolorize-text start end-line)
-    )
-  
-  
-  ;;;
-  ;;;; Text
-  ;;;
-  
-  
-  (method public (get-text)
-    text)
-  
-  
-  (method public (set-text value)
-    (set-content (parse-text-content value))
-    (set! text value))
-  
-  
-  (method (parse-text-content content)
-    (cond ((not content)
-           (empty-content))
-          ((string? content)
-           (parse-string-content content))
-          ((and (null/pair? content) (is? self Formatted-Text-View))
-           (parse-formatted-content content))
-          ((is? content JML-Node)
-           (parse-jml-content content))
-          (else
-           (error "Unable to parse text content type: {t}" (category-identifier (class-of content))))))
-  
-  
-  (method (parse-string-content content)
-    (new Text paragraphs: (split-lines content)))
-  
-  
-  (method (parse-formatted-content content)
-    (define (parse-paragraph par intern-format intern-style)
-      (if (string? par)
-          (cons #f (list (list par #f)))
-        (let* ((scan (iterate-sequence par))
-               (format (parse-format scan)))
-          (cons (intern-format format) (parse-runs scan intern-style)))))
-    
-    (define (parse-format scan <Iterator>)
-      (let* ((format #f)
-             (add-formatting
-               (lambda (proc)
-                 (when (not format)
-                   (set! format (new Format)))
-                 (proc format)))
-             (out? #f))
-        (while (and (not (done?~ scan)) (not out?))
-          (let ((target (get-next~ scan)))
-            (case target
-              ((:bulleted)
-               (add-formatting (lambda (format) (set-bulleted?~ format #t)))
-               (add-formatting (lambda (format) (set-left-margin~ format 16))))
-              ((indent:)
-               (let ((n (get-next~ scan)))
-                 (add-formatting (lambda (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
-              (else
-               (unget~ scan target)
-               (set! out? #t)))))
-        format))
-    
-    (define (parse-runs scan <Iterator> intern-style)
-      (accumulate scan
-                  (lambda (run)
-                    (cond ((string? run)
-                           (list run #f))
-                          ((pair? run)
-                           (parse-run (iterate-sequence run) intern-style))
-                          (else
-                           (error "Unable to parse run: {t}" run))))))
-    
-    (define (parse-run scan <Iterator> intern-style)
-      (let* ((string #f)
-             (style #f)
-             (add-styling
-               (lambda (proc)
-                 (when (not style)
-                   (set! style (new Text-Style base: 'Base)))
-                 (proc style))))
-        (while (not (done?~ scan))
-          (let ((target (get-next~ scan)))
-            (case target
-              ((style:)
-               (let ((name (get-next~ scan)))
-                 (set! style (get-style name))))
-              ((:link)
-               (let ((action (get-next~ scan)))
-                 (set! style (new-link-style action))))
-              ((color:)
-               (let ((color (get-next~ scan)))
-                 (when (symbol? color)
-                   (set! color (dispatch (class-of Color) color)))
-                 (add-styling (lambda (style) (set-color~ style color)))))
-              ((highlight:)
-               (let ((highlight (get-next~ scan)))
-                 (when (symbol? highlight)
-                   (set! highlight (dispatch (class-of Color) highlight)))
-                 (add-styling (lambda (style) (set-highlight~ style highlight)))))
-              ((font:)
-               (let ((font (get-next~ scan)))
-                 (when (symbol? font)
-                   (set! font (dispatch (class-of Font) font)))
-                 (add-styling (lambda (style) (set-font~ style font)))))
-              ((image:)
-               (let ((image (get-next~ scan))
-                     (portfolio (get-images-portfolio~ (get-application))))
-                 (set! string " ")
-                 (set! style (new Image-Style portfolio: portfolio resource: image))))
-              ((moniker:)
-               (let ((moniker (get-next~ scan))
-                     (scaling #f))
-                 (let ((next (peek~ scan)))
-                   (when (eq? next scaling:)
-                     (get-next~ scan)
-                     (set! scaling (get-next~ scan))))
-                 (set! string " ")
-                 (set! style (new Image-Style moniker: moniker scaled?: scaling scaling: scaling))))
-              (else
-               (if (string? target)
-                   (set! string target)
-                 (error "Unable to parse run element: {t}" target))))))
-        (list string (intern-style style))))
-    
-    (define (new-link-style action)
-      (new Link-Style font: {Font Link-Small} color: {Color Link} action: action))
-    
-    (let* ((formats (new List-Factory))
-           (styles (new List-Factory))
-           (intern-format
-            (lambda (format)
-              (when format
-                (put~ formats format))))
-           (intern-style
-            (lambda (style)
-              (when style
-                (put~ styles style))))
-           (paragraphs (map (lambda (par)
-                              (parse-paragraph par intern-format intern-style))
-                            content)))
-      (new Formatted-Text
-        formats: (get-output~ formats)
-        styles: (get-output~ styles)
-        paragraphs: paragraphs)))
+  (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
+    (when (write-allowed?)
+      (without-caret
+        (lambda ()
+          (replace-formatted-text~ model range strings formats styles paragraphs)))))
   
   
   ;;;
@@ -2985,25 +2421,25 @@
       ((bold)
        (with-formatted-range input
          (lambda (range)
-           (toggle-bold range))))
+           (toggle-bold~ model range))))
       ((italic)
        (with-formatted-range input
          (lambda (range)
-           (toggle-italic range))))
+           (toggle-italic~ model range))))
       ((underline)
        (with-formatted-range input
          (lambda (range)
-           (toggle-underline range))))
+           (toggle-underline~ model range))))
       ((color)
        (let ((color (read-formatted-parameter input)))
          (with-formatted-range input
            (lambda (range)
-             (set-text-color range (registered-color color))))))
+             (set-text-color~ model range (registered-color color))))))
       ((font)
        (let ((font (read-formatted-parameter input)))
          (with-formatted-range input
            (lambda (range)
-             (set-text-font range (registered-font font))))))
+             (set-text-font~ model range (registered-font font))))))
       (else
        (error "Unknown text directive: {s}" directive))))
   
@@ -3014,650 +2450,12 @@
   
   
   ;;;
-  ;;;; Text JML
+  ;;;; Format
   ;;;
-  
-  
-  @text-tags
-  ((<text>)
-   (<paragraph> <p>)
-   (<header> <h>)
-   (<list> type: ordered unordered
-     (<item>))
-   (<format>)
-   (<style>)
-   (<anchor> <a>)
-   (<hyperlink> <link>)
-   (<image> <img>)
-   (<table>
-     (<tr>)
-     (<td>)))
-  
-  
-  @have-to-think-those-through-as-they-are-very-basic-in-the-xhtml-model
-  ((<div>)
-   (<span>))
-  
-  
-  (method (parse-jml-content node)
-    (define (parse-jml-paragraph node intern-format intern-style)
-      (if (is? node JML-Text)
-          (cons #f (list (list (get-text~ node) #f)))
-        (let ((tag (get-tag~ node)))
-          (case tag
-            ((p span) (parse-p-tag node intern-format intern-style))
-            (else (error "Unknown text tag: {s}" tag))))))
-    
-    (define (parse-p-tag node intern-format intern-style)
-      (let ((format (parse-p-format node)))
-        (cons (intern-format format) (parse-p-runs node intern-style))))
-    
-    (define (parse-p-format node)
-      (let* ((format #f)
-             (add-formatting
-               (lambda (proc)
-                 (when (not format)
-                   (set! format (new Format)))
-                 (proc format))))
-        (when (get-property~ node 'bulleted?)
-          (add-formatting
-            (lambda (format)
-              (set-bulleted?~ format #t)
-              (set-left-margin~ format 16))))
-        format))
-    
-    (define (parse-p-runs node intern-style)
-      (map (lambda (node)
-             (parse-p-run node intern-style))
-           (get-children~ node)))
-    
-    (define (parse-p-run node intern-style)
-      (if (is? node JML-Text)
-          (list (get-text~ node) (intern-style #f))
-        (let ((tag (get-tag~ node)))
-          (case tag
-            ((style) (parse-style-tag node intern-style))
-            (else (error "Unable to parse paragraph element: {t}" tag))))))
-    
-    (define (parse-style-tag node intern-style)
-      (let ((string (get-text~ (first-child~ node)))
-            (style (new Text-Style base: 'Base)))
-        (for-each-property (lambda (property value)
-                             (case property
-                               ((color) (set-color~ style (parse-color value)))
-                               (else (error "Unknown style property: {s}" property))))
-                           (get-properties~ node))
-        (list string (intern-style style))))
-    
-    (define (parse-color color)
-      (dispatch (class-of Color) color))
-    
-    (let* ((formats (new List-Factory))
-           (styles (new List-Factory))
-           (intern-format
-            (lambda (format)
-              (when format
-                (put~ formats format))))
-           (intern-style
-            (lambda (style)
-              (when style
-                (put~ styles style))))
-           (paragraphs (map (lambda (par)
-                              (parse-jml-paragraph par intern-format intern-style))
-                            (get-children~ node))))
-      (new Formatted-Text
-        formats: (get-output~ formats)
-        styles: (get-output~ styles)
-        paragraphs: paragraphs)))
-  
-  
-  ;;;
-  ;;;; Text Content
-  ;;;
-  
-  
-  (method public (get-text-content)
-    text-content)
-  
-  
-  (method public (set-text-content value)
-    (set! text-content value)
-    (set-content text-content))
-  
-  
-  ;;;
-  ;;;; Formatted
-  ;;;
-  
-  
-  (method public (patch-formatted-bug)
-    (empty-interned~ formats)
-    (empty-interned~ styles)
-    (for-each-paragraph
-      (lambda (line <fx> paragraph <Paragraph>)
-        (set-format~ paragraph (intern-format (get-format~ paragraph)))
-        (for-each (lambda (run)
-                    (set-style~ run (intern-style (get-style~ run))))
-                  (get-runs~ paragraph)))))
-  
-  
-  (method protected (read-formatted moniker)
-    (parameterize ((walk-for #f))
-      (call-with-input-file (path-settings moniker eol-encoding: 'cr-lf readtable: jazz-readtable)
-        read)))
-  
-  
-  (method protected (save-formatted moniker)
-    (call-with-output-file (path-settings moniker)
-      (lambda (output)
-        (print-formatted output #f))))
-  
-  
-  (method protected (print-formatted output range <Range$Cell$>)
-    (define (print-formats formats output)
-      (format output " (")
-      (let ((first? #t))
-        (iterate formats
-                 (lambda (fmt)
-                   (if first?
-                       (set! first? #f)
-                     (format output "{%}  "))
-                   (format output "{s}" fmt))))
-      (format output "){%}{%}"))
-    
-    (define (print-styles styles output)
-      (format output " (")
-      (let ((first? #t))
-        (iterate styles
-                 (lambda (style)
-                   (if first?
-                       (set! first? #f)
-                     (format output "{%}  "))
-                   (format output "{s}" style))))
-      (format output "){%}{%}"))
-    
-    (define (range-paragraph-runs paragraph range <Range$Cell$>)
-      (if (not range)
-          (get-runs~ paragraph)
-        (let ((first? (eq? paragraph (get-paragraph (get-line~ (get-start~ range)))))
-              (last?  (eq? paragraph (get-paragraph (get-line~ (get-end~ range))))))
-          (let ((start (if first? (get-col~ (get-start~ range)) 0))
-                (end (if last? (get-col~ (get-end~ range)) (get-length~ paragraph))))
-            (range-runs~ paragraph start end)))))
-    
-    (let ((formats (get-interned~ formats))
-          (styles (get-interned~ styles)))
-      (format output "~{Formatted-Text{%}")
-      (format output " formats:{%}")
-      (print-formats formats output)
-      (format output " styles:{%}")
-      (print-styles styles output)
-      (format output " paragraphs:{%}")
-      (format output " (")
-      (let ((first? #t)
-            (paragraphs (if (not range)
-                            (get-paragraphs)
-                          (range-paragraphs range))))
-        (iterate paragraphs
-                 (lambda (paragraph)
-                   (if first?
-                       (set! first? #f)
-                     (format output "{%}  "))
-                   (format output "({s}" (get-rank (get-format~ paragraph) formats))
-                   (for-each (lambda (run)
-                               (format output " ({s} {s})" (export-string~ run) (get-rank (get-style~ run) styles)))
-                             (range-paragraph-runs paragraph range))
-                   (format output ")")))
-        (format output ")}{%}"))))
-  
-  
-  (method public (get-formatted-content)
-    (let ((formats (get-interned~ formats))
-          (styles (get-interned~ styles)))
-      (define (get-formatted-paragraphs)
-        (let ((fact (new List-Factory)))
-          (for-each-paragraph
-            (lambda (line <fx> paragraph <Paragraph>)
-              (put~ fact (cons (get-rank (get-format~ paragraph) formats)
-                               (map (lambda (run)
-                                      (list (get-string~ run) (get-rank (get-style~ run) styles)))
-                                    (get-runs~ paragraph))))))
-          (get-output~ fact)))
-      
-      (new Formatted-Text
-        formats: (coerce formats List)
-        styles: (coerce styles List)
-        paragraphs: (get-formatted-paragraphs))))
-  
-  
-  (method public (set-formatted-content text)
-    (typecase text
-      ((Formatted-Text)
-       (let ((formats (get-formats~ text))
-             (styles (get-styles~ text))
-             (paragraphs (get-paragraphs~ text)))
-         (let* ((formats (map intern-format formats))
-                (styles (map intern-style styles))
-                (count 0)
-                (height 0)
-                (previous root-row)
-                (rows (accumulate paragraphs
-                                  (lambda (info)
-                                    (bind (format . runs) info
-                                      (let* ((format (and format (reference-format formats format)))
-                                             (string (run-infos->string runs))
-                                             (runs (make-runs string styles runs))
-                                             (paragraph (make-paragraph format string runs)))
-                                        (set-previous~ paragraph previous)
-                                        (set-next~ previous paragraph)
-                                        (set! previous paragraph)
-                                        (wrap-paragraph '() paragraph)
-                                        (increase! count)
-                                        (increase! height (get-row-height~ paragraph))
-                                        paragraph))))))
-           (complete-setup rows count height))))
-      ((Text)
-       (set-unformatted-content (get-paragraphs~ text)))
-      (else
-       (error "Unsupported text: {t}" text))))
-  
-  
-  (method (complete-setup rows count height)
-    (set-paragraphs (coerce rows Axis))
-    (set! visible-count count)
-    (set! visible-height height)
-    (set! visible-width (get-width))
-    (set! selection (empty-selection))
-    (set! selection-anchor selection)
-    (invalidate-update))
-  
-  
-  (method public (wrap-content context)
-    (unless update-locked?
-      (let ((height 0))
-        (iterate (get-paragraphs)
-                 (lambda (paragraph)
-                   (wrap-paragraph context paragraph)
-                   (increase! height (get-row-height~ paragraph))))
-        (set! visible-height height)
-        (layout-scrollee)
-        (invalidate-view))))
-  
-  
-  ;; Note that wrap-paragraph will only set the row-height of the paragraph.
-  ;; It is the responsibility of the caller to force a layout of the ouline or
-  ;; maintain incrementally the visible-height.
-  (method protected (wrap-paragraph context paragraph)
-    (let ((before (get-row-height~ paragraph)))
-      (wrap-paragraph-lowlevel context paragraph)
-      (let ((delta (- (get-row-height~ paragraph) before)))
-        (increase! visible-height delta)
-        delta)))
-  
-  
-  (method protected (wrap-paragraph-lowlevel context paragraph)
-    (define (get-paragraph-width)
-      (max 40 (- (if wrap-width (- wrap-width wrap-patch) (get-display-width)) left-padding (get-left-margin~ (get-format~ paragraph)))))
-    
-    (if (not wrap?)
-        (flatten~ paragraph)
-      (let ((width (get-paragraph-width)))
-        (wrap~ paragraph context width))))
-  
-  
-  (method (range-paragraphs range <Range$Cell$>)
-    (let ((last #f)
-          (fact (new List-Factory)))
-      (loop (for line from (get-line~ (get-start~ range)) to (get-line~ (get-end~ range)))
-            (let ((paragraph (get-paragraph line)))
-              (if (not paragraph)
-                  (put~ fact line)
-                (unless (eq? paragraph last)
-                  (put~ fact (get-paragraph line))
-                  (set! last paragraph)))))
-      (get-output~ fact)))
-  
-  
-  (method (copy-formatted-selection)
-    (if (empty-selection?)
-        (bell)
-      (let ((output (open-output-string)))
-        (print-formatted output (get-selection))
-        (let ((text (get-output-string output)))
-          (set-clipboard-text text format: 'jazz-formatted-text)))))
-  
-  
-  (method (paste-formatted-clipboard)
-    (if (clipboard-format-available? 'jazz-formatted-text)
-        (let* ((text (get-clipboard-text format: 'jazz-formatted-text))
-               (info (with-jazz-readtable (lambda () (read-string-element text)))))
-          (replace-formatted (get-selection) info))
-      (let ((strings (split-lines (get-clipboard-text))))
-        (replace-selection strings))))
-  
-  
-  (method public (replace-formatted range <Range$Cell$> info)
-    (let ((caret
-           (typecase info
-             ((Formatted-Text)
-              (let* ((formats (get-formats~ info))
-                     (styles (get-styles~ info))
-                     (paragraphs (get-paragraphs~ info))
-                     (interned-formats (map intern-format formats))
-                     (interned-styles (map intern-style styles))
-                     (strings (map (lambda (run-info)
-                                     (bind (format . runs) run-info
-                                       (run-infos->string runs)))
-                                   paragraphs)))
-                (replace-formatted-text range strings interned-formats interned-styles paragraphs)))
-             ((Text)
-              (replace-text range (split-lines (get-paragraphs~ info))))
-             (else
-              (error "Unsupported text: {t}" info)))))
-      (when caret
-        (set-caret caret))))
-  
-  
-  (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
-    (define (range-formatted-text range <Range$Cell$>)
-      (let ((output (open-output-string)))
-        (print-formatted output range)
-        (read-string-element (get-output-string output))))
-    
-    (define (apply-formats/styles range <Range$Cell$>)
-      (let* ((start (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range))))
-             (end   (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range)))))
-        (for-each (lambda (paragraph)
-                    (bind (format . runs) paragraph
-                      (for-each (lambda (run)
-                                  (bind (string . ref) run
-                                    (let ((style (reference-style styles (car ref))))
-                                      (set-col~ end (+ (get-col~ start) (cast <fx> (cardinality string))))
-                                      (set-style (new Range$Cell$ start end) style)
-                                      (set-col~ start (get-col~ end)))))
-                                runs)
-                      (let* ((full-paragraph (get-paragraph (get-line~ start)))
-                             (line-length (- (get-length~ full-paragraph) 1)))
-                        (when (and (inside?~ range (new Cell (get-line~ start) 0))
-                                   (inside?~ range (new Cell (get-line~ start) line-length)))
-                          (set-format~ (get-paragraph (get-line~ start)) (reference-format formats format)))
-                        (fix-view-style-parent full-paragraph)))
-                    (set-line~ start (+ (get-line~ start) 1))
-                    (set-line~ end (+ (get-line~ end) 1))
-                    (set-col~ start 0))
-                  paragraphs)))
-    
-    (when (write-allowed?)
-      (without-caret
-        (lambda ()
-          (let* ((start (get-start~ range))
-                 (end   (get-end~ range))
-                 (count (length strings))
-                 (old   (range-formatted-text range))
-                 (ufd?  (<= (get-line~ start) (get-first-displayed-line~ outline)))
-                 (caret (replace-range range strings))
-                 (appl  (get-application)))
-            (apply-formats/styles (new Range$Cell$ start caret))
-            ;; note: we have to get ufd? before replace-range calls layout-scrollee
-            ;; todo: would < be sufficient for ufd?
-            (when ufd?
-              (update-displayed)
-              @todo-replace-the-update-displayed-with-incremental-behavior
-              (set! first-displayed (get-paragraph first-displayed-line)))
-            (fit-selection)
-            (fit-anchor)
-            (fit-caret)
-            (recolorize-text start (- (+ (get-line~ start) count) 1))
-            (set-modified? #t)
-            (register-undo~ undoer
-                            (let ((range (new Range$Cell$ start caret))
-                                   (selection (copy selection)))
-                              (lambda ()
-                                (replace-formatted range old)
-                                (set-selection selection))))
-            (call-content-change #f)
-            (when appl
-              (update-focus-actions~ appl))
-            caret)))))
-  
-  
-  ;;;
-  ;;;; Paragraph Format
-  ;;;
-  
-  
-  (method public (toggle-bulleted line)
-    (modify-format (get-paragraph line)
-                   (lambda (format)
-                     (let ((left-margin (get-left-margin~ format))
-                           (bulleted? (get-bulleted?~ format)))
-                       (extend~ format bulleted?: (not bulleted?) left-margin: (+ left-margin (if bulleted? -16 16)))))))
-  
-  
-  (method public (indent-paragraph line paragraph delta)
-    (modify-format paragraph
-                   (lambda (format)
-                     (let ((left-margin (get-left-margin~ format)))
-                       (extend~ format left-margin: (+ left-margin delta))))))
-  
-  
-  (method (set-justification line paragraph justification)
-    (modify-format paragraph
-                   (lambda (format)
-                     (extend~ format justification: justification))))
-  
-  
-  (method (modify-format paragraph proc)
-    (let ((format (get-format~ paragraph)))
-      (set-paragraph-format paragraph (proc format))))
-  
-  
-  (method (set-paragraph-format paragraph format)
-    (set-format~ paragraph (intern-format format))
-    (wrap-paragraph '() paragraph)
-    (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
-  
-  
-  (method public (apply-style name start (end #f))
-    (stylize (get-style name) start end))
-  
-  
-  (method public (stylize name/style start (end #f))
-    (when (not end)
-      (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
-    (set-text-style (new Range$Cell$ start end) (get-style name/style)))
-  
-  
-  (method public (set-style range <Range$Cell$> style <Style>)
-    (let ((style (intern-style style)))
-      (for-each-range range
-        (lambda (line paragraph start end)
-          (set-style~ paragraph start end style)
-          (wrap-paragraph '() paragraph)))
-      (set-modified? #t)
-      (layout-scrollee)
-      (invalidate-view)))
-  
-  
-  (method public (modify-style range <Range$Cell$> proc)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (modify-style~ paragraph start end proc)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph))))
-  
-  
-  (method public (remove-style range)
-    (apply-style default-style (get-start~ range) (get-end~ range)))
-  
-  
-  (method public (push-style range style-name)
-    (modify-style range
-      (lambda (s)
-        (unless (inherits?~ s style-name)
-          (let ((style (extend~ s)))
-            (set-base~ style (cons style-name (get-base~ style)))
-            style)))))
-  
-  
-  (method public (pop-style range style-name)
-    (modify-style range
-      (lambda (s)
-        (let ((base (get-base~ s)))
-          (when (memq? style-name base)
-            (let ((style (extend~ s)))
-              (set-base~ style (remove style-name (get-base~ style)))
-              style))))))
-  
-  
-  (method public (set-text-alignment range <Range$Cell$> alignment)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (set-text-alignment~ paragraph start end alignment)
-        (wrap-paragraph '() paragraph)))
-    (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
-  
-  
-  (method public (set-text-font range <Range$Cell$> font <Font>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (set-text-font~ paragraph start end font)
-        (wrap-paragraph '() paragraph)))
-    (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
-  
-  
-  (method public (set-text-style range <Range$Cell$> style <Style>)
-    (let ((style (intern-style style)))
-      (for-each-range range
-        (lambda (line paragraph start end)
-          (set-style~ paragraph start end style)
-          (wrap-paragraph '() paragraph)
-          (invalidate-drawing~ paragraph)))
-      @should-not-be-done-for-code-text (set-modified? #t)))
-  
-  
-  (method public (set-text-color range <Range$Cell$> color <Color>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (set-text-color~ paragraph start end color)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph)))
-    @should-not-be-done-for-code-text (set-modified? #t))
-  
-  
-  (method public (set-highlight-color range <Range$Cell$> color <Color+>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (set-highlight-color~ paragraph start end color)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph)))
-    @should-not-be-done-for-code-text (set-modified? #t))
-  
-  
-  (method public (set-frame-color range <Range$Cell$> color <Color+>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (set-frame-color~ paragraph start end color)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph)))
-    @should-not-be-done-for-code-text (set-modified? #t))
-  
-  
-  (method public (toggle-bold range <Range$Cell$>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (toggle-bold~ paragraph start end)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph))))
-  
-  
-  (method public (toggle-italic range <Range$Cell$>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (toggle-italic~ paragraph start end)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph))))
-  
-  
-  (method public (toggle-underline range <Range$Cell$>)
-    (for-each-range range
-      (lambda (line paragraph start end)
-        (toggle-underline~ paragraph start end)
-        (wrap-paragraph '() paragraph)
-        (invalidate-drawing~ paragraph))))
-  
-  
-  (method public (for-each-paragraph proc (start: start 0) (end: end (get-limit)))
-    (let ((start (or start 0))
-          (end (or end (get-limit)))
-          (paragraphs (get-paragraphs)))
-      (loop (for line from start to end)
-            (proc line (element paragraphs line)))))
-  
-  
-  (method public (for-each-selected-paragraph proc)
-    (let ((selection (get-selection)))
-      (for-each-paragraph proc
-                          start: (get-line~ (get-start~ selection))
-                          end: (get-line~ (get-end~ selection)))))
-  
-  
-  ;;;
-  ;;;; Formats
-  ;;;
-  
-  
-  (method public (get-default-format)
-    default-format)
-  
-  
-  (method public (set-default-format value)
-    (set! default-format value)
-    (set-domain~ default-format formats)
-    (intern-format (copy default-format)))
-  
-  
-  (method public (get-formats-domain)
-    formats)
-  
-  
-  (method public (get-named-formats)
-    (get-index~ formats))
-  
-  
-  (method public (get-interned-formats)
-    (get-interned~ formats))
-  
-  
-  (method public (symbolize-format format)
-    (symbolize~ formats format))
   
   
   (method public (add-format name pref-format) <Format>
-    (let ((format (extend~ pref-format)))
-      (register-exemplar name format formats)))
-  
-  
-  (method public (get-format name/format (error?: error? #t)) <Format>
-    (if (is? name/format Format)
-        name/format
-      (locate~ formats name/format error?: error?)))
-  
-  
-  (method public (intern-format format) <Format>
-    (intern~ formats format))
-  
-  
-  (method (reference-format formats reference)
-    (if (symbol? reference)
-        (get-format reference)
-      (element formats reference)))
+    (add-format~ model name pref-format))
   
   
   ;;;
@@ -3665,119 +2463,12 @@
   ;;;
   
   
-  (method public (get-default-style)
-    default-style)
-  
-  
-  (method public (set-default-style value)
-    (set! default-style value)
-    (set-domain~ default-style styles)
-    (intern-style (copy default-style)))
-  
-  
-  (method public virtual (propagate-styles?)
-    #t)
-  
-  
-  ;; temp quicky necessary because in an empty text the first
-  ;; paragraph takes its style information from the default style
-  (method public (patch-default-style-height)
-    (when (text-empty?)
-      (let ((paragraph (get-paragraph 0))
-            (height (get-height~ (get-metrics~ (get-font~ default-style)))))
-        (set-row-height~ paragraph height)
-        (set-height~ paragraph height)
-        (set-height~ (get-line~ paragraph 0) height))))
-  
-  
-  (method public (get-styles-domain)
-    styles)
-  
-  
-  (method public (get-named-styles)
-    (get-index~ styles))
-  
-  
-  (method public (get-interned-styles)
-    (get-interned~ styles))
-  
-  
-  (method public (symbolize-style style)
-    (symbolize~ styles style))
-  
-  
   (method public (add-style name pref-style) <Style>
-    (let ((style (extend~ pref-style)))
-      (register-exemplar name style styles)))
+    (add-style~ model name pref-style))
   
   
   (method public (get-style name/style (error?: error? #t)) <Style>
-    (if (is? name/style Style)
-        name/style
-      (locate~ styles name/style error?: error?)))
-  
-  
-  (method public (intern-style style) <Style>
-    (intern~ styles style))
-  
-  
-  (method (reference-style styles reference)
-    (if (symbol? reference)
-        (get-style reference)
-      (element styles reference)))
-  
-  
-  (definition (fix-view-style-parent paragraph)
-    (let ((runs (get-runs~ paragraph)))
-      (for-each (lambda (run)
-                  (let ((style (get-style~ run)))
-                    (when (is? style View-Style)
-                      (let ((view (get-view~ style)))
-                        (set-parent~ view paragraph)))))
-                runs)))
-  
-  
-  (method public virtual (commented? pos)
-    #f)
-  
-  
-  (method public virtual (comment-style? style)
-    #f)
-  
-  
-  (method public virtual (string-style? style)
-    #f)
-  
-  
-  (method public virtual (textual-style? style)
-    #f)
-  
-  
-  ;;;
-  ;;;; Runs
-  ;;;
-  
-  
-  (definition (run-infos->string infos)
-    (let ((output (open-output-string)))
-      (for-each (lambda (info)
-                  (let ((string (car info)))
-                    (format output "{a}" string)))
-                infos)
-      (get-output-string output)))
-  
-  
-  (method (make-runs string <string> styles infos)
-    (let ((offset 0))
-      (map (lambda (info)
-             (let ((str (car info)))
-               (bind-optionals ((rank #f)) (cdr info)
-                 (let* ((limit (+ offset (cast <fx> (cardinality str))))
-                        (subseq (subseq! string offset limit))
-                        (style (if (not rank) (get-default-style) (reference-style styles rank))))
-                   (set! offset limit)
-                   (new Run subseq style)))))
-           infos)))
+    (get-style~ model name/style error?: error?))
   
   
   ;;;
@@ -3786,26 +2477,11 @@
   
   
   (method public (get-default-height) <fx>
-    (get-height~ default-style))
+    (get-default-height~ model))
   
   
   (method public (get-height-at pos <Cell>) <fx>
-    (get-height~ (get-line-at~ (get-paragraph (get-line~ pos)) (get-col~ pos))))
-  
-  
-  ;;;
-  ;;;; Width
-  ;;;
-  
-  
-  (method public (compute-width) <fx>
-    (let ((width 0))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (let ((w (compute-width~ paragraph)))
-            (when (> w width)
-              (set! width w)))))
-      width))
+    (get-height-at~ model pos))
   
   
   ;;;
@@ -3821,7 +2497,7 @@
     (let ((headers (get-headers)))
       (if (not headers)
           '()
-        (let ((occurences (text-regular-search-all (map make-search-context headers)))
+        (let ((occurences (text-regular-search-all~ model (map make-search-context headers)))
               (chapters (new List-Factory)))
           (for-each (lambda (info)
                       (bind (from . to) info
@@ -3838,7 +2514,7 @@
   
   
   (method public virtual (get-chapter-label string col from to)
-    (subseq string (+ col (- (position-offset to) (position-offset from)))))
+    (subseq string (+ col (- (position-offset~ model to) (position-offset~ model from)))))
   
   
   (method public virtual (get-first-special?) <bool>
@@ -3864,15 +2540,27 @@
   
   
   ;;;
-  ;;;; Expressions
+  ;;;; Expression
   ;;;
   
   
-  (method public virtual (current-expr)
-    )
+  (method public (current-name)
+    (let ((range (current-expr-range)))
+      (when range
+        (name-at range))))
   
   
-  (method public virtual (current-expr-range)
+  (method public (current-symbol)
+    (let ((expr (current-expr)))
+      (when (symbol? expr)
+        expr)))
+  
+  
+  (method public (current-expr)
+    (current-name))
+  
+  
+  (method public (current-expr-range)
     (or (effective-selection)
         (expr-range (get-end))))
   
@@ -3883,20 +2571,24 @@
         (get-string range))))
   
   
+  (method public virtual (name-at range)
+    (name-at~ syntax range))
+
+
+  (method public virtual (expr-at pos)
+    (expr-at~ syntax pos))
+  
+  
   (method public virtual (range-expr range)
-    )
+    (range-expr~ syntax range))
   
   
   (method public virtual (expr-range pos)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
-      (outer-expr~ expl)
-      (get-range~ expl)))
+    (expr-range~ syntax pos))
   
   
   (method public (outer-range range)
-    (let ((expl <Text-Explorer> (new (explorer-class) self range: range)))
-      (when (outer-expr~ expl)
-        (get-range~ expl))))
+    (outer-range~ syntax range))
   
   
   ;;;
@@ -3979,32 +2671,6 @@
   
   
   ;;;
-  ;;;; Offset
-  ;;;
-  
-  
-  (method (position-offset pos <Cell>) <fx>
-    (let ((line (get-line~ pos))
-          (col (get-col~ pos))
-          (offset 0))
-      (loop (for n from 0 below line)
-            (increase! offset (+ (paragraph-length n) 1)))
-      (+ offset col)))
-  
-  
-  (method (offset-position offset <fx>) <Cell>
-    (let ((scan 0))
-      (continuation-capture
-        (lambda (return)
-          (for-each-paragraph
-            (lambda (line <fx> paragraph <Paragraph>)
-              (let ((next (+ scan (cardinality (get-string~ paragraph)) 1)))
-                (if (> next offset)
-                    (continuation-return return (new Cell line (- offset scan)))
-                  (set! scan next)))))))))
-  
-  
-  ;;;
   ;;;; Format
   ;;;
   
@@ -4040,59 +2706,6 @@
   
   
   ;;;
-  ;;;; Color
-  ;;;
-  
-  
-  (method public (get-format-at pos <Cell>) <Format>
-    (let ((paragraph (get-paragraph (get-line~ pos))))
-      (get-format~ paragraph)))
-  
-  
-  (method public (get-run-at pos <Cell>) <Run+>
-    (let ((paragraph (get-paragraph (get-line~ pos))))
-      (get-run~ paragraph (get-col~ pos))))
-  
-  
-  (method public (get-style-at pos <Cell>) <Style>
-    (let ((run (get-run-at pos)))
-      (if (not run)
-          (get-default-style)
-        (get-style~ run))))
-  
-  
-  (method public (uncolorize-row line <fx>) <void>
-    (let ((paragraph (get-paragraph line)))
-      (when (remove-coloring~ paragraph default-style)
-        (invalidate-paragraph paragraph))))
-  
-  
-  (method public (colorize color <Color> start <Cell> (end #f))
-    (when (not end)
-      (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
-    (set-text-color (new Range$Cell$ start end) color))
-  
-  
-  (method public (fill color <Color> pos <Cell>) <void>
-    (let ((range (new Range$Cell$ pos (+ pos 1))))
-      (set-highlight-color range color)))
-  
-  
-  (method public (unfill pos <Cell>) <void>
-    (let ((range (new Range$Cell$ pos (+ pos 1))))
-      (set-highlight-color range #f)))
-  
-  
-  ;;;
-  ;;;; Colorizer
-  ;;;
-  
-  
-  (method public (new-colorizer text)
-    (new Text-Colorizer text))
-  
-  
-  ;;;
   ;;;; Coordinates
   ;;;
   
@@ -4101,7 +2714,7 @@
     (let ((v (get-v~ pos)))
       (if (< v 0)
           {Cell 0 0}
-        (let* ((line (if (< v visible-height) (v->row v) (get-limit)))
+        (let* ((line (if (< v (get-visible-height~ model)) (v->row v) (get-limit)))
                (par (get-paragraph line)))
           (new Cell line (view->col~ par (- pos (get-position~ par))))))))
   
@@ -4173,25 +2786,25 @@
   
   
   (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
-    (let* ((format (and format? (get-format name/exemplar error?: #f)))
-           (style (and style? (get-style name/exemplar error?: #f)))
+    (let* ((format (and format? (get-format~ model name/exemplar error?: #f)))
+           (style (and style? (get-style~ model name/exemplar error?: #f)))
            (selection (get-selection))
            (start (get-start))
            (end (get-end))
            (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
       (when style
         (cond ((or (empty-selection?) span?)
-               (for-each-paragraph
+               (for-each-paragraph~ model
                  (lambda (line <fx> paragraph <Paragraph>)
-                   (set-text-style (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
+                   (set-text-style~ model (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
                 start: (get-line~ start)
                 end: (get-line~ end)))
               (else
-               (set-text-style selection style))))
+               (set-text-style~ model selection style))))
       (when format
-        (for-each-paragraph
+        (for-each-paragraph~ model
           (lambda (line <fx> paragraph <Paragraph>)
-            (set-paragraph-format paragraph format))
+            (set-paragraph-format~ model paragraph format))
          start: (get-line~ start)
          end: (get-line~ end)))
       (set-modified? #t)
@@ -4202,19 +2815,19 @@
   (method (on-bold evt)
     (if (empty-selection?)
         (bell)
-      (toggle-bold (get-selection))))
+      (toggle-bold~ model (get-selection))))
   
   
   (method (on-italic evt)
     (if (empty-selection?)
         (bell)
-      (toggle-italic (get-selection))))
+      (toggle-italic~ model (get-selection))))
   
   
   (method (on-underline evt)
     (if (empty-selection?)
         (bell)
-      (toggle-underline (get-selection))))
+      (toggle-underline~ model (get-selection))))
   
   
   ;;;
@@ -4242,7 +2855,7 @@
     (for-each-range (get-selection)
       (lambda (line paragraph start end)
         (set-font-name~ paragraph start end name)
-        (wrap-paragraph '() paragraph)))
+        (wrap-paragraph~ model '() paragraph)))
     (set-modified? #t)
     (layout-scrollee)
     (invalidate-view))
@@ -4252,7 +2865,7 @@
     (for-each-range (get-selection)
       (lambda (line paragraph start end)
         (set-point-size~ paragraph start end size)
-        (wrap-paragraph '() paragraph)))
+        (wrap-paragraph~ model '() paragraph)))
     (set-modified? #t)
     (layout-scrollee)
     (invalidate-view))
@@ -4323,7 +2936,7 @@
 
 
   (method protected virtual (favorite-completions)
-    '())
+    (favorite-completions~ syntax))
 
 
   (method protected virtual (favorite-completion name)
@@ -4406,9 +3019,9 @@
   
   
   (method protected virtual (auto-complete key)
-    (with-atomic-undo~ undoer
+    (with-atomic-undo~ (get-undoer~ model)
       (lambda ()
-        (get-style-at (get-start))
+        (get-style-at~ model (get-start))
         (let* ((end (get-end))
                (last (and (> (get-col~ end) 0) (get-char (- end 1))))
                (class (class-of self)))
@@ -4431,7 +3044,7 @@
   
 
   (method (complete-at pos <Cell>)
-    (unless (or (textual-style? (get-style-at pos))
+    (unless (or (textual-style?~ model (get-style-at~ model pos))
                 (macro-recording?~ (get-application)))
       (let ((completion (completion-string pos)))
         (if (not completion)
@@ -4467,12 +3080,12 @@
   
   (method (on-search-forward-mode evt)
     (select-command-search~ (get-application) 'forward
-      (search-context (get-selected-string) ignore-case?: #t)))
+      (search-context~ model (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-backward-mode evt)
     (select-command-search~ (get-application) 'backward
-      (search-context (get-selected-string) ignore-case?: #t)))
+      (search-context~ model (get-selected-string) ignore-case?: #t)))
   
   
   (method (on-search-current evt)
@@ -4483,9 +3096,18 @@
     
     (let ((range (current-expr-range)))
       (if (not range)
-          (select-command-search~ (get-application) 'forward (search-context #f ignore-case?: #t))
+          (select-command-search~ (get-application) 'forward (search-context~ model #f ignore-case?: #t))
         (let ((current (single-line (get-range-strings range))))
-          (select-command-search-current~ (get-application) 'forward range (search-context current ignore-case?: #t))))))
+          (select-command-search-current~ (get-application) 'forward range (search-context~ model current ignore-case?: #t))))))
+
+  
+  (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))
+    (let* ((expl (new (explorer-class) model start: (text-beginning) end: (text-beginning)))
+           (moniker (get-moniker))
+           (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
+           (found (search-expressions~ expl mode string position #f #f)))
+      (when found
+        (car found))))
 
   
   ;;;
@@ -4494,20 +3116,20 @@
   
   
   (method public virtual (select-next search-context (end: end #f))
-    (let ((found (text-regular-search search-context start: (get-end) end: end reversed?: #f)))
+    (let ((found (text-regular-search~ model search-context start: (get-end) end: end reversed?: #f)))
       (when found
         (bind (from . to) found
-          (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
+          (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
           (ensure-displayed)
           (ensure-scrolled-left)
           #t))))
   
   
   (method public virtual (select-previous search-context (end: end #f))
-    (let ((found (text-regular-search search-context start: (get-start) end: end reversed?: #t)))
+    (let ((found (text-regular-search~ model search-context start: (get-start) end: end reversed?: #t)))
       (when found
         (bind (from . to) found
-          (set-selection (new Range$Cell$ from (offset-position (+ (position-offset from) (- (position-offset to) (position-offset from))))))
+          (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
           (ensure-displayed)
           (ensure-scrolled-left)
           #t))))
@@ -4527,91 +3149,6 @@
   (method public virtual (select-expr-backward search-context)
     (set-caret (text-ending))
     (select-previous search-context))
-  
-  
-  ;;;
-  ;;;; Search
-  ;;;
-  
-  
-  (method public (text-regular-search search-context (start: start #f) (end: end #f) (reversed?: reversed? #f))
-    (let ((match-test (get-match-test))
-          (constituent-test (get-constituent-test))
-          (search-set (->search-set search-context)))
-      ;; quick solution to multi-line string search
-      (if (some? (lambda (context)
-                   (search (get-target~ context) "\n"))
-                 (get-contexts~ search-set))
-          (let ((content (get-string-content)))
-            (let ((found (regular-search content search-set match-test: match-test constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
-              (when found
-                (bind (from . to) found
-                  (cons (offset-position from) (offset-position to))))))
-        (let ((pos (or start (if reversed? (text-ending) (text-beginning))))
-              (end (or end (if reversed? (text-beginning) (text-ending)))))
-          (let ((line (get-line~ pos))
-                (col (get-col~ pos))
-                (end-line (get-line~ end))
-                (end-col (get-col~ end)))
-            (let (iter (n line) (start col))
-              (if (if reversed? (>= n end-line) (<= n end-line))
-                  (let ((string (paragraph-string n))
-                        (end (if (= n end-line) end-col #f)))
-                    (let ((found (regular-search string search-set match-test: match-test constituent-test: constituent-test start: start end: end reversed?: reversed?)))
-                      (if found
-                          (bind (from . to) found
-                            (cons (new Cell n from) (new Cell n to)))
-                        (iter (if reversed? (- n 1) (+ n 1)) #f))))
-                #f)))))))
-
-  
-  (method public (text-regular-search-all search-context (start: start #f) (end: end #f))
-    (let ((queue (new-queue))
-          (match-test (get-match-test))
-          (constituent-test (get-constituent-test))
-          (search-set (->search-set search-context))
-          (start (or start (text-beginning)))
-          (end (or end (text-ending))))
-      (for-each-range (new-range start end)
-        (lambda (line paragraph <Paragraph> start end)
-          (let ((str (substring (get-string~ paragraph) start end)))
-            (for-each (lambda (found)
-                        (bind (from . to) found
-                          (enqueue queue (cons (new Cell line (+ start from)) (new Cell line (+ start to))))))
-                      (regular-search-all str search-set match-test: match-test constituent-test: constituent-test)))))
-      (queue-list queue)))
-  
-  
-  (method public (text-search context . rest)
-    (let ((found (apply text-regular-search context rest)))
-      (if found
-          (car found)
-        #f)))
-  
-  
-  (method public (text-search-all context . rest)
-    (map car (apply text-regular-search-all context rest)))
-
-  
-  (method public (text-expression-search string (start: start #f) (end: end (get-limit)) (reversed?: reversed? #f))
-    (let* ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-           (moniker (get-moniker))
-           (mode (if (or (not moniker) (extension=? (get-extension~ moniker) "jazz")) 'code 'quotation))
-           (found (search-expressions~ expl mode string position #f #f)))
-      (when found
-        (car found))))
-  
-  
-  (method protected (search-context obj
-                                    (whole-words?: whole-words? #f)
-                                    (ignore-case?: ignore-case? #f))
-    (cond ((is? obj Search-Context) obj)
-          ((is? obj Search-Set) (car (get-contexts~ obj)))
-          (else (make-search-context (or obj "")
-                                     whole-words?: whole-words?
-                                     ignore-case?: ignore-case?
-                                     match-test: (get-match-test)
-                                     constituent-test: (get-constituent-test)))))
   
   
   ;;;
@@ -4639,28 +3176,18 @@
   
   (form
     (<install>
-      (<properties~>           categorized: (class-info name-info wrap? accepts-returns? focus-selects-all? default-format default-style background)
-        (<Property-Descriptor> name: text title: "Text")
-        (<Property-Descriptor> name: text-content title: "Text Content")
+      (<properties~>           categorized: (class-info name-info accepts-returns? focus-selects-all? background)
         (<Property-Descriptor> name: selectable? title: "Selectable"
           (<Boolean-Domain>    name: domain))
         (<Property-Descriptor> name: editable? title: "Editable"
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: wrap? title: "Wrap"
-          (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: default-format title: "Default Format")
-        (<Property-Descriptor> name: default-style title: "Default Style")
-        (<Property-Descriptor> name: paragraph-spacing title: "Paragraph Spacing")
         (<Property-Descriptor> name: accepts-returns? title: "Accepts Returns"
           (<Boolean-Domain>    name: domain))
         (<Property-Descriptor> name: focus-selects-all? title: "Focus Selects All"
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: show-unfocused-selection? title: "Show Unfocused Selection")
-        (<Property-Descriptor> name: char-encoding title: "Char Encoding")
-        (<Property-Descriptor> name: eol-encoding title: "EOL Encoding")
-        (<Property-Descriptor> name: colorize? title: "Colorize"
+        (<Property-Descriptor> name: show-unfocused-selection? title: "Show Unfocused Selection"
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: force-tab-navigate?
+        (<Property-Descriptor> name: force-tab-navigate? title: "Force Tab Navigate"
           (<Boolean-Domain>    name: domain)))))
   
   

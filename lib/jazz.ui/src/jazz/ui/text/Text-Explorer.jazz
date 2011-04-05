@@ -47,34 +47,32 @@
 (class undocumented Text-Explorer extends Explorer
 
 
-  (slot text       <Text-View> getter generate)
+  (slot model      <Text-Model>  getter generate)
+  (slot syntax     <Text-Syntax> getter generate)
   (slot paragraphs <Axis>)
   (slot limit      <fx>)
   (slot beginning  <Cell>)
   (slot ending     <Cell>)
-  (slot start      <Cell>       initialize (new Cell 0 0))
-  (slot end        <Cell>       initialize (new Cell 0 0))
-  (slot kind       <symbol+>    initialize #f)
-  (slot line-hook  <procedure+> initialize #f accessors generate)
+  (slot start      <Cell>        initialize (new Cell 0 0))
+  (slot end        <Cell>        initialize (new Cell 0 0))
+  (slot kind       <symbol+>     initialize #f)
+  (slot line-hook  <procedure+>  initialize #f accessors generate)
   
   
-  (method override (initialize txt (direction: direction 'forward) (start: start #f) (end: end #f) (range: range #f))
+  (method override (initialize mdl <Text-Model> (direction: direction 'forward) (start: start #f) (end: end #f) (range: range #f))
     (nextmethod)
-    (set! text txt)
-    (set! paragraphs (get-paragraphs~ text))
-    (set! limit (get-limit~ text))
-    (set! beginning (text-beginning~ text))
-    (set! ending (text-ending~ text))
+    (set! model mdl)
+    (set! syntax (get-syntax~ model))
+    (set! paragraphs (get-paragraphs~ model))
+    (set! limit (get-limit~ model))
+    (set! beginning (text-beginning~ model))
+    (set! ending (text-ending~ model))
     (set-direction direction)
     (if range
         (set-range range)
       (when (or start end)
         (set-start (or start end))
         (set-end (or end start)))))
-  
-  
-  (method protected virtual (get-syntax)
-    )
 
 
   ;;;
@@ -186,7 +184,7 @@
 
 
   (method public (get-range-string start <Cell> end <Cell>) <string>
-    (get-string~ text (new Range$Cell$ start end)))
+    (get-string~ model (new Range$Cell$ start end)))
   
   
   (method public (get-marked) <string>
@@ -471,7 +469,7 @@
   
   
   (method public (text-constituent? char)
-    (text-constituent?~ (get-syntax~ text) char))
+    (text-constituent?~ syntax char))
 
 
   ;;;
@@ -508,7 +506,7 @@
   
   (method public (backward-style predicate)
     (let (iterate)
-      (let ((run (get-run-at~ text start)))
+      (let ((run (get-run-at~ model start)))
         (when (or (not run) (predicate (get-style~ run)))
           (when (backward)
             (iterate))))))
@@ -518,7 +516,7 @@
     (let (iterate)
       (let ((next (next-pos end 1)))
         (when next
-          (let ((run (get-run-at~ text next)))
+          (let ((run (get-run-at~ model next)))
             (when (or (not run) (predicate (get-style~ run)))
               (when (forward)
                 (iterate))))))))

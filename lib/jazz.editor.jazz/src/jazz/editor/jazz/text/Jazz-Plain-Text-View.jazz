@@ -45,46 +45,12 @@
 (class Jazz-Plain-Text-View extends Plain-Text-View
   
   
+  (method override (new-syntax)
+    (new Jazz-Plain-Syntax model))
+  
+  
   (method override (install rest)
     (nextmethod rest)
     (let ((pref (preferences)))
       (add-style 'Title   (get-title-style~ pref))
-      (add-style 'Comment (get-comment-style~ pref))))
-  
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-
-  
-  (method override (colorize-comments . rest)
-    (when (eq? (type-heuristic) 'jazz)
-      (let ((expl (new Jazz-Explorer self end: (text-beginning))))
-        (for-each-comment~ expl
-          (lambda (start <Cell> end <Cell> title?)
-            (if (not title?)
-                (stylize 'Comment start)
-              (stylize 'Comment start (+ start 4))
-              (stylize 'Title (+ start 4))))))))
-
-
-  (method override (recolorize-text start end-line)
-    (define (recolorize-row line)
-      (recolorize-comments line))
-    
-    (define (recolorize-comments line)
-      (let* ((str (paragraph-string line))
-             (len (cardinality str))
-             (comment-string (comment-string~ syntax))
-             (comment (and comment-string (search str (comment-string~ syntax)))))
-        (when (and comment (<= comment 20))
-          (let ((title-end (+ comment 4)))
-            (if (and (< title-end len) (= (subseq str comment title-end) (title-comment-string~ syntax)))
-                (begin
-                  (stylize 'Comment (new Cell line comment) (new Cell line title-end))
-                  (stylize 'Title (new Cell line title-end)))
-              (stylize 'Comment (new Cell line comment)))))))
-    
-    (when (eq? (type-heuristic) 'jazz)
-      (let ((range (naturals (get-line~ start) (+ end-line 1))))
-        (for-each recolorize-row range))))))
+      (add-style 'Comment (get-comment-style~ pref))))))

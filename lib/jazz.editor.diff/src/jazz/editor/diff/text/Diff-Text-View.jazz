@@ -38,7 +38,8 @@
 (module protected jazz.editor.diff.text.Diff-Text-View jazz
 
 
-(import (jazz.system)
+(import (jazz.editor.diff)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -51,6 +52,10 @@
   
   (method override (preferences)
     (get-preferences '(documents diff-text)))
+  
+  
+  (method override (new-syntax)
+    (new Diff-Syntax model))
   
   
   (method override (install rest)
@@ -68,60 +73,4 @@
   
   
   (method override (host-workspaces)
-    '(text))
-
-  
-  ;;;
-  ;;;; Chapters
-  ;;;
-  
-  
-  (constant headers
-    (list
-      "diff "))
-  
-  
-  (method override (get-headers)
-    headers)
-  
-  
-  (method override (get-chapter-label string col from to)
-    (let ((pos (find string #\/ reversed?: #t)))
-      (if pos
-          (subseq string (+ pos 1))
-        (nextmethod string col from to))))
-  
-  
-  (method override (get-first-special?)
-    #f)
-
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-  
-  
-  (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
-    (define (colorize-diff colorizer)
-      (for-each-paragraph
-        (lambda (line paragraph)
-          (let ((str (get-string~ paragraph)))
-            (let ((len (cardinality str)))
-              (cond ((or (starts-with? str "From")
-                         (starts-with? str "Date")
-                         (starts-with? str "Subject")
-                         (starts-with? str "diff ")
-                         (starts-with? str "index "))
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'File))
-                    ((starts-with? str "@@")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Diff))
-                    ((starts-with? str "+")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Add))
-                    ((starts-with? str "-")
-                     (apply-coloring colorizer (new Cell line 0) (new Cell line len) 'Remove))
-                    (else
-                     #f)))))))
-    
-    (let ((colorizer (new-colorizer self)))
-      (colorize-diff colorizer)
-      (finish-current~ colorizer)))))
+    '(text))))

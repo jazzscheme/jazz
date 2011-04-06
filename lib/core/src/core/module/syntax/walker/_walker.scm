@@ -3161,10 +3161,12 @@
     (cond ((%%null? infos) #f)
           ((%%memq x (%%caar infos)) #t)
           (else (is-modifier? (%%cdr infos) x))))
+  
   (define (skip-modifiers infos ls)
     (if (and (%%pair? ls) (is-modifier? infos (jazz:source-code (%%car ls))))
         (skip-modifiers infos (%%cdr ls))
         ls))
+  
   (define (get-modifier names from to)
     (cond ((%%eq? from to) #f)
           ((%%memq (jazz:source-code (%%car from)) names)
@@ -3172,6 +3174,7 @@
                   => (lambda (x) (jazz:walk-error "Ambiguous modifiers: {s} {s}" walker resume declaration (%%car from) x)))
                  (else (jazz:source-code (%%car from)))))
           (else (get-modifier names (%%cdr from) to))))
+  
   (let ((modifiers rest)
         (rest (skip-modifiers infos rest)))
     (let lp ((ls infos) (res '()))

@@ -337,13 +337,8 @@
   
   
   (method override (reload-moniker moniker)
-    (reload-moniker~ model moniker))
-  
-  
-  @mvc
-  (method protected (reload-content lst)
     (let ((line (get-line~ (get-start))))
-      (reload-content~ model lst)
+      (reload-moniker~ model moniker)
       (set-caret (new Cell (min line (cardinality (get-paragraphs))) 0))
       (set-modified?~ model #f)))
   
@@ -771,7 +766,7 @@
           (set! mouse-selecting? #t)
           (set! selection-mode 'char)
           (unless (or (shift-down?) (not focus?))
-            (reset-selection pos))
+            (reset-caret pos))
           (let ((par (get-paragraph (get-line~ pos))))
             (if (< (get-h~ view) (paragraph-left~ par))
                 (set-selection (selection-line (get-line~ pos)) set-anchor?: #t)
@@ -1132,7 +1127,7 @@
             (else
              (if (> line 0)
                  (move-verticaly line col -1 'backward extend?)
-               (unless extend? (reset-selection (get-start))))
+               (unless extend? (reset-caret (get-start))))
              (process-selection-change)))))
   
   
@@ -1147,7 +1142,7 @@
             (else
              (if (< line (get-limit))
                  (move-verticaly line col 1 'forward extend?)
-               (unless extend? (reset-selection (get-end))))
+               (unless extend? (reset-caret (get-end))))
              (process-selection-change)))))
   
   
@@ -1582,6 +1577,10 @@
     (new Range$Cell$ (text-beginning) (text-beginning)))
   
   
+  (method override (reset-selection)
+    (set-range~ selection (empty-selection)))
+  
+  
   (method (buffer-selection) <Range$Cell$>
     (new Range$Cell$ (text-beginning) (text-ending)))
   
@@ -1651,7 +1650,7 @@
                   (invalidate-region~ player new)))))))))
   
   
-  (method public (reset-selection pos <Cell>)
+  (method public (reset-caret pos <Cell>)
     (set-selection (new Range$Cell$ pos pos)))
   
   
@@ -1707,8 +1706,8 @@
              (col (min (max 0 (get-col~ pos)) (get-length~ par))))
         (if (and (= line (get-line~ pos))
                  (= col (get-col~ pos)))
-            (reset-selection pos)
-          (reset-selection (new Cell line col))))))
+            (reset-caret pos)
+          (reset-caret (new Cell line col))))))
   
   
   (method protected virtual (selection-change)

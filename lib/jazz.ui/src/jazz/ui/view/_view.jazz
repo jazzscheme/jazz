@@ -379,6 +379,13 @@
   (collect-if in-player?~ *stages*))
 
 
+(definition public (first-stage)
+  (first (get-active-stages)))
+
+(definition public (last-stage)
+  (last (get-active-stages)))
+
+
 (definition public (current-stage)
   *current-stage*)
 
@@ -560,7 +567,8 @@
             (set-location~ border-view (get-location~ splitter-view))
             (set-parent~ border-view parent-view)
             (close~ splitter-view)
-            (layout-view~ parent-view)))))))
+            (layout-view~ parent-view)))
+        (update-window-actions~ (get-application))))))
 
 
 (definition public (split-stage-vertically)
@@ -606,27 +614,21 @@
               (layout-view~ splitter)
               (set-current-stage stage)
               (when (is? frame Host-View)
-                (split-view~ (get-guest~ frame))))))))))
+                (split-view~ (get-guest~ frame)))))
+          (update-window-actions~ (get-application)))))))
 
 
 (definition public (move-frame)
-  (let ((stages (get-active-stages)))
-    (let ((count (length stages)))
-      (define (navigate stage frame)
-        (let ((rank (find stages stage)))
-          (let ((next (element stages (modulo (- rank 1) count))))
-            (when frame
-              (set-parent~ frame next)
-              (maximize/restore~ frame)
-              (remember-workspace-stage~ frame))
-            (set-current-stage next))))
-      
-      (if (< count 2)
-          (bell)
-        (let ((frame (current-frame)))
-          (if frame
-              (navigate (get-stage~ frame) frame)
-            (navigate (current-stage) #f)))))))
+  (let ((frame (current-frame)))
+    (let ((stage (if frame (get-stage~ frame) (current-stage))))
+      (let ((next-stage (next-stage stage)))
+        (if (not next-stage)
+            (bell)
+          (when frame
+            (set-parent~ frame next-stage)
+            (maximize/restore~ frame)
+            (remember-workspace-stage~ frame))
+          (set-current-stage next-stage))))))
 
 
 (definition public (clone-frame)
@@ -647,6 +649,51 @@
           (if frame
               (navigate (get-stage~ frame) frame)
             (navigate (current-stage) #f)))))))
+
+
+(definition public (next-stage stage)
+  (let ((stages (get-active-stages)))
+    (let ((count (length stages)))
+      (when (>= count 2)
+        (next-element stages stage)))))
+
+
+(definition public (previous-stage stage)
+  (let ((stages (get-active-stages)))
+    (let ((count (length stages)))
+      (when (>= count 2)
+        (previous-element stages stage)))))
+
+
+(definition public (navigate-next-stage)
+  (define (bring-stage-to-front stage)
+    (set! *stages* (cons stage (remove! stage *stages*))))
+  
+  (let ((stages (get-active-stages)))
+    (if (< (length stages) 2)
+        (bell)
+      (let ((stage (last-stage)))
+        (bring-stage-to-front stage)
+        (activate-stage stage)))))
+
+
+(definition public (navigate-previous-stage)
+  (define (send-stage-to-back stage)
+    (set! *stages* (append (remove! stage *stages*) (list stage))))
+  
+  (let ((stages (get-active-stages)))
+    (if (< (length stages) 2)
+        (bell)
+      (let ((stage (first-stage)))
+        (send-stage-to-back stage)
+        (activate-stage (first-stage))))))
+
+
+(define (activate-stage stage)
+  (let ((frame (first-view~ stage)))
+    (if frame
+        (focus-host~ frame)
+      (acquire-focus~ stage))))
 
 
 ;;;

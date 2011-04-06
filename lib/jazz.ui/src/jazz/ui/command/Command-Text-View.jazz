@@ -695,17 +695,18 @@
   
   (method protected virtual (persist-highlights)
     (let ((client (get-client)))
-      (let ((reference-style (get-style~ client 'Reference)))
-        (for-each (lambda (highlight)
-                    (when (or (inherits?~ (get-style~ highlight) found-style)
-                              (inherits?~ (get-style~ highlight) highlight-style))
-                      (modify-style~ client (get-range~ highlight)
-                        (lambda (s)
-                          (unless (inherits?~ s reference-style)
-                            (let ((style (extend~ s)))
-                              (set-base~ style (cons 'Reference (get-base~ style)))
-                              style))))))
-                  (get-highlights~ client)))))
+      (let ((model (get-model~ client)))
+        (let ((reference-style (get-style~ model 'Reference)))
+          (for-each (lambda (highlight)
+                      (when (or (inherits?~ (get-style~ highlight) found-style)
+                                (inherits?~ (get-style~ highlight) highlight-style))
+                        (modify-style~ model (get-range~ highlight)
+                          (lambda (s)
+                            (unless (inherits?~ s reference-style)
+                              (let ((style (extend~ s)))
+                                (set-base~ style (cons 'Reference (get-base~ style)))
+                                style))))))
+                    (get-highlights~ client))))))
   
   
   (method (on-goto-find evt)
@@ -842,14 +843,14 @@
       (add-highlight~ client (new Text-Highlight client last-range found-style))
       (set-selection~ client last-range))
     
-    (define (highlight-replace client beginning ending repl)
+    (define (highlight-replace client model beginning ending repl)
       (unless (empty-string? repl)
         (let ((target (make-search-context repl whole-words?: #t)))
           (for-each (lambda (found)
                       (bind (start . end) found
                         (let ((range (new Range$Cell$ start end)))
                           (add-highlight~ client (new Text-Highlight client range replace-style)))))
-                    (text-regular-search-all~ client target start: beginning end: ending)))))
+                    (text-regular-search-all~ model target start: beginning end: ending)))))
     
     (let ((client (get-client)))
       (when (is? client Text-View)
@@ -885,7 +886,7 @@
               (highlight-boundary client beginning ending)
               (highlight-find client all)
               (when repl
-                (highlight-replace client beginning ending repl))
+                (highlight-replace client model beginning ending repl))
               found))))))
   
   
@@ -894,13 +895,14 @@
           (client (get-client))
           (beginning (get-beginning~ search-result))
           (ending (get-ending~ search-result)))
-      (with-atomic-undo~ (get-undoer~ client)
-        (lambda ()
-          (for-each-reversed (lambda (found)
-                               (bind (start . end) found
-                                 (let ((range (new Range$Cell$ start end)))
-                                   (replace~ client range (list repl)))))
-                             (text-regular-search-all~ client context start: beginning end: ending))))))
+      (let ((model (get-model~ client)))
+        (with-atomic-undo~ (get-undoer~ model)
+          (lambda ()
+            (for-each-reversed (lambda (found)
+                                 (bind (start . end) found
+                                   (let ((range (new Range$Cell$ start end)))
+                                     (replace~ client range (list repl)))))
+                               (text-regular-search-all~ model context start: beginning end: ending)))))))
   
   
   (method (rehighlight-search)

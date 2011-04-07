@@ -322,50 +322,6 @@
   ;;;
   
   
-  (method (range-region range <Range$Cell$> dh dv sc (top: top #f) (bottom: bottom #f))
-    (let ((root (get-root))
-          (region (new Region)))
-      (keep-rectangles~ region)
-      (for-each-logical-range range
-        (lambda (line paragraph start end)
-          (with ((sub (range-region~ paragraph left-padding start end dh dv sc)))
-            (combine!~ region sub 'or))))
-      (let ((root-clipper (get-root-clipper)))
-        (when root-clipper
-          (with ((clipper (new Region root-clipper)))
-            (combine!~ region clipper 'and))))
-      region))
-  
-  
-  (method (line-range-rect line start end)
-    (let ((paragraph (get-paragraph line)))
-      (new Rect
-        (get-h~ (col->view~ paragraph start))
-        (line->view line)
-        (if end (get-h~ (col->view~ paragraph (max 1 end))) (get-width))
-        (+ (line->view line) (if end (get-height~ (get-line-at~ paragraph end)) (get-default-height))))))
-  
-  
-  (method (block-rect start end)
-    (new Rect
-      left-padding
-      (line->view start)
-      (get-width)
-      (line->view end)))
-  
-  
-  (method public (invalidate-line line)
-    (invalidate-rect (line-range-rect line 0 #f)))
-  
-  
-  (method (invalidate-range range <Range$Cell$>)
-    (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (range-region range dh dv sc)))
-            (invalidate-region~ player region))))))
-  
-  
   (method public (for-each-logical-range range <Range$Cell$> proc)
     (let ((start (get-start~ range))
           (end (get-end~ range)))

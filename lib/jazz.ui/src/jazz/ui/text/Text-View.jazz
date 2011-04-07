@@ -1607,9 +1607,9 @@
     (get-range~ selection))
   
   
-  (method override (set-selection range <Range$Cell$> (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
+  (method override (set-selection range <Range$Cell$> (force?: force? #f) (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
     (validate-range range)
-    (when (and range (/= (cast <Range$Cell$> (get-selection)) range))
+    (when (or force? (/= (cast <Range$Cell$> (get-selection)) range))
       (hide-caret)
       (when set-anchor?
         (set-selection-anchor range))
@@ -1639,8 +1639,8 @@
                   (invalidate-region~ player new)))))))))
   
   
-  (method public (reset-caret pos <Cell>)
-    (set-selection (new Range$Cell$ pos pos)))
+  (method public (reset-caret pos <Cell> (force?: force? #f))
+    (set-selection (new Range$Cell$ pos pos) force?: force?))
   
   
   (method (fit-range range <Range$Cell$>)
@@ -1687,16 +1687,18 @@
     (get-start))
   
   
-  (method public (set-caret pos)
+  (method public (set-caret pos (force?: force? #f))
     (when pos
       ;; lisp tabulate can return negative col
       (let* ((line (min (max 0 (get-line~ pos)) (get-limit)))
              (par (get-paragraph line))
-             (col (min (max 0 (get-col~ pos)) (get-length~ par))))
-        (if (and (= line (get-line~ pos))
-                 (= col (get-col~ pos)))
-            (reset-caret pos)
-          (reset-caret (new Cell line col))))))
+             (col (min (max 0 (get-col~ pos)) (get-length~ par)))
+             (caret
+               (if (and (= line (get-line~ pos))
+                        (= col (get-col~ pos)))
+                   pos
+                 (new Cell line col))))
+        (reset-caret caret force?: force?))))
   
   
   (method protected virtual (selection-change)
@@ -2324,7 +2326,7 @@
   
   (method (caret-update caret)
     (when caret
-      (set-caret caret)
+      (set-caret caret force?: #t)
       (update-caret)))
   
   

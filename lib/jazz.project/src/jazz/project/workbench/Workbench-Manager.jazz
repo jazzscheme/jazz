@@ -222,7 +222,9 @@
   
   
   (method (on-synchronize-content evt)
-    (synchronize-content))
+    (with-cursor :wait
+      (lambda ()
+        (synchronize-content))))
   
   
   (method (on-set-current-directory evt)
@@ -485,8 +487,7 @@
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
             (process-refresh~ designer component 'descendants))
-          (user-message "{a} imported"
-                        (parse~ directory))))))
+          (user-message "{a} imported" (parse~ directory))))))
   
   
   (method (import-files current-directory?)
@@ -516,29 +517,7 @@
         (let ((subgroup (new Project-Directory directory: dir)))
           (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
           (set-property~ designer subgroup 'directory dir design-events?: (not descendant?))
-          (when recursive?
-            (iterate-directory~ dir
-              (lambda (pathname)
-                (import-pathname project pathname subgroup #t))
-              files?: #f
-              directories?: #t
-              sort?: #t
-              recursive?: #f
-              ignored-directories: Ignored-Directories)
-            (iterate-directory~ dir
-              (lambda (pathname)
-                (import-pathname project pathname subgroup #t))
-              files?: #t
-              directories?: #f
-              sort?: #t
-              recursive?: #f
-              ignored-directories: Ignored-Directories))
-          (if (or (not recursive?)
-                  (not descendant?)
-                  (not-null? (get-children~ subgroup)))
-              subgroup
-            (remove-child~ designer subgroup design-events?: (not descendant?))
-            #f))))
+          (import-content project dir subgroup #t recursive?: recursive?))))
     
     (define (import-file file parent descendant?)
       (let ((reference (extension-reference (get-extension~ file))))
@@ -567,6 +546,32 @@
            (if (and ext (string-ci=? ext "project"))
                (install-project pathname parent descendant?)
              (import-file pathname parent descendant?)))))))
+  
+  
+  (method (import-content project dir parent descendant? (recursive?: recursive? #t))
+    (when recursive?
+      (iterate-directory~ dir
+        (lambda (pathname)
+          (import-pathname project pathname parent descendant?))
+        files?: #f
+        directories?: #t
+        sort?: #t
+        recursive?: #f
+        ignored-directories: Ignored-Directories)
+      (iterate-directory~ dir
+        (lambda (pathname)
+          (import-pathname project pathname parent descendant?))
+        files?: #t
+        directories?: #f
+        sort?: #t
+        recursive?: #f
+        ignored-directories: Ignored-Directories))
+    (if (or (not recursive?)
+            (not descendant?)
+            (not-null? (get-children~ parent)))
+        parent
+      (remove-child~ designer parent design-events?: (not descendant?))
+      #f))
   
   
   (definition (default-import-directory object (must-exist?: must-exist? #t))
@@ -617,6 +622,14 @@
   
   
   (method (synchronize-content)
+    (let ((object (selected-object)))
+      (let ((project (ascendant-project object))
+            (directory (default-import-directory object must-exist?: #f)))
+        (if (not (exists?~ directory))
+            (message-box (format "Directory not found: {a}" (parse~ directory)))
+          (remove-children~ designer object)
+          (import-content project directory object #f)
+          (process-refresh~ designer object 'descendants))))
     @wait-complete
     (let* ((object (selected-object))
            (project (ascendant-project object))
@@ -1142,7 +1155,9 @@
           (hide-item 'add-document)
           (hide-item 'install-project)
           (hide-item 'import-files)
-          (hide-item 'import-directory)))
+          (hide-item 'import-directory)
+          (hide-item 'synchronize-content)
+          (hide-item 'set-current-directory)))
       
       (let ((object (selected-object)))
         (typecase object
@@ -1229,6 +1244,7 @@
       (<Label-Item>     name: install-project       title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files          title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory      title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
+      (<Label-Item>     name: synchronize-content   title: "Synchronize Content" before: cut action-handler: {Action workbench-manager synchronize-content})
       @wait-complete
       (<Label-Item>     name: synchronize-content   title: "Synchronize Content..." before: cut action-handler: {Action workbench-manager synchronize-content})
       (<Separator-Item>                             before: cut)

@@ -111,23 +111,25 @@
 ;;;
 
 
-(define (jazz:compile-unit-internal unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz:with-unit-resources unit-name #f
-    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-      (parameterize ((jazz:requested-unit-name unit-name)
-                     (jazz:requested-unit-resource src))
-        (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?)))))
+(jazz:define-variable-override jazz:compile-unit-internal
+  (lambda (unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+    (jazz:with-unit-resources unit-name #f
+      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+        (parameterize ((jazz:requested-unit-name unit-name)
+                       (jazz:requested-unit-resource src))
+          (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?))))))
 
 
 ;; this function should be unified with jazz:compile-unit-internal
 ;; (being careful about jazz:find-unit-product overhead)
-(define (jazz:custom-compile-unit-internal unit-name #!key (force? #f))
-  (let ((product (jazz:find-unit-product unit-name)))
-    (let ((build (and product
-                      (%%product-build product))))
-      (if build
-          (build (%%product-descriptor product) unit: unit-name force?: force?)
-        (jazz:compile-unit unit-name force?: force?)))))
+(jazz:define-variable-override jazz:custom-compile-unit-internal
+  (lambda (unit-name #!key (force? #f))
+    (let ((product (jazz:find-unit-product unit-name)))
+      (let ((build (and product
+                        (%%product-build product))))
+        (if build
+            (build (%%product-descriptor product) unit: unit-name force?: force?)
+          (jazz:compile-unit unit-name force?: force?))))))
 
 
 (define (jazz:find-unit-product unit-name)
@@ -279,10 +281,11 @@
 ;;;
 
 
-(define (jazz:build-unit-internal unit-name)
-  (jazz:for-each-subunit unit-name
-    (lambda (unit-name declaration phase)
-      (jazz:compile-unit unit-name))))
+(jazz:define-variable-override jazz:build-unit-internal
+  (lambda (unit-name)
+    (jazz:for-each-subunit unit-name
+      (lambda (unit-name declaration phase)
+        (jazz:compile-unit unit-name)))))
 
 
 ;;;
@@ -290,9 +293,42 @@
 ;;;
 
 
-(define (jazz:get-subunit-names-internal parent-name)
-  (let* ((sub-units '())
-         (proc (lambda (unit-name declaration phase)
-                 (set! sub-units (%%cons unit-name sub-units)))))
-    (jazz:for-each-subunit parent-name proc)
-    sub-units)))
+(jazz:define-variable-override jazz:get-subunit-names-internal
+  (lambda (parent-name)
+    (let* ((sub-units '())
+           (proc (lambda (unit-name declaration phase)
+                   (set! sub-units (%%cons unit-name sub-units)))))
+      (jazz:for-each-subunit parent-name proc)
+      sub-units)))
+
+
+(define (jazz:for-each-subunit parent-name proc)
+  ;; temporary solution to the fact that exports can be present multiple times
+  ;; if the unit is loaded interpreted or if dynamic evaluations where done
+  (let ((subunits '()))
+    (let iter ((unit-name parent-name) (phase #f) (toplevel? #t))
+      (define (process-require require)
+        (jazz:parse-require require
+          (lambda (unit-name feature-requirement phase)
+            (iter unit-name phase #f))))
+      
+      (if (%%not (%%memq unit-name subunits))
+          (begin
+            (set! subunits (%%cons unit-name subunits))
+            (let ((declaration (jazz:outline-unit unit-name)))
+              (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
+                  (begin
+                    (if (and (%%not toplevel?) (%%not (jazz:descendant-unit? parent-name unit-name)))
+                        (jazz:error "Illegal access from {a} to protected unit {a}" parent-name unit-name))
+                    (proc unit-name declaration phase)
+                    (if (jazz:is? declaration jazz:Unit-Declaration)
+                        (for-each process-require (%%get-unit-declaration-requires declaration))
+                      (begin
+                        (for-each process-require (%%get-module-declaration-requires declaration))
+                        (for-each (lambda (export)
+                                    (let ((reference (%%get-module-invoice-module export)))
+                                      (if reference
+                                          (let ((name (%%get-declaration-reference-name reference))
+                                                (phase (%%get-module-invoice-phase export)))
+                                            (iter name phase #f)))))
+                                  (%%get-module-declaration-exports declaration)))))))))))))

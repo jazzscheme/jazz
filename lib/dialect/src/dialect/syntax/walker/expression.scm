@@ -568,54 +568,54 @@
 
 
 (jazz:define-variable-override jazz:emit-specialized-call
-      (lambda (operator locator arguments arguments-codes call declaration environment backend)
-        (if (%%not locator)
-            #f
-          (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
-              (if (%%class-is? operator jazz:Binding-Reference)
-                  (let ((binding (%%get-reference-binding operator)))
-                    (let ((specializers (jazz:get-specializers binding)))
-                      (let ((types (jazz:codes-types arguments-codes)))
-                        (let iter ((scan specializers))
-                             (if (%%null? scan)
-                                 (begin
-                                   (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
-                                             ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                             (%%not (%%memq locator '(scheme.dialect.runtime.kernel:=
-                                                                      scheme.dialect.runtime.kernel:<
-                                                                      scheme.dialect.runtime.kernel:<=
-                                                                      scheme.dialect.runtime.kernel:>
-                                                                      scheme.dialect.runtime.kernel:>=
-                                                                      scheme.dialect.runtime.kernel:+
-                                                                      scheme.dialect.runtime.kernel:-
-                                                                      scheme.dialect.runtime.kernel:*
-                                                                      scheme.dialect.runtime.kernel:/))))
-                                     (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
-                                   ;; for debugging
-                                   (%%when (%%memq (%%get-lexical-binding-name binding) (jazz:debug-specializers))
-                                     (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding) 'on types))
-                                   #f)
-                               (let ((specializer (%%car scan)))
-                                 (let ((function-type (%%get-lexical-binding-type specializer)))
-                                   (if (jazz:match-signature? arguments types function-type)
-                                       (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
-                                           (begin
-                                             (jazz:add-to-module-references (%%get-declaration-toplevel declaration) specializer)
-                                             (jazz:new-code
-                                               (let ((locator (%%get-declaration-locator specializer)))
-                                                 `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                               (%%get-function-type-result function-type)
-                                               #f)))
-                                     (iter (%%cdr scan))))))))))
-                #f)))))
+  (lambda (operator locator arguments arguments-codes call declaration environment backend)
+    (if (%%not locator)
+        #f
+      (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
+          (if (%%class-is? operator jazz:Binding-Reference)
+              (let ((binding (%%get-reference-binding operator)))
+                (let ((specializers (jazz:get-specializers binding)))
+                  (let ((types (jazz:codes-types arguments-codes)))
+                    (let iter ((scan specializers))
+                         (if (%%null? scan)
+                             (begin
+                               (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
+                                         ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
+                                         (%%not (%%memq locator '(scheme.dialect.runtime.kernel:=
+                                                                   scheme.dialect.runtime.kernel:<
+                                                                   scheme.dialect.runtime.kernel:<=
+                                                                   scheme.dialect.runtime.kernel:>
+                                                                   scheme.dialect.runtime.kernel:>=
+                                                                   scheme.dialect.runtime.kernel:+
+                                                                   scheme.dialect.runtime.kernel:-
+                                                                   scheme.dialect.runtime.kernel:*
+                                                                   scheme.dialect.runtime.kernel:/))))
+                                 (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
+                               ;; for debugging
+                               (%%when (%%memq (%%get-lexical-binding-name binding) (jazz:debug-specializers))
+                                 (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding) 'on types))
+                               #f)
+                           (let ((specializer (%%car scan)))
+                             (let ((function-type (%%get-lexical-binding-type specializer)))
+                               (if (jazz:match-signature? arguments types function-type)
+                                   (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
+                                       (begin
+                                         (jazz:add-to-module-references (%%get-declaration-toplevel declaration) specializer)
+                                         (jazz:new-code
+                                           (let ((locator (%%get-declaration-locator specializer)))
+                                             `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                           (%%get-function-type-result function-type)
+                                           #f)))
+                                 (iter (%%cdr scan))))))))))
+            #f)))))
 
 
 ;; quicky because classes are not yet defined at this point
 (jazz:define-variable jazz:emit-specialized-locator)
 
-(set! jazz:emit-specialized-locator
-      (lambda (locator arguments-codes environment backend)
-        #f))
+(jazz:define-variable-override jazz:emit-specialized-locator
+  (lambda (locator arguments-codes environment backend)
+    #f))
 
 
 ;;;
@@ -623,9 +623,9 @@
 ;;;
 
 
-(set! jazz:emit-new-call
-      (lambda (operator locator arguments arguments-codes declaration environment backend)
-        #f))
+(jazz:define-variable-override jazz:emit-new-call
+  (lambda (operator locator arguments arguments-codes declaration environment backend)
+    #f))
 
 
 ;;;
@@ -718,22 +718,22 @@
 (jazz:add-primitive-patterns 'jazz.dialect.runtime.language.functional:set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
 
 
-(set! jazz:emit-primitive-call
-      (lambda (operator locator arguments arguments-codes declaration environment backend)
-        (if (%%not locator)
-            #f
-          (let ((patterns (jazz:get-primitive-patterns locator)))
-            (let ((types (jazz:codes-types arguments-codes)))
-              (let iter ((scan patterns))
-                   (if (%%null? scan)
-                       (begin
-                         (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
-                                   ;; a bit extreme for now
-                                   (%%not (%%memq locator '(scheme.dialect.runtime.kernel:car
-                                                            scheme.dialect.runtime.kernel:cdr))))
-                           (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
-                         #f)
-                     (iter (%%cdr scan)))))))))
+(jazz:define-variable-override jazz:emit-primitive-call
+  (lambda (operator locator arguments arguments-codes declaration environment backend)
+    (if (%%not locator)
+        #f
+      (let ((patterns (jazz:get-primitive-patterns locator)))
+        (let ((types (jazz:codes-types arguments-codes)))
+          (let iter ((scan patterns))
+               (if (%%null? scan)
+                   (begin
+                     (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
+                               ;; a bit extreme for now
+                               (%%not (%%memq locator '(scheme.dialect.runtime.kernel:car
+                                                         scheme.dialect.runtime.kernel:cdr))))
+                       (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
+                     #f)
+                 (iter (%%cdr scan)))))))))
 
 
 ;;;
@@ -741,12 +741,12 @@
 ;;;
 
 
-(set! jazz:emit-inlined-call
-      (lambda (operator arguments call declaration environment backend)
-        (if (%%class-is? operator jazz:Binding-Reference)
-            (let ((binding (%%get-reference-binding operator)))
-              (jazz:emit-inlined-binding-call binding arguments call declaration environment backend))
-          #f)))
+(jazz:define-variable-override jazz:emit-inlined-call
+  (lambda (operator arguments call declaration environment backend)
+    (if (%%class-is? operator jazz:Binding-Reference)
+        (let ((binding (%%get-reference-binding operator)))
+          (jazz:emit-inlined-binding-call binding arguments call declaration environment backend))
+      #f)))
 
 
 ;;;

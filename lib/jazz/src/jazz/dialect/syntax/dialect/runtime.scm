@@ -905,14 +905,14 @@
 ;;;
 
 
-(set! jazz:emit-specialized-locator
-      (lambda (locator arguments environment backend)
-        (case locator
-          ((jazz.dialect.runtime.kernel:class-of)
-           (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
-             (jazz:emit-specialized-class-of (%%car arguments) environment backend)))
-          (else
-           #f))))
+(jazz:define-variable-override jazz:emit-specialized-locator
+  (lambda (locator arguments environment backend)
+    (case locator
+      ((jazz.dialect.runtime.kernel:class-of)
+       (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
+         (jazz:emit-specialized-class-of (%%car arguments) environment backend)))
+      (else
+       #f))))
 
 
 (define (jazz:emit-specialized-class-of object environment backend)
@@ -930,9 +930,9 @@
 ;;;
 
 
-(set! jazz:emit-new-call
-      (lambda (operator locator arguments arguments-codes declaration environment backend)
-        (jazz:emit 'new-call backend operator locator arguments arguments-codes declaration environment)))
+(jazz:define-variable-override jazz:emit-new-call
+  (lambda (operator locator arguments arguments-codes declaration environment backend)
+    (jazz:emit 'new-call backend operator locator arguments arguments-codes declaration environment)))
 
 
 ;;;

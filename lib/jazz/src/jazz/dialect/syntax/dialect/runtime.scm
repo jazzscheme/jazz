@@ -73,7 +73,7 @@
                             (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
                               (jazz:new-code
                                 `(let ,(map (lambda (parameter argument)
-                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment)
+                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
                                                 ,(jazz:emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment backend)))
                                             (%%get-signature-positional signature)
                                             arguments)
@@ -104,7 +104,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Definition-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'definition-reference backend declaration)
     (or (%%get-lexical-binding-type declaration)
         jazz:Any)
     #f))
@@ -186,7 +186,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Generic-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'generic-reference backend declaration)
     jazz:Any
     #f))
 
@@ -241,7 +241,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Category-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'category-reference backend declaration)
     jazz:Category-Declaration
     #f))
 
@@ -312,7 +312,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Class-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'class-reference backend declaration)
     (or (%%get-category-declaration-metaclass declaration)
         jazz:Class-Declaration)
     #f))
@@ -522,11 +522,10 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Slot-Declaration declaration) source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
-        (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
-          (jazz:new-code
-            `(%%object-ref ,(jazz:sourcified-form self) ,offset-locator)
-            (jazz:find-annotated-type declaration environment)
-            #f))
+        (jazz:new-code
+          (jazz:emit 'slot-reference backend declaration self)
+          (jazz:find-annotated-type declaration environment)
+          #f)
       (jazz:error "Illegal reference to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
@@ -642,12 +641,10 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Method-Declaration declaration) source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
-        (let ((dispatch-code (jazz:emit-method-dispatch self declaration source-declaration environment backend)))
-          (jazz:new-code
-            `(lambda rest
-               (apply ,(jazz:sourcified-form dispatch-code) ,(jazz:sourcified-form self) rest))
-            (%%get-code-type dispatch-code)
-            #f))
+        (jazz:new-code
+          (jazz:emit 'method-reference2 backend declaration source-declaration environment self)
+          (%%get-code-type dispatch-code)
+          #f)
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
 
 
@@ -673,7 +670,7 @@
                            (let ((body-code (jazz:emit-expression body source-declaration augmented-environment backend)))
                              (jazz:new-code
                                `(let ,(map (lambda (parameter argument)
-                                             `(,(jazz:emit-binding-symbol parameter source-declaration environment)
+                                             `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
                                                ,(jazz:emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment backend)))
                                            (%%get-signature-positional signature)
                                            arguments)
@@ -1208,7 +1205,7 @@
                              (jazz:new-code
                                `(let ,(%%cons `(self ,(jazz:sourcified-form object))
                                               (map (lambda (parameter argument)
-                                                     `(,(jazz:emit-binding-symbol parameter source-declaration environment)
+                                                     `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
                                                        ,(jazz:emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment backend)))
                                                    (%%get-signature-positional signature)
                                                    arguments))

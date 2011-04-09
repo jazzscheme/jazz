@@ -128,6 +128,94 @@
 ;;;
 
 
+(jazz:define-emit (autoload-reference (scheme backend) declaration environment referenced-declaration)
+  `(,(jazz:autoload-locator referenced-declaration)))
+
+
+(jazz:define-emit (c-definition-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (category-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (class-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (define-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (definition-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (dynamic-self-reference (scheme backend) declaration)
+  (%%get-dynamic-self-binding-code declaration))
+
+
+(jazz:define-emit (export-reference (scheme backend) declaration)
+  (%%get-export-declaration-symbol declaration))
+
+
+(jazz:define-emit (export-syntax-reference (scheme backend) declaration)
+  (%%get-export-syntax-declaration-symbol declaration))
+
+
+(jazz:define-emit (generic-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (local-variable-reference (scheme backend) declaration)
+  (%%get-local-variable-binding-variable declaration))
+
+
+(jazz:define-emit (method-reference2 (scheme backend) declaration source-declaration environment self)
+  (let ((dispatch-code (jazz:emit-method-dispatch self declaration source-declaration environment backend)))
+    `(lambda rest
+       (apply ,(jazz:sourcified-form dispatch-code) ,(jazz:sourcified-form self) rest))))
+
+
+(jazz:define-emit (nextmethod-variable-reference (scheme backend) binding)
+  (let ((name (%%get-lexical-binding-name binding))
+        (self (jazz:*self*)))
+    (if self
+        `(lambda rest (apply ,name ,(jazz:sourcified-form self) rest))
+      name)))
+
+
+(jazz:define-emit (self-reference (scheme backend) declaration source-declaration)
+  (%%get-declaration-parent source-declaration))
+
+
+(jazz:define-emit (slot-reference (scheme backend) declaration self)
+  (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
+    `(%%object-ref ,(jazz:sourcified-form self) ,offset-locator)))
+
+
+(jazz:define-emit (special-form-reference (scheme backend) binding)
+  (%%get-lexical-binding-name binding))
+
+
+(jazz:define-emit (variable-reference (scheme backend) binding source-declaration environment)
+  (jazz:emit-binding-symbol binding source-declaration environment backend))
+
+
+(jazz:define-emit (lexical-binding-reference (scheme backend) binding)
+  (%%get-lexical-binding-name binding))
+
+
+(jazz:define-emit (named-parameter-reference (scheme backend) parameter)
+  (%%get-lexical-binding-name parameter))
+
+
+(jazz:define-emit (symbol-reference (scheme backend) binding)
+  (or (%%get-symbol-binding-gensym binding)
+      (unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
+
+
 ;;;
 ;;;; Call
 ;;;

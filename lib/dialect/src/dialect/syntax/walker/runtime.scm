@@ -129,18 +129,18 @@
 
 (jazz:define-virtual-runtime (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration))
 (jazz:define-virtual-runtime (jazz:walk-binding-referenced (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment))
-(jazz:define-virtual-runtime (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
 (jazz:define-virtual-runtime (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src))
-(jazz:define-virtual-runtime (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
 (jazz:define-virtual-runtime (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src))
 (jazz:define-virtual-runtime (jazz:walk-binding-assignable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
 (jazz:define-virtual-runtime (jazz:walk-binding-walkable? (jazz:Walk-Binding binding)))
 (jazz:define-virtual-runtime (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
 (jazz:define-virtual-runtime (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
 (jazz:define-virtual-runtime (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
+(jazz:define-virtual-runtime (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual-runtime (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual-runtime (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
+(jazz:define-virtual-runtime (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
+(jazz:define-virtual-runtime (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration)
@@ -151,16 +151,33 @@
   (jazz:unspecified))
 
 
-(jazz:define-method (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment)
+(jazz:define-method (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src)
+  (jazz:unspecified))
+
+
+(jazz:define-method (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src)
+  (%%when (%%not (jazz:walk-binding-assignable? binding))
+    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (%%get-lexical-binding-name binding))))
+
+
+(jazz:define-method (jazz:walk-binding-assignable? (jazz:Walk-Binding binding))
+  #f)
+
+
+(jazz:define-method (jazz:walk-binding-walkable? (jazz:Walk-Binding binding))
+  #f)
+
+
+(jazz:define-method (jazz:walk-binding-expandable? (jazz:Walk-Binding binding))
+  #f)
+
+
+(jazz:define-method (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend)
   (jazz:error "Unable to emit binding symbol for: {s}" binding))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend)
   (jazz:error "Unable to emit binding reference for: {s}" binding))
-
-
-(jazz:define-method (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src)
-  (jazz:unspecified))
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend)
@@ -176,25 +193,8 @@
   #f)
 
 
-(jazz:define-method (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src)
-  (%%when (%%not (jazz:walk-binding-assignable? binding))
-    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (%%get-lexical-binding-name binding))))
-
-
-(jazz:define-method (jazz:walk-binding-assignable? (jazz:Walk-Binding binding))
-  #f)
-
-
 (jazz:define-method (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend)
   (jazz:unspecified))
-
-
-(jazz:define-method (jazz:walk-binding-walkable? (jazz:Walk-Binding binding))
-  #f)
-
-
-(jazz:define-method (jazz:walk-binding-expandable? (jazz:Walk-Binding binding))
-  #f)
 
 
 (jazz:encapsulate-class jazz:Walk-Binding)
@@ -245,8 +245,8 @@
         table)))
 
 
-(jazz:define-method (jazz:emit-binding-symbol (jazz:Lexical-Binding binding) declaration environment)
-  (%%get-lexical-binding-name binding))
+(jazz:define-method (jazz:emit-binding-symbol (jazz:Lexical-Binding binding) declaration environment backend)
+  (jazz:emit 'lexical-binding-reference backend binding))
 
 
 (jazz:encapsulate-class jazz:Lexical-Binding)
@@ -1272,7 +1272,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-export-declaration-symbol declaration)
+    (jazz:emit 'export-reference backend declaration)
     jazz:Any
     #f))
 
@@ -1330,7 +1330,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Syntax-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-export-syntax-declaration-symbol declaration)
+    (jazz:emit 'export-syntax-reference backend declaration)
     jazz:Any
     #f))
 
@@ -1379,8 +1379,8 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Autoload-Declaration declaration) source-declaration environment backend)
   (let ((referenced-declaration (jazz:resolve-binding declaration)))
     (jazz:new-code
-      `(,(jazz:autoload-locator referenced-declaration))
-      (jazz:resolve-binding declaration)
+      (jazz:emit 'autoload-reference backend declaration environment referenced-declaration)
+      referenced-declaration
       #f)))
 
 
@@ -2861,9 +2861,8 @@
 (jazz:define-class-runtime jazz:Symbol-Binding)
 
 
-(jazz:define-method (jazz:emit-binding-symbol (jazz:Symbol-Binding binding) declaration environment)
-  (or (%%get-symbol-binding-gensym binding)
-      (unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
+(jazz:define-method (jazz:emit-binding-symbol (jazz:Symbol-Binding binding) declaration environment backend)
+  (jazz:emit 'symbol-reference backend binding))
 
 
 (jazz:encapsulate-class jazz:Symbol-Binding)
@@ -2899,7 +2898,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Variable binding) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit-binding-symbol binding source-declaration environment)
+    (jazz:emit 'variable-reference backend binding source-declaration environment)
     (jazz:find-annotated-type binding environment)
     #f))
 
@@ -2913,7 +2912,7 @@
     (receive (annotated-frame annotated-variable annotated-type) (jazz:find-annotated binding environment)
       (%%when (%%class-is? annotated-variable jazz:Annotated-Variable)
         (jazz:extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code))))
-    (let ((binding-code (jazz:emit-binding-symbol binding source-declaration environment)))
+    (let ((binding-code (jazz:emit-binding-symbol binding source-declaration environment backend)))
       (jazz:new-code
         (jazz:emit 'variable-assignment backend binding source-declaration environment binding-code value-code)
         jazz:Any
@@ -2945,14 +2944,10 @@
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:NextMethod-Variable binding) source-declaration environment backend)
-  (let ((name (%%get-lexical-binding-name binding))
-        (self (jazz:*self*)))
-    (jazz:new-code
-      (if self
-          `(lambda rest (apply ,name ,(jazz:sourcified-form self) rest))
-        name)
-      jazz:Any
-      #f)))
+  (jazz:new-code
+    (jazz:emit 'nextmethod-variable-reference backend binding)
+    jazz:Any
+    #f))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:NextMethod-Variable declaration) walker resume source-declaration operator arguments form-src)
@@ -2990,7 +2985,7 @@
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend)
-  (jazz:emit-binding-symbol parameter declaration environment))
+  (jazz:emit-binding-symbol parameter declaration environment backend))
 
 
 (jazz:encapsulate-class jazz:Parameter)
@@ -3010,7 +3005,7 @@
 
 (jazz:define-method (jazz:emit-parameter (jazz:Dynamic-Parameter parameter) declaration environment backend)
   (let ((class (%%get-dynamic-parameter-class parameter)))
-    (%%list (jazz:sourcified-form (jazz:emit-expression class declaration environment backend)) (jazz:emit-binding-symbol parameter declaration environment))))
+    (%%list (jazz:sourcified-form (jazz:emit-expression class declaration environment backend)) (jazz:emit-binding-symbol parameter declaration environment backend))))
 
 
 (jazz:encapsulate-class jazz:Dynamic-Parameter)
@@ -3030,7 +3025,7 @@
 
 (jazz:define-method (jazz:emit-parameter (jazz:Optional-Parameter parameter) declaration environment backend)
   (let ((default (%%get-optional-parameter-default parameter)))
-    (%%list (jazz:emit-binding-symbol parameter declaration environment) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
+    (%%list (jazz:emit-binding-symbol parameter declaration environment backend) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
 
 
 (jazz:encapsulate-class jazz:Optional-Parameter)
@@ -3053,8 +3048,8 @@
     (%%list (%%get-lexical-binding-name parameter) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
 
 
-(jazz:define-method (jazz:emit-binding-symbol (jazz:Named-Parameter parameter) declaration environment)
-  (%%get-lexical-binding-name parameter))
+(jazz:define-method (jazz:emit-binding-symbol (jazz:Named-Parameter parameter) declaration environment backend)
+  (jazz:emit 'named-parameter-reference backend parameter))
 
 
 (jazz:encapsulate-class jazz:Named-Parameter)
@@ -3073,7 +3068,7 @@
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Rest-Parameter parameter) declaration environment backend)
-  (jazz:emit-binding-symbol parameter declaration environment))
+  (jazz:emit-binding-symbol parameter declaration environment backend))
 
 
 (jazz:encapsulate-class jazz:Rest-Parameter)
@@ -3097,7 +3092,7 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Self-Binding declaration) source-declaration environment backend)
   (jazz:new-code
     'self
-    (%%get-declaration-parent source-declaration)
+    (jazz:emit 'self-reference backend declaration source-declaration)
     #f))
 
 
@@ -3118,7 +3113,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Dynamic-Self-Binding declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-dynamic-self-binding-code declaration)
+    (jazz:emit 'dynamic-self-reference backend declaration)
     (%%get-declaration-parent source-declaration)
     #f))
 
@@ -3149,7 +3144,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Local-Variable-Binding declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-local-variable-binding-variable declaration)
+    (jazz:emit 'local-variable-reference backend declaration)
     jazz:Any
     #f))
 
@@ -3232,7 +3227,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Special-Form binding) source-declaration environment backend)
-  (%%get-lexical-binding-name binding))
+  (jazz:emit 'special-form-reference backend binding))
 
 
 (jazz:define-method (jazz:walk-binding-walk-form (jazz:Special-Form binding) walker resume declaration environment form-src)
@@ -4075,7 +4070,7 @@
   (let ((variable (%%get-internal-define-variable expression))
         (value (%%get-internal-define-value expression)))
     (jazz:new-code
-      `(define ,(jazz:emit-binding-symbol variable declaration environment)
+      `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
          ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
       jazz:Any
       #f)))

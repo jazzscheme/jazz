@@ -112,7 +112,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:C-Definition-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'c-definition-reference backend declaration)
     jazz:Any
     #f))
 

@@ -130,7 +130,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Define-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (%%get-declaration-locator declaration)
+    (jazz:emit 'define-reference backend declaration)
     jazz:Any
     #f))
 

@@ -3964,7 +3964,7 @@
 (jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'expression-call backend expression declaration operator arguments)
+      (jazz:emit 'call backend expression declaration operator arguments)
       jazz:Any
       #f)))
 

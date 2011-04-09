@@ -182,16 +182,16 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Generic-Declaration declaration) environment backend)
-  (let ((generic-locator (%%get-declaration-locator declaration))
-        (signature (%%get-generic-declaration-signature declaration))
+  (let ((signature (%%get-generic-declaration-signature declaration))
         (body (%%get-generic-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          (jazz:sourcify-if
-            `(jazz:define-generic ,(%%cons generic-locator (jazz:emit-signature signature declaration augmented-environment backend))
-                                  ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
-            (%%get-declaration-source declaration)))))))
+          (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
+                (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
+            (jazz:sourcify-if
+              (jazz:emit 'generic backend declaration environment signature-emit body-emit)
+              (%%get-declaration-source declaration))))))))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Generic-Declaration declaration) source-declaration environment backend)
@@ -236,12 +236,12 @@
          (body (%%get-specific-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
-        (let ((augmented-environment (%%cons frame environment))
-              (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
-          (jazz:sourcify-if
-            `(jazz:define-specific ,(%%cons generic-locator (jazz:emit-signature signature declaration augmented-environment backend)) ,modifier
-                       ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
-            (%%get-declaration-source declaration)))))))
+        (let ((augmented-environment (%%cons frame environment)))
+          (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
+                (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
+            (jazz:sourcify-if
+              (jazz:emit 'specific backend declaration environment signature-emit body-emit)
+              (%%get-declaration-source declaration))))))))
 
 
 (jazz:define-method (jazz:fold-declaration (jazz:Specific-Declaration declaration) f k s)
@@ -496,24 +496,7 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Interface-Declaration declaration) environment backend)
-  (let* ((name (%%get-lexical-binding-name declaration))
-         (locator (%%get-declaration-locator declaration))
-         (rank-locator (jazz:compose-helper locator 'rank))
-         (ascendant-declarations (%%get-interface-declaration-ascendants declaration))
-         (metaclass-declaration (%%get-category-declaration-metaclass declaration))
-         (metaclass-access (if (%%not metaclass-declaration) 'jazz:Interface (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration environment backend))))
-         (ascendant-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration environment backend))) ascendant-declarations))
-         (body (%%get-namespace-declaration-body declaration)))
-    (jazz:sourcify-if
-      `(begin
-         (define ,locator
-           (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
-         (define ,rank-locator
-           (%%get-interface-rank ,locator))
-         ,(let ((toplevel-declaration (%%get-declaration-toplevel declaration)))
-            `(jazz:register-module-entry ',(%%get-lexical-binding-name toplevel-declaration) ',name ,locator))
-         ,@(jazz:emit-namespace-statements body declaration environment backend))
-      (%%get-declaration-source declaration))))
+  (jazz:emit 'interface backend declaration environment))
 
 
 (jazz:encapsulate-class jazz:Interface-Declaration)

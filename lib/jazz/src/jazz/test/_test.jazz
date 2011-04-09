@@ -135,7 +135,7 @@
   (list 'quasiquote (emit (get-form~ expression))))
 
 
-(define-emit (expression-call (test backend) expression declaration operator arguments)
+(define-emit (call (test backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
@@ -311,11 +311,19 @@
 
 (define-emit (class (test backend) declaration environment)
   (let ((name (get-name~ declaration))
-        (ascendant (get-ascendant~ declaration))
-        (interfaces (get-interfaces~ declaration))
+        (ascendant (get-name~ (get-ascendant~ declaration)))
+        (interfaces (map get-name~ (get-interfaces~ declaration)))
         (body (get-body~ declaration)))
     (let ((body-emit (emit-namespace-statements body declaration environment backend)))
-      `(class ,name
+      `(class ,name ,ascendant ,interfaces
+         ,@body-emit))))
+
+
+(define-emit (interface (test backend) declaration environment)
+  (let ((name (get-name~ declaration))
+        (body (get-body~ declaration)))
+    (let ((body-emit (emit-namespace-statements body declaration environment backend)))
+      `(interface ,name
          ,@body-emit))))
 
 
@@ -332,7 +340,17 @@
 (define-emit (method (test backend) declaration environment signature-emit signature-casts body-emit)
   (let ((name (get-name~ declaration)))
     `(method (,name)
-       ,@body-emit)))
+       ,body-emit)))
+
+
+(define-emit (generic (test backend) declaration environment signature-emit body-emit)
+  `(generic ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
+
+
+(define-emit (specific (test backend) declaration environment signature-emit body-emit)
+  `(specific ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
 
 
 (define-emit (dispatch (test backend) expression declaration environment object-code rest-codes)
@@ -343,7 +361,8 @@
       (get-source~ expression))))
 
 
-(expand 'jazz.sample.module backend: 'test)
+(expand 'jazz.test.backend backend: 'test)
+;(expand 'jazz.sample.module backend: 'test)
 
 
 ;;;

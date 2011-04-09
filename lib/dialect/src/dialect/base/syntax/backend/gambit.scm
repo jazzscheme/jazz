@@ -133,7 +133,7 @@
 ;;;
 
 
-(jazz:define-emit (expression-call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (call (gambit backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
@@ -191,25 +191,7 @@
 
 
 (jazz:define-emit (new-call (gambit backend) operator locator arguments arguments-codes declaration environment)
-  (if (%%eq? locator 'jazz.dialect.runtime.kernel:new)
-      (%%assert (%%pair? arguments)
-        (let ((class-expression (%%car arguments)))
-          (if (%%class-is? class-expression jazz:Binding-Reference)
-              (let ((binding (%%get-reference-binding class-expression)))
-                (if (or (%%class-is? binding jazz:Class-Declaration)
-                        (%%class-is? binding jazz:Autoload-Declaration))
-                    (let ((values-codes (%%cdr arguments-codes)))
-                      (jazz:new-code
-                        (case (%%length values-codes)
-                          ((0) `(jazz:new0 ,@(jazz:codes-forms arguments-codes)))
-                          ((1) `(jazz:new1 ,@(jazz:codes-forms arguments-codes)))
-                          ((2) `(jazz:new2 ,@(jazz:codes-forms arguments-codes)))
-                          (else `(jazz:new ,@(jazz:codes-forms arguments-codes))))
-                        binding
-                        #f))
-                  #f))
-            #f)))
-    #f))
+  #f)
 
 
 ;;;

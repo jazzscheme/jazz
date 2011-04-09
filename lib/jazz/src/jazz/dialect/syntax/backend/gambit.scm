@@ -98,6 +98,32 @@
 
 
 ;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-emit (interface (gambit backend) declaration environment)
+  (let* ((name (%%get-lexical-binding-name declaration))
+         (locator (%%get-declaration-locator declaration))
+         (rank-locator (jazz:compose-helper locator 'rank))
+         (ascendant-declarations (%%get-interface-declaration-ascendants declaration))
+         (metaclass-declaration (%%get-category-declaration-metaclass declaration))
+         (metaclass-access (if (%%not metaclass-declaration) 'jazz:Interface (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration environment backend))))
+         (ascendant-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration environment backend))) ascendant-declarations))
+         (body (%%get-namespace-declaration-body declaration)))
+    (jazz:sourcify-if
+      `(begin
+         (define ,locator
+           (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
+         (define ,rank-locator
+           (%%get-interface-rank ,locator))
+         ,(let ((toplevel-declaration (%%get-declaration-toplevel declaration)))
+            `(jazz:register-module-entry ',(%%get-lexical-binding-name toplevel-declaration) ',name ,locator))
+         ,@(jazz:emit-namespace-statements body declaration environment backend))
+      (%%get-declaration-source declaration))))
+
+
+;;;
 ;;;; Slot
 ;;;
 
@@ -225,6 +251,30 @@
 
 
 ;;;
+;;;; Generic
+;;;
+
+
+(jazz:define-emit (generic (gambit backend) declaration environment signature-emit body-emit)
+  (let ((generic-locator (%%get-declaration-locator declaration)))
+    `(jazz:define-generic ,(%%cons generic-locator signature-emit)
+       ,@(jazz:sourcified-form body-emit))))
+
+
+;;;
+;;;; Specific
+;;;
+
+
+(jazz:define-emit (specific (gambit backend) declaration environment signature-emit body-emit)
+  (let ((generic-declaration (%%get-specific-declaration-generic declaration)))
+    (let ((generic-locator (%%get-declaration-locator generic-declaration))
+          (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
+      `(jazz:define-specific ,(%%cons generic-locator signature-emit) ,modifier
+         ,@(jazz:sourcified-form body-emit)))))
+
+
+;;;
 ;;;; Dispatch
 ;;;
 
@@ -289,4 +339,31 @@
                 (lambda (object)
                   `((,d ,object) ,object ,@(jazz:codes-forms rest-codes))))
               jazz:Any
-              (%%get-expression-source expression)))))))))
+              (%%get-expression-source expression))))))))
+
+
+;;;
+;;;; New Call
+;;;
+
+
+(jazz:define-emit (new-call (gambit backend) operator locator arguments arguments-codes declaration environment)
+  (if (%%eq? locator 'jazz.dialect.runtime.kernel:new)
+      (%%assert (%%pair? arguments)
+        (let ((class-expression (%%car arguments)))
+          (if (%%class-is? class-expression jazz:Binding-Reference)
+              (let ((binding (%%get-reference-binding class-expression)))
+                (if (or (%%class-is? binding jazz:Class-Declaration)
+                        (%%class-is? binding jazz:Autoload-Declaration))
+                    (let ((values-codes (%%cdr arguments-codes)))
+                      (jazz:new-code
+                        (case (%%length values-codes)
+                          ((0) `(jazz:new0 ,@(jazz:codes-forms arguments-codes)))
+                          ((1) `(jazz:new1 ,@(jazz:codes-forms arguments-codes)))
+                          ((2) `(jazz:new2 ,@(jazz:codes-forms arguments-codes)))
+                          (else `(jazz:new ,@(jazz:codes-forms arguments-codes))))
+                        binding
+                        #f))
+                  #f))
+            #f)))
+    #f)))

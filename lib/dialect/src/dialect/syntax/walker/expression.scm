@@ -59,10 +59,6 @@
   #f)
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Proclaim expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:Proclaim)
 
 
@@ -101,12 +97,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Delay expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-delay-expression expression) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:Delay)
 
 
@@ -127,10 +117,6 @@
     (jazz:emit 'quasiquote backend expression declaration environment)
     jazz:List
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Quasiquote expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Quasiquote)
@@ -165,10 +151,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Method-Reference expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:Method-Reference)
 
 
@@ -199,12 +181,6 @@
                   (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
                   (jazz:new-function-type '() '() '() #f (%%get-code-type body-code))
                   (%%get-expression-source expression))))))))))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Lambda expression) f k s)
-  (f expression
-     (k (jazz:fold-statement (%%get-lambda-body expression) f k s)
-        s)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Lambda expression) down up here seed environment)
@@ -255,12 +231,6 @@
               (%%get-expression-source expression))))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Let expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-let-body expression) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Let expression) down up here seed environment)
   (let* ((bindings (%%get-let-bindings expression))
          (aug-env (cons (map car bindings) environment))
@@ -309,12 +279,6 @@
               (%%get-expression-source expression))))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Named-Let expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-let-body expression) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Named-Let expression) down up here seed environment)
   (let* ((bindings (%%get-let-bindings expression))
          (aug-env (cons (cons (%%get-named-let-variable expression) (map car bindings)) environment))
@@ -361,21 +325,15 @@
               (%%get-expression-source expression))))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Letstar expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-letstar-body expression) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Letstar expression) down up here seed environment)
   (let lp ((ls (%%get-letstar-bindings expression))
            (seed2 (down expression seed environment))
            (aug-env environment))
-    (if (pair? ls)
-        (lp (cdr ls)
-            (jazz:tree-fold (cdar ls) down up here seed2 aug-env)
-            (cons (list (caar ls)) aug-env))
-        (up expression seed (jazz:tree-fold (%%get-letstar-body expression) down up here seed2 aug-env) environment))))
+       (if (pair? ls)
+           (lp (cdr ls)
+               (jazz:tree-fold (cdar ls) down up here seed2 aug-env)
+               (cons (list (caar ls)) aug-env))
+         (up expression seed (jazz:tree-fold (%%get-letstar-body expression) down up here seed2 aug-env) environment))))
 
 
 (jazz:encapsulate-class jazz:Letstar)
@@ -414,12 +372,6 @@
               (jazz:emit 'letrec backend expression declaration environment bindings-output body-code)
               (%%get-code-type body-code)
               (%%get-expression-source expression))))))))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Letrec expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-letrec-body expression) f k s)
-        s)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Letrec expression) down up here seed environment)
@@ -461,12 +413,6 @@
                 (jazz:emit 'receive backend expression declaration environment bindings-output expression-output body-code)
                 (%%get-code-type body-code)
                 (%%get-expression-source expression)))))))))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Receive expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-receive-body expression) f k s)
-        s)))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Receive expression) down up here seed environment)
@@ -521,14 +467,6 @@
               #f)))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Do expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-do-test expression) f k s)
-        (k (jazz:fold-expression (%%get-do-result expression) f k s)
-           (k (jazz:fold-expression (%%get-do-body expression) f k s)
-              s)))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Do expression) down up here seed environment)
   (let* ((aug-env (cons (map car (%%get-do-bindings expression)) environment))
          (seed1 (jazz:tree-fold-list (map cadr (%%get-do-bindings expression)) down up here (down expression seed environment) environment))
@@ -536,12 +474,12 @@
     (up expression
         seed
         (jazz:tree-fold
-         (%%get-do-result expression) down up here
-         (jazz:tree-fold
-          (%%get-do-body expression) down up here
-          (jazz:tree-fold (%%get-do-test expression) down up here seed2 aug-env)
+          (%%get-do-result expression) down up here
+          (jazz:tree-fold
+            (%%get-do-body expression) down up here
+            (jazz:tree-fold (%%get-do-test expression) down up here seed2 aug-env)
+            aug-env)
           aug-env)
-         aug-env)
         environment)))
 
 
@@ -1017,25 +955,17 @@
           (%%get-expression-source expression))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:If expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-if-test expression) f k s)
-        (k (jazz:fold-expression (%%get-if-yes expression) f k s)
-           (k (jazz:fold-expression (%%get-if-no expression) f k s)
-              s)))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:If expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold
-       (%%get-if-no expression) down up here
-       (jazz:tree-fold
-        (%%get-if-yes expression) down up here
+        (%%get-if-no expression) down up here
         (jazz:tree-fold
-         (%%get-if-test expression) down up here (down expression seed environment) environment)
+          (%%get-if-yes expression) down up here
+          (jazz:tree-fold
+            (%%get-if-test expression) down up here (down expression seed environment) environment)
+          environment)
         environment)
-       environment)
       environment))
 
 
@@ -1066,33 +996,21 @@
       (%%get-expression-source expression))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Cond expression) f k s)
-  (f expression (map (lambda (clause)
-                       (let ((test (%%car clause))
-                             (body (%%cdr clause)))
-                         (if (%%not test)
-                             (jazz:fold-expression body f k s)
-                           (k (jazz:fold-expression test f k s)
-                              (k (jazz:fold-expression body f k s)
-                                 s)))))
-                     (%%get-cond-clauses expression))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Cond expression) down up here seed environment)
   (up expression
       seed
       (let fold ((ls (%%get-cond-clauses expression))
                  (seed (down expression seed environment)))
-        (if (null? ls)
-            seed
-            (let* ((clause (%%car ls))
-                   (test (%%car clause))
-                   (body (%%cddr clause))
-                   (seed (jazz:tree-fold body down up here seed environment)))
-              (fold (%%cdr ls)
-                    (if (%%not test)
-                        body
-                        (jazz:tree-fold test down up here seed environment))))))
+           (if (null? ls)
+               seed
+             (let* ((clause (%%car ls))
+                    (test (%%car clause))
+                    (body (%%cddr clause))
+                    (seed (jazz:tree-fold body down up here seed environment)))
+               (fold (%%cdr ls)
+                     (if (%%not test)
+                         body
+                       (jazz:tree-fold test down up here seed environment))))))
       environment))
 
 
@@ -1127,19 +1045,13 @@
         (%%get-expression-source expression)))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Case expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-case-target expression) f k s)
-        (jazz:fold-expressions (map cdr (%%get-case-clauses expression)) f k s s))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Case expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (map cdr (%%get-case-clauses expression)) down up here
-       (jazz:tree-fold (%%get-case-target expression) down up here (down expression seed environment) environment)
-       environment)
+        (map cdr (%%get-case-clauses expression)) down up here
+        (jazz:tree-fold (%%get-case-target expression) down up here (down expression seed environment) environment)
+        environment)
       environment))
 
 
@@ -1166,16 +1078,11 @@
       (%%get-expression-source expression))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:And expression) f k s)
-  (f expression
-     (jazz:fold-expressions (%%get-and-expressions expression) f k s s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:And expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (%%get-and-expressions expression) down up here (down expression seed environment) environment)
+        (%%get-and-expressions expression) down up here (down expression seed environment) environment)
       environment))
 
 
@@ -1202,16 +1109,11 @@
       (%%get-expression-source expression))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Or expression) f k s)
-  (f expression
-     (jazz:fold-expressions (%%get-or-expressions expression) f k s s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Or expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (%%get-or-expressions expression) down up here (down expression seed environment) environment)
+        (%%get-or-expressions expression) down up here (down expression seed environment) environment)
       environment))
 
 
@@ -1235,10 +1137,6 @@
     (jazz:emit 'declare backend expression declaration environment)
     jazz:Any
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Declare expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Declare)
@@ -1265,16 +1163,12 @@
         #f))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Parameterize expression) f k s)
-  (f expression s))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Parameterize expression) down up here seed environment)
   (let ((seed2 (jazz:tree-fold-list (map cdr (%%get-parameterize-bindings expression)) down up here (down expression seed environment) environment)))
     (up expression
-       seed
-       (jazz:tree-fold (%%get-parameterize-body expression) down up here seed2 environment)
-       environment)))
+        seed
+        (jazz:tree-fold (%%get-parameterize-body expression) down up here seed2 environment)
+        environment)))
 
 
 (jazz:encapsulate-class jazz:Parameterize)
@@ -1299,10 +1193,6 @@
         (jazz:emit 'time backend expression declaration environment expressions-emit)
         jazz:Any
         #f))))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Time-Special expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Time-Special))

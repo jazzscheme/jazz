@@ -153,12 +153,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Define-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-define-declaration-value declaration) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Define-Declaration expression) down up here seed environment)
   (jazz:tree-fold (%%get-define-declaration-value expression) down up here seed environment))
 
@@ -228,12 +222,6 @@
             `(jazz:define-special-form ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (%%get-declaration-source declaration)))))))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Define-Special-Form-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-define-special-form-body declaration) f k s)
-        s)))
 
 
 (jazz:encapsulate-class jazz:Define-Special-Form-Declaration)
@@ -309,12 +297,6 @@
             `(jazz:define-macro ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (%%get-declaration-source declaration)))))))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Define-Macro-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-define-macro-body declaration) f k s)
-        s)))
 
 
 (jazz:encapsulate-class jazz:Define-Macro-Declaration)

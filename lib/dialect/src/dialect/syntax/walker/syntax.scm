@@ -98,7 +98,6 @@
 (jazz:define-virtual (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
 (jazz:define-virtual (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
-(jazz:define-virtual (jazz:fold-declaration (jazz:Declaration declaration) f k s))
 
 
 ;;;
@@ -842,7 +841,6 @@
 
 (jazz:define-virtual (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
 (jazz:define-virtual (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
-(jazz:define-virtual (jazz:fold-expression (jazz:Expression expression) f k s))
 
 
 ;;;

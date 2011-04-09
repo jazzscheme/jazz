@@ -70,10 +70,6 @@
                                             '()))))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:C-Type-Declaration expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:C-Type-Declaration)
 
 
@@ -121,12 +117,6 @@
     #f))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:C-Definition-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-c-definition-declaration-body declaration) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:C-Definition-Declaration)
 
 
@@ -150,10 +140,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:C-Include expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:C-Include)
 
 
@@ -175,10 +161,6 @@
       `(c-declare ,code)
       jazz:Any
       #f)))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:C-Declare expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:C-Declare)
@@ -207,10 +189,6 @@
     `(c-declare ,code)))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:C-Named-Declare-Declaration expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:C-Named-Declare-Declaration)
 
 
@@ -234,10 +212,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:C-Initialize expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:C-Initialize)
 
 
@@ -258,10 +232,6 @@
     (%%get-c-function-expansion expression)
     jazz:Any
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:C-Function expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:C-Function))

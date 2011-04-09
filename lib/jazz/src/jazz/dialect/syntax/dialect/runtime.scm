@@ -128,12 +128,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Definition-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-definition-declaration-value declaration) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:Definition-Declaration)
 
 
@@ -154,10 +148,6 @@
     `(begin)
     jazz:Any
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Specialize expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Specialize)
@@ -201,12 +191,6 @@
     #f))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Generic-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-generic-declaration-body declaration) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:Generic-Declaration)
 
 
@@ -242,12 +226,6 @@
             (jazz:sourcify-if
               (jazz:emit 'specific backend declaration environment signature-emit body-emit)
               (%%get-declaration-source declaration))))))))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Specific-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-specific-declaration-body declaration) f k s)
-           s)))
 
 
 (jazz:encapsulate-class jazz:Specific-Declaration)
@@ -567,12 +545,6 @@
       (jazz:error "Illegal assignment to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Slot-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-slot-declaration-initialize declaration) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:Slot-Declaration)
 
 
@@ -764,14 +736,6 @@
                (body-emit (and body (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
                                       (jazz:emit-type-cast body-code body-type declaration augmented-environment backend)))))
           (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit))))))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Method-Declaration declaration) f k s)
-  (f declaration
-     (let ((body (%%get-method-declaration-body declaration)))
-       (if (%%not body)
-           s
-         (k (jazz:fold-statement body f k s) s)))))
 
 
 (jazz:encapsulate-class jazz:Method-Declaration)
@@ -1021,12 +985,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:With-Self expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-with-self-body expression) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:With-Self)
 
 
@@ -1052,11 +1010,6 @@
                (jazz:sourcified-form (jazz:emit-statements-code body declaration environment backend)))))
       jazz:Any
       #f)))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:With-Dynamic-Self expression) f k s)
-  (f expression
-     (jazz:fold-expressions (%%get-with-dynamic-self-body expression) f k s s)))
 
 
 (jazz:encapsulate-class jazz:With-Dynamic-Self)
@@ -1107,11 +1060,6 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Cast expression) f k s)
-  (f expression
-     (jazz:fold-expression (%%get-cast-expression expression) f k s)))
-
-
 (jazz:encapsulate-class jazz:Cast)
 
 
@@ -1143,12 +1091,6 @@
          ,@(jazz:codes-forms (jazz:emit-expressions values declaration environment backend)))
       jazz:Any
       #f)))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Allocate expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-allocate-class expression) f k s)
-        (jazz:fold-expressions (%%get-allocate-values expression) f k s s))))
 
 
 (jazz:encapsulate-class jazz:Allocate)
@@ -1278,12 +1220,6 @@
           (else
            #f)))
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Dispatch expression) f k s)
-  (f expression
-     (k (%%get-dispatch-name expression)
-        (jazz:fold-expressions (%%get-dispatch-arguments expression) f k s s))))
 
 
 (jazz:encapsulate-class jazz:Dispatch)

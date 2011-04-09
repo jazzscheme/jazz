@@ -321,13 +321,6 @@
   '())
 
 
-(jazz:define-virtual-runtime (jazz:fold-declaration (jazz:Declaration declaration) f k s))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Declaration declaration) f k s)
-  (f declaration s))
-
-
 (define (jazz:declaration-result)
   (if (%%eq? (jazz:walk-for) 'eval)
       '((jazz:unspecified))
@@ -559,10 +552,6 @@
     new-declaration))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Unit-Declaration expression) f k s)
-  (f expression s))
-
-
 (jazz:encapsulate-class jazz:Unit-Declaration)
 
 
@@ -610,10 +599,6 @@
     (jazz:add-to-module-references namespace-declaration found)
     (add-to-hits found)
     found))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Namespace-Declaration declaration) f k s)
-  (f declaration (jazz:fold-statements (%%get-namespace-declaration-body declaration) f k s s)))
 
 
 (jazz:encapsulate-class jazz:Namespace-Declaration)
@@ -1292,10 +1277,6 @@
     #f))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Export-Declaration declaration) f k s)
-  (f declaration s))
-
-
 (jazz:encapsulate-class jazz:Export-Declaration)
 
 
@@ -1352,10 +1333,6 @@
     (%%get-export-syntax-declaration-symbol declaration)
     jazz:Any
     #f))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Export-Syntax-Declaration declaration) f k s)
-  (f declaration s))
 
 
 (jazz:encapsulate-class jazz:Export-Syntax-Declaration)
@@ -1416,10 +1393,6 @@
 (define (jazz:autoload-locator referenced-declaration)
   (%%string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator referenced-declaration))
                                      ":autoload")))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Autoload-Declaration declaration) f k s)
-  (f declaration s))
 
 
 (jazz:encapsulate-class jazz:Autoload-Declaration)
@@ -2280,12 +2253,6 @@
             (%%get-declaration-source declaration)))))))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Macro-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-macro-declaration-body declaration) f k s)
-        s)))
-
-
 (jazz:encapsulate-class jazz:Macro-Declaration)
 
 
@@ -2377,10 +2344,6 @@
   `(begin))
 
 
-(jazz:define-method (jazz:fold-declaration (jazz:Local-Macro-Declaration declaration) f k s)
-  (f declaration s))
-
-
 (jazz:encapsulate-class jazz:Local-Macro-Declaration)
 
 
@@ -2464,12 +2427,6 @@
             `(jazz:define-macro ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (%%get-declaration-source declaration)))))))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Syntax-Declaration declaration) f k s)
-  (f declaration
-     (k (jazz:fold-statement (%%get-syntax-declaration-body declaration) f k s)
-        s)))
 
 
 (jazz:encapsulate-class jazz:Syntax-Declaration)
@@ -2628,10 +2585,6 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Local-Syntax-Declaration declaration) environment backend)
   `(begin))
-
-
-(jazz:define-method (jazz:fold-declaration (jazz:Define-Local-Syntax-Declaration declaration) f k s)
-  (f declaration s))
 
 
 (jazz:encapsulate-class jazz:Define-Local-Syntax-Declaration)
@@ -3969,24 +3922,10 @@
       #f)))
 
 
-(jazz:define-virtual-runtime (jazz:fold-expression (jazz:Expression expression) f k s))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Expression expression) f k s)
-  (f expression s))
-
-
 (define (jazz:emit-expressions expressions declaration environment backend)
   (map (lambda (expression)
          (jazz:emit-expression expression declaration environment backend))
        expressions))
-
-
-(define (jazz:fold-expressions expressions f k s seed)
-  (if (%%null? expressions)
-      seed
-    (k (jazz:fold-expression (%%car expressions) f k s)
-       (jazz:fold-expressions (%%cdr expressions) f k s seed))))
 
 
 (define (jazz:tree-fold-list ls down up here seed environment)
@@ -4018,10 +3957,6 @@
 (jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments declaration environment backend)
   (jazz:sourcify-code (jazz:emit-binding-call (%%get-reference-binding expression) (%%get-expression-source expression) arguments declaration environment backend)
                       (%%get-expression-source expression)))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Binding-Reference expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Binding-Reference)
@@ -4108,22 +4043,16 @@
             #f))))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Body expression) f k s)
-  (f expression
-     (jazz:fold-statements (%%get-body-internal-defines expression) f k s
-       (jazz:fold-statements (%%get-body-expressions expression) f k s s))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Body expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (%%get-body-expressions expression) down up here
-       (jazz:tree-fold-list
-        (%%get-body-internal-defines expression) down up here
-        (down expression seed environment)
+        (%%get-body-expressions expression) down up here
+        (jazz:tree-fold-list
+          (%%get-body-internal-defines expression) down up here
+          (down expression seed environment)
+          environment)
         environment)
-       environment)
       environment))
 
 
@@ -4152,19 +4081,13 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Internal-Define expression) f k s)
-  (f expression
-     (k (jazz:fold-statement (%%get-internal-define-value expression) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Internal-Define expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold
-       (%%get-internal-define-value expression) down up here
-       (down expression seed environment)
-       environment)
+        (%%get-internal-define-value expression) down up here
+        (down expression seed environment)
+        environment)
       environment))
 
 
@@ -4192,18 +4115,13 @@
         (%%get-expression-source expression)))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Begin expression) f k s)
-  (f expression
-     (jazz:fold-statements (%%get-begin-expressions expression) f k s s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Begin expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (%%get-begin-expressions expression) down up here
-       (down expression seed environment)
-       environment)
+        (%%get-begin-expressions expression) down up here
+        (down expression seed environment)
+        environment)
       environment))
 
 
@@ -4247,20 +4165,14 @@
         (%%get-expression-source expression)))))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Call expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-call-operator expression) f k s)
-        (jazz:fold-expressions (%%get-call-arguments expression) f k s s))))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Call expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-       (cons (%%get-call-operator expression) (%%get-call-arguments expression))
-       down up here
-       (down expression seed environment)
-       environment)
+        (cons (%%get-call-operator expression) (%%get-call-arguments expression))
+        down up here
+        (down expression seed environment)
+        environment)
       environment))
 
 
@@ -4314,12 +4226,6 @@
     (%%get-constant-expansion expression)
     (%%get-expression-type expression)
     #f))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Constant expression) f k s)
-  (f expression
-     (k (%%get-constant-expansion expression)
-        s)))
 
 
 (jazz:encapsulate-class jazz:Constant)
@@ -4430,12 +4336,6 @@
   (jazz:emit-binding-assignment (%%get-assignment-binding expression) (%%get-assignment-value expression) declaration environment backend))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Assignment expression) f k s)
-  (f expression
-     (k (jazz:fold-expression (%%get-assignment-value expression) f k s)
-        s)))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Assignment expression) down up here seed environment)
   (up expression
       seed
@@ -4483,10 +4383,6 @@
       answer
       jazz:Boolean
       #f)))
-
-
-(jazz:define-method (jazz:fold-expression (jazz:Walk-Failed-Special expression) f k s)
-  (f expression s))
 
 
 (jazz:encapsulate-class jazz:Walk-Failed-Special)
@@ -4542,19 +4438,6 @@
                        (jazz:sourcified-form code))))
                  statements)))
       (jazz:new-code emited last-type #f))))
-
-
-(define (jazz:fold-statement statement f k s)
-  (if (%%class-is? statement jazz:Declaration)
-      (jazz:fold-declaration statement f k s)
-    (jazz:fold-expression statement f k s)))
-
-
-(define (jazz:fold-statements statements f k s seed)
-  (if (%%null? statements)
-      seed
-    (k (jazz:fold-statement (%%car statements) f k s)
-       (jazz:fold-statements (%%cdr statements) f k s seed))))
 
 
 ;;;

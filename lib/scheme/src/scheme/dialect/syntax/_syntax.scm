@@ -41,4 +41,4 @@
 (require (dialect.base)
          (scheme.dialect.syntax.walker.syntax (phase syntax))
          (scheme.dialect.syntax.walker.runtime)
-         (scheme.dialect.syntax.backend.gambit)))
+         (scheme.dialect.syntax.backend.scheme)))

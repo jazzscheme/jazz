@@ -42,7 +42,7 @@
          (jazz.dialect.runtime.core (phase syntax))
          (jazz.dialect.syntax.dialect.syntax (phase syntax))
          (jazz.dialect.syntax.dialect.runtime)
-         (jazz.dialect.syntax.backend.gambit)
+         (jazz.dialect.syntax.backend.scheme)
          (jazz.dialect.runtime.syntax (phase syntax))
          (jazz.dialect.runtime.classes))
 

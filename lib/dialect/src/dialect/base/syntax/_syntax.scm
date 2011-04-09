@@ -43,4 +43,4 @@
          (dialect.base.syntax.walker.runtime)
          (dialect.base.syntax.dialect.syntax)
          (dialect.base.syntax.dialect.runtime)
-         (dialect.base.syntax.backend.gambit)))
+         (dialect.base.syntax.backend.scheme)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Base Backend
+;;;; Scheme Base Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected dialect.base.syntax.backend.gambit
+(unit protected dialect.base.syntax.backend.scheme
 
 
-(jazz:define-backend gambit)
+(jazz:define-backend scheme)
 
 
 ;;;
@@ -46,7 +46,7 @@
 ;;;
 
 
-(jazz:define-emit (module (gambit backend) declaration environment)
+(jazz:define-emit (module (scheme backend) declaration environment)
   (let ((body-expansion (jazz:emit-namespace-statements (%%get-namespace-declaration-body declaration) declaration environment backend))
         (inclusions-expansion (jazz:emit-module-inclusions declaration backend))
         (literals-expansion (jazz:emit-module-literals declaration backend))
@@ -102,7 +102,7 @@
 ;;;
 
 
-(jazz:define-emit (proclaim (gambit backend) expression declaration environment)
+(jazz:define-emit (proclaim (scheme backend) expression declaration environment)
   #f)
 
 
@@ -111,7 +111,7 @@
 ;;;
 
 
-(jazz:define-emit (quasiquote (gambit backend) expression declaration environment)
+(jazz:define-emit (quasiquote (scheme backend) expression declaration environment)
   (define (emit form)
     (if (%%pair? form)
         (if (or (%%eq? (%%car form) 'unquote)
@@ -133,11 +133,11 @@
 ;;;
 
 
-(jazz:define-emit (call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (call (scheme backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
-(jazz:define-emit (method-reference-call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (method-reference-call (scheme backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
@@ -146,18 +146,18 @@
 ;;;
 
 
-(jazz:define-emit (walk-binding-binding-call (gambit backend) binding binding-src operator arguments)
+(jazz:define-emit (walk-binding-binding-call (scheme backend) binding binding-src operator arguments)
   `(,(jazz:sourcified-form2 operator binding-src)
     ,@(jazz:codes-forms arguments)))
 
 
-(jazz:define-emit (method-binding-call (gambit backend) binding binding-src dispatch-code self arguments)
+(jazz:define-emit (method-binding-call (scheme backend) binding binding-src dispatch-code self arguments)
   `(,(jazz:sourcified-form dispatch-code)
     ,(jazz:sourcified-form self)
     ,@arguments))
 
 
-(jazz:define-emit (nextmethod-binding-call (gambit backend) binding binding-src self arguments)
+(jazz:define-emit (nextmethod-binding-call (scheme backend) binding binding-src self arguments)
   (let ((name (%%get-lexical-binding-name binding)))
     (if self
         `(,name
@@ -172,7 +172,7 @@
 ;;;
 
 
-(jazz:define-emit (specialized-call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (specialized-call (scheme backend) expression declaration operator arguments)
   #f)
 
 
@@ -181,7 +181,7 @@
 ;;;
 
 
-(jazz:define-emit (specialized-class-of-call (gambit backend) object)
+(jazz:define-emit (specialized-class-of-call (scheme backend) object)
   `(jazz:class-of ,(jazz:sourcified-form object)))
 
 
@@ -190,7 +190,7 @@
 ;;;
 
 
-(jazz:define-emit (new-call (gambit backend) operator locator arguments arguments-codes declaration environment)
+(jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration environment)
   #f)
 
 
@@ -199,7 +199,7 @@
 ;;;
 
 
-(jazz:define-emit (primitive-call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (primitive-call (scheme backend) expression declaration operator arguments)
   #f)
 
 
@@ -208,7 +208,7 @@
 ;;;
 
 
-(jazz:define-emit (inlined-call (gambit backend) expression declaration operator arguments)
+(jazz:define-emit (inlined-call (scheme backend) expression declaration operator arguments)
   #f)
 
 
@@ -217,22 +217,22 @@
 ;;;
 
 
-(jazz:define-emit (define-assignment (gambit backend) declaration source-declaration environment value-code)
+(jazz:define-emit (define-assignment (scheme backend) declaration source-declaration environment value-code)
   (let ((locator (%%get-declaration-locator declaration)))
     `(set! ,locator ,(jazz:sourcified-form value-code))))
 
 
-(jazz:define-emit (definition-assignment (gambit backend) declaration source-declaration environment value-code)
+(jazz:define-emit (definition-assignment (scheme backend) declaration source-declaration environment value-code)
   (let ((locator (%%get-declaration-locator declaration)))
     `(set! ,locator ,(jazz:sourcified-form value-code))))
 
 
-(jazz:define-emit (slot-assignment (gambit backend) declaration source-declaration environment self value-code)
+(jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration environment self value-code)
   (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
     `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,(jazz:sourcified-form value-code))))
 
 
-(jazz:define-emit (variable-assignment (gambit backend) binding source-declaration environment binding-code value-code)
+(jazz:define-emit (variable-assignment (scheme backend) binding source-declaration environment binding-code value-code)
   `(set! ,binding-code ,(jazz:sourcified-form value-code)))
 
 
@@ -241,7 +241,7 @@
 ;;;
 
 
-(jazz:define-emit (method-reference (gambit backend) expression declaration environment)
+(jazz:define-emit (method-reference (scheme backend) expression declaration environment)
   (let ((method-declaration (%%get-reference-binding expression)))
     (%%get-declaration-locator method-declaration)))
 
@@ -251,7 +251,7 @@
 ;;;
 
 
-(jazz:define-emit (lambda (gambit backend) expression declaration environment signature-emit signature-casts cast-body)
+(jazz:define-emit (lambda (scheme backend) expression declaration environment signature-emit signature-casts cast-body)
   (if (%%not signature-casts)
       `(lambda ,signature-emit
          ,cast-body)
@@ -266,7 +266,7 @@
 ;;;
 
 
-(jazz:define-emit (let (gambit backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (let (scheme backend) expression declaration environment bindings-output body-code)
   `(let ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -276,7 +276,7 @@
 ;;;
 
 
-(jazz:define-emit (named-let (gambit backend) expression declaration environment variable-emit bindings-output body-code)
+(jazz:define-emit (named-let (scheme backend) expression declaration environment variable-emit bindings-output body-code)
   `(let ,variable-emit ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -286,7 +286,7 @@
 ;;;
 
 
-(jazz:define-emit (letstar (gambit backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (letstar (scheme backend) expression declaration environment bindings-output body-code)
   `(let* ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -296,7 +296,7 @@
 ;;;
 
 
-(jazz:define-emit (letrec (gambit backend) expression declaration environment bindings-output body-code)
+(jazz:define-emit (letrec (scheme backend) expression declaration environment bindings-output body-code)
   `(letrec ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
@@ -306,7 +306,7 @@
 ;;;
 
 
-(jazz:define-emit (receive (gambit backend) expression declaration environment bindings-output expression-output body-code)
+(jazz:define-emit (receive (scheme backend) expression declaration environment bindings-output expression-output body-code)
   `(receive ,bindings-output
        ,expression-output
      ,@(jazz:sourcified-form body-code)))
@@ -317,7 +317,7 @@
 ;;;
 
 
-(jazz:define-emit (begin (gambit backend) expression declaration environment code)
+(jazz:define-emit (begin (scheme backend) expression declaration environment code)
   `(begin ,@(jazz:sourcified-form code)))
 
 
@@ -326,7 +326,7 @@
 ;;;
 
 
-(jazz:define-emit (do (gambit backend) expression declaration environment bindings-output test-code result-code body-code)
+(jazz:define-emit (do (scheme backend) expression declaration environment bindings-output test-code result-code body-code)
   `(do ,bindings-output
        (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
      ,@(jazz:sourcified-form body-code)))
@@ -337,7 +337,7 @@
 ;;;
 
 
-(jazz:define-emit (delay (gambit backend) expression declaration environment expr)
+(jazz:define-emit (delay (scheme backend) expression declaration environment expr)
   `(delay ,(jazz:sourcified-form expr)))
 
 
@@ -346,7 +346,7 @@
 ;;;
 
 
-(jazz:define-emit (if (gambit backend) expression declaration environment test yes no)
+(jazz:define-emit (if (scheme backend) expression declaration environment test yes no)
   `(if ,(jazz:sourcified-form test)
        ,(jazz:sourcified-form yes)
      ,(jazz:simplify-begin (jazz:sourcified-form no))))
@@ -357,7 +357,7 @@
 ;;;
 
 
-(jazz:define-emit (cond (gambit backend) expression declaration environment)
+(jazz:define-emit (cond (scheme backend) expression declaration environment)
   (let ((clauses (%%get-cond-clauses expression)))
     `(cond ,@(let recurse ((clauses clauses)
                            (environment environment))
@@ -381,7 +381,7 @@
 ;;;
 
 
-(jazz:define-emit (case (gambit backend) expression declaration environment target-emit clauses clauses-emit)
+(jazz:define-emit (case (scheme backend) expression declaration environment target-emit clauses clauses-emit)
   `(case ,(jazz:sourcified-form target-emit)
      ,@(map (lambda (clause emited-clause)
               (let ((tries (%%car clause)))
@@ -395,7 +395,7 @@
 ;;;
 
 
-(jazz:define-emit (and (gambit backend) expression declaration environment expressions)
+(jazz:define-emit (and (scheme backend) expression declaration environment expressions)
   `(and ,@(jazz:codes-forms expressions)))
 
 
@@ -404,7 +404,7 @@
 ;;;
 
 
-(jazz:define-emit (or (gambit backend) expression declaration environment expressions)
+(jazz:define-emit (or (scheme backend) expression declaration environment expressions)
   `(or ,@(jazz:codes-forms expressions)))
 
 
@@ -413,7 +413,7 @@
 ;;;
 
 
-(jazz:define-emit (declare (gambit backend) expression declaration environment)
+(jazz:define-emit (declare (scheme backend) expression declaration environment)
   (let ((declarations (%%get-declare-declarations expression)))
     `(declare ,@declarations)))
 
@@ -423,7 +423,7 @@
 ;;;
 
 
-(jazz:define-emit (parameterize (gambit backend) expression declaration environment body-code)
+(jazz:define-emit (parameterize (scheme backend) expression declaration environment body-code)
   (let ((bindings (%%get-parameterize-bindings expression)))
     `(parameterize ,(map (lambda (binding)
                            (let ((variable (%%car binding))
@@ -439,7 +439,7 @@
 ;;;
 
 
-(jazz:define-emit (time (gambit backend) expression declaration environment expressions)
+(jazz:define-emit (time (scheme backend) expression declaration environment expressions)
   `(time
      (begin
        ,@(jazz:codes-forms expressions)))))

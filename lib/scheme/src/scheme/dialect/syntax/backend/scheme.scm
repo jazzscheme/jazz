@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Scheme Backend
+;;;; Scheme Scheme Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected scheme.dialect.syntax.backend.gambit
+(unit protected scheme.dialect.syntax.backend.scheme
 
 
 ;;;
@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-emit (define (gambit backend) declaration environment expression)
+(jazz:define-emit (define (scheme backend) declaration environment expression)
   (jazz:sourcify-if
     (let ((locator (%%get-declaration-locator declaration)))
       `(begin

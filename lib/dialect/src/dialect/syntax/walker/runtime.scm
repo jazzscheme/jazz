@@ -1003,7 +1003,7 @@
     (list environment)))
 
 
-(define (jazz:walk-module partial-form #!optional (backend-name 'gambit))
+(define (jazz:walk-module partial-form #!optional (backend-name 'scheme))
   (receive (name access dialect-name body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
@@ -1029,7 +1029,7 @@
             declaration))))))
 
 
-(define (jazz:walk-script partial-form #!optional (backend-name 'gambit))
+(define (jazz:walk-script partial-form #!optional (backend-name 'scheme))
   (let ((name (gensym 'script)))
     (receive (dialect-name body) (jazz:parse-script partial-form)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))

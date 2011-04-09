@@ -67,7 +67,7 @@
 ;;;
 
 
-(define (jazz:expand-unit unit-name #!key (backend 'gambit) (walk-for #f))
+(define (jazz:expand-unit unit-name #!key (backend 'scheme) (walk-for #f))
   (parameterize ((jazz:walk-for (or walk-for 'walk)))
     (let* ((src (jazz:find-unit-src unit-name #f))
            (form (jazz:read-toplevel-form src))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Jazz Backend
+;;;; Scheme Jazz Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected jazz.dialect.syntax.backend.gambit
+(unit protected jazz.dialect.syntax.backend.scheme
 
 
 ;;;
@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-emit (definition (gambit backend) declaration environment expression)
+(jazz:define-emit (definition (scheme backend) declaration environment expression)
   (jazz:sourcify-if
     (let ((locator (%%get-declaration-locator declaration)))
       `(begin
@@ -62,7 +62,7 @@
 ;;;
 
 
-(jazz:define-emit (class (gambit backend) declaration environment)
+(jazz:define-emit (class (scheme backend) declaration environment)
   (let ((name (%%get-lexical-binding-name declaration))
         (locator (%%get-declaration-locator declaration))
         (ascendant-declaration (%%get-class-declaration-ascendant declaration))
@@ -102,7 +102,7 @@
 ;;;
 
 
-(jazz:define-emit (interface (gambit backend) declaration environment)
+(jazz:define-emit (interface (scheme backend) declaration environment)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (rank-locator (jazz:compose-helper locator 'rank))
@@ -128,7 +128,7 @@
 ;;;
 
 
-(jazz:define-emit (slot (gambit backend) declaration environment initialize-emit)
+(jazz:define-emit (slot (scheme backend) declaration environment initialize-emit)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
@@ -159,7 +159,7 @@
 ;;;
 
 
-(jazz:define-emit (property (gambit backend) declaration environment initialize-emit)
+(jazz:define-emit (property (scheme backend) declaration environment initialize-emit)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
@@ -199,7 +199,7 @@
 ;;;
 
 
-(jazz:define-emit (method (gambit backend) declaration environment signature-emit signature-casts body-emit)
+(jazz:define-emit (method (scheme backend) declaration environment signature-emit signature-casts body-emit)
   (let* ((name (%%get-lexical-binding-name declaration))
          (abstraction (%%get-method-declaration-abstraction declaration))
          (propagation (%%get-method-declaration-propagation declaration))
@@ -255,7 +255,7 @@
 ;;;
 
 
-(jazz:define-emit (generic (gambit backend) declaration environment signature-emit body-emit)
+(jazz:define-emit (generic (scheme backend) declaration environment signature-emit body-emit)
   (let ((generic-locator (%%get-declaration-locator declaration)))
     `(jazz:define-generic ,(%%cons generic-locator signature-emit)
        ,@(jazz:sourcified-form body-emit))))
@@ -266,7 +266,7 @@
 ;;;
 
 
-(jazz:define-emit (specific (gambit backend) declaration environment signature-emit body-emit)
+(jazz:define-emit (specific (scheme backend) declaration environment signature-emit body-emit)
   (let ((generic-declaration (%%get-specific-declaration-generic declaration)))
     (let ((generic-locator (%%get-declaration-locator generic-declaration))
           (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
@@ -279,7 +279,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch (gambit backend) expression declaration environment object-code rest-codes)
+(jazz:define-emit (dispatch (scheme backend) expression declaration environment object-code rest-codes)
   (let ((name (%%get-dispatch-name expression)))
     (define (resolve-type object-code)
       (let ((object-type (jazz:patch-type-until-unification (%%get-code-type object-code))))
@@ -347,7 +347,7 @@
 ;;;
 
 
-(jazz:define-emit (new-call (gambit backend) operator locator arguments arguments-codes declaration environment)
+(jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration environment)
   (if (%%eq? locator 'jazz.dialect.runtime.kernel:new)
       (%%assert (%%pair? arguments)
         (let ((class-expression (%%car arguments)))

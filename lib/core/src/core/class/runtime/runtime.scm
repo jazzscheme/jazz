@@ -188,9 +188,9 @@
   (%%get-class-ascendant class))
 
 
-(set! jazz:object-of-class?
-      (lambda (object class)
-        (%%subclass? (%%get-object-class object) class)))
+(jazz:define-variable-override jazz:object-of-class?
+  (lambda (object class)
+    (%%subclass? (%%get-object-class object) class)))
 
 
 (define (jazz:collect-type type lst)

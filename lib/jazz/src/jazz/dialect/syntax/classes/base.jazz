@@ -1,0 +1,1355 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Base Walker
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.dialect.syntax.classes.base jazz.dialect
+
+
+(import (jazz.dialect.runtime.kernel)
+        (jazz.dialect.runtime.language.exception)
+        (jazz.dialect.runtime.language.format)
+        (jazz.dialect.runtime.language.functional)
+        (jazz.dialect.runtime.language.object))
+
+
+;;;
+;;;; Walk-Binding
+;;;
+
+
+(class Walk-Binding extends Type)
+
+
+(native-syntax jazz:walk-binding-lookup)
+(native-syntax jazz:walk-binding-referenced)
+(native-syntax jazz:emit-binding-reference)
+(native-syntax jazz:walk-binding-validate-call)
+(native-syntax jazz:emit-binding-call)
+(native-syntax jazz:emit-inlined-binding-call)
+(native-syntax jazz:walk-binding-validate-assignment)
+(native-syntax jazz:walk-binding-assignable?)
+(native-syntax jazz:emit-binding-assignment)
+(native-syntax jazz:walk-binding-walkable?)
+(native-syntax jazz:walk-binding-walk-form)
+(native-syntax jazz:walk-binding-expandable?)
+(native-syntax jazz:walk-binding-expand-form)
+
+
+;;;
+;;;; Lexical-Binding
+;;;
+
+
+(class Lexical-Binding extends Walk-Binding
+  
+  
+  (slot name getter generate)
+  (slot type getter generate)
+  (slot hits accessors generate)
+  
+  
+  (method override (print output detail)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}" (get-name))))))
+
+
+(native-syntax jazz:resolve-binding)
+
+
+;;;
+;;;; Declaration
+;;;
+
+
+(class Declaration extends Lexical-Binding
+  
+  
+  (slot access        getter generate)
+  (slot compatibility getter generate)
+  (slot attributes    getter generate)
+  (slot toplevel      getter generate)
+  (slot parent        getter generate)
+  (slot locator       getter generate)
+  (slot source        getter generate))
+
+
+(native-syntax jazz:lookup-declaration)
+(native-syntax jazz:update-declaration)
+(native-syntax jazz:get-declaration-inclusions)
+(native-syntax jazz:emit-declaration)
+(native-syntax jazz:expand-referenced-declaration)
+(native-syntax jazz:fold-statement)
+(native-syntax jazz:fold-declaration)
+(native-syntax jazz:fold-expression)
+(native-syntax jazz:private-access)
+(native-syntax jazz:public-access)
+(native-syntax jazz:protected-access)
+
+
+;;;
+;;;; Declaration-Reference
+;;;
+
+
+(class Declaration-Reference extends Object
+  
+  
+  (slot name        getter generate)
+  (slot declaration getter generate))
+
+
+(native-syntax jazz:resolve-reference)
+
+
+;;;
+;;;; Module-Reference
+;;;
+
+
+(class Module-Reference extends Declaration-Reference)
+
+
+;;;
+;;;; Export-Reference
+;;;
+
+
+(class Export-Reference extends Declaration-Reference
+  
+  
+  (slot module-reference getter generate))
+
+
+;;;
+;;;; Autoload-Reference
+;;;
+
+
+(class Autoload-Reference extends Export-Reference)
+
+
+;;;
+;;;; Unit-Declaration
+;;;
+
+
+(class Unit-Declaration extends Declaration
+  
+  
+  (slot requires getter generate))
+
+
+;;;
+;;;; Namespace-Declaration
+;;;
+
+
+(class Namespace-Declaration extends Declaration
+  
+  
+  (slot lookups  getter generate)
+  (slot children accessors generate)
+  (slot body     accessors generate))
+
+
+(native-syntax %%get-access-lookup)
+
+
+;;;
+;;;; Module-Declaration
+;;;
+
+
+(class Module-Declaration extends Namespace-Declaration
+  
+  
+  (slot walker          getter generate)
+  (slot dialect-name    getter generate)
+  (slot dialect-invoice getter generate)
+  (slot requires        getter generate)
+  (slot exports         getter generate)
+  (slot imports         getter generate)
+  (slot proclaims       getter generate)
+  (slot inclusions      getter generate)
+  (slot local-macros    getter generate))
+
+
+;;;
+;;;; Module-Invoice
+;;;
+
+
+(class Module-Invoice extends Object
+  
+  
+  (slot name    getter generate)
+  (slot module  getter generate)
+  (slot phase   getter generate)
+  (slot version getter generate)
+  (slot only    getter generate)
+  (slot except  getter generate)
+  (slot prefix  getter generate)
+  (slot rename  getter generate)
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "on {s}"
+          name)))))
+
+
+;;;
+;;;; Export-Invoice
+;;;
+
+
+(class Export-Invoice extends Module-Invoice
+  
+  
+  (slot autoload getter generate))
+
+
+;;;
+;;;; Import-Invoice
+;;;
+
+
+(class Import-Invoice extends Module-Invoice
+  
+  
+  (slot hit? getter generate))
+
+
+;;;
+;;;; Export
+;;;
+
+
+(class Export-Declaration extends Declaration
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Export Syntax
+;;;
+
+
+(class Export-Syntax-Declaration extends Declaration
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Autoload
+;;;
+
+
+(class Autoload-Declaration extends Declaration
+  
+  
+  (slot module          getter generate)
+  (slot exported-module getter generate)
+  (slot declaration     getter generate))
+
+
+;;;
+;;;; Literal
+;;;
+
+
+(definition public *print-literal*
+  (make-parameter #f))
+
+
+(class Literal extends Object
+  
+  
+  (slot name      getter generate)
+  (slot arguments getter generate)
+  
+  
+  (method override (print output readably)
+    (if (*print-literal*)
+        (format output "~{{a}{?: {l detail: :v}~}}" name (not-null? arguments) arguments readably)
+      (print-unreadable self output
+        (lambda (output)
+          (format output "{a}"
+            name)))))
+  
+  
+  (method override (walk-references proc)
+    (walk-literal (source-code name) arguments proc)))
+
+
+(native jazz:new-literal)
+
+
+;;;
+;;;; Any
+;;;
+
+
+(class Any extends Type)
+
+
+;;;
+;;;; Macro
+;;;
+
+
+(class Macro-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Syntax
+;;;
+
+
+(class Syntax-Declaration extends Declaration
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Define-Syntax
+;;;
+
+
+(class Define-Syntax-Declaration extends Syntax-Declaration)
+
+
+;;;
+;;;; Define-Local-Syntax
+;;;
+
+
+(class Define-Local-Syntax-Declaration extends Syntax-Declaration)
+
+
+;;;
+;;;; Opt Type
+;;;
+
+
+(class Opt-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Key Type
+;;;
+
+
+(class Key-Type extends Type
+  
+  
+  (slot key  getter generate)
+  (slot type getter generate))
+
+
+;;;
+;;;; Rest Type
+;;;
+
+
+(class Rest-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Function Type
+;;;
+
+
+(class Function-Type extends Type
+  
+  
+  (slot mandatory  getter generate)
+  (slot positional getter generate)
+  (slot optional   getter generate)
+  (slot named      getter generate)
+  (slot rest       getter generate)
+  (slot result     getter generate))
+
+
+;;;
+;;;; Category Type
+;;;
+
+
+(class Category-Type extends Type
+  
+  
+  (slot declaration getter generate))
+
+
+;;;
+;;;; Values Type
+;;;
+
+
+(class Values-Type extends Type
+  
+  
+  (slot types getter generate))
+
+
+;;;
+;;;; Restriction Type
+;;;
+
+
+(class Restriction-Type extends Type
+  
+  
+  (slot base getter generate)
+  (slot type getter generate))
+
+
+;;;
+;;;; Complement Type
+;;;
+
+
+(class Complement-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; Union Type
+;;;
+
+
+(class Union-Type extends Type
+  
+  
+  (slot types getter generate))
+
+
+;;;
+;;;; Template Type
+;;;
+
+
+(class Template-Type extends Type
+  
+  
+  (slot class getter generate)
+  (slot types getter generate))
+
+
+;;;
+;;;; Nillable Type
+;;;
+
+
+(class Nillable-Type extends Type
+  
+  
+  (slot type getter generate))
+
+
+;;;
+;;;; C-Type
+;;;
+
+
+(class C-Type-Declaration extends Declaration
+  
+  
+  (slot kind          getter generate)
+  (slot expansion     getter generate)
+  (slot base-type     getter generate)
+  (slot pointer-types getter generate)
+  (slot inclusions    getter generate)
+  (slot c-to-scheme   getter generate)
+  (slot scheme-to-c   getter generate)
+  (slot declare       getter generate))
+
+
+;;;
+;;;; C-Definition
+;;;
+
+
+(class C-Definition-Declaration extends Declaration
+  
+  
+  (slot signature       getter generate)
+  (slot parameter-types getter generate)
+  (slot result-type     getter generate)
+  (slot c-name          getter generate)
+  (slot scope           getter generate)
+  (slot body            getter generate))
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(class Dialect extends Object
+  
+  
+  (slot name     getter generate)
+  (slot bindings getter generate))
+
+
+;;;
+;;;; Backend
+;;;
+
+
+(class Backend extends Object
+  
+  
+  (slot name     getter generate)
+  (slot bindings getter generate))
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(class Walker extends Object
+  
+  
+  (slot warnings   getter generate)
+  (slot errors     getter generate)
+  (slot literals   getter generate)
+  (slot variables  getter generate)
+  (slot references getter generate)
+  (slot autoloads  getter generate))
+
+
+(native-syntax jazz:walker-environment)
+(native-syntax jazz:walk-declaration)
+(native-syntax jazz:validate-access)
+(native-syntax jazz:walk-free-reference)
+(native-syntax jazz:walk-symbol-assignment)
+(native-syntax jazz:walk-free-assignment)
+(native-syntax jazz:walk-symbol)
+(native-syntax jazz:walk-form)
+(native-syntax jazz:validate-proclaim)
+(native-syntax jazz:validate-arguments)
+
+
+;;;
+;;;; Walk Context
+;;;
+
+
+(class Walk-Context extends Object
+  
+  
+  (slot policy   getter generate)
+  (slot locator  getter generate)
+  (slot pathname getter generate))
+
+
+;;;
+;;;; Walk-Location
+;;;
+
+
+(class package Walk-Location extends Object
+  
+  
+  (slot unit-locator        getter generate)
+  (slot declaration-locator getter generate)
+  (slot locat               getter generate)
+  (slot path                getter generate)
+  
+  
+  (method override (initialize unit-locator declaration-locator locat path)
+    (nextmethod)
+    (set! unit-locator~self unit-locator)
+    (set! declaration-locator~self declaration-locator)
+    (set! locat~self locat)
+    (set! path~self path))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a} {s} {s} {s} {s}}"
+            (category-name (class-of self))
+            unit-locator
+            declaration-locator
+            locat
+            path)))
+
+
+;;;
+;;;; Walk-Problem
+;;;
+
+
+(class package Walk-Problem extends Error
+  
+  
+  (slot location getter generate))
+
+
+;;;
+;;;; Walk-Problems
+;;;
+
+
+(class package Walk-Problems extends Error
+  
+  
+  (slot warnings getter generate)
+  (slot errors   getter generate))
+
+
+;;;
+;;;; Walk-Warning
+;;;
+
+
+(class package Walk-Warning extends Walk-Problem)
+
+
+;;;
+;;;; Walk-Error
+;;;
+
+
+(class package Walk-Error extends Walk-Problem)
+
+
+;;;
+;;;; Unresolved-Error
+;;;
+
+
+(class package Unresolved-Error extends Walk-Error
+  
+  
+  (slot symbol getter generate))
+
+
+;;;
+;;;; Walk-Frame
+;;;
+
+
+(class Walk-Frame extends Walk-Binding
+  
+  
+  (slot bindings getter generate))
+
+
+;;;
+;;;; Signature
+;;;
+
+
+(class Signature extends Object
+  
+  
+  (slot mandatory  getter generate)
+  (slot positional getter generate)
+  (slot optional   getter generate)
+  (slot named      getter generate)
+  (slot rest       getter generate))
+
+
+;;;
+;;;; Symbol-Binding
+;;;
+
+
+(class Symbol-Binding extends Lexical-Binding
+  
+  
+  (slot gensym getter generate))
+
+
+;;;
+;;;; Variable
+;;;
+
+
+(class Variable extends Symbol-Binding
+  
+  
+  (slot reference-count getter generate))
+
+
+;;;
+;;;; NextMethod-Variable
+;;;
+
+
+(class NextMethod-Variable extends Variable)
+
+
+;;;
+;;;; Parameter
+;;;
+
+
+(class Parameter extends Variable)
+
+
+;;;
+;;;; Dynamic-Parameter
+;;;
+
+
+(class Dynamic-Parameter extends Parameter
+  
+  
+  (slot class getter generate))
+
+
+;;;
+;;;; Optional-Parameter
+;;;
+
+
+(class Optional-Parameter extends Parameter
+  
+  
+  (slot default getter generate))
+
+
+;;;
+;;;; Named-Parameter
+;;;
+
+
+(class Named-Parameter extends Parameter
+  
+  
+  (slot default getter generate))
+
+
+;;;
+;;;; Rest-Parameter
+;;;
+
+
+(class Rest-Parameter extends Parameter)
+
+
+;;;
+;;;; Dynamic Self Binding
+;;;
+
+
+(class Dynamic-Self-Binding extends Lexical-Binding
+  
+  
+  (slot code getter generate))
+
+
+;;;
+;;;; Local Variable Binding
+;;;
+
+
+(class Local-Variable-Binding extends Lexical-Binding
+  
+  
+  (slot variable getter generate))
+
+
+;;;
+;;;; Macro Symbol
+;;;
+
+
+(class Macro-Symbol extends Symbol-Binding
+  
+  
+  (slot getter getter generate)
+  (slot setter getter generate))
+
+
+;;;
+;;;; Form Binding
+;;;
+
+
+(class Form-Binding extends Lexical-Binding)
+
+
+;;;
+;;;; Special Form
+;;;
+
+
+(class Special-Form extends Form-Binding
+  
+  
+  (slot walk getter generate))
+
+
+;;;
+;;;; Macro Form
+;;;
+
+
+(class Macro-Form extends Form-Binding
+  
+  
+  (slot expander getter generate))
+
+
+;;;
+;;;; Syntax Form
+;;;
+
+
+(class Syntax-Form extends Form-Binding
+  
+  
+  (slot expander getter generate))
+
+
+;;;
+;;;; Define-Syntax Form
+;;;
+
+
+(class Define-Syntax-Form extends Syntax-Form
+  
+  
+  (slot environment getter generate))
+
+
+;;;
+;;;; Define-Local-Syntax Form
+;;;
+
+
+(class Define-Local-Syntax-Form extends Syntax-Form
+  
+  
+  (slot environment getter generate))
+
+
+;;;
+;;;; Syntactic Closures
+;;;
+
+
+(class Syntactic-Closure extends Object
+  
+  
+  (slot environment getter generate)
+  (slot variables   getter generate)
+  (slot form        getter generate))
+
+
+;;;
+;;;; Annotated Variable
+;;;
+
+
+(class Annotated-Variable extends Object
+  
+  
+  (slot variable      getter generate)
+  (slot declared-type getter generate)
+  (slot type          getter generate))
+
+
+;;;
+;;;; Restricted Binding
+;;;
+
+
+(class Restricted-Binding extends Object
+  
+  
+  (slot binding getter generate)
+  (slot type    getter generate))
+
+
+;;;
+;;;; Annotated Frame
+;;;
+
+
+(class Annotated-Frame extends Object
+  
+  
+  (slot variables getter generate)
+  (slot reset     getter generate))
+
+
+;;;
+;;;; Code
+;;;
+
+
+(class Code extends Object
+  
+  
+  (slot form   getter generate)
+  (slot type   getter generate)
+  (slot source getter generate))
+
+
+;;;
+;;;; Slot Access
+;;;
+
+
+(class Access extends Object
+  
+  
+  (slot name    getter generate)
+  (slot context getter generate))
+
+
+;;;
+;;;; Expression
+;;;
+
+
+(class Expression extends Object
+  
+  
+  (slot type   getter generate)
+  (slot source getter generate))
+
+
+(native-syntax jazz:emit-expression)
+(native-syntax jazz:emit-call)
+(native-syntax jazz:fold-expression)
+
+
+;;;
+;;;; Proclaim
+;;;
+
+
+(class Proclaim extends Expression
+  
+  
+  (slot clauses getter generate))
+
+
+;;;
+;;;; Constant
+;;;
+
+
+(class Constant extends Expression
+  
+  
+  (slot expansion getter generate))
+
+
+;;;
+;;;; Delay
+;;;
+
+
+(class Delay extends Expression
+  
+  
+  (slot expression getter generate))
+
+
+;;;
+;;;; Quasiquote
+;;;
+
+
+(class Quasiquote extends Expression
+  
+  
+  (slot form getter generate))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(class Binding-Reference extends Expression
+  
+  
+  (slot binding getter generate)
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}"
+          binding)))))
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(class Assignment extends Expression
+  
+  
+  (slot binding getter generate)
+  (slot value   getter generate))
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(class Lambda extends Expression
+  
+  
+  (slot signature getter generate)
+  (slot body      getter generate))
+
+
+;;;
+;;;; Let
+;;;
+
+
+(class Let extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(class Named-Let extends Let
+  
+  
+  (slot variable getter generate))
+
+
+;;;
+;;;; Letstar
+;;;
+
+
+(class Letstar extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Letrec
+;;;
+
+
+(class Letrec extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Receive
+;;;
+
+
+(class Receive extends Expression
+  
+  
+  (slot variables  getter generate)
+  (slot expression getter generate)
+  (slot body       getter generate))
+
+
+;;;
+;;;; Body
+;;;
+
+
+(class Body extends Expression
+  
+  
+  (slot internal-defines getter generate)
+  (slot expressions      getter generate))
+
+
+;;;
+;;;; Internal Define
+;;;
+
+
+(class Internal-Define extends Expression
+  
+  
+  (slot variable getter generate)
+  (slot value    getter generate))
+
+
+;;;
+;;;; Begin
+;;;
+
+
+(class Begin extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Do
+;;;
+
+
+(class Do extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot test     getter generate)
+  (slot result   getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(class Call extends Expression
+  
+  
+  (slot operator  getter generate)
+  (slot arguments getter generate))
+
+
+;;;
+;;;; If
+;;;
+
+
+(class If extends Expression
+  
+  
+  (slot test getter generate)
+  (slot yes  getter generate)
+  (slot no   getter generate))
+
+
+;;;
+;;;; Cond
+;;;
+
+
+(class Cond extends Expression
+  
+  
+  (slot clauses getter generate))
+
+
+;;;
+;;;; Case
+;;;
+
+
+(class Case extends Expression
+  
+  
+  (slot target  getter generate)
+  (slot clauses getter generate))
+
+
+;;;
+;;;; And
+;;;
+
+
+(class And extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Or
+;;;
+
+
+(class Or extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Declare
+;;;
+
+
+(class Declare extends Expression
+  
+  
+  (slot declarations getter generate))
+
+
+;;;
+;;;; C Include
+;;;
+
+
+(class C-Include extends Expression
+  
+  
+  (slot name getter generate))
+
+
+;;;
+;;;; C Declare
+;;;
+
+
+(class C-Declare extends Expression
+  
+  
+  (slot code getter generate))
+
+
+;;;
+;;;; C Named Declare
+;;;
+
+
+(class C-Named-Declare-Declaration extends Declaration
+  
+  
+  (slot code getter generate))
+
+
+;;;
+;;;; C Initialize
+;;;
+
+
+(class C-Initialize extends Expression
+  
+  
+  (slot code getter generate))
+
+
+;;;
+;;;; C Function
+;;;
+
+
+(class C-Function extends Expression
+  
+  
+  (slot expansion getter generate))
+
+
+;;;
+;;;; Parameterize
+;;;
+
+
+(class Parameterize extends Expression
+  
+  
+  (slot bindings getter generate)
+  (slot body     getter generate))
+
+
+;;;
+;;;; Time Special
+;;;
+
+
+(class Time-Special extends Expression
+  
+  
+  (slot expressions getter generate))
+
+
+;;;
+;;;; Analysis Data
+;;;
+
+
+(class Analysis-Data extends Object
+  
+  
+  (slot autoload-reference     getter generate)
+  (slot declaration-references getter generate))
+
+
+;;;
+;;;; Base Dialect
+;;;
+
+
+(class Base-Dialect extends Dialect)
+
+
+;;;
+;;;; Base Walker
+;;;
+
+
+(class Base-Walker extends Walker))

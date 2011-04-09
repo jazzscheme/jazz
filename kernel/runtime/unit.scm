@@ -787,15 +787,14 @@
   (define (first-char-of-last-name str)
     (let loop ((offset (%%fx- (%%string-length str) 1)))
          (let ((ch (%%string-ref str offset)))
-           (cond
-             ((%%char=? #\. (%%string-ref str offset))
-              (if (%%fx< (%%fx+ offset 1) (%%string-length str))
-                  (%%string-ref str (%%fx+ 1 offset))
-                (jazz:error "Unit name {a} ends with a ." str)))
-             ((%%fx= offset 0)
-              ch)
-             (else
-              (loop (%%fx- offset 1)))))))
+           (cond ((%%char=? #\. (%%string-ref str offset))
+                  (if (%%fx< (%%fx+ offset 1) (%%string-length str))
+                      (%%string-ref str (%%fx+ 1 offset))
+                    (jazz:error "Unit name {a} ends with a ." str)))
+                 ((%%fx= offset 0)
+                  ch)
+                 (else
+                  (loop (%%fx- offset 1)))))))
   
   (let ((first-char (first-char-of-last-name (%%symbol->string unit-name))))
     (and (%%char<=? #\a first-char) (%%char<=? first-char #\z))))
@@ -1834,7 +1833,7 @@
 
 
 (define (jazz:load-foundation)
-  (jazz:load-unit 'core.module))
+  (jazz:load-unit 'dialect.base))
 
 
 (define (jazz:load-runtime)

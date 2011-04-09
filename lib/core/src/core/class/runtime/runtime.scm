@@ -496,27 +496,27 @@
   (jazz:error "Unable to emit specifier for: {s}" type))
 
 
-(jazz:define-virtual-runtime (jazz:emit-type (jazz:Type type) source-declaration environment))
+(jazz:define-virtual-runtime (jazz:emit-type (jazz:Type type) source-declaration environment backend))
 
 
-(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration environment)
+(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration environment backend)
   (jazz:error "Unable to emit type for: {s}" type))
 
 
-(jazz:define-virtual-runtime (jazz:emit-test (jazz:Type type) value source-declaration environment))
+(jazz:define-virtual-runtime (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
 
 
-(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration environment)
-  (let ((locator (jazz:emit-type type source-declaration environment)))
+(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
     `(%%is? ,value ,locator)))
 
 
-(jazz:define-virtual-runtime (jazz:emit-check (jazz:Type type) value source-declaration environment))
+(jazz:define-virtual-runtime (jazz:emit-check (jazz:Type type) value source-declaration environment backend))
 
 
-(jazz:define-method (jazz:emit-check (jazz:Type type) value source-declaration environment)
-  (let ((locator (jazz:emit-type type source-declaration environment)))
-    `(if (%%not ,(jazz:emit-test type value source-declaration environment))
+(jazz:define-method (jazz:emit-check (jazz:Type type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
+    `(if (%%not ,(jazz:emit-test type value source-declaration environment backend))
          (jazz:type-error ,value ,locator))))
 
 
@@ -578,7 +578,7 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration environment)
+(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration environment backend)
   (%%get-category-identifier type))
 
 
@@ -791,7 +791,7 @@
   'bool)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration environment backend)
   `(%%boolean? ,value))
 
 
@@ -820,7 +820,7 @@
   'char)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration environment backend)
   `(%%char? ,value))
 
 
@@ -870,7 +870,7 @@
   'number)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration environment backend)
   `(%%number? ,value))
 
 
@@ -899,7 +899,7 @@
   'complex)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration environment backend)
   `(%%complex? ,value))
 
 
@@ -928,7 +928,7 @@
   'real)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration environment backend)
   `(%%real? ,value))
 
 
@@ -957,7 +957,7 @@
   'rational)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration environment backend)
   `(%%rational? ,value))
 
 
@@ -986,7 +986,7 @@
   'int)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration environment backend)
   `(%%integer? ,value))
 
 
@@ -1015,7 +1015,7 @@
   'fx)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration environment backend)
   `(%%fixnum? ,value))
 
 
@@ -1044,7 +1044,7 @@
   'fl)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration environment backend)
   `(%%flonum? ,value))
 
 
@@ -1090,7 +1090,7 @@
   'list)
 
 
-(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration environment backend)
   `(or (%%null? ,value) (%%pair? ,value)))
 
 
@@ -1119,7 +1119,7 @@
   'null)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration environment backend)
   `(%%null? ,value))
 
 
@@ -1148,7 +1148,7 @@
   'pair)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration environment backend)
   `(%%pair? ,value))
 
 
@@ -1177,7 +1177,7 @@
   'string)
 
 
-(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration environment backend)
   `(%%string? ,value))
 
 
@@ -1206,7 +1206,7 @@
   'vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration environment backend)
   `(%%vector? ,value))
 
 
@@ -1235,7 +1235,7 @@
   's8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration environment backend)
   `(%%s8vector? ,value))
 
 
@@ -1264,7 +1264,7 @@
   'u8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration environment backend)
   `(%%u8vector? ,value))
 
 
@@ -1293,7 +1293,7 @@
   's16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration environment backend)
   `(%%s16vector? ,value))
 
 
@@ -1322,7 +1322,7 @@
   'u16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration environment backend)
   `(%%u16vector? ,value))
 
 
@@ -1351,7 +1351,7 @@
   's32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration environment backend)
   `(%%s32vector? ,value))
 
 
@@ -1380,7 +1380,7 @@
   'u32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration environment backend)
   `(%%u32vector? ,value))
 
 
@@ -1409,7 +1409,7 @@
   's64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration environment backend)
   `(%%s64vector? ,value))
 
 
@@ -1438,7 +1438,7 @@
   'u64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration environment backend)
   `(%%u64vector? ,value))
 
 
@@ -1467,7 +1467,7 @@
   'f32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration environment backend)
   `(%%f32vector? ,value))
 
 
@@ -1496,7 +1496,7 @@
   'f64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration environment backend)
   `(%%f64vector? ,value))
 
 
@@ -1525,7 +1525,7 @@
   'structure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration environment backend)
   `(%%structure? ,value))
 
 
@@ -1554,7 +1554,7 @@
   'port)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration environment backend)
   `(%%port? ,value))
 
 
@@ -1586,7 +1586,7 @@
   'continuation)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration environment backend)
   `(%%continuation? ,value))
 
 
@@ -1621,7 +1621,7 @@
   'procedure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration environment backend)
   `(%%procedure? ,value))
 
 
@@ -1650,7 +1650,7 @@
   'symbol)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration environment backend)
   `(%%symbol? ,value))
 
 
@@ -1679,7 +1679,7 @@
   'keyword)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration environment backend)
   `(%%keyword? ,value))
 
 
@@ -1708,7 +1708,7 @@
   'table)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration environment backend)
   `(%%table? ,value))
 
 
@@ -1740,7 +1740,7 @@
   'thread)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration environment backend)
   `(%%thread? ,value))
 
 
@@ -1793,7 +1793,7 @@
   'foreign)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration environment backend)
   `(%%foreign? ,value))
 
 
@@ -1822,7 +1822,7 @@
   'values)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration environment backend)
   `(%%values? ,value))
 
 
@@ -1851,7 +1851,7 @@
   'eof)
 
 
-(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration environment backend)
   `(%%eof-object? ,value))
 
 
@@ -1880,7 +1880,7 @@
   'unspecified)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration environment backend)
   `(%%unspecified? ,value))
 
 
@@ -1909,7 +1909,7 @@
   'marker)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration environment backend)
   `(jazz:marker? ,value))
 
 

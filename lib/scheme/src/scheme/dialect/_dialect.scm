@@ -35,14 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.dialect core
+(module scheme.dialect base
 
 
-(require (core.module)
-         (scheme.dialect.classes (phase syntax))
-         (scheme.dialect.dialect)
-         (scheme.dialect.runtime-classes (phase syntax))
-         (scheme.dialect.runtime))
+(require (dialect.base))
 
 
-(export (scheme.dialect.kernel)))
+(export (scheme.dialect.syntax)
+        (scheme.dialect.runtime)))

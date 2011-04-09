@@ -67,7 +67,7 @@
   'time)
 
 
-(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Time-Class type) value source-declaration environment backend)
   `(time? ,value))
 
 
@@ -107,7 +107,7 @@
   'date)
 
 
-(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Date-Class type) value source-declaration environment backend)
   `(date? ,value))
 
 

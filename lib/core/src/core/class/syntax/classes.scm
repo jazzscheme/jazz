@@ -65,9 +65,9 @@
 (jazz:define-virtual (jazz:specifiable? (jazz:Type type)) #t)
 (jazz:define-virtual (jazz:category-type? (jazz:Type type)) #t)
 (jazz:define-virtual (jazz:emit-specifier (jazz:Type type)) #t)
-(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment) #t)
-(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment) #t)
-(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment) #t)
+(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend) #t)
+(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend) #t)
+(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment backend) #t)
 
 
 (jazz:define-macro (%%subtype? target type)

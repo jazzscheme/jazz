@@ -1,0 +1,319 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz JavaScript Backend
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.backend.javascript.emit jazz
+
+
+(import (backend))
+
+
+;;;
+;;;; Definition
+;;;
+
+
+(define-emit (definition (javascript backend) declaration environment expression)
+  (let ((name (get-name~ declaration)))
+    `(definition ,name
+       ,expression)))
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(define-emit (specialize (javascript backend) expression declaration environment)
+  `(specialize))
+
+
+;;;
+;;;; Generic
+;;;
+
+
+(define-emit (generic (javascript backend) declaration environment signature-emit body-emit)
+  `(generic ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; Specific
+;;;
+
+
+(define-emit (specific (javascript backend) declaration environment signature-emit body-emit)
+  `(specific ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; Class
+;;;
+
+
+(define-emit (class (javascript backend) declaration environment)
+  (let ((name (get-name~ declaration))
+        (ascendant (get-name~ (get-ascendant~ declaration)))
+        (interfaces (map get-name~ (get-interfaces~ declaration)))
+        (body (get-body~ declaration)))
+    (let ((body-emit (emit-namespace-statements body declaration environment backend)))
+      `(class ,name ,ascendant ,interfaces
+         ,@body-emit))))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(define-emit (interface (javascript backend) declaration environment)
+  (let ((name (get-name~ declaration))
+        (body (get-body~ declaration)))
+    (let ((body-emit (emit-namespace-statements body declaration environment backend)))
+      `(interface ,name
+         ,@body-emit))))
+
+
+;;;
+;;;; Slot
+;;;
+
+
+(define-emit (slot (javascript backend) declaration environment initialize-emit)
+  (let ((name (get-name~ declaration)))
+    `(slot ,name)))
+
+
+;;;
+;;;; Property
+;;;
+
+
+(define-emit (property (javascript backend) declaration environment initialize-emit)
+  (let ((name (get-name~ declaration)))
+    `(property ,name)))
+
+
+;;;
+;;;; Method
+;;;
+
+
+(define-emit (method (javascript backend) declaration environment signature-emit signature-casts body-emit)
+  (let ((name (get-name~ declaration)))
+    `(method (,name)
+       ,body-emit)))
+
+
+;;;
+;;;; With-Self
+;;;
+
+
+(define-emit (with-self (javascript backend) expression declaration environment body-emit)
+  `(with-self
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; With-Dynamic-Self
+;;;
+
+
+(define-emit (with-dynamic-self (javascript backend) expression declaration environment body-emit)
+  `(with-dynamic-self
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+(define-emit (dispatch (javascript backend) expression declaration environment object-code rest-codes)
+  (let ((name (get-name~ expression)))
+    (new-code
+      `(dispatch ,name ,(jazz:sourcified-form object-code) ,@(jazz:codes-forms rest-codes))
+      Any
+      (get-source~ expression))))
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(define-emit (cast (javascript backend) expression declaration environment type expression-emit)
+  `(cast ,(jazz:sourcified-form expression-emit)))
+
+
+;;;
+;;;; Construct
+;;;
+
+
+(define-emit (construct (javascript backend) expression declaration environment class-emit values-emit)
+  `(construct ,(jazz:sourcified-form class-emit)
+              ,@(jazz:codes-forms values-emit)))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(define-emit (c-definition-reference (javascript backend) declaration)
+  `(c-definition-reference))
+
+
+(define-emit (category-reference (javascript backend) declaration)
+  `(category-reference))
+
+
+(define-emit (class-reference (javascript backend) declaration)
+  `(class-reference))
+
+
+(define-emit (definition-reference (javascript backend) declaration)
+  `(definition-reference))
+
+
+(define-emit (dynamic-self-reference (javascript backend) declaration)
+  `(dynamic-self-reference))
+
+
+(define-emit (generic-reference (javascript backend) declaration)
+  `(generic-reference))
+
+
+(define-emit (method-reference (javascript backend) declaration source-declaration environment self)
+  `(method-reference))
+
+
+(define-emit (method-node-reference (javascript backend) expression declaration environment)
+  `(method-node-reference))
+
+
+(define-emit (nextmethod-variable-reference (javascript backend) binding)
+  `(nextmethod-variable-reference))
+
+
+(define-emit (self-reference (javascript backend) declaration source-declaration)
+  `(self-reference))
+
+
+(define-emit (slot-reference (javascript backend) declaration self)
+  `(slot-reference))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(define-emit (method-node-call (javascript backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
+
+
+(define-emit (method-binding-call (javascript backend) binding binding-src dispatch-code self arguments)
+  `(method-binding-call
+    ,(jazz:sourcified-form self)
+    ,@arguments))
+
+
+(define-emit (nextmethod-binding-call (javascript backend) binding binding-src self arguments)
+  (let ((name (get-name~ binding)))
+    (if self
+        `(,name
+           ,(jazz:sourcified-form self)
+           ,@(jazz:codes-forms arguments))
+      `(,name
+         ,@(jazz:codes-forms arguments)))))
+
+
+;;;
+;;;; Specialized Call
+;;;
+
+
+(define-emit (specialized-call (javascript backend) expression declaration operator arguments)
+  #f)
+
+
+(define-emit (specialized-class-of-call (javascript backend) object)
+  #f)
+
+
+;;;
+;;;; New Call
+;;;
+
+
+(define-emit (new-call (javascript backend) operator locator arguments arguments-codes declaration environment)
+  #f)
+
+
+;;;
+;;;; Primitive Call
+;;;
+
+
+(define-emit (primitive-call (javascript backend) expression declaration operator arguments)
+  #f)
+
+
+;;;
+;;;; Inlined Call
+;;;
+
+
+(define-emit (inlined-call (javascript backend) expression declaration operator arguments)
+  #f)
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(define-emit (definition-assignment (javascript backend) declaration source-declaration environment value-code)
+  `(definition-assignment ,(jazz:sourcified-form value-code)))
+
+
+(define-emit (slot-assignment (javascript backend) declaration source-declaration environment self value-code)
+  `(slot-assignment ,(jazz:sourcified-form value-code))))

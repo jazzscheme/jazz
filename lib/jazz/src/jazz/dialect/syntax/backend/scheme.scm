@@ -58,6 +58,39 @@
 
 
 ;;;
+;;;; Specialize
+;;;
+
+
+(jazz:define-emit (specialize (scheme backend) expression declaration environment)
+  `(begin))
+
+
+;;;
+;;;; Generic
+;;;
+
+
+(jazz:define-emit (generic (scheme backend) declaration environment signature-emit body-emit)
+  (let ((generic-locator (%%get-declaration-locator declaration)))
+    `(jazz:define-generic ,(%%cons generic-locator signature-emit)
+       ,@(jazz:sourcified-form body-emit))))
+
+
+;;;
+;;;; Specific
+;;;
+
+
+(jazz:define-emit (specific (scheme backend) declaration environment signature-emit body-emit)
+  (let ((generic-declaration (%%get-specific-declaration-generic declaration)))
+    (let ((generic-locator (%%get-declaration-locator generic-declaration))
+          (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
+      `(jazz:define-specific ,(%%cons generic-locator signature-emit) ,modifier
+         ,@(jazz:sourcified-form body-emit)))))
+
+
+;;;
 ;;;; Class
 ;;;
 
@@ -251,27 +284,25 @@
 
 
 ;;;
-;;;; Generic
+;;;; With-Self
 ;;;
 
 
-(jazz:define-emit (generic (scheme backend) declaration environment signature-emit body-emit)
-  (let ((generic-locator (%%get-declaration-locator declaration)))
-    `(jazz:define-generic ,(%%cons generic-locator signature-emit)
+(jazz:define-emit (with-self (scheme backend) expression declaration environment body-emit)
+  (jazz:simplify-begin
+    `(begin
        ,@(jazz:sourcified-form body-emit))))
 
 
 ;;;
-;;;; Specific
+;;;; With-Dynamic-Self
 ;;;
 
 
-(jazz:define-emit (specific (scheme backend) declaration environment signature-emit body-emit)
-  (let ((generic-declaration (%%get-specific-declaration-generic declaration)))
-    (let ((generic-locator (%%get-declaration-locator generic-declaration))
-          (modifier (if (%%get-specific-declaration-root? declaration) 'root 'child)))
-      `(jazz:define-specific ,(%%cons generic-locator signature-emit) ,modifier
-         ,@(jazz:sourcified-form body-emit)))))
+(jazz:define-emit (with-dynamic-self (scheme backend) expression declaration environment body-emit)
+  (jazz:simplify-begin
+    `(begin
+       ,@(jazz:sourcified-form body-emit))))
 
 
 ;;;
@@ -340,6 +371,95 @@
                   `((,d ,object) ,object ,@(jazz:codes-forms rest-codes))))
               jazz:Any
               (%%get-expression-source expression))))))))
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(jazz:define-emit (cast (scheme backend) expression declaration environment type expression-emit)
+  (jazz:emit-type-cast
+    expression-emit
+    type
+    declaration
+    environment
+    backend))
+
+
+;;;
+;;;; Allocate
+;;;
+
+
+(jazz:define-emit (allocate (scheme backend) expression declaration environment class-emit values-emit)
+  `(%%object ,(jazz:sourcified-form class-emit)
+             ,@(jazz:codes-forms values-emit)))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(jazz:define-emit (category-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (class-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (c-definition-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (definition-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (dynamic-self-reference (scheme backend) declaration)
+  (%%get-dynamic-self-binding-code declaration))
+
+
+(jazz:define-emit (generic-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (method-reference (scheme backend) declaration source-declaration environment self dispatch-code)
+  `(lambda rest
+     (apply ,(jazz:sourcified-form dispatch-code) ,(jazz:sourcified-form self) rest)))
+
+
+(jazz:define-emit (method-node-reference (scheme backend) expression declaration environment)
+  (let ((method-declaration (%%get-reference-binding expression)))
+    (%%get-declaration-locator method-declaration)))
+
+
+(jazz:define-emit (nextmethod-variable-reference (scheme backend) binding)
+  (let ((name (%%get-lexical-binding-name binding))
+        (self (jazz:*self*)))
+    (if self
+        `(lambda rest (apply ,name ,(jazz:sourcified-form self) rest))
+      name)))
+
+
+(jazz:define-emit (self-reference (scheme backend) declaration source-declaration)
+  (%%get-declaration-parent source-declaration))
+
+
+(jazz:define-emit (slot-reference (scheme backend) declaration self)
+  (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
+    `(%%object-ref ,(jazz:sourcified-form self) ,offset-locator)))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(jazz:define-emit (method-node-call (scheme backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
 ;;;

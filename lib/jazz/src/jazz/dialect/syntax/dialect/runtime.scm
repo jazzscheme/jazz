@@ -145,7 +145,7 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Specialize expression) declaration environment backend)
   (jazz:new-code
-    `(begin)
+    (jazz:emit 'specialize backend expression declaration environment)
     jazz:Any
     #f))
 
@@ -641,10 +641,11 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Method-Declaration declaration) source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
-        (jazz:new-code
-          (jazz:emit 'method-reference2 backend declaration source-declaration environment self)
-          (%%get-code-type dispatch-code)
-          #f)
+        (let ((dispatch-code (jazz:emit-method-dispatch self declaration source-declaration environment backend)))
+          (jazz:new-code
+            (jazz:emit 'method-reference backend declaration source-declaration environment self dispatch-code)
+            (%%get-code-type dispatch-code)
+            #f))
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
 
 
@@ -898,7 +899,7 @@
                        (%%assert (%%class-is? category-declaration jazz:Category-Declaration)
                          (let ((method-declaration (jazz:lookup-declaration category-declaration name jazz:private-access declaration)))
                            (%%assert (%%class-is? method-declaration jazz:Method-Declaration)
-                             (jazz:new-method-reference method-declaration)))))))
+                             (jazz:new-method-node-reference method-declaration)))))))
                   ((and name (not self/class-name))
                    (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (unwrap-syntactic-closure symbol-src)) symbol-src)))
                      (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
@@ -973,20 +974,19 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Self expression) declaration environment backend)
   (let ((body (%%get-with-self-body expression)))
-    (jazz:new-code
-      (jazz:simplify-begin
-        `(begin
-           ,@(parameterize ((jazz:*self* (jazz:new-code 'self declaration #f)))
-               (jazz:sourcified-form (jazz:emit-expression body declaration environment backend)))))
-      jazz:Any
-      #f)))
+    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self declaration #f)))
+                       (jazz:emit-expression body declaration environment backend))))
+      (jazz:new-code
+        (jazz:emit 'with-self backend expression declaration environment body-emit)
+        jazz:Any
+        #f))))
 
 
 (jazz:encapsulate-class jazz:With-Self)
 
 
 ;;;
-;;;; With Dynamic Self
+;;;; With-Dynamic-Self
 ;;;
 
 
@@ -1000,13 +1000,12 @@
 (jazz:define-method (jazz:emit-expression (jazz:With-Dynamic-Self expression) declaration environment backend)
   (let ((code (%%get-with-dynamic-self-code expression))
         (body (%%get-with-dynamic-self-body expression)))
-    (jazz:new-code
-      (jazz:simplify-begin
-        `(begin
-           ,@(parameterize ((jazz:*self* (jazz:new-code code declaration #f)))
-               (jazz:sourcified-form (jazz:emit-statements-code body declaration environment backend)))))
-      jazz:Any
-      #f)))
+    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code code declaration #f)))
+                       (jazz:emit-statements-code body declaration environment backend))))
+      (jazz:new-code
+        (jazz:emit 'with-dynamic-self backend expression declaration environment body-emit)
+        jazz:Any
+        #f))))
 
 
 (jazz:encapsulate-class jazz:With-Dynamic-Self)
@@ -1046,15 +1045,11 @@
 (jazz:define-method (jazz:emit-expression (jazz:Cast expression) declaration environment backend)
   (let ((type (%%get-expression-type expression))
         (expression (%%get-cast-expression expression)))
-    (jazz:new-code
-      (jazz:emit-type-cast
-        (jazz:emit-expression expression declaration environment backend)
+    (let ((expression-emit (jazz:emit-expression expression declaration environment backend)))
+      (jazz:new-code
+        (jazz:emit 'cast backend expression declaration environment type expression-emit)
         type
-        declaration
-        environment
-        backend)
-      type
-      #f)))
+        #f))))
 
 
 (jazz:encapsulate-class jazz:Cast)
@@ -1083,11 +1078,12 @@
 (jazz:define-method (jazz:emit-expression (jazz:Allocate expression) declaration environment backend)
   (let ((class (%%get-allocate-class expression))
         (values (%%get-allocate-values expression)))
-    (jazz:new-code
-      `(%%object ,(jazz:sourcified-form (jazz:emit-expression class declaration environment backend))
-         ,@(jazz:codes-forms (jazz:emit-expressions values declaration environment backend)))
-      jazz:Any
-      #f)))
+    (let ((class-emit (jazz:emit-expression class declaration environment backend))
+          (values-emit (jazz:emit-expressions values declaration environment backend)))
+      (jazz:new-code
+        (jazz:emit 'allocate backend expression declaration environment class-emit values-emit)
+        jazz:Any
+        #f))))
 
 
 (jazz:encapsulate-class jazz:Allocate)

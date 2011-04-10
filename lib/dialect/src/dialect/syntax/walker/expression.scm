@@ -123,35 +123,35 @@
 
 
 ;;;
-;;;; Method Reference
+;;;; Method Node Reference
 ;;;
 
 
-(jazz:define-class-runtime jazz:Method-Reference)
+(jazz:define-class-runtime jazz:Method-Node-Reference)
 
 
-(define (jazz:new-method-reference binding)
-  (jazz:allocate-method-reference jazz:Method-Reference #f #f binding))
+(define (jazz:new-method-node-reference binding)
+  (jazz:allocate-method-node-reference jazz:Method-Node-Reference #f #f binding))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Method-Reference expression) declaration environment backend)
+(jazz:define-method (jazz:emit-expression (jazz:Method-Node-Reference expression) declaration environment backend)
   (let ((method-declaration (%%get-reference-binding expression)))
     (jazz:new-code
-      (jazz:emit 'method-reference backend expression declaration environment)
+      (jazz:emit 'method-node-reference backend expression declaration environment)
       (or (%%get-lexical-binding-type method-declaration)
           jazz:Any)
       #f)))
 
 
-(jazz:define-method (jazz:emit-call (jazz:Method-Reference expression) arguments declaration environment backend)
+(jazz:define-method (jazz:emit-call (jazz:Method-Node-Reference expression) arguments declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'method-reference-call backend expression declaration operator arguments)
+      (jazz:emit 'method-node-call backend expression declaration operator arguments)
       jazz:Any
       #f)))
 
 
-(jazz:encapsulate-class jazz:Method-Reference)
+(jazz:encapsulate-class jazz:Method-Node-Reference)
 
 
 ;;;

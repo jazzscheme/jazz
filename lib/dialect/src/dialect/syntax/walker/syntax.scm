@@ -899,11 +899,11 @@
 
 
 ;;;
-;;;; Method Reference
+;;;; Method Node Reference
 ;;;
 
 
-(jazz:define-class jazz:Method-Reference jazz:Binding-Reference (type source binding) jazz:Object-Class jazz:allocate-method-reference
+(jazz:define-class jazz:Method-Node-Reference jazz:Binding-Reference (type source binding) jazz:Object-Class jazz:allocate-method-node-reference
   ())
 
 

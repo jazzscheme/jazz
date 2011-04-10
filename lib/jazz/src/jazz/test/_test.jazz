@@ -66,43 +66,6 @@
 (import (backend))
 
 
-(class Declaration-Entry extends Object)
-
-
-(class Expression-Entry extends Object)
-
-
-(class Module-Entry extends Object
-  
-  
-  (slot name)
-  (slot dialect-name)
-  
-  
-  (method override (initialize name dialect-name)
-    (nextmethod)
-    (set! name~self name)
-    (set! dialect-name~self dialect-name)))
-
-
-(class Class-Entry extends Object)
-
-
-(class If-Entry extends Object
-  
-  
-  (slot test)
-  (slot yes)
-  (slot no)
-  
-  
-  (method override (initialize test yes no)
-    (nextmethod)
-    (set! test~self test)
-    (set! yes~self yes)
-    (set! no~self no)))
-
-
 (define-backend test)
 
 
@@ -117,6 +80,11 @@
         (body-expansion (jazz:emit-namespace-statements (get-body~ declaration) declaration environment backend)))
     `(module ,name ,dialect-name
        ,@body-expansion)))
+
+
+(define-emit (declare (test backend) expression declaration environment)
+  (let ((declarations (get-declarations~ expression)))
+    `(declare ,@declarations)))
 
 
 (define-emit (proclaim (test backend) expression declaration environment)
@@ -135,64 +103,12 @@
   (list 'quasiquote (emit (get-form~ expression))))
 
 
-(define-emit (autoload-reference (test backend) declaration environment referenced-declaration)
-  `(autoload-reference))
-
-
-(define-emit (c-definition-reference (test backend) declaration)
-  `(c-definition-reference))
-
-
-(define-emit (category-reference (test backend) declaration)
-  `(category-reference))
-
-
-(define-emit (class-reference (test backend) declaration)
-  `(class-reference))
-
-
 (define-emit (define-reference (test backend) declaration)
   `(define-reference))
 
 
-(define-emit (definition-reference (test backend) declaration)
-  `(definition-reference))
-
-
-(define-emit (dynamic-self-reference (test backend) declaration)
-  `(dynamic-self-reference))
-
-
-(define-emit (export-reference (test backend) declaration)
-  `(export-reference))
-
-
-(define-emit (export-syntax-reference (test backend) declaration)
-  `(export-syntax-reference))
-
-
-(define-emit (generic-reference (test backend) declaration)
-  `(generic-reference))
-
-
 (define-emit (local-variable-reference (test backend) declaration)
   `(local-variable-reference))
-
-
-(define-emit (method-reference2 (test backend) declaration source-declaration environment self)
-  `(method-reference2))
-
-
-(define-emit (nextmethod-variable-reference (test backend) binding)
-  `(nextmethod-variable-reference))
-
-
-(define-emit (self-reference (test backend) declaration source-declaration)
-  `(self-reference))
-
-
-(define-emit (slot-reference (test backend) declaration self)
-  `(slot-reference))
 
 
 (define-emit (special-form-reference (test backend) binding)
@@ -219,53 +135,9 @@
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
-(define-emit (method-reference-call (test backend) expression declaration operator arguments)
-  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
-
-
 (define-emit (walk-binding-binding-call (test backend) binding binding-src operator arguments)
   `(,(jazz:sourcified-form2 operator binding-src)
     ,@(jazz:codes-forms arguments)))
-
-
-(define-emit (method-binding-call (test backend) binding binding-src dispatch-code self arguments)
-  `(,(jazz:sourcified-form dispatch-code)
-    ,(jazz:sourcified-form self)
-    ,@arguments))
-
-
-(define-emit (nextmethod-binding-call (test backend) binding binding-src self arguments)
-  (let ((name (get-name~ binding)))
-    (if self
-        `(,name
-           ,(jazz:sourcified-form self)
-           ,@(jazz:codes-forms arguments))
-      `(,name
-         ,@(jazz:codes-forms arguments)))))
-
-
-(define-emit (specialized-call (test backend) expression declaration operator arguments)
-  #f)
-
-
-(define-emit (specialized-class-of-call (test backend) object)
-  #f)
-
-
-(define-emit (new-call (test backend) operator locator arguments arguments-codes declaration environment)
-  #f)
-
-
-(define-emit (primitive-call (test backend) expression declaration operator arguments)
-  #f)
-
-
-(define-emit (inlined-call (test backend) expression declaration operator arguments)
-  #f)
-
-
-(define-emit (method-reference (test backend) expression declaration environment)
-  `(method-reference))
 
 
 (define-emit (lambda (test backend) expression declaration environment signature-emit signature-casts cast-body)
@@ -303,20 +175,8 @@
   `(begin ,@(jazz:sourcified-form code)))
 
 
-(define-emit (new-call (test backend) operator locator arguments arguments-codes declaration environment)
-  #f)
-
-
 (define-emit (define-assignment (test backend) declaration source-declaration environment value-code)
   `(define-assignment ,(jazz:sourcified-form value-code)))
-
-
-(define-emit (definition-assignment (test backend) declaration source-declaration environment value-code)
-  `(definition-assignment ,(jazz:sourcified-form value-code)))
-
-
-(define-emit (slot-assignment (test backend) declaration source-declaration environment self value-code)
-  `(slot-assignment ,(jazz:sourcified-form value-code)))
 
 
 (define-emit (variable-assignment (test backend) binding source-declaration environment binding-code value-code)
@@ -355,10 +215,6 @@
   `(or ,@(jazz:codes-forms expressions)))
 
 
-(define-emit (declare (test backend) expression declaration environment)
-  `(declare))
-
-
 (define-emit (parameterize (test backend) expression declaration environment body-code)
   `(parameterize))
 
@@ -387,6 +243,16 @@
   (let ((name (get-name~ declaration)))
     `(definition ,name
        ,expression)))
+
+
+(define-emit (generic (test backend) declaration environment signature-emit body-emit)
+  `(generic ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
+
+
+(define-emit (specific (test backend) declaration environment signature-emit body-emit)
+  `(specific ,signature-emit
+     ,@(jazz:sourcified-form body-emit)))
 
 
 (define-emit (class (test backend) declaration environment)
@@ -423,14 +289,118 @@
        ,body-emit)))
 
 
-(define-emit (generic (test backend) declaration environment signature-emit body-emit)
-  `(generic ,signature-emit
+(define-emit (autoload-reference (test backend) declaration environment referenced-declaration)
+  `(autoload-reference))
+
+
+(define-emit (c-definition-reference (test backend) declaration)
+  `(c-definition-reference))
+
+
+(define-emit (category-reference (test backend) declaration)
+  `(category-reference))
+
+
+(define-emit (class-reference (test backend) declaration)
+  `(class-reference))
+
+
+(define-emit (definition-reference (test backend) declaration)
+  `(definition-reference))
+
+
+(define-emit (dynamic-self-reference (test backend) declaration)
+  `(dynamic-self-reference))
+
+
+(define-emit (export-reference (test backend) declaration)
+  `(export-reference))
+
+
+(define-emit (export-syntax-reference (test backend) declaration)
+  `(export-syntax-reference))
+
+
+(define-emit (generic-reference (test backend) declaration)
+  `(generic-reference))
+
+
+(define-emit (method-reference (test backend) declaration source-declaration environment self)
+  `(method-reference))
+
+
+(define-emit (nextmethod-variable-reference (test backend) binding)
+  `(nextmethod-variable-reference))
+
+
+(define-emit (self-reference (test backend) declaration source-declaration)
+  `(self-reference))
+
+
+(define-emit (slot-reference (test backend) declaration self)
+  `(slot-reference))
+
+
+(define-emit (method-binding-call (test backend) binding binding-src dispatch-code self arguments)
+  `(method-binding-call
+    ,(jazz:sourcified-form self)
+    ,@arguments))
+
+
+(define-emit (nextmethod-binding-call (test backend) binding binding-src self arguments)
+  (let ((name (get-name~ binding)))
+    (if self
+        `(,name
+           ,(jazz:sourcified-form self)
+           ,@(jazz:codes-forms arguments))
+      `(,name
+         ,@(jazz:codes-forms arguments)))))
+
+
+(define-emit (specialized-call (test backend) expression declaration operator arguments)
+  #f)
+
+
+(define-emit (specialized-class-of-call (test backend) object)
+  #f)
+
+
+(define-emit (new-call (test backend) operator locator arguments arguments-codes declaration environment)
+  #f)
+
+
+(define-emit (primitive-call (test backend) expression declaration operator arguments)
+  #f)
+
+
+(define-emit (inlined-call (test backend) expression declaration operator arguments)
+  #f)
+
+
+(define-emit (definition-assignment (test backend) declaration source-declaration environment value-code)
+  `(definition-assignment ,(jazz:sourcified-form value-code)))
+
+
+(define-emit (slot-assignment (test backend) declaration source-declaration environment self value-code)
+  `(slot-assignment ,(jazz:sourcified-form value-code)))
+
+
+(define-emit (with-self (test backend) expression declaration environment body-emit)
+  `(with-self
      ,@(jazz:sourcified-form body-emit)))
 
 
-(define-emit (specific (test backend) declaration environment signature-emit body-emit)
-  `(specific ,signature-emit
+(define-emit (with-dynamic-self (test backend) expression declaration environment body-emit)
+  `(with-dynamic-self
      ,@(jazz:sourcified-form body-emit)))
+
+
+(define-emit (method-node-reference (test backend) expression declaration environment)
+  `(method-node-reference))
+
+
+(define-emit (method-node-call (test backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
 (define-emit (dispatch (test backend) expression declaration environment object-code rest-codes)
@@ -441,8 +411,17 @@
       (get-source~ expression))))
 
 
-(expand 'jazz.test.backend backend: 'test)
-;(expand 'jazz.sample.module backend: 'test)
+(define-emit (cast (test backend) expression declaration environment type expression-emit)
+  `(cast ,(jazz:sourcified-form expression-emit)))
+
+
+(define-emit (construct (test backend) expression declaration environment class-emit values-emit)
+  `(construct ,(jazz:sourcified-form class-emit)
+              ,@(jazz:codes-forms values-emit)))
+
+
+;(expand 'jazz.test.backend backend: 'test)
+(expand 'jazz.sample.module backend: 'test)
 
 
 ;;;

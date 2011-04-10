@@ -1,0 +1,190 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Describe Base Backend
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module backend.describe.base jazz
+
+
+(import (backend))
+
+
+(define-emit (module (describe backend) declaration environment)
+  (let ((name (get-name~ declaration))
+        (dialect-name (get-dialect-name~ declaration))
+        (body-expansion (jazz:emit-namespace-statements (get-body~ declaration) declaration environment backend)))
+    `(module ,name ,dialect-name
+       ,@body-expansion)))
+
+
+(define-emit (declare (describe backend) expression declaration environment)
+  (let ((declarations (get-declarations~ expression)))
+    `(declare ,@declarations)))
+
+
+(define-emit (proclaim (describe backend) expression declaration environment)
+  #f)
+
+
+(define-emit (quasiquote (describe backend) expression declaration environment)
+  (define (emit form)
+    (if (pair? form)
+        (if (or (eq? (car form) 'unquote)
+                (eq? (car form) 'unquote-splicing))
+            (list (car form) (sourcified-form (emit-expression (cadr form) declaration environment backend)))
+          (cons (emit (car form)) (emit (cdr form))))
+      form))
+  
+  (list 'quasiquote (emit (get-form~ expression))))
+
+
+(define-emit (define-reference (describe backend) declaration)
+  `(define-reference))
+
+
+(define-emit (local-variable-reference (describe backend) declaration)
+  `(local-variable-reference))
+
+
+(define-emit (special-form-reference (describe backend) binding)
+  `(special-form-reference))
+
+
+(define-emit (variable-reference (describe backend) binding source-declaration environment)
+  `(variable-reference))
+
+
+(define-emit (lexical-binding-reference (describe backend) binding)
+  `(lexical-binding-reference))
+
+
+(define-emit (named-parameter-reference (describe backend) parameter)
+  `(named-parameter-reference))
+
+
+(define-emit (symbol-reference (describe backend) binding)
+  `(symbol-reference))
+
+
+(define-emit (call (describe backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
+
+
+(define-emit (walk-binding-binding-call (describe backend) binding binding-src operator arguments)
+  `(,(jazz:sourcified-form2 operator binding-src)
+    ,@(jazz:codes-forms arguments)))
+
+
+(define-emit (lambda (describe backend) expression declaration environment signature-emit signature-casts cast-body)
+  `(lambda ,signature-emit
+     ,cast-body))
+
+
+(define-emit (let (describe backend) expression declaration environment bindings-output body-code)
+  `(let ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (named-let (describe backend) expression declaration environment variable-emit bindings-output body-code)
+  `(let ,variable-emit ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (letstar (describe backend) expression declaration environment bindings-output body-code)
+  `(let* ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (letrec (describe backend) expression declaration environment bindings-output body-code)
+  `(letrec ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (receive (describe backend) expression declaration environment bindings-output expression-output body-code)
+  `(receive ,bindings-output
+       ,expression-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (begin (describe backend) expression declaration environment code)
+  `(begin ,@(jazz:sourcified-form code)))
+
+
+(define-emit (define-assignment (describe backend) declaration source-declaration environment value-code)
+  `(define-assignment ,(jazz:sourcified-form value-code)))
+
+
+(define-emit (variable-assignment (describe backend) binding source-declaration environment binding-code value-code)
+  `(variable-assignment ,(jazz:sourcified-form value-code)))
+
+
+(define-emit (do (describe backend) expression declaration environment bindings-output test-code result-code body-code)
+  `(do ,bindings-output
+       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
+     ,@(jazz:sourcified-form body-code)))
+
+
+(define-emit (delay (describe backend) expression declaration environment expr)
+  `(delay ,(jazz:sourcified-form expr)))
+
+
+(define-emit (if (describe backend) expression declaration environment test yes no)
+  `(if ,(jazz:sourcified-form test)
+       ,(jazz:sourcified-form yes)
+     ,(jazz:sourcified-form no)))
+
+
+(define-emit (cond (describe backend) expression declaration environment)
+  `(cond))
+
+
+(define-emit (case (describe backend) expression declaration environment target-emit clauses clauses-emit)
+  `(case))
+
+
+(define-emit (and (describe backend) expression declaration environment expressions)
+  `(and ,@(jazz:codes-forms expressions)))
+
+
+(define-emit (or (describe backend) expression declaration environment expressions)
+  `(or ,@(jazz:codes-forms expressions)))
+
+
+(define-emit (parameterize (describe backend) expression declaration environment body-code)
+  `(parameterize))
+
+
+(define-emit (time (describe backend) expression declaration environment expressions)
+  `(time)))

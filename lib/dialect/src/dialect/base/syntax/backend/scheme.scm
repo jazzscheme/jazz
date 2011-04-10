@@ -370,12 +370,21 @@
 
 
 ;;;
-;;;; Delay
+;;;; And
 ;;;
 
 
-(jazz:define-emit (delay (scheme backend) expression declaration environment expr)
-  `(delay ,(jazz:sourcified-form expr)))
+(jazz:define-emit (and (scheme backend) expression declaration environment expressions)
+  `(and ,@(jazz:codes-forms expressions)))
+
+
+;;;
+;;;; Or
+;;;
+
+
+(jazz:define-emit (or (scheme backend) expression declaration environment expressions)
+  `(or ,@(jazz:codes-forms expressions)))
 
 
 ;;;
@@ -428,21 +437,12 @@
 
 
 ;;;
-;;;; And
+;;;; Delay
 ;;;
 
 
-(jazz:define-emit (and (scheme backend) expression declaration environment expressions)
-  `(and ,@(jazz:codes-forms expressions)))
-
-
-;;;
-;;;; Or
-;;;
-
-
-(jazz:define-emit (or (scheme backend) expression declaration environment expressions)
-  `(or ,@(jazz:codes-forms expressions)))
+(jazz:define-emit (delay (scheme backend) expression declaration environment expr)
+  `(delay ,(jazz:sourcified-form expr)))
 
 
 ;;;

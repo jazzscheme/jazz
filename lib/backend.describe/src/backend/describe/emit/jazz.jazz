@@ -41,10 +41,29 @@
 (import (backend))
 
 
+;;;
+;;;; Definition
+;;;
+
+
 (define-emit (definition (describe backend) declaration environment expression)
   (let ((name (get-name~ declaration)))
     `(definition ,name
        ,expression)))
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(define-emit (specialize (describe backend) expression declaration environment)
+  `(specialize))
+
+
+;;;
+;;;; Generic
+;;;
 
 
 (define-emit (generic (describe backend) declaration environment signature-emit body-emit)
@@ -52,9 +71,19 @@
      ,@(jazz:sourcified-form body-emit)))
 
 
+;;;
+;;;; Specific
+;;;
+
+
 (define-emit (specific (describe backend) declaration environment signature-emit body-emit)
   `(specific ,signature-emit
      ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; Class
+;;;
 
 
 (define-emit (class (describe backend) declaration environment)
@@ -67,6 +96,11 @@
          ,@body-emit))))
 
 
+;;;
+;;;; Interface
+;;;
+
+
 (define-emit (interface (describe backend) declaration environment)
   (let ((name (get-name~ declaration))
         (body (get-body~ declaration)))
@@ -75,14 +109,29 @@
          ,@body-emit))))
 
 
+;;;
+;;;; Slot
+;;;
+
+
 (define-emit (slot (describe backend) declaration environment initialize-emit)
   (let ((name (get-name~ declaration)))
     `(slot ,name)))
 
 
+;;;
+;;;; Property
+;;;
+
+
 (define-emit (property (describe backend) declaration environment initialize-emit)
   (let ((name (get-name~ declaration)))
     `(property ,name)))
+
+
+;;;
+;;;; Method
+;;;
 
 
 (define-emit (method (describe backend) declaration environment signature-emit signature-casts body-emit)
@@ -91,8 +140,61 @@
        ,body-emit)))
 
 
-(define-emit (autoload-reference (describe backend) declaration environment referenced-declaration)
-  `(autoload-reference))
+;;;
+;;;; With-Self
+;;;
+
+
+(define-emit (with-self (describe backend) expression declaration environment body-emit)
+  `(with-self
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; With-Dynamic-Self
+;;;
+
+
+(define-emit (with-dynamic-self (describe backend) expression declaration environment body-emit)
+  `(with-dynamic-self
+     ,@(jazz:sourcified-form body-emit)))
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+(define-emit (dispatch (describe backend) expression declaration environment object-code rest-codes)
+  (let ((name (get-name~ expression)))
+    (new-code
+      `(dispatch ,name ,(jazz:sourcified-form object-code) ,@(jazz:codes-forms rest-codes))
+      Any
+      (get-source~ expression))))
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(define-emit (cast (describe backend) expression declaration environment type expression-emit)
+  `(cast ,(jazz:sourcified-form expression-emit)))
+
+
+;;;
+;;;; Construct
+;;;
+
+
+(define-emit (construct (describe backend) expression declaration environment class-emit values-emit)
+  `(construct ,(jazz:sourcified-form class-emit)
+              ,@(jazz:codes-forms values-emit)))
+
+
+;;;
+;;;; Reference
+;;;
 
 
 (define-emit (c-definition-reference (describe backend) declaration)
@@ -115,20 +217,16 @@
   `(dynamic-self-reference))
 
 
-(define-emit (export-reference (describe backend) declaration)
-  `(export-reference))
-
-
-(define-emit (export-syntax-reference (describe backend) declaration)
-  `(export-syntax-reference))
-
-
 (define-emit (generic-reference (describe backend) declaration)
   `(generic-reference))
 
 
 (define-emit (method-reference (describe backend) declaration source-declaration environment self)
   `(method-reference))
+
+
+(define-emit (method-node-reference (describe backend) expression declaration environment)
+  `(method-node-reference))
 
 
 (define-emit (nextmethod-variable-reference (describe backend) binding)
@@ -141,6 +239,15 @@
 
 (define-emit (slot-reference (describe backend) declaration self)
   `(slot-reference))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(define-emit (method-node-call (describe backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
 (define-emit (method-binding-call (describe backend) binding binding-src dispatch-code self arguments)
@@ -159,6 +266,11 @@
          ,@(jazz:codes-forms arguments)))))
 
 
+;;;
+;;;; Specialized Call
+;;;
+
+
 (define-emit (specialized-call (describe backend) expression declaration operator arguments)
   #f)
 
@@ -167,16 +279,36 @@
   #f)
 
 
+;;;
+;;;; New Call
+;;;
+
+
 (define-emit (new-call (describe backend) operator locator arguments arguments-codes declaration environment)
   #f)
+
+
+;;;
+;;;; Primitive Call
+;;;
 
 
 (define-emit (primitive-call (describe backend) expression declaration operator arguments)
   #f)
 
 
+;;;
+;;;; Inlined Call
+;;;
+
+
 (define-emit (inlined-call (describe backend) expression declaration operator arguments)
   #f)
+
+
+;;;
+;;;; Assignment
+;;;
 
 
 (define-emit (definition-assignment (describe backend) declaration source-declaration environment value-code)
@@ -184,39 +316,4 @@
 
 
 (define-emit (slot-assignment (describe backend) declaration source-declaration environment self value-code)
-  `(slot-assignment ,(jazz:sourcified-form value-code)))
-
-
-(define-emit (with-self (describe backend) expression declaration environment body-emit)
-  `(with-self
-     ,@(jazz:sourcified-form body-emit)))
-
-
-(define-emit (with-dynamic-self (describe backend) expression declaration environment body-emit)
-  `(with-dynamic-self
-     ,@(jazz:sourcified-form body-emit)))
-
-
-(define-emit (method-node-reference (describe backend) expression declaration environment)
-  `(method-node-reference))
-
-
-(define-emit (method-node-call (describe backend) expression declaration operator arguments)
-  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
-
-
-(define-emit (dispatch (describe backend) expression declaration environment object-code rest-codes)
-  (let ((name (get-name~ expression)))
-    (new-code
-      `(dispatch ,name ,(jazz:sourcified-form object-code) ,@(jazz:codes-forms rest-codes))
-      Any
-      (get-source~ expression))))
-
-
-(define-emit (cast (describe backend) expression declaration environment type expression-emit)
-  `(cast ,(jazz:sourcified-form expression-emit)))
-
-
-(define-emit (construct (describe backend) expression declaration environment class-emit values-emit)
-  `(construct ,(jazz:sourcified-form class-emit)
-              ,@(jazz:codes-forms values-emit))))
+  `(slot-assignment ,(jazz:sourcified-form value-code))))

@@ -35,11 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected backend.scheme.emit.scheme
+(unit backend.scheme.emit.scheme
 
 
 ;;;
-;;;; Emit
+;;;; Define
 ;;;
 
 

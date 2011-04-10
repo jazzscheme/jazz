@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected backend.scheme.emit.jazz
+(unit backend.scheme.emit.jazz
 
 
 ;;;
@@ -402,15 +402,15 @@
 ;;;
 
 
+(jazz:define-emit (c-definition-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
 (jazz:define-emit (category-reference (scheme backend) declaration)
   (%%get-declaration-locator declaration))
 
 
 (jazz:define-emit (class-reference (scheme backend) declaration)
-  (%%get-declaration-locator declaration))
-
-
-(jazz:define-emit (c-definition-reference (scheme backend) declaration)
   (%%get-declaration-locator declaration))
 
 
@@ -462,6 +462,40 @@
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
+(jazz:define-emit (method-binding-call (scheme backend) binding binding-src dispatch-code self arguments)
+  `(,(jazz:sourcified-form dispatch-code)
+    ,(jazz:sourcified-form self)
+    ,@arguments))
+
+
+(jazz:define-emit (nextmethod-binding-call (scheme backend) binding binding-src self arguments)
+  (let ((name (%%get-lexical-binding-name binding)))
+    (if self
+        `(,name
+           ,(jazz:sourcified-form self)
+           ,@(jazz:codes-forms arguments))
+      `(,name
+         ,@(jazz:codes-forms arguments)))))
+
+
+;;;
+;;;; Specialized Call
+;;;
+
+
+(jazz:define-emit (specialized-call (scheme backend) expression declaration operator arguments)
+  #f)
+
+
+;;;
+;;;; Specialized Class-of Call
+;;;
+
+
+(jazz:define-emit (specialized-class-of-call (scheme backend) object)
+  `(jazz:class-of ,(jazz:sourcified-form object)))
+
+
 ;;;
 ;;;; New Call
 ;;;
@@ -486,4 +520,37 @@
                         #f))
                   #f))
             #f)))
-    #f)))
+    #f))
+
+
+;;;
+;;;; Primitive Call
+;;;
+
+
+(jazz:define-emit (primitive-call (scheme backend) expression declaration operator arguments)
+  #f)
+
+
+;;;
+;;;; Inlined Call
+;;;
+
+
+(jazz:define-emit (inlined-call (scheme backend) expression declaration operator arguments)
+  #f)
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(jazz:define-emit (definition-assignment (scheme backend) declaration source-declaration environment value-code)
+  (let ((locator (%%get-declaration-locator declaration)))
+    `(set! ,locator ,(jazz:sourcified-form value-code))))
+
+
+(jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration environment self value-code)
+  (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
+    `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,(jazz:sourcified-form value-code)))))

@@ -41,6 +41,11 @@
 (import (backend))
 
 
+;;;
+;;;; Module
+;;;
+
+
 (define-emit (module (describe backend) declaration environment)
   (let ((name (get-name~ declaration))
         (dialect-name (get-dialect-name~ declaration))
@@ -49,13 +54,165 @@
        ,@body-expansion)))
 
 
+;;;
+;;;; Declare
+;;;
+
+
 (define-emit (declare (describe backend) expression declaration environment)
   (let ((declarations (get-declarations~ expression)))
     `(declare ,@declarations)))
 
 
+;;;
+;;;; Proclaim
+;;;
+
+
 (define-emit (proclaim (describe backend) expression declaration environment)
   #f)
+
+
+;;;
+;;;; Begin
+;;;
+
+
+(define-emit (begin (describe backend) expression declaration environment code)
+  `(begin ,@(jazz:sourcified-form code)))
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(define-emit (lambda (describe backend) expression declaration environment signature-emit signature-casts cast-body)
+  `(lambda ,signature-emit
+     ,cast-body))
+
+
+;;;
+;;;; Let
+;;;
+
+
+(define-emit (let (describe backend) expression declaration environment bindings-output body-code)
+  `(let ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(define-emit (named-let (describe backend) expression declaration environment variable-emit bindings-output body-code)
+  `(let ,variable-emit ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Letstar
+;;;
+
+
+(define-emit (letstar (describe backend) expression declaration environment bindings-output body-code)
+  `(let* ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Letrec
+;;;
+
+
+(define-emit (letrec (describe backend) expression declaration environment bindings-output body-code)
+  `(letrec ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Receive
+;;;
+
+
+(define-emit (receive (describe backend) expression declaration environment bindings-output expression-output body-code)
+  `(receive ,bindings-output
+       ,expression-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; And
+;;;
+
+
+(define-emit (and (describe backend) expression declaration environment expressions)
+  `(and ,@(jazz:codes-forms expressions)))
+
+
+;;;
+;;;; Or
+;;;
+
+
+(define-emit (or (describe backend) expression declaration environment expressions)
+  `(or ,@(jazz:codes-forms expressions)))
+
+
+;;;
+;;;; If
+;;;
+
+
+(define-emit (if (describe backend) expression declaration environment test yes no)
+  `(if ,(jazz:sourcified-form test)
+       ,(jazz:sourcified-form yes)
+     ,(jazz:sourcified-form no)))
+
+
+;;;
+;;;; Cond
+;;;
+
+
+(define-emit (cond (describe backend) expression declaration environment)
+  `(cond))
+
+
+;;;
+;;;; Case
+;;;
+
+
+(define-emit (case (describe backend) expression declaration environment target-emit clauses clauses-emit)
+  `(case))
+
+
+;;;
+;;;; Do
+;;;
+
+
+(define-emit (do (describe backend) expression declaration environment bindings-output test-code result-code body-code)
+  `(do ,bindings-output
+       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Delay
+;;;
+
+
+(define-emit (delay (describe backend) expression declaration environment expr)
+  `(delay ,(jazz:sourcified-form expr)))
+
+
+;;;
+;;;; Quasiquote
+;;;
 
 
 (define-emit (quasiquote (describe backend) expression declaration environment)
@@ -70,8 +227,43 @@
   (list 'quasiquote (emit (get-form~ expression))))
 
 
+;;;
+;;;; Parameterize
+;;;
+
+
+(define-emit (parameterize (describe backend) expression declaration environment body-code)
+  `(parameterize))
+
+
+;;;
+;;;; Time
+;;;
+
+
+(define-emit (time (describe backend) expression declaration environment expressions)
+  `(time))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(define-emit (autoload-reference (describe backend) declaration environment referenced-declaration)
+  `(autoload-reference))
+
+
 (define-emit (define-reference (describe backend) declaration)
   `(define-reference))
+
+
+(define-emit (export-reference (describe backend) declaration)
+  `(export-reference))
+
+
+(define-emit (export-syntax-reference (describe backend) declaration)
+  `(export-syntax-reference))
 
 
 (define-emit (local-variable-reference (describe backend) declaration)
@@ -98,8 +290,18 @@
   `(symbol-reference))
 
 
+;;;
+;;;; Call
+;;;
+
+
 (define-emit (call (describe backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
+
+
+;;;
+;;;; Binding Call
+;;;
 
 
 (define-emit (walk-binding-binding-call (describe backend) binding binding-src operator arguments)
@@ -107,39 +309,9 @@
     ,@(jazz:codes-forms arguments)))
 
 
-(define-emit (lambda (describe backend) expression declaration environment signature-emit signature-casts cast-body)
-  `(lambda ,signature-emit
-     ,cast-body))
-
-
-(define-emit (let (describe backend) expression declaration environment bindings-output body-code)
-  `(let ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (named-let (describe backend) expression declaration environment variable-emit bindings-output body-code)
-  `(let ,variable-emit ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (letstar (describe backend) expression declaration environment bindings-output body-code)
-  `(let* ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (letrec (describe backend) expression declaration environment bindings-output body-code)
-  `(letrec ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (receive (describe backend) expression declaration environment bindings-output expression-output body-code)
-  `(receive ,bindings-output
-       ,expression-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (begin (describe backend) expression declaration environment code)
-  `(begin ,@(jazz:sourcified-form code)))
+;;;
+;;;; Assignment
+;;;
 
 
 (define-emit (define-assignment (describe backend) declaration source-declaration environment value-code)
@@ -147,44 +319,4 @@
 
 
 (define-emit (variable-assignment (describe backend) binding source-declaration environment binding-code value-code)
-  `(variable-assignment ,(jazz:sourcified-form value-code)))
-
-
-(define-emit (do (describe backend) expression declaration environment bindings-output test-code result-code body-code)
-  `(do ,bindings-output
-       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
-     ,@(jazz:sourcified-form body-code)))
-
-
-(define-emit (delay (describe backend) expression declaration environment expr)
-  `(delay ,(jazz:sourcified-form expr)))
-
-
-(define-emit (if (describe backend) expression declaration environment test yes no)
-  `(if ,(jazz:sourcified-form test)
-       ,(jazz:sourcified-form yes)
-     ,(jazz:sourcified-form no)))
-
-
-(define-emit (cond (describe backend) expression declaration environment)
-  `(cond))
-
-
-(define-emit (case (describe backend) expression declaration environment target-emit clauses clauses-emit)
-  `(case))
-
-
-(define-emit (and (describe backend) expression declaration environment expressions)
-  `(and ,@(jazz:codes-forms expressions)))
-
-
-(define-emit (or (describe backend) expression declaration environment expressions)
-  `(or ,@(jazz:codes-forms expressions)))
-
-
-(define-emit (parameterize (describe backend) expression declaration environment body-code)
-  `(parameterize))
-
-
-(define-emit (time (describe backend) expression declaration environment expressions)
-  `(time)))
+  `(variable-assignment ,(jazz:sourcified-form value-code))))

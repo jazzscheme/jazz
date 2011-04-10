@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected backend.scheme.emit.base
+(unit backend.scheme.emit.base
 
 
 ;;;
@@ -114,170 +114,12 @@
 
 
 ;;;
-;;;; Quasiquote
+;;;; Begin
 ;;;
 
 
-(jazz:define-emit (quasiquote (scheme backend) expression declaration environment)
-  (define (emit form)
-    (if (%%pair? form)
-        (if (or (%%eq? (%%car form) 'unquote)
-                (%%eq? (%%car form) 'unquote-splicing))
-            (%%list (%%car form) (jazz:sourcified-form (jazz:emit-expression (%%cadr form) declaration environment backend)))
-          (%%cons (emit (%%car form)) (emit (%%cdr form))))
-      form))
-  
-  (%%list 'quasiquote (emit (%%get-quasiquote-form expression))))
-
-
-;;;
-;;;; Reference
-;;;
-
-
-(jazz:define-emit (autoload-reference (scheme backend) declaration environment referenced-declaration)
-  `(,(jazz:autoload-locator referenced-declaration)))
-
-
-(jazz:define-emit (define-reference (scheme backend) declaration)
-  (%%get-declaration-locator declaration))
-
-
-(jazz:define-emit (export-reference (scheme backend) declaration)
-  (%%get-export-declaration-symbol declaration))
-
-
-(jazz:define-emit (export-syntax-reference (scheme backend) declaration)
-  (%%get-export-syntax-declaration-symbol declaration))
-
-
-(jazz:define-emit (local-variable-reference (scheme backend) declaration)
-  (%%get-local-variable-binding-variable declaration))
-
-
-(jazz:define-emit (special-form-reference (scheme backend) binding)
-  (%%get-lexical-binding-name binding))
-
-
-(jazz:define-emit (variable-reference (scheme backend) binding source-declaration environment)
-  (jazz:emit-binding-symbol binding source-declaration environment backend))
-
-
-(jazz:define-emit (lexical-binding-reference (scheme backend) binding)
-  (%%get-lexical-binding-name binding))
-
-
-(jazz:define-emit (named-parameter-reference (scheme backend) parameter)
-  (%%get-lexical-binding-name parameter))
-
-
-(jazz:define-emit (symbol-reference (scheme backend) binding)
-  (or (%%get-symbol-binding-gensym binding)
-      (unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
-
-
-;;;
-;;;; Call
-;;;
-
-
-(jazz:define-emit (call (scheme backend) expression declaration operator arguments)
-  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
-
-
-;;;
-;;;; Binding Call
-;;;
-
-
-(jazz:define-emit (walk-binding-binding-call (scheme backend) binding binding-src operator arguments)
-  `(,(jazz:sourcified-form2 operator binding-src)
-    ,@(jazz:codes-forms arguments)))
-
-
-(jazz:define-emit (method-binding-call (scheme backend) binding binding-src dispatch-code self arguments)
-  `(,(jazz:sourcified-form dispatch-code)
-    ,(jazz:sourcified-form self)
-    ,@arguments))
-
-
-(jazz:define-emit (nextmethod-binding-call (scheme backend) binding binding-src self arguments)
-  (let ((name (%%get-lexical-binding-name binding)))
-    (if self
-        `(,name
-           ,(jazz:sourcified-form self)
-           ,@(jazz:codes-forms arguments))
-      `(,name
-         ,@(jazz:codes-forms arguments)))))
-
-
-;;;
-;;;; Specialized Call
-;;;
-
-
-(jazz:define-emit (specialized-call (scheme backend) expression declaration operator arguments)
-  #f)
-
-
-;;;
-;;;; Specialized Class-of Call
-;;;
-
-
-(jazz:define-emit (specialized-class-of-call (scheme backend) object)
-  `(jazz:class-of ,(jazz:sourcified-form object)))
-
-
-;;;
-;;;; New Call
-;;;
-
-
-(jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration environment)
-  #f)
-
-
-;;;
-;;;; Primitive Call
-;;;
-
-
-(jazz:define-emit (primitive-call (scheme backend) expression declaration operator arguments)
-  #f)
-
-
-;;;
-;;;; Inlined Call
-;;;
-
-
-(jazz:define-emit (inlined-call (scheme backend) expression declaration operator arguments)
-  #f)
-
-
-;;;
-;;;; Assignment
-;;;
-
-
-(jazz:define-emit (define-assignment (scheme backend) declaration source-declaration environment value-code)
-  (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz:sourcified-form value-code))))
-
-
-(jazz:define-emit (definition-assignment (scheme backend) declaration source-declaration environment value-code)
-  (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz:sourcified-form value-code))))
-
-
-(jazz:define-emit (slot-assignment (scheme backend) declaration source-declaration environment self value-code)
-  (let ((offset-locator (jazz:compose-helper (%%get-declaration-locator declaration) 'offset)))
-    `(%%object-set! ,(jazz:sourcified-form self) ,offset-locator ,(jazz:sourcified-form value-code))))
-
-
-(jazz:define-emit (variable-assignment (scheme backend) binding source-declaration environment binding-code value-code)
-  `(set! ,binding-code ,(jazz:sourcified-form value-code)))
+(jazz:define-emit (begin (scheme backend) expression declaration environment code)
+  `(begin ,@(jazz:sourcified-form code)))
 
 
 ;;;
@@ -343,26 +185,6 @@
 (jazz:define-emit (receive (scheme backend) expression declaration environment bindings-output expression-output body-code)
   `(receive ,bindings-output
        ,expression-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-;;;
-;;;; Begin
-;;;
-
-
-(jazz:define-emit (begin (scheme backend) expression declaration environment code)
-  `(begin ,@(jazz:sourcified-form code)))
-
-
-;;;
-;;;; Do
-;;;
-
-
-(jazz:define-emit (do (scheme backend) expression declaration environment bindings-output test-code result-code body-code)
-  `(do ,bindings-output
-       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
      ,@(jazz:sourcified-form body-code)))
 
 
@@ -434,12 +256,40 @@
 
 
 ;;;
+;;;; Do
+;;;
+
+
+(jazz:define-emit (do (scheme backend) expression declaration environment bindings-output test-code result-code body-code)
+  `(do ,bindings-output
+       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
 ;;;; Delay
 ;;;
 
 
 (jazz:define-emit (delay (scheme backend) expression declaration environment expr)
   `(delay ,(jazz:sourcified-form expr)))
+
+
+;;;
+;;;; Quasiquote
+;;;
+
+
+(jazz:define-emit (quasiquote (scheme backend) expression declaration environment)
+  (define (emit form)
+    (if (%%pair? form)
+        (if (or (%%eq? (%%car form) 'unquote)
+                (%%eq? (%%car form) 'unquote-splicing))
+            (%%list (%%car form) (jazz:sourcified-form (jazz:emit-expression (%%cadr form) declaration environment backend)))
+          (%%cons (emit (%%car form)) (emit (%%cdr form))))
+      form))
+  
+  (%%list 'quasiquote (emit (%%get-quasiquote-form expression))))
 
 
 ;;;
@@ -466,4 +316,83 @@
 (jazz:define-emit (time (scheme backend) expression declaration environment expressions)
   `(time
      (begin
-       ,@(jazz:codes-forms expressions)))))
+       ,@(jazz:codes-forms expressions))))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(jazz:define-emit (autoload-reference (scheme backend) declaration environment referenced-declaration)
+  `(,(jazz:autoload-locator referenced-declaration)))
+
+
+(jazz:define-emit (define-reference (scheme backend) declaration)
+  (%%get-declaration-locator declaration))
+
+
+(jazz:define-emit (export-reference (scheme backend) declaration)
+  (%%get-export-declaration-symbol declaration))
+
+
+(jazz:define-emit (export-syntax-reference (scheme backend) declaration)
+  (%%get-export-syntax-declaration-symbol declaration))
+
+
+(jazz:define-emit (local-variable-reference (scheme backend) declaration)
+  (%%get-local-variable-binding-variable declaration))
+
+
+(jazz:define-emit (special-form-reference (scheme backend) binding)
+  (%%get-lexical-binding-name binding))
+
+
+(jazz:define-emit (variable-reference (scheme backend) binding source-declaration environment)
+  (jazz:emit-binding-symbol binding source-declaration environment backend))
+
+
+(jazz:define-emit (lexical-binding-reference (scheme backend) binding)
+  (%%get-lexical-binding-name binding))
+
+
+(jazz:define-emit (named-parameter-reference (scheme backend) parameter)
+  (%%get-lexical-binding-name parameter))
+
+
+(jazz:define-emit (symbol-reference (scheme backend) binding)
+  (or (%%get-symbol-binding-gensym binding)
+      (unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(jazz:define-emit (call (scheme backend) expression declaration operator arguments)
+  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
+
+
+;;;
+;;;; Binding Call
+;;;
+
+
+(jazz:define-emit (walk-binding-binding-call (scheme backend) binding binding-src operator arguments)
+  `(,(jazz:sourcified-form2 operator binding-src)
+    ,@(jazz:codes-forms arguments)))
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(jazz:define-emit (define-assignment (scheme backend) declaration source-declaration environment value-code)
+  (let ((locator (%%get-declaration-locator declaration)))
+    `(set! ,locator ,(jazz:sourcified-form value-code))))
+
+
+(jazz:define-emit (variable-assignment (scheme backend) binding source-declaration environment binding-code value-code)
+  `(set! ,binding-code ,(jazz:sourcified-form value-code))))

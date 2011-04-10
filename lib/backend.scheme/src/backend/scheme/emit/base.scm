@@ -35,10 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected dialect.base.syntax.backend.scheme
-
-
-(jazz:define-backend scheme)
+(unit protected backend.scheme.emit.base
 
 
 ;;;

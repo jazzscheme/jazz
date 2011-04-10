@@ -93,4 +93,12 @@
 
 
 (define (jazz:register-emit backend-name emit emitter)
-  (jazz:add-backend-binding (jazz:require-backend backend-name) emit emitter)))
+  (jazz:add-backend-binding (jazz:require-backend backend-name) emit emitter))
+
+
+;;;
+;;;; Scheme Backend
+;;;
+
+
+(jazz:define-backend scheme))

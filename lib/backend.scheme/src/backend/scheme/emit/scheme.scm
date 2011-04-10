@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Describe Scheme Backend
+;;;; Scheme Scheme Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,23 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module backend.describe.scheme jazz
+(unit protected backend.scheme.emit.scheme
 
 
-(import (backend))
+;;;
+;;;; Emit
+;;;
 
 
-(define-emit (define (describe backend) declaration environment expression)
-  (let ((name (get-name~ declaration)))
-    `(define ,name
-       ,expression))))
+(jazz:define-emit (define (scheme backend) declaration environment expression)
+  (jazz:sourcify-if
+    (let ((locator (%%get-declaration-locator declaration)))
+      `(begin
+         (define ,locator
+           ,expression)
+         ,(let ((name (%%get-lexical-binding-name declaration))
+                (parent (%%get-declaration-parent declaration)))
+            (if (%%is? parent jazz:Module-Declaration)
+                `(jazz:register-define ',(%%get-lexical-binding-name parent) ',name ',locator)
+              `(jazz:add-field ,(%%get-declaration-locator parent) (jazz:new-define ',name ',locator))))))
+    (%%get-declaration-source declaration))))

@@ -39,4 +39,5 @@
 
 
 (export (scheme.dialect)
-        (scheme.dialect (phase syntax))))
+        (scheme.dialect (phase syntax))
+        (scheme.language.runtime)))

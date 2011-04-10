@@ -39,7 +39,4 @@
 
 
 (require (scheme.dialect.runtime.syntax (phase syntax))
-         (scheme.dialect.runtime.classes))
-
-
-(export (scheme.language.runtime.kernel)))
+         (scheme.dialect.runtime.classes)))

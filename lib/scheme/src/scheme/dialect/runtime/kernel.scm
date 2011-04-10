@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.dialect.runtime.kernel base
+(module protected scheme.dialect.runtime.kernel foundation
 
 
 ;;;

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected gambit.dialect base
+(module protected gambit.dialect foundation
 
 
 (require (dialect)

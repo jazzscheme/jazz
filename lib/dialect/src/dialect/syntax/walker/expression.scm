@@ -491,18 +491,18 @@
 ;;;
 
 
-(define jazz:specializers
+(define jazz:*specializers*
   (%%make-table test: eq?))
 
 
 (define (jazz:add-specializer specialized-declaration specializer)
-  (%%table-set! jazz:specializers specialized-declaration
-    (%%append (%%table-ref jazz:specializers specialized-declaration '())
+  (%%table-set! jazz:*specializers* specialized-declaration
+    (%%append (%%table-ref jazz:*specializers* specialized-declaration '())
               (%%list specializer))))
 
 
 (define (jazz:get-specializers binding)
-  (%%table-ref jazz:specializers binding '()))
+  (%%table-ref jazz:*specializers* binding '()))
 
 
 (jazz:define-variable-override jazz:emit-specialized-call
@@ -584,7 +584,7 @@
 ;; for specializing based on static types...
 
 
-(define jazz:primitive-patterns
+(define jazz:*primitive-patterns*
   '())
 
 
@@ -599,16 +599,16 @@
                                  (specifier (%%cadr pattern)))
                              (%%list name (jazz:walk-specifier #f #f #f '() specifier))))
                          patterns))))
-              jazz:primitive-patterns)
-    (set! jazz:primitive-patterns table)))
+              jazz:*primitive-patterns*)
+    (set! jazz:*primitive-patterns* table)))
 
 
 (define (jazz:add-primitive-patterns operator patterns)
-  (set! jazz:primitive-patterns (%%cons (%%cons operator patterns) jazz:primitive-patterns)))
+  (set! jazz:*primitive-patterns* (%%cons (%%cons operator patterns) jazz:*primitive-patterns*)))
 
 
 (define (jazz:get-primitive-patterns locator)
-  (%%table-ref jazz:primitive-patterns locator '()))
+  (%%table-ref jazz:*primitive-patterns* locator '()))
 
 
 (jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:=                       '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
@@ -671,7 +671,13 @@
                                                          scheme.dialect.runtime.kernel:cdr))))
                        (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
                      #f)
-                 (iter (%%cdr scan)))))))))
+                 (jazz:bind (name function-type) (%%car scan)
+                   (if (jazz:match-signature? arguments types function-type)
+                       (jazz:new-code
+                         `(,name ,@(jazz:codes-forms arguments-codes))
+                         (%%get-function-type-result function-type)
+                         #f)
+                     (iter (%%cdr scan)))))))))))
 
 
 ;;;

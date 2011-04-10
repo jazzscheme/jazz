@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.dialect.runtime base
+(module scheme.dialect.runtime foundation
 
 
 (require (scheme.dialect.runtime.syntax (phase syntax))

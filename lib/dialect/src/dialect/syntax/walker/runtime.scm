@@ -1085,7 +1085,7 @@
 (define (jazz:load-dialect-invoice dialect-name)
   (if (%%not (%%symbol? dialect-name))
       (jazz:error "Dialect name must be a symbol: {s}" dialect-name)
-    (if (%%eq? dialect-name 'base)
+    (if (%%eq? dialect-name 'foundation)
         #f
       (jazz:new-import-invoice
         dialect-name
@@ -2499,7 +2499,7 @@
                         (jazz:new-walk-frame
                          (%%get-dialect-bindings (jazz:get-dialect 'scheme)))
                         (jazz:new-walk-frame
-                         (%%get-dialect-bindings (jazz:get-dialect 'base)))))
+                         (%%get-dialect-bindings (jazz:get-dialect 'foundation)))))
                       (env
                        (cond ((jazz:get-dialect 'jazz)
                               => (lambda (x)
@@ -2612,7 +2612,7 @@
                              (jazz:new-walk-frame
                                (%%get-dialect-bindings (jazz:get-dialect 'scheme)))
                              (jazz:new-walk-frame
-                               (%%get-dialect-bindings (jazz:get-dialect 'base)))))
+                               (%%get-dialect-bindings (jazz:get-dialect 'foundation)))))
                          (env
                            (cond ((jazz:get-dialect 'jazz)
                                   => (lambda (x)
@@ -3860,7 +3860,7 @@
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Walker walker))
-  (%%get-dialect-bindings (jazz:get-dialect 'base)))
+  (%%get-dialect-bindings (jazz:get-dialect 'foundation)))
 
 
 (jazz:define-virtual-runtime (jazz:walker-environment (jazz:Walker walker)))

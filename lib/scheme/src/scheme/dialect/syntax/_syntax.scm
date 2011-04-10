@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.dialect.syntax base
+(module scheme.dialect.syntax foundation
 
 
-(require (dialect.base)
+(require (foundation)
          (scheme.dialect.syntax.walker.syntax (phase syntax))
          (scheme.dialect.syntax.walker.runtime)
-         (backend.scheme.emit.scheme)))
+         (scheme.backend.scheme.emit)))

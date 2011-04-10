@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.dialect base
+(module scheme.dialect foundation
 
 
-(require (dialect.base))
+(require (foundation))
 
 
 (export (scheme.dialect.syntax)

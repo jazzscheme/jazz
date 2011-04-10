@@ -1833,7 +1833,7 @@
 
 
 (define (jazz:load-foundation)
-  (jazz:load-unit 'dialect.base))
+  (jazz:load-unit 'foundation))
 
 
 (define (jazz:load-runtime)

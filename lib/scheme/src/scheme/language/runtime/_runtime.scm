@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Scheme Language Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,12 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected scheme.language.runtime foundation
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(export (scheme.language.runtime.kernel)))

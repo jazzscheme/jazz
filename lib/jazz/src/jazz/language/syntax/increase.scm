@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Increase
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax.increase scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(import (jazz.language.runtime.kernel))
+
+
+;; @macro (increase! x) @expansion (set! x (+ x 1))
+;; @macro (increase! x (f)) @expansion (set! x (+ x (f)))
+
+(syntax public (increase! form-src)
+  (let ((location (cadr (source-code form-src)))
+        (rest (cddr (source-code form-src))))
+    (let ((increment (if (null? rest) 1 (car rest))))
+      `(set! ,location (+ ,location ,increment)))))
+
+
+;; @macro (decrease! x) @expansion (set! x (- x 1))
+;; @macro (decrease! x (f)) @expansion (set! x (- x (f)))
+
+(syntax public (decrease! form-src)
+  (let ((location (cadr (source-code form-src)))
+        (rest (cddr (source-code form-src))))
+    (let ((increment (if (null? rest) 1 (car rest))))
+      `(set! ,location (- ,location ,increment))))))

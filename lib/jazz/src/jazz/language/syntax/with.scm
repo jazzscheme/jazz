@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; With
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,33 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax.with scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(import (jazz.language.runtime.kernel))
+
+
+;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
+;; the second rect will incorrectly refer to the first rect
+(syntax public (with form-src)
+  (let ((bindings (source-code (cadr (source-code form-src))))
+        (body (cddr (source-code form-src))))
+    (sourcify-if
+      `(let (,@(map (lambda (binding)
+                      (let ((specifier (or (binding-specifier binding) '<Object>)))
+                        `(,(source-code (car (source-code binding))) ,specifier #f)))
+                    bindings))
+         ,@(map (lambda (binding)
+                  (let ((variable (source-code (car (source-code binding)))))
+                    (if (binding-specifier binding)
+                        `(set! ,variable ,(caddr (source-code binding)))
+                      `(set! ,variable ,(cadr (source-code binding))))))
+                bindings)
+         (dynamic-wind (lambda () #f)
+                       (lambda () ,@body)
+                       (lambda () ,@(map (lambda (binding)
+                                           (let ((variable (source-code (car (source-code binding)))))
+                                             `(if ,variable
+                                                  (close~ ,variable))))
+                                         bindings))))
+      form-src))))

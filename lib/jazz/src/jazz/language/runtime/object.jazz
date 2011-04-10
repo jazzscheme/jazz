@@ -1,0 +1,283 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Object
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.language.runtime.object jazz.dialect
+
+
+(proclaim (warn optimizations))
+
+
+(import (jazz.language.runtime.kernel))
+
+
+(native private jazz:error)
+
+
+;;;
+;;;; Object
+;;;
+
+
+(class primitive Object metaclass Object-Class
+  
+  
+  (method chained (initialize)
+    )
+
+
+  (method chained (destroy)
+    (table-set! *destroy-mandatory-objects* self))
+  
+  
+  (method public virtual (call-print output detail)
+    (print output detail))
+  
+  
+  (method public virtual (print output detail)
+    (if (object? self)
+        (print-unreadable self output
+          (lambda (output)
+            ))
+      (print-detail output detail)))
+  
+  
+  (method protected (print-detail output detail)
+    (if (eq? detail :human)
+        (display self output)
+      (write self output)))
+  
+  
+  (method public virtual (class-actions)
+    '())
+  
+  
+  (method public virtual (focus-actions)
+    '())
+  
+  
+  (method public virtual (guest-actions)
+    '())
+  
+  
+  (method public virtual (hash-object)
+    (error "No hashing defined for {t}" self))
+  
+  
+  (method protected virtual (copy-object deep?)
+    (error "Unable to copy {t}" self))
+
+
+  (method protected virtual (compare-object object)
+    :incompatible)
+
+
+  (method protected virtual (ci-compare-object object)
+    :incompatible)
+
+
+  (method protected virtual (di-compare-object object)
+    :incompatible)
+
+
+  (method protected virtual (describe-object output)
+    (print output #t))
+
+
+  (method public virtual (initialized?)
+    ;; todo
+    #t)
+
+
+  (method public virtual (close)
+    (destroy))
+
+
+  (method protected virtual (destroy-mandatory (info #t))
+    (table-set! *destroy-mandatory-objects* self info)
+    (make-will self
+               (lambda (obj)
+                 (let ((info (table-ref *destroy-mandatory-objects* obj #f)))
+                   (when info
+                     (leaked-object obj info))))))
+
+
+  (method public virtual (destroying?)
+    ;; todo
+    #f)
+
+
+  (method public virtual (destroyed?)
+    ;; todo
+    #f)
+  
+  
+  (method public virtual (walk-references proc)
+    )
+  
+  
+  (method public virtual (setup-context context)
+    )
+  
+  
+  (method public virtual (get-sort-value)
+    #f)
+  
+  
+  (method protected virtual (coerce-string)
+    (error "{t} cannot be coerced into a string" self))
+  
+  
+  (method protected virtual (iterate-object)
+    (error "{t} is not an iterable type" self))
+
+
+  ;;;
+  ;;;; Compare
+  ;;;
+
+
+  (method protected virtual (object-similar? object)
+    (eq? self object))
+
+
+  (method protected virtual (object-alphabetic?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-numeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-alphanumeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-whitespace?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-upper-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-lower-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-upcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-downcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method protected virtual (object-capitalize)
+    (error "{t} is not an alphabetic type" self)))
+
+
+(definition public inline (compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (compare-object~ a b)))
+
+
+(definition public inline (ci-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (ci-compare-object~ a b)))
+
+
+(definition public inline (di-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (di-compare-object~ a b)))
+
+
+(definition public (copy obj <Object>)
+  (subcopy obj #f))
+
+
+(definition public (subcopy obj <Object> deep? <bool>)
+  (copy-object~ obj deep?))
+
+
+(definition public (print-unreadable object <Object> output proc)
+  (let ((class-name (reference-name (get-name~ (class-of object))))
+        (string (let ((output (open-output-string)))
+                  (proc output)
+                  (get-output-string output)))
+        (serial (object->serial object)))
+    (display "{" output)
+    (display class-name output)
+    (unless (string=? string "")
+      (display " " output)
+      (display string output))
+    (display " #" output)
+    (display serial output)
+    (display "}" output)))
+
+
+(definition package (native-class name)
+  (error "Scheme primitives must be used to create {a}" name))
+
+
+(definition public (hash obj <Object>)
+  (hash-object~ obj))
+
+
+;;;
+;;;; Memory leak detection
+;;;
+
+
+(definition public *destroy-mandatory-objects*
+  (make-table weak-keys: #t test: eq?))
+
+(definition *leaked-objects-mutex*
+  (make-mutex))
+
+(definition *leaked-objects*
+  '())
+
+(definition public (get-leaked-objects)
+  *leaked-objects*)
+
+(definition (leaked-object obj info)
+  (mutex-lock! *leaked-objects-mutex*)
+  (set! *leaked-objects* (cons (cons obj info) *leaked-objects*))
+  (mutex-unlock! *leaked-objects-mutex*)))

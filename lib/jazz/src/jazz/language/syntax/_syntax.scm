@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Jazz Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,19 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(export (jazz.language.syntax.attributes)
+        (jazz.language.syntax.bind)
+        (jazz.language.syntax.bind-optionals)
+        (jazz.language.syntax.bind-keywords)
+        (jazz.language.syntax.ecase)
+        (jazz.language.syntax.enumeration)
+        (jazz.language.syntax.increase)
+        (jazz.language.syntax.loop)
+        (jazz.language.syntax.typecase)
+        (jazz.language.syntax.with)
+        (jazz.language.syntax.macros)
+        (jazz.language.syntax.template)
+        (jazz.language.syntax.templates)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Enumeration Expansion
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax.enumeration scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(import (jazz.language.runtime.kernel))
+
+
+(syntax public (enumeration form-src)
+  (let ((enumeration-name (cadr (source-code form-src)))
+        (names (cddr (source-code form-src))))
+    `(begin
+       (class ,enumeration-name extends Enumeration-Member)
+       ,@(map (lambda (name-src)
+                (let ((name (source-code name-src)))
+                  `(define ,(string->symbol (string-append (symbol->string (source-code enumeration-name)) ":" (symbol->string name))) (new ,enumeration-name ',name))))
+              names)))))

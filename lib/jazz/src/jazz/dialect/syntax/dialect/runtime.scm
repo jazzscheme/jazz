@@ -853,7 +853,7 @@
 (jazz:define-variable-override jazz:emit-specialized-locator
   (lambda (locator arguments environment backend)
     (case locator
-      ((jazz.dialect.runtime.kernel:class-of)
+      ((jazz.language.runtime.kernel:class-of)
        (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
          (jazz:emit-specialized-class-of (%%car arguments) environment backend)))
       (else
@@ -1280,7 +1280,7 @@
       (let ((new-declaration (jazz:require-declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
           ;; adding source information for parameters (default for optional and keyword may be source code)
-          ;; jazz:find-annotated fails on first keyword at jazz.dialect.runtime.language.functional:minimum
+          ;; jazz:find-annotated fails on first keyword at jazz.language.runtime.functional:minimum
           ;; because (eq? variable annotated-variable) -> one points to a stale value
           (let ((new-environment (if #f #; parameters
                                    (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)

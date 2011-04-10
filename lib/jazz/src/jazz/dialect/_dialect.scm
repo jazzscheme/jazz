@@ -47,5 +47,5 @@
          (jazz.backend.scheme.emit))
 
 
-(export (jazz.dialect.syntax.syntax (phase syntax))
+(export (jazz.language.syntax (phase syntax))
         (scheme)))

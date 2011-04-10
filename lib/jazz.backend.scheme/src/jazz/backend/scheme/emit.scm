@@ -493,7 +493,7 @@
 
 
 (jazz:define-emit (new-call (scheme backend) operator locator arguments arguments-codes declaration environment)
-  (if (%%eq? locator 'jazz.dialect.runtime.kernel:new)
+  (if (%%eq? locator 'jazz.language.runtime.kernel:new)
       (%%assert (%%pair? arguments)
         (let ((class-expression (%%car arguments)))
           (if (%%class-is? class-expression jazz:Binding-Reference)

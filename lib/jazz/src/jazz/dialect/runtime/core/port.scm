@@ -66,13 +66,13 @@
 ;;;
 
 
-(define jazz.dialect.runtime.language.debug.get-console-port
+(define jazz.language.runtime.debug.get-console-port
   #f)
 
-(set! jazz.dialect.runtime.language.debug.get-console-port #f)
+(set! jazz.language.runtime.debug.get-console-port #f)
 
 
 (define (jazz:get-console-port)
-  (if jazz.dialect.runtime.language.debug.get-console-port
-      (jazz.dialect.runtime.language.debug.get-console-port)
+  (if jazz.language.runtime.debug.get-console-port
+      (jazz.language.runtime.debug.get-console-port)
     #f)))

@@ -42,4 +42,4 @@
          (scheme.dialect.runtime.classes))
 
 
-(export (scheme.dialect.runtime.kernel)))
+(export (scheme.language.runtime.kernel)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Typecase
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,12 +36,41 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax.typecase scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+(import (jazz.language.runtime.kernel))
+
+
+(native private jazz:error)
+
+
+; @syntax (typecase target (a 1) ((b c) 2) (else 3))
+; @expansion (let ((sym8 target))
+;              (cond ((eqv? sym8 a) 1)
+;                    ((or (eqv? sym8 b) (eqv? sym8 c)) 2)
+;                    (else 3)))
+
+
+(syntax public (typecase form-src)
+  (if (null? (cdr (source-code form-src)))
+      (error "Ill-formed typecase")
+    (let ((target (cadr (source-code form-src)))
+          (clauses (cddr (source-code form-src))))
+      (sourcify-if
+        (with-uniqueness target
+          (lambda (variable)
+            `(cond ,@(map (lambda (clause)
+                            (let ((selector (car (source-code clause)))
+                                  (body (cdr (source-code clause))))
+                              (cond ((eq? (source-code selector) 'else)
+                                     `(else ,@body))
+                                    ((pair? (source-code selector))
+                                     `((or ,@(map (lambda (value)
+                                                    `(is? ,variable ,value))
+                                                  (source-code selector)))
+                                       ,@body))
+                                    (else
+                                     (error "Ill-formed selector list: {s}" (desourcify selector))))))
+                          clauses))))
+        form-src)))))

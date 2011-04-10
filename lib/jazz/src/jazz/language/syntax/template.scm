@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Templates
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module protected jazz.language.syntax.template scheme
 
 
-(export (scheme)
-        
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+#; (
+
+
+@w
+(import (jazz.language.runtime.kernel))
+
+
+@w
+(macro public (template type)
+  `(specialize inline (butlast seq ,type) ,type
+     (subseq seq 0 (- (length seq) 1))))
+
+
+(template
+  
+  (class Cell<T> extends Object
+    
+    (slot row T getter generate)
+    (slot col T getter generate)))
+
+
+(instantiate Cell<fx>)
+
+
+(template (butlast<T> seq T) T
+  (subseq seq 0 (- (cardinality seq) 1)))
+
+
+(instantiate butlast<string>)
+
+
+(specialize (butlast seq <string>) <string>
+  (subseq seq 0 (- (length seq) 1)))
+
+
+@w
+(macro public (instantiate-butlast type)
+  `(specialize inline (butlast seq ,type) ,type
+     (subseq seq 0 (- (length seq) 1))))))

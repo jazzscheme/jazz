@@ -519,15 +519,15 @@
                              (begin
                                (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
                                          ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                         (%%not (%%memq locator '(scheme.dialect.runtime.kernel:=
-                                                                   scheme.dialect.runtime.kernel:<
-                                                                   scheme.dialect.runtime.kernel:<=
-                                                                   scheme.dialect.runtime.kernel:>
-                                                                   scheme.dialect.runtime.kernel:>=
-                                                                   scheme.dialect.runtime.kernel:+
-                                                                   scheme.dialect.runtime.kernel:-
-                                                                   scheme.dialect.runtime.kernel:*
-                                                                   scheme.dialect.runtime.kernel:/))))
+                                         (%%not (%%memq locator '(scheme.language.runtime.kernel:=
+                                                                   scheme.language.runtime.kernel:<
+                                                                   scheme.language.runtime.kernel:<=
+                                                                   scheme.language.runtime.kernel:>
+                                                                   scheme.language.runtime.kernel:>=
+                                                                   scheme.language.runtime.kernel:+
+                                                                   scheme.language.runtime.kernel:-
+                                                                   scheme.language.runtime.kernel:*
+                                                                   scheme.language.runtime.kernel:/))))
                                  (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
                                ;; for debugging
                                (%%when (%%memq (%%get-lexical-binding-name binding) (jazz:debug-specializers))
@@ -611,49 +611,49 @@
   (%%table-ref jazz:*primitive-patterns* locator '()))
 
 
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:=                       '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:<                       '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:<=                      '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:>                       '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:>=                      '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:=              '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:<              '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:<=             '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:>              '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:>=             '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)))
 
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:+                       '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:-                       '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:*                       '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:+              '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:-              '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:*              '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
 
 ;; only done in release as these can crash on a division by zero
 (cond-expand
   (release
-    (jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:/                   '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
-    (jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:quotient            '((##fxquotient <fx^fx:fx>))))
+    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:/          '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:quotient   '((##fxquotient <fx^fx:fx>))))
   (else))
 
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:floor                   '(                     (##flfloor    <fl:fl>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:ceiling                 '(                     (##flceiling  <fl:fl>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:truncate                '(                     (##fltruncate <fl:fl>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:round                   '(                     (##flround    <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:floor          '(                     (##flfloor    <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:ceiling        '(                     (##flceiling  <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:truncate       '(                     (##fltruncate <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:round          '(                     (##flround    <fl:fl>)))
 
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fx+                       '((##fx+ <fx^fx:fx>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fx-                       '((##fx- <fx^fx:fx>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fx*                       '((##fx* <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx+              '((##fx+ <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx-              '((##fx- <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx*              '((##fx* <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fl+                       '(                     (##fl+ <fl^fl:fl>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fl-                       '(                     (##fl- <fl^fl:fl>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fl*                       '(                     (##fl* <fl^fl:fl>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fl/                       '(                     (##fl/ <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl+              '(                     (##fl+ <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl-              '(                     (##fl- <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl*              '(                     (##fl* <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl/              '(                     (##fl/ <fl^fl:fl>)))
 
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:fixnum->flonum            '((##fixnum->flonum <fx:fl>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.kernel:flonum->fixnum            '(                     (##flonum->fixnum <fl:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fixnum->flonum   '((##fixnum->flonum <fx:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:flonum->fixnum   '(                     (##flonum->fixnum <fl:fx>)))
 
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:not                     '((##not  <any:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:eq?                     '((##eq?  <any^any:bool>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:eqv?                    '((##eqv? <any^any:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:not            '((##not  <any:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eq?            '((##eq?  <any^any:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eqv?           '((##eqv? <any^any:bool>)))
 
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:car                     '((##car    <pair:any>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:cdr                     '((##cdr    <pair:any>)))
-(jazz:add-primitive-patterns 'scheme.dialect.runtime.kernel:length                  '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.language.functional:element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
-(jazz:add-primitive-patterns 'jazz.dialect.runtime.language.functional:set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:car            '((##car    <pair:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:cdr            '((##cdr    <pair:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:length         '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.functional:element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
 
 
 (jazz:define-variable-override jazz:emit-primitive-call
@@ -667,8 +667,8 @@
                    (begin
                      (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
                                ;; a bit extreme for now
-                               (%%not (%%memq locator '(scheme.dialect.runtime.kernel:car
-                                                         scheme.dialect.runtime.kernel:cdr))))
+                               (%%not (%%memq locator '(scheme.language.runtime.kernel:car
+                                                         scheme.language.runtime.kernel:cdr))))
                        (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
                      #f)
                  (jazz:bind (name function-type) (%%car scan)
@@ -758,58 +758,58 @@
   (%%make-table test: eq?))
 
 
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:number?       jazz:Number)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:complex?      jazz:Complex)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:real?         jazz:Real)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:rational?     jazz:Rational)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:integer?      jazz:Integer)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:number?       jazz:Number)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:boolean?      jazz:Boolean)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:number?      jazz:Number)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:complex?     jazz:Complex)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:real?        jazz:Real)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:rational?    jazz:Rational)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:integer?     jazz:Integer)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:number?      jazz:Number)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:boolean?     jazz:Boolean)
 ;; not 100% correct because of Scheme's semantic for list?
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:list?         jazz:List)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:null?         jazz:Null)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:pair?         jazz:Pair)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:symbol?       jazz:Symbol)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:char?         jazz:Char)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:string?       jazz:String)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:vector?       jazz:Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:s8vector?       jazz:S8Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:u8vector?       jazz:U8Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:s16vector?      jazz:S16Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:u16vector?      jazz:U16Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:s32vector?      jazz:S32Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:u32vector?      jazz:U32Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:s64vector?      jazz:S64Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:u64vector?      jazz:U64Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:f32vector?      jazz:F32Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:f64vector?      jazz:F64Vector)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:continuation?   jazz:Continuation)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:procedure?    jazz:Procedure)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:input-port?   jazz:Port)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:output-port?  jazz:Port)
-(%%table-set! jazz:type-tests 'scheme.dialect.runtime.kernel:eof-object?   jazz:EOF)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:fixnum?         jazz:Fixnum)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:flonum?         jazz:Flonum)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:keyword?        jazz:Keyword)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:object?         jazz:Object)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:category?       jazz:Category)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:class?          jazz:Class)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:interface?      jazz:Interface)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:field?          jazz:Field)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:slot?           jazz:Slot)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:method?         jazz:Method)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:table?          jazz:Table)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:thread?         jazz:Thread)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:foreign?        jazz:Foreign)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:values?         jazz:Values)
-(%%table-set! jazz:type-tests 'jazz.dialect.runtime.kernel:unspecified?    jazz:Unspecified)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:list?        jazz:List)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:null?        jazz:Null)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:pair?        jazz:Pair)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:symbol?      jazz:Symbol)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:char?        jazz:Char)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:string?      jazz:String)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:vector?      jazz:Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s8vector?      jazz:S8Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:u8vector?      jazz:U8Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s16vector?     jazz:S16Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:u16vector?     jazz:U16Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s32vector?     jazz:S32Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:u32vector?     jazz:U32Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:s64vector?     jazz:S64Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:u64vector?     jazz:U64Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:f32vector?     jazz:F32Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:f64vector?     jazz:F64Vector)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:continuation?  jazz:Continuation)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:procedure?   jazz:Procedure)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:input-port?  jazz:Port)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:output-port? jazz:Port)
+(%%table-set! jazz:type-tests 'scheme.language.runtime.kernel:eof-object?  jazz:EOF)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:fixnum?        jazz:Fixnum)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:flonum?        jazz:Flonum)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:keyword?       jazz:Keyword)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:object?        jazz:Object)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:category?      jazz:Category)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:class?         jazz:Class)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:interface?     jazz:Interface)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:field?         jazz:Field)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:slot?          jazz:Slot)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:method?        jazz:Method)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:table?         jazz:Table)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:thread?        jazz:Thread)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:foreign?       jazz:Foreign)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:values?        jazz:Values)
+(%%table-set! jazz:type-tests 'jazz.language.runtime.kernel:unspecified?   jazz:Unspecified)
 
 
 (define jazz:not-type-tests
   (%%make-table test: eq?))
 
 
-(%%table-set! jazz:not-type-tests 'jazz.dialect.runtime.kernel:not-null? jazz:Null)
+(%%table-set! jazz:not-type-tests 'jazz.language.runtime.kernel:not-null? jazz:Null)
 
 
 (define (jazz:restrict-type base type)
@@ -912,15 +912,15 @@
                              (arguments (%%get-call-arguments expr)))
                          (let ((count (%%length arguments)))
                            (case operator-locator
-                             ((scheme.dialect.runtime.kernel:not)
+                             ((scheme.language.runtime.kernel:not)
                               (if (%%fx= count 1)
                                   (process-not (%%car arguments) env)
                                 env))
-                             ((jazz.dialect.runtime.kernel:is?)
+                             ((jazz.language.runtime.kernel:is?)
                               (if (%%fx= count 2)
                                   (process-is (%%car arguments) (%%cadr arguments) env)
                                 env))
-                             ((jazz.dialect.runtime.language.functional:is-not?)
+                             ((jazz.language.runtime.functional:is-not?)
                               (if (%%fx= count 2)
                                   (revenv (process-is (%%car arguments) (%%cadr arguments) env))
                                 env))

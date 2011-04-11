@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected scheme.dialect.syntax.walker.runtime
+(unit protected scheme.dialect.runtime
 
 
 ;;;

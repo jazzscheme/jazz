@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Dialect Syntax
+;;;; Foundation Dialect Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,14 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit dialect.syntax
+(unit protected foundation.dialect.syntax
 
 
-(require (backend.syntax)
-         (backend.runtime)
-         (dialect.syntax.dialect.syntax)
-         (dialect.syntax.dialect.runtime)
-         (dialect.syntax.walker.syntax)
-         (dialect.syntax.walker.runtime)
-         (dialect.syntax.walker.expression)
-         (dialect.syntax.walker.ffi)))
+;;;
+;;;; Dialect
+;;;
+
+
+(jazz:define-class jazz:Foundation-Dialect jazz:Dialect (name bindings) jazz:Object-Class jazz:allocate-foundation-dialect
+  ())
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(jazz:define-class jazz:Foundation-Walker jazz:Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-foundation-walker
+  ()))

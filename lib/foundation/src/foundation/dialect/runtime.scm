@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected foundation.syntax.dialect.runtime
+(unit protected foundation.dialect.runtime
 
 
 ;;;
@@ -55,6 +55,21 @@
 
 
 (jazz:encapsulate-class jazz:Foundation-Dialect)
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(jazz:define-class-runtime jazz:Foundation-Walker)
+
+
+(define (jazz:new-foundation-walker)
+  (jazz:allocate-foundation-walker jazz:Foundation-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+
+
+(jazz:encapsulate-class jazz:Foundation-Walker)
 
 
 ;;;

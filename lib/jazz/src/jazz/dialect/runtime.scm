@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected jazz.dialect.syntax.dialect.runtime
+(unit protected jazz.dialect.runtime
 
 
 ;;;

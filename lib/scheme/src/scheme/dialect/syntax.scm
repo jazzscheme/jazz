@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Scheme Walker
+;;;; Scheme Walker Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,47 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.dialect.syntax.classes.scheme jazz.dialect
-
-
-(export (jazz.dialect.syntax.classes.base))
-(import (jazz.dialect.syntax.classes.base))
-
-
-;;;
-;;;; Define
-;;;
-
-
-(class Define-Declaration extends Declaration
-  
-  
-  (slot signature getter generate)
-  (slot value     getter generate))
-
-
-;;;
-;;;; Define Special Form
-;;;
-
-
-(class Define-Special-Form-Declaration extends Declaration
-  
-  
-  (slot signature getter generate)
-  (slot body      getter generate))
-
-
-;;;
-;;;; Define Macro
-;;;
-
-
-(class Define-Macro-Declaration extends Declaration
-  
-  
-  (slot signature getter generate)
-  (slot body      getter generate))
+(unit protected scheme.dialect.syntax
 
 
 ;;;
@@ -83,7 +43,8 @@
 ;;;
 
 
-(class Scheme-Dialect extends Dialect)
+(jazz:define-class jazz:Scheme-Dialect jazz:Dialect (name bindings) jazz:Object-Class jazz:allocate-scheme-dialect
+  ())
 
 
 ;;;
@@ -91,4 +52,35 @@
 ;;;
 
 
-(class Scheme-Walker extends Walker))
+(jazz:define-class jazz:Scheme-Walker jazz:Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-scheme-walker
+  ())
+
+
+;;;
+;;;; Define
+;;;
+
+
+(jazz:define-class jazz:Define-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-declaration
+  ((signature %%get-define-declaration-signature ())
+   (value     %%get-define-declaration-value     %%set-define-declaration-value)))
+
+
+;;;
+;;;; Define Special Form
+;;;
+
+
+(jazz:define-class jazz:Define-Special-Form-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-special-form-declaration
+  ((signature %%get-define-special-form-signature %%set-define-special-form-signature)
+   (body      %%get-define-special-form-body      %%set-define-special-form-body)))
+
+
+;;;
+;;;; Define Macro
+;;;
+
+
+(jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-macro-declaration
+  ((signature %%get-define-macro-signature %%set-define-macro-signature)
+   (body      %%get-define-macro-body      %%set-define-macro-body))))

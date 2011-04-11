@@ -43,4 +43,4 @@
         (jazz.dialect (phase syntax))
         (jazz.language.syntax (phase syntax))
         (jazz.language.runtime)
-        (jazz.dialect.syntax.classes.jazz)))
+        (jazz.dialect.classes.jazz)))

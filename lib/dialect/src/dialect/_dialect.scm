@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Dialects
+;;;; Dialect
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -42,10 +42,15 @@
          (core.generic)
          (core.exception)
          
+         (backend.syntax)
+         (backend.runtime)
          (dialect.syntax)
          #; ( ;; backend-merge
          (core.module.syntax)
          (core.module.runtime)
          (core.module.initialize)
          )
+         (dialect.runtime)
+         (dialect.expression)
+         (dialect.ffi)
          (backend.scheme.runtime)))

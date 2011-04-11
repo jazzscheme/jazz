@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Walker Syntax
+;;;; Dialect Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected dialect.syntax.walker.syntax
+(unit protected dialect.syntax
+
+
+;;;
+;;;; Dialect
+;;;
+
+
+(jazz:define-class jazz:Dialect jazz:Object () jazz:Object-Class ()
+  ((name     %%get-dialect-name     ())
+   (bindings %%get-dialect-bindings %%set-dialect-bindings)))
+
+
+(jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
 
 
 ;;;

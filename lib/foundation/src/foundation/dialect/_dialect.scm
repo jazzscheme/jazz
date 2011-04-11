@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Walker Syntax
+;;;; Foundation Dialect
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected foundation.syntax.walker.syntax
+(unit foundation.dialect
 
 
-;;;
-;;;; Walker
-;;;
-
-
-(jazz:define-class jazz:Foundation-Walker jazz:Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-foundation-walker
-  ()))
+(require (dialect)
+         (foundation.dialect.syntax)
+         (foundation.dialect.runtime)
+         (backend.scheme)
+         (foundation.backend.scheme.emit)))

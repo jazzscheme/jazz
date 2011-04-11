@@ -35,21 +35,36 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected backend.syntax jazz
+(unit backend.syntax
 
 
-(macro public (define-backend name)
-  `(register-backend (new-backend ',name)))
+;;;
+;;;; Backend
+;;;
 
 
-(macro public (define-emit signature . body)
+(jazz:define-class jazz:Backend jazz:Object () jazz:Object-Class jazz:allocate-backend
+  ((name     %%get-backend-name     ())
+   (bindings %%get-backend-bindings ())))
+
+
+;;;
+;;;; Backends
+;;;
+
+
+(jazz:define-macro (jazz:define-backend name)
+  `(jazz:register-backend (jazz:new-backend ',name)))
+
+
+(jazz:define-macro (jazz:define-emit signature . body)
   (let ((emit (car signature))
         (backend (cadr signature))
         (parameters (cddr signature)))
     (let ((backend-name (car backend))
           (backend-parameter (cadr backend)))
-      (let ((emitter (string->symbol (jazz:format "{a}-emit-{a}" backend-name emit))))
+      (let ((emitter (%%string->symbol (jazz:format "jazz:{a}-emit-{a}" backend-name emit))))
         `(begin
-           (definition (,emitter ,backend-parameter ,@parameters)
+           (define (,emitter ,backend-parameter ,@parameters)
              ,@body)
-           (register-emit ',backend-name ',emit ,emitter)))))))
+           (jazz:register-emit ',backend-name ',emit ,emitter)))))))

@@ -38,10 +38,10 @@
 (unit dialect.syntax
 
 
-(require (dialect.syntax.dialect.syntax)
+(require (backend.syntax)
+         (backend.runtime)
+         (dialect.syntax.dialect.syntax)
          (dialect.syntax.dialect.runtime)
-         (dialect.syntax.backend.syntax)
-         (dialect.syntax.backend.runtime)
          (dialect.syntax.walker.syntax)
          (dialect.syntax.walker.runtime)
          (dialect.syntax.walker.expression)

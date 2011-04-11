@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected dialect.syntax.backend.runtime
+(unit backend.runtime
 
 
 ;;;

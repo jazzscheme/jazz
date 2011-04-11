@@ -157,16 +157,6 @@
 
 
 ;;;
-;;;; Named Let
-;;;
-
-
-(jazz:define-emit (named-let (scheme backend) expression declaration environment variable-emit bindings-output body-code)
-  `(let ,variable-emit ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-;;;
 ;;;; Letstar
 ;;;
 
@@ -183,6 +173,16 @@
 
 (jazz:define-emit (letrec (scheme backend) expression declaration environment bindings-output body-code)
   `(letrec ,bindings-output
+     ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(jazz:define-emit (named-let (scheme backend) expression declaration environment variable-emit bindings-output body-code)
+  `(let ,variable-emit ,bindings-output
      ,@(jazz:sourcified-form body-code)))
 
 

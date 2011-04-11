@@ -47,9 +47,13 @@
 
 
 (define-emit (definition (javascript backend) declaration environment expression)
-  (let ((name (get-name~ declaration)))
-    `(definition ,name
-       ,expression)))
+  (let ((locator (get-locator~ declaration)))
+    (if (and (pair? expression)
+             (eq? (car expression) '%fun))
+        (bind (parameters . body) (cdr expression)
+          `(%fun ,locator ,parameters
+             ,@body))
+      `(%var ,locator ,expression))))
 
 
 ;;;
@@ -58,7 +62,7 @@
 
 
 (define-emit (specialize (javascript backend) expression declaration environment)
-  `(specialize))
+  (unimplemented 'specialize))
 
 
 ;;;
@@ -67,8 +71,7 @@
 
 
 (define-emit (generic (javascript backend) declaration environment signature-emit body-emit)
-  `(generic ,signature-emit
-     ,@(jazz:sourcified-form body-emit)))
+  (unimplemented 'generic))
 
 
 ;;;
@@ -77,8 +80,7 @@
 
 
 (define-emit (specific (javascript backend) declaration environment signature-emit body-emit)
-  `(specific ,signature-emit
-     ,@(jazz:sourcified-form body-emit)))
+  (unimplemented 'specific))
 
 
 ;;;
@@ -87,13 +89,7 @@
 
 
 (define-emit (class (javascript backend) declaration environment)
-  (let ((name (get-name~ declaration))
-        (ascendant (get-name~ (get-ascendant~ declaration)))
-        (interfaces (map get-name~ (get-interfaces~ declaration)))
-        (body (get-body~ declaration)))
-    (let ((body-emit (emit-namespace-statements body declaration environment backend)))
-      `(class ,name ,ascendant ,interfaces
-         ,@body-emit))))
+  (unimplemented 'class))
 
 
 ;;;
@@ -102,11 +98,7 @@
 
 
 (define-emit (interface (javascript backend) declaration environment)
-  (let ((name (get-name~ declaration))
-        (body (get-body~ declaration)))
-    (let ((body-emit (emit-namespace-statements body declaration environment backend)))
-      `(interface ,name
-         ,@body-emit))))
+  (unimplemented 'interface))
 
 
 ;;;
@@ -115,8 +107,7 @@
 
 
 (define-emit (slot (javascript backend) declaration environment initialize-emit)
-  (let ((name (get-name~ declaration)))
-    `(slot ,name)))
+  (unimplemented 'slot))
 
 
 ;;;
@@ -125,8 +116,7 @@
 
 
 (define-emit (property (javascript backend) declaration environment initialize-emit)
-  (let ((name (get-name~ declaration)))
-    `(property ,name)))
+  (unimplemented 'property))
 
 
 ;;;
@@ -135,9 +125,7 @@
 
 
 (define-emit (method (javascript backend) declaration environment signature-emit signature-casts body-emit)
-  (let ((name (get-name~ declaration)))
-    `(method (,name)
-       ,body-emit)))
+  (unimplemented 'method))
 
 
 ;;;
@@ -146,8 +134,7 @@
 
 
 (define-emit (with-self (javascript backend) expression declaration environment body-emit)
-  `(with-self
-     ,@(jazz:sourcified-form body-emit)))
+  (unimplemented 'with-self))
 
 
 ;;;
@@ -156,8 +143,7 @@
 
 
 (define-emit (with-dynamic-self (javascript backend) expression declaration environment body-emit)
-  `(with-dynamic-self
-     ,@(jazz:sourcified-form body-emit)))
+  (unimplemented 'with-dynamic-self))
 
 
 ;;;
@@ -166,11 +152,7 @@
 
 
 (define-emit (dispatch (javascript backend) expression declaration environment object-code rest-codes)
-  (let ((name (get-name~ expression)))
-    (new-code
-      `(dispatch ,name ,(jazz:sourcified-form object-code) ,@(jazz:codes-forms rest-codes))
-      Any
-      (get-source~ expression))))
+  (unimplemented 'dispatch))
 
 
 ;;;
@@ -179,7 +161,7 @@
 
 
 (define-emit (cast (javascript backend) expression declaration environment type expression-emit)
-  `(cast ,(jazz:sourcified-form expression-emit)))
+  (unimplemented 'cast))
 
 
 ;;;
@@ -188,8 +170,7 @@
 
 
 (define-emit (construct (javascript backend) expression declaration environment class-emit values-emit)
-  `(construct ,(jazz:sourcified-form class-emit)
-              ,@(jazz:codes-forms values-emit)))
+  (unimplemented 'construct))
 
 
 ;;;
@@ -198,7 +179,7 @@
 
 
 (define-emit (c-definition-reference (javascript backend) declaration)
-  `(c-definition-reference))
+  (unimplemented 'c-definition-reference))
 
 
 (define-emit (category-reference (javascript backend) declaration)
@@ -218,7 +199,7 @@
 
 
 (define-emit (generic-reference (javascript backend) declaration)
-  `(generic-reference))
+  (unimplemented 'generic-reference))
 
 
 (define-emit (method-reference (javascript backend) declaration source-declaration environment self)
@@ -247,23 +228,15 @@
 
 
 (define-emit (method-node-call (javascript backend) expression declaration operator arguments)
-  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
+  (unimplemented 'method-node-call))
 
 
 (define-emit (method-binding-call (javascript backend) binding binding-src dispatch-code self arguments)
-  `(method-binding-call
-    ,(jazz:sourcified-form self)
-    ,@arguments))
+  (unimplemented 'method-binding-call))
 
 
 (define-emit (nextmethod-binding-call (javascript backend) binding binding-src self arguments)
-  (let ((name (get-name~ binding)))
-    (if self
-        `(,name
-           ,(jazz:sourcified-form self)
-           ,@(jazz:codes-forms arguments))
-      `(,name
-         ,@(jazz:codes-forms arguments)))))
+  (unimplemented 'nextmethod-binding-call))
 
 
 ;;;
@@ -312,8 +285,9 @@
 
 
 (define-emit (definition-assignment (javascript backend) declaration source-declaration environment value-code)
-  `(definition-assignment ,(jazz:sourcified-form value-code)))
+  (let ((locator (get-locator~ declaration)))
+    `(c= ,locator ,(jazz:sourcified-form value-code))))
 
 
 (define-emit (slot-assignment (javascript backend) declaration source-declaration environment self value-code)
-  `(slot-assignment ,(jazz:sourcified-form value-code))))
+  (unimplemented 'slot-assignment)))

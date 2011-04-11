@@ -47,10 +47,8 @@
 
 
 (define-emit (module (javascript backend) declaration environment)
-  (let ((name (get-name~ declaration))
-        (dialect-name (get-dialect-name~ declaration))
-        (body-expansion (jazz:emit-namespace-statements (get-body~ declaration) declaration environment backend)))
-    `(module ,name ,dialect-name
+  (let ((body-expansion (jazz:emit-namespace-statements (get-body~ declaration) declaration environment backend)))
+    `(%begin
        ,@body-expansion)))
 
 
@@ -60,8 +58,7 @@
 
 
 (define-emit (declare (javascript backend) expression declaration environment)
-  (let ((declarations (get-declarations~ expression)))
-    `(declare ,@declarations)))
+  #f)
 
 
 ;;;
@@ -79,7 +76,7 @@
 
 
 (define-emit (begin (javascript backend) expression declaration environment code)
-  `(begin ,@(jazz:sourcified-form code)))
+  `(%begin ,@(jazz:sourcified-form code)))
 
 
 ;;;
@@ -88,8 +85,18 @@
 
 
 (define-emit (lambda (javascript backend) expression declaration environment signature-emit signature-casts cast-body)
-  `(lambda ,signature-emit
+  `(%fun ,signature-emit
      ,cast-body))
+
+
+;;;
+;;;; Binding
+;;;
+
+
+(define (emit-binding binding)
+  (bind (name value) binding
+    `(%var ,name ,value)))
 
 
 ;;;
@@ -98,17 +105,8 @@
 
 
 (define-emit (let (javascript backend) expression declaration environment bindings-output body-code)
-  `(let ,bindings-output
-     ,@(jazz:sourcified-form body-code)))
-
-
-;;;
-;;;; Named Let
-;;;
-
-
-(define-emit (named-let (javascript backend) expression declaration environment variable-emit bindings-output body-code)
-  `(let ,variable-emit ,bindings-output
+  `(%begin
+     ,@(map emit-binding bindings-output)
      ,@(jazz:sourcified-form body-code)))
 
 
@@ -118,7 +116,8 @@
 
 
 (define-emit (letstar (javascript backend) expression declaration environment bindings-output body-code)
-  `(let* ,bindings-output
+  `(%begin
+     ,@(map emit-binding bindings-output)
      ,@(jazz:sourcified-form body-code)))
 
 
@@ -128,8 +127,18 @@
 
 
 (define-emit (letrec (javascript backend) expression declaration environment bindings-output body-code)
-  `(letrec ,bindings-output
+  `(%begin
+     ,@(map emit-binding bindings-output)
      ,@(jazz:sourcified-form body-code)))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(define-emit (named-let (javascript backend) expression declaration environment variable-emit bindings-output body-code)
+  (unimplemented 'named-let))
 
 
 ;;;
@@ -138,9 +147,7 @@
 
 
 (define-emit (receive (javascript backend) expression declaration environment bindings-output expression-output body-code)
-  `(receive ,bindings-output
-       ,expression-output
-     ,@(jazz:sourcified-form body-code)))
+  (unimplemented 'receive))
 
 
 ;;;
@@ -178,7 +185,7 @@
 
 
 (define-emit (cond (javascript backend) expression declaration environment)
-  `(cond))
+  (unimplemented 'cond))
 
 
 ;;;
@@ -187,7 +194,7 @@
 
 
 (define-emit (case (javascript backend) expression declaration environment target-emit clauses clauses-emit)
-  `(case))
+  (unimplemented 'case))
 
 
 ;;;
@@ -196,9 +203,7 @@
 
 
 (define-emit (do (javascript backend) expression declaration environment bindings-output test-code result-code body-code)
-  `(do ,bindings-output
-       (,(jazz:sourcified-form test-code) ,@(jazz:sourcified-form result-code))
-     ,@(jazz:sourcified-form body-code)))
+  (unimplemented 'do))
 
 
 ;;;
@@ -207,7 +212,7 @@
 
 
 (define-emit (delay (javascript backend) expression declaration environment expr)
-  `(delay ,(jazz:sourcified-form expr)))
+  (unimplemented 'delay))
 
 
 ;;;
@@ -216,15 +221,7 @@
 
 
 (define-emit (quasiquote (javascript backend) expression declaration environment)
-  (define (emit form)
-    (if (pair? form)
-        (if (or (eq? (car form) 'unquote)
-                (eq? (car form) 'unquote-splicing))
-            (list (car form) (sourcified-form (emit-expression (cadr form) declaration environment backend)))
-          (cons (emit (car form)) (emit (cdr form))))
-      form))
-  
-  (list 'quasiquote (emit (get-form~ expression))))
+  (unimplemented 'quasiquote))
 
 
 ;;;
@@ -233,7 +230,7 @@
 
 
 (define-emit (parameterize (javascript backend) expression declaration environment body-code)
-  `(parameterize))
+  (unimplemented 'parameterize))
 
 
 ;;;
@@ -242,7 +239,7 @@
 
 
 (define-emit (time (javascript backend) expression declaration environment expressions)
-  `(time))
+  (unimplemented 'time))
 
 
 ;;;
@@ -251,43 +248,43 @@
 
 
 (define-emit (autoload-reference (javascript backend) declaration environment referenced-declaration)
-  `(autoload-reference))
+  (unimplemented 'autoload-reference))
 
 
 (define-emit (define-reference (javascript backend) declaration)
-  `(define-reference ,(get-locator~ declaration)))
+  (get-locator~ declaration))
 
 
 (define-emit (export-reference (javascript backend) declaration)
-  `(export-reference ,(get-symbol~ declaration)))
+  (get-symbol~ declaration))
 
 
 (define-emit (export-syntax-reference (javascript backend) declaration)
-  `(export-syntax-reference))
+  (get-symbol~ declaration))
 
 
 (define-emit (local-variable-reference (javascript backend) declaration)
-  `(local-variable-reference ,(get-variable~ declaration)))
+  (get-variable~ declaration))
 
 
 (define-emit (special-form-reference (javascript backend) binding)
-  `(special-form-reference))
+  (get-name~ binding))
 
 
 (define-emit (variable-reference (javascript backend) binding source-declaration environment)
-  `(variable-reference ,(get-name~ binding)))
+  (get-name~ binding))
 
 
 (define-emit (lexical-binding-reference (javascript backend) binding)
-  `(lexical-binding-reference ,(get-name~ binding)))
+  (get-name~ binding))
 
 
 (define-emit (named-parameter-reference (javascript backend) binding)
-  `(named-parameter-reference ,(get-name~ binding)))
+  (get-name~ binding))
 
 
 (define-emit (symbol-reference (javascript backend) binding)
-  `(symbol-reference ,(get-name~ binding)))
+  (get-name~ binding))
 
 
 ;;;
@@ -305,8 +302,7 @@
 
 
 (define-emit (walk-binding-binding-call (javascript backend) binding binding-src operator arguments)
-  `(,(jazz:sourcified-form2 operator binding-src)
-    ,@(jazz:codes-forms arguments)))
+  #f)
 
 
 ;;;
@@ -315,8 +311,9 @@
 
 
 (define-emit (define-assignment (javascript backend) declaration source-declaration environment value-code)
-  `(define-assignment ,(jazz:sourcified-form value-code)))
+  (let ((locator (get-locator~ declaration)))
+    `(c= ,locator ,(jazz:sourcified-form value-code))))
 
 
 (define-emit (variable-assignment (javascript backend) binding source-declaration environment binding-code value-code)
-  `(variable-assignment ,(jazz:sourcified-form value-code))))
+  `(c= ,binding-code ,(jazz:sourcified-form value-code))))

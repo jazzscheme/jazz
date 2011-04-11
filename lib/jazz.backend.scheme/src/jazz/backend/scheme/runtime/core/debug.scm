@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Debugging
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,32 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.debug
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+;; inspect a Jazz object
+(define (inspect obj)
+  (jazz:inspect-object (if (integer? obj) (jazz:serial->object obj) obj)))
+
+
+;; run the message loop
+(define (run-loop)
+  (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
+        (run-loop (jazz:global-ref 'jazz.system.process.Process:Process:run-loop)))
+    (run-loop (get-process))))
+
+
+;; resume the message loop
+(define (resume)
+  (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
+        (invoke-resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:invoke-resume-loop)))
+    (invoke-resume-loop (get-process))))
+
+
+;; start a scheme repl
+(define (start-scheme-repl)
+  (jazz:load-unit 'jazz)
+  (jazz:load-unit 'jazz.debuggee)
+  ((jazz:module-ref 'jazz.debuggee 'set-default-context) #f)
+  ((jazz:module-ref 'jazz.debuggee 'transmit-information-unavailable))
+  ((jazz:module-ref 'jazz 'start-repl))))

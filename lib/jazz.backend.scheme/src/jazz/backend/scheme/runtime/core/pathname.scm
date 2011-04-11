@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Pathname
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.pathname
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(cond-expand
+  (gambit
+    (define jazz:pathname-expand path-expand)
+    (define jazz:file-rename rename-file)
+    (define jazz:directory-delete delete-directory)
+    
+    (define (jazz:current-directory)
+      (let ((dir (current-directory)))
+        (jazz:pathname-normalize
+          (if (jazz:pathname-exists? dir)
+              dir
+            "~"))))
+    
+    (define (jazz:current-directory-set! dir)
+      (current-directory dir))
+    
+    (define (jazz:with-current-directory dir thunk)
+      (parameterize ((current-directory dir))
+        (thunk))))
+  
+  (else)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Step
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.step
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(declare (proper-tail-calls))
+
+
+(define (install-step-handler proc)
+  (define (handler leapable? $code rte execute-body . other)
+    (##step-off)
+    (process-step
+      proc
+      $code
+      (lambda ()
+        (##apply execute-body (##cons $code (##cons rte other))))))
+  
+  (let ((cs (##current-stepper)))
+    (vector-set! cs 0 (vector handler handler handler handler handler handler handler))
+    (void)))
+
+
+(define (process-step proc $code execute)
+  (proc
+    (##code-locat $code)
+    (lambda (cmd)
+      (case cmd
+        ((step)
+         (##step-on)
+         (execute))
+        ((leap) ;; does this really work????
+         (let ((result (execute)))
+           (##step-on)
+           result))
+        ((continue)
+         (execute)))))))

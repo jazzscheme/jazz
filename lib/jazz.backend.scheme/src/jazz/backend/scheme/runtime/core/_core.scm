@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Jazz Core
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(module protected jazz.backend.scheme.runtime.core scheme
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(require (jazz.backend.scheme.runtime.core.base64)
+         (jazz.backend.scheme.runtime.core.continuation)
+         (jazz.backend.scheme.runtime.core.debug)
+         (jazz.backend.scheme.runtime.core.development)
+         (jazz.backend.scheme.runtime.core.exception)
+         (jazz.backend.scheme.runtime.core.foreign)
+         (jazz.backend.scheme.runtime.core.memory)
+         (jazz.backend.scheme.runtime.core.network)
+         (jazz.backend.scheme.runtime.core.number)
+         (jazz.backend.scheme.runtime.core.pathname)
+         (jazz.backend.scheme.runtime.core.port)
+         (jazz.backend.scheme.runtime.core.reader)
+         (jazz.backend.scheme.runtime.core.repository)
+         (jazz.backend.scheme.runtime.core.stack)
+         (jazz.backend.scheme.runtime.core.step)
+         (jazz.backend.scheme.runtime.core.structure)
+         (jazz.backend.scheme.runtime.core.system)
+         (jazz.backend.scheme.runtime.core.table)
+         (jazz.backend.scheme.runtime.core.thread)
+         (jazz.backend.scheme.runtime.core.time)
+         (jazz.backend.scheme.runtime.core.vector)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Network
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.network
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(cond-expand
+  (gambit
+    (define jazz:open-tcp-client open-tcp-client)
+    (define jazz:open-tcp-server open-tcp-server)
+    (define jazz:tcp-server-socket-info tcp-server-socket-info)
+    
+    (define (jazz:call-with-tcp-client settings proc)
+      (let ((port #f))
+        (dynamic-wind
+          (lambda ()
+            (set! port (open-tcp-client settings)))
+          (lambda ()
+            (proc port))
+          (lambda ()
+            (if port
+                (close-port port))))))
+    
+    (define jazz:socket-info-address socket-info-address)
+    (define jazz:socket-info-port-number socket-info-port-number))
+  
+  (else)))

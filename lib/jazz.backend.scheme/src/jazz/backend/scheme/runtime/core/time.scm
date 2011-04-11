@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Time
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.time
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(define jazz:current-systime current-time)
+(define jazz:systime? time?)
+(define jazz:systime->seconds time->seconds)
+(define jazz:seconds->systime seconds->time)
+(define jazz:process-times process-times)
+(define jazz:cpu-time cpu-time)
+(define jazz:real-time real-time))

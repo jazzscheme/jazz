@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Structures
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,53 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.structure
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(define (jazz:kind? obj)
+  (##type? obj))
+
+(define (jazz:kind-id type)
+  (##type-id type))
+
+(define (jazz:kind-name type)
+  (##type-name type))
+
+(define (jazz:kind-flags type)
+  (##type-flags type))
+
+(define (jazz:kind-super type)
+  (##type-super type))
+
+(define (jazz:kind-length type)
+  (##type-field-count type))
+
+(define (jazz:kind-fields type)
+  (let loop ((index 1)
+             (fields (##type-all-fields type))
+             (alist '()))
+       (if (%%pair? fields)
+           (let* ((name (%%car fields))
+                  (rest (%%cdr fields))
+                  (options (%%car rest))
+                  (rest (%%cdr rest))
+                  (val (%%car rest))
+                  (rest (%%cdr rest)))
+             (loop (%%fx+ index 1)
+                   rest
+                   (%%cons (%%list name index options val)
+                           alist)))
+         (jazz:reverse! alist))))
+
+
+(define (jazz:structure? obj)
+  (##structure? obj))
+
+(define (jazz:structure-kind obj)
+  (##structure-type obj))
+
+(define (jazz:structure-ref obj i type)
+  (##structure-ref obj i type #f))
+
+(define (jazz:structure-set! obj val i type)
+  (##structure-set! obj val i type #f)))

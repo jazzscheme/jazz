@@ -42,4 +42,4 @@
 
 
 (export (scheme.dialect.syntax)
-        (scheme.dialect.runtime)))
+        (scheme.backend.scheme.runtime)))

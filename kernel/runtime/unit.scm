@@ -115,6 +115,10 @@
          (format-to port fmt-string arguments))))))
 
 
+(define jazz:system-format
+  jazz:format)
+
+
 ;;;
 ;;;; Exception
 ;;;

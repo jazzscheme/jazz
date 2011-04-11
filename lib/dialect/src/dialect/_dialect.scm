@@ -42,6 +42,10 @@
          (core.generic)
          (core.exception)
          
+         (dialect.syntax)
+         #; ( ;; backend-merge
          (core.module.syntax)
          (core.module.runtime)
-         (core.module.initialize)))
+         (core.module.initialize)
+         )
+         (backend.scheme.runtime)))

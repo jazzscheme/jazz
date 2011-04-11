@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Foreign Interface
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,24 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.foreign
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+(cond-expand
+  (gambit
+    (define jazz:foreign? foreign?)
+    (define jazz:foreign-address foreign-address)
+    (define jazz:foreign-release! foreign-release!)
+    (define jazz:foreign-released? foreign-released?)
+    (define jazz:foreign-tags foreign-tags)
+    
+    ;(define (jazz:still-obj-refcount foreign)
+    ;  (%%still-obj-refcount foreign))
+    
+    (define (jazz:still-obj-refcount-dec! foreign)
+      (%%still-obj-refcount-dec! foreign))
+    
+    (define (jazz:still-obj-refcount-inc! foreign)
+      (%%still-obj-refcount-inc! foreign)))
+  
+  (else)))

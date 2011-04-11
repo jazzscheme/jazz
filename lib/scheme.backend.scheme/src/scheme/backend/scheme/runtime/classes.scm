@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Scheme Scheme Backend Runtime Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,23 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected scheme.backend.scheme.runtime.classes
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+;;;
+;;;; Define
+;;;
+
+
+(jazz:define-class-runtime jazz:Define)
+
+
+(define (jazz:new-define name locator)
+  (jazz:allocate-define jazz:Define name locator))
+
+
+(jazz:encapsulate-class jazz:Define)
+
+
+(define (jazz:register-define module-name name locator)
+  (jazz:register-module-entry module-name name (jazz:new-define name locator))))

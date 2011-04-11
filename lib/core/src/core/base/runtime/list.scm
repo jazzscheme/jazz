@@ -102,6 +102,13 @@
       '())))
 
 
+(define (jazz:proper-list lst)
+  (let iter ((scan lst))
+    (if (pair? scan)
+        (cons (car scan) (iter (cdr scan)))
+      '())))
+
+
 (define (jazz:partition lst key associate)
   (let iter ((scan lst))
     (if (%%null? scan)

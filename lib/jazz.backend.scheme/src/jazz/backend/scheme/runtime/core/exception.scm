@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Exception Handling
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,10 +17,12 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Marc Feeley
+;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,9 +37,44 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.exception
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+;;;
+;;;; Hook
+;;;
+
+
+(define (jazz:get-exception-hook)
+  ##primordial-exception-handler-hook)
+
+(define (jazz:set-exception-hook hook)
+  (set! ##primordial-exception-handler-hook hook))
+
+
+(define (jazz:invoke-exception-hook hook exc)
+  (hook exc ##thread-end-with-uncaught-exception!))
+
+
+;;;
+;;;; System
+;;;
+
+
+(define (jazz:system-exception-hook exc other)
+  (##repl-exception-handler-hook exc other))
+
+
+;;;
+;;;; Terminal
+;;;
+
+
+(define (jazz:set-terminal-title)
+  (display "\033]0;Terminal\007" (repl-output-port)))
+
+(define (jazz:bring-terminal-to-front)
+  (display "\033[5t" (repl-output-port)))
+
+(define (jazz:clear-terminal)
+  (display "\033[H\033[J" (repl-output-port))))

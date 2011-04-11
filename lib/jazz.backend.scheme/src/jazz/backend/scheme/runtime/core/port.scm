@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Dialect
+;;;; Ports
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit foundation
+(unit protected jazz.backend.scheme.runtime.core.port
 
 
-(require (dialect)
-         (foundation.syntax)
-         (foundation.backend.scheme.runtime)))
+;;;
+;;;; Port
+;;;
+
+
+(cond-expand
+  (gambit
+    (define jazz:close-port close-port)
+    (define jazz:input-port-timeout-set! input-port-timeout-set!)
+    (define jazz:output-port-timeout-set! output-port-timeout-set!))
+  
+  (else))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(define jazz.language.runtime.debug.get-console-port
+  #f)
+
+(set! jazz.language.runtime.debug.get-console-port #f)
+
+
+(define (jazz:get-console-port)
+  (if jazz.language.runtime.debug.get-console-port
+      (jazz.language.runtime.debug.get-console-port)
+    #f)))

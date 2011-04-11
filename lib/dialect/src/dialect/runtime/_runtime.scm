@@ -39,5 +39,4 @@
 
 
 (require (dialect.runtime.syntax)
-         (dialect.runtime.autoload)
-         (dialect.runtime.initialize)))
+         (dialect.runtime.autoload)))

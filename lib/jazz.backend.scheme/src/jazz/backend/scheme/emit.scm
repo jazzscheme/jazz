@@ -519,8 +519,116 @@
 ;;;
 
 
-(jazz:define-emit (primitive-call (scheme backend) expression declaration operator arguments)
-  #f)
+;; We should really expand using %% primitives but this cannot be used directly as we want for
+;; instance %%+ to expand into ##+ or + depending on safety level but because the code is expanded
+;; in Jazz code, the + would get captured as we have no way of safely saying scheme.+ in Scheme...
+
+
+;; To make this alot more clean would necessitate moving the specializer into the walk phase so that the
+;; result of inlining can be Jazz code. With this we could specialize for instance (##length x) and ##length
+;; would simply be an external typed as <list:int> which would do all type propagation automatically.
+;; This is really difficult to achieve because as inlining can impact type inference it also needs
+;; to be done at emit phase... Even better, all those should be specialized definitions in Jazz with support
+;; for specializing based on static types...
+
+
+(define jazz:*primitive-patterns*
+  '())
+
+
+(define (jazz:initialize-primitive-patterns)
+  (let ((table (%%make-table test: eq?)))
+    (for-each (lambda (pair)
+                (let ((operator (%%car pair))
+                      (patterns (%%cdr pair)))
+                  (%%table-set! table operator
+                    (map (lambda (pattern)
+                           (let ((name (%%car pattern))
+                                 (specifier (%%cadr pattern)))
+                             (%%list name (jazz:walk-specifier #f #f #f '() specifier))))
+                         patterns))))
+              jazz:*primitive-patterns*)
+    (set! jazz:*primitive-patterns* table)))
+
+
+(define (jazz:add-primitive-patterns operator patterns)
+  (set! jazz:*primitive-patterns* (%%cons (%%cons operator patterns) jazz:*primitive-patterns*)))
+
+
+(define (jazz:get-primitive-patterns locator)
+  (%%table-ref jazz:*primitive-patterns* locator '()))
+
+
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:=              '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:<              '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:<=             '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:>              '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:>=             '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)))
+
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:+              '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:-              '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:*              '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
+
+;; only done in release as these can crash on a division by zero
+(cond-expand
+  (release
+    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:/          '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:quotient   '((##fxquotient <fx^fx:fx>))))
+  (else))
+
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:floor          '(                     (##flfloor    <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:ceiling        '(                     (##flceiling  <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:truncate       '(                     (##fltruncate <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:round          '(                     (##flround    <fl:fl>)))
+
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:not            '((##not  <any:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eq?            '((##eq?  <any^any:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eqv?           '((##eqv? <any^any:bool>)))
+
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:car            '((##car    <pair:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:cdr            '((##cdr    <pair:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:length         '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
+
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx+              '((##fx+ <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx-              '((##fx- <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx*              '((##fx* <fx^fx:fx>)))
+
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl+              '(                     (##fl+ <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl-              '(                     (##fl- <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl*              '(                     (##fl* <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl/              '(                     (##fl/ <fl^fl:fl>)))
+
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fixnum->flonum   '((##fixnum->flonum <fx:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:flonum->fixnum   '(                     (##flonum->fixnum <fl:fx>)))
+
+(jazz:add-primitive-patterns 'jazz.language.runtime.functional:element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
+
+
+(jazz:initialize-primitive-patterns)
+
+
+(jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration environment)
+  (if (%%not locator)
+        #f
+    (let ((patterns (jazz:get-primitive-patterns locator)))
+      (let ((types (jazz:codes-types arguments-codes)))
+        (let iter ((scan patterns))
+             (if (%%null? scan)
+                 (begin
+                   (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
+                             ;; a bit extreme for now
+                             (%%not (%%memq locator '(scheme.language.runtime.kernel:car
+                                                       scheme.language.runtime.kernel:cdr))))
+                     (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
+                   #f)
+               (jazz:bind (name function-type) (%%car scan)
+                 (if (jazz:match-signature? arguments types function-type)
+                     (jazz:new-code
+                       `(,name ,@(jazz:codes-forms arguments-codes))
+                       (%%get-function-type-result function-type)
+                       #f)
+                   (iter (%%cdr scan))))))))))
 
 
 ;;;

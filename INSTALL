@@ -41,28 +41,18 @@ X11 on the Mac
   settings, X11 may need to be manually started before launching the Jedi IDE.
 
 
-Binaries
-========
-
-To install a binary release, simply extract it anywhere you want and then launch
-  - the Jazz kernel: bin/jazz.exe or
-  - the Jedi IDE: bin/jedi.exe
-
-
 Sources
 =======
 
-JazzScheme uses Git: http://git.or.cz/ to store all development files. You will
-need to install Git to access the Jazz repository.
+JazzScheme uses Git http://git.or.cz/ to store and access all development files.
 
-Repository
-  The repository is currently hosted at
-  git://github.com/jazzscheme/jazz-devel.git
+Repositories
+  The JazzScheme repositories are hosted at github :
+    Jazz -> git://github.com/jazzscheme/jazz.git
+    Jedi -> git://github.com/jazzscheme/jedi.git
 
-Troubleshooting
-  If you get an error like "fatal: unable to connect a socket (Connection timed out)"
-  it may be that you are behind a firewall that blocks outbound connections on Git's
-  port 9418.
+  If you plan on using the Jedi IDE, only clone the Jedi repository as it will
+  automatically include the Jazz repository as a submodule.
 
 Help
   Some usefull Git links :
@@ -70,50 +60,50 @@ Help
   - http://www.kernel.org/pub/software/scm/git/docs/user-manual.html
   - http://www.kernel.org/pub/software/scm/git/docs/gittutorial.html
 
-User Scenario
-  ;; clone the JazzScheme repository (only once)
-  ;; this will create a 'jazz' directory containing all development files
-  $ git clone git://github.com/jazzscheme/jazz-devel.git
-  $ cd jazz-devel
+Troubleshooting
+  If you get an error like "fatal: unable to connect a socket (Connection timed out)"
+  it may be that you are behind a firewall that blocks outbound connections on Git's
+  port 9418.
 
-  ;; After you clone the repository, you should never modify the master branch
-  ;; as it will make subsequent pulls more prone to failure. This can easily
-  ;; happen if you modify files in the Jazz source tree when experimenting
-  ;; around. You should always work in your own branch, lets say 'work'
-  $ git branch work
-  $ git checkout work
+
+Examples
+--------
+
+Jedi User
+  ;; clone the Jedi repository (only once)
+  ;; this will create a 'jazz' directory containing all development files
+  $ git git://github.com/jazzscheme/jedi.git
+  $ cd jedi
 
   ;; pull from time to time to get the latest revision
-  $ git checkout master
   $ git pull
-  $ git checkout work
-  $ git rebase master
 
-Contributor Scenario
-  ;; clone the JazzScheme repository (only once)
+Jazz Contributor
+  ;; clone the Jazz repository (only once)
   ;; this will create a 'jazz' directory containing all development files
-  $ git clone git://github.com/jazzscheme/jazz-devel.git
-  $ cd jazz-devel
+  $ git clone git://github.com/jazzscheme/jazz.git
+  $ cd jazz
 
   ;; add email and name information that will appear in patches you submit
   $ git config user.email "you@email.com"
   $ git config user.name "Your Name"
 
-  ;; after you clone the repository, you should never modify the master branch
-  ;; as it will be used by git-rebase. You should always work in your own
-  ;; branch, lets say 'work'
-  $ git branch work
-  $ git checkout work
+  ;; create a public branch that will be used to rebase your changes
+  $ git branch public
+  $ git checkout master
 
-  ;; commit any changes you have made
-  ;; the -a option is necessary if you added any new file to the Jazz tree
-  $ git commit -a -m "Some nice message describing your changes"
+  ;; commit changes you made and want to contribute
+  ;; note that the -a option is necessary if you added any new files
+  $ git commit -a -m "Some message describing your changes"
 
   ;; pull from time to time to get the latest revision and rebase your changes
-  $ git checkout master
+  ;; rebasing your changes before sending your changes as patches will greatly
+  ;; minimize risks of conflicts when the Jazz maintainers apply your patches to
+  ;; the central repository
+  $ git checkout public
   $ git pull
-  $ git checkout work
-  $ git rebase master
+  $ git checkout master
+  $ git rebase public
   ;; optional step: fix any rebase conflicts
   ;; see http://www.kernel.org/pub/software/scm/git/docs/git-rebase.html for details
   ;; edit and resolve conflicts in all the conflicting files
@@ -121,75 +111,89 @@ Contributor Scenario
   $ git rebase --continue
 
   ;; send contributions as a series of patch files
-  ;; make sure you do the previous step of rebasing your changes just before
-  ;; doing this as this will greatly minimize risks of conflicts when the Jazz
-  ;; maintainers apply your patches to the central repository
   $ git format-patch origin
   <email generated patch files to gcartier@jazzscheme.org>
 
-Maintainer Scenario
+Maintainer
   ;; publish some changes
   $ git push pub master
 
   ;; merge contributions
   $ git am -3 *.patch
-  ;; optional step: fix any am conflict
+  ;; optional step: fix any conflict
   $ git am --resolved
 
 
 Building
 ========
 
-Building Jazz follows the usual configure / make methodology. The only unusual
-thing is that, as the underlying Scheme already represents a platform
-independant abstraction, there is no need to use the low-level GNU tools. The
-build system is fully implemented using the underlying Scheme.
+Building Jazz or Jedi follows the usual configure / make methodology. As the underlying
+Scheme system already represents a platform independant abstraction though, there is no
+need to use the low-level GNU tools. The build system is fully implemented in Scheme,
+accessed using the ./jam (Jazz Manager) script.
+
+Building Jazz or Jedi follows the exact same methodology. Simply invoke ./jam from
+the Jazz or the Jedi source directory. Jam will take care of updating Git submodule
+dependencies and of building all the source files that have changed since the last build.
 
 Note that building the platform target will generate many warnings. These are due
 to limitations in the current implementation of the foreign-function interface and
 can be safely ignored.
 
-A full build of Jedi, e.g. 'make jedi', will take about 10mn on a MacBook Pro and
-require about 2G of memory to build without disk swapping.
-
-To load the build system, just launch jam from Jazz's source directory.
+A full build of Jedi, e.g. './jam make jedi', will take about 10mn on a MacBook Pro
+and require about 2G of memory to build without disk swapping.
 
 
 Examples
 --------
 
-Building all the pre-installed packages
-  ./jam
-  JazzScheme Build System v2.0.0
+Building all the pre-installed Jazz packages
+  $ cd jazz
+  $ ./jam
+  JazzScheme Build System v2.6
 
   % configure
   <default>
     system: gambit
     platform: windows
     safety: release
+    ...
 
   % make
   ...
 
 Building Jedi and the samples
-  ./jam
-  JazzScheme Build System v2.0.0
+  $ cd jedi
+  $ ./jam
+  JazzScheme Build System v2.6
 
-  % make jedi
+  % configure
+  <default>
+    system: gambit
+    platform: windows
+    safety: release
+    ...
+
+  % make
   ...
 
 Building many targets at a time
-  ./jam
-  JazzScheme Build System v2.0.0
+  $ cd jazz
+  $ ./jam
+  JazzScheme Build System v2.6
 
-  % make jedi jazz@debug
+  ;; this will build:
+  ;; - the jazz target in the <default> configuration
+  ;; - the platform target in the debug configuration
+  ;; - the default target in the release configuration
+  % make jazz platform@debug @release
   ...
 
 
 Scripting
 ---------
 
-Launching the build system using jbs with no options starts it in interactive mode
+Launching the build system using jam with no options starts it in interactive mode
 which is unsuitable for batch scripting.
 
 For scripting, the build system can be invoked directly from the command line :
@@ -278,8 +282,7 @@ debug-source?
   - #t
 
 kernel-interpret?
-  An advanced option for Jazz developers to enable loading the kernel fully
-  interpreted.
+  An option for Jazz developers to enable loading the kernel fully interpreted.
   - #f (the default)
   - #t
 
@@ -308,6 +311,7 @@ target
   - scheme       : the scheme dialect
   - jazz         : the jazz dialect
   - jedi         : the jedi ide
+  - platform     : the platform packages
   - all          : the pre-installed packages
   - clean        : remove all build files
   - cleankernel  : remove all kernel files
@@ -396,7 +400,7 @@ Delete a configuration.
 delete [configuration]
 
 
-Quit
+quit
 ----
 
 Quit the build system.
@@ -423,7 +427,7 @@ product that is being built.
 - If the problem is in building the kernel, launch the build system in debug
   mode with: './jam debug'. This will disable the build system's own REPL and
   get you a Gambit REPL. To build configuration <configuration-name>:<image>,
-  execute: (jazz.make 'kernel@<configuration-name>:<image>).
+  execute: (jazz:make 'kernel@<configuration-name>:<image>).
 
 - Else, find the built 'kernel.exe' kernel located inside the build directory
   and launch it like this: kernel -make target -debug.

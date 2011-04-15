@@ -123,22 +123,22 @@
 (jazz:define-option jazz:default-safety
   'release)
 
-(jazz:define-option jazz:default-optimize
+(jazz:define-option jazz:default-optimize?
   #t)
 
-(jazz:define-option jazz:default-debug-environments
+(jazz:define-option jazz:default-debug-environments?
   #t)
 
-(jazz:define-option jazz:default-debug-location
+(jazz:define-option jazz:default-debug-location?
   #t)
 
-(jazz:define-option jazz:default-debug-source
+(jazz:define-option jazz:default-debug-source?
   #f)
 
-(jazz:define-option jazz:default-mutable-bindings
+(jazz:define-option jazz:default-mutable-bindings?
   #f)
 
-(jazz:define-option jazz:default-kernel-interpret
+(jazz:define-option jazz:default-kernel-interpret?
   #f)
 
 (jazz:define-option jazz:default-destination
@@ -597,7 +597,7 @@
 
 
 (define (jazz:require-optimize? optimize)
-  (jazz:or-option optimize (jazz:default-optimize)))
+  (jazz:or-option optimize (jazz:default-optimize?)))
 
 
 (define (jazz:validate-optimize? optimize)
@@ -617,7 +617,7 @@
 
 
 (define (jazz:require-debug-environments? debug-environments)
-  (jazz:or-option debug-environments (jazz:default-debug-environments)))
+  (jazz:or-option debug-environments (jazz:default-debug-environments?)))
 
 
 (define (jazz:validate-debug-environments? debug-environments)
@@ -637,7 +637,7 @@
 
 
 (define (jazz:require-debug-location? debug-location)
-  (jazz:or-option debug-location (jazz:default-debug-location)))
+  (jazz:or-option debug-location (jazz:default-debug-location?)))
 
 
 (define (jazz:validate-debug-location? debug-location)
@@ -657,7 +657,7 @@
 
 
 (define (jazz:require-debug-source? debug-source)
-  (jazz:or-option debug-source (jazz:default-debug-source)))
+  (jazz:or-option debug-source (jazz:default-debug-source?)))
 
 
 (define (jazz:validate-debug-source? debug-source)
@@ -677,7 +677,7 @@
 
 
 (define (jazz:require-mutable-bindings? mutable-bindings)
-  (jazz:or-option mutable-bindings (jazz:default-mutable-bindings)))
+  (jazz:or-option mutable-bindings (jazz:default-mutable-bindings?)))
 
 
 (define (jazz:validate-mutable-bindings? mutable-bindings)
@@ -697,7 +697,7 @@
 
 
 (define (jazz:require-kernel-interpret? kernel-interpret)
-  (jazz:or-option kernel-interpret (jazz:default-kernel-interpret)))
+  (jazz:or-option kernel-interpret (jazz:default-kernel-interpret?)))
 
 
 (define (jazz:validate-kernel-interpret? kernel-interpret)

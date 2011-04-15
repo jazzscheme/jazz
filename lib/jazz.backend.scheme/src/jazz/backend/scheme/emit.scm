@@ -449,6 +449,25 @@
 ;;;
 
 
+(jazz:define-emit (call (scheme backend) expression declaration environment)
+  (let ((operator (%%get-call-operator expression))
+        (arguments (%%get-call-arguments expression)))
+    (let ((locator (if (%%class-is? operator jazz:Binding-Reference)
+                       (let ((binding (%%get-reference-binding operator)))
+                         (if (%%class-is? binding jazz:Declaration)
+                             (%%get-declaration-locator binding)
+                           #f))
+                     #f))
+          (arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
+      (jazz:sourcify-code
+        (or (jazz:emit-specialized-call operator locator arguments arguments-codes expression declaration environment backend)
+            (jazz:emit-new-call operator locator arguments arguments-codes declaration environment backend)
+            (jazz:emit-primitive-call operator locator arguments arguments-codes declaration environment backend)
+            (jazz:emit-inlined-call operator arguments-codes expression declaration environment backend)
+            (jazz:emit-call operator arguments-codes declaration environment backend))
+        (%%get-expression-source expression)))))
+
+
 (jazz:define-emit (method-node-call (scheme backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 

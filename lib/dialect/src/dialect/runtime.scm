@@ -3978,7 +3978,7 @@
 (jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'call backend expression declaration operator arguments)
+      (jazz:emit 'expression-call backend expression declaration operator arguments)
       jazz:Any
       #f)))
 
@@ -4208,22 +4208,13 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Call expression) declaration environment backend)
-  (let ((operator (%%get-call-operator expression))
-        (arguments (%%get-call-arguments expression)))
-    (let ((locator (if (%%class-is? operator jazz:Binding-Reference)
-                       (let ((binding (%%get-reference-binding operator)))
-                         (if (%%class-is? binding jazz:Declaration)
-                             (%%get-declaration-locator binding)
-                           #f))
-                     #f))
-          (arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
-      (jazz:sourcify-code
-        (or (jazz:emit-specialized-call operator locator arguments arguments-codes expression declaration environment backend)
-            (jazz:emit-new-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-primitive-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-inlined-call operator arguments-codes expression declaration environment backend)
-            (jazz:emit-call operator arguments-codes declaration environment backend))
-        (%%get-expression-source expression)))))
+  (or (jazz:emit 'call backend expression declaration environment)
+      (let ((operator (%%get-call-operator expression))
+            (arguments (%%get-call-arguments expression)))
+        (let ((arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
+          (jazz:sourcify-code
+            (jazz:emit-call operator arguments-codes declaration environment backend)
+            (%%get-expression-source expression))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Call expression) down up here seed environment)

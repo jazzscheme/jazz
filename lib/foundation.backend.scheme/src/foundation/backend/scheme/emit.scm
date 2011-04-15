@@ -379,7 +379,11 @@
 ;;;
 
 
-(jazz:define-emit (call (scheme backend) expression declaration operator arguments)
+(jazz:define-emit (call (scheme backend) expression declaration environment)
+  #f)
+
+
+(jazz:define-emit (expression-call (scheme backend) expression declaration operator arguments)
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 

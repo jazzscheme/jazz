@@ -1908,7 +1908,7 @@
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Syntax-Declaration binding) walker resume declaration environment form-src)
   (let ((locator (%%get-declaration-locator binding)))
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-        (jazz:walk-warning walker resume declaration "Syntaxes shouldn't be used from within the same file: {s}" locator))
+        (jazz:walk-warning walker declaration form-src "Syntaxes shouldn't be used from within the same file: {s}" locator))
     (let ((parent-declaration (%%get-declaration-parent binding)))
       (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
       (let* ((define-syntax-form (jazz:need-macro locator))
@@ -3380,7 +3380,7 @@
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect))
                (resume #f)
-               (actual (jazz:get-catalog-entry name))
+               (actual (jazz:valid-catalog-entry name))
                (declaration (jazz:call-with-catalog-entry-lock name
                               (lambda ()
                                 (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)))
@@ -5322,6 +5322,13 @@
                            (%%cdr entry)
                          entry))))
     (jazz:set-catalog-entry unit-name (if status (%%cons status declaration) declaration))))
+
+
+(define (jazz:valid-catalog-entry unit-name)
+  (let ((entry (jazz:get-catalog-entry unit-name)))
+    (if (%%pair? entry)
+        (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
+      entry)))
 
 
 (define (jazz:release-catalog-entries)

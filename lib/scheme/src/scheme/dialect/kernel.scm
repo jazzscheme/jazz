@@ -361,9 +361,11 @@
 (native transcript-on <string:void>)
 (native transcript-off <:void>)
 
+
 ;;;
-;;;; Syntactic Closures
+;;;; Syntactic Closure
 ;;;
+
 
 (native make-syntactic-closure)
 (native syntactic-closure?)
@@ -375,4 +377,34 @@
 (native identifier=?)
 (native er-macro-transformer)
 (native sc-macro-transformer)
-(native rsc-macro-transformer))
+(native rsc-macro-transformer)
+
+
+;;;
+;;;; Port
+;;;
+
+
+(native open-input-string)
+(native open-output-string)
+(native get-output-string)
+(native call-with-input-string)
+(native with-input-from-string)
+(native call-with-output-string)
+(native with-output-to-string)
+(native read-line)
+
+
+;;;
+;;;; Table
+;;;
+
+
+(native table?)
+(native make-table)
+(native table-for-each)
+(native table-ref)
+(native table-set!)
+(native table->list)
+(native list->table)
+(native jazz:iterate-table))

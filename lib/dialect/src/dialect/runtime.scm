@@ -2438,9 +2438,10 @@
         (jazz:register-local-macro declaration (%%get-declaration-locator new-declaration)
           (jazz:with-annotated-frame (jazz:annotate-signature signature)
             (lambda (frame)
-              (let ((augmented-environment (%%cons frame environment)))
-                (eval `(lambda ,(jazz:emit-signature signature declaration augmented-environment #f)
-                         ,@(jazz:sourcified-form (jazz:emit-expression walked-body declaration augmented-environment #f))))))))
+              (let ((augmented-environment (%%cons frame environment))
+                    (backend (jazz:require-backend 'scheme)))
+                (eval `(lambda ,(jazz:emit-signature signature declaration augmented-environment backend)
+                         ,@(jazz:sourcified-form (jazz:emit-expression walked-body declaration augmented-environment backend))))))))
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -2696,7 +2697,7 @@
                                  (else env))))
                     (jazz:new-define-local-syntax-form
                       (%%get-declaration-locator new-declaration)
-                      (eval (car (jazz:sourcified-form (jazz:emit-expression walked-body declaration augmented-environment #f))))
+                      (eval (car (jazz:sourcified-form (jazz:emit-expression walked-body declaration augmented-environment (jazz:require-backend 'scheme)))))
                       env))))))
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
             effective-declaration))))))

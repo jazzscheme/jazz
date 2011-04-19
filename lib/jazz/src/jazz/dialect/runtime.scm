@@ -741,7 +741,10 @@
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Method-Declaration expression) down up here seed environment)
-  (jazz:tree-fold (%%get-method-declaration-body expression) down up here seed environment))
+  (let ((body (%%get-method-declaration-body expression)))
+    (if (%%not body)
+        (here expression seed environment)
+      (jazz:tree-fold body down up here seed environment))))
 
 
 (jazz:encapsulate-class jazz:Method-Declaration)

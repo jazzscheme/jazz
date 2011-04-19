@@ -38,24 +38,21 @@
 (module protected jazz.language.syntax.increase scheme
 
 
-(import (jazz.language.runtime.kernel))
+(import (jazz.language.runtime.kernel)
+        (scheme.language.syntax-rules (phase syntax)))
 
 
-;; @macro (increase! x) @expansion (set! x (+ x 1))
-;; @macro (increase! x (f)) @expansion (set! x (+ x (f)))
-
-(syntax public (increase! form-src)
-  (let ((location (cadr (source-code form-src)))
-        (rest (cddr (source-code form-src))))
-    (let ((increment (if (null? rest) 1 (car rest))))
-      `(set! ,location (+ ,location ,increment)))))
+(define-syntax public increase!
+  (syntax-rules ()
+    ((_ location)
+     (increase! location 1))
+    ((_ location increment)
+     (set! location (+ location increment)))))
 
 
-;; @macro (decrease! x) @expansion (set! x (- x 1))
-;; @macro (decrease! x (f)) @expansion (set! x (- x (f)))
-
-(syntax public (decrease! form-src)
-  (let ((location (cadr (source-code form-src)))
-        (rest (cddr (source-code form-src))))
-    (let ((increment (if (null? rest) 1 (car rest))))
-      `(set! ,location (- ,location ,increment))))))
+(define-syntax public decrease!
+  (syntax-rules ()
+    ((_ location)
+     (decrease! location 1))
+    ((_ location increment)
+     (set! location (- location increment))))))

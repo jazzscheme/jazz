@@ -369,17 +369,17 @@
 ;;;
 
 
-(native make-syntactic-closure)
-(native syntactic-closure?)
-(native syntactic-closure-form)
-(native unwrap-syntactic-closure)
-(native strip-syntactic-closures)
-(native strip-source-info)
-(native identifier?)
-(native identifier=?)
-(native er-macro-transformer)
+(native jazz:make-syntactic-closure)
+(native jazz:syntactic-closure?)
+(native jazz:syntactic-closure-form)
+(native jazz:unwrap-syntactic-closure)
+(native jazz:strip-syntactic-closures)
+(native jazz:strip-source-info)
+(native jazz:identifier?)
+(native jazz:identifier=?)
 (native sc-macro-transformer)
 (native rsc-macro-transformer)
+(native er-macro-transformer)
 
 
 ;;;
@@ -395,6 +395,7 @@
 (native call-with-output-string)
 (native with-output-to-string)
 (native read-line)
+(native pretty-print)
 
 
 ;;;

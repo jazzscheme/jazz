@@ -41,8 +41,8 @@
 (require (foundation)
          (jazz.dialect.syntax)
          (jazz.dialect.runtime)
-         (jazz.backend.scheme.runtime)
-         (jazz.backend.scheme.emit))
+         (jazz.backend.scheme)
+         (jazz.backend.scheme.runtime))
 
 
 (export (jazz.language.syntax (phase syntax))

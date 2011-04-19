@@ -310,6 +310,8 @@
       (define (process-require require)
         (jazz:parse-require require
           (lambda (unit-name feature-requirement phase)
+            (if (%%eq? phase 'syntax)
+                (jazz:load-unit unit-name))
             (iter unit-name phase #f))))
       
       (if (%%not (%%memq unit-name subunits))

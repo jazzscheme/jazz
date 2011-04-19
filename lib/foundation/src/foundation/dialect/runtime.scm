@@ -94,5 +94,4 @@
 (jazz:define-walker-special define-local-syntax foundation jazz:walk-define-local-syntax)
 (jazz:define-walker-special let-syntax          foundation jazz:walk-let-syntax)
 (jazz:define-walker-special letrec-syntax       foundation jazz:walk-letrec-syntax)
-(jazz:define-walker-special reference           foundation jazz:walk-reference)
 (jazz:define-walker-special walk-failed?        foundation jazz:walk-walk-failed))

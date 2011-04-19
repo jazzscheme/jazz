@@ -172,8 +172,8 @@
 
 (cond-expand
   (gambit
-    (set! jazz:print-hook
-          (lambda (object port style)
-            (let ((detail (if (eq? style 'display) ':human ':reader)))
-              (jazz:print-jazz object port detail)))))
+    (jazz:define-variable-override jazz:print-hook
+      (lambda (object port style)
+        (let ((detail (if (eq? style 'display) ':human ':reader)))
+          (jazz:print-jazz object port detail)))))
   (else)))

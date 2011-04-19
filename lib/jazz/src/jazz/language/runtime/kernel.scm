@@ -821,7 +821,7 @@
 (native jazz:read-proper-line)
 (native jazz:read-all)
 (native jazz:print)
-(native jazz:pretty-print)
+;(native jazz:pretty-print)
 (native jazz:read-source-all)
 (native jazz:read-source-first)
 (native jazz:read-literal-hook)

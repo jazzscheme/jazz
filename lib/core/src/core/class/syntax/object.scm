@@ -72,6 +72,11 @@
         (lambda (cls)
           `(##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz)))))
     
+    (define (jazz:new-object class . rest)
+      (let ((obj (%%list->vector (%%cons class rest))))
+        (##subtype-set! obj (%%subtype-jazz))
+        obj))
+    
     (jazz:define-macro (%%make-object class size)
       (jazz:with-uniqueness class
         (lambda (cls)

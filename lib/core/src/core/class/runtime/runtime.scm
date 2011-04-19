@@ -268,9 +268,9 @@
               (let ((ascendant-vtable (%%get-class-core-vtable ascendant)))
                 (%%when ascendant-vtable
                   (let iter ((n (%%fx- (%%vector-length ascendant-vtable) 1)))
-                    (%%when (%%fx>= n 0)
-                      (%%vector-set! vtable n (%%vector-ref ascendant-vtable n))
-                      (iter (%%fx- n 1))))))))
+                       (%%when (%%fx>= n 0)
+                         (%%vector-set! vtable n (%%vector-ref ascendant-vtable n))
+                         (iter (%%fx- n 1))))))))
           (for-each (lambda (method)
                       (let ((method-name (%%car method))
                             (method-implementation (%%cdr method)))
@@ -366,7 +366,6 @@
           slot-names
           instance-size
           (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
-          #f
           '()
           '()
           (if ascendant (%%get-class-core-virtual-names ascendant) '())
@@ -657,10 +656,9 @@
     (%%set-class-instance-slots class (if ascendant (%%get-class-instance-slots ascendant) '()))
     (%%set-class-instance-size class (if ascendant (%%get-class-instance-size ascendant) jazz:object-size))
     (%%set-class-level class (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0))
-    (%%set-class-dispatch-table class #f) ;; toremove - dispatch-table
-    (%%set-class-core-method-alist class #f)
-    (%%set-class-core-virtual-alist class #f)
-    (%%set-class-core-virtual-names class #f)
+    (%%set-class-core-method-alist class '())
+    (%%set-class-core-virtual-alist class '())
+    (%%set-class-core-virtual-names class (if ascendant (%%get-class-core-virtual-names ascendant) '()))
     (%%set-class-core-vtable class (if ascendant (%%get-class-core-vtable ascendant) #f))
     (%%set-class-class-table class #f)
     (%%set-class-interface-table class #f)

@@ -71,11 +71,8 @@
 (define jazz:class-level
   (%%fx+ jazz:class-instance-size 1))
 
-(define jazz:class-dispatch-table
-  (%%fx+ jazz:class-level 1))
-
 (define jazz:class-core-method-alist
-  (%%fx+ jazz:class-dispatch-table 1))
+  (%%fx+ jazz:class-level 1))
 
 (define jazz:class-core-virtual-alist
   (%%fx+ jazz:class-core-method-alist 1))
@@ -185,36 +182,28 @@
   `(%%object-set! ,class ,jazz:class-level ,size))
 
 
-(jazz:define-macro (%%get-class-dispatch-table class)
-  `(%%object-ref ,class ,jazz:class-dispatch-table))
-
-
-(jazz:define-macro (%%set-class-dispatch-table class vtable)
-  `(%%object-set! ,class ,jazz:class-dispatch-table ,vtable))
-
-
 (jazz:define-macro (%%get-class-core-method-alist class)
   `(%%object-ref ,class ,jazz:class-core-method-alist))
 
 
-(jazz:define-macro (%%set-class-core-method-alist class vtable)
-  `(%%object-set! ,class ,jazz:class-core-method-alist ,vtable))
+(jazz:define-macro (%%set-class-core-method-alist class alist)
+  `(%%object-set! ,class ,jazz:class-core-method-alist ,alist))
 
 
 (jazz:define-macro (%%get-class-core-virtual-alist class)
   `(%%object-ref ,class ,jazz:class-core-virtual-alist))
 
 
-(jazz:define-macro (%%set-class-core-virtual-alist class vtable)
-  `(%%object-set! ,class ,jazz:class-core-virtual-alist ,vtable))
+(jazz:define-macro (%%set-class-core-virtual-alist class alist)
+  `(%%object-set! ,class ,jazz:class-core-virtual-alist ,alist))
 
 
 (jazz:define-macro (%%get-class-core-virtual-names class)
   `(%%object-ref ,class ,jazz:class-core-virtual-names))
 
 
-(jazz:define-macro (%%set-class-core-virtual-names class vtable)
-  `(%%object-set! ,class ,jazz:class-core-virtual-names ,vtable))
+(jazz:define-macro (%%set-class-core-virtual-names class names)
+  `(%%object-set! ,class ,jazz:class-core-virtual-names ,names))
 
 
 (jazz:define-macro (%%get-class-core-vtable class)
@@ -229,16 +218,16 @@
   `(%%object-ref ,class ,jazz:class-class-table))
 
 
-(jazz:define-macro (%%set-class-class-table class vtable)
-  `(%%object-set! ,class ,jazz:class-class-table ,vtable))
+(jazz:define-macro (%%set-class-class-table class table)
+  `(%%object-set! ,class ,jazz:class-class-table ,table))
 
 
 (jazz:define-macro (%%get-class-interface-table class)
   `(%%object-ref ,class ,jazz:class-interface-table))
 
 
-(jazz:define-macro (%%set-class-interface-table class vtable)
-  `(%%object-set! ,class ,jazz:class-interface-table ,vtable))
+(jazz:define-macro (%%set-class-interface-table class table)
+  `(%%object-set! ,class ,jazz:class-interface-table ,table))
 
 
 (jazz:define-macro (%%get-object-class object)

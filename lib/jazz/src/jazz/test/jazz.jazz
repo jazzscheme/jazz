@@ -1,0 +1,43 @@
+(module jazz.test.jazz jazz
+
+
+(import (jazz.core (phase syntax))
+        (jazz.dialect.classes.base))
+
+
+(class Foo extends Expression
+  
+  
+  (slot x getter generate))
+
+
+(encapsulate-class Foo)
+
+
+(class Goo extends Expression
+  
+  
+  (slot expressions getter generate)
+  
+  
+  (method override (initialize source expressions)
+    (nextmethod)
+    (set! expressions~self expressions)))
+
+
+(define-method (emit-expression (Goo expression) declaration environment backend)
+  (let ((expressions (emit-expressions (get-expressions~ expression) declaration environment backend)))
+    (new-code
+      (emit 'and backend expression declaration environment expressions)
+      Any
+      (get-source~ expression))))
+
+
+(encapsulate-class Goo)
+
+
+(define (walk-goo walker resume declaration environment form-src)
+  (new Goo form-src (walk-list walker resume declaration environment (cdr (source-code form-src)))))
+
+
+(define-walker-special goo jazz walk-goo))

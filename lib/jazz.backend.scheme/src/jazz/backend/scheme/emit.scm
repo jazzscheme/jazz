@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.backend.scheme.emit
+(unit protected jazz.backend.scheme.emit
 
 
 ;;;

@@ -128,6 +128,10 @@
       #f)))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Definition-Declaration expression) down up here seed environment)
+  (jazz:tree-fold (%%get-definition-declaration-value expression) down up here seed environment))
+
+
 (jazz:encapsulate-class jazz:Definition-Declaration)
 
 
@@ -736,6 +740,10 @@
           (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit))))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Method-Declaration expression) down up here seed environment)
+  (jazz:tree-fold (%%get-method-declaration-body expression) down up here seed environment))
+
+
 (jazz:encapsulate-class jazz:Method-Declaration)
 
 
@@ -886,7 +894,7 @@
 
 
 (jazz:define-method (jazz:walk-symbol (jazz:Jazz-Walker walker) resume declaration environment symbol-src)
-  (let ((symbol (unwrap-syntactic-closure symbol-src)))
+  (let ((symbol (jazz:unwrap-syntactic-closure symbol-src)))
     (jazz:split-tilde symbol
       (lambda (tilde? name self/class-name)
         (if tilde?
@@ -901,7 +909,7 @@
                            (%%assert (%%class-is? method-declaration jazz:Method-Declaration)
                              (jazz:new-method-node-reference method-declaration)))))))
                   ((and name (not self/class-name))
-                   (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (unwrap-syntactic-closure symbol-src)) symbol-src)))
+                   (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src)) symbol-src)))
                      (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
                   ((and (not name) self/class-name)
                    (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
@@ -980,6 +988,13 @@
         (jazz:emit 'with-self backend expression declaration environment body-emit)
         jazz:Any
         #f))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:With-Self expression) down up here seed environment)
+  (let ((aug-env environment #; (cons 'self environment)
+          )
+        (seed1 (down expression seed environment)))
+    (up expression seed (jazz:tree-fold (%%get-with-self-body expression) down up here seed1 aug-env) environment)))
 
 
 (jazz:encapsulate-class jazz:With-Self)
@@ -1219,7 +1234,7 @@
 
 
 (define (jazz:walk-dispatch walker resume declaration environment form-src)
-  (let ((name (jazz:dispatch->symbol (unwrap-syntactic-closure (%%car (jazz:source-code form-src)))))
+  (let ((name (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure (%%car (jazz:source-code form-src)))))
         (arguments (%%cdr (jazz:source-code form-src))))
     (%%assertion (%%not (%%null? arguments)) (jazz:walk-error walker resume declaration form-src "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
       (jazz:new-dispatch form-src name

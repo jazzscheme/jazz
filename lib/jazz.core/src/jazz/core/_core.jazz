@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Output Hook
+;;;; Jazz Core
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,20 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.class.runtime.output-hook
+(module jazz.core jazz
 
 
-(cond-expand
-  (gambit
-    (jazz:define-variable jazz:print-hook
-      #f)
-    
-    
-    (set! ##wr
-          (lambda (we obj)
-            (cond ((and (##jazz? obj) jazz:print-hook)
-                   (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
-                  (else
-                   (jazz:write-object (jazz:class-of obj) we obj))))))
-  
-  (else)))
+(export (scheme.core.kernel))
+(import (scheme.core.kernel))
+
+
+;;;
+;;;; Special
+;;;
+
+
+(define-macro (define-walker-special name dialect-name method)
+  `(register-binding ',dialect-name (new-special-form ',name ,method)))
+
+
+;;;
+;;;; Method
+;;;
+
+
+(define-macro (define-method signature . body)
+  (let* ((name (car signature))
+         (parameters (cdr signature))
+         (class-name (caar parameters))
+         (object-parameter (cadr (car parameters)))
+         (extra-parameters (cdr parameters))
+         (implementation-name (method-implementation-name class-name name)))
+    `(begin
+       (define ,implementation-name
+         (let ((nextmethod (find-nextmethod ,class-name ',name)))
+           (lambda (,object-parameter ,@extra-parameters)
+             ,@body)))
+       (register-method ,class-name ',(string->symbol (string-append "jazz:" (symbol->string name))) ,implementation-name)))))

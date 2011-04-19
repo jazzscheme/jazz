@@ -1,7 +1,18 @@
 (module jazz.test.b jazz
 
+(import (scheme.language.syntax-rules (phase syntax)))
+
 #;
-(class Version extends Object)
+(define-syntax public when2
+  (sc-macro-transformer
+    (lambda (form env)
+      (let ((form (strip-source-info form)))
+        `(if ,(make-syntactic-closure env '() (cadr form))
+             (begin
+               ,@(map (lambda (form)
+                        (make-syntactic-closure env '() form))
+                      (cddr form)))
+           #f)))))
 
 #;
 (define-syntax public swap!
@@ -22,7 +33,6 @@
           `(let ((value ,var1))
              (,func value ,var2)))))))
 
-#;
 (define-syntax public swap!
   (sc-macro-transformer
     (lambda (form env)

@@ -83,4 +83,86 @@
 
 (jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-define-macro-declaration
   ((signature %%get-define-macro-signature %%set-define-macro-signature)
-   (body      %%get-define-macro-body      %%set-define-macro-body))))
+   (body      %%get-define-macro-body      %%set-define-macro-body)))
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(jazz:define-class jazz:Lambda jazz:Expression (type source) jazz:Object-Class jazz:allocate-lambda
+  ((signature %%get-lambda-signature ())
+   (body      %%get-lambda-body      ())))
+
+
+;;;
+;;;; Let
+;;;
+
+
+(jazz:define-class jazz:Let jazz:Expression (type source) jazz:Object-Class jazz:allocate-let
+  ((bindings %%get-let-bindings ())
+   (body     %%get-let-body     ())))
+
+
+;;;
+;;;; Named Let
+;;;
+
+
+(jazz:define-class jazz:Named-Let jazz:Let (type source bindings body) jazz:Object-Class jazz:allocate-named-let
+  ((variable %%get-named-let-variable ())))
+
+
+;;;
+;;;; Letstar
+;;;
+
+
+(jazz:define-class jazz:Letstar jazz:Expression (type source) jazz:Object-Class jazz:allocate-letstar
+  ((bindings %%get-letstar-bindings ())
+   (body     %%get-letstar-body     ())))
+
+
+;;;
+;;;; Letrec
+;;;
+
+
+(jazz:define-class jazz:Letrec jazz:Expression (type source) jazz:Object-Class jazz:allocate-letrec
+  ((bindings %%get-letrec-bindings ())
+   (body     %%get-letrec-body     ())))
+
+
+;;;
+;;;; Receive
+;;;
+
+
+(jazz:define-class jazz:Receive jazz:Expression (type source) jazz:Object-Class jazz:allocate-receive
+  ((variables  %%get-receive-variables  ())
+   (expression %%get-receive-expression ())
+   (body       %%get-receive-body       ())))
+
+
+;;;
+;;;; Do
+;;;
+
+
+(jazz:define-class jazz:Do jazz:Expression (type source) jazz:Object-Class jazz:allocate-do
+  ((bindings %%get-do-bindings ())
+   (test     %%get-do-test     ())
+   (result   %%get-do-result   ())
+   (body     %%get-do-body     ())))
+
+
+;;;
+;;;; Reference Reification
+;;;
+
+
+(jazz:define-class jazz:Reference-Reification jazz:Expression (type source) jazz:Object-Class jazz:allocate-reference-reification
+  ((reference %%get-reference-reification-reference ())
+   (resolver  %%get-reference-reification-resolver  ()))))

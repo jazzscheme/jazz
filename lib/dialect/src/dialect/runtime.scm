@@ -3473,7 +3473,7 @@
 (define (jazz:identifier? x)
   (cond ((jazz:syntactic-closure? x) (jazz:identifier? (jazz:syntactic-closure-form x)))
         ((%%source? x) (jazz:identifier? (%%source-code x)))
-        (else (symbol? x))))
+        (else (%%symbol? x))))
 
 
 ;; identifiers are equal if they resolve to the same lexical binding
@@ -3838,7 +3838,7 @@
 
 (define (jazz:walk-unresolved walker resume declaration symbol-src)
   (let ((location (jazz:walk-location walker declaration (jazz:source-locat symbol-src))))
-    (jazz:walker-error walker resume (jazz:new-unresolved-error location (jazz:source-code symbol-src)))))
+    (jazz:walker-error walker resume (jazz:new-unresolved-error location (jazz:unwrap-syntactic-closure symbol-src)))))
 
 
 (define (jazz:walker-warning walker warning)

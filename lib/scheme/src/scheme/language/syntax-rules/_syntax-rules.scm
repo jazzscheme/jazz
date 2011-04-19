@@ -74,6 +74,7 @@
              (_reverse (rename 'reverse))
              (_vector->list (rename 'vector->list))
              (_list->vector (rename 'list->vector))
+             (_error (rename 'error))
              (_expr (generate-symbol "expr"))
              (_rename (generate-symbol "rename"))
              (_compare (generate-symbol "compare")))
@@ -260,8 +261,7 @@
                                               (error "syntax-rules: bad clause: {s}" clause)
                                             (expand-pattern (car clause) (cadr clause)))))
                                       forms)
-                                  (error "syntax-rules: no expansion: {s}" ,_expr))
-                                ))))
+                                  (,_error "syntax-rules: no expansion: {s}" ,_expr))))))
           ;; (cond
           ;;  ((memq (caar (strip-syntactic-closures (car forms))) '(match))
           ;;   (display "expansion: ") (write (strip-syntactic-closures res)) (newline)))

@@ -234,7 +234,7 @@
         (%%string->symbol arg)
       arg))
   
-  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
                      (lambda (options remaining)
                        (let ((nosource? (jazz:get-option "nosource" options))
                              (debug? (jazz:get-option "debug" options))
@@ -255,6 +255,7 @@
                              (make (jazz:get-option "make" options))
                              (build (jazz:get-option "build" options))
                              (install (jazz:get-option "install" options))
+                             (expand (jazz:get-option "expand" options))
                              (compile (jazz:get-option "compile" options))
                              (debugger (jazz:get-option "debugger" options))
                              (link (symbol-argument (jazz:get-option "link" options)))
@@ -329,6 +330,11 @@
                                (jazz:product
                                  (setup-runtime)
                                  (jazz:run-product jazz:product))
+                               (expand
+                                 (setup-build)
+                                 (jazz:load-unit 'foundation)
+                                 (jazz:load-unit 'dialect.development)
+                                 ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
                                (compile
                                  (setup-build)
                                  (jazz:custom-compile-unit (%%string->symbol compile) force?: force?))

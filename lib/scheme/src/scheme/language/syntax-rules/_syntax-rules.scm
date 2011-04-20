@@ -38,12 +38,15 @@
 (module scheme.language.syntax-rules scheme
 
 
+(export syntax-rules)
+
+
 (native private jazz:generate-symbol)
 (native private jazz:source?)
 (native private jazz:error)
 
 
-(define-syntax public syntax-rules
+(syntax syntax-rules
   (rsc-macro-transformer
     (lambda (expr macro-env)
       (define (rename x) (make-syntactic-closure macro-env '() x))

@@ -42,11 +42,15 @@
 
 
 @w
+(export template
+        instantiate-butlast)
+
+@w
 (import (jazz.language.runtime.kernel))
 
 
 @w
-(macro public (template type)
+(define-macro (template type)
   `(specialize inline (butlast seq ,type) ,type
      (subseq seq 0 (- (length seq) 1))))
 
@@ -74,6 +78,6 @@
 
 
 @w
-(macro public (instantiate-butlast type)
+(define-macro (instantiate-butlast type)
   `(specialize inline (butlast seq ,type) ,type
      (subseq seq 0 (- (length seq) 1))))))

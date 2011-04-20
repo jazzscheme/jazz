@@ -38,6 +38,8 @@
 (module protected jazz.language.syntax.loop scheme
 
 
+(export loop)
+
 (import (jazz.language.runtime.kernel)
         (jazz.language.syntax.increase (phase syntax))
         (jazz.language.syntax.bind (phase syntax))
@@ -132,11 +134,12 @@
       (finally (list even odd)))
 
 
-(syntax public (loop form-src)
-  (let ((clauses (cdr (source-code form-src))))
-    (sourcify-if
-      (expand-loop clauses)
-      form-src)))
+(define-syntax loop
+  (lambda (form-src usage-environment macro-environment)
+    (let ((clauses (cdr (source-code form-src))))
+      (sourcify-if
+        (expand-loop clauses)
+        form-src))))
 
 
 (define noobject

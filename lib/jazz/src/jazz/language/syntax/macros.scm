@@ -38,6 +38,18 @@
 (module protected jazz.language.syntax.macros scheme
 
 
+(export submodule
+        constant
+        when
+        unless
+        prog1
+        while
+        unwind-protect
+        catch
+        ~
+        c-constant
+        c-enumeration)
+
 (import (jazz.language.runtime.kernel)
         (scheme.language.syntax-rules (phase syntax)))
 
@@ -55,15 +67,16 @@
       form-src)))
 
 
-(syntax public (constant form-src)
-  (let ((name (cadr (source-code form-src)))
-        (value (caddr (source-code form-src))))
-    (sourcify-if
-      `(definition public ,name ,value)
-      form-src)))
+(define-syntax constant
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (value (caddr (source-code form-src))))
+      (sourcify-if
+        `(definition public ,name ,value)
+        form-src))))
 
 
-(define-syntax package expand-body
+(define-syntax expand-body
   (syntax-rules ()
     ((_)
      (unspecified))
@@ -71,21 +84,7 @@
      (begin expr ...))))
 
 
-#; ;; old
-(syntax public (when form-src)
-  (let ((test (cadr (source-code form-src)))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      `(if ,test
-           (begin
-             ,@(if (null? body)
-                   (list (list 'unspecified))
-                 body))
-         #f)
-      form-src)))
-
-
-(define-syntax public when
+(define-syntax when
   (syntax-rules ()
     ((when test expr ...)
      (if test
@@ -93,36 +92,13 @@
        #f))))
 
 
-#; ;; old
-(syntax public (unless form-src)
-  (let ((test (cadr (source-code form-src)))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      `(if (not ,test)
-           (begin ,@body)
-         #f)
-      form-src)))
-
-
-(define-syntax public unless
+(define-syntax unless
   (syntax-rules ()
     ((unless test expr ...)
      (when (not test) expr ...))))
 
 
-#; ;; old
-(syntax public (prog1 form-src)
-  (let ((returned (cadr (source-code form-src)))
-        (body (cddr (source-code form-src)))
-        (value (generate-symbol)))
-    (sourcify-if
-      `(let ((,value ,returned))
-         (begin ,@body)
-         ,value)
-      form-src)))
-
-
-(define-syntax public prog1
+(define-syntax prog1
   (syntax-rules ()
     ((prog1 returned expr ...)
      (let ((value returned))
@@ -130,21 +106,7 @@
        value))))
 
 
-#; ;; old
-(syntax public (while form-src)
-  (let ((test (cadr (source-code form-src)))
-        (body (cddr (source-code form-src)))
-        (iter (generate-symbol "iter")))
-    (sourcify-if
-      `(let (,iter)
-         (if ,test
-             (begin
-               ,@body
-               (,iter))))
-      form-src)))
-
-
-(define-syntax public while
+(define-syntax while
   (syntax-rules ()
     ((while test expr ...)
      (let (iterate)
@@ -154,18 +116,7 @@
              (iterate)))))))
 
 
-#; ;; old
-(syntax public (unwind-protect form-src)
-  (let ((body (cadr (source-code form-src)))
-        (protection (cddr (source-code form-src))))
-    (sourcify-if
-      `(dynamic-wind (lambda () #f)
-                     (lambda () ,body)
-                     (lambda () ,@protection))
-      form-src)))
-
-
-(define-syntax public unwind-protect
+(define-syntax unwind-protect
   (syntax-rules ()
     ((unwind-protect body protection ...)
      (dynamic-wind (lambda () #f)
@@ -176,43 +127,46 @@
 ;; @syntax (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
 ;; @syntax (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
-(syntax public (catch form-src)
-  (if (null? (cdr (unwrap-syntactic-closure form-src)))
-      (error "Ill-formed catch")
-    (let ((predicate/type (cadr (source-code form-src)))
-          (body (cddr (source-code form-src))))
+(define-syntax catch
+  (lambda (form-src usage-environment macro-environment)
+    (if (null? (cdr (unwrap-syntactic-closure form-src)))
+        (error "Ill-formed catch")
+      (let ((predicate/type (cadr (source-code form-src)))
+            (body (cddr (source-code form-src))))
+        (sourcify-if
+          (cond ((symbol? (source-code predicate/type))
+                 `(call-with-catch ,predicate/type (lambda (exc) exc)
+                    (lambda ()
+                      ,@body)))
+                ((pair? (source-code predicate/type))
+                 `(call-with-catch ,(car (source-code predicate/type)) (lambda (,(source-code (cadr (source-code predicate/type)))) ,@(cddr (source-code predicate/type)))
+                    (lambda ()
+                      ,@body)))
+                (else
+                 (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
+          form-src)))))
+
+
+(define-syntax ~
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (source-code (cadr (source-code form-src))))
+          (object (car (cddr (source-code form-src)))))
       (sourcify-if
-        (cond ((symbol? (source-code predicate/type))
-               `(call-with-catch ,predicate/type (lambda (exc) exc)
-                  (lambda ()
-                    ,@body)))
-              ((pair? (source-code predicate/type))
-               `(call-with-catch ,(car (source-code predicate/type)) (lambda (,(source-code (cadr (source-code predicate/type)))) ,@(cddr (source-code predicate/type)))
-                  (lambda ()
-                    ,@body)))
-              (else
-               (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
+        (with-uniqueness object
+          (lambda (obj)
+            `(lambda rest
+               (apply (dispatch (class-of ,obj) ',name) ,obj rest))))
         form-src))))
 
 
-(syntax public (~ form-src)
-  (let ((name (source-code (cadr (source-code form-src))))
-        (object (car (cddr (source-code form-src)))))
-    (sourcify-if
-      (with-uniqueness object
-        (lambda (obj)
-          `(lambda rest
-             (apply (dispatch (class-of ,obj) ',name) ,obj rest))))
-      form-src)))
-
-
-(syntax public (local-context form-src)
-  (let ((names (cdr (source-code form-src))))
-    (sourcify-if
-      `(list ,@(map (lambda (name)
-                      `(cons ',(source-code name) ,name))
-                    names))
-      form-src)))
+(define-syntax local-context
+  (lambda (form-src usage-environment macro-environment)
+    (let ((names (cdr (source-code form-src))))
+      (sourcify-if
+        `(list ,@(map (lambda (name)
+                        `(cons ',(source-code name) ,name))
+                      names))
+        form-src))))
 
 
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))
@@ -259,18 +213,20 @@
 ;;;
 
 
-(syntax public (c-constant form-src)
-  (let ((name (cadr (source-code form-src)))
-        (value (caddr (source-code form-src))))
-    (sourcify-if
-      `(definition public ,name ,value)
-      form-src)))
+(define-syntax c-constant
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (value (caddr (source-code form-src))))
+      (sourcify-if
+        `(definition public ,name ,value)
+        form-src))))
 
 
-(syntax public (c-enumeration form-src)
-  (let ((name (cadr (source-code form-src)))
-        (declarations (cddr (source-code form-src))))
-    (sourcify-if
-      (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
-        `(begin ,@definitions))
-      form-src))))
+(define-syntax c-enumeration
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (declarations (cddr (source-code form-src))))
+      (sourcify-if
+        (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
+          `(begin ,@definitions))
+        form-src)))))

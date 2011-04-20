@@ -324,7 +324,7 @@
 
 (define (jazz:walk-define-macro walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz:parse-define-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let* ((new-declaration (jazz:require-declaration declaration name)))
+    (let ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-signature new-declaration signature)
         (%%set-define-macro-body new-declaration

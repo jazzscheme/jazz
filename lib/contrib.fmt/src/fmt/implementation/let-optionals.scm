@@ -1,5 +1,7 @@
 (module fmt.implementation.let-optionals scheme
 
+(export let-optionals*)
+
 (import scheme.syntax-rules)
 
 (native private jazz:error)
@@ -20,7 +22,7 @@
 ;;        body ...))
 ;;     ))
 
-(define-syntax public let-optionals*
+(define-syntax let-optionals*
   (syntax-rules ()
     ((_ opt-ls () . body)
      (let () . body))

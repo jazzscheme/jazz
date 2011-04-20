@@ -38,15 +38,18 @@
 (module protected jazz.language.syntax.enumeration scheme
 
 
+(export enumeration)
+
 (import (jazz.language.runtime.kernel))
 
 
-(syntax public (enumeration form-src)
-  (let ((enumeration-name (cadr (source-code form-src)))
-        (names (cddr (source-code form-src))))
-    `(begin
-       (class ,enumeration-name extends Enumeration-Member)
-       ,@(map (lambda (name-src)
-                (let ((name (source-code name-src)))
-                  `(define ,(string->symbol (string-append (symbol->string (source-code enumeration-name)) ":" (symbol->string name))) (new ,enumeration-name ',name))))
-              names)))))
+(define-syntax enumeration
+  (lambda (form-src usage-environment macro-environment)
+    (let ((enumeration-name (cadr (source-code form-src)))
+          (names (cddr (source-code form-src))))
+      `(begin
+         (class ,enumeration-name extends Enumeration-Member)
+         ,@(map (lambda (name-src)
+                  (let ((name (source-code name-src)))
+                    `(define ,(string->symbol (string-append (symbol->string (source-code enumeration-name)) ":" (symbol->string name))) (new ,enumeration-name ',name))))
+                names))))))

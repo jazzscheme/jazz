@@ -88,10 +88,9 @@
                                                               (iter (%%cdr symbols) (jazz:find-declaration declaration (%%car symbols))))
                                                              (else
                                                               declaration)))
-                                                (jazz:find-declaration module-declaration symbol))))
+                                                (jazz:find-public-declaration module-declaration symbol))))
                                    (and found
-                                        (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator)
-                                        (%%neq? (%%get-declaration-access found) 'private))))
+                                        (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator))))
                                module-references))))))
   
   (let ((manifest (get-manifest)))

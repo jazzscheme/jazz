@@ -38,11 +38,18 @@
 (module protected jazz.language.syntax.templates scheme
 
 
+(export instantiate-for-each
+        instantiate-butlast
+        instantiate-find
+        instantiate-find-in
+        instantiate-starts-with?
+        instantiate-ends-with?)
+
 (import ;(jazz.language.syntax.template)
         )
 
 
-(macro public (instantiate-for-each name T)
+(define-macro (instantiate-for-each name T)
   `(specialize as ,name (for-each proc seq ,T)
      (let ((end (- (cardinality seq) 1)))
        (let (iterate (n 0))
@@ -51,14 +58,14 @@
            (iterate (+ n 1)))))))
 
 
-(macro public (instantiate-butlast T)
+(define-macro (instantiate-butlast T)
   `(specialize (butlast seq ,T) ,T
      (subseq seq 0 (- (cardinality seq) 1))))
 
 
 ;; #f should be #f when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
-(macro public (instantiate-find name T)
+(define-macro (instantiate-find name T)
   `(specialize as ,name (find seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f)) <int+>
      (let ((len (cardinality seq))
            (test (or test eqv?))
@@ -77,7 +84,7 @@
 
 ;; #f should be #f when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
-(macro public (instantiate-find-in name T)
+(define-macro (instantiate-find-in name T)
   `(specialize as ,name (find-in seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f))
      (let ((len (cardinality seq))
            (test (or test eqv?))
@@ -94,7 +101,7 @@
              #f))))))
 
 
-(macro public (instantiate-starts-with? T)
+(define-macro (instantiate-starts-with? T)
   `(specialize (starts-with? seq ,T target ,T) <bool>
      (let ((slen (cardinality seq))
            (tlen (cardinality target)))
@@ -102,7 +109,7 @@
             (= (subseq seq 0 tlen) target)))))
 
 
-(macro public (instantiate-ends-with? T)
+(define-macro (instantiate-ends-with? T)
   `(specialize (ends-with? seq ,T target ,T) <bool>
      (let ((slen (cardinality seq))
            (tlen (cardinality target)))

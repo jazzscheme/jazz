@@ -38,6 +38,8 @@
 (module protected jazz.language.syntax.ecase scheme
 
 
+(export ecase)
+
 (import (jazz.language.runtime.kernel))
 
 
@@ -51,27 +53,28 @@
 ;;               (else 3)))
 
 
-(syntax public (ecase form-src)
-  (if (null? (cdr (source-code form-src)))
-      (error "Ill-formed ecase")
-    (let ((target (cadr (source-code form-src)))
-          (clauses (cddr (source-code form-src))))
-      (sourcify-if
-        (with-uniqueness target
-          (lambda (symbol)
-            `(cond ,@(map (lambda (clause)
-                            (let ((selector (car (source-code clause)))
-                                  (body (cdr (source-code clause))))
-                              (cond ((eq? (source-code selector) 'else)
-                                     (cons 'else body))
-                                    ((pair? (source-code selector))
-                                     (cons (cons 'or (map (lambda (value)
-                                                            (if (integer? (source-code value))
-                                                                (list '= symbol value)
-                                                              (list 'eqv? symbol value)))
-                                                          (source-code selector)))
-                                           body))
-                                    (else
-                                     (error "Ill-formed selector list: {s}" (desourcify selector))))))
-                          clauses))))
-        form-src)))))
+(define-syntax ecase
+  (lambda (form-src usage-environment macro-environment)
+    (if (null? (cdr (source-code form-src)))
+        (error "Ill-formed ecase")
+      (let ((target (cadr (source-code form-src)))
+            (clauses (cddr (source-code form-src))))
+        (sourcify-if
+          (with-uniqueness target
+            (lambda (symbol)
+              `(cond ,@(map (lambda (clause)
+                              (let ((selector (car (source-code clause)))
+                                    (body (cdr (source-code clause))))
+                                (cond ((eq? (source-code selector) 'else)
+                                       (cons 'else body))
+                                      ((pair? (source-code selector))
+                                       (cons (cons 'or (map (lambda (value)
+                                                              (if (integer? (source-code value))
+                                                                  (list '= symbol value)
+                                                                (list 'eqv? symbol value)))
+                                                            (source-code selector)))
+                                             body))
+                                      (else
+                                       (error "Ill-formed selector list: {s}" (desourcify selector))))))
+                            clauses))))
+          form-src))))))

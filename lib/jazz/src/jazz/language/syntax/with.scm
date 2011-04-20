@@ -38,30 +38,33 @@
 (module protected jazz.language.syntax.with scheme
 
 
+(export with)
+
 (import (jazz.language.runtime.kernel))
 
 
 ;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
 ;; the second rect will incorrectly refer to the first rect
-(syntax public (with form-src)
-  (let ((bindings (source-code (cadr (source-code form-src))))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      `(let (,@(map (lambda (binding)
-                      (let ((specifier (or (binding-specifier binding) '<Object>)))
-                        `(,(source-code (car (source-code binding))) ,specifier #f)))
-                    bindings))
-         ,@(map (lambda (binding)
-                  (let ((variable (source-code (car (source-code binding)))))
-                    (if (binding-specifier binding)
-                        `(set! ,variable ,(caddr (source-code binding)))
-                      `(set! ,variable ,(cadr (source-code binding))))))
-                bindings)
-         (dynamic-wind (lambda () #f)
-                       (lambda () ,@body)
-                       (lambda () ,@(map (lambda (binding)
-                                           (let ((variable (source-code (car (source-code binding)))))
-                                             `(if ,variable
-                                                  (close~ ,variable))))
-                                         bindings))))
-      form-src))))
+(define-syntax with
+  (lambda (form-src usage-environment macro-environment)
+    (let ((bindings (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src))))
+      (sourcify-if
+        `(let (,@(map (lambda (binding)
+                        (let ((specifier (or (binding-specifier binding) '<Object>)))
+                          `(,(source-code (car (source-code binding))) ,specifier #f)))
+                      bindings))
+           ,@(map (lambda (binding)
+                    (let ((variable (source-code (car (source-code binding)))))
+                      (if (binding-specifier binding)
+                          `(set! ,variable ,(caddr (source-code binding)))
+                        `(set! ,variable ,(cadr (source-code binding))))))
+                  bindings)
+           (dynamic-wind (lambda () #f)
+                         (lambda () ,@body)
+                         (lambda () ,@(map (lambda (binding)
+                                             (let ((variable (source-code (car (source-code binding)))))
+                                               `(if ,variable
+                                                    (close~ ,variable))))
+                                           bindings))))
+        form-src)))))

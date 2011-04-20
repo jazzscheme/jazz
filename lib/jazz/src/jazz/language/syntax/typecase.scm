@@ -39,6 +39,8 @@
 (module protected jazz.language.syntax.typecase scheme
 
 
+(export typecase)
+
 (import (jazz.language.runtime.kernel))
 
 
@@ -52,25 +54,26 @@
 ;                    (else 3)))
 
 
-(syntax public (typecase form-src)
-  (if (null? (cdr (source-code form-src)))
-      (error "Ill-formed typecase")
-    (let ((target (cadr (source-code form-src)))
-          (clauses (cddr (source-code form-src))))
-      (sourcify-if
-        (with-uniqueness target
-          (lambda (variable)
-            `(cond ,@(map (lambda (clause)
-                            (let ((selector (car (source-code clause)))
-                                  (body (cdr (source-code clause))))
-                              (cond ((eq? (source-code selector) 'else)
-                                     `(else ,@body))
-                                    ((pair? (source-code selector))
-                                     `((or ,@(map (lambda (value)
-                                                    `(is? ,variable ,value))
-                                                  (source-code selector)))
-                                       ,@body))
-                                    (else
-                                     (error "Ill-formed selector list: {s}" (desourcify selector))))))
-                          clauses))))
-        form-src)))))
+(define-syntax typecase
+  (lambda (form-src usage-environment macro-environment)
+    (if (null? (cdr (source-code form-src)))
+        (error "Ill-formed typecase")
+      (let ((target (cadr (source-code form-src)))
+            (clauses (cddr (source-code form-src))))
+        (sourcify-if
+          (with-uniqueness target
+            (lambda (variable)
+              `(cond ,@(map (lambda (clause)
+                              (let ((selector (car (source-code clause)))
+                                    (body (cdr (source-code clause))))
+                                (cond ((eq? (source-code selector) 'else)
+                                       `(else ,@body))
+                                      ((pair? (source-code selector))
+                                       `((or ,@(map (lambda (value)
+                                                      `(is? ,variable ,value))
+                                                    (source-code selector)))
+                                         ,@body))
+                                      (else
+                                       (error "Ill-formed selector list: {s}" (desourcify selector))))))
+                            clauses))))
+          form-src))))))

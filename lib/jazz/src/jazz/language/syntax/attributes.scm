@@ -38,6 +38,8 @@
 (module protected jazz.language.syntax.attributes scheme
 
 
+(export attributes)
+
 (import (jazz.language.runtime.kernel))
 
 
@@ -81,7 +83,7 @@
 ;       (set! criteria value))))
 
 
-(macro public (attributes . form)
+(define-macro (attributes . form)
   (define (slot-name attribute)
     (string->symbol (string-append "_" (symbol->string (car attribute)))))
   

@@ -476,6 +476,10 @@
   (%%table-ref (%%get-access-lookup namespace-declaration jazz:private-access) name #f))
 
 
+(define (jazz:find-public-declaration namespace-declaration name)
+  (%%table-ref (%%get-access-lookup namespace-declaration jazz:public-access) name #f))
+
+
 (define (jazz:find-declaration-child namespace-declaration name)
   (jazz:find-if (lambda (decl)
                   (%%eq? (%%get-lexical-binding-name decl) name))
@@ -562,7 +566,7 @@
   (or (%%get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz:parse-exported-symbol module-declaration (%%get-declaration-reference-name declaration-reference))
         (let ((locator (jazz:compose-reference (%%get-lexical-binding-name module-declaration) name)))
-          (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() #f locator)))
+          (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() module-declaration locator)))
             (%%set-declaration-reference-declaration declaration-reference declaration)
             declaration)))))
 
@@ -1392,7 +1396,7 @@
 (define (jazz:new-export-syntax-declaration name type access compatibility attributes parent symbol)
   (let ((new-declaration (jazz:allocate-export-syntax-declaration jazz:Export-Syntax-Declaration name type #f access compatibility attributes #f parent #f #f symbol)))
     (jazz:setup-declaration new-declaration)
-    new-declaration))
+   ))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Export-Syntax-Declaration declaration) walker resume source-declaration operator arguments form-src)
@@ -2358,7 +2362,7 @@
 
 (define (jazz:walk-macro walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let* ((new-declaration (jazz:require-declaration declaration name)))
+    (let ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-macro-declaration-signature new-declaration signature)
         (%%set-macro-declaration-body new-declaration
@@ -2368,20 +2372,32 @@
 
 
 (define (jazz:expand-macros walker resume declaration environment form-src)
-  (define (lookup-macro-form symbol)
-    (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol)))
-      (if (and binding (jazz:walk-binding-expandable? binding))
-          binding
-        #f)))
-  
   (if (%%not (%%pair? (jazz:source-code form-src)))
       form-src
     (let ((procedure-expr (jazz:source-code (%%car (jazz:source-code form-src)))))
-      (let ((binding (and (%%symbol? procedure-expr) (lookup-macro-form procedure-expr))))
-        (if binding
+      (let ((binding (jazz:lookup-procedure-binding walker resume declaration environment procedure-expr)))
+        (if (and binding (jazz:walk-binding-expandable? binding))
             (let ((expansion (jazz:walk-binding-expand-form binding walker resume declaration environment form-src)))
               (jazz:expand-macros walker resume declaration environment expansion))
           form-src)))))
+
+
+(define (jazz:lookup-procedure-binding walker resume declaration environment procedure-expr)
+  (let ((binding
+          (cond ((jazz:identifier? procedure-expr)
+                 (jazz:lookup-symbol walker resume declaration environment procedure-expr))
+                ((or (%%class-is? procedure-expr jazz:Special-Form)
+                     (%%class-is? procedure-expr jazz:Declaration))
+                 procedure-expr)
+                ((%%class-is? procedure-expr jazz:Binding-Reference)
+                 (let ((ref (%%get-reference-binding procedure-expr)))
+                   (and (or (%%class-is? ref jazz:Special-Form)
+                            (%%class-is? ref jazz:Declaration))
+                        ref)))
+                (else #f))))
+    (if (%%is? binding jazz:Export-Declaration)
+        (jazz:require-declaration (%%get-declaration-toplevel binding) (%%get-lexical-binding-name binding))
+      binding)))
 
 
 ;;;
@@ -2523,27 +2539,6 @@
       (values name type access compatibility parameters body))))
 
 
-(define (jazz:walk-syntax-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-syntax walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
-      (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                 (jazz:new-syntax-declaration name type access compatibility '() declaration signature))))
-        (%%set-declaration-source new-declaration form-src)
-        (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
-          effective-declaration)))))
-
-
-(define (jazz:walk-syntax walker resume declaration environment form-src)
-  (receive (name type access compatibility parameters body) (jazz:parse-syntax walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let* ((new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
-        (%%set-syntax-declaration-signature new-declaration signature)
-        (%%set-syntax-declaration-body new-declaration
-          (jazz:walk-body walker resume new-declaration augmented-environment body))
-        (%%set-declaration-source new-declaration form-src)
-        new-declaration))))
-
-
 ;;;
 ;;;; Define-Syntax
 ;;;
@@ -2613,15 +2608,37 @@
 (define (jazz:walk-define-syntax-declaration walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest))))
-      (let ((new-declaration
-             (or (jazz:find-declaration-child declaration name)
-                 (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
+      (let ((new-declaration (or (jazz:find-declaration-child declaration name)
+                                 (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
+        (%%set-declaration-source new-declaration form-src)
+        (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration)))))
+
+
+(define (jazz:walk-syntax-declaration walker resume declaration environment form-src)
+  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+    (let ((name (jazz:source-code (%%car rest))))
+      (let ((new-declaration (or (jazz:find-declaration-child declaration name)
+                                 (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
 
 (define (jazz:walk-define-syntax walker resume declaration environment form-src)
+  (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
+    (let* ((name (jazz:source-code (%%car rest)))
+           (body (%%cdr rest))
+           (new-declaration (jazz:require-declaration declaration name)))
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
+        (%%set-syntax-declaration-signature new-declaration signature)
+        (%%set-syntax-declaration-body new-declaration
+          (jazz:walk-body walker resume new-declaration augmented-environment body))
+        (%%set-declaration-source new-declaration form-src)
+        new-declaration))))
+
+
+(define (jazz:walk-syntax walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let* ((name (jazz:source-code (%%car rest)))
            (body (%%cdr rest))
@@ -4652,18 +4669,7 @@
 
 (jazz:define-method (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src)
   (let ((procedure-expr (jazz:source-code (%%car (jazz:source-code form-src)))))
-    (let ((binding
-            (cond ((jazz:identifier? procedure-expr)
-                   (jazz:lookup-symbol walker resume declaration environment procedure-expr))
-                  ((or (%%class-is? procedure-expr jazz:Special-Form)
-                       (%%class-is? procedure-expr jazz:Declaration))
-                   procedure-expr)
-                  ((%%class-is? procedure-expr jazz:Binding-Reference)
-                   (let ((ref (%%get-reference-binding procedure-expr)))
-                     (and (or (%%class-is? ref jazz:Special-Form)
-                              (%%class-is? ref jazz:Declaration))
-                          ref)))
-                  (else #f))))
+    (let ((binding (jazz:lookup-procedure-binding walker resume declaration environment procedure-expr)))
       (cond ;; special form
             ((and binding (jazz:walk-binding-walkable? binding))
              (jazz:walk-binding-walk-form binding walker resume declaration environment form-src))

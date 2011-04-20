@@ -39,6 +39,8 @@
 (module protected jazz.language.syntax.bind scheme
 
 
+(export bind)
+
 (import (jazz.language.runtime.kernel))
 
 
@@ -54,40 +56,41 @@
 ;         (list a b c r)))))
 
 
-(syntax public (bind form-src)
-  (define (expand-bind-car bindings tree body)
-    (let ((car-binding (car bindings))
-          (cdr-binding (cdr bindings)))
-      (cond ((symbol? car-binding)
-             (let ((specifier (binding-specifier bindings)))
-               (if specifier
-                   `((let ((,car-binding ,specifier (car ,tree)))
-                       ,@(expand-bind-cdr (cdr cdr-binding) tree body)))
-                 `((let ((,car-binding (car ,tree)))
-                     ,@(expand-bind-cdr cdr-binding tree body))))))
-            ((pair? car-binding)
-             (let ((car-symbol (generate-symbol "car")))
-               `((let ((,car-symbol (car ,tree)))
-                   ,@(expand-bind-car car-binding car-symbol
-                       (expand-bind-cdr cdr-binding tree body)))))))))
-  
-  (define (expand-bind-cdr cdr-binding tree body)
-    (cond ((null? cdr-binding)
-           body)
-          ((symbol? cdr-binding)
-           `((let ((,cdr-binding (cdr ,tree)))
-               ,@body)))
-          ((pair? cdr-binding)
-           (let ((cdr-symbol (generate-symbol "cdr")))
-             `((let ((,cdr-symbol (cdr ,tree)))
-                 ,@(expand-bind-car cdr-binding cdr-symbol body)))))))
-  
-  (let ((bindings (desourcify (cadr (source-code form-src))))
-        (tree (car (cddr (source-code form-src))))
-        (body (cdr (cddr (source-code form-src)))))
-    (sourcify-if
-      (with-uniqueness tree
-        (lambda (tree-value)
-          `(begin
-             ,@(expand-bind-car bindings tree-value body))))
-      form-src))))
+(define-syntax bind
+  (lambda (form-src usage-environment macro-environment)
+    (define (expand-bind-car bindings tree body)
+      (let ((car-binding (car bindings))
+            (cdr-binding (cdr bindings)))
+        (cond ((symbol? car-binding)
+               (let ((specifier (binding-specifier bindings)))
+                 (if specifier
+                     `((let ((,car-binding ,specifier (car ,tree)))
+                         ,@(expand-bind-cdr (cdr cdr-binding) tree body)))
+                   `((let ((,car-binding (car ,tree)))
+                       ,@(expand-bind-cdr cdr-binding tree body))))))
+              ((pair? car-binding)
+               (let ((car-symbol (generate-symbol "car")))
+                 `((let ((,car-symbol (car ,tree)))
+                     ,@(expand-bind-car car-binding car-symbol
+                         (expand-bind-cdr cdr-binding tree body)))))))))
+    
+    (define (expand-bind-cdr cdr-binding tree body)
+      (cond ((null? cdr-binding)
+             body)
+            ((symbol? cdr-binding)
+             `((let ((,cdr-binding (cdr ,tree)))
+                 ,@body)))
+            ((pair? cdr-binding)
+             (let ((cdr-symbol (generate-symbol "cdr")))
+               `((let ((,cdr-symbol (cdr ,tree)))
+                   ,@(expand-bind-car cdr-binding cdr-symbol body)))))))
+    
+    (let ((bindings (desourcify (cadr (source-code form-src))))
+          (tree (car (cddr (source-code form-src))))
+          (body (cdr (cddr (source-code form-src)))))
+      (sourcify-if
+        (with-uniqueness tree
+          (lambda (tree-value)
+            `(begin
+               ,@(expand-bind-car bindings tree-value body))))
+        form-src)))))

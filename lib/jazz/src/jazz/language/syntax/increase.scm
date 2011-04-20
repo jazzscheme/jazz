@@ -38,11 +38,14 @@
 (module protected jazz.language.syntax.increase scheme
 
 
+(export increase!
+        decrease!)
+
 (import (jazz.language.runtime.kernel)
         (scheme.language.syntax-rules (phase syntax)))
 
 
-(define-syntax public increase!
+(define-syntax increase!
   (syntax-rules ()
     ((_ location)
      (increase! location 1))
@@ -50,7 +53,7 @@
      (set! location (+ location increment)))))
 
 
-(define-syntax public decrease!
+(define-syntax decrease!
   (syntax-rules ()
     ((_ location)
      (decrease! location 1))

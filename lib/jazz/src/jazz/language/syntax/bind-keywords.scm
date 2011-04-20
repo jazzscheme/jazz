@@ -39,6 +39,8 @@
 (module protected jazz.language.syntax.bind-keywords scheme
 
 
+(export bind-keywords)
+
 (import (jazz.language.runtime.kernel))
 
 
@@ -55,27 +57,28 @@
 ;     (list b: 5)))
 
 
-(syntax public (bind-keywords form-src)
-  (let ((bindings (source-code (cadr (source-code form-src))))
-        (rest (car (cddr (source-code form-src))))
-        (body (cdr (cddr (source-code form-src)))))
-    (let ((box (generate-symbol "box"))
-          (bnd (new-queue))
-          (oth (last-tail bindings)))
-      (sourcify-if
-        `(let ((,box (box-list ,rest)))
-           (let* ,(map (lambda (binding)
-                         (let* ((variable (source-code (car (source-code binding))))
-                                (specifier (binding-specifier binding))
-                                (default (if specifier (caddr (source-code binding)) (cadr (source-code binding)))))
-                           (if specifier
-                               `(,variable ,specifier (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default))))
-                           `(,variable (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default)))))
-                       (proper-list bindings))
-             ,@(if (symbol? (source-code oth))
-                   `((let ((,(source-code oth) (unbox-list ,box)))
-                       ,@body))
-                 `((if (not-null? (unbox-list ,box))
-                       (error "Unexpected keywords: {s}" (unbox-list ,box)))
-                   ,@body))))
-        form-src)))))
+(define-syntax bind-keywords
+  (lambda (form-src usage-environment macro-environment)
+    (let ((bindings (source-code (cadr (source-code form-src))))
+          (rest (car (cddr (source-code form-src))))
+          (body (cdr (cddr (source-code form-src)))))
+      (let ((box (generate-symbol "box"))
+            (bnd (new-queue))
+            (oth (last-tail bindings)))
+        (sourcify-if
+          `(let ((,box (box-list ,rest)))
+             (let* ,(map (lambda (binding)
+                           (let* ((variable (source-code (car (source-code binding))))
+                                  (specifier (binding-specifier binding))
+                                  (default (if specifier (caddr (source-code binding)) (cadr (source-code binding)))))
+                             (if specifier
+                                 `(,variable ,specifier (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default))))
+                             `(,variable (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default)))))
+                         (proper-list bindings))
+               ,@(if (symbol? (source-code oth))
+                     `((let ((,(source-code oth) (unbox-list ,box)))
+                         ,@body))
+                   `((if (not-null? (unbox-list ,box))
+                         (error "Unexpected keywords: {s}" (unbox-list ,box)))
+                     ,@body))))
+          form-src))))))

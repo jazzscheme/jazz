@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Dialect
+;;;; Gambit Dialect Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected gambit.dialect.dialect
+(unit protected gambit.dialect.runtime
 
 
 ;;;
@@ -46,8 +46,8 @@
 (jazz:define-class-runtime jazz:Gambit-Dialect)
 
 
-(define (jazz:new-gambit-dialect)
-  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect '() (%%make-table test: eq?)))
+(define (jazz:new-gambit-dialect name)
+  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect name '()))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Gambit-Dialect dialect))
@@ -88,4 +88,4 @@
 
 
 (jazz:define-dialect gambit
-  (jazz:new-gambit-dialect)))
+  (jazz:new-gambit-dialect 'gambit)))

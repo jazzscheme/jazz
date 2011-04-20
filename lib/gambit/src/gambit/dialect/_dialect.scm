@@ -40,8 +40,8 @@
 
 (require (dialect)
          (scheme (phase syntax))
-         (gambit.dialect.classes (phase syntax))
-         (gambit.dialect.dialect))
+         (gambit.dialect.syntax (phase syntax))
+         (gambit.dialect.runtime))
 
 
 (export (gambit.dialect.kernel)))

@@ -52,5 +52,4 @@
          )
          (dialect.runtime)
          (dialect.expression)
-         (dialect.ffi)
          (backend.scheme.runtime)))

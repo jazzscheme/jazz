@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-scheme-dialect name)
-  (jazz:allocate-scheme-dialect jazz:Scheme-Dialect name '()))
+  (jazz:allocate-scheme-dialect jazz:Scheme-Dialect name '() '()))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Scheme-Dialect dialect))
@@ -66,7 +66,7 @@
 
 
 (define (jazz:new-scheme-walker)
-  (jazz:allocate-scheme-walker jazz:Scheme-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-scheme-walker jazz:Scheme-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Scheme-Walker walker) declaration)
@@ -77,23 +77,13 @@
 
 
 ;;;
-;;;; Declaration
-;;;
-
-
-(jazz:define-method (jazz:walk-declaration (jazz:Scheme-Walker walker) resume declaration environment form-src)
-  (if (%%pair? (jazz:source-code form-src))
-      (let ((first (jazz:source-code (%%car (jazz:source-code form-src)))))
-        (case first
-          ((define)       (jazz:walk-define-declaration walker resume declaration environment form-src))
-          ((define-macro) (jazz:walk-define-macro-declaration walker resume declaration environment form-src))
-          (else           (nextmethod walker resume declaration environment form-src))))
-    #f))
-
-
-;;;
 ;;;; Environment
 ;;;
+
+
+(jazz:define-method (jazz:walker-declarations (jazz:Scheme-Walker walker))
+  (append (%%get-dialect-declarations (jazz:get-dialect 'scheme))
+          (nextmethod walker)))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Scheme-Walker walker))
@@ -1089,25 +1079,25 @@
   (jazz:new-scheme-dialect 'scheme))
 
 
-(jazz:define-walker-special define              scheme jazz:walk-define)
-(jazz:define-walker-special define-macro        scheme jazz:walk-define-macro)
-(jazz:define-walker-special define-special-form scheme jazz:walk-define-special-form)
-(jazz:define-walker-special quote               scheme jazz:walk-quote)
-(jazz:define-walker-special begin               scheme jazz:walk-begin)
-(jazz:define-walker-special lambda              scheme jazz:walk-lambda)
-(jazz:define-walker-special let                 scheme jazz:walk-let)
-(jazz:define-walker-special let*                scheme jazz:walk-letstar)
-(jazz:define-walker-special letrec              scheme jazz:walk-letrec)
-(jazz:define-walker-special let-macro           scheme jazz:walk-let-macro)
-(jazz:define-walker-special let-symbol          scheme jazz:walk-let-symbol)
-(jazz:define-walker-special receive             scheme jazz:walk-receive)
-(jazz:define-walker-special set!                scheme jazz:walk-setbang)
-(jazz:define-walker-special and                 scheme jazz:walk-and)
-(jazz:define-walker-special or                  scheme jazz:walk-or)
-(jazz:define-walker-special if                  scheme jazz:walk-if)
-(jazz:define-walker-special case                scheme jazz:walk-case)
-(jazz:define-walker-special cond                scheme jazz:walk-cond)
-(jazz:define-walker-special do                  scheme jazz:walk-do)
-(jazz:define-walker-special delay               scheme jazz:walk-delay)
-(jazz:define-walker-special quasiquote          scheme jazz:walk-quasiquote)
-(jazz:define-walker-special reference           scheme jazz:walk-reference))
+(jazz:define-walker-declaration define              scheme jazz:walk-define-declaration jazz:walk-define)
+(jazz:define-walker-declaration define-macro        scheme jazz:walk-define-macro-declaration jazz:walk-define-macro)
+(jazz:define-walker-declaration define-special-form scheme jazz:walk-define-special-form-declaration jazz:walk-define-special-form)
+(jazz:define-walker-special     quote               scheme jazz:walk-quote)
+(jazz:define-walker-special     begin               scheme jazz:walk-begin)
+(jazz:define-walker-special     lambda              scheme jazz:walk-lambda)
+(jazz:define-walker-special     let                 scheme jazz:walk-let)
+(jazz:define-walker-special     let*                scheme jazz:walk-letstar)
+(jazz:define-walker-special     letrec              scheme jazz:walk-letrec)
+(jazz:define-walker-special     let-macro           scheme jazz:walk-let-macro)
+(jazz:define-walker-special     let-symbol          scheme jazz:walk-let-symbol)
+(jazz:define-walker-special     receive             scheme jazz:walk-receive)
+(jazz:define-walker-special     set!                scheme jazz:walk-setbang)
+(jazz:define-walker-special     and                 scheme jazz:walk-and)
+(jazz:define-walker-special     or                  scheme jazz:walk-or)
+(jazz:define-walker-special     if                  scheme jazz:walk-if)
+(jazz:define-walker-special     case                scheme jazz:walk-case)
+(jazz:define-walker-special     cond                scheme jazz:walk-cond)
+(jazz:define-walker-special     do                  scheme jazz:walk-do)
+(jazz:define-walker-special     delay               scheme jazz:walk-delay)
+(jazz:define-walker-special     quasiquote          scheme jazz:walk-quasiquote)
+(jazz:define-walker-special     reference           scheme jazz:walk-reference))

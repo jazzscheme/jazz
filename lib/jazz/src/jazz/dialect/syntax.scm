@@ -247,7 +247,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Jazz-Dialect jazz:Dialect (name bindings) jazz:Object-Class jazz:allocate-jazz-dialect
+(jazz:define-class jazz:Jazz-Dialect jazz:Dialect (name declarations bindings) jazz:Object-Class jazz:allocate-jazz-dialect
   ())
 
 
@@ -256,5 +256,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Jazz-Walker jazz:Scheme-Walker (warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-jazz-walker
+(jazz:define-class jazz:Jazz-Walker jazz:Scheme-Walker (declarations bindings warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-jazz-walker
   ()))

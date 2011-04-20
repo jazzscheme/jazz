@@ -109,9 +109,20 @@
 ;;;
 
 
+(define (jazz:register-declaration dialect-name binding)
+  (let ((dialect (jazz:get-dialect dialect-name)))
+    (%%set-dialect-declarations dialect (%%cons binding (%%get-dialect-declarations dialect)))))
+
+
 (define (jazz:register-binding dialect-name binding)
   (let ((dialect (jazz:get-dialect dialect-name)))
     (%%set-dialect-bindings dialect (%%cons binding (%%get-dialect-bindings dialect)))))
+
+
+(jazz:define-macro (jazz:define-walker-declaration name dialect-name declaration-method binding-method)
+  `(begin
+     (jazz:register-declaration ',dialect-name (jazz:new-declaration-form ',name ,declaration-method))
+     (jazz:register-binding ',dialect-name (jazz:new-special-form ',name ,binding-method))))
 
 
 (jazz:define-macro (jazz:define-walker-special name dialect-name method)
@@ -402,27 +413,6 @@
 ;; declaration tree coming from the runtime catalog.
 
 
-(jazz:define-virtual-runtime (jazz:walk-declaration (jazz:Walker walker) resume declaration environment form-src))
-
-
-(jazz:define-method (jazz:walk-declaration (jazz:Walker walker) resume declaration environment form-src)
-  (if (%%pair? (jazz:source-code form-src))
-      (let ((first (jazz:source-code (%%car (jazz:source-code form-src)))))
-        (case first
-          ((require)             (jazz:walk-require-declaration             walker resume declaration environment form-src))
-          ((export)              (jazz:walk-export-declaration              walker resume declaration environment form-src))
-          ((import)              (jazz:walk-import-declaration              walker resume declaration environment form-src))
-          ((native)              (jazz:walk-native-declaration              walker resume declaration environment form-src))
-          ((native-syntax)       (jazz:walk-native-syntax-declaration       walker resume declaration environment form-src))
-          ((macro)               (jazz:walk-macro-declaration               walker resume declaration environment form-src))
-          ((local-macro)         (jazz:walk-local-macro-declaration         walker resume declaration environment form-src))
-          ((syntax)              (jazz:walk-syntax-declaration              walker resume declaration environment form-src))
-          ((define-syntax)       (jazz:walk-define-syntax-declaration       walker resume declaration environment form-src))
-          ((define-local-syntax) (jazz:walk-define-local-syntax-declaration walker resume declaration environment form-src))
-          (else            #f)))
-    #f))
-
-
 (define (jazz:walk-declarations walker resume declaration environment forms)
   (define (walk forms)
     (for-each (lambda (form-src)
@@ -434,8 +424,18 @@
                           (let ((expansion (jazz:expand-macros walker resume declaration environment expr)))
                             (if (jazz:begin-form? expansion)
                                 (walk (%%cdr (jazz:source-code expansion)))
-                              (jazz:walk-declaration walker resume declaration environment expansion)))))))))
+                              (walk-declaration resume expansion)))))))))
               forms))
+  
+  (define (walk-declaration resume form-src)
+    (if (%%pair? (jazz:source-code form-src))
+        (let ((first (jazz:source-code (%%car (jazz:source-code form-src))))
+              (declaration-environment (jazz:walker-declaration-environment walker)))
+          (let ((frame (%%car declaration-environment))) ;; unique frame for now
+            (let ((binding (jazz:walk-binding-lookup frame first #f)))
+              (if binding
+                  (let ((walk (%%get-declaration-form-walk binding)))
+                    (walk walker resume declaration environment form-src))))))))
   
   (walk forms))
 
@@ -3196,6 +3196,21 @@
 
 
 ;;;
+;;;; Declaration Form
+;;;
+
+
+(jazz:define-class-runtime jazz:Declaration-Form)
+
+
+(define (jazz:new-declaration-form name walk)
+  (jazz:allocate-declaration-form jazz:Declaration-Form name #f #f walk))
+
+
+(jazz:encapsulate-class jazz:Declaration-Form)
+
+
+;;;
 ;;;; Special Form
 ;;;
 
@@ -3862,18 +3877,30 @@
 ;;;
 
 
+(jazz:define-virtual-runtime (jazz:walker-declarations (jazz:Walker walker)))
 (jazz:define-virtual-runtime (jazz:walker-bindings (jazz:Walker walker)))
+
+
+(jazz:define-method (jazz:walker-declarations (jazz:Walker walker))
+  (%%get-dialect-declarations (jazz:get-dialect 'foundation)))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Walker walker))
   (%%get-dialect-bindings (jazz:get-dialect 'foundation)))
 
 
-(jazz:define-virtual-runtime (jazz:walker-environment (jazz:Walker walker)))
+(define (jazz:walker-declaration-environment walker)
+  (or (%%get-walker-declarations walker)
+      (let ((environment (%%list (jazz:new-walk-frame (jazz:walker-declarations walker)))))
+        (%%set-walker-declarations walker environment)
+        environment)))
 
 
-(jazz:define-method (jazz:walker-environment (jazz:Walker walker))
-  (%%list (jazz:new-walk-frame (jazz:walker-bindings walker))))
+(define (jazz:walker-environment walker)
+  (or (%%get-walker-bindings walker)
+      (let ((environment (%%list (jazz:new-walk-frame (jazz:walker-bindings walker)))))
+        (%%set-walker-bindings walker environment)
+        environment)))
 
 
 ;;;
@@ -4294,10 +4321,7 @@
       (jazz:walk-free-assignment walker resume declaration symbol-src))))
 
 
-(jazz:define-virtual-runtime (jazz:walk-free-assignment (jazz:Walker walker) resume declaration symbol-src))
-
-
-(jazz:define-method (jazz:walk-free-assignment (jazz:Walker walker) resume declaration symbol-src)
+(define (jazz:walk-free-assignment walker resume declaration symbol-src)
   (jazz:walk-unresolved walker resume declaration symbol-src))
 
 
@@ -4558,10 +4582,7 @@
 ;;;
 
 
-(jazz:define-virtual-runtime (jazz:walk-free-reference (jazz:Walker walker) resume declaration symbol-src))
-
-
-(jazz:define-method (jazz:walk-free-reference (jazz:Walker walker) resume declaration symbol-src)
+(define (jazz:walk-free-reference walker resume declaration symbol-src)
   (jazz:walk-unresolved walker resume declaration symbol-src))
 
 

@@ -791,7 +791,7 @@
 
 
 (define (jazz:new-jazz-dialect name)
-  (jazz:allocate-jazz-dialect jazz:Jazz-Dialect name '()))
+  (jazz:allocate-jazz-dialect jazz:Jazz-Dialect name '() '()))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Jazz-Dialect dialect))
@@ -810,7 +810,7 @@
 
 
 (define (jazz:new-jazz-walker)
-  (jazz:allocate-jazz-walker jazz:Jazz-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-jazz-walker jazz:Jazz-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Jazz-Walker walker) declaration)
@@ -827,6 +827,11 @@
 ;;;
 
 
+(jazz:define-method (jazz:walker-declarations (jazz:Jazz-Walker walker))
+  (append (%%get-dialect-declarations (jazz:get-dialect 'jazz))
+          (nextmethod walker)))
+
+
 (jazz:define-method (jazz:walker-bindings (jazz:Jazz-Walker walker))
   (append (%%get-dialect-bindings (jazz:get-dialect 'jazz))
           (nextmethod walker)))
@@ -835,28 +840,6 @@
 ;;;
 ;;;; Declaration
 ;;;
-
-
-(jazz:define-method (jazz:walk-declaration (jazz:Jazz-Walker walker) resume declaration environment form-src)
-  (if (%%pair? (jazz:source-code form-src))
-      (let ((first (jazz:source-code (%%car (jazz:source-code form-src)))))
-        (case first
-          ((definition)           (jazz:walk-definition-declaration           walker resume declaration environment form-src))
-          ((%specialize)          (jazz:walk-%specialize-declaration          walker resume declaration environment form-src))
-          ((generic)              (jazz:walk-generic-declaration              walker resume declaration environment form-src))
-          ((specific)             #f)
-          ((%class)               (jazz:walk-%class-declaration               walker resume declaration environment form-src))
-          ((interface)            (jazz:walk-interface-declaration            walker resume declaration environment form-src))
-          ((%slot %property)      (jazz:walk-%slot-declaration                walker resume declaration environment form-src))
-          ((method)               (jazz:walk-method-declaration               walker resume declaration environment form-src))
-          ((with-dynamic-self)    (jazz:walk-with-dynamic-self-declaration    walker resume declaration environment form-src))
-          ((with-local-variables) (jazz:walk-with-local-variables-declaration walker resume declaration environment form-src))
-          ((c-include)            #f)
-          ((c-named-declare)      (jazz:walk-c-named-declare-declaration      walker resume declaration environment form-src))
-          ((c-type)               (jazz:walk-c-type-declaration               walker resume declaration environment form-src))
-          ((c-definition)         (jazz:walk-c-definition-declaration         walker resume declaration environment form-src))
-          (else                   (nextmethod walker resume declaration environment form-src))))
-    #f))
 
 
 (define (jazz:expand-declaration-path walker resume declaration environment)
@@ -3169,43 +3152,43 @@
   (jazz:new-jazz-dialect 'jazz.dialect))
 
 
-(jazz:define-walker-special definition           jazz jazz:walk-definition)
-(jazz:define-walker-special generic              jazz jazz:walk-generic)
-(jazz:define-walker-special specific             jazz jazz:walk-specific)
-(jazz:define-walker-syntax  class                jazz jazz:expand-class)
-(jazz:define-walker-special %class               jazz jazz:walk-%class)
-(jazz:define-walker-special interface            jazz jazz:walk-interface)
-(jazz:define-walker-syntax  slot                 jazz jazz:expand-slot)
-(jazz:define-walker-syntax  property             jazz jazz:expand-property)
-(jazz:define-walker-special %slot                jazz jazz:walk-%slot)
-(jazz:define-walker-special %property            jazz jazz:walk-%slot)
-(jazz:define-walker-special method               jazz jazz:walk-method)
-(jazz:define-walker-special declare              jazz jazz:walk-declare)
-(jazz:define-walker-special c-include            jazz jazz:walk-c-include)
-(jazz:define-walker-special c-declare            jazz jazz:walk-c-declare)
-(jazz:define-walker-special c-named-declare      jazz jazz:walk-c-named-declare)
-(jazz:define-walker-special c-initialize         jazz jazz:walk-c-initialize)
-(jazz:define-walker-special c-function           jazz jazz:walk-c-function)
-(jazz:define-walker-special c-type               jazz jazz:walk-c-type)
-(jazz:define-walker-special c-definition         jazz jazz:walk-c-definition)
-(jazz:define-walker-macro   specialize           jazz jazz:expand-specialize)
-(jazz:define-walker-special %specialize          jazz jazz:walk-%specialize)
-(jazz:define-walker-special parameterize         jazz jazz:walk-parameterize)
-(jazz:define-walker-special with-slots           jazz jazz:walk-with-slots)
-(jazz:define-walker-special with-self            jazz jazz:walk-with-self)
-(jazz:define-walker-special with-dynamic-self    jazz jazz:walk-with-dynamic-self)
-(jazz:define-walker-special with-local-variables jazz jazz:walk-with-local-variables)
-(jazz:define-walker-special cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special allocate             jazz jazz:walk-allocate)
-(jazz:define-walker-special time                 jazz jazz:walk-time)
-(jazz:define-walker-macro   remotable-stub       jazz jazz:expand-remotable-stub)
-(jazz:define-walker-syntax  assert               jazz jazz:expand-assert)
-(jazz:define-walker-syntax  assertion            jazz jazz:expand-assertion)
-(jazz:define-walker-macro   c-structure          jazz jazz:expand-c-structure)
-(jazz:define-walker-macro   c-union              jazz jazz:expand-c-union)
-(jazz:define-walker-macro   c-external           jazz jazz:expand-c-external)
-(jazz:define-walker-macro   com-external         jazz jazz:expand-com-external)
-(jazz:define-walker-macro   declaration-path     jazz jazz:expand-declaration-path)
-(jazz:define-walker-macro   declaration-locator  jazz jazz:expand-declaration-locator)
-(jazz:define-walker-syntax  debug-assert         jazz jazz:expand-debug-assert)
-(jazz:define-walker-syntax  debug-assertion      jazz jazz:expand-debug-assertion))
+(jazz:define-walker-declaration definition           jazz jazz:walk-definition-declaration jazz:walk-definition)
+(jazz:define-walker-declaration generic              jazz jazz:walk-generic-declaration jazz:walk-generic)
+(jazz:define-walker-special     specific             jazz jazz:walk-specific)
+(jazz:define-walker-syntax      class                jazz jazz:expand-class)
+(jazz:define-walker-declaration %class               jazz jazz:walk-%class-declaration jazz:walk-%class)
+(jazz:define-walker-declaration interface            jazz jazz:walk-interface-declaration jazz:walk-interface)
+(jazz:define-walker-syntax      slot                 jazz jazz:expand-slot)
+(jazz:define-walker-syntax      property             jazz jazz:expand-property)
+(jazz:define-walker-declaration %slot                jazz jazz:walk-%slot-declaration jazz:walk-%slot)
+(jazz:define-walker-declaration %property            jazz jazz:walk-%slot-declaration jazz:walk-%slot)
+(jazz:define-walker-declaration method               jazz jazz:walk-method-declaration jazz:walk-method)
+(jazz:define-walker-special     declare              jazz jazz:walk-declare)
+(jazz:define-walker-macro       specialize           jazz jazz:expand-specialize)
+(jazz:define-walker-declaration %specialize          jazz jazz:walk-%specialize-declaration jazz:walk-%specialize)
+(jazz:define-walker-special     parameterize         jazz jazz:walk-parameterize)
+(jazz:define-walker-special     with-slots           jazz jazz:walk-with-slots)
+(jazz:define-walker-special     with-self            jazz jazz:walk-with-self)
+(jazz:define-walker-declaration with-dynamic-self    jazz jazz:walk-with-dynamic-self-declaration jazz:walk-with-dynamic-self)
+(jazz:define-walker-declaration with-local-variables jazz jazz:walk-with-local-variables-declaration jazz:walk-with-local-variables)
+(jazz:define-walker-special     cast                 jazz jazz:walk-cast)
+(jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
+(jazz:define-walker-special     time                 jazz jazz:walk-time)
+(jazz:define-walker-macro       remotable-stub       jazz jazz:expand-remotable-stub)
+(jazz:define-walker-macro       declaration-path     jazz jazz:expand-declaration-path)
+(jazz:define-walker-macro       declaration-locator  jazz jazz:expand-declaration-locator)
+(jazz:define-walker-syntax      assert               jazz jazz:expand-assert)
+(jazz:define-walker-syntax      assertion            jazz jazz:expand-assertion)
+(jazz:define-walker-syntax      debug-assert         jazz jazz:expand-debug-assert)
+(jazz:define-walker-syntax      debug-assertion      jazz jazz:expand-debug-assertion)
+(jazz:define-walker-special     c-include            jazz jazz:walk-c-include)
+(jazz:define-walker-special     c-declare            jazz jazz:walk-c-declare)
+(jazz:define-walker-declaration c-named-declare      jazz jazz:walk-c-named-declare-declaration jazz:walk-c-named-declare)
+(jazz:define-walker-special     c-initialize         jazz jazz:walk-c-initialize)
+(jazz:define-walker-special     c-function           jazz jazz:walk-c-function)
+(jazz:define-walker-declaration c-type               jazz jazz:walk-c-type-declaration jazz:walk-c-type)
+(jazz:define-walker-declaration c-definition         jazz jazz:walk-c-definition-declaration jazz:walk-c-definition)
+(jazz:define-walker-macro       c-structure          jazz jazz:expand-c-structure)
+(jazz:define-walker-macro       c-union              jazz jazz:expand-c-union)
+(jazz:define-walker-macro       c-external           jazz jazz:expand-c-external)
+(jazz:define-walker-macro       com-external         jazz jazz:expand-com-external))

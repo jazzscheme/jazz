@@ -44,8 +44,9 @@
 
 
 (jazz:define-class jazz:Dialect jazz:Object () jazz:Object-Class ()
-  ((name     %%get-dialect-name     ())
-   (bindings %%get-dialect-bindings %%set-dialect-bindings)))
+  ((name         %%get-dialect-name         ())
+   (declarations %%get-dialect-declarations %%set-dialect-declarations)
+   (bindings     %%get-dialect-bindings     %%set-dialect-bindings)))
 
 
 (jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
@@ -484,20 +485,19 @@
 
 
 (jazz:define-class jazz:Walker jazz:Object () jazz:Object-Class ()
-  ((warnings   %%get-walker-warnings   %%set-walker-warnings)
-   (errors     %%get-walker-errors     %%set-walker-errors)
-   (literals   %%get-walker-literals   %%set-walker-literals)
-   (variables  %%get-walker-variables  ())
-   (references %%get-walker-references ())
-   (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
+  ((declarations %%get-walker-declarations %%set-walker-declarations)
+   (bindings     %%get-walker-bindings     %%set-walker-bindings)
+   (warnings     %%get-walker-warnings     %%set-walker-warnings)
+   (errors       %%get-walker-errors       %%set-walker-errors)
+   (literals     %%get-walker-literals     %%set-walker-literals)
+   (variables    %%get-walker-variables    ())
+   (references   %%get-walker-references   ())
+   (autoloads    %%get-walker-autoloads    %%set-walker-autoloads)))
 
 
+(jazz:define-virtual (jazz:walker-declarations (jazz:Walker walker)))
 (jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
-(jazz:define-virtual (jazz:walker-environment (jazz:Walker walker)))
-(jazz:define-virtual (jazz:walk-declaration (jazz:Walker walker) resume declaration environment form-src))
-(jazz:define-virtual (jazz:walk-free-reference (jazz:Walker walker) resume declaration symbol-src))
 (jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-(jazz:define-virtual (jazz:walk-free-assignment (jazz:Walker walker) resume declaration symbol-src))
 (jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
 (jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
@@ -704,6 +704,15 @@
 
 (jazz:define-class jazz:Form-Binding jazz:Lexical-Binding (name type hits) jazz:Object-Class ()
   ())
+
+
+;;;
+;;;; Declaration Form
+;;;
+
+
+(jazz:define-class jazz:Declaration-Form jazz:Form-Binding (name type hits) jazz:Object-Class jazz:allocate-declaration-form
+  ((walk %%get-declaration-form-walk ())))
 
 
 ;;;

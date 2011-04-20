@@ -66,7 +66,7 @@
 
 
 (define (jazz:new-gambit-walker)
-  (jazz:allocate-gambit-walker jazz:Gambit-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-gambit-walker jazz:Gambit-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:encapsulate-class jazz:Gambit-Walker)
@@ -75,6 +75,11 @@
 ;;;
 ;;;; Environment
 ;;;
+
+
+(jazz:define-method (jazz:walker-declarations (jazz:Gambit-Walker walker))
+  (append (%%get-dialect-declarations (jazz:get-dialect 'gambit))
+          (nextmethod walker)))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Gambit-Walker walker))

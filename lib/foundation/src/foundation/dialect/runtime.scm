@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-foundation-dialect name)
-  (jazz:allocate-foundation-dialect jazz:Foundation-Dialect name '()))
+  (jazz:allocate-foundation-dialect jazz:Foundation-Dialect name '() '()))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Foundation-Dialect dialect))
@@ -66,7 +66,7 @@
 
 
 (define (jazz:new-foundation-walker)
-  (jazz:allocate-foundation-walker jazz:Foundation-Walker '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-foundation-walker jazz:Foundation-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:encapsulate-class jazz:Foundation-Walker)
@@ -81,17 +81,17 @@
   (jazz:new-foundation-dialect 'foundation))
 
 
-(jazz:define-walker-special require             foundation jazz:walk-require)
-(jazz:define-walker-special export              foundation jazz:walk-export)
-(jazz:define-walker-special import              foundation jazz:walk-import)
-(jazz:define-walker-special proclaim            foundation jazz:walk-proclaim)
-(jazz:define-walker-special native              foundation jazz:walk-native)
-(jazz:define-walker-special native-syntax       foundation jazz:walk-native-syntax)
-(jazz:define-walker-special macro               foundation jazz:walk-macro)
-(jazz:define-walker-special local-macro         foundation jazz:walk-local-macro)
-(jazz:define-walker-special syntax              foundation jazz:walk-syntax)
-(jazz:define-walker-special define-syntax       foundation jazz:walk-define-syntax)
-(jazz:define-walker-special define-local-syntax foundation jazz:walk-define-local-syntax)
-(jazz:define-walker-special let-syntax          foundation jazz:walk-let-syntax)
-(jazz:define-walker-special letrec-syntax       foundation jazz:walk-letrec-syntax)
-(jazz:define-walker-special walk-failed?        foundation jazz:walk-walk-failed))
+(jazz:define-walker-declaration require             foundation jazz:walk-require-declaration jazz:walk-require)
+(jazz:define-walker-declaration export              foundation jazz:walk-export-declaration jazz:walk-export)
+(jazz:define-walker-declaration import              foundation jazz:walk-import-declaration jazz:walk-import)
+(jazz:define-walker-special     proclaim            foundation jazz:walk-proclaim)
+(jazz:define-walker-declaration native              foundation jazz:walk-native-declaration jazz:walk-native)
+(jazz:define-walker-declaration native-syntax       foundation jazz:walk-native-syntax-declaration jazz:walk-native-syntax)
+(jazz:define-walker-declaration macro               foundation jazz:walk-macro-declaration jazz:walk-macro)
+(jazz:define-walker-declaration local-macro         foundation jazz:walk-local-macro-declaration jazz:walk-local-macro)
+(jazz:define-walker-declaration syntax              foundation jazz:walk-syntax-declaration jazz:walk-syntax)
+(jazz:define-walker-declaration define-syntax       foundation jazz:walk-define-syntax-declaration jazz:walk-define-syntax)
+(jazz:define-walker-declaration define-local-syntax foundation jazz:walk-define-local-syntax-declaration jazz:walk-define-local-syntax)
+(jazz:define-walker-special     let-syntax          foundation jazz:walk-let-syntax)
+(jazz:define-walker-special     letrec-syntax       foundation jazz:walk-letrec-syntax)
+(jazz:define-walker-special     walk-failed?        foundation jazz:walk-walk-failed))

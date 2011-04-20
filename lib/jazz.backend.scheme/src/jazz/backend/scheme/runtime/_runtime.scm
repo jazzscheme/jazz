@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.backend.scheme.runtime foundation
+(module jazz.backend.scheme.runtime scheme
 
 
 (require (jazz.backend.scheme.runtime.core)

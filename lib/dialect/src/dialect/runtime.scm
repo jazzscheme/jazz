@@ -3025,44 +3025,6 @@
 
 
 ;;;
-;;;; NextMethod Variable
-;;;
-
-
-(jazz:define-class-runtime jazz:NextMethod-Variable)
-
-
-(define (jazz:new-nextmethod-variable name type)
-  (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" name)
-    (jazz:allocate-nextmethod-variable jazz:NextMethod-Variable name type #f #f 0)))
-
-
-(jazz:define-method (jazz:emit-binding-reference (jazz:NextMethod-Variable binding) source-declaration environment backend)
-  (jazz:new-code
-    (jazz:emit 'nextmethod-variable-reference backend binding)
-    jazz:Any
-    #f))
-
-
-(jazz:define-method (jazz:walk-binding-validate-call (jazz:NextMethod-Variable declaration) walker resume source-declaration operator arguments form-src)
-  (let ((signature (jazz:get-nextmethod-signature source-declaration)))
-    (if signature
-        (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src))))
-
-
-(jazz:define-method (jazz:emit-binding-call (jazz:NextMethod-Variable binding) binding-src arguments source-declaration environment backend)
-  (let ((type (%%get-lexical-binding-type binding))
-        (self (jazz:*self*)))
-    (jazz:new-code
-      (jazz:emit 'nextmethod-binding-call backend binding binding-src self arguments)
-      (jazz:call-return-type type)
-      #f)))
-
-
-(jazz:encapsulate-class jazz:NextMethod-Variable)
-
-
-;;;
 ;;;; Parameter
 ;;;
 
@@ -3166,62 +3128,6 @@
 
 
 (jazz:encapsulate-class jazz:Rest-Parameter)
-
-
-;;;
-;;;; Self-Binding
-;;;
-
-
-;; Support for dialects that have an implicit self concept
-
-
-(jazz:define-class-runtime jazz:Self-Binding)
-
-
-(define (jazz:new-self-binding type)
-  (jazz:allocate-self-binding jazz:Self-Binding 'self type #f))
-
-
-(jazz:define-method (jazz:emit-binding-reference (jazz:Self-Binding declaration) source-declaration environment backend)
-  (jazz:new-code
-    'self
-    (jazz:emit 'self-reference backend declaration source-declaration)
-    #f))
-
-
-(jazz:encapsulate-class jazz:Self-Binding)
-
-
-;;;
-;;;; Dynamic-Self-Binding
-;;;
-
-
-(jazz:define-class-runtime jazz:Dynamic-Self-Binding)
-
-
-(define (jazz:new-dynamic-self-binding type code)
-  (jazz:allocate-dynamic-self-binding jazz:Dynamic-Self-Binding 'self type #f code))
-
-
-(jazz:define-method (jazz:emit-binding-reference (jazz:Dynamic-Self-Binding declaration) source-declaration environment backend)
-  (jazz:new-code
-    (jazz:emit 'dynamic-self-reference backend declaration)
-    (%%get-declaration-parent source-declaration)
-    #f))
-
-
-(jazz:encapsulate-class jazz:Dynamic-Self-Binding)
-
-
-;;;
-;;;; With-Self
-;;;
-
-
-(define jazz:*self*
-  (make-parameter #f))
 
 
 ;;;

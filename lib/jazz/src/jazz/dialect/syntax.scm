@@ -159,6 +159,33 @@
 
 
 ;;;
+;;;; NextMethod Variable
+;;;
+
+
+(jazz:define-class jazz:NextMethod-Variable jazz:Variable (name type hits gensym reference-count) jazz:Object-Class jazz:allocate-nextmethod-variable
+  ())
+
+
+;;;
+;;;; Self Binding
+;;;
+
+
+(jazz:define-class jazz:Self-Binding jazz:Lexical-Binding (name type hits) jazz:Object-Class jazz:allocate-self-binding
+  ())
+
+
+;;;
+;;;; Dynamic Self Binding
+;;;
+
+
+(jazz:define-class jazz:Dynamic-Self-Binding jazz:Lexical-Binding (name type hits) jazz:Object-Class jazz:allocate-dynamic-self-binding
+  ((code %%get-dynamic-self-binding-code ())))
+
+
+;;;
 ;;;; With Self
 ;;;
 

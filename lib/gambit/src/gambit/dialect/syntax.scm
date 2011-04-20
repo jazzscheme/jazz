@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Gambit-Dialect jazz:Scheme-Dialect (name bindings) jazz:Object-Class jazz:allocate-gambit-dialect
+(jazz:define-class jazz:Gambit-Dialect jazz:Scheme-Dialect (name declarations bindings) jazz:Object-Class jazz:allocate-gambit-dialect
   ())
 
 

@@ -423,13 +423,13 @@
                         (%%when expr?
                           (let ((expansion (jazz:expand-macros walker resume declaration environment expr)))
                             (if (jazz:begin-form? expansion)
-                                (walk (%%cdr (jazz:source-code expansion)))
+                                (walk (%%cdr (jazz:unwrap-syntactic-closure expansion)))
                               (walk-declaration resume expansion)))))))))
               forms))
   
   (define (walk-declaration resume form-src)
-    (if (%%pair? (jazz:source-code form-src))
-        (let ((first (jazz:source-code (%%car (jazz:source-code form-src))))
+    (if (%%pair? (jazz:unwrap-syntactic-closure form-src))
+        (let ((first (jazz:unwrap-syntactic-closure (%%car (jazz:unwrap-syntactic-closure form-src))))
               (declaration-environment (jazz:walker-declaration-environment walker)))
           (let ((frame (%%car declaration-environment))) ;; unique frame for now
             (let ((binding (jazz:walk-binding-lookup frame first #f)))
@@ -3850,16 +3850,16 @@
           (else (is-modifier? (%%cdr infos) x))))
   
   (define (skip-modifiers infos ls)
-    (if (and (%%pair? ls) (is-modifier? infos (jazz:source-code (%%car ls))))
+    (if (and (%%pair? ls) (is-modifier? infos (jazz:unwrap-syntactic-closure (%%car ls))))
         (skip-modifiers infos (%%cdr ls))
       ls))
   
   (define (get-modifier names from to)
     (cond ((%%eq? from to) #f)
-          ((%%memq (jazz:source-code (%%car from)) names)
+          ((%%memq (jazz:unwrap-syntactic-closure (%%car from)) names)
            (cond ((get-modifier names (%%cdr from) to)
                   => (lambda (x) (jazz:walk-error "Ambiguous modifiers: {s} {s}" walker resume declaration (%%car from) x)))
-                 (else (jazz:source-code (%%car from)))))
+                 (else (jazz:unwrap-syntactic-closure (%%car from)))))
           (else (get-modifier names (%%cdr from) to))))
   
   (let ((modifiers rest)

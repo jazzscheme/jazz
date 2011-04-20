@@ -1272,12 +1272,12 @@
 
 (define (jazz:parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
-    (if (%%symbol? (jazz:source-code (%%car rest)))
-        (let ((name (jazz:source-code (%%car rest))))
+    (if (%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
+        (let ((name (jazz:unwrap-syntactic-closure (%%car rest))))
           (jazz:parse-specifier (%%cdr rest)
             (lambda (specifier rest)
               (values name specifier access compatibility expansion (%%car rest) #f))))
-      (let* ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
+      (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
@@ -2841,7 +2841,7 @@
 
 
 (define (jazz:walk-c-function walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (%%assertion (and (list? form) (%%fx= 4 (%%length form))) (jazz:walk-error walker resume declaration form-src "Ill-formed c-function")
       (jazz:bind (types result-type c-name-or-code) (%%cdr form)
         (let ((resolve-access (lambda (type) (jazz:expand-c-type-reference walker resume declaration environment type))))
@@ -3190,5 +3190,4 @@
 (jazz:define-walker-declaration c-definition         jazz jazz:walk-c-definition-declaration jazz:walk-c-definition)
 (jazz:define-walker-macro       c-structure          jazz jazz:expand-c-structure)
 (jazz:define-walker-macro       c-union              jazz jazz:expand-c-union)
-(jazz:define-walker-macro       c-external           jazz jazz:expand-c-external)
 (jazz:define-walker-macro       com-external         jazz jazz:expand-com-external))

@@ -73,7 +73,6 @@
              (_apply (rename 'apply))        (_append (rename 'append))
              (_map (rename 'map))            (_vector? (rename 'vector?))
              (_list? (rename 'list?))        (_lp (rename 'lp))
-             ;;(_res (rename 'res)) (_display (rename 'display)) (_write (rename 'write))
              (_reverse (rename 'reverse))
              (_vector->list (rename 'vector->list))
              (_list->vector (rename 'list->vector))
@@ -265,7 +264,5 @@
                                             (expand-pattern (car clause) (cadr clause)))))
                                       forms)
                                   (,_error "syntax-rules: no expansion: {s}" ,_expr))))))
-          ;; (cond
-          ;;  ((memq (caar (strip-syntactic-closures (car forms))) '(match))
-          ;;   (display "expansion: ") (write (strip-syntactic-closures res)) (newline)))
+          ;; (pretty-print (strip-syntactic-closures res))
           res))))))

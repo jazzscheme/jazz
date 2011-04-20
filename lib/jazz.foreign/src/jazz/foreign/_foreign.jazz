@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo Windows
+;;;; Foreign Function Interface
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,8 +16,8 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,28 +35,61 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-windows jazz
+(module jazz.foreign jazz
 
 
-(import (jazz.foreign)
-        (jazz.platform)
-        (jazz.platform.cairo.cairo-base))
+(import (jazz.core (phase syntax))
+        (jazz.dialect.classes.foundation))
 
 
-(c-include "<cairo-win32.h>")
+(macro public (c-external signature type . rest)
+  (let* ((s-name (car signature))
+         (params (cdr signature))
+         (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+    `(definition public ,s-name
+       (c-function ,params ,type ,c-name))))
 
 
-;;;
-;;;; Surface
-;;;
+@w
+(class Foo extends Expression
+  
+  
+  (slot x getter generate))
 
 
-(c-external (cairo_win32_surface_create HDC) cairo_surface_t*)
-(c-external (cairo_win32_surface_create_with_dib cairo_format_t int int) cairo_surface_t*)
-(c-external (cairo_win32_surface_create_with_ddb HDC cairo_format_t int int) cairo_surface_t*)
-(c-external (cairo_win32_surface_get_dc cairo_surface_t*) HDC)
-(c-external (cairo_win32_printing_surface_create HDC) cairo_surface_t*)
+@w
+(encapsulate-class Foo)
 
 
-(definition public (create-cairo-image-surface compatibility width height)
-  (cairo_win32_surface_create_with_ddb (and compatibility (cairo_win32_surface_get_dc (get-handle~ compatibility))) CAIRO_FORMAT_RGB24 width height)))
+@w
+(class Goo extends Expression
+  
+  
+  (slot expressions getter generate)
+  
+  
+  (method override (initialize source expressions)
+    (nextmethod)
+    (set! expressions~self expressions)))
+
+
+@w
+(define-method (emit-expression (Goo expression) declaration environment backend)
+  (let ((expressions (emit-expressions (get-expressions~ expression) declaration environment backend)))
+    (new-code
+      (emit 'and backend expression declaration environment expressions)
+      Any
+      (get-source~ expression))))
+
+
+@w
+(encapsulate-class Goo)
+
+
+@w
+(define (walk-goo walker resume declaration environment form-src)
+  (new Goo form-src (walk-list walker resume declaration environment (cdr (source-code form-src)))))
+
+
+@w
+(define-walker-special goo jazz walk-goo))

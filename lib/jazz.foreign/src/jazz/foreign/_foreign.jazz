@@ -42,12 +42,158 @@
         (jazz.dialect.classes.foundation))
 
 
+(native private jazz:current-walker)
+(native private jazz:current-resume)
+(native private jazz:current-declaration)
+
+(native private jazz:resolve-c-type-reference)
+(native private jazz:walk-error)
+
+
+;;;
+;;;; C-External
+;;;
+
+
 (macro public (c-external signature type . rest)
   (let* ((s-name (car signature))
          (params (cdr signature))
          (c-name (if (null? rest) (symbol->string s-name) (car rest))))
     `(definition public ,s-name
        (c-function ,params ,type ,c-name))))
+
+
+;;;
+;;;; C-Structure
+;;;
+
+
+(define (build-pointer-symbol type)
+  (string->symbol (string-append (symbol->string type) "*")))
+
+
+(define (build-method-symbol struct . rest)
+  (string->symbol (apply string-append (symbol->string struct) "-" (map symbol->string rest))))
+
+
+(define (expand-accessor environment clause struct)
+  (define (kind+type environment type)
+    (let loop ((declaration (resolve-c-type-reference (current-walker) (current-resume) (current-declaration) environment type)))
+         (let ((kind (get-kind~ declaration))
+               (expansion (get-expansion~ declaration))
+               (inclusions (get-inclusions~ declaration)))
+           (if (eq? kind 'alias)
+               (loop (car inclusions))
+             (values kind expansion)))))
+  
+  (let ((type (car clause))
+        (id   (cadr clause))
+        (size (let ((clause-rest (cddr clause)))
+                (and (not (null? clause-rest))
+                     (car clause-rest)))))
+    (when (and size (not (integer? size)) (not (symbol? size)))
+      (walk-error (current-walker) (current-resume) (current-declaration) #f "Illegal clause size in {a}: {a}" struct clause))
+    (receive (kind expansion) (kind+type environment type)
+      (let ((id-string (symbol->string id)))
+        (let ((getter-string
+                (if size
+                    (if (or (eq? expansion 'char)
+                            (eq? expansion 'wchar_t))
+                        (string-append "___result = ___arg1->" id-string ";")
+                      (string-append "___result_voidstar = ___arg1->" id-string ";"))
+                  (case kind
+                    ((native)
+                     (string-append "___result = ___arg1->" id-string ";"))
+                    ((pointer function)
+                     (string-append "___result_voidstar = ___arg1->" id-string ";"))
+                    ((type struct union)
+                     (string-append "___result_voidstar = &___arg1->" id-string ";")))))
+              (setter-string
+                (cond (size
+                        (let ((size-string (if (integer? size)
+                                               (number->string size)
+                                             (symbol->string size))))
+                          (cond ((eq? expansion 'char)
+                                 (string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                ((eq? expansion 'wchar_t)
+                                 (string-append "wcsncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                (else
+                                 ;; We need to adjust this to get the real c-type in the expansion
+                                 (string-append "memcpy(___arg1->" id-string ", ___arg2, " size-string "*" "sizeof(" (symbol->string type) "));")))))
+                      ((or (eq? kind 'struct)
+                           (eq? kind 'union)
+                           (eq? kind 'type))
+                       #f)
+                      (else
+                       (string-append "___arg1->" id-string " = ___arg2;")))))
+          (let* ((struct* (build-pointer-symbol struct))
+                 (type* (build-pointer-symbol type))
+                 (type (cond ((and size (eq? expansion 'char)) '(native char-string))
+                             ((and size (eq? expansion 'wchar_t)) '(native wchar_t-string))
+                             (size type*)
+                             ((memq kind '(type struct union)) type*)
+                             (else type))))
+            (let ((getter `(definition public ,(build-method-symbol struct id '-ref)
+                                       (c-function (,struct*) ,type ,getter-string)))
+                  (setter (and setter-string
+                               `(definition public ,(build-method-symbol struct id '-set!)
+                                            (c-function (,struct* ,type) (native void) ,setter-string)))))
+              (values getter setter))))))))
+
+
+(define (expand-structure/union environment name clauses)
+  (define (parse-structure-name name)
+    (if (symbol? name)
+        (values name (symbol->string name) '())
+      (values (car name) (cadr name) (cddr name))))
+  
+  (receive (struct c-struct-string tag-rest) (parse-structure-name name)
+    (let ((struct* (build-pointer-symbol struct))
+          (sizeof (string-append "sizeof(" c-struct-string ")"))
+          (tag*-rest (if (null? tag-rest) '() (cons (build-pointer-symbol (car tag-rest)) (cdr tag-rest)))))
+      (define (expand-acc clause)
+        (receive (getter setter) (expand-accessor environment clause struct)
+          (if setter
+              (list getter setter)
+            (list getter))))
+      `(begin
+         (c-type ,struct (type ,c-struct-string ,@tag-rest))
+         (c-type ,struct* (pointer ,struct ,@tag*-rest))
+         (definition public ,(build-method-symbol struct 'make)
+           (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+         (definition public ,(build-method-symbol struct 'free)
+           (c-function (,struct*) (native void) "free(___arg1);"))
+         (definition public ,(build-method-symbol struct 'sizeof)
+           (c-function () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
+         ,@(apply append (map expand-acc clauses))))))
+
+
+(define (expand-c-structure-array environment name . rest)
+  (let* ((struct name)
+         (struct* (build-pointer-symbol struct))
+         (c-struct-string (if (not (null? rest)) (car rest) (symbol->string struct))))
+    `(begin
+       (definition public ,(build-method-symbol struct 'array-make)
+         (c-function (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
+       (definition public ,(build-method-symbol struct 'array-element)
+         (c-function (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
+
+
+(syntax public c-structure2
+  (lambda (form environment macro-environment)
+    (bind (name . clauses) (cdr (desourcify form))
+      (expand-structure/union environment name clauses))))
+
+
+(syntax public c-union2
+  (lambda (form environment macro-environment)
+    (bind (name . clauses) (cdr (desourcify form))
+      (expand-structure/union environment name clauses))))
+
+
+;;;
+;;;; Special
+;;;
 
 
 @w

@@ -187,7 +187,11 @@
           (string-append source path))
         
         (define (copy-platform-files)
-          (jazz:copy-file (source-file "foreign/cairo/lib/windows/cairo.dll") (build-file "cairo.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (build-file "libcairo-2.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libfontconfig-1.dll") (build-file "libfontconfig-1.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/freetype6.dll") (build-file "freetype6.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libexpat-1.dll") (build-file "libexpat-1.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/png/lib/windows/libpng14-14.dll") (build-file "libpng14-14.dll") feedback: jazz:feedback)
           (jazz:copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz:feedback))
         
         (let ((unit-specs `((jazz.platform)

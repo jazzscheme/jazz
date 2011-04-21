@@ -1,6 +1,6 @@
 /* cairo - a vector graphics library with display and print output
  *
- * Copyright © 2002 University of Southern California
+ * Copyright © 2005 Red Hat, Inc
  *
  * This library is free software; you can redistribute it and/or
  * modify it either under the terms of the GNU Lesser General Public
@@ -27,42 +27,49 @@
  *
  * The Original Code is the cairo graphics library.
  *
- * The Initial Developer of the Original Code is University of Southern
- * California.
+ * The Initial Developer of the Original Code is Red Hat, Inc.
  *
  * Contributor(s):
- *	Carl D. Worth <cworth@cworth.org>
+ *      Graydon Hoare <graydon@redhat.com>
+ *	Owen Taylor <otaylor@redhat.com>
  */
 
-#ifndef CAIRO_PDF_H
-#define CAIRO_PDF_H
+#ifndef CAIRO_FT_H
+#define CAIRO_FT_H
 
 #include "cairo.h"
 
-#if CAIRO_HAS_PDF_SURFACE
+#if CAIRO_HAS_FT_FONT
+
+/* Fontconfig/Freetype platform-specific font interface */
+
+#include <fontconfig/fontconfig.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 CAIRO_BEGIN_DECLS
 
-cairo_public cairo_surface_t *
-cairo_pdf_surface_create (const char		*filename,
-			  double		 width_in_points,
-			  double		 height_in_points);
-
-cairo_public cairo_surface_t *
-cairo_pdf_surface_create_for_stream (cairo_write_func_t	write_func,
-				     void	       *closure,
-				     double		width_in_points,
-				     double		height_in_points);
+cairo_public cairo_font_face_t *
+cairo_ft_font_face_create_for_pattern (FcPattern *pattern);
 
 cairo_public void
-cairo_pdf_surface_set_size (cairo_surface_t	*surface,
-			    double		 width_in_points,
-			    double		 height_in_points);
+cairo_ft_font_options_substitute (const cairo_font_options_t *options,
+				  FcPattern                  *pattern);
+
+cairo_public cairo_font_face_t *
+cairo_ft_font_face_create_for_ft_face (FT_Face         face,
+				       int             load_flags);
+
+cairo_public FT_Face
+cairo_ft_scaled_font_lock_face (cairo_scaled_font_t *scaled_font);
+
+cairo_public void
+cairo_ft_scaled_font_unlock_face (cairo_scaled_font_t *scaled_font);
 
 CAIRO_END_DECLS
 
-#else  /* CAIRO_HAS_PDF_SURFACE */
-# error Cairo was not compiled with support for the pdf backend
-#endif /* CAIRO_HAS_PDF_SURFACE */
+#else  /* CAIRO_HAS_FT_FONT */
+# error Cairo was not compiled with support for the freetype font backend
+#endif /* CAIRO_HAS_FT_FONT */
 
-#endif /* CAIRO_PDF_H */
+#endif /* CAIRO_FT_H */

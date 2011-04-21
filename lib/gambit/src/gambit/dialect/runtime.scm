@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-gambit-dialect name)
-  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect name '()))
+  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect name '() '()))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Gambit-Dialect dialect))

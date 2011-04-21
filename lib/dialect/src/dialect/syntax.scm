@@ -501,7 +501,6 @@
 (jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
 (jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
-(jazz:define-virtual (jazz:validate-arguments (jazz:Walker walker) resume source-declaration declaration signature arguments form-src))
 (jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 

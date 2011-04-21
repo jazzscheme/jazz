@@ -4183,10 +4183,7 @@
                    (jazz:walk-list walker resume declaration environment arguments))))
 
 
-(jazz:define-virtual-runtime (jazz:validate-arguments (jazz:Walker walker) resume source-declaration declaration signature arguments form-src))
-
-
-(jazz:define-method (jazz:validate-arguments (jazz:Walker walker) resume source-declaration declaration signature arguments form-src)
+(define (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src)
   (let ((mandatory (%%get-signature-mandatory signature))
         (rest (%%get-signature-rest signature))
         (passed (%%length arguments))

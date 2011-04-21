@@ -2293,9 +2293,9 @@
           (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
       (let ((hresult? (%%eq? (%%get-declaration-locator resolved-result) 'jazz.platform.windows.com:HRESULT)))
         (if (jazz:every? (lambda (resolved) (%%class-is? resolved jazz:C-Type-Declaration)) (%%cons resolved-result resolved-params))
-            `(begin
+            (let ((x`(begin
                (definition ,lowlevel-name ,(jazz:emit-com-function offset result-type resolved-result param-types resolved-params))
-               (definition public ,name ,(jazz:emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface))))))))
+               (definition public ,name ,(jazz:emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface))))) x))))))
 
 
 (define (jazz:emit-com-function offset result-type resolved-result param-types resolved-params)
@@ -2567,7 +2567,7 @@
 
 
 (define (jazz:walk-c-include walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (jazz:bind (name) (%%cdr form)
       (jazz:new-c-include name))))
 
@@ -2596,7 +2596,7 @@
 
 
 (define (jazz:walk-c-declare walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (jazz:bind (code) (%%cdr form)
       (jazz:new-c-declare code))))
 
@@ -2640,7 +2640,7 @@
 
 
 (define (jazz:walk-c-named-declare-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility code) (jazz:parse-c-named-declare walker resume declaration (%%cdr (%%desourcify form-src)))
+  (receive (name type access compatibility code) (jazz:parse-c-named-declare walker resume declaration (%%cdr (jazz:strip-syntactic-closures form-src)))
     (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                (jazz:new-c-named-declare-declaration name type access compatibility '() declaration code))))
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -2655,7 +2655,7 @@
 
 
 (define (jazz:walk-c-named-declare walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (receive (name type access compatibility code) (jazz:parse-c-named-declare walker resume declaration (%%cdr form))
       (let ((new-declaration (jazz:require-declaration declaration name)))
         new-declaration))))
@@ -2685,7 +2685,7 @@
 
 
 (define (jazz:walk-c-initialize walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (jazz:bind (code) (%%cdr form)
       (jazz:new-c-initialize code))))
 
@@ -2741,7 +2741,7 @@
 
 
 (define (jazz:walk-c-type-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz:parse-c-type walker resume declaration (%%cdr (%%desourcify form-src)))
+  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz:parse-c-type walker resume declaration (%%cdr (jazz:strip-syntactic-closures form-src)))
     (if (%%class-is? declaration jazz:Module-Declaration)
         (receive (kind expansion base-type-declaration inclusions) (jazz:resolve-c-type walker resume declaration environment c-type)
           (let ((inclusions (if declare
@@ -2759,7 +2759,7 @@
 
 
 (define (jazz:walk-c-type walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:strip-syntactic-closures form-src)))
     (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz:parse-c-type walker resume declaration (%%cdr form))
       (jazz:require-declaration declaration name))))
 
@@ -3188,6 +3188,4 @@
 (jazz:define-walker-special     c-function           jazz jazz:walk-c-function)
 (jazz:define-walker-declaration c-type               jazz jazz:walk-c-type-declaration jazz:walk-c-type)
 (jazz:define-walker-declaration c-definition         jazz jazz:walk-c-definition-declaration jazz:walk-c-definition)
-(jazz:define-walker-macro       c-structure          jazz jazz:expand-c-structure)
-(jazz:define-walker-macro       c-union              jazz jazz:expand-c-union)
 (jazz:define-walker-macro       com-external         jazz jazz:expand-com-external))

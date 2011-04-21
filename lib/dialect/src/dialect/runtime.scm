@@ -2533,15 +2533,12 @@
   #t)
 
 
-;; quick hack
 (define jazz:current-walker
   (make-parameter #f))
 
-;; quick hack
 (define jazz:current-resume
   (make-parameter #f))
 
-;; quick hack
 (define jazz:current-declaration
   (make-parameter #f))
 

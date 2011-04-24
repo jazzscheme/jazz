@@ -47,7 +47,7 @@
 
 
 (jazz:define-method (jazz:print-object (jazz:Exception exception) output detail)
-  (let ((message (jazz:get-message exception)))
+  (let ((message (jazz:exception-message exception)))
     (jazz:format output "#<exception #{a}" (jazz:object->serial exception))
     (if message
         (jazz:format output " {s}" message))
@@ -55,7 +55,7 @@
 
 
 (jazz:define-virtual-runtime (jazz:present-exception (jazz:Exception exception)))
-(jazz:define-virtual-runtime (jazz:get-message (jazz:Exception exception)))
+(jazz:define-virtual-runtime (jazz:exception-message (jazz:Exception exception)))
 (jazz:define-virtual-runtime (jazz:get-detail (jazz:Exception exception)))
 
 
@@ -65,15 +65,12 @@
     (get-output-string output)))
 
 
-(jazz:define-method (jazz:get-message (jazz:Exception exception))
+(jazz:define-method (jazz:exception-message (jazz:Exception exception))
   #f)
 
 
 (jazz:define-method (jazz:get-detail (jazz:Exception exception))
   #f)
-
-
-(jazz:encapsulate-class jazz:Exception)
 
 
 ;;;
@@ -88,9 +85,6 @@
   (jazz:allocate-exception-detail jazz:Exception-Detail icon title location children))
 
 
-(jazz:encapsulate-class jazz:Exception-Detail)
-
-
 ;;;
 ;;;; System Exception
 ;;;
@@ -101,9 +95,6 @@
 
 (jazz:define-method (jazz:present-exception (jazz:System-Exception exception))
   (jazz:exception-reason (%%get-system-exception-exception exception)))
-
-
-(jazz:encapsulate-class jazz:System-Exception)
 
 
 ;;;

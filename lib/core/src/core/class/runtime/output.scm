@@ -164,8 +164,7 @@
 (define (jazz:print-jazz object output detail)
   (if (jazz:use-print?)
       (if jazz.language.runtime.object:Object:call-print
-          ;; the rank of call-print is known to be 2 as it is the third method of Object
-          ((%%class-dispatch (jazz:class-of object) 0 2) object output detail)
+          ((%%class-dispatch (jazz:class-of object) jazz:object-class-rank jazz:call-print-rank) object output detail)
         (jazz:print-object object output detail))
     (jazz:print-serial object output)))
 

@@ -45,15 +45,12 @@
   (jazz:allocate-error jazz:Error message))
 
 
-(jazz:define-method (jazz:get-message (jazz:Error error))
+(jazz:define-method (jazz:exception-message (jazz:Error error))
   (%%get-error-message error))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Error error))
   (%%get-error-message error))
-
-
-(jazz:encapsulate-class jazz:Error)
 
 
 (define (jazz:raise-jazz-error fmt-string . rest)

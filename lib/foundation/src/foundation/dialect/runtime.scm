@@ -54,9 +54,6 @@
   (jazz:new-foundation-walker))
 
 
-(jazz:encapsulate-class jazz:Foundation-Dialect)
-
-
 ;;;
 ;;;; Walker
 ;;;
@@ -67,9 +64,6 @@
 
 (define (jazz:new-foundation-walker)
   (jazz:allocate-foundation-walker jazz:Foundation-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
-
-
-(jazz:encapsulate-class jazz:Foundation-Walker)
 
 
 ;;;

@@ -43,11 +43,11 @@
 ;;;
 
 
-(jazz:define-class time:Time-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
+(jazz:define-class time:Time-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level virtual-names class-table interface-table) jazz:Class () ())
 (jazz:define-class time:Time       jazz:Object () time:Time-Class () ())
 
 
-(jazz:define-class time:Date-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
+(jazz:define-class time:Date-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level virtual-names class-table interface-table) jazz:Class () ())
 (jazz:define-class time:Date       jazz:Object () time:Date-Class () ())
 
 
@@ -76,13 +76,7 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:encapsulate-class time:Time-Class)
-
-
 (jazz:define-class-runtime time:Time)
-
-
-(jazz:encapsulate-class time:Time)
 
 
 (%%table-set! jazz:primitive-types 'time time:Time)
@@ -116,13 +110,7 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:encapsulate-class time:Date-Class)
-
-
 (jazz:define-class-runtime time:Date)
-
-
-(jazz:encapsulate-class time:Date)
 
 
 (%%table-set! jazz:primitive-types 'date time:Date)

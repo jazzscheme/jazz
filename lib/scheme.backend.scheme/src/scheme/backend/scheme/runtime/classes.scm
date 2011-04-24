@@ -50,8 +50,5 @@
   (jazz:allocate-define jazz:Define name locator))
 
 
-(jazz:encapsulate-class jazz:Define)
-
-
 (define (jazz:register-define module-name name locator)
   (jazz:register-module-entry module-name name (jazz:new-define name locator))))

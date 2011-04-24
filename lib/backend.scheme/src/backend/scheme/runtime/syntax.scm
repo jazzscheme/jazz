@@ -57,9 +57,6 @@
   (jazz:allocate-module jazz:Module name access (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
-(jazz:encapsulate-class jazz:Module)
-
-
 ;;;
 ;;;; Native
 ;;;
@@ -74,9 +71,6 @@
 
 (define (jazz:new-native name symbol)
   (jazz:allocate-native jazz:Native name symbol))
-
-
-(jazz:encapsulate-class jazz:Native)
 
 
 (define (jazz:register-native module-name name symbol)
@@ -98,9 +92,6 @@
 
 (define (jazz:new-runtime-reference resolver serialization)
   (jazz:allocate-runtime-reference jazz:Runtime-Reference resolver serialization))
-
-
-(jazz:encapsulate-class jazz:Runtime-Reference)
 
 
 (define (jazz:resolve-runtime-reference runtime-reference)

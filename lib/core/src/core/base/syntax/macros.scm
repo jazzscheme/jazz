@@ -206,4 +206,8 @@
 
 
 (jazz:define-macro (%%compose-reference s1 s2)
-  `(%%string->symbol (%%string-append (%%symbol->string ,s1) ":" (%%symbol->string ,s2)))))
+  `(%%string->symbol (%%string-append (%%symbol->string ,s1) ":" (%%symbol->string ,s2))))
+
+
+(jazz:define-macro (%%compose-helper s1 s2)
+  `(%%string->symbol (%%string-append (%%symbol->string ,s1) "!" (%%symbol->string ,s2)))))

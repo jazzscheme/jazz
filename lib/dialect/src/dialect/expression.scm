@@ -59,12 +59,6 @@
   #f)
 
 
-(jazz:encapsulate-class jazz:Proclaim)
-
-
-(jazz:define-virtual-runtime (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
-
-
 (jazz:define-method (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src)
   (if (%%not (%%class-is? declaration jazz:Module-Declaration))
       (jazz:walk-error walker resume declaration form-src "For now, proclaim can only be used at the module level")))
@@ -97,9 +91,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:Delay)
-
-
 ;;;
 ;;;; Quasiquote
 ;;;
@@ -117,9 +108,6 @@
     (jazz:emit 'quasiquote backend expression declaration environment)
     jazz:List
     #f))
-
-
-(jazz:encapsulate-class jazz:Quasiquote)
 
 
 ;;;
@@ -507,9 +495,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:If)
-
-
 ;;;
 ;;;; Cond
 ;;;
@@ -552,9 +537,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Cond)
-
-
 ;;;
 ;;;; Case
 ;;;
@@ -593,9 +575,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Case)
-
-
 ;;;
 ;;;; And
 ;;;
@@ -622,9 +601,6 @@
       (jazz:tree-fold-list
         (jazz:get-and-expressions expression) down up here (down expression seed environment) environment)
       environment))
-
-
-(jazz:encapsulate-class jazz:And)
 
 
 ;;;
@@ -655,9 +631,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Or)
-
-
 ;;;
 ;;;; Declare
 ;;;
@@ -675,9 +648,6 @@
     (jazz:emit 'declare backend expression declaration environment)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:Declare)
 
 
 ;;;
@@ -709,9 +679,6 @@
         environment)))
 
 
-(jazz:encapsulate-class jazz:Parameterize)
-
-
 ;;;
 ;;;; Time Special
 ;;;
@@ -730,7 +697,4 @@
       (jazz:new-code
         (jazz:emit 'time backend expression declaration environment expressions-emit)
         jazz:Any
-        #f))))
-
-
-(jazz:encapsulate-class jazz:Time-Special))
+        #f)))))

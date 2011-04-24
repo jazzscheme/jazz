@@ -54,9 +54,6 @@
   (jazz:new-gambit-walker))
 
 
-(jazz:encapsulate-class jazz:Gambit-Dialect)
-
-
 ;;;
 ;;;; Walker
 ;;;
@@ -67,9 +64,6 @@
 
 (define (jazz:new-gambit-walker)
   (jazz:allocate-gambit-walker jazz:Gambit-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
-
-
-(jazz:encapsulate-class jazz:Gambit-Walker)
 
 
 ;;;

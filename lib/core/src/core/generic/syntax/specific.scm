@@ -57,7 +57,4 @@
 
 
 (jazz:define-macro (jazz:define-specific . rest)
-  (%%apply jazz:expand-define-specific rest))
-
-
-(jazz:encapsulate-class jazz:Specific))
+  (%%apply jazz:expand-define-specific rest)))

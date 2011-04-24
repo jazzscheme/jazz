@@ -48,7 +48,7 @@
 
 
 (jazz:define-virtual (jazz:present-exception (jazz:Exception exception)))
-(jazz:define-virtual (jazz:get-message (jazz:Exception exception)))
+(jazz:define-virtual (jazz:exception-message (jazz:Exception exception)))
 (jazz:define-virtual (jazz:get-detail (jazz:Exception exception)))
 
 

@@ -163,8 +163,6 @@
 
 (jazz:define-class-runtime X)
 
-(jazz:encapsulate-class X)
-
 
 (define (new-x)
   (allocate-x X))
@@ -214,9 +212,6 @@
     (f-vtable z (%%fx- n 1))))
 
 
-(jazz:encapsulate-class Z)
-
-
 (jazz:define-class-runtime W)
 
 
@@ -229,9 +224,6 @@
 
 (jazz:define-method (h (W w))
   #f)
-
-
-(jazz:encapsulate-class W)
 
 
 ;;;

@@ -56,6 +56,16 @@
           (iter (%%cdr scan)))))))
 
 
+(define (jazz:find-rank element lst)
+  (let iter ((scan lst) (rank 0))
+       (cond ((%%null? scan)
+              #f)
+             ((%%eq? (%%car scan) element)
+              rank)
+             (else
+              (iter (%%cdr scan) (%%fx+ rank 1))))))
+
+
 (define jazz:reverse!
   reverse)
 

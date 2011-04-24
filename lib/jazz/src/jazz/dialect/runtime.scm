@@ -132,9 +132,6 @@
   (jazz:tree-fold (%%get-definition-declaration-value expression) down up here seed environment))
 
 
-(jazz:encapsulate-class jazz:Definition-Declaration)
-
-
 ;;;
 ;;;; Specialize
 ;;;
@@ -152,9 +149,6 @@
     (jazz:emit 'specialize backend expression declaration environment)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:Specialize)
 
 
 ;;;
@@ -195,9 +189,6 @@
     #f))
 
 
-(jazz:encapsulate-class jazz:Generic-Declaration)
-
-
 ;;;
 ;;;; Specific-Declaration
 ;;;
@@ -232,9 +223,6 @@
               (%%get-declaration-source declaration))))))))
 
 
-(jazz:encapsulate-class jazz:Specific-Declaration)
-
-
 ;;;
 ;;;; Category-Declaration
 ;;;
@@ -248,9 +236,6 @@
     (jazz:emit 'category-reference backend declaration)
     jazz:Category-Declaration
     #f))
-
-
-(jazz:encapsulate-class jazz:Category-Declaration)
 
 
 ;;;
@@ -356,9 +341,6 @@
              (if (%%null? rel)
                  (jazz:sourcified-form (jazz:emit-binding-reference ascendant-base declaration environment backend))
                `(%%get-object-class ,(rec (%%cdr rel)))))))))
-
-
-(jazz:encapsulate-class jazz:Class-Declaration)
 
 
 (define (jazz:find-class-declaration declaration)
@@ -481,18 +463,12 @@
   (jazz:emit 'interface backend declaration environment))
 
 
-(jazz:encapsulate-class jazz:Interface-Declaration)
-
-
 ;;;
 ;;;; Field-Declaration
 ;;;
 
 
 (jazz:define-class-runtime jazz:Field-Declaration)
-
-
-(jazz:encapsulate-class jazz:Field-Declaration)
 
 
 ;;;
@@ -548,9 +524,6 @@
       (jazz:error "Illegal assignment to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
-(jazz:encapsulate-class jazz:Slot-Declaration)
-
-
 ;;;
 ;;;; Property
 ;;;
@@ -573,9 +546,6 @@
          (initialize? (and allocate? (%%not core?) initialize))
          (initialize-emit (and initialize? (jazz:emit-expression initialize declaration environment backend))))
     (jazz:emit 'property backend declaration environment initialize-emit)))
-
-
-(jazz:encapsulate-class jazz:Property-Declaration)
 
 
 (define (jazz:expand-property walker resume declaration environment form-src)
@@ -627,19 +597,27 @@
                (let ((implementation-locator (%%get-declaration-locator method-declaration)))
                  `(%%final-dispatch (jazz:class-of ,object-cast) ,implementation-locator)))
               ((class)
-               (let ((class-level-locator (jazz:compose-helper (%%get-declaration-locator category-declaration) 'level))
-                     (method-rank-locator (jazz:compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+               (let ((class-level-locator (%%compose-helper (%%get-declaration-locator category-declaration) 'level))
+                     (method-rank-locator (%%compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz:native-category? category-declaration)
                      `(%%class-dispatch (%%get-object-class ,object-cast) ,class-level-locator ,method-rank-locator)
                    `(%%class-dispatch (jazz:class-of ,object-cast) ,class-level-locator ,method-rank-locator))))
               ((interface)
-               (let ((interface-rank-locator (jazz:compose-helper (%%get-declaration-locator category-declaration) 'rank))
-                     (method-rank-locator (jazz:compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+               (let ((interface-rank-locator (%%compose-helper (%%get-declaration-locator category-declaration) 'rank))
+                     (method-rank-locator (%%compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                  (if (jazz:native-category? category-declaration)
                      `(%%interface-dispatch (%%get-object-class ,object-cast) ,interface-rank-locator ,method-rank-locator)
                    `(%%interface-dispatch (jazz:class-of ,object-cast) ,interface-rank-locator ,method-rank-locator)))))
             (jazz:call-return-type (%%get-lexical-binding-type method-declaration))
             #f))))))
+
+
+(jazz:define-method (jazz:compose-declaration-locator (jazz:Method-Declaration declaration))
+  (if (%%eq? (%%get-method-declaration-abstraction declaration) 'core)
+      (let ((class-name (%%compose-reference 'jazz (%%get-lexical-binding-name (%%get-declaration-parent declaration))))
+            (name (%%compose-reference 'jazz (%%get-lexical-binding-name declaration))))
+        (jazz:method-implementation-name class-name name))
+    (nextmethod declaration)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Method-Declaration declaration) source-declaration environment backend)
@@ -747,9 +725,6 @@
       (jazz:tree-fold body down up here seed environment))))
 
 
-(jazz:encapsulate-class jazz:Method-Declaration)
-
-
 ;;;
 ;;;; Method Node Reference
 ;;;
@@ -779,9 +754,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:Method-Node-Reference)
-
-
 ;;;
 ;;;; Dialect
 ;;;
@@ -796,9 +768,6 @@
 
 (jazz:define-method (jazz:dialect-walker (jazz:Jazz-Dialect dialect))
   (jazz:new-jazz-walker))
-
-
-(jazz:encapsulate-class jazz:Jazz-Dialect)
 
 
 ;;;
@@ -1015,9 +984,6 @@
     (up expression seed (jazz:tree-fold (%%get-with-self-body expression) down up here seed1 aug-env) environment)))
 
 
-(jazz:encapsulate-class jazz:With-Self)
-
-
 ;;;
 ;;;; With-Dynamic-Self
 ;;;
@@ -1039,9 +1005,6 @@
         (jazz:emit 'with-dynamic-self backend expression declaration environment body-emit)
         jazz:Any
         #f))))
-
-
-(jazz:encapsulate-class jazz:With-Dynamic-Self)
 
 
 (define (jazz:parse-with-dynamic-self form)
@@ -1085,9 +1048,6 @@
         #f))))
 
 
-(jazz:encapsulate-class jazz:Cast)
-
-
 (define (jazz:walk-cast walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((specifier (%%cadr form))
@@ -1117,9 +1077,6 @@
         (jazz:emit 'allocate backend expression declaration environment class-emit values-emit)
         jazz:Any
         #f))))
-
-
-(jazz:encapsulate-class jazz:Allocate)
 
 
 (define (jazz:walk-allocate walker resume declaration environment form-src)
@@ -1246,9 +1203,6 @@
           (else
            #f)))
     #f))
-
-
-(jazz:encapsulate-class jazz:Dispatch)
 
 
 (define (jazz:walk-dispatch walker resume declaration environment form-src)
@@ -1860,7 +1814,7 @@
   '(((private protected package public) . protected)
     ((deprecated undocumented uptodate) . uptodate)
     ((final virtual chained override) . final)
-    ((abstract concrete) . concrete)
+    ((abstract concrete core) . concrete)
     ((inline onsite) . onsite)
     ;; quicky
     ((remote notremote) . notremote)
@@ -2011,9 +1965,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:NextMethod-Variable)
-
-
 ;;;
 ;;;; Self Binding
 ;;;
@@ -2033,9 +1984,6 @@
     #f))
 
 
-(jazz:encapsulate-class jazz:Self-Binding)
-
-
 ;;;
 ;;;; Dynamic Self Binding
 ;;;
@@ -2053,9 +2001,6 @@
     (jazz:emit 'dynamic-self-reference backend declaration)
     (%%get-declaration-parent source-declaration)
     #f))
-
-
-(jazz:encapsulate-class jazz:Dynamic-Self-Binding)
 
 
 ;;;
@@ -2199,9 +2144,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:C-Include)
-
-
 (define (jazz:walk-c-include walker resume declaration environment form-src)
   (let ((form (jazz:strip-syntactic-closures form-src)))
     (jazz:bind (name) (%%cdr form)
@@ -2226,9 +2168,6 @@
       `(c-declare ,code)
       jazz:Any
       #f)))
-
-
-(jazz:encapsulate-class jazz:C-Declare)
 
 
 (define (jazz:walk-c-declare walker resume declaration environment form-src)
@@ -2258,9 +2197,6 @@
 (jazz:define-method (jazz:expand-referenced-declaration (jazz:C-Named-Declare-Declaration declaration))
   (let ((code (%%get-c-named-declare-declaration-code declaration)))
     `(c-declare ,code)))
-
-
-(jazz:encapsulate-class jazz:C-Named-Declare-Declaration)
 
 
 (define jazz:c-named-declare-modifiers
@@ -2317,9 +2253,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:C-Initialize)
-
-
 (define (jazz:walk-c-initialize walker resume declaration environment form-src)
   (let ((form (jazz:strip-syntactic-closures form-src)))
     (jazz:bind (code) (%%cdr form)
@@ -2356,9 +2289,6 @@
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
                                               (%%list c-to-scheme scheme-to-c #f)
                                             '()))))
-
-
-(jazz:encapsulate-class jazz:C-Type-Declaration)
 
 
 (define jazz:c-type-modifiers
@@ -2473,9 +2403,6 @@
     #f))
 
 
-(jazz:encapsulate-class jazz:C-Function)
-
-
 (define (jazz:walk-c-function walker resume declaration environment form-src)
   (let ((form (jazz:strip-syntactic-closures form-src)))
     (%%assertion (and (list? form) (%%fx= 4 (%%length form))) (jazz:walk-error walker resume declaration form-src "Ill-formed c-function")
@@ -2527,9 +2454,6 @@
     (jazz:emit 'c-definition-reference backend declaration)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:C-Definition-Declaration)
 
 
 (define jazz:c-definition-modifiers
@@ -2771,9 +2695,6 @@
   (let ((form (%%desourcify form-src)))
     (let ((forms (%%cdr form)))
       (jazz:new-time-special (jazz:walk-list walker resume declaration environment forms)))))
-
-
-(jazz:encapsulate-class jazz:Jazz-Walker)
 
 
 ;;;

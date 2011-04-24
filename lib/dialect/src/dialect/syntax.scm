@@ -106,8 +106,8 @@
    (source        %%get-declaration-source        %%set-declaration-source)))
 
 
+(jazz:define-virtual (jazz:compose-declaration-locator (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
-(jazz:define-virtual (jazz:update-declaration (jazz:Declaration declaration) new-declaration))
 (jazz:define-virtual (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
@@ -321,7 +321,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Void-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class ()
+(jazz:define-class jazz:Void-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level virtual-names class-table interface-table) jazz:Class ()
   ())
 
 
@@ -441,7 +441,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Any-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class ()
+(jazz:define-class jazz:Any-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level virtual-names class-table interface-table) jazz:Class ()
   ())
 
 
@@ -497,9 +497,9 @@
 
 (jazz:define-virtual (jazz:walker-declarations (jazz:Walker walker)))
 (jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
-(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-(jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
 (jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
+(jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
+(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
 (jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
 (jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))

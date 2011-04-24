@@ -66,9 +66,6 @@
   (apply (jazz:require-backend-binding backend binding) backend rest))
 
 
-(jazz:encapsulate-class jazz:Backend)
-
-
 ;;;
 ;;;; Backends
 ;;;

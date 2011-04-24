@@ -75,9 +75,6 @@
   #f)
 
 
-(jazz:encapsulate-class jazz:Dialect)
-
-
 ;;;
 ;;;; Dialects
 ;;;
@@ -188,6 +185,16 @@
 (jazz:define-class-runtime jazz:Walker)
 
 
+(jazz:define-virtual-runtime (jazz:walker-declarations (jazz:Walker walker)))
+(jazz:define-virtual-runtime (jazz:walker-bindings (jazz:Walker walker)))
+(jazz:define-virtual-runtime (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual-runtime (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
+(jazz:define-virtual-runtime (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual-runtime (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual-runtime (jazz:runtime-export (jazz:Walker walker) declaration))
+(jazz:define-virtual-runtime (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
+
+
 ;;;
 ;;;; Walk Binding
 ;;;
@@ -274,9 +281,6 @@
   (jazz:unspecified))
 
 
-(jazz:encapsulate-class jazz:Walk-Binding)
-
-
 (define (jazz:call-return-type operator-type)
   (if (%%is? operator-type jazz:Function-Type)
       (%%get-function-type-result operator-type)
@@ -326,9 +330,6 @@
   (jazz:emit 'lexical-binding-reference backend binding))
 
 
-(jazz:encapsulate-class jazz:Lexical-Binding)
-
-
 ;;;
 ;;;; Declaration
 ;;;
@@ -340,7 +341,7 @@
 (define (jazz:setup-declaration new-declaration)
   (let ((parent (%%get-declaration-parent new-declaration))
         (name (%%get-lexical-binding-name new-declaration)))
-    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-reference (%%get-declaration-locator parent) name)))
+    (%%set-declaration-locator new-declaration (if (%%not parent) name (jazz:compose-declaration-locator new-declaration)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
 
 
@@ -363,35 +364,34 @@
   (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" (%%get-lexical-binding-name declaration)))
 
 
+(jazz:define-virtual-runtime (jazz:compose-declaration-locator (jazz:Declaration declaration)))
 (jazz:define-virtual-runtime (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
+(jazz:define-virtual-runtime (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
+(jazz:define-virtual-runtime (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
+(jazz:define-virtual-runtime (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
+(jazz:define-virtual-runtime (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
+
+
+(jazz:define-method (jazz:compose-declaration-locator (jazz:Declaration declaration))
+  (let ((parent (%%get-declaration-parent declaration))
+        (name (%%get-lexical-binding-name declaration)))
+    (%%compose-reference (%%get-declaration-locator parent) name)))
 
 
 (jazz:define-method (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration)
   #f)
 
 
-(jazz:define-virtual-runtime (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
-
-
 (jazz:define-method (jazz:get-declaration-inclusions (jazz:Declaration declaration))
   '())
-
-
-(jazz:define-virtual-runtime (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
 
 
 (jazz:define-method (jazz:get-nextmethod-signature (jazz:Declaration declaration))
   (jazz:error "No nextmethod signature for: {s}" declaration))
 
 
-(jazz:define-virtual-runtime (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
-
-
 (jazz:define-method (jazz:emit-declaration (jazz:Declaration declaration) environment backend)
   (jazz:error "Unable to emit: {s}" declaration))
-
-
-(jazz:define-virtual-runtime (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 
 
 (jazz:define-method (jazz:expand-referenced-declaration (jazz:Declaration declaration))
@@ -402,9 +402,6 @@
   (if (%%eq? (jazz:walk-for) 'eval)
       '((jazz:unspecified))
     '()))
-
-
-(jazz:encapsulate-class jazz:Declaration)
 
 
 ;; In order to be able to resolve internal declarations as we walk the code, the declaration
@@ -525,9 +522,6 @@
           declaration))))
 
 
-(jazz:encapsulate-class jazz:Declaration-Reference)
-
-
 ;;;
 ;;;; Module Reference
 ;;;
@@ -545,9 +539,6 @@
       (let ((declaration (jazz:outline-module (%%get-declaration-reference-name declaration-reference))))
         (%%set-declaration-reference-declaration declaration-reference declaration)
         declaration)))
-
-
-(jazz:encapsulate-class jazz:Module-Reference)
 
 
 ;;;
@@ -580,9 +571,6 @@
          (values name name))))
 
 
-(jazz:encapsulate-class jazz:Export-Reference)
-
-
 ;;;
 ;;;; Autoload Reference
 ;;;
@@ -605,9 +593,6 @@
           declaration))))
 
 
-(jazz:encapsulate-class jazz:Autoload-Reference)
-
-
 ;;;
 ;;;; Unit
 ;;;
@@ -620,9 +605,6 @@
   (let ((new-declaration (jazz:allocate-unit-declaration jazz:Unit-Declaration name #f #f access 'uptodate '() #f parent #f #f requires)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
-
-
-(jazz:encapsulate-class jazz:Unit-Declaration)
 
 
 (define (jazz:parse-unit-declaration partial-form)
@@ -677,9 +659,6 @@
       (jazz:tree-fold-list
         (%%get-namespace-declaration-body expression) down up here (down expression seed environment) environment)
       environment))
-
-
-(jazz:encapsulate-class jazz:Namespace-Declaration)
 
 
 (define (jazz:get-private-lookup namespace-declaration)
@@ -937,9 +916,6 @@
 
 (define (jazz:get-module-warn? module-declaration warning-name)
   (%%memq warning-name (jazz:get-module-proclaim module-declaration 'warn '())))
-
-
-(jazz:encapsulate-class jazz:Module-Declaration)
 
 
 (define (jazz:parse-module partial-form)
@@ -1259,9 +1235,6 @@
           (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%car x)) (%%symbol->string (%%car y)))))))))
 
 
-(jazz:define-virtual-runtime (jazz:runtime-export (jazz:Walker walker) declaration))
-
-
 (jazz:define-method (jazz:runtime-export (jazz:Walker walker) declaration)
   (cond ((%%is? declaration jazz:Export-Declaration)
          (%%get-declaration-locator declaration))
@@ -1279,9 +1252,6 @@
 
 
 (jazz:define-class-runtime jazz:Module-Invoice)
-
-
-(jazz:encapsulate-class jazz:Module-Invoice)
 
 
 (define (jazz:find-module-invoice invoices target)
@@ -1305,9 +1275,6 @@
   (jazz:allocate-export-invoice jazz:Export-Invoice name module phase version only #f #f #f autoload))
 
 
-(jazz:encapsulate-class jazz:Export-Invoice)
-
-
 ;;;
 ;;;; Import Invoice
 ;;;
@@ -1318,9 +1285,6 @@
 
 (define (jazz:new-import-invoice name module phase version only)
   (jazz:allocate-import-invoice jazz:Import-Invoice name module phase version only #f #f #f #f))
-
-
-(jazz:encapsulate-class jazz:Import-Invoice)
 
 
 ;;;
@@ -1354,9 +1318,6 @@
     (jazz:emit 'export-reference backend declaration)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:Export-Declaration)
 
 
 (define (jazz:walk-export-declaration walker resume declaration environment form-src)
@@ -1412,9 +1373,6 @@
     (jazz:emit 'export-syntax-reference backend declaration)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:Export-Syntax-Declaration)
 
 
 ;;;
@@ -1474,9 +1432,6 @@
                                      ":autoload")))
 
 
-(jazz:encapsulate-class jazz:Autoload-Declaration)
-
-
 ;;;
 ;;;; Literal
 ;;;
@@ -1487,9 +1442,6 @@
 
 (define (jazz:new-literal name arguments)
   (jazz:allocate-literal jazz:Literal name arguments))
-
-
-(jazz:encapsulate-class jazz:Literal)
 
 
 (define (jazz:walk-literal/constant walker resume declaration environment literal/constant)
@@ -1603,13 +1555,7 @@
   'void)
 
 
-(jazz:encapsulate-class jazz:Void-Class)
-
-
 (jazz:define-class-runtime jazz:Void)
-
-
-(jazz:encapsulate-class jazz:Void)
 
 
 ;;;
@@ -1627,9 +1573,6 @@
 (jazz:define-method (jazz:emit-specifier (jazz:Opt-Type type))
   (let ((type-specifier (jazz:emit-specifier (%%get-opt-type-type type))))
     (%%string->symbol (%%string-append "opt<" (%%symbol->string type-specifier) ">"))))
-
-
-(jazz:encapsulate-class jazz:Opt-Type)
 
 
 ;;;
@@ -1650,9 +1593,6 @@
     (%%string->symbol (%%string-append "key<" (%%keyword->string key) ":" (%%symbol->string type-specifier) ">"))))
 
 
-(jazz:encapsulate-class jazz:Key-Type)
-
-
 ;;;
 ;;;; Rest
 ;;;
@@ -1668,9 +1608,6 @@
 (jazz:define-method (jazz:emit-specifier (jazz:Rest-Type type))
   (let ((type-specifier (jazz:emit-specifier (%%get-rest-type-type type))))
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "*"))))
-
-
-(jazz:encapsulate-class jazz:Rest-Type)
 
 
 ;;;
@@ -1718,9 +1655,6 @@
        (jazz:type-error ,value jazz:Procedure)))
 
 
-(jazz:encapsulate-class jazz:Function-Type)
-
-
 ;;;
 ;;;; Category
 ;;;
@@ -1754,9 +1688,6 @@
     (%%string->symbol (get-output-string output))))
 
 
-(jazz:encapsulate-class jazz:Category-Type)
-
-
 ;;;
 ;;;; Values
 ;;;
@@ -1784,9 +1715,6 @@
     (%%string->symbol (get-output-string output))))
 
 
-(jazz:encapsulate-class jazz:Values-Type)
-
-
 ;;;
 ;;;; Restriction
 ;;;
@@ -1797,9 +1725,6 @@
 
 (define (jazz:new-restriction-type base type)
   (jazz:allocate-restriction-type jazz:Restriction-Type base type))
-
-
-(jazz:encapsulate-class jazz:Restriction-Type)
 
 
 ;;;
@@ -1814,9 +1739,6 @@
   (jazz:allocate-complement-type jazz:Complement-Type type))
 
 
-(jazz:encapsulate-class jazz:Complement-Type)
-
-
 ;;;
 ;;;; Union
 ;;;
@@ -1827,9 +1749,6 @@
 
 (define (jazz:new-union-type types)
   (jazz:allocate-union-type jazz:Union-Type types))
-
-
-(jazz:encapsulate-class jazz:Union-Type)
 
 
 ;;;
@@ -1862,9 +1781,6 @@
     (%%string->symbol (get-output-string output))))
 
 
-(jazz:encapsulate-class jazz:Template-Type)
-
-
 ;;;
 ;;;; Nillable
 ;;;
@@ -1890,9 +1806,6 @@
 (jazz:define-method (jazz:emit-check (jazz:Nillable-Type type) value source-declaration environment backend)
   ;; for tests
   #f)
-
-
-(jazz:encapsulate-class jazz:Nillable-Type)
 
 
 ;;;
@@ -1927,13 +1840,7 @@
   #f)
 
 
-(jazz:encapsulate-class jazz:Any-Class)
-
-
 (jazz:define-class-runtime jazz:Any)
-
-
-(jazz:encapsulate-class jazz:Any)
 
 
 ;;;
@@ -2332,9 +2239,6 @@
             (%%get-declaration-source declaration)))))))
 
 
-(jazz:encapsulate-class jazz:Macro-Declaration)
-
-
 (define jazz:macro-modifiers
   '(((private protected package public) . private)
     ((deprecated undocumented uptodate) . uptodate)))
@@ -2433,9 +2337,6 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Local-Macro-Declaration declaration) environment backend)
   `(begin))
-
-
-(jazz:encapsulate-class jazz:Local-Macro-Declaration)
 
 
 (define (jazz:register-local-macro module-declaration name macro)
@@ -2560,9 +2461,6 @@
           (expander form-src environment macro-environment))))))
 
 
-(jazz:encapsulate-class jazz:Syntax-Declaration)
-
-
 (define jazz:syntax-modifiers
   '(((private protected package public) . private)
     ((deprecated undocumented uptodate) . uptodate)))
@@ -2654,9 +2552,6 @@
         (expander form-src environment macro-environment)))))
 
 
-(jazz:encapsulate-class jazz:Define-Syntax-Declaration)
-
-
 (define (jazz:walk-define-syntax-declaration walker resume declaration environment form-src)
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest))))
@@ -2708,9 +2603,6 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Local-Syntax-Declaration declaration) environment backend)
   `(begin))
-
-
-(jazz:encapsulate-class jazz:Define-Local-Syntax-Declaration)
 
 
 (define (jazz:walk-define-local-syntax-declaration walker resume declaration environment form-src)
@@ -2800,9 +2692,6 @@
       (%%get-walk-context-pathname context))))
 
 
-(jazz:encapsulate-class jazz:Walk-Context)
-
-
 ;;;
 ;;;; Walk Location
 ;;;
@@ -2823,18 +2712,12 @@
     (if locat (%%container->path (%%locat-container locat)) #f)))
 
 
-(jazz:encapsulate-class jazz:Walk-Location)
-
-
 ;;;
 ;;;; Walk Problem
 ;;;
 
 
 (jazz:define-class-runtime jazz:Walk-Problem)
-
-
-(jazz:encapsulate-class jazz:Walk-Problem)
 
 
 ;;;
@@ -2877,9 +2760,6 @@
            (jazz:partition-walk-problems-unit all)))))
 
 
-(jazz:encapsulate-class jazz:Walk-Problems)
-
-
 ;;;
 ;;;; Walk Warning
 ;;;
@@ -2892,9 +2772,6 @@
   (jazz:allocate-walk-warning jazz:Walk-Warning message location))
 
 
-(jazz:encapsulate-class jazz:Walk-Warning)
-
-
 ;;;
 ;;;; Walk Error
 ;;;
@@ -2905,9 +2782,6 @@
 
 (define (jazz:new-walk-error location message)
   (jazz:allocate-walk-error jazz:Walk-Error message location))
-
-
-(jazz:encapsulate-class jazz:Walk-Error)
 
 
 ;;;
@@ -2925,9 +2799,6 @@
 (jazz:define-method (jazz:present-exception (jazz:Unresolved-Error error))
   (jazz:format "Unresolved symbol: {s}"
                (%%get-unresolved-error-symbol error)))
-
-
-(jazz:encapsulate-class jazz:Unresolved-Error)
 
 
 ;;;
@@ -2951,9 +2822,6 @@
   (%%table-ref (%%get-walk-frame-bindings binding) symbol #f))
 
 
-(jazz:encapsulate-class jazz:Walk-Frame)
-
-
 ;;;
 ;;;; Signature
 ;;;
@@ -2973,9 +2841,6 @@
        (%%not (%%get-signature-rest signature))))
 
 
-(jazz:encapsulate-class jazz:Signature)
-
-
 ;;;
 ;;;; Symbol Binding
 ;;;
@@ -2986,9 +2851,6 @@
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Symbol-Binding binding) declaration environment backend)
   (jazz:emit 'symbol-reference backend binding))
-
-
-(jazz:encapsulate-class jazz:Symbol-Binding)
 
 
 ;;;
@@ -3042,9 +2904,6 @@
         #f))))
 
 
-(jazz:encapsulate-class jazz:Variable)
-
-
 (define (jazz:register-variable declaration suffix value)
   (let ((module-declaration (%%get-declaration-toplevel declaration)))
     (let ((symbol (jazz:generate-global-symbol suffix)))
@@ -3073,9 +2932,6 @@
   (jazz:emit-binding-symbol parameter declaration environment backend))
 
 
-(jazz:encapsulate-class jazz:Parameter)
-
-
 ;;;
 ;;;; Dynamic Parameter
 ;;;
@@ -3093,9 +2949,6 @@
     (%%list (jazz:sourcified-form (jazz:emit-expression class declaration environment backend)) (jazz:emit-binding-symbol parameter declaration environment backend))))
 
 
-(jazz:encapsulate-class jazz:Dynamic-Parameter)
-
-
 ;;;
 ;;;; Optional Parameter
 ;;;
@@ -3111,9 +2964,6 @@
 (jazz:define-method (jazz:emit-parameter (jazz:Optional-Parameter parameter) declaration environment backend)
   (let ((default (%%get-optional-parameter-default parameter)))
     (%%list (jazz:emit-binding-symbol parameter declaration environment backend) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
-
-
-(jazz:encapsulate-class jazz:Optional-Parameter)
 
 
 ;;;
@@ -3137,9 +2987,6 @@
   (jazz:emit 'named-parameter-reference backend parameter))
 
 
-(jazz:encapsulate-class jazz:Named-Parameter)
-
-
 ;;;
 ;;;; Rest Parameter
 ;;;
@@ -3154,9 +3001,6 @@
 
 (jazz:define-method (jazz:emit-parameter (jazz:Rest-Parameter parameter) declaration environment backend)
   (jazz:emit-binding-symbol parameter declaration environment backend))
-
-
-(jazz:encapsulate-class jazz:Rest-Parameter)
 
 
 ;;;
@@ -3176,9 +3020,6 @@
     (jazz:emit 'local-variable-reference backend declaration)
     jazz:Any
     #f))
-
-
-(jazz:encapsulate-class jazz:Local-Variable-Binding)
 
 
 ;;;
@@ -3210,18 +3051,12 @@
     (jazz:walk walker resume source-declaration environment (setter value))))
 
 
-(jazz:encapsulate-class jazz:Macro-Symbol)
-
-
 ;;;
 ;;;; Form Binding
 ;;;
 
 
 (jazz:define-class-runtime jazz:Form-Binding)
-
-
-(jazz:encapsulate-class jazz:Form-Binding)
 
 
 ;;;
@@ -3234,9 +3069,6 @@
 
 (define (jazz:new-declaration-form name walk)
   (jazz:allocate-declaration-form jazz:Declaration-Form name #f #f walk))
-
-
-(jazz:encapsulate-class jazz:Declaration-Form)
 
 
 ;;;
@@ -3283,9 +3115,6 @@
       (walk walker resume declaration environment form-src))))
 
 
-(jazz:encapsulate-class jazz:Special-Form)
-
-
 ;;;
 ;;;; Macro Form
 ;;;
@@ -3306,9 +3135,6 @@
   (let ((form (%%desourcify form-src)))
     (let ((expander (%%get-macro-form-expander binding)))
       (apply expander walker resume declaration environment (%%cdr form)))))
-
-
-(jazz:encapsulate-class jazz:Macro-Form)
 
 
 ;;;
@@ -3332,9 +3158,6 @@
     (expander walker resume declaration environment form-src)))
 
 
-(jazz:encapsulate-class jazz:Syntax-Form)
-
-
 ;;;
 ;;;; Define-Syntax Form
 ;;;
@@ -3353,9 +3176,6 @@
     (expander form-src environment macro-environment)))
 
 
-(jazz:encapsulate-class jazz:Define-Syntax-Form)
-
-
 ;;;
 ;;;; Define-Local-Syntax Form
 ;;;
@@ -3372,9 +3192,6 @@
   (let ((expander (%%get-syntax-form-expander binding))
         (macro-environment (%%get-define-local-syntax-form-environment binding)))
     (expander form-src environment macro-environment)))
-
-
-(jazz:encapsulate-class jazz:Define-Local-Syntax-Form)
 
 
 ;;;
@@ -3496,9 +3313,6 @@
         (f expr rename compare)))))
 
 
-(jazz:encapsulate-class jazz:Syntactic-Closure)
-
-
 ;;;
 ;;;; Annotated Variable
 ;;;
@@ -3509,9 +3323,6 @@
 
 (define (jazz:new-annotated-variable variable declared-type type)
   (jazz:allocate-annotated-variable jazz:Annotated-Variable variable declared-type type))
-
-
-(jazz:encapsulate-class jazz:Annotated-Variable)
 
 
 ;;;
@@ -3526,9 +3337,6 @@
   (jazz:allocate-restricted-binding jazz:Restricted-Binding binding type))
 
 
-(jazz:encapsulate-class jazz:Restricted-Binding)
-
-
 ;;;
 ;;;; Annotated Frame
 ;;;
@@ -3539,9 +3347,6 @@
 
 (define (jazz:new-annotated-frame variables reset)
   (jazz:allocate-annotated-frame jazz:Annotated-Frame variables reset))
-
-
-(jazz:encapsulate-class jazz:Annotated-Frame)
 
 
 ;; put those in a cond-expand when cond-expand supports multiple features
@@ -3576,9 +3381,6 @@
 
 (define (jazz:new-code form type source)
   (jazz:allocate-code jazz:Code form type source))
-
-
-(jazz:encapsulate-class jazz:Code)
 
 
 (define (jazz:codes-forms codes)
@@ -3906,10 +3708,6 @@
 ;;;
 
 
-(jazz:define-virtual-runtime (jazz:walker-declarations (jazz:Walker walker)))
-(jazz:define-virtual-runtime (jazz:walker-bindings (jazz:Walker walker)))
-
-
 (jazz:define-method (jazz:walker-declarations (jazz:Walker walker))
   (%%get-dialect-declarations (jazz:get-dialect 'foundation)))
 
@@ -3962,13 +3760,11 @@
 
 
 (jazz:define-virtual-runtime (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
+(jazz:define-virtual-runtime (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Expression expression) declaration environment backend)
   (jazz:error "Unable to emit code for: {s}" expression))
-
-
-(jazz:define-virtual-runtime (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
 
 
 (jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend)
@@ -3991,9 +3787,6 @@
     (jazz:tree-fold-list (cdr ls) down up here (jazz:tree-fold (car ls) down up here seed environment) environment)))
 
 
-(jazz:encapsulate-class jazz:Expression)
-
-
 ;;;
 ;;;; Binding Reference
 ;;;
@@ -4014,9 +3807,6 @@
 (jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments declaration environment backend)
   (jazz:sourcify-code (jazz:emit-binding-call (%%get-reference-binding expression) (%%get-expression-source expression) arguments declaration environment backend)
                       (%%get-expression-source expression)))
-
-
-(jazz:encapsulate-class jazz:Binding-Reference)
 
 
 ;;;
@@ -4057,9 +3847,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Body)
-
-
 ;;;
 ;;;; Internal-Define
 ;;;
@@ -4092,9 +3879,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Internal-Define)
-
-
 ;;;
 ;;;; Begin
 ;;;
@@ -4124,9 +3908,6 @@
         (down expression seed environment)
         environment)
       environment))
-
-
-(jazz:encapsulate-class jazz:Begin)
 
 
 ;;;
@@ -4166,9 +3947,6 @@
         (down expression seed environment)
         environment)
       environment))
-
-
-(jazz:encapsulate-class jazz:Call)
 
 
 (define (jazz:walk-call walker resume declaration environment procedure-binding form-src)
@@ -4215,9 +3993,6 @@
     (%%get-constant-expansion expression)
     (%%get-expression-type expression)
     #f))
-
-
-(jazz:encapsulate-class jazz:Constant)
 
 
 (define (jazz:walk-quote walker resume declaration environment form-src)
@@ -4332,12 +4107,6 @@
       environment))
 
 
-(jazz:encapsulate-class jazz:Assignment)
-
-
-(jazz:define-virtual-runtime (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-
-
 (jazz:define-method (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value)
   (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
     (if binding
@@ -4371,9 +4140,6 @@
       #f)))
 
 
-(jazz:encapsulate-class jazz:Walk-Failed-Special)
-
-
 ;;;
 ;;;; Analysis Data
 ;;;
@@ -4384,9 +4150,6 @@
 
 (define (jazz:new-analysis-data)
   (jazz:allocate-analysis-data jazz:Analysis-Data #f #f))
-
-
-(jazz:encapsulate-class jazz:Analysis-Data)
 
 
 (define (jazz:get-analysis-data locator)
@@ -4524,9 +4287,6 @@
 ;;;
 
 
-(jazz:define-virtual-runtime (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-
-
 (jazz:define-method (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src)
   (let ((symbol (jazz:source-code symbol-src)))
     (if (jazz:enumerator? symbol)
@@ -4596,9 +4356,6 @@
     referenced-declaration))
 
 
-(jazz:define-virtual-runtime (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
-
-
 (jazz:define-method (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration)
   #f)
 
@@ -4615,9 +4372,6 @@
 ;;;
 ;;;; Form
 ;;;
-
-
-(jazz:define-virtual-runtime (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
 
 
 (jazz:define-method (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src)
@@ -5001,9 +4755,6 @@
                     (jazz:walk walker resume declaration environment form)
                     #f)))))
         (jazz:new-walk-failed-special answer)))))
-
-
-(jazz:encapsulate-class jazz:Walker)
 
 
 ;;;

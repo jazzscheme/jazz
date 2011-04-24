@@ -45,7 +45,6 @@
 
 (native jazz:method-implementation-name)
 (native jazz:find-nextmethod)
-(native jazz:register-method)
 (native jazz:emit-expressions)
 (native jazz:emit)
 (native jazz:new-code)
@@ -56,7 +55,6 @@
 (native jazz:reference-name)
 (native jazz:new-core-class)
 (native jazz:set-core-class)
-(native jazz:encapsulate-class)
 
 
 ;;;

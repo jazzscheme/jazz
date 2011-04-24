@@ -54,9 +54,6 @@
   (jazz:new-scheme-walker))
 
 
-(jazz:encapsulate-class jazz:Scheme-Dialect)
-
-
 ;;;
 ;;;; Walker
 ;;;
@@ -147,9 +144,6 @@
   (jazz:tree-fold (%%get-define-declaration-value expression) down up here seed environment))
 
 
-(jazz:encapsulate-class jazz:Define-Declaration)
-
-
 (define (jazz:walk-define-declaration walker resume declaration environment form-src)
   (receive (name specifier value parameters) (jazz:parse-define walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assert (%%class-is? declaration jazz:Namespace-Declaration)
@@ -212,9 +206,6 @@
             `(jazz:define-special-form ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (%%get-declaration-source declaration)))))))
-
-
-(jazz:encapsulate-class jazz:Define-Special-Form-Declaration)
 
 
 (define (jazz:parse-define-special-form walker resume declaration rest)
@@ -289,9 +280,6 @@
             (%%get-declaration-source declaration)))))))
 
 
-(jazz:encapsulate-class jazz:Define-Macro-Declaration)
-
-
 (define (jazz:parse-define-macro walker resume declaration rest)
   (%%assertion (and (%%not-null? rest) (%%not-null? (%%cdr rest))) (jazz:walk-error walker resume declaration rest "Ill-formed define-macro")
     (let* ((signature (%%desourcify (%%car rest)))
@@ -360,9 +348,6 @@
             seed
             (jazz:tree-fold (%%get-lambda-body expression) down up here (down expression seed environment) aug-env)
             environment)))))
-
-
-(jazz:encapsulate-class jazz:Lambda)
 
 
 (define (jazz:walk-lambda walker resume declaration environment form-src)
@@ -435,9 +420,6 @@
     (up expression seed (jazz:tree-fold (%%get-let-body expression) down up here seed2 aug-env) environment)))
 
 
-(jazz:encapsulate-class jazz:Let)
-
-
 (define (jazz:walk-let walker resume declaration environment form-src)
   (let ((unwrapped (jazz:unwrap-syntactic-closure form-src)))
     (%%assertion (%%not-null? (%%cdr unwrapped)) (jazz:walk-error walker resume declaration form-src "Ill-formed let")
@@ -507,9 +489,6 @@
          (seed1 (down expression seed environment))
          (seed2 (jazz:tree-fold-list (map cdr bindings) down up here seed1 environment)))
     (up expression seed (jazz:tree-fold (%%get-let-body expression) down up here seed2 aug-env) environment)))
-
-
-(jazz:encapsulate-class jazz:Named-Let)
 
 
 (define (jazz:walk-named-let walker resume declaration environment form-src)
@@ -588,9 +567,6 @@
          (up expression seed (jazz:tree-fold (%%get-letstar-body expression) down up here seed2 aug-env) environment))))
 
 
-(jazz:encapsulate-class jazz:Letstar)
-
-
 (define (jazz:walk-letstar walker resume declaration environment form-src)
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed let*")
     (let ((bindings (jazz:unwrap-syntactic-closure (%%cadr (jazz:unwrap-syntactic-closure form-src))))
@@ -652,9 +628,6 @@
     (up expression seed (jazz:tree-fold (%%get-letrec-body expression) down up here seed2 aug-env) environment)))
 
 
-(jazz:encapsulate-class jazz:Letrec)
-
-
 (define (jazz:walk-letrec walker resume declaration environment form-src)
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed letrec")
     (let ((bindings (jazz:unwrap-syntactic-closure (%%cadr (jazz:unwrap-syntactic-closure form-src))))
@@ -709,9 +682,6 @@
          (seed1 (down expression seed environment))
          (seed2 (jazz:tree-fold (%%get-receive-expression expression) down up here seed1 environment)))
     (up expression seed (jazz:tree-fold (%%get-receive-body expression) down up here seed2 aug-env) environment)))
-
-
-(jazz:encapsulate-class jazz:Receive)
 
 
 (define (jazz:walk-receive walker resume declaration environment form-src)
@@ -948,10 +918,6 @@
         environment)))
 
 
-(jazz:encapsulate-class jazz:Do)
-
-
-
 (define (jazz:walk-do walker resume declaration environment form-src)
   (let ((bindings (jazz:source-code (%%cadr (jazz:source-code form-src))))
         (test (%%car (jazz:source-code (%%car (%%cddr (jazz:source-code form-src))))))
@@ -1005,9 +971,6 @@
   (jazz:new-quasiquote (walk (%%cadr (jazz:source-code form-src)))))
 
 
-(jazz:encapsulate-class jazz:Scheme-Walker)
-
-
 ;;;
 ;;;; Reference Reification
 ;;;
@@ -1059,9 +1022,6 @@
             `(jazz:new-runtime-reference ,(%%get-code-form (jazz:emit-expression resolver declaration environment backend)) ',serialization)
             jazz:Any
             #f))))))
-
-
-(jazz:encapsulate-class jazz:Reference-Reification)
 
 
 (define (jazz:walk-reference walker resume declaration environment form-src)

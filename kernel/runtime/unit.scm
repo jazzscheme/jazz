@@ -1059,7 +1059,7 @@
 
 
 (define (jazz:load-debuggee-units)
-  (jazz:load-unit 'core.module)
+  (jazz:load-foundation)
   (jazz:load-unit 'jazz)
   (jazz:load-unit 'jazz.debuggee)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Frame)
@@ -1368,7 +1368,7 @@
           (build-library (%%product-build-library product))
           (descriptor (%%product-descriptor product)))
       (jazz:feedback "make {a}" name)
-      (jazz:load-unit 'core.module)
+      (jazz:load-foundation)
       (jazz:load-unit 'core.unit.builder)
             
       (if build
@@ -1770,6 +1770,10 @@
                       (jazz:load-resource src)))))
               (else
                (jazz:error "Unable to find unit: {s}" unit-name)))))))
+
+
+(define (jazz:load-foundation)
+  (jazz:load-unit 'core.module))
 
 
 ;;;

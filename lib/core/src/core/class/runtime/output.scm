@@ -155,17 +155,9 @@
 ;;;
 
 
-(define jazz.language.runtime.object:Object:call-print
-  #f)
-
-(set! jazz.language.runtime.object:Object:call-print #f)
-
-
 (define (jazz:print-jazz object output detail)
   (if (jazz:use-print?)
-      (if jazz.language.runtime.object:Object:call-print
-          ((%%class-dispatch (jazz:class-of object) jazz:object-class-rank jazz:call-print-rank) object output detail)
-        (jazz:print-object object output detail))
+      (jazz:call-print object output detail)
     (jazz:print-serial object output)))
 
 

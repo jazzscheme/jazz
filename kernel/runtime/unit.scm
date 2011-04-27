@@ -1847,8 +1847,9 @@
 
 (define (jazz:load-build)
   (jazz:load-foundation)
+  ;; backend-rebase???
   (jazz:load-unit 'core.unit.runtime)
-  (jazz:load-unit 'core.unit.builder))
+  (jazz:load-unit 'core.unit.build))
 
 
 (define (jazz:load-install)

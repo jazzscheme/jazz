@@ -252,8 +252,16 @@
   #f)
 
 
+(jazz:define-method (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form-src)
+  (jazz:call-into-abstract (jazz:class-of binding) 'walk-binding-walk-form binding '()))
+
+
 (jazz:define-method (jazz:walk-binding-expandable? (jazz:Walk-Binding binding))
   #f)
+
+
+(jazz:define-method (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form-src)
+  (jazz:call-into-abstract (jazz:class-of binding) 'walk-binding-expand-form binding '()))
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend)

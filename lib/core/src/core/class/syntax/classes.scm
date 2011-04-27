@@ -47,6 +47,9 @@
   ())
 
 
+(jazz:define-virtual (jazz:initialize (jazz:Object object)))
+(jazz:define-virtual (jazz:destroy (jazz:Object object)))
+(jazz:define-virtual (jazz:call-print (jazz:Object object) output detail))
 (jazz:define-virtual (jazz:print-object (jazz:Object object) output detail))
 (jazz:define-virtual (jazz:tree-fold (jazz:Object object) down up here seed environment))
 

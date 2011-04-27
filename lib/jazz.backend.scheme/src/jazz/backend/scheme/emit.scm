@@ -228,61 +228,61 @@
          (abstraction (%%get-method-declaration-abstraction declaration))
          (propagation (%%get-method-declaration-propagation declaration))
          (category-declaration (%%get-declaration-parent declaration))
+         (class-name (%%get-lexical-binding-name category-declaration))
          (class-locator (%%get-declaration-locator category-declaration))
+         (core-method-node-locator (jazz:method-implementation-name (%%compose-reference 'jazz class-name) name))
          (method-locator (%%get-declaration-locator declaration))
          (method-rank-locator (%%compose-helper method-locator 'rank))
          (method-node-locator (%%compose-helper method-locator 'node))
-         (method-call (cond ((%%class-is? category-declaration jazz:Class-Declaration)     (case propagation
-                                                                                             ((override)        'jazz:add-method-node)
-                                                                                             ((final)           'jazz:add-final-method)
-                                                                                             ((virtual chained) 'jazz:add-virtual-method)))
-                            ((%%class-is? category-declaration jazz:Interface-Declaration) (case propagation
-                                                                                             ((override)        'jazz:add-method-node)
-                                                                                             ((virtual)         'jazz:add-virtual-method))))))
+         (add-method-proc (cond ((%%class-is? category-declaration jazz:Class-Declaration)     (case propagation
+                                                                                                 ((override)        'jazz:add-method-node)
+                                                                                                 ((final)           'jazz:add-final-method)
+                                                                                                 ((virtual chained) 'jazz:add-virtual-method)))
+                                ((%%class-is? category-declaration jazz:Interface-Declaration) (case propagation
+                                                                                                 ((override)        'jazz:add-method-node)
+                                                                                                 ((virtual)         'jazz:add-virtual-method))))))
     (jazz:sourcify-if
-      (case method-call
-        ((jazz:add-method-node)
-         (let ((node (jazz:generate-symbol "node")))
-           `(begin
-              ,@(case abstraction
-                  ((core)
-                   '())
-                  (else
-                   `((define (,method-locator self ,@signature-emit)
-                       ,@signature-casts
-                       (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                         ,body-emit)))))
-              (define ,method-node-locator
-                (,method-call ,class-locator ',name ,method-locator))
-              ,@(jazz:declaration-result))))
-        ((jazz:add-virtual-method)
-         `(begin
-            ,@(case abstraction
-                ((core)
-                 '())
-                ((abstract)
-                 `((define (,method-locator self . rest)
-                     (jazz:call-into-abstract ',class-locator ',name self rest))))
-                (else
-                 `((define (,method-locator self ,@signature-emit)
-                     ,@signature-casts
-                     (let ()
-                       ,body-emit)))))
-            ,@(case abstraction
-                ((core)
-                 '())
-                (else
-                 `((define ,method-rank-locator
-                     (,method-call ,class-locator ',name ,method-locator)))))
-            ,@(jazz:declaration-result)))
+      (case add-method-proc
         ((jazz:add-final-method)
          `(begin
             (define (,method-locator self ,@signature-emit)
               ,@signature-casts
               (let ()
                 ,body-emit))
-            (,method-call ,class-locator ',name ,method-locator)
-            ,@(jazz:declaration-result))))
+            (,add-method-proc ,class-locator ',name ,method-locator)
+            ,@(jazz:declaration-result)))
+        ((jazz:add-virtual-method)
+         `(begin
+            ,@(if body-emit
+                  `((define (,method-locator self ,@signature-emit)
+                      ,@signature-casts
+                      (let ()
+                        ,body-emit)))
+                (if (eq? abstraction 'abstract)
+                    `((define (,method-locator self . rest)
+                        (jazz:call-into-abstract ',class-locator ',name self rest)))
+                  '()))
+            (define ,method-rank-locator
+              (,add-method-proc ,class-locator ',name
+                ,(if (and (%%eq? abstraction 'core) (%%not body-emit))
+                     core-method-node-locator
+                   method-locator)))
+            ,@(jazz:declaration-result)))
+        ((jazz:add-method-node)
+         (let ((node (jazz:generate-symbol "node")))
+           `(begin
+              ,@(if body-emit
+                    `((define (,method-locator self ,@signature-emit)
+                        ,@signature-casts
+                        (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
+                          ,body-emit)))
+                  '())
+              (define ,method-node-locator
+                (,add-method-proc ,class-locator ',name
+                  ,(if (and (%%eq? abstraction 'core) (%%not body-emit))
+                       core-method-node-locator
+                     method-locator)))
+              ,@(jazz:declaration-result)))))
       (%%get-declaration-source declaration))))
 
 

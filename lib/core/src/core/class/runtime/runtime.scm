@@ -298,11 +298,15 @@
               (%%list method-name)))
   (let ((method-rank (%%get-category-virtual-size class)))
     (%%set-category-virtual-size class (%%fx+ method-rank 1))
+    ;; temp hack
+    (case method-name
+      ((initialize)
+       (set! jazz:initialize-rank method-rank)))
     method-rank))
 
 
 (define (jazz:add-core-method-node class method-name implementation)
-  (receive (root-class method-rank) (jazz:find-level/rank class method-name)
+  (receive (root-class method-rank) (jazz:require-core-level/rank class method-name)
     (let ((root-level (%%get-class-level root-class))
           (root-size (%%length (%%get-class-virtual-names root-class))))
       (let iter ((class class))
@@ -316,7 +320,7 @@
 
 
 (define (jazz:find-nextmethod class method-name)
-  (receive (root-class method-rank) (jazz:find-level/rank class method-name)
+  (receive (root-class method-rank) (jazz:require-core-level/rank class method-name)
     (let ((root-level (%%get-class-level root-class)))
       (if (eq? root-class class)
           (lambda (obj . rest)
@@ -324,14 +328,19 @@
         (%%class-dispatch (%%get-class-ascendant class) root-level method-rank)))))
 
 
-(define (jazz:find-level/rank class method-name)
+(define (jazz:find-core-level/rank class method-name)
   (let iter ((class class))
-       (if (%%not class)
-           (jazz:error "Invalid core method: {s}" method-name)
-         (let ((method-rank (jazz:find-rank method-name (%%get-class-virtual-names class))))
-           (if (%%not method-rank)
-               (iter (%%get-class-ascendant class))
-             (values class method-rank))))))
+       (if class
+           (let ((method-rank (jazz:find-rank method-name (%%get-class-virtual-names class))))
+             (if (%%not method-rank)
+                 (iter (%%get-class-ascendant class))
+               (values class method-rank)))
+         #f)))
+
+
+(define (jazz:require-core-level/rank class method-name)
+  (or (jazz:find-core-level/rank class method-name)
+      (jazz:error "Invalid core method: {s}" method-name)))
 
 
 ;;;
@@ -420,8 +429,23 @@
     (%%symbol->string (%%get-category-identifier class))))
 
 
+(jazz:define-virtual-runtime (jazz:initialize (jazz:Object object)))
+(jazz:define-virtual-runtime (jazz:destroy (jazz:Object object)))
+(jazz:define-virtual-runtime (jazz:call-print (jazz:Object object) output detail))
 (jazz:define-virtual-runtime (jazz:print-object (jazz:Object object) output detail))
 (jazz:define-virtual-runtime (jazz:tree-fold (jazz:Object expression) down up here seed environment))
+
+
+(jazz:define-method (jazz:initialize (jazz:Object object))
+  #f)
+
+
+(jazz:define-method (jazz:destroy (jazz:Object object))
+  #f)
+
+
+(jazz:define-method (jazz:call-print (jazz:Object object) output detail)
+  (jazz:print-object object output detail))
 
 
 (jazz:define-method (jazz:print-object (jazz:Object object) output detail)
@@ -2043,18 +2067,17 @@
     (let* ((dispatch-type (if (%%class-is? category jazz:Class) 'class 'interface))
            (node (jazz:new-method-node category method-implementation #f '()))
            (method (jazz:new-virtual-method method-name dispatch-type node #f #f))
-           (virtual-size (%%get-category-virtual-size category)))
-      (%%set-method-implementation-rank method virtual-size)
-      (%%set-category-virtual-size category (%%fx+ virtual-size 1))
+           (virtual-size (%%get-category-virtual-size category))
+           (core-level/rank (and (%%class-is? category jazz:Class) (jazz:find-core-level/rank category method-name))))
+      (if core-level/rank
+          (receive (level rank) core-level/rank
+            (%%set-method-implementation-rank method rank))
+        (begin
+          (%%set-method-implementation-rank method virtual-size)
+          (%%set-category-virtual-size category (%%fx+ virtual-size 1))))
       (jazz:add-field category method)
       (jazz:update-category category)
-      ;; temp hack
-      (case method-name
-        ((initialize)
-         (set! jazz:initialize-rank virtual-size))
-        ((call-print)
-         (set! jazz:call-print-rank virtual-size)))
-      virtual-size))
+      (%%get-method-implementation-rank method)))
   
   (define (update-virtual-method category method-name method-implementation)
     (let ((field (%%get-category-field category method-name)))

@@ -44,9 +44,6 @@
 (define jazz:initialize-rank
   #f)
 
-(define jazz:call-print-rank
-  #f)
-
 
 (cond-expand
   (gambit

@@ -39,7 +39,8 @@
 
 
 (define (jazz:expand-define-virtual signature bootstrap-type?)
-  (let* ((name (%%car signature))
+  (let* ((name (jazz:reference-name (%%car signature)))
+         (macro-name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (object-parameter (%%cadr (%%car parameters)))
@@ -49,7 +50,7 @@
          (method-rank-name (jazz:method-rank-name implementation-name))
          (is-test (if bootstrap-type? 'jazz:bootstrap-type? '%%class-is?))
          (object (jazz:generate-symbol "object")))
-    `(jazz:define-macro (,name ,object-parameter ,@extra-parameters)
+    `(jazz:define-macro (,macro-name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
            (%%list '%%core-assertion (%%list ',is-test ,object-parameter ',class-name) (%%list 'jazz:error (jazz:format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
              (%%list (%%list '%%class-dispatch (%%list '%%get-object-class ,object-parameter) ',class-level-name ',method-rank-name)
@@ -64,7 +65,7 @@
 
 
 (define (jazz:expand-define-virtual-runtime signature)
-  (let* ((name (%%car signature))
+  (let* ((name (jazz:reference-name (%%car signature)))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (implementation-name (jazz:method-implementation-name class-name name))
@@ -75,7 +76,7 @@
 
 
 (define (jazz:expand-define-method signature body)
-  (let* ((name (%%car signature))
+  (let* ((name (jazz:reference-name (%%car signature)))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (object-parameter (%%cadr (%%car parameters)))

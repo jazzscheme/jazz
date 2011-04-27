@@ -1828,7 +1828,11 @@
             (parameters (jazz:wrap-parameters (%%cdr (%%desourcify (%%car rest))))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
+            (let ((effective-body
+                    (if (%%null? body)
+                        (and (%%eq? abstraction 'concrete)
+                             (%%list (%%list 'unspecified)))
+                      body)))
               (values name specifier access compatibility propagation abstraction expansion remote synchronized parameters effective-body))))))))
 
 
@@ -1843,7 +1847,7 @@
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Category-Declaration) (jazz:walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
       (let ((type (if specifier (jazz:new-function-type '() '() '() #f (jazz:walk-specifier walker resume declaration environment specifier)) jazz:Procedure))
-            (inline? (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))))
+            (inline? (and (%%eq? expansion 'inline) body)))
         (receive (signature augmented-environment)
             ;; yuck. to clean
             (if inline?
@@ -1892,12 +1896,12 @@
                (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
                  (let ((body-expression
                          (cond (root-category-declaration
-                                 (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
-                               ((%%eq? abstraction 'concrete)
+                                (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
+                               (body
                                 (jazz:walk walker resume new-declaration augmented-environment `(with-self ,@body)))
                                (else
                                 #f))))
-                   (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
+                   (%%when (%%not (and (%%eq? expansion 'inline) (%%neq? abstraction 'abstract)))
                      (%%set-method-declaration-signature new-declaration signature)
                      (%%set-method-declaration-body new-declaration body-expression))
                    (%%set-declaration-source new-declaration form-src)

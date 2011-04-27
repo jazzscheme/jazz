@@ -38,13 +38,6 @@
 (unit protected core.class.syntax.object
 
 
-(define jazz:object-class-rank
-  0)
-
-(define jazz:initialize-rank
-  #f)
-
-
 (cond-expand
   (gambit
     (define %%object-content

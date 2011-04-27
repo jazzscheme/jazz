@@ -298,10 +298,6 @@
               (%%list method-name)))
   (let ((method-rank (%%get-category-virtual-size class)))
     (%%set-category-virtual-size class (%%fx+ method-rank 1))
-    ;; temp hack
-    (case method-name
-      ((initialize)
-       (set! jazz:initialize-rank method-rank)))
     method-rank))
 
 
@@ -655,7 +651,7 @@
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz:create-class-tables class)
     (jazz:initialize-slots class)
-    ((%%class-dispatch class-of-class jazz:object-class-rank jazz:initialize-rank) class)
+    ((%%class-dispatch class-of-class 0 0) class)
     class))
 
 
@@ -688,7 +684,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz:initialize-slots object)
-      (apply (%%class-dispatch class jazz:object-class-rank jazz:initialize-rank) object rest)
+      (apply (%%class-dispatch class 0 0) object rest)
       object)))
 
 
@@ -696,7 +692,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz:initialize-slots object)
-      ((%%class-dispatch class jazz:object-class-rank jazz:initialize-rank) object)
+      ((%%class-dispatch class 0 0) object)
       object)))
 
 
@@ -704,7 +700,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz:initialize-slots object)
-      ((%%class-dispatch class jazz:object-class-rank jazz:initialize-rank) object arg1)
+      ((%%class-dispatch class 0 0) object arg1)
       object)))
 
 
@@ -712,7 +708,7 @@
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz:initialize-slots object)
-      ((%%class-dispatch class jazz:object-class-rank jazz:initialize-rank) object arg1 arg2)
+      ((%%class-dispatch class 0 0) object arg1 arg2)
       object)))
 
 

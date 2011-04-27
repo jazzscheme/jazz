@@ -42,14 +42,14 @@
   ':reader)
 
 
-(set! jazz:display
-      (lambda (value output)
-        (jazz:output-value value output ':human)))
+(jazz:define-variable-override jazz:display
+  (lambda (value output)
+    (jazz:output-value value output ':human)))
 
 
-(set! jazz:write
-      (lambda (value output)
-        (jazz:output-value value output ':reader)))
+(jazz:define-variable-override jazz:write
+  (lambda (value output)
+    (jazz:output-value value output ':reader)))
 
 
 (define (jazz:print value output detail)
@@ -165,6 +165,6 @@
   (gambit
     (jazz:define-variable-override jazz:print-hook
       (lambda (object port style)
-        (let ((detail (if (eq? style 'display) ':human ':reader)))
+        (let ((detail (if (%%eq? style 'display) ':human ':reader)))
           (jazz:print-jazz object port detail)))))
   (else)))

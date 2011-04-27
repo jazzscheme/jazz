@@ -646,6 +646,8 @@
 (native jazz:interpreted-load-counter)
 (native jazz:set-crash-reporter)
 (native jazz:crash-process)
+(native jazz:invoke-process)
+(native jazz:call-process)
 (native jazz:load-foundation)
 (native jazz:load-build)
 (native main)

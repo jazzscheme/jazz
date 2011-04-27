@@ -1064,7 +1064,7 @@
                                      (if image
                                          (string-append ":" (symbol->string image))
                                        ""))))
-        (jazz:call-process "sh" `(,jam "make" ,argument)))))
+        (jazz:call-process (list path: "sh" arguments: `(,jam "make" ,argument))))))
   
   (if local?
       (build-kernel configuration image)
@@ -1079,11 +1079,12 @@
 (define (jazz:make-product product configuration link jobs)
   (jazz:make-kernel configuration #f #f)
   (jazz:call-process
-     (string-append (jazz:configuration-directory configuration) "kernel")
-     `("-make"
-       ,(symbol->string product) "-:daqD"
-       ,@(if link `("-link" ,(symbol->string link)) '())
-       ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "kernel")
+       arguments: `("-make"
+                    ,(symbol->string product) "-:daqD"
+                    ,@(if link `("-link" ,(symbol->string link)) '())
+                    ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
 
 
 ;;;

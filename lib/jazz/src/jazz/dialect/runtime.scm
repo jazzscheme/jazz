@@ -2066,66 +2066,6 @@
 
 
 ;;;
-;;;; Assert
-;;;
-
-
-(define (jazz:expand-assert walker resume declaration environment form-src)
-  (jazz:sourcify-if
-    ;; we really want assertions in release and not in a new distribution safety
-    (jazz:expand-assert-test #t form-src)
-    form-src))
-
-
-(define (jazz:expand-assertion walker resume declaration environment form-src)
-  (jazz:sourcify-if
-    ;; we really want assertions in release and not in a new distribution safety
-    (jazz:expand-assertion-test #t form-src)
-    form-src))
-
-
-(define (jazz:expand-debug-assert walker resume declaration environment form-src)
-  (jazz:sourcify-if
-    (jazz:expand-assert-test jazz:debug-user? form-src)
-    form-src))
-
-
-(define (jazz:expand-debug-assertion walker resume declaration environment form-src)
-  (jazz:sourcify-if
-    (jazz:expand-assertion-test jazz:debug-user? form-src)
-    form-src))
-
-
-(define (jazz:expand-assert-test test? src)
-  (let ((assertion (%%cadr (jazz:source-code src)))
-        (body (%%cddr (jazz:source-code src))))
-    (let ((message (let ((port (open-output-string)))
-                     (display "Assertion " port)
-                     (write (%%desourcify assertion) port)
-                     (display " failed" port)
-                     (get-output-string port))))
-      (jazz:expand-assertion-body test? assertion (%%list 'error message) body))))
-
-
-(define (jazz:expand-assertion-test test? src)
-  (let ((assertion (%%cadr (jazz:source-code src)))
-        (action (%%car (%%cddr (jazz:source-code src))))
-        (body (%%cdr (%%cddr (jazz:source-code src)))))
-    (jazz:expand-assertion-body test? assertion action body)))
-
-
-(define (jazz:expand-assertion-body test? assertion action body)
-  (let ((body (if (%%not-null? body) body '((unspecified)))))
-    (if test?
-        `(if (not ,assertion)
-             ,action
-           ,(jazz:simplify-begin
-              `(begin
-                 ,@body)))
-      (jazz:simplify-begin `(begin ,@body)))))
-
-
-;;;
 ;;;; Declare
 ;;;
 
@@ -2229,8 +2169,4 @@
 (jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
 (jazz:define-walker-special     time                 jazz jazz:walk-time)
 (jazz:define-walker-macro       declaration-path     jazz jazz:expand-declaration-path)
-(jazz:define-walker-macro       declaration-locator  jazz jazz:expand-declaration-locator)
-(jazz:define-walker-syntax      assert               jazz jazz:expand-assert)
-(jazz:define-walker-syntax      assertion            jazz jazz:expand-assertion)
-(jazz:define-walker-syntax      debug-assert         jazz jazz:expand-debug-assert)
-(jazz:define-walker-syntax      debug-assertion      jazz jazz:expand-debug-assertion))
+(jazz:define-walker-macro       declaration-locator  jazz jazz:expand-declaration-locator))

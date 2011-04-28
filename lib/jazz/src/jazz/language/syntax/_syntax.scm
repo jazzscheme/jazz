@@ -38,7 +38,8 @@
 (module protected jazz.language.syntax scheme
 
 
-(export (jazz.language.syntax.attributes)
+(export (jazz.language.syntax.assertion)
+        (jazz.language.syntax.attributes)
         (jazz.language.syntax.bind)
         (jazz.language.syntax.bind-optionals)
         (jazz.language.syntax.bind-keywords)

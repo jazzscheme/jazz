@@ -1054,27 +1054,6 @@
 
 
 ;;;
-;;;; Syntax
-;;;
-
-
-(native jazz:source?)
-(native jazz:source-code)
-(native jazz:source-locat)
-(native jazz:desourcify)
-(native jazz:desourcify-all)
-(native jazz:sourcify)
-(native jazz:sourcify-if)
-(native jazz:present-source)
-(native jazz:locat-container)
-(native jazz:locat-position)
-(native jazz:locat->container/line/col)
-(native jazz:position->filepos)
-(native jazz:filepos-line)
-(native jazz:filepos-col)
-
-
-;;;
 ;;;; System
 ;;;
 

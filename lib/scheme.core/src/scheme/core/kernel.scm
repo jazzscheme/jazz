@@ -74,12 +74,4 @@
 (native jazz:walk-list)
 (native jazz:get-and-expressions)
 (native jazz:get-expression-source)
-(native jazz:compose-helper)
-
-
-;;;
-;;;; Kernel
-;;;
-
-
-(native jazz:generate-symbol))
+(native jazz:compose-helper))

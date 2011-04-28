@@ -42,13 +42,7 @@
         (jazz.dialect.classes.foundation))
 
 
-(native private jazz:current-walker)
-(native private jazz:current-resume)
-(native private jazz:current-declaration)
-
 (native private jazz:walk-error)
-(native private jazz:parse-modifiers)
-(native private jazz:parse-keywords)
 (native private jazz:lookup-reference)
 (native private jazz:find-declaration-child)
 (native private jazz:add-declaration-child)
@@ -610,6 +604,35 @@
 
 
 (define-walker-declaration c-definition jazz walk-c-definition-declaration walk-c-definition)
+
+
+;;;
+;;;; C-Constant
+;;;
+
+
+(syntax public c-constant
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (value (caddr (source-code form-src))))
+      (sourcify-if
+        `(definition public ,name ,value)
+        form-src))))
+
+
+;;;
+;;;; C-Enumeration
+;;;
+
+
+(syntax public c-enumeration
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (declarations (cddr (source-code form-src))))
+      (sourcify-if
+        (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
+          `(begin ,@definitions))
+        form-src))))
 
 
 ;;;

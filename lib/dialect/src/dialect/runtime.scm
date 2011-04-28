@@ -2559,7 +2559,10 @@
       (let* ((define-syntax-form (jazz:need-macro locator))
              (expander (%%get-syntax-form-expander define-syntax-form))
              (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
-        (expander form-src environment macro-environment)))))
+        (parameterize ((jazz:current-walker walker)
+                       (jazz:current-resume resume)
+                       (jazz:current-declaration declaration))
+          (expander form-src environment macro-environment))))))
 
 
 (define (jazz:walk-define-syntax-declaration walker resume declaration environment form-src)
@@ -2608,7 +2611,10 @@
          (define-local-syntax-form (jazz:need-local-macro (%%get-declaration-parent binding) locator)))
     (let ((expander (%%get-syntax-form-expander define-local-syntax-form))
           (macro-environment (%%get-define-local-syntax-form-environment define-local-syntax-form)))
-      (expander form-src environment macro-environment))))
+      (parameterize ((jazz:current-walker walker)
+                     (jazz:current-resume resume)
+                     (jazz:current-declaration declaration))
+        (expander form-src environment macro-environment)))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Local-Syntax-Declaration declaration) environment backend)
@@ -3183,7 +3189,10 @@
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Syntax-Form binding) walker resume declaration environment form-src)
   (let ((expander (%%get-syntax-form-expander binding))
         (macro-environment (%%get-define-syntax-form-environment binding)))
-    (expander form-src environment macro-environment)))
+    (parameterize ((jazz:current-walker walker)
+                   (jazz:current-resume resume)
+                   (jazz:current-declaration declaration))
+      (expander form-src environment macro-environment))))
 
 
 ;;;
@@ -3201,7 +3210,10 @@
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Local-Syntax-Form binding) walker resume declaration environment form-src)
   (let ((expander (%%get-syntax-form-expander binding))
         (macro-environment (%%get-define-local-syntax-form-environment binding)))
-    (expander form-src environment macro-environment)))
+    (parameterize ((jazz:current-walker walker)
+                   (jazz:current-resume resume)
+                   (jazz:current-declaration declaration))
+      (expander form-src environment macro-environment))))
 
 
 ;;;

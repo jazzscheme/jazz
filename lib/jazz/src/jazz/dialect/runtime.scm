@@ -807,19 +807,6 @@
 
 
 ;;;
-;;;; Declaration
-;;;
-
-
-(define (jazz:expand-declaration-path walker resume declaration environment)
-  `(quote ,(jazz:get-declaration-path declaration)))
-
-
-(define (jazz:expand-declaration-locator walker resume declaration environment)
-  `(quote ,(apply jazz:compose-reference (jazz:get-declaration-path declaration))))
-
-
-;;;
 ;;;; Parse
 ;;;
 
@@ -2167,6 +2154,4 @@
 (jazz:define-walker-declaration with-local-variables jazz jazz:walk-with-local-variables-declaration jazz:walk-with-local-variables)
 (jazz:define-walker-special     cast                 jazz jazz:walk-cast)
 (jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
-(jazz:define-walker-special     time                 jazz jazz:walk-time)
-(jazz:define-walker-macro       declaration-path     jazz jazz:expand-declaration-path)
-(jazz:define-walker-macro       declaration-locator  jazz jazz:expand-declaration-locator))
+(jazz:define-walker-special     time                 jazz jazz:walk-time))

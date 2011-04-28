@@ -47,10 +47,11 @@
         unwind-protect
         catch
         ~
-        c-constant
-        c-enumeration)
+        declaration-path
+        declaration-locator)
 
 (import (jazz.language.runtime.kernel)
+        (scheme.core.kernel)
         (scheme.language.syntax-rules (phase syntax)))
 
 
@@ -208,25 +209,15 @@
           #f)))
 
 
-;;;
-;;;; C Interface
-;;;
-
-
-(define-syntax c-constant
+(define-syntax declaration-path
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (cadr (source-code form-src)))
-          (value (caddr (source-code form-src))))
-      (sourcify-if
-        `(definition public ,name ,value)
-        form-src))))
+    (sourcify-if
+      `(quote ,(get-declaration-path (current-declaration)))
+      form-src)))
 
 
-(define-syntax c-enumeration
+(define-syntax declaration-locator
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (cadr (source-code form-src)))
-          (declarations (cddr (source-code form-src))))
-      (sourcify-if
-        (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
-          `(begin ,@definitions))
-        form-src)))))
+    (sourcify-if
+      `(quote ,(apply compose-reference (get-declaration-path (current-declaration))))
+      form-src))))

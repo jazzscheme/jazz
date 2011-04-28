@@ -71,7 +71,20 @@
 (native jazz:new-declaration-form)
 (native jazz:new-special-form)
 (native jazz:setup-declaration)
+(native jazz:get-declaration-path)
 (native jazz:walk-list)
 (native jazz:get-and-expressions)
 (native jazz:get-expression-source)
-(native jazz:compose-helper))
+(native jazz:compose-helper)
+
+
+;;;
+;;;; Walker
+;;;
+
+
+(native jazz:parse-modifiers)
+(native jazz:parse-keywords)
+(native jazz:current-walker)
+(native jazz:current-resume)
+(native jazz:current-declaration))

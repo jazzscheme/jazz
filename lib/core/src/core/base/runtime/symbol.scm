@@ -76,6 +76,15 @@
 
 
 ;;;
+;;;; Helper
+;;;
+
+
+(define (jazz:compose-helper s1 s2)
+  (%%compose-helper s1 s2))
+
+
+;;;
 ;;;; Specifier
 ;;;
 

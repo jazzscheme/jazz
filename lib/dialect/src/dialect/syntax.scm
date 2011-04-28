@@ -45,8 +45,8 @@
 
 (jazz:define-class jazz:Dialect jazz:Object () jazz:Object-Class ()
   ((name         %%get-dialect-name         ())
-   (declarations %%get-dialect-declarations %%set-dialect-declarations)
-   (bindings     %%get-dialect-bindings     %%set-dialect-bindings)))
+   (declarations %%get-dialect-declarations ())
+   (bindings     %%get-dialect-bindings     ())))
 
 
 (jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
@@ -447,36 +447,6 @@
 
 (jazz:define-class jazz:Any jazz:Type () jazz:Any-Class ()
   ())
-
-
-;;;
-;;;; C Type
-;;;
-
-
-(jazz:define-class jazz:C-Type-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-c-type-declaration
-  ((kind          %%get-c-type-declaration-kind          ())
-   (expansion     %%get-c-type-declaration-expansion     ())
-   (base-type     %%get-c-type-declaration-base-type     ())
-   (pointer-types %%get-c-type-declaration-pointer-types %%set-c-type-declaration-pointer-types)
-   (inclusions    %%get-c-type-declaration-inclusions    ())
-   (c-to-scheme   %%get-c-type-declaration-c-to-scheme   ())
-   (scheme-to-c   %%get-c-type-declaration-scheme-to-c   ())
-   (declare       %%get-c-type-declaration-declare       ())))
-
-
-;;;
-;;;; C Definition
-;;;
-
-
-(jazz:define-class jazz:C-Definition-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-c-definition-declaration
-  ((signature       %%get-c-definition-declaration-signature       %%set-c-definition-declaration-signature)
-   (parameter-types %%get-c-definition-declaration-parameter-types ())
-   (result-type     %%get-c-definition-declaration-result-type     ())
-   (c-name          %%get-c-definition-declaration-c-name          ())
-   (scope           %%get-c-definition-declaration-scope           ())
-   (body            %%get-c-definition-declaration-body            %%set-c-definition-declaration-body)))
 
 
 ;;;
@@ -986,51 +956,6 @@
 
 (jazz:define-class jazz:Declare jazz:Expression (type source) jazz:Object-Class jazz:allocate-declare
   ((declarations %%get-declare-declarations ())))
-
-
-;;;
-;;;; C Include
-;;;
-
-
-(jazz:define-class jazz:C-Include jazz:Expression (type source) jazz:Object-Class jazz:allocate-c-include
-  ((name %%get-c-include-name ())))
-
-
-;;;
-;;;; C Declare
-;;;
-
-
-(jazz:define-class jazz:C-Declare jazz:Expression (type source) jazz:Object-Class jazz:allocate-c-declare
-  ((code %%get-c-declare-code ())))
-
-
-;;;
-;;;; C Named Declare
-;;;
-
-
-(jazz:define-class jazz:C-Named-Declare-Declaration jazz:Declaration (name type hits access compatibility attributes toplevel parent locator source) jazz:Object-Class jazz:allocate-c-named-declare-declaration
-  ((code %%get-c-named-declare-declaration-code ())))
-
-
-;;;
-;;;; C Initialize
-;;;
-
-
-(jazz:define-class jazz:C-Initialize jazz:Expression (type source) jazz:Object-Class jazz:allocate-c-initialize
-  ((code %%get-c-initialize-code ())))
-
-
-;;;
-;;;; C Function
-;;;
-
-
-(jazz:define-class jazz:C-Function jazz:Expression (type source) jazz:Object-Class jazz:allocate-c-function
-  ((expansion %%get-c-function-expansion ())))
 
 
 ;;;

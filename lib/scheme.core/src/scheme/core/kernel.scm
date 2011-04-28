@@ -44,12 +44,14 @@
 
 
 (native jazz:method-implementation-name)
+(native jazz:add-core-method-node)
 (native jazz:find-nextmethod)
 (native jazz:emit-expressions)
 (native jazz:emit)
 (native jazz:new-code)
 (native jazz:object-size)
 (native jazz:new-object)
+(native jazz:get-class-level)
 (native jazz:get-object-slot)
 (native jazz:set-object-slot)
 (native jazz:reference-name)
@@ -62,11 +64,17 @@
 ;;;
 
 
+(native jazz:get-dialect)
+(native jazz:require-dialect)
+(native jazz:register-declaration)
 (native jazz:register-binding)
+(native jazz:new-declaration-form)
 (native jazz:new-special-form)
+(native jazz:setup-declaration)
 (native jazz:walk-list)
 (native jazz:get-and-expressions)
 (native jazz:get-expression-source)
+(native jazz:compose-helper)
 
 
 ;;;

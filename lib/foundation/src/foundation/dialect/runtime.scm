@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-foundation-dialect name)
-  (jazz:allocate-foundation-dialect jazz:Foundation-Dialect name '() '()))
+  (jazz:allocate-foundation-dialect jazz:Foundation-Dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Foundation-Dialect dialect))

@@ -675,6 +675,10 @@
   (jazz:update-class class))
 
 
+(define (jazz:get-class-level class)
+  (%%get-class-level class))
+
+
 (define (jazz:slot-form? form)
   (and (%%pair? form)
        (%%eq? (%%car form) 'slot)))

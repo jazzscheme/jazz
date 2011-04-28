@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-gambit-dialect name)
-  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect name '() '()))
+  (jazz:allocate-gambit-dialect jazz:Gambit-Dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Gambit-Dialect dialect))
@@ -72,13 +72,13 @@
 
 
 (jazz:define-method (jazz:walker-declarations (jazz:Gambit-Walker walker))
-  (append (%%get-dialect-declarations (jazz:get-dialect 'gambit))
-          (nextmethod walker)))
+  (cons (%%get-dialect-declarations (jazz:get-dialect 'gambit))
+        (nextmethod walker)))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Gambit-Walker walker))
-  (append (%%get-dialect-bindings (jazz:get-dialect 'gambit))
-          (nextmethod walker)))
+  (cons (%%get-dialect-bindings (jazz:get-dialect 'gambit))
+        (nextmethod walker)))
 
 
 ;;;

@@ -50,8 +50,8 @@
 ;;;
 
 
-(native jazz:naturals)
-(native jazz:Object-Class)
+(native private jazz:naturals)
+(native private jazz:Object-Class)
 
 
 ;;;
@@ -68,11 +68,12 @@
            (all-slot-names (append inherited-slot-names slot-names))
            (all-variables (map (lambda (slot-name) (generate-symbol (symbol->string slot-name))) all-slot-names))
            (all-length (length all-slot-names))
-           (instance-size (+ object-size all-length)))
-      (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size)))
+           (instance-size (+ object-size all-length))
+           (class-level-name (compose-helper name 'core-level)))
+      (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size class-level-name)))
   
   (parse-define-class ascendant-name inherited-slot-names class-name slots
-    (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size)
+    (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size class-level-name)
       `(begin
          ,@(if (null? constructor)
                '()
@@ -97,6 +98,8 @@
                 (naturals (+ object-size ascendant-size) instance-size))
          (define ,name
            (new-core-class ,class-accessor ',gaaa (make-table test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
+         (define ,class-level-name
+           (get-class-level ,name))
          (set-core-class ',(reference-name name) ,name)))))
 
 
@@ -117,4 +120,4 @@
          (let ((nextmethod (find-nextmethod ,class-name ',name)))
            (lambda (,object-parameter ,@extra-parameters)
              ,@body)))
-       (register-method ,class-name ',(string->symbol (string-append "jazz:" (symbol->string name))) ,implementation-name)))))
+       (add-core-method-node ,class-name ',name ,implementation-name)))))

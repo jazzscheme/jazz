@@ -38,7 +38,8 @@
 (module protected jazz.dialect.classes.foundation jazz.dialect
 
 
-(import (jazz.language.runtime.kernel)
+(import (scheme.core)
+        (jazz.language.runtime.kernel)
         (jazz.language.runtime.exception)
         (jazz.language.runtime.format)
         (jazz.language.runtime.functional)
@@ -97,6 +98,13 @@
   (slot hits accessors generate)
   
   
+  (method override (initialize . rest)
+    (bind-keywords ((name #f) (type #f)) rest
+      (set! name~self name)
+      (set! type~self type)
+      (set! hits~self #f)))
+  
+  
   (method core virtual (resolve-binding))
   
   
@@ -123,7 +131,20 @@
   (slot toplevel      getter generate)
   (slot parent        getter generate)
   (slot locator       getter generate)
-  (slot source        getter generate)
+  (slot source        accessors generate)
+
+  
+  (method override (initialize . rest)
+    (bind-keywords ((access #f) (compatibility #f) (attributes #f) (parent #f) . others) rest
+      (apply nextmethod rest)
+      (set! access~self access)
+      (set! compatibility~self compatibility)
+      (set! attributes~self attributes)
+      (set! toplevel~self #f)
+      (set! parent~self parent)
+      (set! locator~self #f)
+      (set! source~self #f)
+      (setup-declaration self)))
   
   
   (method core virtual (compose-declaration-locator))
@@ -231,7 +252,7 @@
   (slot exports         getter generate)
   (slot imports         getter generate)
   (slot proclaims       getter generate)
-  (slot inclusions      getter generate)
+  (slot inclusions      accessors generate)
   (slot local-macros    getter generate))
 
 
@@ -524,40 +545,6 @@
   
   
   (slot type getter generate))
-
-
-;;;
-;;;; C-Type
-;;;
-
-
-(class C-Type-Declaration extends Declaration
-  
-  
-  (slot kind          getter generate)
-  (slot expansion     getter generate)
-  (slot base-type     getter generate)
-  (slot pointer-types getter generate)
-  (slot inclusions    getter generate)
-  (slot c-to-scheme   getter generate)
-  (slot scheme-to-c   getter generate)
-  (slot declare       getter generate))
-
-
-;;;
-;;;; C-Definition
-;;;
-
-
-(class C-Definition-Declaration extends Declaration
-  
-  
-  (slot signature       getter generate)
-  (slot parameter-types getter generate)
-  (slot result-type     getter generate)
-  (slot c-name          getter generate)
-  (slot scope           getter generate)
-  (slot body            getter generate))
 
 
 ;;;
@@ -1009,6 +996,13 @@
   (slot source getter generate)
   
   
+  (method override (initialize . rest)
+    (bind-keywords ((type #f) (source #f)) rest
+      (nextmethod)
+      (set! type~self type)
+      (set! source~self source)))
+  
+  
   (method core virtual (emit-expression declaration environment backend))
   (method core virtual (emit-call arguments declaration environment backend)))
 
@@ -1291,61 +1285,6 @@
   
   
   (slot declarations getter generate))
-
-
-;;;
-;;;; C Include
-;;;
-
-
-(class C-Include extends Expression
-  
-  
-  (slot name getter generate))
-
-
-;;;
-;;;; C Declare
-;;;
-
-
-(class C-Declare extends Expression
-  
-  
-  (slot code getter generate))
-
-
-;;;
-;;;; C Named Declare
-;;;
-
-
-(class C-Named-Declare-Declaration extends Declaration
-  
-  
-  (slot code getter generate))
-
-
-;;;
-;;;; C Initialize
-;;;
-
-
-(class C-Initialize extends Expression
-  
-  
-  (slot code getter generate))
-
-
-;;;
-;;;; C Function
-;;;
-
-
-(class C-Function extends Expression
-  
-  
-  (slot expansion getter generate))
 
 
 ;;;

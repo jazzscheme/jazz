@@ -107,13 +107,15 @@
 
 
 (define (jazz:register-declaration dialect-name binding)
-  (let ((dialect (jazz:get-dialect dialect-name)))
-    (%%set-dialect-declarations dialect (%%cons binding (%%get-dialect-declarations dialect)))))
+  (let ((dialect (jazz:get-dialect dialect-name))
+        (binding-name (%%get-lexical-binding-name binding)))
+    (%%table-set! (%%get-dialect-declarations dialect) binding-name binding)))
 
 
 (define (jazz:register-binding dialect-name binding)
-  (let ((dialect (jazz:get-dialect dialect-name)))
-    (%%set-dialect-bindings dialect (%%cons binding (%%get-dialect-bindings dialect)))))
+  (let ((dialect (jazz:get-dialect dialect-name))
+        (binding-name (%%get-lexical-binding-name binding)))
+    (%%table-set! (%%get-dialect-bindings dialect) binding-name binding)))
 
 
 (jazz:define-macro (jazz:define-walker-declaration name dialect-name declaration-method binding-method)
@@ -2818,16 +2820,16 @@
 
 
 (define (jazz:new-walk-frame bindings)
-  (let ((table (%%make-table test: eq?)))
-    (for-each (lambda (binding)
-                (let ((name (%%get-lexical-binding-name binding)))
-                  (%%table-set! table name binding)))
-              bindings)
-    (jazz:allocate-walk-frame jazz:Walk-Frame table)))
+  (jazz:allocate-walk-frame jazz:Walk-Frame (if (%%table? bindings) (%%list bindings) bindings)))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Frame binding) symbol source-declaration)
-  (%%table-ref (%%get-walk-frame-bindings binding) symbol #f))
+  (let iter ((scan (%%get-walk-frame-bindings binding)))
+       (if (%%null? scan)
+           #f
+         (let ((table (%%car scan)))
+           (or (%%table-ref table symbol #f)
+               (iter (%%cdr scan)))))))
 
 
 ;;;
@@ -3717,11 +3719,11 @@
 
 
 (jazz:define-method (jazz:walker-declarations (jazz:Walker walker))
-  (%%get-dialect-declarations (jazz:get-dialect 'foundation)))
+  (%%list (%%get-dialect-declarations (jazz:get-dialect 'foundation))))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Walker walker))
-  (%%get-dialect-bindings (jazz:get-dialect 'foundation)))
+  (%%list (%%get-dialect-bindings (jazz:get-dialect 'foundation))))
 
 
 (define (jazz:walker-declaration-environment walker)

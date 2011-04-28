@@ -43,11 +43,17 @@
 
 
 ;;;
-;;;; Special
+;;;; Walker
 ;;;
 
 
-(macro (define-walker-special name dialect-name method)
+(macro public (define-walker-declaration name dialect-name declaration-method binding-method)
+  `(begin
+     (register-declaration ',dialect-name (new-declaration-form ',name ,declaration-method))
+     (register-binding ',dialect-name (new-special-form ',name ,binding-method))))
+
+
+(macro public (define-walker-special name dialect-name method)
   `(register-binding ',dialect-name (new-special-form ',name ,method)))
 
 
@@ -56,7 +62,7 @@
 ;;;
 
 
-(macro (define-method signature . body)
+(macro public (define-method signature . body)
   (let* ((name (car signature))
          (parameters (cdr signature))
          (class-name (caar parameters))
@@ -68,4 +74,4 @@
          (let ((nextmethod (find-nextmethod ,class-name ',name)))
            (lambda (,object-parameter ,@extra-parameters)
              ,@body)))
-       (register-method ,class-name ',(string->symbol (string-append "jazz:" (symbol->string name))) ,implementation-name)))))
+       (add-core-method-node ,class-name ',name ,implementation-name)))))

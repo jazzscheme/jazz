@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme.language.syntax-rules scheme
+(module scheme.syntax-rules scheme
 
 
 (export syntax-rules)

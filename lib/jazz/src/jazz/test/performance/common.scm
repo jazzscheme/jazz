@@ -158,7 +158,7 @@
          (not safe))
 
 
-(jazz:define-class X jazz:Object () jazz:Object-Class allocate-x
+(jazz:define-class X jazz:Object jazz:Object-Class allocate-x
   ())
 
 (jazz:define-class-runtime X)

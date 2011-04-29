@@ -72,6 +72,7 @@
 (native jazz:new-special-form)
 (native jazz:setup-declaration)
 (native jazz:get-declaration-path)
+(native jazz:get-declaration-toplevel)
 (native jazz:walk-list)
 (native jazz:get-and-expressions)
 (native jazz:get-expression-source)

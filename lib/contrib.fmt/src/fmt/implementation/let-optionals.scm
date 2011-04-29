@@ -2,7 +2,7 @@
 
 (export let-optionals*)
 
-(import scheme.language.syntax-rules)
+(import scheme.syntax-rules)
 
 (native private jazz:error)
 

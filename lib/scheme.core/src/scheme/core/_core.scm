@@ -42,7 +42,8 @@
 
 
 (export (scheme.core.kernel))
-(import (scheme.core.kernel))
+(import (scheme.core.kernel)
+        (scheme.syntax (phase syntax)))
 
 
 ;;;
@@ -59,48 +60,43 @@
 ;;;
 
 
-(define-macro (define-class name gaaa ascendant-name inherited-slot-names class-name constructor slots)
-  (define (parse-define-class ascendant-name inherited-slot-names class-name slots proc)
-    (let* ((class-accessor (if (null? class-name) #f class-name))
-           (ascendant-accessor (if (null? ascendant-name) #f ascendant-name))
-           (ascendant-size (length inherited-slot-names))
-           (slot-names (map car slots))
-           (all-slot-names (append inherited-slot-names slot-names))
-           (all-variables (map (lambda (slot-name) (generate-symbol (symbol->string slot-name))) all-slot-names))
-           (all-length (length all-slot-names))
-           (instance-size (+ object-size all-length))
-           (class-level-name (compose-helper name 'core-level)))
-      (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size class-level-name)))
-  
-  (parse-define-class ascendant-name inherited-slot-names class-name slots
-    (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size class-level-name)
-      `(begin
-         ,@(if (null? constructor)
-               '()
-             `((export ,constructor)
-               (define ,constructor new-object)))
-         ,@(map (lambda (slot rank)
-                  (let ((slot-name (car slot))
-                        (slot-getter (cadr slot))
-                        (slot-setter (car (cddr slot))))
-                    `(begin
-                       ,@(if (null? slot-getter)
-                             '()
-                           `((export ,slot-getter)
-                             (define (,slot-getter object)
-                               (get-object-slot object ,rank))))
-                       ,@(if (null? slot-setter)
-                             '()
-                           `((export ,slot-setter)
-                             (define (,slot-setter object value)
-                               (set-object-slot object ,rank value)))))))
-                slots
-                (naturals (+ object-size ascendant-size) instance-size))
-         (define ,name
-           (new-core-class ,class-accessor ',gaaa (make-table test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
-         (define ,class-level-name
-           (get-class-level ,name))
-         (set-core-class ',(reference-name name) ,name)))))
+(define-macro (define-class name ascendant-name inherited-slot-names class-name constructor slots)
+  (let* ((class-accessor (if (null? class-name) #f class-name))
+         (ascendant-accessor (if (null? ascendant-name) #f ascendant-name))
+         (ascendant-size (length inherited-slot-names))
+         (slot-names (map car slots))
+         (all-slot-names (append inherited-slot-names slot-names))
+         (all-variables (map (lambda (slot-name) (generate-symbol (symbol->string slot-name))) all-slot-names))
+         (all-length (length all-slot-names))
+         (instance-size (+ object-size all-length))
+         (class-level-name (compose-helper name 'core-level)))
+    `(begin
+       ,@(if (null? constructor)
+             '()
+           `((export ,constructor)
+             (define ,constructor new-object)))
+       ,@(map (lambda (slot rank)
+                (let ((slot-name (car slot))
+                      (slot-getter (cadr slot))
+                      (slot-setter (car (cddr slot))))
+                  `(begin
+                     ,@(if (null? slot-getter)
+                           '()
+                         `((export ,slot-getter)
+                           (define (,slot-getter object)
+                             (get-object-slot object ,rank))))
+                     ,@(if (null? slot-setter)
+                           '()
+                         `((export ,slot-setter)
+                           (define (,slot-setter object value)
+                             (set-object-slot object ,rank value)))))))
+              slots
+              (naturals (+ object-size ascendant-size) instance-size))
+       (define ,name
+         (new-core-class ,class-accessor ',name (make-table test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
+       (define ,class-level-name
+         (get-class-level ,name))
+       (set-core-class ',(reference-name name) ,name))))
 
 
 ;;;

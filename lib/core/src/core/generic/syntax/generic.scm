@@ -45,7 +45,7 @@
 (unit protected core.generic.syntax.generic
 
 
-(jazz:define-class jazz:Generic jazz:Object () jazz:Object-Class jazz:allocate-generic
+(jazz:define-class jazz:Generic jazz:Object jazz:Object-Class jazz:allocate-generic
   ((locator              %%get-generic-locator              ())
    (name                 %%get-generic-name                 ())
    (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)

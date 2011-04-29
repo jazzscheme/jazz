@@ -373,6 +373,7 @@
 (native jazz:debug-user?)
 (native jazz:generate-symbol)
 (native jazz:simplify-begin)
+(native jazz:compose-reference)
 
 
 ;;;

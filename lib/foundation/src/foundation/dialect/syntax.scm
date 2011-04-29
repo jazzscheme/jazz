@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Foundation-Dialect jazz:Dialect (name declarations bindings) jazz:Object-Class jazz:allocate-foundation-dialect
+(jazz:define-class jazz:Foundation-Dialect jazz:Dialect jazz:Object-Class jazz:allocate-foundation-dialect
   ())
 
 
@@ -52,5 +52,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Foundation-Walker jazz:Walker (declarations bindings warnings errors literals variables references autoloads) jazz:Object-Class jazz:allocate-foundation-walker
+(jazz:define-class jazz:Foundation-Walker jazz:Walker jazz:Object-Class jazz:allocate-foundation-walker
   ()))

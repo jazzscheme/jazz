@@ -366,6 +366,10 @@
   (jazz:reverse! (iter declaration)))
 
 
+(define (jazz:get-declaration-toplevel declaration)
+  (%%get-declaration-toplevel declaration))
+
+
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Declaration binding) symbol source-declaration)
   (jazz:lookup-declaration binding symbol jazz:private-access source-declaration))
 

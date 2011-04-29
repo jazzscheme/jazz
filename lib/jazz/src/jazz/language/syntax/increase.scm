@@ -42,7 +42,7 @@
         decrease!)
 
 (import (jazz.language.runtime.kernel)
-        (scheme.language.syntax-rules (phase syntax)))
+        (scheme.syntax-rules (phase syntax)))
 
 
 (define-syntax increase!

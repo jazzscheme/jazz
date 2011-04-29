@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Dialect Syntax
+;;;; Scheme Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,22 +35,33 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected gambit.dialect.syntax
+(module scheme.syntax scheme
 
 
-;;;
-;;;; Dialect
-;;;
+(export ;declaration-unit
+        declaration-path
+        declaration-locator)
+
+(import (scheme.core.kernel))
 
 
-(jazz:define-class jazz:Gambit-Dialect jazz:Scheme-Dialect jazz:Object-Class jazz:allocate-gambit-dialect
-  ())
+#; ;; buggy
+(define-syntax declaration-unit
+  (lambda (form-src usage-environment macro-environment)
+    (sourcify-if
+      `(quote ,(car (get-declaration-path (get-declaration-toplevel (current-declaration)))))
+      form-src)))
 
 
-;;;
-;;;; Walker
-;;;
+(define-syntax declaration-path
+  (lambda (form-src usage-environment macro-environment)
+    (sourcify-if
+      `(quote ,(get-declaration-path (current-declaration)))
+      form-src)))
 
 
-(jazz:define-class jazz:Gambit-Walker jazz:Scheme-Walker jazz:Object-Class jazz:allocate-gambit-walker
-  ()))
+(define-syntax declaration-locator
+  (lambda (form-src usage-environment macro-environment)
+    (sourcify-if
+      `(quote ,(apply compose-reference (get-declaration-path (current-declaration))))
+      form-src))))

@@ -479,7 +479,6 @@
 (native jazz:composite-identifier?)
 (native jazz:composite-reference?)
 (native jazz:compose-identifier)
-(native jazz:compose-reference)
 (native jazz:split-symbol)
 (native jazz:split-identifier)
 (native jazz:split-reference)

@@ -46,13 +46,11 @@
         while
         unwind-protect
         catch
-        ~
-        declaration-path
-        declaration-locator)
+        ~)
 
 (import (jazz.language.runtime.kernel)
         (scheme.core.kernel)
-        (scheme.language.syntax-rules (phase syntax)))
+        (scheme.syntax-rules (phase syntax)))
 
 
 (native private jazz:->string)
@@ -206,18 +204,4 @@
     (list 'catch
           (list 'Error err #t)
           (cons 'begin body)
-          #f)))
-
-
-(define-syntax declaration-path
-  (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
-      `(quote ,(get-declaration-path (current-declaration)))
-      form-src)))
-
-
-(define-syntax declaration-locator
-  (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
-      `(quote ,(apply compose-reference (get-declaration-path (current-declaration))))
-      form-src))))
+          #f))))

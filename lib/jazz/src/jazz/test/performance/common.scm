@@ -158,10 +158,10 @@
          (not safe))
 
 
-(jazz:define-class X jazz:Object (constructor: allocate-x)
+(jazz:define-class-syntax X jazz:Object (constructor: allocate-x)
   ())
 
-(jazz:define-class-runtime X)
+(jazz:define-class X)
 
 
 (define (new-x)
@@ -189,11 +189,11 @@
 ;;;
 
 
-(jazz:define-class-runtime Z)
+(jazz:define-class Z)
 
 
-(jazz:define-virtual-runtime (f-vtable (Z z) n))
-(jazz:define-virtual-runtime (g-vtable (Z z) n))
+(jazz:define-virtual (f-vtable (Z z) n))
+(jazz:define-virtual (g-vtable (Z z) n))
 
 
 (define (new-z)
@@ -212,14 +212,14 @@
     (f-vtable z (%%fx- n 1))))
 
 
-(jazz:define-class-runtime W)
+(jazz:define-class W)
 
 
 (jazz:define-method (f-vtable (W w) n)
   #f)
 
 
-(jazz:define-virtual-runtime (h (W w)))
+(jazz:define-virtual (h (W w)))
 
 
 (jazz:define-method (h (W w))

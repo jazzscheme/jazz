@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Backend)
+(jazz:define-class jazz:Backend)
 
 
 (define (jazz:new-backend name)

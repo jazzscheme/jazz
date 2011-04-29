@@ -43,13 +43,13 @@
 ;;;
 
 
-(jazz:define-class jazz:Dialect jazz:Object ()
+(jazz:define-class-syntax jazz:Dialect jazz:Object ()
   ((name         %%get-dialect-name         ())
    (declarations %%get-dialect-declarations ())
    (bindings     %%get-dialect-bindings     ())))
 
 
-(jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
+(jazz:define-virtual-syntax (jazz:dialect-walker (jazz:Dialect dialect)))
 
 
 ;;;
@@ -57,24 +57,24 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Binding jazz:Type ()
+(jazz:define-class-syntax jazz:Walk-Binding jazz:Type ()
   ())
 
 
-(jazz:define-virtual (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration))
-(jazz:define-virtual (jazz:walk-binding-referenced (jazz:Walk-Binding binding)))
-(jazz:define-virtual (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src))
-(jazz:define-virtual (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src))
-(jazz:define-virtual (jazz:walk-binding-assignable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual (jazz:walk-binding-walkable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form))
-(jazz:define-virtual (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form))
-(jazz:define-virtual (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
+(jazz:define-virtual-syntax (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration))
+(jazz:define-virtual-syntax (jazz:walk-binding-referenced (jazz:Walk-Binding binding)))
+(jazz:define-virtual-syntax (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src))
+(jazz:define-virtual-syntax (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src))
+(jazz:define-virtual-syntax (jazz:walk-binding-assignable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual-syntax (jazz:walk-binding-walkable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual-syntax (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form))
+(jazz:define-virtual-syntax (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual-syntax (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form))
+(jazz:define-virtual-syntax (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
 
 
 ;;;
@@ -82,13 +82,13 @@
 ;;;
 
 
-(jazz:define-class jazz:Lexical-Binding jazz:Walk-Binding ()
+(jazz:define-class-syntax jazz:Lexical-Binding jazz:Walk-Binding ()
   ((name %%get-lexical-binding-name ())
    (type %%get-lexical-binding-type ())
    (hits %%get-lexical-binding-hits %%set-lexical-binding-hits)))
 
 
-(jazz:define-virtual (jazz:resolve-binding (jazz:Lexical-Binding binding)))
+(jazz:define-virtual-syntax (jazz:resolve-binding (jazz:Lexical-Binding binding)))
 
 
 ;;;
@@ -96,7 +96,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Declaration jazz:Lexical-Binding ()
+(jazz:define-class-syntax jazz:Declaration jazz:Lexical-Binding ()
   ((access        %%get-declaration-access        ())
    (compatibility %%get-declaration-compatibility ())
    (attributes    %%get-declaration-attributes    ())
@@ -106,12 +106,12 @@
    (source        %%get-declaration-source        %%set-declaration-source)))
 
 
-(jazz:define-virtual (jazz:compose-declaration-locator (jazz:Declaration declaration)))
-(jazz:define-virtual (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
-(jazz:define-virtual (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
-(jazz:define-virtual (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
-(jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
-(jazz:define-virtual (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
+(jazz:define-virtual-syntax (jazz:compose-declaration-locator (jazz:Declaration declaration)))
+(jazz:define-virtual-syntax (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
+(jazz:define-virtual-syntax (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
+(jazz:define-virtual-syntax (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
+(jazz:define-virtual-syntax (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
+(jazz:define-virtual-syntax (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 
 
 ;;;
@@ -119,12 +119,12 @@
 ;;;
 
 
-(jazz:define-class jazz:Declaration-Reference jazz:Object ()
+(jazz:define-class-syntax jazz:Declaration-Reference jazz:Object ()
   ((name        %%get-declaration-reference-name        ())
    (declaration %%get-declaration-reference-declaration %%set-declaration-reference-declaration)))
 
 
-(jazz:define-virtual (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration))
+(jazz:define-virtual-syntax (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration))
 
 
 ;;;
@@ -132,7 +132,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Module-Reference jazz:Declaration-Reference (constructor: jazz:allocate-module-reference)
+(jazz:define-class-syntax jazz:Module-Reference jazz:Declaration-Reference (constructor: jazz:allocate-module-reference)
   ())
 
 
@@ -141,7 +141,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Export-Reference jazz:Declaration-Reference (constructor: jazz:allocate-export-reference)
+(jazz:define-class-syntax jazz:Export-Reference jazz:Declaration-Reference (constructor: jazz:allocate-export-reference)
   ((module-reference %%get-export-reference-module-reference ())))
 
 
@@ -150,7 +150,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Autoload-Reference jazz:Export-Reference (constructor: jazz:allocate-autoload-reference)
+(jazz:define-class-syntax jazz:Autoload-Reference jazz:Export-Reference (constructor: jazz:allocate-autoload-reference)
   ())
 
 
@@ -159,7 +159,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Unit-Declaration jazz:Declaration (constructor: jazz:allocate-unit-declaration)
+(jazz:define-class-syntax jazz:Unit-Declaration jazz:Declaration (constructor: jazz:allocate-unit-declaration)
   ((requires %%get-unit-declaration-requires %%set-unit-declaration-requires)))
 
 
@@ -168,7 +168,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Namespace-Declaration jazz:Declaration ()
+(jazz:define-class-syntax jazz:Namespace-Declaration jazz:Declaration ()
   ((lookups  %%get-namespace-declaration-lookups  ())
    (children %%get-namespace-declaration-children ())
    (body     %%get-namespace-declaration-body     %%set-namespace-declaration-body)))
@@ -183,7 +183,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Module-Declaration jazz:Namespace-Declaration (constructor: jazz:allocate-module-declaration)
+(jazz:define-class-syntax jazz:Module-Declaration jazz:Namespace-Declaration (constructor: jazz:allocate-module-declaration)
   ((walker          %%get-module-declaration-walker          %%set-module-declaration-walker)
    (dialect-name    %%get-module-declaration-dialect-name    ())
    (dialect-invoice %%get-module-declaration-dialect-invoice ())
@@ -200,7 +200,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Module-Invoice jazz:Object ()
+(jazz:define-class-syntax jazz:Module-Invoice jazz:Object ()
   ((name       %%get-module-invoice-name    ())
    (module     %%get-module-invoice-module ())
    (phase      %%get-module-invoice-phase   ())
@@ -216,7 +216,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Export-Invoice jazz:Module-Invoice (constructor: jazz:allocate-export-invoice)
+(jazz:define-class-syntax jazz:Export-Invoice jazz:Module-Invoice (constructor: jazz:allocate-export-invoice)
   ((autoload %%get-export-invoice-autoload %%set-export-invoice-autoload)))
 
 
@@ -225,7 +225,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Import-Invoice jazz:Module-Invoice (constructor: jazz:allocate-import-invoice)
+(jazz:define-class-syntax jazz:Import-Invoice jazz:Module-Invoice (constructor: jazz:allocate-import-invoice)
   ((hit? %%get-import-invoice-hit? %%set-import-invoice-hit?)))
 
 
@@ -234,7 +234,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Export-Declaration jazz:Declaration (constructor: jazz:allocate-export-declaration)
+(jazz:define-class-syntax jazz:Export-Declaration jazz:Declaration (constructor: jazz:allocate-export-declaration)
   ((symbol %%get-export-declaration-symbol ())))
 
 
@@ -243,7 +243,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Export-Syntax-Declaration jazz:Declaration (constructor: jazz:allocate-export-syntax-declaration)
+(jazz:define-class-syntax jazz:Export-Syntax-Declaration jazz:Declaration (constructor: jazz:allocate-export-syntax-declaration)
   ((symbol %%get-export-syntax-declaration-symbol ())))
 
 
@@ -252,7 +252,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Autoload-Declaration jazz:Declaration (constructor: jazz:allocate-autoload-declaration)
+(jazz:define-class-syntax jazz:Autoload-Declaration jazz:Declaration (constructor: jazz:allocate-autoload-declaration)
   ((module           %%get-autoload-declaration-module           ())
    (exported-module  %%get-autoload-declaration-exported-module  ())
    (declaration      %%get-autoload-declaration-declaration      %%set-autoload-declaration-declaration)))
@@ -263,7 +263,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Literal jazz:Object (constructor: jazz:allocate-literal)
+(jazz:define-class-syntax jazz:Literal jazz:Object (constructor: jazz:allocate-literal)
   ((name      %%get-literal-name      ())
    (arguments %%get-literal-arguments ())))
 
@@ -273,7 +273,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Macro-Declaration jazz:Declaration (constructor: jazz:allocate-macro-declaration)
+(jazz:define-class-syntax jazz:Macro-Declaration jazz:Declaration (constructor: jazz:allocate-macro-declaration)
   ((signature %%get-macro-declaration-signature %%set-macro-declaration-signature)
    (body      %%get-macro-declaration-body      %%set-macro-declaration-body)))
 
@@ -283,7 +283,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Local-Macro-Declaration jazz:Declaration (constructor: jazz:allocate-local-macro-declaration)
+(jazz:define-class-syntax jazz:Local-Macro-Declaration jazz:Declaration (constructor: jazz:allocate-local-macro-declaration)
   ((signature %%get-local-macro-declaration-signature %%set-local-macro-declaration-signature)
    (body      %%get-local-macro-declaration-body      %%set-local-macro-declaration-body)))
 
@@ -293,7 +293,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Syntax-Declaration jazz:Declaration (constructor: jazz:allocate-syntax-declaration)
+(jazz:define-class-syntax jazz:Syntax-Declaration jazz:Declaration (constructor: jazz:allocate-syntax-declaration)
   ((signature %%get-syntax-declaration-signature %%set-syntax-declaration-signature)
    (body      %%get-syntax-declaration-body      %%set-syntax-declaration-body)))
 
@@ -303,7 +303,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Syntax-Declaration jazz:Syntax-Declaration (constructor: jazz:allocate-define-syntax-declaration)
+(jazz:define-class-syntax jazz:Define-Syntax-Declaration jazz:Syntax-Declaration (constructor: jazz:allocate-define-syntax-declaration)
   ())
 
 
@@ -312,7 +312,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Local-Syntax-Declaration jazz:Syntax-Declaration (constructor: jazz:allocate-define-local-syntax-declaration)
+(jazz:define-class-syntax jazz:Define-Local-Syntax-Declaration jazz:Syntax-Declaration (constructor: jazz:allocate-define-local-syntax-declaration)
   ())
 
 
@@ -321,11 +321,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Void-Class jazz:Class (metaclass: jazz:Class)
+(jazz:define-class-syntax jazz:Void-Class jazz:Class (metaclass: jazz:Class)
   ())
 
 
-(jazz:define-class jazz:Void jazz:Type (metaclass: jazz:Void-Class)
+(jazz:define-class-syntax jazz:Void jazz:Type (metaclass: jazz:Void-Class)
   ())
 
 
@@ -334,7 +334,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Opt-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-opt-type)
+(jazz:define-class-syntax jazz:Opt-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-opt-type)
   ((type %%get-opt-type-type ())))
 
 
@@ -343,7 +343,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Key-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-key-type)
+(jazz:define-class-syntax jazz:Key-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-key-type)
   ((key  %%get-key-type-key  ())
    (type %%get-key-type-type ())))
 
@@ -353,7 +353,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Rest-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-rest-type)
+(jazz:define-class-syntax jazz:Rest-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-rest-type)
   ((type %%get-rest-type-type ())))
 
 
@@ -362,7 +362,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Function-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-function-type)
+(jazz:define-class-syntax jazz:Function-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-function-type)
   ((mandatory  %%get-function-type-mandatory  ())
    (positional %%get-function-type-positional ())
    (optional   %%get-function-type-optional   ())
@@ -376,7 +376,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Category-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-category-type)
+(jazz:define-class-syntax jazz:Category-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-category-type)
   ((declaration %%get-category-type-declaration ())))
 
 
@@ -385,7 +385,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Values-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-values-type)
+(jazz:define-class-syntax jazz:Values-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-values-type)
   ((types %%get-values-type-types ())))
 
 
@@ -394,7 +394,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Restriction-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-restriction-type)
+(jazz:define-class-syntax jazz:Restriction-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-restriction-type)
   ((base %%get-restriction-type-base ())
    (type %%get-restriction-type-type ())))
 
@@ -404,7 +404,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Complement-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-complement-type)
+(jazz:define-class-syntax jazz:Complement-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-complement-type)
   ((type %%get-complement-type-type ())))
 
 
@@ -413,7 +413,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Union-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-union-type)
+(jazz:define-class-syntax jazz:Union-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-union-type)
   ((types %%get-union-type-types ())))
 
 
@@ -422,7 +422,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Template-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-template-type)
+(jazz:define-class-syntax jazz:Template-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-template-type)
   ((class %%get-template-type-class ())
    (types %%get-template-type-types ())))
 
@@ -432,7 +432,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Nillable-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-nillable-type)
+(jazz:define-class-syntax jazz:Nillable-Type jazz:Type (metaclass: jazz:Class constructor: jazz:allocate-nillable-type)
   ((type %%get-nillable-type-type ())))
 
 
@@ -441,11 +441,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Any-Class jazz:Class (metaclass: jazz:Class)
+(jazz:define-class-syntax jazz:Any-Class jazz:Class (metaclass: jazz:Class)
   ())
 
 
-(jazz:define-class jazz:Any jazz:Type (metaclass: jazz:Any-Class)
+(jazz:define-class-syntax jazz:Any jazz:Type (metaclass: jazz:Any-Class)
   ())
 
 
@@ -454,7 +454,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walker jazz:Object ()
+(jazz:define-class-syntax jazz:Walker jazz:Object ()
   ((declarations %%get-walker-declarations %%set-walker-declarations)
    (bindings     %%get-walker-bindings     %%set-walker-bindings)
    (warnings     %%get-walker-warnings     %%set-walker-warnings)
@@ -465,14 +465,14 @@
    (autoloads    %%get-walker-autoloads    %%set-walker-autoloads)))
 
 
-(jazz:define-virtual (jazz:walker-declarations (jazz:Walker walker)))
-(jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
-(jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
-(jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-(jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
-(jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
-(jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
+(jazz:define-virtual-syntax (jazz:walker-declarations (jazz:Walker walker)))
+(jazz:define-virtual-syntax (jazz:walker-bindings (jazz:Walker walker)))
+(jazz:define-virtual-syntax (jazz:walk-form (jazz:Walker walker) resume declaration environment form))
+(jazz:define-virtual-syntax (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
+(jazz:define-virtual-syntax (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual-syntax (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual-syntax (jazz:runtime-export (jazz:Walker walker) declaration))
+(jazz:define-virtual-syntax (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 
 
 ;; provide virtual access to some walker slots via the module-declaration
@@ -495,7 +495,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Context jazz:Object (constructor: jazz:allocate-walk-context)
+(jazz:define-class-syntax jazz:Walk-Context jazz:Object (constructor: jazz:allocate-walk-context)
   ((policy   %%get-walk-context-policy   ())
    (locator  %%get-walk-context-locator  ())
    (pathname %%get-walk-context-pathname ())))
@@ -506,7 +506,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Location jazz:Object (constructor: jazz:allocate-walk-location)
+(jazz:define-class-syntax jazz:Walk-Location jazz:Object (constructor: jazz:allocate-walk-location)
   ((unit-locator        %%get-walk-location-unit-locator        ())
    (declaration-locator %%get-walk-location-declaration-locator ())
    (locat               %%get-walk-location-locat               ())
@@ -518,7 +518,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Problem jazz:Error ()
+(jazz:define-class-syntax jazz:Walk-Problem jazz:Error ()
   ((location %%get-walk-problem-location ())))
 
 
@@ -527,7 +527,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Problems jazz:Error (constructor: jazz:allocate-walk-problems)
+(jazz:define-class-syntax jazz:Walk-Problems jazz:Error (constructor: jazz:allocate-walk-problems)
   ((warnings %%get-walk-problems-warnings ())
    (errors   %%get-walk-problems-errors   ())))
 
@@ -537,7 +537,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Warning jazz:Walk-Problem (constructor: jazz:allocate-walk-warning)
+(jazz:define-class-syntax jazz:Walk-Warning jazz:Walk-Problem (constructor: jazz:allocate-walk-warning)
   ())
 
 
@@ -546,7 +546,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Error jazz:Walk-Problem (constructor: jazz:allocate-walk-error)
+(jazz:define-class-syntax jazz:Walk-Error jazz:Walk-Problem (constructor: jazz:allocate-walk-error)
   ())
 
 
@@ -555,7 +555,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Unresolved-Error jazz:Walk-Error (constructor: jazz:allocate-unresolved-error)
+(jazz:define-class-syntax jazz:Unresolved-Error jazz:Walk-Error (constructor: jazz:allocate-unresolved-error)
   ((symbol %%get-unresolved-error-symbol ())))
 
 
@@ -564,7 +564,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Frame jazz:Walk-Binding (constructor: jazz:allocate-walk-frame)
+(jazz:define-class-syntax jazz:Walk-Frame jazz:Walk-Binding (constructor: jazz:allocate-walk-frame)
   ((bindings %%get-walk-frame-bindings ())))
 
 
@@ -573,7 +573,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Signature jazz:Object (constructor: jazz:allocate-signature)
+(jazz:define-class-syntax jazz:Signature jazz:Object (constructor: jazz:allocate-signature)
   ((mandatory  %%get-signature-mandatory  ())
    (positional %%get-signature-positional ())
    (optional   %%get-signature-optional   ())
@@ -586,7 +586,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Symbol-Binding jazz:Lexical-Binding ()
+(jazz:define-class-syntax jazz:Symbol-Binding jazz:Lexical-Binding ()
   ((gensym %%get-symbol-binding-gensym %%set-symbol-binding-gensym)))
 
 
@@ -595,7 +595,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Variable jazz:Symbol-Binding (constructor: jazz:allocate-variable)
+(jazz:define-class-syntax jazz:Variable jazz:Symbol-Binding (constructor: jazz:allocate-variable)
   ((reference-count %%get-variable-reference-count %%set-variable-reference-count)))
 
 
@@ -604,11 +604,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Parameter jazz:Variable (constructor: jazz:allocate-parameter)
+(jazz:define-class-syntax jazz:Parameter jazz:Variable (constructor: jazz:allocate-parameter)
   ())
 
 
-(jazz:define-virtual (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
 
 
 ;;;
@@ -616,7 +616,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Dynamic-Parameter jazz:Parameter (constructor: jazz:allocate-dynamic-parameter)
+(jazz:define-class-syntax jazz:Dynamic-Parameter jazz:Parameter (constructor: jazz:allocate-dynamic-parameter)
   ((class %%get-dynamic-parameter-class ())))
 
 
@@ -625,7 +625,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Optional-Parameter jazz:Parameter (constructor: jazz:allocate-optional-parameter)
+(jazz:define-class-syntax jazz:Optional-Parameter jazz:Parameter (constructor: jazz:allocate-optional-parameter)
   ((default %%get-optional-parameter-default %%set-optional-parameter-default)))
 
 
@@ -634,7 +634,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Named-Parameter jazz:Parameter (constructor: jazz:allocate-named-parameter)
+(jazz:define-class-syntax jazz:Named-Parameter jazz:Parameter (constructor: jazz:allocate-named-parameter)
   ((default %%get-named-parameter-default %%set-named-parameter-default)))
 
 
@@ -643,7 +643,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Rest-Parameter jazz:Parameter (constructor: jazz:allocate-rest-parameter)
+(jazz:define-class-syntax jazz:Rest-Parameter jazz:Parameter (constructor: jazz:allocate-rest-parameter)
   ())
 
 
@@ -652,7 +652,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Local-Variable-Binding jazz:Lexical-Binding (constructor: jazz:allocate-local-variable-binding)
+(jazz:define-class-syntax jazz:Local-Variable-Binding jazz:Lexical-Binding (constructor: jazz:allocate-local-variable-binding)
   ((variable %%get-local-variable-binding-variable ())))
 
 
@@ -661,7 +661,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Macro-Symbol jazz:Symbol-Binding (constructor: jazz:allocate-macro-symbol)
+(jazz:define-class-syntax jazz:Macro-Symbol jazz:Symbol-Binding (constructor: jazz:allocate-macro-symbol)
   ((getter %%get-macro-symbol-getter ())
    (setter %%get-macro-symbol-setter ())))
 
@@ -671,7 +671,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Form-Binding jazz:Lexical-Binding ()
+(jazz:define-class-syntax jazz:Form-Binding jazz:Lexical-Binding ()
   ())
 
 
@@ -680,7 +680,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Declaration-Form jazz:Form-Binding (constructor: jazz:allocate-declaration-form)
+(jazz:define-class-syntax jazz:Declaration-Form jazz:Form-Binding (constructor: jazz:allocate-declaration-form)
   ((walk %%get-declaration-form-walk ())))
 
 
@@ -689,7 +689,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Special-Form jazz:Form-Binding (constructor: jazz:allocate-special-form)
+(jazz:define-class-syntax jazz:Special-Form jazz:Form-Binding (constructor: jazz:allocate-special-form)
   ((walk %%get-special-form-walk ())))
 
 
@@ -698,7 +698,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Macro-Form jazz:Form-Binding (constructor: jazz:allocate-macro-form)
+(jazz:define-class-syntax jazz:Macro-Form jazz:Form-Binding (constructor: jazz:allocate-macro-form)
   ((expander %%get-macro-form-expander ())))
 
 
@@ -707,7 +707,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Syntax-Form jazz:Form-Binding (constructor: jazz:allocate-syntax-form)
+(jazz:define-class-syntax jazz:Syntax-Form jazz:Form-Binding (constructor: jazz:allocate-syntax-form)
   ((expander %%get-syntax-form-expander ())))
 
 
@@ -716,7 +716,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Syntax-Form jazz:Syntax-Form (constructor: jazz:allocate-define-syntax-form)
+(jazz:define-class-syntax jazz:Define-Syntax-Form jazz:Syntax-Form (constructor: jazz:allocate-define-syntax-form)
   ((environment %%get-define-syntax-form-environment ())))
 
 
@@ -725,7 +725,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Local-Syntax-Form jazz:Syntax-Form (constructor: jazz:allocate-define-local-syntax-form)
+(jazz:define-class-syntax jazz:Define-Local-Syntax-Form jazz:Syntax-Form (constructor: jazz:allocate-define-local-syntax-form)
   ((environment %%get-define-local-syntax-form-environment ())))
 
 
@@ -734,7 +734,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Syntactic-Closure jazz:Object (constructor: jazz:allocate-syntactic-closure)
+(jazz:define-class-syntax jazz:Syntactic-Closure jazz:Object (constructor: jazz:allocate-syntactic-closure)
   ((environment %%get-syntactic-closure-environment ())
    (variables   %%get-syntactic-closure-variables   ())
    (form        %%get-syntactic-closure-form        ())))
@@ -745,7 +745,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Annotated-Variable jazz:Object (constructor: jazz:allocate-annotated-variable)
+(jazz:define-class-syntax jazz:Annotated-Variable jazz:Object (constructor: jazz:allocate-annotated-variable)
   ((variable      %%get-annotated-variable-variable      ())
    (declared-type %%get-annotated-variable-declared-type ())
    (type          %%get-annotated-variable-type          %%set-annotated-variable-type)))
@@ -756,7 +756,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Restricted-Binding jazz:Object (constructor: jazz:allocate-restricted-binding)
+(jazz:define-class-syntax jazz:Restricted-Binding jazz:Object (constructor: jazz:allocate-restricted-binding)
   ((binding %%get-restricted-binding-binding ())
    (type    %%get-restricted-binding-type    ())))
 
@@ -766,7 +766,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Annotated-Frame jazz:Object (constructor: jazz:allocate-annotated-frame)
+(jazz:define-class-syntax jazz:Annotated-Frame jazz:Object (constructor: jazz:allocate-annotated-frame)
   ((variables %%get-annotated-frame-variables ())
    (reset     %%get-annotated-frame-reset     ())))
 
@@ -776,7 +776,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Code jazz:Object (constructor: jazz:allocate-code)
+(jazz:define-class-syntax jazz:Code jazz:Object (constructor: jazz:allocate-code)
   ((form   %%get-code-form   ())
    (type   %%get-code-type   ())
    (source %%get-code-source ())))
@@ -788,7 +788,7 @@
 
 
 ;; this should be moved to jazz
-(jazz:define-class jazz:Access jazz:Object (constructor: jazz:allocate-access)
+(jazz:define-class-syntax jazz:Access jazz:Object (constructor: jazz:allocate-access)
   ((name    %%get-access-name    ())
    (context %%get-access-context ())))
 
@@ -798,13 +798,13 @@
 ;;;
 
 
-(jazz:define-class jazz:Expression jazz:Object ()
+(jazz:define-class-syntax jazz:Expression jazz:Object ()
   ((type   %%get-expression-type   ())
    (source %%get-expression-source ())))
 
 
-(jazz:define-virtual (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
-(jazz:define-virtual (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
+(jazz:define-virtual-syntax (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
 
 
 ;;;
@@ -812,7 +812,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Proclaim jazz:Expression (constructor: jazz:allocate-proclaim)
+(jazz:define-class-syntax jazz:Proclaim jazz:Expression (constructor: jazz:allocate-proclaim)
   ((clauses %%get-proclaim-clauses ())))
 
 
@@ -821,7 +821,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Constant jazz:Expression (constructor: jazz:allocate-constant)
+(jazz:define-class-syntax jazz:Constant jazz:Expression (constructor: jazz:allocate-constant)
   ((expansion %%get-constant-expansion ())))
 
 
@@ -830,7 +830,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Delay jazz:Expression (constructor: jazz:allocate-delay)
+(jazz:define-class-syntax jazz:Delay jazz:Expression (constructor: jazz:allocate-delay)
   ((expression %%get-delay-expression ())))
 
 
@@ -839,7 +839,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Quasiquote jazz:Expression (constructor: jazz:allocate-quasiquote)
+(jazz:define-class-syntax jazz:Quasiquote jazz:Expression (constructor: jazz:allocate-quasiquote)
   ((form %%get-quasiquote-form ())))
 
 
@@ -848,7 +848,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Binding-Reference jazz:Expression (constructor: jazz:allocate-binding-reference)
+(jazz:define-class-syntax jazz:Binding-Reference jazz:Expression (constructor: jazz:allocate-binding-reference)
   ((binding %%get-reference-binding ())))
 
 
@@ -857,7 +857,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Assignment jazz:Expression (constructor: jazz:allocate-assignment)
+(jazz:define-class-syntax jazz:Assignment jazz:Expression (constructor: jazz:allocate-assignment)
   ((binding %%get-assignment-binding ())
    (value   %%get-assignment-value   ())))
 
@@ -867,7 +867,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Body jazz:Expression (constructor: jazz:allocate-body)
+(jazz:define-class-syntax jazz:Body jazz:Expression (constructor: jazz:allocate-body)
   ((internal-defines %%get-body-internal-defines ())
    (expressions      %%get-body-expressions      ())))
 
@@ -877,7 +877,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Internal-Define jazz:Expression (constructor: jazz:allocate-internal-define)
+(jazz:define-class-syntax jazz:Internal-Define jazz:Expression (constructor: jazz:allocate-internal-define)
   ((variable %%get-internal-define-variable ())
    (value    %%get-internal-define-value    ())))
 
@@ -887,7 +887,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Begin jazz:Expression (constructor: jazz:allocate-begin)
+(jazz:define-class-syntax jazz:Begin jazz:Expression (constructor: jazz:allocate-begin)
   ((expressions %%get-begin-expressions ())))
 
 
@@ -896,7 +896,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Call jazz:Expression (constructor: jazz:allocate-call)
+(jazz:define-class-syntax jazz:Call jazz:Expression (constructor: jazz:allocate-call)
   ((operator  %%get-call-operator  ())
    (arguments %%get-call-arguments ())))
 
@@ -906,7 +906,7 @@
 ;;;
 
 
-(jazz:define-class jazz:If jazz:Expression (constructor: jazz:allocate-if)
+(jazz:define-class-syntax jazz:If jazz:Expression (constructor: jazz:allocate-if)
   ((test %%get-if-test ())
    (yes  %%get-if-yes ())
    (no   %%get-if-no ())))
@@ -917,7 +917,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Cond jazz:Expression (constructor: jazz:allocate-cond)
+(jazz:define-class-syntax jazz:Cond jazz:Expression (constructor: jazz:allocate-cond)
   ((clauses %%get-cond-clauses ())))
 
 
@@ -926,7 +926,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Case jazz:Expression (constructor: jazz:allocate-case)
+(jazz:define-class-syntax jazz:Case jazz:Expression (constructor: jazz:allocate-case)
   ((target  %%get-case-target  ())
    (clauses %%get-case-clauses ())))
 
@@ -936,7 +936,7 @@
 ;;;
 
 
-(jazz:define-class jazz:And jazz:Expression (constructor: jazz:allocate-and)
+(jazz:define-class-syntax jazz:And jazz:Expression (constructor: jazz:allocate-and)
   ((expressions jazz:get-and-expressions ())))
 
 
@@ -945,7 +945,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Or jazz:Expression (constructor: jazz:allocate-or)
+(jazz:define-class-syntax jazz:Or jazz:Expression (constructor: jazz:allocate-or)
   ((expressions %%get-or-expressions ())))
 
 
@@ -954,7 +954,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Declare jazz:Expression (constructor: jazz:allocate-declare)
+(jazz:define-class-syntax jazz:Declare jazz:Expression (constructor: jazz:allocate-declare)
   ((declarations %%get-declare-declarations ())))
 
 
@@ -963,7 +963,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Parameterize jazz:Expression (constructor: jazz:allocate-parameterize)
+(jazz:define-class-syntax jazz:Parameterize jazz:Expression (constructor: jazz:allocate-parameterize)
   ((bindings %%get-parameterize-bindings ())
    (body     %%get-parameterize-body     ())))
 
@@ -973,7 +973,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Time-Special jazz:Expression (constructor: jazz:allocate-time)
+(jazz:define-class-syntax jazz:Time-Special jazz:Expression (constructor: jazz:allocate-time)
   ((expressions %%get-time-special-expressions ())))
 
 
@@ -982,7 +982,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Failed-Special jazz:Expression (constructor: jazz:allocate-walk-failed)
+(jazz:define-class-syntax jazz:Walk-Failed-Special jazz:Expression (constructor: jazz:allocate-walk-failed)
   ((answer %%get-walk-failed-special-answer ())))
 
 
@@ -991,6 +991,6 @@
 ;;;
 
 
-(jazz:define-class jazz:Analysis-Data jazz:Object (constructor: jazz:allocate-analysis-data)
+(jazz:define-class-syntax jazz:Analysis-Data jazz:Object (constructor: jazz:allocate-analysis-data)
   ((autoload-reference     %%get-analysis-data-autoload-reference     %%set-analysis-data-autoload-reference)
    (declaration-references %%get-analysis-data-declaration-references %%set-analysis-data-declaration-references))))

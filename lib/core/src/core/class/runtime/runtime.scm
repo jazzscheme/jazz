@@ -403,7 +403,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Object)
+(jazz:define-class jazz:Object)
 
 
 (define (jazz:get-object-slot object slot-offset)
@@ -425,11 +425,11 @@
     (%%symbol->string (%%get-category-identifier class))))
 
 
-(jazz:define-virtual-runtime (jazz:initialize (jazz:Object object)))
-(jazz:define-virtual-runtime (jazz:destroy (jazz:Object object)))
-(jazz:define-virtual-runtime (jazz:call-print (jazz:Object object) output detail))
-(jazz:define-virtual-runtime (jazz:print-object (jazz:Object object) output detail))
-(jazz:define-virtual-runtime (jazz:tree-fold (jazz:Object expression) down up here seed environment))
+(jazz:define-virtual (jazz:initialize (jazz:Object object)))
+(jazz:define-virtual (jazz:destroy (jazz:Object object)))
+(jazz:define-virtual (jazz:call-print (jazz:Object object) output detail))
+(jazz:define-virtual (jazz:print-object (jazz:Object object) output detail))
+(jazz:define-virtual (jazz:tree-fold (jazz:Object expression) down up here seed environment))
 
 
 (jazz:define-method (jazz:initialize (jazz:Object object))
@@ -464,17 +464,17 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Type)
+(jazz:define-class jazz:Type)
 
 
-(jazz:define-virtual-runtime (jazz:of-type? (jazz:Type type) object))
-(jazz:define-virtual-runtime (jazz:of-subtype? (jazz:Type type) subtype))
-(jazz:define-virtual-runtime (jazz:specifiable? (jazz:Type type)))
-(jazz:define-virtual-runtime (jazz:category-type? (jazz:Type type)))
-(jazz:define-virtual-runtime (jazz:emit-specifier (jazz:Type type)))
-(jazz:define-virtual-runtime (jazz:emit-type (jazz:Type type) source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-check (jazz:Type type) value source-declaration environment backend))
+(jazz:define-virtual (jazz:of-type? (jazz:Type type) object))
+(jazz:define-virtual (jazz:of-subtype? (jazz:Type type) subtype))
+(jazz:define-virtual (jazz:specifiable? (jazz:Type type)))
+(jazz:define-virtual (jazz:category-type? (jazz:Type type)))
+(jazz:define-virtual (jazz:emit-specifier (jazz:Type type)))
+(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment backend))
 
 
 (jazz:define-method (jazz:of-type? (jazz:Type type) object)
@@ -550,7 +550,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Category)
+(jazz:define-class jazz:Category)
 
 
 (define (jazz:category? object)
@@ -571,7 +571,7 @@
   (%%get-category-identifier type))
 
 
-(jazz:define-virtual-runtime (jazz:update-category (jazz:Category category)))
+(jazz:define-virtual (jazz:update-category (jazz:Category category)))
 
 
 (jazz:define-method (jazz:update-category (jazz:Category category))
@@ -601,7 +601,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Class)
+(jazz:define-class jazz:Class)
 
 
 (jazz:define-virtual-runtime (jazz:write-object (jazz:Class class) we obj))
@@ -734,7 +734,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Object-Class)
+(jazz:define-class jazz:Object-Class)
 
 
 (jazz:define-method (jazz:of-subtype? (jazz:Object-Class class) subtype)
@@ -760,7 +760,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Boolean-Class)
+(jazz:define-class jazz:Boolean-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Boolean-Class class) object)
@@ -775,7 +775,7 @@
   `(%%boolean? ,value))
 
 
-(jazz:define-class-runtime jazz:Boolean)
+(jazz:define-class jazz:Boolean)
 
 
 ;;;
@@ -783,7 +783,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Char-Class)
+(jazz:define-class jazz:Char-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Char-Class class) object)
@@ -798,7 +798,7 @@
   `(%%char? ,value))
 
 
-(jazz:define-class-runtime jazz:Char)
+(jazz:define-class jazz:Char)
 
 
 ;;;
@@ -806,14 +806,14 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Numeric-Class)
+(jazz:define-class jazz:Numeric-Class)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Numeric-Class class))
   'numeric)
 
 
-(jazz:define-class-runtime jazz:Numeric)
+(jazz:define-class jazz:Numeric)
 
 
 ;;;
@@ -821,7 +821,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Number-Class)
+(jazz:define-class jazz:Number-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Number-Class class) object)
@@ -836,7 +836,7 @@
   `(%%number? ,value))
 
 
-(jazz:define-class-runtime jazz:Number)
+(jazz:define-class jazz:Number)
 
 
 ;;;
@@ -844,7 +844,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Complex-Class)
+(jazz:define-class jazz:Complex-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Complex-Class class) object)
@@ -859,7 +859,7 @@
   `(%%complex? ,value))
 
 
-(jazz:define-class-runtime jazz:Complex)
+(jazz:define-class jazz:Complex)
 
 
 ;;;
@@ -867,7 +867,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Real-Class)
+(jazz:define-class jazz:Real-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Real-Class class) object)
@@ -882,7 +882,7 @@
   `(%%real? ,value))
 
 
-(jazz:define-class-runtime jazz:Real)
+(jazz:define-class jazz:Real)
 
 
 ;;;
@@ -890,7 +890,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Rational-Class)
+(jazz:define-class jazz:Rational-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Rational-Class class) object)
@@ -905,7 +905,7 @@
   `(%%rational? ,value))
 
 
-(jazz:define-class-runtime jazz:Rational)
+(jazz:define-class jazz:Rational)
 
 
 ;;;
@@ -913,7 +913,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Integer-Class)
+(jazz:define-class jazz:Integer-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Integer-Class class) object)
@@ -928,7 +928,7 @@
   `(%%integer? ,value))
 
 
-(jazz:define-class-runtime jazz:Integer)
+(jazz:define-class jazz:Integer)
 
 
 ;;;
@@ -936,7 +936,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Fixnum-Class)
+(jazz:define-class jazz:Fixnum-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Fixnum-Class class) object)
@@ -951,7 +951,7 @@
   `(%%fixnum? ,value))
 
 
-(jazz:define-class-runtime jazz:Fixnum)
+(jazz:define-class jazz:Fixnum)
 
 
 ;;;
@@ -959,7 +959,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Flonum-Class)
+(jazz:define-class jazz:Flonum-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Flonum-Class class) object)
@@ -974,7 +974,7 @@
   `(%%flonum? ,value))
 
 
-(jazz:define-class-runtime jazz:Flonum)
+(jazz:define-class jazz:Flonum)
 
 
 ;;;
@@ -982,14 +982,14 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Sequence-Class)
+(jazz:define-class jazz:Sequence-Class)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Sequence-Class class))
   'sequence)
 
 
-(jazz:define-class-runtime jazz:Sequence)
+(jazz:define-class jazz:Sequence)
 
 
 ;;;
@@ -997,7 +997,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:List-Class)
+(jazz:define-class jazz:List-Class)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:List-Class class))
@@ -1008,7 +1008,7 @@
   `(or (%%null? ,value) (%%pair? ,value)))
 
 
-(jazz:define-class-runtime jazz:List)
+(jazz:define-class jazz:List)
 
 
 ;;;
@@ -1016,7 +1016,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Null-Class)
+(jazz:define-class jazz:Null-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Null-Class class) object)
@@ -1031,7 +1031,7 @@
   `(%%null? ,value))
 
 
-(jazz:define-class-runtime jazz:Null)
+(jazz:define-class jazz:Null)
 
 
 ;;;
@@ -1039,7 +1039,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Pair-Class)
+(jazz:define-class jazz:Pair-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Pair-Class class) object)
@@ -1054,7 +1054,7 @@
   `(%%pair? ,value))
 
 
-(jazz:define-class-runtime jazz:Pair)
+(jazz:define-class jazz:Pair)
 
 
 ;;;
@@ -1062,7 +1062,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:String-Class)
+(jazz:define-class jazz:String-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:String-Class class) object)
@@ -1077,7 +1077,7 @@
   `(%%string? ,value))
 
 
-(jazz:define-class-runtime jazz:String)
+(jazz:define-class jazz:String)
 
 
 ;;;
@@ -1085,7 +1085,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Vector-Class)
+(jazz:define-class jazz:Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Vector-Class class) object)
@@ -1100,7 +1100,7 @@
   `(%%vector? ,value))
 
 
-(jazz:define-class-runtime jazz:Vector)
+(jazz:define-class jazz:Vector)
 
 
 ;;;
@@ -1108,7 +1108,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:S8Vector-Class)
+(jazz:define-class jazz:S8Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:S8Vector-Class class) object)
@@ -1123,7 +1123,7 @@
   `(%%s8vector? ,value))
 
 
-(jazz:define-class-runtime jazz:S8Vector)
+(jazz:define-class jazz:S8Vector)
 
 
 ;;;
@@ -1131,7 +1131,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:U8Vector-Class)
+(jazz:define-class jazz:U8Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:U8Vector-Class class) object)
@@ -1146,7 +1146,7 @@
   `(%%u8vector? ,value))
 
 
-(jazz:define-class-runtime jazz:U8Vector)
+(jazz:define-class jazz:U8Vector)
 
 
 ;;;
@@ -1154,7 +1154,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:S16Vector-Class)
+(jazz:define-class jazz:S16Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:S16Vector-Class class) object)
@@ -1169,7 +1169,7 @@
   `(%%s16vector? ,value))
 
 
-(jazz:define-class-runtime jazz:S16Vector)
+(jazz:define-class jazz:S16Vector)
 
 
 ;;;
@@ -1177,7 +1177,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:U16Vector-Class)
+(jazz:define-class jazz:U16Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:U16Vector-Class class) object)
@@ -1192,7 +1192,7 @@
   `(%%u16vector? ,value))
 
 
-(jazz:define-class-runtime jazz:U16Vector)
+(jazz:define-class jazz:U16Vector)
 
 
 ;;;
@@ -1200,7 +1200,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:S32Vector-Class)
+(jazz:define-class jazz:S32Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:S32Vector-Class class) object)
@@ -1215,7 +1215,7 @@
   `(%%s32vector? ,value))
 
 
-(jazz:define-class-runtime jazz:S32Vector)
+(jazz:define-class jazz:S32Vector)
 
 
 ;;;
@@ -1223,7 +1223,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:U32Vector-Class)
+(jazz:define-class jazz:U32Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:U32Vector-Class class) object)
@@ -1238,7 +1238,7 @@
   `(%%u32vector? ,value))
 
 
-(jazz:define-class-runtime jazz:U32Vector)
+(jazz:define-class jazz:U32Vector)
 
 
 ;;;
@@ -1246,7 +1246,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:S64Vector-Class)
+(jazz:define-class jazz:S64Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:S64Vector-Class class) object)
@@ -1261,7 +1261,7 @@
   `(%%s64vector? ,value))
 
 
-(jazz:define-class-runtime jazz:S64Vector)
+(jazz:define-class jazz:S64Vector)
 
 
 ;;;
@@ -1269,7 +1269,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:U64Vector-Class)
+(jazz:define-class jazz:U64Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:U64Vector-Class class) object)
@@ -1284,7 +1284,7 @@
   `(%%u64vector? ,value))
 
 
-(jazz:define-class-runtime jazz:U64Vector)
+(jazz:define-class jazz:U64Vector)
 
 
 ;;;
@@ -1292,7 +1292,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:F32Vector-Class)
+(jazz:define-class jazz:F32Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:F32Vector-Class class) object)
@@ -1307,7 +1307,7 @@
   `(%%f32vector? ,value))
 
 
-(jazz:define-class-runtime jazz:F32Vector)
+(jazz:define-class jazz:F32Vector)
 
 
 ;;;
@@ -1315,7 +1315,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:F64Vector-Class)
+(jazz:define-class jazz:F64Vector-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:F64Vector-Class class) object)
@@ -1330,7 +1330,7 @@
   `(%%f64vector? ,value))
 
 
-(jazz:define-class-runtime jazz:F64Vector)
+(jazz:define-class jazz:F64Vector)
 
 
 ;;;
@@ -1338,7 +1338,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Structure-Class)
+(jazz:define-class jazz:Structure-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Structure-Class class) object)
@@ -1353,7 +1353,7 @@
   `(%%structure? ,value))
 
 
-(jazz:define-class-runtime jazz:Structure)
+(jazz:define-class jazz:Structure)
 
 
 ;;;
@@ -1361,7 +1361,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Port-Class)
+(jazz:define-class jazz:Port-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Port-Class class) object)
@@ -1376,7 +1376,7 @@
   `(%%port? ,value))
 
 
-(jazz:define-class-runtime jazz:Port)
+(jazz:define-class jazz:Port)
 
 
 (jazz:register-structure-type port? jazz:Port)
@@ -1387,7 +1387,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Continuation-Class)
+(jazz:define-class jazz:Continuation-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Continuation-Class class) object)
@@ -1402,7 +1402,7 @@
   `(%%continuation? ,value))
 
 
-(jazz:define-class-runtime jazz:Continuation)
+(jazz:define-class jazz:Continuation)
 
 
 ;;;
@@ -1410,7 +1410,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Procedure-Class)
+(jazz:define-class jazz:Procedure-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Procedure-Class class) object)
@@ -1431,7 +1431,7 @@
   `(%%procedure? ,value))
 
 
-(jazz:define-class-runtime jazz:Procedure)
+(jazz:define-class jazz:Procedure)
 
 
 ;;;
@@ -1439,7 +1439,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Symbol-Class)
+(jazz:define-class jazz:Symbol-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Symbol-Class class) object)
@@ -1454,7 +1454,7 @@
   `(%%symbol? ,value))
 
 
-(jazz:define-class-runtime jazz:Symbol)
+(jazz:define-class jazz:Symbol)
 
 
 ;;;
@@ -1462,7 +1462,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Keyword-Class)
+(jazz:define-class jazz:Keyword-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Keyword-Class class) object)
@@ -1477,7 +1477,7 @@
   `(%%keyword? ,value))
 
 
-(jazz:define-class-runtime jazz:Keyword)
+(jazz:define-class jazz:Keyword)
 
 
 ;;;
@@ -1485,7 +1485,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Table-Class)
+(jazz:define-class jazz:Table-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Table-Class class) object)
@@ -1500,7 +1500,7 @@
   `(%%table? ,value))
 
 
-(jazz:define-class-runtime jazz:Table)
+(jazz:define-class jazz:Table)
 
 
 (jazz:register-structure-type table? jazz:Table)
@@ -1511,7 +1511,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Thread-Class)
+(jazz:define-class jazz:Thread-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Thread-Class class) object)
@@ -1526,7 +1526,7 @@
   `(%%thread? ,value))
 
 
-(jazz:define-class-runtime jazz:Thread)
+(jazz:define-class jazz:Thread)
 
 
 (jazz:register-structure-type thread? jazz:Thread)
@@ -1537,14 +1537,14 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Promise-Class)
+(jazz:define-class jazz:Promise-Class)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Promise-Class class))
   'promise)
 
 
-(jazz:define-class-runtime jazz:Promise)
+(jazz:define-class jazz:Promise)
 
 
 ;;;
@@ -1552,7 +1552,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Foreign-Class)
+(jazz:define-class jazz:Foreign-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Foreign-Class class) object)
@@ -1567,7 +1567,7 @@
   `(%%foreign? ,value))
 
 
-(jazz:define-class-runtime jazz:Foreign)
+(jazz:define-class jazz:Foreign)
 
 
 ;;;
@@ -1575,7 +1575,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Values-Class)
+(jazz:define-class jazz:Values-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Values-Class class) object)
@@ -1590,7 +1590,7 @@
   `(%%values? ,value))
 
 
-(jazz:define-class-runtime jazz:Values)
+(jazz:define-class jazz:Values)
 
 
 ;;;
@@ -1598,7 +1598,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:EOF-Class)
+(jazz:define-class jazz:EOF-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:EOF-Class class) object)
@@ -1613,7 +1613,7 @@
   `(%%eof-object? ,value))
 
 
-(jazz:define-class-runtime jazz:EOF)
+(jazz:define-class jazz:EOF)
 
 
 ;;;
@@ -1621,7 +1621,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Unspecified-Class)
+(jazz:define-class jazz:Unspecified-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Unspecified-Class class) object)
@@ -1636,7 +1636,7 @@
   `(%%unspecified? ,value))
 
 
-(jazz:define-class-runtime jazz:Unspecified)
+(jazz:define-class jazz:Unspecified)
 
 
 ;;;
@@ -1644,7 +1644,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Marker-Class)
+(jazz:define-class jazz:Marker-Class)
 
 
 (jazz:define-method (jazz:of-type? (jazz:Marker-Class class) object)
@@ -1659,7 +1659,7 @@
   `(jazz:marker? ,value))
 
 
-(jazz:define-class-runtime jazz:Marker)
+(jazz:define-class jazz:Marker)
 
 
 ;;;
@@ -1737,7 +1737,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Interface)
+(jazz:define-class jazz:Interface)
 
 
 (define (jazz:new-interface class identifier ascendants)
@@ -1815,7 +1815,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Field)
+(jazz:define-class jazz:Field)
 
 
 (define (jazz:field? object)
@@ -1846,7 +1846,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Slot)
+(jazz:define-class jazz:Slot)
 
 
 (define (jazz:new-slot slot-name slot-offset slot-initialize)
@@ -1911,7 +1911,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Property)
+(jazz:define-class jazz:Property)
 
 
 (define (jazz:new-property slot-name slot-offset slot-initialize slot-getter slot-setter)
@@ -1961,7 +1961,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Method)
+(jazz:define-class jazz:Method)
 
 
 (define (jazz:method? object)
@@ -2190,7 +2190,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Method-Node)
+(jazz:define-class jazz:Method-Node)
 
 
 (define (jazz:new-method-node category implementation next-node children)
@@ -2211,7 +2211,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Queue)
+(jazz:define-class jazz:Queue)
 
 
 (define (jazz:new-queue)

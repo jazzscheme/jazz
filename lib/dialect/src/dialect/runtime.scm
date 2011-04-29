@@ -65,10 +65,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Dialect)
+(jazz:define-class jazz:Dialect)
 
 
-(jazz:define-virtual-runtime (jazz:dialect-walker (jazz:Dialect dialect)))
+(jazz:define-virtual (jazz:dialect-walker (jazz:Dialect dialect)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Dialect dialect))
@@ -184,17 +184,17 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walker)
+(jazz:define-class jazz:Walker)
 
 
-(jazz:define-virtual-runtime (jazz:walker-declarations (jazz:Walker walker)))
-(jazz:define-virtual-runtime (jazz:walker-bindings (jazz:Walker walker)))
-(jazz:define-virtual-runtime (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
-(jazz:define-virtual-runtime (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
-(jazz:define-virtual-runtime (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
-(jazz:define-virtual-runtime (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
-(jazz:define-virtual-runtime (jazz:runtime-export (jazz:Walker walker) declaration))
-(jazz:define-virtual-runtime (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
+(jazz:define-virtual (jazz:walker-declarations (jazz:Walker walker)))
+(jazz:define-virtual (jazz:walker-bindings (jazz:Walker walker)))
+(jazz:define-virtual (jazz:walk-form (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src))
+(jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
+(jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
+(jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
+(jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 
 
 ;;;
@@ -202,7 +202,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Binding)
+(jazz:define-class jazz:Walk-Binding)
 
 
 (jazz:define-method (jazz:emit-type (jazz:Walk-Binding type) source-declaration environment backend)
@@ -213,20 +213,20 @@
   #f)
 
 
-(jazz:define-virtual-runtime (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration))
-(jazz:define-virtual-runtime (jazz:walk-binding-referenced (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src))
-(jazz:define-virtual-runtime (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src))
-(jazz:define-virtual-runtime (jazz:walk-binding-assignable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:walk-binding-walkable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
-(jazz:define-virtual-runtime (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
-(jazz:define-virtual-runtime (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
-(jazz:define-virtual-runtime (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
+(jazz:define-virtual (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration))
+(jazz:define-virtual (jazz:walk-binding-referenced (jazz:Walk-Binding binding)))
+(jazz:define-virtual (jazz:walk-binding-validate-call (jazz:Walk-Binding binding) walker resume source-declaration operator arguments form-src))
+(jazz:define-virtual (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src))
+(jazz:define-virtual (jazz:walk-binding-assignable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual (jazz:walk-binding-walkable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual (jazz:walk-binding-walk-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
+(jazz:define-virtual (jazz:walk-binding-expandable? (jazz:Walk-Binding binding)))
+(jazz:define-virtual (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
+(jazz:define-virtual (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Binding binding) symbol source-declaration)
@@ -302,10 +302,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Lexical-Binding)
+(jazz:define-class jazz:Lexical-Binding)
 
 
-(jazz:define-virtual-runtime (jazz:resolve-binding (jazz:Lexical-Binding binding)))
+(jazz:define-virtual (jazz:resolve-binding (jazz:Lexical-Binding binding)))
 
 
 (jazz:define-method (jazz:resolve-binding (jazz:Lexical-Binding binding))
@@ -345,7 +345,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Declaration)
+(jazz:define-class jazz:Declaration)
 
 
 (define (jazz:setup-declaration new-declaration)
@@ -378,12 +378,12 @@
   (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" (%%get-lexical-binding-name declaration)))
 
 
-(jazz:define-virtual-runtime (jazz:compose-declaration-locator (jazz:Declaration declaration)))
-(jazz:define-virtual-runtime (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
-(jazz:define-virtual-runtime (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
-(jazz:define-virtual-runtime (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
-(jazz:define-virtual-runtime (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
-(jazz:define-virtual-runtime (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:compose-declaration-locator (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration))
+(jazz:define-virtual (jazz:get-declaration-inclusions (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
+(jazz:define-virtual (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 
 
 (jazz:define-method (jazz:compose-declaration-locator (jazz:Declaration declaration))
@@ -522,10 +522,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Declaration-Reference)
+(jazz:define-class jazz:Declaration-Reference)
 
 
-(jazz:define-virtual-runtime (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration))
+(jazz:define-virtual (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration))
 
 
 (jazz:define-method (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration)
@@ -541,7 +541,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Module-Reference)
+(jazz:define-class jazz:Module-Reference)
 
 
 (define (jazz:new-module-reference name declaration)
@@ -560,7 +560,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Export-Reference)
+(jazz:define-class jazz:Export-Reference)
 
 
 (define (jazz:new-export-reference name declaration module-reference)
@@ -590,7 +590,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Autoload-Reference)
+(jazz:define-class jazz:Autoload-Reference)
 
 
 (define (jazz:new-autoload-reference name declaration module-reference)
@@ -612,7 +612,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Unit-Declaration)
+(jazz:define-class jazz:Unit-Declaration)
 
 
 (define (jazz:new-unit-declaration name access parent requires)
@@ -650,7 +650,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Namespace-Declaration)
+(jazz:define-class jazz:Namespace-Declaration)
 
 
 (jazz:define-method (jazz:lookup-declaration (jazz:Namespace-Declaration namespace-declaration) symbol access source-declaration)
@@ -690,7 +690,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Module-Declaration)
+(jazz:define-class jazz:Module-Declaration)
 
 
 (define (jazz:new-module-declaration name access parent walker dialect-name dialect-invoice)
@@ -1265,7 +1265,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Module-Invoice)
+(jazz:define-class jazz:Module-Invoice)
 
 
 (define (jazz:find-module-invoice invoices target)
@@ -1282,7 +1282,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Export-Invoice)
+(jazz:define-class jazz:Export-Invoice)
 
 
 (define (jazz:new-export-invoice name module phase version only autoload)
@@ -1294,7 +1294,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Import-Invoice)
+(jazz:define-class jazz:Import-Invoice)
 
 
 (define (jazz:new-import-invoice name module phase version only)
@@ -1306,7 +1306,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Export-Declaration)
+(jazz:define-class jazz:Export-Declaration)
 
 
 (define (jazz:new-export-declaration name type access compatibility attributes parent symbol)
@@ -1365,7 +1365,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Export-Syntax-Declaration)
+(jazz:define-class jazz:Export-Syntax-Declaration)
 
 
 (define (jazz:new-export-syntax-declaration name type access compatibility attributes parent symbol)
@@ -1394,7 +1394,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Autoload-Declaration)
+(jazz:define-class jazz:Autoload-Declaration)
 
 
 (define (jazz:new-autoload-declaration name type parent module-declaration exported-module)
@@ -1451,7 +1451,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Literal)
+(jazz:define-class jazz:Literal)
 
 
 (define (jazz:new-literal name arguments)
@@ -1558,7 +1558,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Void-Class)
+(jazz:define-class jazz:Void-Class)
 
 
 (jazz:define-method (jazz:of-subtype? (jazz:Void-Class type) subtype)
@@ -1569,7 +1569,7 @@
   'void)
 
 
-(jazz:define-class-runtime jazz:Void)
+(jazz:define-class jazz:Void)
 
 
 ;;;
@@ -1577,7 +1577,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Opt-Type)
+(jazz:define-class jazz:Opt-Type)
 
 
 (define (jazz:new-opt-type type)
@@ -1594,7 +1594,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Key-Type)
+(jazz:define-class jazz:Key-Type)
 
 
 (define (jazz:new-key-type key type)
@@ -1612,7 +1612,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Rest-Type)
+(jazz:define-class jazz:Rest-Type)
 
 
 (define (jazz:new-rest-type type)
@@ -1632,7 +1632,7 @@
 ;; should probably be unified with the Signature class
 
 
-(jazz:define-class-runtime jazz:Function-Type)
+(jazz:define-class jazz:Function-Type)
 
 
 (define (jazz:new-function-type positional optional named rest result)
@@ -1677,7 +1677,7 @@
 ;; first draft. this type is used to support specializing new and the like
 
 
-(jazz:define-class-runtime jazz:Category-Type)
+(jazz:define-class jazz:Category-Type)
 
 
 (define (jazz:new-category-type declaration)
@@ -1707,7 +1707,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Values-Type)
+(jazz:define-class jazz:Values-Type)
 
 
 (define (jazz:new-values-type types)
@@ -1734,7 +1734,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Restriction-Type)
+(jazz:define-class jazz:Restriction-Type)
 
 
 (define (jazz:new-restriction-type base type)
@@ -1746,7 +1746,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Complement-Type)
+(jazz:define-class jazz:Complement-Type)
 
 
 (define (jazz:new-complement-type type)
@@ -1758,7 +1758,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Union-Type)
+(jazz:define-class jazz:Union-Type)
 
 
 (define (jazz:new-union-type types)
@@ -1773,7 +1773,7 @@
 ;; future work. just here to make sure specifier syntax can express them
 
 
-(jazz:define-class-runtime jazz:Template-Type)
+(jazz:define-class jazz:Template-Type)
 
 
 (define (jazz:new-template-type class types)
@@ -1800,7 +1800,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Nillable-Type)
+(jazz:define-class jazz:Nillable-Type)
 
 
 (define (jazz:new-nillable-type type)
@@ -1839,7 +1839,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Any-Class)
+(jazz:define-class jazz:Any-Class)
 
 
 (jazz:define-method (jazz:of-subtype? (jazz:Any-Class type) subtype)
@@ -1854,7 +1854,7 @@
   #f)
 
 
-(jazz:define-class-runtime jazz:Any)
+(jazz:define-class jazz:Any)
 
 
 ;;;
@@ -2216,7 +2216,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Macro-Declaration)
+(jazz:define-class jazz:Macro-Declaration)
 
 
 (define (jazz:new-macro-declaration name type access compatibility attributes parent signature)
@@ -2323,7 +2323,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Local-Macro-Declaration)
+(jazz:define-class jazz:Local-Macro-Declaration)
 
 
 (define (jazz:new-local-macro-declaration name type access compatibility attributes parent signature)
@@ -2398,7 +2398,7 @@
       (jazz:error "There is no active walk error proc"))))
 
 
-(jazz:define-class-runtime jazz:Syntax-Declaration)
+(jazz:define-class jazz:Syntax-Declaration)
 
 
 (define (jazz:new-syntax-declaration name type access compatibility attributes parent signature syntax-form)
@@ -2508,7 +2508,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Syntax-Declaration)
+(jazz:define-class jazz:Define-Syntax-Declaration)
 
 
 (define (jazz:new-define-syntax-declaration name type access compatibility attributes parent signature syntax-form)
@@ -2597,7 +2597,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Local-Syntax-Declaration)
+(jazz:define-class jazz:Define-Local-Syntax-Declaration)
 
 
 (define (jazz:new-define-local-syntax-declaration name type access compatibility attributes parent signature syntax-form)
@@ -2671,7 +2671,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Context)
+(jazz:define-class jazz:Walk-Context)
 
 
 (define (jazz:new-walk-context policy locator pathname)
@@ -2717,7 +2717,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Location)
+(jazz:define-class jazz:Walk-Location)
 
 
 (define (jazz:new-walk-location unit-locator declaration-locator locat path)
@@ -2737,7 +2737,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Problem)
+(jazz:define-class jazz:Walk-Problem)
 
 
 ;;;
@@ -2745,7 +2745,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Problems)
+(jazz:define-class jazz:Walk-Problems)
 
 
 (define (jazz:new-walk-problems message warnings errors)
@@ -2785,7 +2785,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Warning)
+(jazz:define-class jazz:Walk-Warning)
 
 
 (define (jazz:new-walk-warning location message)
@@ -2797,7 +2797,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Error)
+(jazz:define-class jazz:Walk-Error)
 
 
 (define (jazz:new-walk-error location message)
@@ -2809,7 +2809,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Unresolved-Error)
+(jazz:define-class jazz:Unresolved-Error)
 
 
 (define (jazz:new-unresolved-error location symbol)
@@ -2826,7 +2826,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Frame)
+(jazz:define-class jazz:Walk-Frame)
 
 
 (define (jazz:new-walk-frame bindings)
@@ -2847,7 +2847,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Signature)
+(jazz:define-class jazz:Signature)
 
 
 (define (jazz:new-signature positional optional named rest)
@@ -2866,7 +2866,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Symbol-Binding)
+(jazz:define-class jazz:Symbol-Binding)
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Symbol-Binding binding) declaration environment backend)
@@ -2878,7 +2878,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Variable)
+(jazz:define-class jazz:Variable)
 
 
 (define (jazz:new-variable name type)
@@ -2937,7 +2937,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Parameter)
+(jazz:define-class jazz:Parameter)
 
 
 (define (jazz:new-parameter name type)
@@ -2945,7 +2945,7 @@
     (jazz:allocate-parameter jazz:Parameter name type #f #f 0)))
 
 
-(jazz:define-virtual-runtime (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
+(jazz:define-virtual (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend)
@@ -2957,7 +2957,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Dynamic-Parameter)
+(jazz:define-class jazz:Dynamic-Parameter)
 
 
 (define (jazz:new-dynamic-parameter name type class)
@@ -2974,7 +2974,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Optional-Parameter)
+(jazz:define-class jazz:Optional-Parameter)
 
 
 (define (jazz:new-optional-parameter name type default)
@@ -2991,7 +2991,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Named-Parameter)
+(jazz:define-class jazz:Named-Parameter)
 
 
 (define (jazz:new-named-parameter name type default)
@@ -3012,7 +3012,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Rest-Parameter)
+(jazz:define-class jazz:Rest-Parameter)
 
 
 (define (jazz:new-rest-parameter name type)
@@ -3028,7 +3028,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Local-Variable-Binding)
+(jazz:define-class jazz:Local-Variable-Binding)
 
 
 (define (jazz:new-local-variable-binding type variable)
@@ -3047,7 +3047,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Macro-Symbol)
+(jazz:define-class jazz:Macro-Symbol)
 
 
 (define (jazz:new-macro-symbol name getter setter)
@@ -3076,7 +3076,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Form-Binding)
+(jazz:define-class jazz:Form-Binding)
 
 
 ;;;
@@ -3084,7 +3084,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Declaration-Form)
+(jazz:define-class jazz:Declaration-Form)
 
 
 (define (jazz:new-declaration-form name walk)
@@ -3111,7 +3111,7 @@
     (if found (cdr found) #f)))
 
 
-(jazz:define-class-runtime jazz:Special-Form)
+(jazz:define-class jazz:Special-Form)
 
 
 (define (jazz:new-special-form name walk)
@@ -3140,7 +3140,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Macro-Form)
+(jazz:define-class jazz:Macro-Form)
 
 
 (define (jazz:new-macro-form name expander)
@@ -3162,7 +3162,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Syntax-Form)
+(jazz:define-class jazz:Syntax-Form)
 
 
 (define (jazz:new-syntax-form name expander)
@@ -3183,7 +3183,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Syntax-Form)
+(jazz:define-class jazz:Define-Syntax-Form)
 
 
 (define (jazz:new-define-syntax-form name expander environment)
@@ -3204,7 +3204,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Local-Syntax-Form)
+(jazz:define-class jazz:Define-Local-Syntax-Form)
 
 
 (define (jazz:new-define-local-syntax-form name expander environment)
@@ -3225,7 +3225,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Syntactic-Closure)
+(jazz:define-class jazz:Syntactic-Closure)
 
 
 (define (jazz:syntactic-closure? x)
@@ -3344,7 +3344,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Annotated-Variable)
+(jazz:define-class jazz:Annotated-Variable)
 
 
 (define (jazz:new-annotated-variable variable declared-type type)
@@ -3356,7 +3356,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Restricted-Binding)
+(jazz:define-class jazz:Restricted-Binding)
 
 
 (define (jazz:new-restricted-binding binding type)
@@ -3368,7 +3368,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Annotated-Frame)
+(jazz:define-class jazz:Annotated-Frame)
 
 
 (define (jazz:new-annotated-frame variables reset)
@@ -3402,7 +3402,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Code)
+(jazz:define-class jazz:Code)
 
 
 (define (jazz:new-code form type source)
@@ -3782,11 +3782,11 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Expression)
+(jazz:define-class jazz:Expression)
 
 
-(jazz:define-virtual-runtime (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
-(jazz:define-virtual-runtime (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
+(jazz:define-virtual (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
+(jazz:define-virtual (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Expression expression) declaration environment backend)
@@ -3818,7 +3818,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Binding-Reference)
+(jazz:define-class jazz:Binding-Reference)
 
 
 (define (jazz:new-binding-reference symbol-src binding)
@@ -3840,7 +3840,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Body)
+(jazz:define-class jazz:Body)
 
 
 (define (jazz:new-body internal-defines expressions)
@@ -3878,7 +3878,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Internal-Define)
+(jazz:define-class jazz:Internal-Define)
 
 
 (define (jazz:new-internal-define variable value)
@@ -3910,7 +3910,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Begin)
+(jazz:define-class jazz:Begin)
 
 
 (define (jazz:new-begin source expressions)
@@ -3947,7 +3947,7 @@
 (jazz:define-variable jazz:emit-inlined-call)
 
 
-(jazz:define-class-runtime jazz:Call)
+(jazz:define-class jazz:Call)
 
 
 (define (jazz:new-call source operator arguments)
@@ -4007,7 +4007,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Constant)
+(jazz:define-class jazz:Constant)
 
 
 (define (jazz:new-constant expansion type)
@@ -4115,7 +4115,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Assignment)
+(jazz:define-class jazz:Assignment)
 
 
 (define (jazz:new-assignment binding value)
@@ -4151,7 +4151,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Walk-Failed-Special)
+(jazz:define-class jazz:Walk-Failed-Special)
 
 
 (define (jazz:new-walk-failed-special answer)
@@ -4171,7 +4171,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Analysis-Data)
+(jazz:define-class jazz:Analysis-Data)
 
 
 (define (jazz:new-analysis-data)

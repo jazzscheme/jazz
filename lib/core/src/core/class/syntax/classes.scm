@@ -43,15 +43,15 @@
 ;;;
 
 
-(jazz:define-class jazz:Object () (metaclass: #f)
+(jazz:define-class-syntax jazz:Object () (metaclass: #f)
   ())
 
 
-(jazz:define-virtual (jazz:initialize (jazz:Object object)))
-(jazz:define-virtual (jazz:destroy (jazz:Object object)))
-(jazz:define-virtual (jazz:call-print (jazz:Object object) output detail))
-(jazz:define-virtual (jazz:print-object (jazz:Object object) output detail))
-(jazz:define-virtual (jazz:tree-fold (jazz:Object object) down up here seed environment))
+(jazz:define-virtual-syntax (jazz:initialize (jazz:Object object)))
+(jazz:define-virtual-syntax (jazz:destroy (jazz:Object object)))
+(jazz:define-virtual-syntax (jazz:call-print (jazz:Object object) output detail))
+(jazz:define-virtual-syntax (jazz:print-object (jazz:Object object) output detail))
+(jazz:define-virtual-syntax (jazz:tree-fold (jazz:Object object) down up here seed environment))
 
 
 ;;;
@@ -59,18 +59,18 @@
 ;;;
 
 
-(jazz:define-class jazz:Type jazz:Object (metaclass: #f)
+(jazz:define-class-syntax jazz:Type jazz:Object (metaclass: #f)
   ())
 
 
-(jazz:define-virtual (jazz:of-type? (jazz:Type type) object) #t)
-(jazz:define-virtual (jazz:of-subtype? (jazz:Type type) subtype) #t)
-(jazz:define-virtual (jazz:specifiable? (jazz:Type type)) #t)
-(jazz:define-virtual (jazz:category-type? (jazz:Type type)) #t)
-(jazz:define-virtual (jazz:emit-specifier (jazz:Type type)) #t)
-(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend) #t)
-(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend) #t)
-(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment backend) #t)
+(jazz:define-virtual-syntax (jazz:of-type? (jazz:Type type) object) #t)
+(jazz:define-virtual-syntax (jazz:of-subtype? (jazz:Type type) subtype) #t)
+(jazz:define-virtual-syntax (jazz:specifiable? (jazz:Type type)) #t)
+(jazz:define-virtual-syntax (jazz:category-type? (jazz:Type type)) #t)
+(jazz:define-virtual-syntax (jazz:emit-specifier (jazz:Type type)) #t)
+(jazz:define-virtual-syntax (jazz:emit-type (jazz:Type type) source-declaration environment backend) #t)
+(jazz:define-virtual-syntax (jazz:emit-test (jazz:Type type) value source-declaration environment backend) #t)
+(jazz:define-virtual-syntax (jazz:emit-check (jazz:Type type) value source-declaration environment backend) #t)
 
 
 (jazz:define-macro (%%subtype? target type)
@@ -98,7 +98,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Category jazz:Type (metaclass: #f)
+(jazz:define-class-syntax jazz:Category jazz:Type (metaclass: #f)
   ((name         () ())
    (fields       () ())
    (virtual-size () ())
@@ -106,7 +106,7 @@
    (descendants  () ())))
 
 
-(jazz:define-virtual (jazz:update-category (jazz:Category category)))
+(jazz:define-virtual-syntax (jazz:update-category (jazz:Category category)))
 
 
 ;;;
@@ -114,7 +114,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Class jazz:Category (metaclass: #f constructor: jazz:allocate-class)
+(jazz:define-class-syntax jazz:Class jazz:Category (metaclass: #f constructor: jazz:allocate-class)
   ((ascendant       () ())
    (interfaces      () ())
    (slots           () ())
@@ -160,7 +160,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Object-Class jazz:Class (metaclass: #f)
+(jazz:define-class-syntax jazz:Object-Class jazz:Class (metaclass: #f)
   ())
 
 
@@ -169,88 +169,88 @@
 ;;;
 
 
-(jazz:define-class jazz:Boolean-Class      jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Char-Class         jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Numeric-Class      jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Number-Class       jazz:Numeric-Class  (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Complex-Class      jazz:Number-Class   (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Real-Class         jazz:Complex-Class  (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Rational-Class     jazz:Real-Class     (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Integer-Class      jazz:Rational-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Fixnum-Class       jazz:Integer-Class  (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Flonum-Class       jazz:Real-Class     (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Sequence-Class     jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:List-Class         jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Null-Class         jazz:List-Class     (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Pair-Class         jazz:List-Class     (metaclass: jazz:Class) ())
-(jazz:define-class jazz:String-Class       jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Vector-Class       jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:S8Vector-Class     jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:U8Vector-Class     jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:S16Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:U16Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:S32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:U32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:S64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:U64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:F32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:F64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Structure-Class    jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Port-Class         jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Continuation-Class jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Procedure-Class    jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Symbol-Class       jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Keyword-Class      jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Table-Class        jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Thread-Class       jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Promise-Class      jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Foreign-Class      jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Values-Class       jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:EOF-Class          jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Unspecified-Class  jazz:Class          (metaclass: jazz:Class) ())
-(jazz:define-class jazz:Marker-Class       jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Boolean-Class      jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Char-Class         jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Numeric-Class      jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Number-Class       jazz:Numeric-Class  (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Complex-Class      jazz:Number-Class   (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Real-Class         jazz:Complex-Class  (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Rational-Class     jazz:Real-Class     (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Integer-Class      jazz:Rational-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Fixnum-Class       jazz:Integer-Class  (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Flonum-Class       jazz:Real-Class     (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Sequence-Class     jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:List-Class         jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Null-Class         jazz:List-Class     (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Pair-Class         jazz:List-Class     (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:String-Class       jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Vector-Class       jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:S8Vector-Class     jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:U8Vector-Class     jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:S16Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:U16Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:S32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:U32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:S64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:U64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:F32Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:F64Vector-Class    jazz:Sequence-Class (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Structure-Class    jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Port-Class         jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Continuation-Class jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Procedure-Class    jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Symbol-Class       jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Keyword-Class      jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Table-Class        jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Thread-Class       jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Promise-Class      jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Foreign-Class      jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Values-Class       jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:EOF-Class          jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Unspecified-Class  jazz:Class          (metaclass: jazz:Class) ())
+(jazz:define-class-syntax jazz:Marker-Class       jazz:Class          (metaclass: jazz:Class) ())
 
 
-(jazz:define-class jazz:Boolean      jazz:Object   (metaclass: jazz:Boolean-Class)      ())
-(jazz:define-class jazz:Char         jazz:Object   (metaclass: jazz:Char-Class)         ())
-(jazz:define-class jazz:Numeric      jazz:Object   (metaclass: jazz:Numeric-Class)      ())
-(jazz:define-class jazz:Number       jazz:Numeric  (metaclass: jazz:Number-Class)       ())
-(jazz:define-class jazz:Complex      jazz:Number   (metaclass: jazz:Complex-Class)      ())
-(jazz:define-class jazz:Real         jazz:Complex  (metaclass: jazz:Real-Class)         ())
-(jazz:define-class jazz:Rational     jazz:Real     (metaclass: jazz:Rational-Class)     ())
-(jazz:define-class jazz:Integer      jazz:Rational (metaclass: jazz:Integer-Class)      ())
-(jazz:define-class jazz:Fixnum       jazz:Integer  (metaclass: jazz:Fixnum-Class)       ())
-(jazz:define-class jazz:Flonum       jazz:Real     (metaclass: jazz:Flonum-Class)       ())
-(jazz:define-class jazz:Sequence     jazz:Object   (metaclass: jazz:Sequence-Class)     ())
-(jazz:define-class jazz:List         jazz:Sequence (metaclass: jazz:List-Class)         ())
-(jazz:define-class jazz:Null         jazz:List     (metaclass: jazz:Null-Class)         ())
-(jazz:define-class jazz:Pair         jazz:List     (metaclass: jazz:Pair-Class)         ())
-(jazz:define-class jazz:String       jazz:Sequence (metaclass: jazz:String-Class)       ())
-(jazz:define-class jazz:Vector       jazz:Sequence (metaclass: jazz:Vector-Class)       ())
-(jazz:define-class jazz:S8Vector     jazz:Sequence (metaclass: jazz:S8Vector-Class)     ())
-(jazz:define-class jazz:U8Vector     jazz:Sequence (metaclass: jazz:U8Vector-Class)     ())
-(jazz:define-class jazz:S16Vector    jazz:Sequence (metaclass: jazz:S16Vector-Class)    ())
-(jazz:define-class jazz:U16Vector    jazz:Sequence (metaclass: jazz:U16Vector-Class)    ())
-(jazz:define-class jazz:S32Vector    jazz:Sequence (metaclass: jazz:S32Vector-Class)    ())
-(jazz:define-class jazz:U32Vector    jazz:Sequence (metaclass: jazz:U32Vector-Class)    ())
-(jazz:define-class jazz:S64Vector    jazz:Sequence (metaclass: jazz:S64Vector-Class)    ())
-(jazz:define-class jazz:U64Vector    jazz:Sequence (metaclass: jazz:U64Vector-Class)    ())
-(jazz:define-class jazz:F32Vector    jazz:Sequence (metaclass: jazz:F32Vector-Class)    ())
-(jazz:define-class jazz:F64Vector    jazz:Sequence (metaclass: jazz:F64Vector-Class)    ())
-(jazz:define-class jazz:Structure    jazz:Object   (metaclass: jazz:Structure-Class)    ())
-(jazz:define-class jazz:Port         jazz:Object   (metaclass: jazz:Port-Class)         ())
-(jazz:define-class jazz:Continuation jazz:Object   (metaclass: jazz:Continuation-Class) ())
-(jazz:define-class jazz:Procedure    jazz:Object   (metaclass: jazz:Procedure-Class)    ())
-(jazz:define-class jazz:Symbol       jazz:Object   (metaclass: jazz:Symbol-Class)       ())
-(jazz:define-class jazz:Keyword      jazz:Object   (metaclass: jazz:Keyword-Class)      ())
-(jazz:define-class jazz:Table        jazz:Object   (metaclass: jazz:Table-Class)        ())
-(jazz:define-class jazz:Thread       jazz:Object   (metaclass: jazz:Thread-Class)       ())
-(jazz:define-class jazz:Promise      jazz:Object   (metaclass: jazz:Promise-Class)      ())
-(jazz:define-class jazz:Foreign      jazz:Object   (metaclass: jazz:Foreign-Class)      ())
-(jazz:define-class jazz:Values       jazz:Object   (metaclass: jazz:Values-Class)       ())
-(jazz:define-class jazz:EOF          jazz:Object   (metaclass: jazz:EOF-Class)          ())
-(jazz:define-class jazz:Unspecified  jazz:Object   (metaclass: jazz:Unspecified-Class)  ())
-(jazz:define-class jazz:Marker       jazz:Object   (metaclass: jazz:Marker-Class)       ())
+(jazz:define-class-syntax jazz:Boolean      jazz:Object   (metaclass: jazz:Boolean-Class)      ())
+(jazz:define-class-syntax jazz:Char         jazz:Object   (metaclass: jazz:Char-Class)         ())
+(jazz:define-class-syntax jazz:Numeric      jazz:Object   (metaclass: jazz:Numeric-Class)      ())
+(jazz:define-class-syntax jazz:Number       jazz:Numeric  (metaclass: jazz:Number-Class)       ())
+(jazz:define-class-syntax jazz:Complex      jazz:Number   (metaclass: jazz:Complex-Class)      ())
+(jazz:define-class-syntax jazz:Real         jazz:Complex  (metaclass: jazz:Real-Class)         ())
+(jazz:define-class-syntax jazz:Rational     jazz:Real     (metaclass: jazz:Rational-Class)     ())
+(jazz:define-class-syntax jazz:Integer      jazz:Rational (metaclass: jazz:Integer-Class)      ())
+(jazz:define-class-syntax jazz:Fixnum       jazz:Integer  (metaclass: jazz:Fixnum-Class)       ())
+(jazz:define-class-syntax jazz:Flonum       jazz:Real     (metaclass: jazz:Flonum-Class)       ())
+(jazz:define-class-syntax jazz:Sequence     jazz:Object   (metaclass: jazz:Sequence-Class)     ())
+(jazz:define-class-syntax jazz:List         jazz:Sequence (metaclass: jazz:List-Class)         ())
+(jazz:define-class-syntax jazz:Null         jazz:List     (metaclass: jazz:Null-Class)         ())
+(jazz:define-class-syntax jazz:Pair         jazz:List     (metaclass: jazz:Pair-Class)         ())
+(jazz:define-class-syntax jazz:String       jazz:Sequence (metaclass: jazz:String-Class)       ())
+(jazz:define-class-syntax jazz:Vector       jazz:Sequence (metaclass: jazz:Vector-Class)       ())
+(jazz:define-class-syntax jazz:S8Vector     jazz:Sequence (metaclass: jazz:S8Vector-Class)     ())
+(jazz:define-class-syntax jazz:U8Vector     jazz:Sequence (metaclass: jazz:U8Vector-Class)     ())
+(jazz:define-class-syntax jazz:S16Vector    jazz:Sequence (metaclass: jazz:S16Vector-Class)    ())
+(jazz:define-class-syntax jazz:U16Vector    jazz:Sequence (metaclass: jazz:U16Vector-Class)    ())
+(jazz:define-class-syntax jazz:S32Vector    jazz:Sequence (metaclass: jazz:S32Vector-Class)    ())
+(jazz:define-class-syntax jazz:U32Vector    jazz:Sequence (metaclass: jazz:U32Vector-Class)    ())
+(jazz:define-class-syntax jazz:S64Vector    jazz:Sequence (metaclass: jazz:S64Vector-Class)    ())
+(jazz:define-class-syntax jazz:U64Vector    jazz:Sequence (metaclass: jazz:U64Vector-Class)    ())
+(jazz:define-class-syntax jazz:F32Vector    jazz:Sequence (metaclass: jazz:F32Vector-Class)    ())
+(jazz:define-class-syntax jazz:F64Vector    jazz:Sequence (metaclass: jazz:F64Vector-Class)    ())
+(jazz:define-class-syntax jazz:Structure    jazz:Object   (metaclass: jazz:Structure-Class)    ())
+(jazz:define-class-syntax jazz:Port         jazz:Object   (metaclass: jazz:Port-Class)         ())
+(jazz:define-class-syntax jazz:Continuation jazz:Object   (metaclass: jazz:Continuation-Class) ())
+(jazz:define-class-syntax jazz:Procedure    jazz:Object   (metaclass: jazz:Procedure-Class)    ())
+(jazz:define-class-syntax jazz:Symbol       jazz:Object   (metaclass: jazz:Symbol-Class)       ())
+(jazz:define-class-syntax jazz:Keyword      jazz:Object   (metaclass: jazz:Keyword-Class)      ())
+(jazz:define-class-syntax jazz:Table        jazz:Object   (metaclass: jazz:Table-Class)        ())
+(jazz:define-class-syntax jazz:Thread       jazz:Object   (metaclass: jazz:Thread-Class)       ())
+(jazz:define-class-syntax jazz:Promise      jazz:Object   (metaclass: jazz:Promise-Class)      ())
+(jazz:define-class-syntax jazz:Foreign      jazz:Object   (metaclass: jazz:Foreign-Class)      ())
+(jazz:define-class-syntax jazz:Values       jazz:Object   (metaclass: jazz:Values-Class)       ())
+(jazz:define-class-syntax jazz:EOF          jazz:Object   (metaclass: jazz:EOF-Class)          ())
+(jazz:define-class-syntax jazz:Unspecified  jazz:Object   (metaclass: jazz:Unspecified-Class)  ())
+(jazz:define-class-syntax jazz:Marker       jazz:Object   (metaclass: jazz:Marker-Class)       ())
 
 
 ;;;
@@ -258,7 +258,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Interface jazz:Category (constructor: jazz:allocate-interface)
+(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface)
   ((ascendants %%get-interface-ascendants ())
    (rank       %%get-interface-rank       ())))
 
@@ -268,7 +268,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Field jazz:Object ()
+(jazz:define-class-syntax jazz:Field jazz:Object ()
   ((name %%get-field-name ())))
 
 
@@ -285,7 +285,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Slot jazz:Field (constructor: jazz:allocate-slot)
+(jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot)
   ((offset     %%get-slot-offset     ())
    (initialize %%get-slot-initialize %%set-slot-initialize)))
 
@@ -295,7 +295,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Property jazz:Slot (constructor: jazz:allocate-property)
+(jazz:define-class-syntax jazz:Property jazz:Slot (constructor: jazz:allocate-property)
   ((getter %%get-property-getter %%set-property-getter)
    (setter %%get-property-setter %%set-property-setter)))
 
@@ -305,7 +305,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Method jazz:Field (constructor: jazz:allocate-method)
+(jazz:define-class-syntax jazz:Method jazz:Field (constructor: jazz:allocate-method)
   ((dispatch-type        %%get-method-dispatch-type        %%set-method-dispatch-type)
    (implementation       %%get-method-implementation       %%set-method-implementation)
    (implementation-tree  %%get-method-implementation-tree  %%set-method-implementation-tree)
@@ -318,7 +318,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Method-Node jazz:Object (constructor: jazz:allocate-method-node)
+(jazz:define-class-syntax jazz:Method-Node jazz:Object (constructor: jazz:allocate-method-node)
   ((category            %%get-method-node-category            %%set-method-node-category)
    (implementation      %%get-method-node-implementation      %%set-method-node-implementation)
    (next-node           %%get-method-node-next-node           %%set-method-node-next-node)
@@ -331,7 +331,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Queue jazz:Object (constructor: jazz:allocate-queue)
+(jazz:define-class-syntax jazz:Queue jazz:Object (constructor: jazz:allocate-queue)
   ((head    %%get-queue-head    %%set-queue-head)
    (tail    %%get-queue-tail    %%set-queue-tail)
    (shared? %%get-queue-shared? %%set-queue-shared?))))

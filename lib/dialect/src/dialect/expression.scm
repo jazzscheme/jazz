@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Proclaim)
+(jazz:define-class jazz:Proclaim)
 
 
 (define (jazz:new-proclaim clauses)
@@ -76,7 +76,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Delay)
+(jazz:define-class jazz:Delay)
 
 
 (define (jazz:new-delay expression)
@@ -96,7 +96,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Quasiquote)
+(jazz:define-class jazz:Quasiquote)
 
 
 (define (jazz:new-quasiquote form)
@@ -267,7 +267,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:If)
+(jazz:define-class jazz:If)
 
 
 (define (jazz:new-if source test yes no)
@@ -500,7 +500,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Cond)
+(jazz:define-class jazz:Cond)
 
 
 (define (jazz:new-cond source clauses)
@@ -542,7 +542,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Case)
+(jazz:define-class jazz:Case)
 
 
 (define (jazz:new-case source target clauses)
@@ -580,7 +580,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:And)
+(jazz:define-class jazz:And)
 
 
 (define (jazz:new-and source expressions)
@@ -608,7 +608,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Or)
+(jazz:define-class jazz:Or)
 
 
 (define (jazz:new-or source expressions)
@@ -636,7 +636,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Declare)
+(jazz:define-class jazz:Declare)
 
 
 (define (jazz:new-declare declarations)
@@ -655,7 +655,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Parameterize)
+(jazz:define-class jazz:Parameterize)
 
 
 (define (jazz:new-parameterize bindings body)
@@ -684,7 +684,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Time-Special)
+(jazz:define-class jazz:Time-Special)
 
 
 (define (jazz:new-time-special expressions)

@@ -43,13 +43,13 @@
 ;;;
 
 
-(jazz:define-class jazz:Exception jazz:Object ()
+(jazz:define-class-syntax jazz:Exception jazz:Object ()
   ())
 
 
-(jazz:define-virtual (jazz:present-exception (jazz:Exception exception)))
-(jazz:define-virtual (jazz:exception-message (jazz:Exception exception)))
-(jazz:define-virtual (jazz:get-detail (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:exception-message (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:get-detail (jazz:Exception exception)))
 
 
 ;;;
@@ -57,7 +57,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Exception-Detail jazz:Object (constructor: jazz:allocate-exception-detail)
+(jazz:define-class-syntax jazz:Exception-Detail jazz:Object (constructor: jazz:allocate-exception-detail)
   ((icon     %%get-exception-detail-icon     ())
    (title    %%get-exception-detail-title    ())
    (location %%get-exception-detail-location ())
@@ -69,7 +69,7 @@
 ;;;
 
 
-(jazz:define-class jazz:System-Exception jazz:Exception ()
+(jazz:define-class-syntax jazz:System-Exception jazz:Exception ()
   ((exception %%get-system-exception-exception ())))
 
 
@@ -78,5 +78,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Error jazz:Exception (constructor: jazz:allocate-error)
+(jazz:define-class-syntax jazz:Error jazz:Exception (constructor: jazz:allocate-error)
   ((message %%get-error-message ()))))

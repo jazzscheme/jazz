@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Gambit-Dialect jazz:Scheme-Dialect (constructor: jazz:allocate-gambit-dialect)
+(jazz:define-class-syntax jazz:Gambit-Dialect jazz:Scheme-Dialect (constructor: jazz:allocate-gambit-dialect)
   ())
 
 
@@ -52,5 +52,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Gambit-Walker jazz:Scheme-Walker (constructor: jazz:allocate-gambit-walker)
+(jazz:define-class-syntax jazz:Gambit-Walker jazz:Scheme-Walker (constructor: jazz:allocate-gambit-walker)
   ()))

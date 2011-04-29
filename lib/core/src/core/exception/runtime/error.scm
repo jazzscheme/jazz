@@ -38,7 +38,7 @@
 (unit protected core.exception.runtime.error
 
 
-(jazz:define-class-runtime jazz:Error)
+(jazz:define-class jazz:Error)
 
 
 (define (jazz:new-error message)

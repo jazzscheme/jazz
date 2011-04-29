@@ -42,7 +42,7 @@
   (%%make-table test: eq?))
 
 
-(jazz:define-macro (jazz:define-class name ascendant-name class-options slots)
+(jazz:define-macro (jazz:define-class-syntax name ascendant-name class-options slots)
   (let* ((metaclass-name (jazz:getf class-options metaclass: #t))
          (constructor (jazz:getf class-options constructor:))
          (metaclass-accessor (cond ((%%not metaclass-name) #f) ((%%eq? metaclass-name #t) 'jazz:Object-Class) (else metaclass-name)))
@@ -77,24 +77,24 @@
                                `((define (,slot-getter object)
                                    (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
                                      (%%object-ref object ,rank)))))
-                             ((jazz:string-starts-with? (%%symbol->string slot-getter) "jazz:")
-                              `((define (,slot-getter object)
-                                  (%%object-ref object ,rank))))
-                             (else
+                             ((jazz:string-starts-with? (%%symbol->string slot-getter) "%%")
                               `((jazz:define-macro (,slot-getter object)
-                                  (%%list '%%object-ref object ,rank)))))
+                                  (%%list '%%object-ref object ,rank))))
+                             (else
+                              `((define (,slot-getter object)
+                                  (%%object-ref object ,rank)))))
                      ,@(cond ((%%null? slot-setter)
                               '())
                              (jazz:debug-core?
                                `((define (,slot-setter object value)
                                    (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
                                      (%%object-set! object ,rank value)))))
-                             ((jazz:string-starts-with? (%%symbol->string slot-setter) "jazz:")
-                              `((define (,slot-setter object value)
-                                  (%%object-set! object ,rank value))))
-                             (else
+                             ((jazz:string-starts-with? (%%symbol->string slot-setter) "%%")
                               `((jazz:define-macro (,slot-setter object value)
-                                  (%%list '%%object-set! object ,rank value))))))))
+                                  (%%list '%%object-set! object ,rank value))))
+                             (else
+                              `((define (,slot-setter object value)
+                                  (%%object-set! object ,rank value))))))))
               slots
               (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
        (%%table-set! jazz:class-info ',name ',all-slot-names)
@@ -108,7 +108,7 @@
             (jazz:validate-inherited-slots ',',name ,',ascendant-accessor ',',inherited-slot-names))))))
 
 
-(jazz:define-macro (jazz:define-class-runtime name)
+(jazz:define-macro (jazz:define-class name)
   `(,(jazz:define-class-runtime-helper name)))
 
 

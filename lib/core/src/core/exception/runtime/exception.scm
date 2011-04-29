@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Exception)
+(jazz:define-class jazz:Exception)
 
 
 (jazz:define-method (jazz:print-object (jazz:Exception exception) output detail)
@@ -54,9 +54,9 @@
     (jazz:format output ">")))
 
 
-(jazz:define-virtual-runtime (jazz:present-exception (jazz:Exception exception)))
-(jazz:define-virtual-runtime (jazz:exception-message (jazz:Exception exception)))
-(jazz:define-virtual-runtime (jazz:get-detail (jazz:Exception exception)))
+(jazz:define-virtual (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual (jazz:exception-message (jazz:Exception exception)))
+(jazz:define-virtual (jazz:get-detail (jazz:Exception exception)))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Exception exception))
@@ -78,7 +78,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Exception-Detail)
+(jazz:define-class jazz:Exception-Detail)
 
 
 (define (jazz:new-exception-detail icon title location children)
@@ -90,7 +90,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:System-Exception)
+(jazz:define-class jazz:System-Exception)
 
 
 (jazz:define-method (jazz:present-exception (jazz:System-Exception exception))

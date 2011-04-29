@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Foundation-Dialect jazz:Dialect (constructor: jazz:allocate-foundation-dialect)
+(jazz:define-class-syntax jazz:Foundation-Dialect jazz:Dialect (constructor: jazz:allocate-foundation-dialect)
   ())
 
 
@@ -52,5 +52,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Foundation-Walker jazz:Walker (constructor: jazz:allocate-foundation-walker)
+(jazz:define-class-syntax jazz:Foundation-Walker jazz:Walker (constructor: jazz:allocate-foundation-walker)
   ()))

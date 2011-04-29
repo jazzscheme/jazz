@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Scheme-Dialect)
+(jazz:define-class jazz:Scheme-Dialect)
 
 
 (define (jazz:new-scheme-dialect name)
@@ -59,7 +59,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Scheme-Walker)
+(jazz:define-class jazz:Scheme-Walker)
 
 
 (define (jazz:new-scheme-walker)
@@ -93,7 +93,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Declaration)
+(jazz:define-class jazz:Define-Declaration)
 
 
 (define (jazz:new-define-declaration name type parent signature)
@@ -171,7 +171,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Special-Form-Declaration)
+(jazz:define-class jazz:Define-Special-Form-Declaration)
 
 
 (define (jazz:new-define-special-form-declaration name type parent signature)
@@ -243,7 +243,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Macro-Declaration)
+(jazz:define-class jazz:Define-Macro-Declaration)
 
 
 (define (jazz:new-define-macro-declaration name type parent signature)
@@ -316,7 +316,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Lambda)
+(jazz:define-class jazz:Lambda)
 
 
 (define (jazz:new-lambda type source signature body)
@@ -382,7 +382,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Let)
+(jazz:define-class jazz:Let)
 
 
 (define (jazz:new-let source bindings body)
@@ -451,7 +451,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Named-Let)
+(jazz:define-class jazz:Named-Let)
 
 
 (define (jazz:new-named-let source variable bindings body)
@@ -526,7 +526,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Letstar)
+(jazz:define-class jazz:Letstar)
 
 
 (define (jazz:new-letstar source bindings body)
@@ -590,7 +590,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Letrec)
+(jazz:define-class jazz:Letrec)
 
 
 (define (jazz:new-letrec source bindings body)
@@ -652,7 +652,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Receive)
+(jazz:define-class jazz:Receive)
 
 
 (define (jazz:new-receive source variables expression body)
@@ -865,7 +865,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Do)
+(jazz:define-class jazz:Do)
 
 
 (define (jazz:new-do bindings test result body)
@@ -976,7 +976,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Reference-Reification)
+(jazz:define-class jazz:Reference-Reification)
 
 
 (define (jazz:new-reference-reification source reference resolver)

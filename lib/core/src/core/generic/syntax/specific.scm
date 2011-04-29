@@ -46,14 +46,14 @@
 (unit protected core.generic.syntax.specific
 
 
-(jazz:define-class jazz:Specific jazz:Object (constructor: jazz:allocate-specific)
+(jazz:define-class-syntax jazz:Specific jazz:Object (constructor: jazz:allocate-specific)
   ((dynamic-signature    %%get-specific-dynamic-signature    %%set-specific-dynamic-signature)
    (implementation       %%get-specific-implementation       %%set-specific-implementation)
    (ancestor-specifics   %%get-specific-ancestor-specifics   %%set-specific-ancestor-specifics)
    (descendant-specifics %%get-specific-descendant-specifics %%set-specific-descendant-specifics)))
 
 
-(jazz:define-class-runtime jazz:Specific)
+(jazz:define-class jazz:Specific)
 
 
 (jazz:define-macro (jazz:define-specific . rest)

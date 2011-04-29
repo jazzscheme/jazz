@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
+(jazz:define-class-syntax jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
   ((name     %%get-backend-name     ())
    (bindings %%get-backend-bindings ())))
 

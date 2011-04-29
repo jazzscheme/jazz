@@ -43,12 +43,12 @@
 ;;;
 
 
-(jazz:define-class time:Time-Class jazz:Class jazz:Class () ())
-(jazz:define-class time:Time       jazz:Object time:Time-Class () ())
+(jazz:define-class time:Time-Class jazz:Class  (metaclass: jazz:Class)      ())
+(jazz:define-class time:Time       jazz:Object (metaclass: time:Time-Class) ())
 
 
-(jazz:define-class time:Date-Class jazz:Class jazz:Class () ())
-(jazz:define-class time:Date       jazz:Object time:Date-Class () ())
+(jazz:define-class time:Date-Class jazz:Class  (metaclass: jazz:Class)      ())
+(jazz:define-class time:Date       jazz:Object (metaclass: time:Date-Class) ())
 
 
 ;;;

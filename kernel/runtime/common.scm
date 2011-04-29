@@ -182,7 +182,7 @@
            (iter (%%cddr scan))))))
 
 
-(define (jazz:getf plist target #!key (not-found #f))
+(define (jazz:getf plist target #!optional (not-found #f))
   (let ((pair (jazz:getprop plist target)))
     (if pair
         (%%cadr pair)

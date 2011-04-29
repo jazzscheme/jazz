@@ -42,8 +42,10 @@
   (%%make-table test: eq?))
 
 
-(jazz:define-macro (jazz:define-class name ascendant-name class-name constructor slots)
-  (let* ((class-accessor (if (%%null? class-name) #f class-name))
+(jazz:define-macro (jazz:define-class name ascendant-name class-options slots)
+  (let* ((metaclass-name (jazz:getf class-options metaclass: #t))
+         (constructor (jazz:getf class-options constructor:))
+         (metaclass-accessor (cond ((%%not metaclass-name) #f) ((%%eq? metaclass-name #t) 'jazz:Object-Class) (else metaclass-name)))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
          (inherited-slot-names (if (%%null? ascendant-name) '() (%%table-ref jazz:class-info ascendant-name)))
          (ascendant-size (%%length inherited-slot-names))
@@ -60,7 +62,7 @@
        ,@(if jazz:debug-core?
              `((jazz:define-variable ,name))
            '())
-       ,@(if (%%null? constructor)
+       ,@(if (%%not constructor)
              '()
            `((jazz:define-macro (,constructor class ,@all-variables)
                (%%list '%%object class ,@all-variables))))
@@ -99,7 +101,7 @@
        (jazz:define-macro (,(jazz:define-class-runtime-helper name))
          `(begin
             (define ,',name
-              (jazz:new-core-class ,',class-accessor ',',name (%%make-table test: eq?) ,',ascendant-accessor ',',slot-names ,',instance-size))
+              (jazz:new-core-class ,',metaclass-accessor ',',name (%%make-table test: eq?) ,',ascendant-accessor ',',slot-names ,',instance-size))
             (define ,',class-level-name
               (%%get-class-level ,',name))
             (jazz:set-core-class ',',(jazz:reference-name name) ,',name)

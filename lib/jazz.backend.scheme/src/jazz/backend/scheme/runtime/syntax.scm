@@ -43,5 +43,5 @@
 ;;;
 
 
-(jazz:define-class jazz:Definition jazz:Field jazz:Object-Class jazz:allocate-definition
+(jazz:define-class jazz:Definition jazz:Field (constructor: jazz:allocate-definition)
   ((locator %%get-definition-locator ()))))

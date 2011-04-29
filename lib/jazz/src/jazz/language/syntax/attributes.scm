@@ -120,7 +120,7 @@
                     (let ((name (car attribute)))
                       (parse-specifier (cdr attribute)
                         (lambda (specifier rest)
-                          (let ((initialize (getf rest 'initialize not-found: '(unspecified))))
+                          (let ((initialize (getf rest 'initialize '(unspecified))))
                             `((,name) ,initialize))))))
                   attributes)
            (else (nextmethod ,attribute))))

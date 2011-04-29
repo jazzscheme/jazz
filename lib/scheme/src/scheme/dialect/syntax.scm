@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Scheme-Dialect jazz:Dialect jazz:Object-Class jazz:allocate-scheme-dialect
+(jazz:define-class jazz:Scheme-Dialect jazz:Dialect (constructor: jazz:allocate-scheme-dialect)
   ())
 
 
@@ -52,7 +52,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Scheme-Walker jazz:Walker jazz:Object-Class jazz:allocate-scheme-walker
+(jazz:define-class jazz:Scheme-Walker jazz:Walker (constructor: jazz:allocate-scheme-walker)
   ())
 
 
@@ -61,7 +61,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Declaration jazz:Declaration jazz:Object-Class jazz:allocate-define-declaration
+(jazz:define-class jazz:Define-Declaration jazz:Declaration (constructor: jazz:allocate-define-declaration)
   ((signature %%get-define-declaration-signature ())
    (value     %%get-define-declaration-value     %%set-define-declaration-value)))
 
@@ -71,7 +71,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Special-Form-Declaration jazz:Declaration jazz:Object-Class jazz:allocate-define-special-form-declaration
+(jazz:define-class jazz:Define-Special-Form-Declaration jazz:Declaration (constructor: jazz:allocate-define-special-form-declaration)
   ((signature %%get-define-special-form-signature %%set-define-special-form-signature)
    (body      %%get-define-special-form-body      %%set-define-special-form-body)))
 
@@ -81,7 +81,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration jazz:Object-Class jazz:allocate-define-macro-declaration
+(jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration (constructor: jazz:allocate-define-macro-declaration)
   ((signature %%get-define-macro-signature %%set-define-macro-signature)
    (body      %%get-define-macro-body      %%set-define-macro-body)))
 
@@ -91,7 +91,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Lambda jazz:Expression jazz:Object-Class jazz:allocate-lambda
+(jazz:define-class jazz:Lambda jazz:Expression (constructor: jazz:allocate-lambda)
   ((signature %%get-lambda-signature ())
    (body      %%get-lambda-body      ())))
 
@@ -101,7 +101,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Let jazz:Expression jazz:Object-Class jazz:allocate-let
+(jazz:define-class jazz:Let jazz:Expression (constructor: jazz:allocate-let)
   ((bindings %%get-let-bindings ())
    (body     %%get-let-body     ())))
 
@@ -111,7 +111,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Named-Let jazz:Let jazz:Object-Class jazz:allocate-named-let
+(jazz:define-class jazz:Named-Let jazz:Let (constructor: jazz:allocate-named-let)
   ((variable %%get-named-let-variable ())))
 
 
@@ -120,7 +120,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Letstar jazz:Expression jazz:Object-Class jazz:allocate-letstar
+(jazz:define-class jazz:Letstar jazz:Expression (constructor: jazz:allocate-letstar)
   ((bindings %%get-letstar-bindings ())
    (body     %%get-letstar-body     ())))
 
@@ -130,7 +130,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Letrec jazz:Expression jazz:Object-Class jazz:allocate-letrec
+(jazz:define-class jazz:Letrec jazz:Expression (constructor: jazz:allocate-letrec)
   ((bindings %%get-letrec-bindings ())
    (body     %%get-letrec-body     ())))
 
@@ -140,7 +140,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Receive jazz:Expression jazz:Object-Class jazz:allocate-receive
+(jazz:define-class jazz:Receive jazz:Expression (constructor: jazz:allocate-receive)
   ((variables  %%get-receive-variables  ())
    (expression %%get-receive-expression ())
    (body       %%get-receive-body       ())))
@@ -151,7 +151,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Do jazz:Expression jazz:Object-Class jazz:allocate-do
+(jazz:define-class jazz:Do jazz:Expression (constructor: jazz:allocate-do)
   ((bindings %%get-do-bindings ())
    (test     %%get-do-test     ())
    (result   %%get-do-result   ())
@@ -163,6 +163,6 @@
 ;;;
 
 
-(jazz:define-class jazz:Reference-Reification jazz:Expression jazz:Object-Class jazz:allocate-reference-reification
+(jazz:define-class jazz:Reference-Reification jazz:Expression (constructor: jazz:allocate-reference-reification)
   ((reference %%get-reference-reification-reference ())
    (resolver  %%get-reference-reification-resolver  ()))))

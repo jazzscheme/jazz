@@ -762,7 +762,8 @@
                      (loop (cdr rest)
                            (cons (cons opt (car rest)) rev-options))
                    (begin
-                     (missing-argument-for-option opt)
+                     (if missing-argument-for-option
+                         (missing-argument-for-option opt))
                      (loop rest rev-options))))
                 (else
                  (cont (reverse rev-options) args))))

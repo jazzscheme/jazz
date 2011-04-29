@@ -197,8 +197,8 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Special-Form-Declaration declaration) environment backend)
   (let ((locator (jazz:get-declaration-locator declaration))
-        (signature (jazz:get-define-special-form-signature declaration))
-        (body (jazz:get-define-special-form-body declaration)))
+        (signature (jazz:get-define-special-form-declaration-signature declaration))
+        (body (jazz:get-define-special-form-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
@@ -231,8 +231,8 @@
   (receive (name type parameters body) (jazz:parse-define-special-form walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let* ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
-        (jazz:set-define-special-form-signature new-declaration signature)
-        (jazz:set-define-special-form-body new-declaration
+        (jazz:set-define-special-form-declaration-signature new-declaration signature)
+        (jazz:set-define-special-form-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
         (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
@@ -269,8 +269,8 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Macro-Declaration declaration) environment backend)
   (let ((locator (jazz:get-declaration-locator declaration))
-        (signature (jazz:get-define-macro-signature declaration))
-        (body (jazz:get-define-macro-body declaration)))
+        (signature (jazz:get-define-macro-declaration-signature declaration))
+        (body (jazz:get-define-macro-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
@@ -304,8 +304,8 @@
   (receive (name type parameters body) (jazz:parse-define-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
-        (jazz:set-define-macro-signature new-declaration signature)
-        (jazz:set-define-macro-body new-declaration
+        (jazz:set-define-macro-declaration-signature new-declaration signature)
+        (jazz:set-define-macro-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
         (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
@@ -992,7 +992,7 @@
           (receive (module-name name) (jazz:break-reference reified-reference)
             `(module-public ,module-name ,name))
         (let ((module (jazz:get-declaration-toplevel declaration))
-              (binding (jazz:get-reference-binding reference)))
+              (binding (jazz:get-binding-reference-binding reference)))
           (if (%%is? binding jazz:Declaration)
               (if (%%eq? (jazz:get-declaration-toplevel binding) module)
                   `(module-private ,(jazz:get-declaration-locator binding))

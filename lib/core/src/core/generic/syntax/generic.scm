@@ -46,10 +46,10 @@
 
 
 (jazz:define-class-syntax jazz:Generic jazz:Object (constructor: jazz:allocate-generic)
-  ((locator              jazz:get-generic-locator              ())
-   (name                 jazz:get-generic-name                 ())
-   (root-specific        jazz:get-generic-root-specific        jazz:set-generic-root-specific)
-   (pending-specifics    jazz:get-generic-pending-specifics    jazz:set-generic-pending-specifics)))
+  ((locator              getter: generate)
+   (name                 getter: generate)
+   (root-specific        getter: generate setter: generate)
+   (pending-specifics    getter: generate setter: generate)))
 
 
 (jazz:define-class jazz:Generic)

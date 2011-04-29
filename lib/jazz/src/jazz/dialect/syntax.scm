@@ -44,9 +44,9 @@
 
 
 (jazz:define-class-syntax jazz:Definition-Declaration jazz:Declaration (constructor: jazz:allocate-definition-declaration)
-  ((expansion jazz:get-definition-declaration-expansion ())
-   (signature jazz:get-definition-declaration-signature jazz:set-definition-declaration-signature)
-   (value     jazz:get-definition-declaration-value     jazz:set-definition-declaration-value)))
+  ((expansion getter: generate)
+   (signature getter: generate setter: generate)
+   (value     getter: generate setter: generate)))
 
 
 ;;;
@@ -64,9 +64,9 @@
 
 
 (jazz:define-class-syntax jazz:Generic-Declaration jazz:Declaration (constructor: jazz:allocate-generic-declaration)
-  ((dispatch-types jazz:get-generic-declaration-dispatch-types ())
-   (signature      jazz:get-generic-declaration-signature      jazz:set-generic-declaration-signature)
-   (body           jazz:get-generic-declaration-body           jazz:set-generic-declaration-body)))
+  ((dispatch-types getter: generate)
+   (signature      getter: generate setter: generate)
+   (body           getter: generate setter: generate)))
 
 
 ;;;
@@ -75,10 +75,10 @@
 
 
 (jazz:define-class-syntax jazz:Specific-Declaration jazz:Declaration (constructor: jazz:allocate-specific-declaration)
-  ((generic   jazz:get-specific-declaration-generic   ())
-   (signature jazz:get-specific-declaration-signature ())
-   (body      jazz:get-specific-declaration-body      jazz:set-specific-declaration-body)
-   (root?     jazz:get-specific-declaration-root?     ())))
+  ((generic   getter: generate)
+   (signature getter: generate)
+   (body      getter: generate setter: generate)
+   (root?     getter: generate)))
 
 
 ;;;
@@ -87,8 +87,8 @@
 
 
 (jazz:define-class-syntax jazz:Category-Declaration jazz:Namespace-Declaration ()
-  ((implementor jazz:get-category-declaration-implementor ())
-   (metaclass   jazz:get-category-declaration-metaclass   ())))
+  ((implementor getter: generate)
+   (metaclass   getter: generate)))
 
 
 ;;;
@@ -97,10 +97,10 @@
 
 
 (jazz:define-class-syntax jazz:Class-Declaration jazz:Category-Declaration (constructor: jazz:allocate-class-declaration)
-  ((ascendant          jazz:get-class-declaration-ascendant          ())
-   (ascendant-relation jazz:get-class-declaration-ascendant-relation ())
-   (ascendant-base     jazz:get-class-declaration-ascendant-base     ())
-   (interfaces         jazz:get-class-declaration-interfaces         ())))
+  ((ascendant          getter: generate)
+   (ascendant-relation getter: generate)
+   (ascendant-base     getter: generate)
+   (interfaces         getter: generate)))
 
 
 ;;;
@@ -109,7 +109,7 @@
 
 
 (jazz:define-class-syntax jazz:Interface-Declaration jazz:Category-Declaration (constructor: jazz:allocate-interface-declaration)
-  ((ascendants jazz:get-interface-declaration-ascendants ())))
+  ((ascendants getter: generate)))
 
 
 ;;;
@@ -127,9 +127,9 @@
 
 
 (jazz:define-class-syntax jazz:Slot-Declaration jazz:Field-Declaration (constructor: jazz:allocate-slot-declaration)
-  ((initialize  jazz:get-slot-declaration-initialize  jazz:set-slot-declaration-initialize)
-   (getter-name jazz:get-slot-declaration-getter-name ())
-   (setter-name jazz:get-slot-declaration-setter-name ())))
+  ((initialize  getter: generate setter: generate)
+   (getter-name getter: generate)
+   (setter-name getter: generate)))
 
 
 ;;;
@@ -138,8 +138,8 @@
 
 
 (jazz:define-class-syntax jazz:Property-Declaration jazz:Slot-Declaration (constructor: jazz:allocate-property-declaration)
-  ((getter jazz:get-property-declaration-getter jazz:set-property-declaration-getter)
-   (setter jazz:get-property-declaration-setter jazz:set-property-declaration-setter)))
+  ((getter getter: generate setter: generate)
+   (setter getter: generate setter: generate)))
 
 
 ;;;
@@ -148,14 +148,14 @@
 
 
 (jazz:define-class-syntax jazz:Method-Declaration jazz:Field-Declaration (constructor: jazz:allocate-method-declaration)
-  ((root         jazz:get-method-declaration-root         ())
-   (propagation  jazz:get-method-declaration-propagation  ())
-   (abstraction  jazz:get-method-declaration-abstraction  ())
-   (expansion    jazz:get-method-declaration-expansion    ())
-   (remote       jazz:get-method-declaration-remote       ())
-   (synchronized jazz:get-method-declaration-synchronized ())
-   (signature    jazz:get-method-declaration-signature    jazz:set-method-declaration-signature)
-   (body         jazz:get-method-declaration-body         jazz:set-method-declaration-body)))
+  ((root         getter: generate)
+   (propagation  getter: generate)
+   (abstraction  getter: generate)
+   (expansion    getter: generate)
+   (remote       getter: generate)
+   (synchronized getter: generate)
+   (signature    getter: generate setter: generate)
+   (body         getter: generate setter: generate)))
 
 
 ;;;
@@ -191,7 +191,7 @@
 
 
 (jazz:define-class-syntax jazz:Dynamic-Self-Binding jazz:Lexical-Binding (constructor: jazz:allocate-dynamic-self-binding)
-  ((code jazz:get-dynamic-self-binding-code ())))
+  ((code getter: generate)))
 
 
 ;;;
@@ -200,7 +200,7 @@
 
 
 (jazz:define-class-syntax jazz:With-Self jazz:Expression (constructor: jazz:allocate-with-self)
-  ((body jazz:get-with-self-body ())))
+  ((body getter: generate)))
 
 
 ;;;
@@ -209,8 +209,8 @@
 
 
 (jazz:define-class-syntax jazz:With-Dynamic-Self jazz:Expression (constructor: jazz:allocate-with-dynamic-self)
-  ((code jazz:get-with-dynamic-self-code ())
-   (body jazz:get-with-dynamic-self-body ())))
+  ((code getter: generate)
+   (body getter: generate)))
 
 
 ;;;
@@ -219,7 +219,7 @@
 
 
 (jazz:define-class-syntax jazz:Cast jazz:Expression (constructor: jazz:allocate-cast)
-  ((expression jazz:get-cast-expression ())))
+  ((expression getter: generate)))
 
 
 ;;;
@@ -228,8 +228,8 @@
 
 
 (jazz:define-class-syntax jazz:Allocate jazz:Expression (constructor: jazz:allocate-allocate)
-  ((class  jazz:get-allocate-class  ())
-   (values jazz:get-allocate-values ())))
+  ((class  getter: generate)
+   (values getter: generate)))
 
 
 ;;;
@@ -238,8 +238,8 @@
 
 
 (jazz:define-class-syntax jazz:Dispatch jazz:Expression (constructor: jazz:allocate-dispatch)
-  ((name      jazz:get-dispatch-name      ())
-   (arguments jazz:get-dispatch-arguments ())))
+  ((name      getter: generate)
+   (arguments getter: generate)))
 
 
 ;;;

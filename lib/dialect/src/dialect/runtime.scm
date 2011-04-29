@@ -1037,7 +1037,7 @@
     (lambda (x seed child-seed env) seed)
     (lambda (x seed env)
       (cond ((%%is? x jazz:Binding-Reference)
-             (let* ((var (jazz:get-reference-binding x))
+             (let* ((var (jazz:get-binding-reference-binding x))
                     (sym (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name var))))
                (let lp1 ((e env))
                     (cond ((pair? e)
@@ -2300,7 +2300,7 @@
                      (%%class-is? procedure-expr jazz:Declaration))
                  procedure-expr)
                 ((%%class-is? procedure-expr jazz:Binding-Reference)
-                 (let ((ref (jazz:get-reference-binding procedure-expr)))
+                 (let ((ref (jazz:get-binding-reference-binding procedure-expr)))
                    (and (or (%%class-is? ref jazz:Special-Form)
                             (%%class-is? ref jazz:Declaration))
                         ref)))
@@ -3818,12 +3818,12 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Binding-Reference expression) declaration environment backend)
-  (jazz:sourcify-code (jazz:emit-binding-reference (jazz:get-reference-binding expression) declaration environment backend)
+  (jazz:sourcify-code (jazz:emit-binding-reference (jazz:get-binding-reference-binding expression) declaration environment backend)
                       (jazz:get-expression-source expression)))
 
 
 (jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments declaration environment backend)
-  (jazz:sourcify-code (jazz:emit-binding-call (jazz:get-reference-binding expression) (jazz:get-expression-source expression) arguments declaration environment backend)
+  (jazz:sourcify-code (jazz:emit-binding-call (jazz:get-binding-reference-binding expression) (jazz:get-expression-source expression) arguments declaration environment backend)
                       (jazz:get-expression-source expression)))
 
 

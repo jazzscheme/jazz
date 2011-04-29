@@ -44,8 +44,8 @@
 
 
 (jazz:define-class-syntax jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
-  ((name     jazz:get-backend-name     ())
-   (bindings jazz:get-backend-bindings ())))
+  ((name     getter: generate)
+   (bindings getter: generate)))
 
 
 ;;;

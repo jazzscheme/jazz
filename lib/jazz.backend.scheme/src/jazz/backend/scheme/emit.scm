@@ -435,7 +435,7 @@
 
 
 (jazz:define-emit (method-node-reference (scheme backend) expression declaration environment)
-  (let ((method-declaration (jazz:get-reference-binding expression)))
+  (let ((method-declaration (jazz:get-binding-reference-binding expression)))
     (jazz:get-declaration-locator method-declaration)))
 
 
@@ -465,7 +465,7 @@
   (let ((operator (jazz:get-call-operator expression))
         (arguments (jazz:get-call-arguments expression)))
     (let ((locator (if (%%class-is? operator jazz:Binding-Reference)
-                       (let ((binding (jazz:get-reference-binding operator)))
+                       (let ((binding (jazz:get-binding-reference-binding operator)))
                          (if (%%class-is? binding jazz:Declaration)
                              (jazz:get-declaration-locator binding)
                            #f))
@@ -528,7 +528,7 @@
       (%%assert (%%pair? arguments)
         (let ((class-expression (%%car arguments)))
           (if (%%class-is? class-expression jazz:Binding-Reference)
-              (let ((binding (jazz:get-reference-binding class-expression)))
+              (let ((binding (jazz:get-binding-reference-binding class-expression)))
                 (if (or (%%class-is? binding jazz:Class-Declaration)
                         (%%class-is? binding jazz:Autoload-Declaration))
                     (let ((values-codes (%%cdr arguments-codes)))

@@ -738,7 +738,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Method-Node-Reference expression) declaration environment backend)
-  (let ((method-declaration (jazz:get-reference-binding expression)))
+  (let ((method-declaration (jazz:get-binding-reference-binding expression)))
     (jazz:new-code
       (jazz:emit 'method-node-reference backend expression declaration environment)
       (or (jazz:get-lexical-binding-type method-declaration)
@@ -1414,8 +1414,8 @@
         (let ((generic-dynamic? (%%is? generic-parameter jazz:Dynamic-Parameter))
               (specific-dynamic? (%%is? specific-parameter jazz:Dynamic-Parameter)))
           (cond ((and generic-dynamic? specific-dynamic?)
-                 (let ((generic-class (jazz:resolve-binding (jazz:get-reference-binding (jazz:get-dynamic-parameter-class generic-parameter))))
-                       (specific-class (jazz:resolve-binding (jazz:get-reference-binding (jazz:get-dynamic-parameter-class specific-parameter)))))
+                 (let ((generic-class (jazz:resolve-binding (jazz:get-binding-reference-binding (jazz:get-dynamic-parameter-class generic-parameter))))
+                       (specific-class (jazz:resolve-binding (jazz:get-binding-reference-binding (jazz:get-dynamic-parameter-class specific-parameter)))))
                    (if (jazz:of-subtype? generic-class specific-class)
                        (iter (%%cdr generic-parameters)
                              (%%cdr specific-parameters)

@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Module jazz:Object (constructor: jazz:allocate-module)
+(jazz:define-class-syntax jazz:Module jazz:Object (constructor: jazz:allocate-module accessors-type: macro)
   ((name    %%get-module-name    ())
    (access  %%get-module-access  ())
    (exports %%get-module-exports ())
@@ -62,7 +62,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Native jazz:Field (constructor: jazz:allocate-native)
+(jazz:define-class-syntax jazz:Native jazz:Field (constructor: jazz:allocate-native accessors-type: macro)
   ((symbol %%get-native-symbol ())))
 
 
@@ -82,7 +82,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Runtime-Reference jazz:Object (constructor: jazz:allocate-runtime-reference)
+(jazz:define-class-syntax jazz:Runtime-Reference jazz:Object (constructor: jazz:allocate-runtime-reference accessors-type: macro)
   ((resolver      %%get-runtime-reference-resolver      ())
    (serialization %%get-runtime-reference-serialization ())))
 

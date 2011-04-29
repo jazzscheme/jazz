@@ -43,13 +43,62 @@
 
 
 (jazz:define-macro (jazz:define-class-syntax name ascendant-name class-options slots)
-  (let* ((metaclass-name (jazz:getf class-options metaclass: #t))
+  (define (downcase str)
+    (let ((down (list->string (map char-downcase (string->list str)))))
+      (if (jazz:string-starts-with? down "jazz:")
+          (%%substring down 5 (%%string-length down))
+        down)))
+  
+  (define (standardize-slot slot)
+    (if (%%symbol? slot)
+        (%%list slot)
+      slot))
+  
+  (define (slot-name slot)
+    (%%car slot))
+  
+  (define (slot-getter slot prefix downcase-name)
+    (define (generate-getter)
+      (%%string->symbol (%%string-append prefix "get-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+    
+    (let ((getter (jazz:getf (%%cdr slot) getter: #f)))
+      (if (%%not getter)
+          (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
+            (if (%%not accessors)
+                (generate-getter)
+              (if (%%eq? accessors #t)
+                  #f
+                (generate-getter))))
+        (if (%%eq? getter 'generate)
+            (generate-getter)
+          getter))))
+  
+  (define (slot-setter slot prefix downcase-name)
+    (define (generate-setter)
+      (%%string->symbol (%%string-append prefix "set-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+    
+    (let ((setter (jazz:getf (%%cdr slot) setter: #f)))
+      (if (%%not setter)
+          (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
+            (if (%%not accessors)
+                (generate-setter)
+              (if (%%eq? accessors #t)
+                  #f
+                (generate-setter))))
+        (if (%%eq? setter 'generate)
+            (generate-setter)
+          setter))))
+  
+  (let* ((downcase-name (downcase (%%symbol->string name)))
+         (metaclass-name (jazz:getf class-options metaclass: #t))
          (constructor (jazz:getf class-options constructor:))
+         (accessors-type (jazz:getf class-options accessors-type: 'function))
+         (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
          (metaclass-accessor (cond ((%%not metaclass-name) #f) ((%%eq? metaclass-name #t) 'jazz:Object-Class) (else metaclass-name)))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
          (inherited-slot-names (if (%%null? ascendant-name) '() (%%table-ref jazz:class-info ascendant-name)))
          (ascendant-size (%%length inherited-slot-names))
-         (slot-names (map car slots))
+         (slot-names (map (lambda (slot) (slot-name (standardize-slot slot))) slots))
          (all-slot-names (%%append inherited-slot-names slot-names))
          (all-variables (map (lambda (slot-name) (jazz:generate-symbol (%%symbol->string slot-name))) all-slot-names))
          (all-length (%%length all-slot-names))
@@ -67,34 +116,39 @@
            `((jazz:define-macro (,constructor class ,@all-variables)
                (%%list '%%object class ,@all-variables))))
        ,@(map (lambda (slot rank)
-                (let ((slot-name (%%car slot))
-                      (slot-getter (%%cadr slot))
-                      (slot-setter (%%car (%%cddr slot))))
-                  `(begin
-                     ,@(cond ((%%null? slot-getter)
-                              '())
-                             (jazz:debug-core?
-                               `((define (,slot-getter object)
-                                   (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
-                                     (%%object-ref object ,rank)))))
-                             ((jazz:string-starts-with? (%%symbol->string slot-getter) "%%")
-                              `((jazz:define-macro (,slot-getter object)
-                                  (%%list '%%object-ref object ,rank))))
-                             (else
-                              `((define (,slot-getter object)
-                                  (%%object-ref object ,rank)))))
-                     ,@(cond ((%%null? slot-setter)
-                              '())
-                             (jazz:debug-core?
-                               `((define (,slot-setter object value)
-                                   (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
-                                     (%%object-set! object ,rank value)))))
-                             ((jazz:string-starts-with? (%%symbol->string slot-setter) "%%")
-                              `((jazz:define-macro (,slot-setter object value)
-                                  (%%list '%%object-set! object ,rank value))))
-                             (else
-                              `((define (,slot-setter object value)
-                                  (%%object-set! object ,rank value))))))))
+                (let ((slot (standardize-slot slot)))
+                  (let ((slot-name (%%car slot))
+                        (slot-getter (if (%%keyword? (%%cadr slot)) (slot-getter slot accessors-prefix downcase-name) (%%cadr slot)))
+                        (slot-setter (if (%%keyword? (%%cadr slot)) (slot-setter slot accessors-prefix downcase-name) (%%car (%%cddr slot)))))
+                    `(begin
+                       ,@(cond ((or (%%not slot-getter) (%%null? slot-getter))
+                                '())
+                               (jazz:debug-core?
+                                 `((define (,slot-getter object)
+                                     (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
+                                       (%%object-ref object ,rank)))))
+                               (else
+                                (case accessors-type
+                                  ((macro)
+                                   `((jazz:define-macro (,slot-getter object)
+                                       (%%list '%%object-ref object ,rank))))
+                                  (else
+                                   `((define (,slot-getter object)
+                                       (%%object-ref object ,rank)))))))
+                       ,@(cond ((or (%%not slot-setter) (%%null? slot-setter))
+                                '())
+                               (jazz:debug-core?
+                                 `((define (,slot-setter object value)
+                                     (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
+                                       (%%object-set! object ,rank value)))))
+                               (else
+                                (case accessors-type
+                                  ((macro)
+                                   `((jazz:define-macro (,slot-setter object value)
+                                       (%%list '%%object-set! object ,rank value))))
+                                  (else
+                                   `((define (,slot-setter object value)
+                                       (%%object-set! object ,rank value)))))))))))
               slots
               (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
        (%%table-set! jazz:class-info ',name ',all-slot-names)

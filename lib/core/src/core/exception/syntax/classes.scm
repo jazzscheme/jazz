@@ -58,10 +58,10 @@
 
 
 (jazz:define-class-syntax jazz:Exception-Detail jazz:Object (constructor: jazz:allocate-exception-detail)
-  ((icon     jazz:get-exception-detail-icon     ())
-   (title    jazz:get-exception-detail-title    ())
-   (location jazz:get-exception-detail-location ())
-   (children jazz:get-exception-detail-children ())))
+  ((icon     getter: generate)
+   (title    getter: generate)
+   (location getter: generate)
+   (children getter: generate)))
 
 
 ;;;
@@ -70,7 +70,7 @@
 
 
 (jazz:define-class-syntax jazz:System-Exception jazz:Exception ()
-  ((exception jazz:get-system-exception-exception ())))
+  ((exception getter: generate)))
 
 
 ;;;
@@ -79,4 +79,4 @@
 
 
 (jazz:define-class-syntax jazz:Error jazz:Exception (constructor: jazz:allocate-error)
-  ((message jazz:get-error-message ()))))
+  ((message getter: generate))))

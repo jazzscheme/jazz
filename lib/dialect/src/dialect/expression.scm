@@ -135,7 +135,7 @@
         #f
       (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
           (if (%%class-is? operator jazz:Binding-Reference)
-              (let ((binding (jazz:get-reference-binding operator)))
+              (let ((binding (jazz:get-binding-reference-binding operator)))
                 (let ((specializers (jazz:get-specializers binding)))
                   (let ((types (jazz:codes-types arguments-codes)))
                     (let iter ((scan specializers))
@@ -208,7 +208,7 @@
 (jazz:define-variable-override jazz:emit-inlined-call
   (lambda (operator arguments call declaration environment backend)
     (if (%%class-is? operator jazz:Binding-Reference)
-        (let ((binding (jazz:get-reference-binding operator)))
+        (let ((binding (jazz:get-binding-reference-binding operator)))
           (jazz:emit-inlined-binding-call binding arguments call declaration environment backend))
       #f)))
 
@@ -228,7 +228,7 @@
     (define (match? arg type expect)
       (if (%%class-is? expect jazz:Category-Type)
           (or (and (%%class-is? arg jazz:Binding-Reference)
-                   (%%eq? (jazz:get-reference-binding arg) (jazz:get-category-type-declaration expect)))
+                   (%%eq? (jazz:get-binding-reference-binding arg) (jazz:get-category-type-declaration expect)))
               (and (%%class-is? type jazz:Category-Type)
                    (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
         (%%subtype? (or type jazz:Any) expect)))
@@ -374,7 +374,7 @@
           (let ((yes-type (cond ((jazz:type? type-expr)
                                  type-expr)
                                 ((%%class-is? type-expr jazz:Binding-Reference)
-                                 (let ((binding (jazz:get-reference-binding type-expr)))
+                                 (let ((binding (jazz:get-binding-reference-binding type-expr)))
                                    (if (%%class-is? binding jazz:Declaration)
                                        (jazz:resolve-binding binding)
                                      #f)))
@@ -403,7 +403,7 @@
   
   (define (extract-binding expr env)
     (if (%%class-is? expr jazz:Binding-Reference)
-        (let ((binding (jazz:get-reference-binding expr)))
+        (let ((binding (jazz:get-binding-reference-binding expr)))
           (cond ((%%class-is? binding jazz:Variable)
                  (receive (frame actual-variable actual-type) (jazz:find-annotated binding (%%car env))
                    (let ((origin (jazz:get-annotated-variable-variable actual-variable)))
@@ -426,7 +426,7 @@
           ((%%class-is? expr jazz:Call)
            (let ((operator (jazz:get-call-operator expr)))
              (if (%%class-is? operator jazz:Binding-Reference)
-                 (let ((operator-binding (jazz:get-reference-binding operator)))
+                 (let ((operator-binding (jazz:get-binding-reference-binding operator)))
                    (if (%%class-is? operator-binding jazz:Declaration)
                        (let ((operator-locator (jazz:get-declaration-locator operator-binding))
                              (arguments (jazz:get-call-arguments expr)))

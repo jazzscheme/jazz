@@ -43,5 +43,5 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Define jazz:Field (constructor: jazz:allocate-define)
+(jazz:define-class-syntax jazz:Define jazz:Field (constructor: jazz:allocate-define accessors-type: macro)
   ((locator %%get-define-locator ()))))

@@ -99,11 +99,11 @@
 
 
 (jazz:define-class-syntax jazz:Category jazz:Type (metaclass: #f)
-  ((name         () ())
-   (fields       () ())
-   (virtual-size () ())
-   (ancestors    () ())
-   (descendants  () ())))
+  ((name         accessors: #t)
+   (fields       accessors: #t)
+   (virtual-size accessors: #t)
+   (ancestors    accessors: #t)
+   (descendants  accessors: #t)))
 
 
 (jazz:define-virtual-syntax (jazz:update-category (jazz:Category category)))
@@ -115,15 +115,15 @@
 
 
 (jazz:define-class-syntax jazz:Class jazz:Category (metaclass: #f constructor: jazz:allocate-class)
-  ((ascendant       () ())
-   (interfaces      () ())
-   (slots           () ())
-   (instance-slots  () ())
-   (instance-size   () ())
-   (level           () ())
-   (virtual-names   () ())
-   (class-table     () ())
-   (interface-table () ())))
+  ((ascendant       accessors: #t)
+   (interfaces      accessors: #t)
+   (slots           accessors: #t)
+   (instance-slots  accessors: #t)
+   (instance-size   accessors: #t)
+   (level           accessors: #t)
+   (virtual-names   accessors: #t)
+   (class-table     accessors: #t)
+   (interface-table accessors: #t)))
 
 
 (jazz:define-virtual (jazz:write-object (jazz:Class class) we obj))
@@ -258,9 +258,9 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface)
-  ((ascendants %%get-interface-ascendants ())
-   (rank       %%get-interface-rank       ())))
+(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface accessors-type: macro)
+  ((ascendants getter: generate)
+   (rank       getter: generate)))
 
 
 ;;;
@@ -268,8 +268,8 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Field jazz:Object ()
-  ((name %%get-field-name ())))
+(jazz:define-class-syntax jazz:Field jazz:Object (accessors-type: macro)
+  ((name getter: generate)))
 
 
 (jazz:define-macro (%%get-category-field category field-name)
@@ -285,9 +285,9 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot)
-  ((offset     %%get-slot-offset     ())
-   (initialize %%get-slot-initialize %%set-slot-initialize)))
+(jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot accessors-type: macro)
+  ((offset     getter: generate)
+   (initialize getter: generate setter: generate)))
 
 
 ;;;
@@ -295,9 +295,9 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Property jazz:Slot (constructor: jazz:allocate-property)
-  ((getter %%get-property-getter %%set-property-getter)
-   (setter %%get-property-setter %%set-property-setter)))
+(jazz:define-class-syntax jazz:Property jazz:Slot (constructor: jazz:allocate-property accessors-type: macro)
+  ((getter getter: generate setter: generate)
+   (setter getter: generate setter: generate)))
 
 
 ;;;
@@ -305,12 +305,12 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Method jazz:Field (constructor: jazz:allocate-method)
-  ((dispatch-type        %%get-method-dispatch-type        %%set-method-dispatch-type)
-   (implementation       %%get-method-implementation       %%set-method-implementation)
-   (implementation-tree  %%get-method-implementation-tree  %%set-method-implementation-tree)
-   (category-rank        %%get-method-category-rank        %%set-method-category-rank)
-   (implementation-rank  %%get-method-implementation-rank  %%set-method-implementation-rank)))
+(jazz:define-class-syntax jazz:Method jazz:Field (constructor: jazz:allocate-method accessors-type: macro)
+  ((dispatch-type        getter: generate setter: generate)
+   (implementation       getter: generate setter: generate)
+   (implementation-tree  getter: generate setter: generate)
+   (category-rank        getter: generate setter: generate)
+   (implementation-rank  getter: generate setter: generate)))
 
 
 ;;;
@@ -318,12 +318,12 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Method-Node jazz:Object (constructor: jazz:allocate-method-node)
-  ((category            %%get-method-node-category            %%set-method-node-category)
-   (implementation      %%get-method-node-implementation      %%set-method-node-implementation)
-   (next-node           %%get-method-node-next-node           %%set-method-node-next-node)
-   (next-implementation %%get-method-node-next-implementation %%set-method-node-next-implementation)
-   (children            %%get-method-node-children            %%set-method-node-children)))
+(jazz:define-class-syntax jazz:Method-Node jazz:Object (constructor: jazz:allocate-method-node accessors-type: macro)
+  ((category            getter: generate setter: generate)
+   (implementation      getter: generate setter: generate)
+   (next-node           getter: generate setter: generate)
+   (next-implementation getter: generate setter: generate)
+   (children            getter: generate setter: generate)))
 
 
 ;;;
@@ -331,7 +331,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Queue jazz:Object (constructor: jazz:allocate-queue)
-  ((head    %%get-queue-head    %%set-queue-head)
-   (tail    %%get-queue-tail    %%set-queue-tail)
-   (shared? %%get-queue-shared? %%set-queue-shared?))))
+(jazz:define-class-syntax jazz:Queue jazz:Object (constructor: jazz:allocate-queue accessors-type: macro)
+  ((head    getter: generate setter: generate)
+   (tail    getter: generate setter: generate)
+   (shared? getter: generate setter: generate))))
